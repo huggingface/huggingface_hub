@@ -108,6 +108,41 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 
+**5. Pause and restart your Space**
+
+By default if your Space is running on an upgraded hardware, it will never be stopped. However to avoid getting billed,
+you might want to pause it when you are not using it. This is possible using [`pause_space`]. A paused Space will be
+inactive until the owner of the Space restarts it, either with the UI or via API using [`restart_space`].
+For more details about paused mode, please refer to [this section](https://huggingface.co/docs/hub/spaces-gpus#pause)
+
+```py
+# Pause your Space to avoid getting billed
+>>> api.pause_space(repo_id=repo_id)
+# (...)
+# Restart it when you need it
+>>> api.restart_space(repo_id=repo_id)
+```
+
+Another possibility is to set a timeout for your Space. If your Space is inactive for more than the timeout duration,
+it will go to sleep. Any visitor landing on your Space will start it back up. You can set a timeout using
+[`set_space_sleep_time`]. For more details about sleeping mode, please refer to [this section](https://huggingface.co/docs/hub/spaces-gpus#sleep-time).
+
+```py
+# Put your Space to sleep after 1h of inactivity
+>>> api.set_space_sleep_time(repo_id=repo_id, sleep_time=3600)
+```
+
+Note: if you are using a 'cpu-basic' hardware, you cannot configure a custom sleep time. Your Space will automatically
+be paused after 48h of inactivity.
+
+**Bonus: set a sleep time while requesting hardware**
+
+Upgraded hardware will be automatically assigned to your Space once it's built.
+
+```py
+>>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
+```
+
 ## More advanced: temporarily upgrade your Space !
 
 Spaces allow for a lot of different use cases. Sometimes, you might want

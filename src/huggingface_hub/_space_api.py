@@ -16,6 +16,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
 
+# Taken from https://huggingface.co/docs/hub/spaces-gpus#sleep-time
+# This value might change in the future. It is only used to trigger a warning if the user tries to set a different value
+# on a free Space.
+CPU_BASIC_SLEEP_TIME = 48 * 3600  # 48 hours
+
 
 class SpaceStage(str, Enum):
     """
@@ -78,6 +83,10 @@ class SpaceRuntime:
             Requested hardware. Can be different than `hardware` especially if the request
             has just been made. Example: "t4-medium". Can be `None` if no hardware has
             been requested yet.
+        sleep_time (`int` or `None`):
+            Number of seconds the Space will be kept alive after the last request. By default (if value is `None`), the
+            Space will never go to sleep if it's running on an upgraded hardware, while it will go to sleep after 48
+            hours on a free 'cpu-basic' hardware. For more details, see https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
@@ -86,10 +95,12 @@ class SpaceRuntime:
     stage: SpaceStage
     hardware: Optional[SpaceHardware]
     requested_hardware: Optional[SpaceHardware]
+    sleep_time: Optional[int]
     raw: Dict
 
     def __init__(self, data: Dict) -> None:
         self.stage = data["stage"]
         self.hardware = data["hardware"]["current"]
         self.requested_hardware = data["hardware"]["requested"]
+        self.sleep_time = data["gcTimeout"]
         self.raw = data
