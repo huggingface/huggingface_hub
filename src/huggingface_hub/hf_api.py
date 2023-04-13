@@ -4003,6 +4003,8 @@ class HfApi:
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         <Tip>
 
@@ -4049,6 +4051,8 @@ class HfApi:
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         <Tip>
 
