@@ -38,7 +38,7 @@ from ._commit_api import (
     upload_lfs_files,
     warn_on_overwriting_operations,
 )
-from ._space_api import SpaceHardware, SpaceRuntime, CPU_BASIC_SLEEP_TIME
+from ._space_api import CPU_BASIC_SLEEP_TIME, SpaceHardware, SpaceRuntime
 from .community import (
     Discussion,
     DiscussionComment,
@@ -4021,7 +4021,7 @@ class HfApi:
                 ),
                 UserWarning,
             )
-        payload = {"flavor": hardware}
+        payload: Dict[str, Any] = {"flavor": hardware}
         if sleep_time is not None:
             payload["sleepTimeSeconds"] = sleep_time
         r = get_session().post(

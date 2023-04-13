@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
 
+
 # Taken from https://huggingface.co/docs/hub/spaces-gpus#sleep-time
 # This value might change in the future. It is only used to trigger a warning if the user tries to set a different value
 # on a free Space.
