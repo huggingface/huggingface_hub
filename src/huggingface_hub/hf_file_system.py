@@ -407,7 +407,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         path = [self._strip_protocol(p) for p in path]
         for p in path:
             if has_magic(p):
-                bit = set(self.glob(p))
+                bit = set(self.glob(p, **kwargs))
                 out |= bit
                 if recursive:
                     out |= set(self.expand_path(list(bit), recursive=recursive, maxdepth=maxdepth, **kwargs))

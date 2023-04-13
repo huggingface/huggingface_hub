@@ -260,7 +260,7 @@ class ModelHubMixin:
 
         Args:
             repo_id (`str`):
-                Repository name to which push.
+                ID of the repository to push to (example: `"username/my-model"`).
             config (`dict`, *optional*):
                 Configuration object to be saved alongside the model weights.
             commit_message (`str`, *optional*):
