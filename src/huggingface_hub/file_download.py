@@ -1566,7 +1566,7 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     finally:
         tmp_file.unlink()
 
-    os.replace(src, dst)
+    shutil.move(src, dst)
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
