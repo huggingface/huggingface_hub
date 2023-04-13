@@ -174,7 +174,6 @@ class WebhooksServer:
         #   - as non-blocking so that webhooks can be added afterwards
         #   - as shared if launch locally (to debug webhooks)
         self.fastapi_app, _, _ = ui.launch(prevent_thread_lock=True, share=_is_local)
-        self.fastapi_app.add_middleware
 
         # Register webhooks to FastAPI app
         for path, func in self.registered_webhooks.items():
