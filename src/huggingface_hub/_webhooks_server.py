@@ -66,11 +66,11 @@ class WebhooksServer:
 
     Args:
         ui (`gradio.Blocks`, optional):
-            A Gradio UI instance that will be use as the Space landing page. If None, a UI displaying instructions
+            A Gradio UI instance to be used as the Space landing page. If `None`, a UI displaying instructions
             about the configured webhooks is created.
         webhook_secret (`str`, optional):
             A secret key to verify incoming webhook requests. You can set this value to any secret you want as long as
-            you configure it as well in your [webhooks settings panel](https://huggingface.co/settings/webhooks). You
+            you also configure it in your [webhooks settings panel](https://huggingface.co/settings/webhooks). You
             can also set this value as the `WEBHOOK_SECRET` environment variable. If no secret is provided, the
             webhook endpoints are opened without any security.
 
@@ -227,12 +227,12 @@ class WebhooksServer:
 def webhook_endpoint(path: Optional[str] = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
-    This is an helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
+    This is a helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
     you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
     this decorator multiple times.
 
-    By default, the server is started at exit, i.e. at the end of the script. If you are running it in a notebook,
-    you can start the server manually by calling `decorated_function.run()` (see examples). Since a unique server is
+    By default, the server is started when you exit, like at the end of the script. If you are running it in a notebook,
+    you can start the server manually by calling `decorated_function.run()`. Since a unique server is
     used, you only have to start the server once even if you have multiple endpoints.
 
     <Tip warning={true}>
@@ -253,7 +253,7 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
             In any case, all webhooks are registered under `/webhooks`.
 
     Examples:
-        Default usage: register a function as a webhook endpoint. The function name will be used as the path.
+        The default usage is to register a function as a webhook endpoint. The function name will be used as the path.
         The server will be started automatically at exit (i.e. at the end of the script).
 
         ```python
@@ -268,7 +268,7 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
         # Server is automatically started at the end of the script.
         ```
 
-        Advanced usage: register a function as a webhook endpoint and start the server manually. This is useful is you
+        Advanced usage: register a function as a webhook endpoint and start the server manually. This is useful if you
         are running it in a notebook.
 
         ```python

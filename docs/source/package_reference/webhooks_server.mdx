@@ -1,16 +1,17 @@
 # Webhooks Server
 
 Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
-all repos belonging to particular set of users/organizations (not just your repos, but any repo). If you want to know
-more about webhooks on the Huggingface Hub, you can read this generic [guide](https://huggingface.co/docs/hub/webhooks).
+all repos belonging to particular users/organizations you're interested in following. To learn
+more about webhooks on the Huggingface Hub, you can read the Webhooks [guide](https://huggingface.co/docs/hub/webhooks).
 
-[`WebhooksServer`] is a class to easily start a server that can receive webhooks from the Huggingface Hub. The goal
+[`WebhooksServer`] is a class for easily starting a server that can receive webhooks from the Huggingface Hub. The goal
 is to ease setting up your own webhook endpoints, debug them locally and run them in a Space. 
 
 <Tip warning={true}>
 
 This is an experimental feature. This means that we are still working on improving the API. Breaking changes might be
 introduced in the future without prior notice. Make sure to pin the version of `huggingface_hub` in your requirements.
+A warning is triggered when you use an experimental feature. You can disable it by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as an environment variable.
 
 </Tip>
 
@@ -20,7 +21,7 @@ introduced in the future without prior notice. Make sure to pin the version of `
 
 The server is a [Gradio](https://gradio.app/) app. It has a UI to display instructions for you or your users and an API
 to listen to webhooks. Implementing a webhook endpoint is as simple as decorating a function. You can then debug it
-by redirecting Huggingface webhooks to your machine (using a gradio tunnel) before deploying it to a Space.
+by redirecting the Webhooks to your machine (using a Gradio tunnel) before deploying it to a Space.
 
 ### WebhooksServer
 
@@ -32,11 +33,11 @@ by redirecting Huggingface webhooks to your machine (using a gradio tunnel) befo
 
 ## Payload
 
-[`WebhookPayload`] is the main data structure that represents the payload you would expect from an HF webhook. This is
-a pydantic class which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it
+[`WebhookPayload`] is the main data structure that contains the payload from Webhooks. This is
+a `pydantic` class which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it
 will be automatically validated and parsed as a Python object.
 
-For more information about webhooks payload, you can refer to [this guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
+For more information about webhooks payload, you can refer to the Webhooks Payload [guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
 
 [[autodoc]] huggingface_hub.WebhookPayload
 
