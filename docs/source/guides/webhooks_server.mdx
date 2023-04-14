@@ -13,7 +13,7 @@ to display instructions for you or your users and an API to listen to webhooks.
 <Tip>
 
 To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
-one. It is a Space to launch ephemeral environments when a PR is opened on a Space.
+one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
 
 </Tip>
 
@@ -42,9 +42,9 @@ async def trigger_training(payload: WebhookPayload) -> None:
         ...
 ```
 
-Save this snippet in a file called `app.py` and run it with `python app.py`. You should see a message like this:
+Save this snippet in a file called `'app.py'` and run it with `'python app.py'`. You should see a message like this:
 
-```
+```text
 Webhook secret is not defined. This means your webhook endpoints will be open to everyone.
 To add a secret, set `WEBHOOK_SECRET` as environment variable or pass it at initialization: 
         `app = WebhooksServer(webhook_secret='my_secret', ...)`
@@ -144,7 +144,7 @@ async def trigger_evaluation(payload: WebhookPayload) -> None:
 
 Which will create two endpoints:
 
-```
+```text
 (...)
 Webhooks are correctly setup and ready to use:
   - POST https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training
