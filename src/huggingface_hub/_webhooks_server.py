@@ -45,12 +45,11 @@ class WebhooksServer:
     the app as a POST endpoint to the FastAPI router. Once all the webhooks are registered, the `run` method has to be
     called to start the app.
 
-    The [`WebhooksServer`] is meant to be debugged locally before being deployed to a Space. Local debugging works with
-    the HF Hub by opening a tunnel to your machine (using Gradio). You can protect your webhook server by setting a
-    `webhook_secret`.
-
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
     model that contains all the information about the webhook event. The data will be parsed automatically for you.
+
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    WebhooksServer and deploy it on a Space.
 
     <Tip warning={true}>
 
@@ -76,30 +75,11 @@ class WebhooksServer:
 
     Example:
 
-        The quickest way to define a webhook app is to use the [`webhook_endpoint`] decorator. Under the hood it will
-        create a global [`WebhooksServer`] with the default UI and register the decorated function as a webhook.
-        Multiple webhooks can be added iteratively. Once all the webhooks are registered, the `run` method will be
-        called automatically.
-
-
-        ```python
-        from huggingface_hub import webhook_endpoint, WebhookPayload
-
-        @webhook_endpoint
-        async def trigger_training(payload: WebhookPayload):
-            if payload.repo.type == "dataset" and payload.event.action == "update":
-                # Trigger a training job if a dataset is updated
-                ...
-        ```
-
-        If you need more control over the app, you can create a [`WebhooksServer`] instance yourself and register webhooks
-        as you would register FastAPI routes. The `run` method will have to be called manually to start the app.
-
         ```python
         import gradio as gr
         from huggingface_hub import WebhooksServer, WebhookPayload
 
-        with gr.Blocks as ui:
+        with gr.Blocks() as ui:
             ...
 
         app = WebhooksServer(ui=ui, webhook_secret="my_secret_key")
@@ -231,9 +211,8 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
     you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
     this decorator multiple times.
 
-    By default, the server is started when you exit, like at the end of the script. If you are running it in a notebook,
-    you can start the server manually by calling `decorated_function.run()`. Since a unique server is
-    used, you only have to start the server once even if you have multiple endpoints.
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    server and deploy it on a Space.
 
     <Tip warning={true}>
 
