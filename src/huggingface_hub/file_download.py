@@ -906,7 +906,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
                 raise
     elif new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        os.replace(src, dst)
+        shutil.move(src, dst)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(src, dst)
