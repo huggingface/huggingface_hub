@@ -813,7 +813,8 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
       ETag: W/"<etag_value>"
       ETag: "<etag_value>"
 
-    The hf.co hub guarantees to only send the second form.
+    For now, we only expect the second form from the server, but we want to be future-proof so we support both. For
+    more context, see `TestNormalizeEtag` tests and https://github.com/huggingface/huggingface_hub/pull/1428.
 
     Args:
         etag (`str`, *optional*): HTTP header
@@ -824,7 +825,7 @@ def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     """
     if etag is None:
         return None
-    return etag.strip('"')
+    return etag.lstrip("W/").strip('"')
 
 
 def _create_relative_symlink(src: str, dst: str, new_blob: bool = False) -> None:

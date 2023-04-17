@@ -18,18 +18,20 @@ import stat
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-
+from requests import Response
 import pytest
 import requests
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (
+    HUGGINGFACE_HEADER_X_LINKED_ETAG,
     CONFIG_NAME,
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
 )
 from huggingface_hub.file_download import (
+    _normalize_etag,
     _CACHED_NO_EXIST,
     _create_symlink,
     _get_pointer_path,
@@ -887,6 +889,46 @@ class CreateSymlinkTest(unittest.TestCase):
         if os.name != "nt":
             self.assertEqual(dst.resolve(), src.resolve())
         shutil.rmtree(test_dir)
+
+
+class TestNormalizeEtag(unittest.TestCase):
+    """Unit tests implemented after a server-side change broke the ETag normalization once (see #1428).
+
+    TL;DR: _normalize_etag was expecting only strong references, but the server started to return weak references after
+    a config update. Problem was quickly fixed server-side but we prefer to make sure this doesn't happen again by
+    supporting weak etags. For context, etags are used to build the cache-system structure.
+
+    For more details, see https://github.com/huggingface/huggingface_hub/pull/1428 and related issues.
+    """
+
+    def test_strong_reference(self):
+        self.assertEqual(
+            _normalize_etag('"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        )
+
+    def test_weak_reference(self):
+        self.assertEqual(
+            _normalize_etag('W/"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        )
+
+    @with_production_testing
+    def test_resolve_endpoint_on_regular_file(self):
+        url = "https://huggingface.co/gpt2/resolve/main/README.md"
+        response = requests.head(url)
+        self.assertEqual(self._get_etag_and_normalize(response), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930")
+
+    @with_production_testing
+    def test_resolve_endpoint_on_lfs_file(self):
+        url = "https://huggingface.co/gpt2/resolve/main/pytorch_model.bin"
+        response = requests.head(url)
+        self.assertEqual(
+            self._get_etag_and_normalize(response), "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
+        )
+
+    @staticmethod
+    def _get_etag_and_normalize(response: Response) -> str:
+        response.raise_for_status()
+        return _normalize_etag(response.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag"))
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
