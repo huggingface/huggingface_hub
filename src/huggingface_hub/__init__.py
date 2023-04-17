@@ -58,6 +58,10 @@ _SUBMOD_ATTRS = {
         "logout",
         "notebook_login",
     ],
+    "_multi_commits": [
+        "MultiCommitException",
+        "plan_multi_commits",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -134,6 +138,7 @@ _SUBMOD_ATTRS = {
         "comment_discussion",
         "create_branch",
         "create_commit",
+        "create_commits_on_pr",
         "create_discussion",
         "create_pull_request",
         "create_repo",
@@ -340,6 +345,10 @@ if TYPE_CHECKING:  # pragma: no cover
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
     )
+    from ._multi_commits import (
+        MultiCommitException,  # noqa: F401
+        plan_multi_commits,  # noqa: F401
+    )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
         SpaceHardware,  # noqa: F401
@@ -414,6 +423,7 @@ if TYPE_CHECKING:  # pragma: no cover
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
         create_commit,  # noqa: F401
+        create_commits_on_pr,  # noqa: F401
         create_discussion,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
