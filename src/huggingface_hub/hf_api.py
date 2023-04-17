@@ -3981,7 +3981,14 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def request_space_hardware(self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None) -> None:
+    def request_space_hardware(
+        self,
+        repo_id: str,
+        hardware: SpaceHardware,
+        *,
+        token: Optional[str] = None,
+        sleep_time: Optional[int] = None,
+    ) -> SpaceRuntime:
         """Request new hardware for a Space.
 
         Args:
@@ -3991,6 +3998,13 @@ class HfApi:
                 Hardware on which to run the Space. Example: `"t4-medium"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         <Tip>
 
@@ -3998,19 +4012,80 @@ class HfApi:
 
         </Tip>
         """
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                (
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
+                ),
+                UserWarning,
+            )
+        payload: Dict[str, Any] = {"flavor": hardware}
+        if sleep_time is not None:
+            payload["sleepTimeSeconds"] = sleep_time
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
             headers=self._build_hf_headers(token=token),
-            json={"flavor": hardware},
+            json=payload,
         )
         hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def set_space_sleep_time(self, repo_id: str, sleep_time: int, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Set a custom sleep time for a Space running on upgraded hardware..
+
+        Your Space will go to sleep after X seconds of inactivity. You are not billed when your Space is in "sleep"
+        mode. If a new visitor lands on your Space, it will "wake it up". Only upgraded hardware can have a
+        configurable sleep time. To know more about the sleep stage, please refer to
+        https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to pause (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
+
+        </Tip>
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
+            headers=self._build_hf_headers(token=token),
+            json={"seconds": sleep_time},
+        )
+        hf_raise_for_status(r)
+        runtime = SpaceRuntime(r.json())
+
+        hardware = runtime.requested_hardware or runtime.hardware
+        if hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                (
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
+                ),
+                UserWarning,
+            )
+        return runtime
 
     @validate_hf_hub_args
     def pause_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Pause your Space.
 
         A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
-        state in which free Spaces go after 72h of inactivity. Paused time is not billed to your account, no matter the
+        state in which free Spaces go after 48h of inactivity. Paused time is not billed to your account, no matter the
         hardware you've selected. To restart your Space, use [`restart_space`] and go to your Space settings page.
 
         For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
@@ -4086,7 +4161,7 @@ class HfApi:
         private: Optional[bool] = None,
         token: Optional[str] = None,
         exist_ok: bool = False,
-    ) -> str:
+    ) -> RepoUrl:
         """Duplicate a Space.
 
         Programmatically duplicate a Space. The new Space will be created in your account and will be in the same state
@@ -4338,6 +4413,7 @@ add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
+set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_space = api.duplicate_space

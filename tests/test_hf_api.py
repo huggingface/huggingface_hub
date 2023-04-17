@@ -2298,7 +2298,17 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
-        self.post_mock.return_value.json.return_value = {"url": f"{self.api.endpoint}/spaces/user/repo_id"}
+        self.post_mock.return_value.json.return_value = {
+            "url": f"{self.api.endpoint}/spaces/user/repo_id",
+            "stage": "RUNNING",
+            "sdk": "gradio",
+            "sdkVersion": "3.17.0",
+            "hardware": {
+                "current": "t4-medium",
+                "requested": "t4-medium",
+            },
+            "gcTimeout": None,
+        }
         self.patcher = patch("huggingface_hub.hf_api.get_session", get_session_mock)
         self.patcher.start()
 
@@ -2325,13 +2335,34 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
-    def test_request_space_hardware(self) -> None:
+    def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
             headers=self.api._build_hf_headers(),
             json={"flavor": "t4-medium"},
         )
+
+    def test_request_space_hardware_with_sleep_time(self) -> None:
+        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM, sleep_time=123)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
+            headers=self.api._build_hf_headers(),
+            json={"flavor": "t4-medium", "sleepTimeSeconds": 123},
+        )
+
+    def test_set_space_sleep_time_upgraded_hardware(self) -> None:
+        self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/sleeptime",
+            headers=self.api._build_hf_headers(),
+            json={"seconds": 123},
+        )
+
+    def test_set_space_sleep_time_cpu_basic(self) -> None:
+        self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
+        with self.assertWarns(UserWarning):
+            self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
 
 
 class ListGitRefsTest(unittest.TestCase):
