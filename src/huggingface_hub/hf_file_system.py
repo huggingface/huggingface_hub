@@ -291,6 +291,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return out if detail else [o["name"] for o in out]
 
     def _iter_tree(self, path: str, revision: Optional[str] = None):
+        # TODO: use HfApi.list_files_info instead when it supports "lastCommit" and "expand=True"
+        # See https://github.com/huggingface/moon-landing/issues/5993
         resolved_path = self.resolve_path(path, revision=revision)
         path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
             "/"
