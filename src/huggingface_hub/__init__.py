@@ -134,13 +134,13 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "get_dataset_tags",
         "get_discussion_details",
-        "get_files_info",
         "get_full_repo_name",
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
         "like",
         "list_datasets",
+        "list_files_info",
         "list_liked_repos",
         "list_metrics",
         "list_models",
@@ -399,13 +399,13 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
-        get_files_info,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
         like,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_files_info,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401

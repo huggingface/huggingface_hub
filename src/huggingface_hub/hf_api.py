@@ -1781,7 +1781,7 @@ class HfApi:
         )
 
     @validate_hf_hub_args
-    def get_files_info(
+    def list_files_info(
         self,
         repo_id: str,
         paths: Union[List[str], str, None] = None,
@@ -1791,7 +1791,7 @@ class HfApi:
         token: Optional[Union[bool, str]] = None,
     ) -> Iterable[RepoFile]:
         """
-        Get information about files on a repo.
+        List files on a repo and get information about them.
 
         Takes as input a list of paths. Those paths can be either files or folders. Two server endpoints are called:
         1. POST "/paths-info" to get information about the provided paths. Called once.
@@ -1833,44 +1833,29 @@ class HfApi:
 
             Get information about files on a repo.
             ```py
-            >>> from huggingface_hub import get_files_info
-            >>> files_info = get_files_info("lysandre/arxiv-nlp", ["README.md", "config.json"])
+            >>> from huggingface_hub import list_files_info
+            >>> files_info = list_files_info("lysandre/arxiv-nlp", ["README.md", "config.json"])
             >>> files_info
-            <generator object HfApi.get_files_info at 0x7f93b848e730>
+            <generator object HfApi.list_files_info at 0x7f93b848e730>
             >>> list(files_info)
-            [RepoFile: {
-            {'blob_id': '43bd404b159de6fba7c2f4d3264347668d43af25',
-            'lastCommit': {'date': '2022-09-05T20:10:54.000Z',
-                            'id': 'c7a2e68263d13db10671379c23cf2a8ea0e12789',
-                            'title': 'Specify language as `en` (#2)'},
-            'lfs': None,
-            'rfilename': 'README.md',
-            'size': 391,
-            'type': 'file'}
-            }, RepoFile: {
-            {'blob_id': '2f9618c3a19b9a61add74f70bfb121335aeef666',
-            'lastCommit': {'date': '2022-09-05T20:10:06.000Z',
-                            'id': 'f7ab41cbe000b32cf939a56c51f9e00c78d8941c',
-                            'title': 'Make model recognized as `text-generation`? (#1)'},
-            'lfs': None,
-            'rfilename': 'config.json',
-            'size': 554,
-            'type': 'file'}
-            }]
+            [
+                RepoFile: {"blob_id": "43bd404b159de6fba7c2f4d3264347668d43af25", "lfs": None, "rfilename": "README.md", "size": 391},
+                RepoFile: {"blob_id": "2f9618c3a19b9a61add74f70bfb121335aeef666", "lfs": None, "rfilename": "config.json", "size": 554},
+            ]
             ```
 
             List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
 
             ```py
-            >>> from huggingface_hub import get_files_info
-            >>> [info.rfilename for info in get_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
+            >>> from huggingface_hub import list_files_info
+            >>> [info.rfilename for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
             ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
             ```
 
             List all files on a repo.
             ```py
-            >>> from huggingface_hub import get_files_info
-            >>> [info.rfilename for info in get_files_info("glue", repo_type="dataset")]
+            >>> from huggingface_hub import list_files_info
+            >>> [info.rfilename for info in list_files_info("glue", repo_type="dataset")]
             ['.gitattributes', 'README.md', 'dataset_infos.json', 'glue.py']
             ```
         """
@@ -1885,7 +1870,11 @@ class HfApi:
             size = info.pop("size")
             blobId = info.pop("oid")
             lfs = info.pop("lfs", None)
-            info.pop("type", None)
+            info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
+            # "lastCommit": behavior might change server-side in the near future (it might become optional)
+            # In the meantime, let's remove it so that users don't expect it
+            # TODO: set it back when https://github.com/huggingface/moon-landing/issues/5993 is settled
+            info.pop("lastCommit", None)
             if lfs is not None:
                 lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
             return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
@@ -1903,7 +1892,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
                 data={
                     "paths": paths if isinstance(paths, list) else [paths],
-                    "expand": True,
+                    # "expand": True, # TODO: related to "lastCommit" (see above). Do not return it for now.
                 },
                 headers=headers,
             )
@@ -1957,7 +1946,7 @@ class HfApi:
         """
         return [
             f.rfilename
-            for f in self.get_files_info(
+            for f in self.list_files_info(
                 repo_id=repo_id, paths=None, revision=revision, repo_type=repo_type, token=token
             )
         ]
@@ -4432,7 +4421,7 @@ repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
-get_files_info = api.get_files_info
+list_files_info = api.list_files_info
 
 list_metrics = api.list_metrics
 
