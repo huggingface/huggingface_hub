@@ -38,7 +38,7 @@ from ._commit_api import (
     upload_lfs_files,
     warn_on_overwriting_operations,
 )
-from ._space_api import CPU_BASIC_SLEEP_TIME, SpaceHardware, SpaceRuntime
+from ._space_api import SpaceHardware, SpaceRuntime
 from .community import (
     Discussion,
     DiscussionComment,
@@ -4012,7 +4012,7 @@ class HfApi:
 
         </Tip>
         """
-        if sleep_time is not None and sleep_time != CPU_BASIC_SLEEP_TIME and hardware == SpaceHardware.CPU_BASIC:
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
                 (
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
@@ -4069,7 +4069,7 @@ class HfApi:
         runtime = SpaceRuntime(r.json())
 
         hardware = runtime.requested_hardware or runtime.hardware
-        if hardware == SpaceHardware.CPU_BASIC and sleep_time != CPU_BASIC_SLEEP_TIME:
+        if hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
                 (
                     "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"

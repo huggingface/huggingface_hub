@@ -17,12 +17,6 @@ from enum import Enum
 from typing import Dict, Optional
 
 
-# Taken from https://huggingface.co/docs/hub/spaces-gpus#sleep-time
-# This value might change in the future. It is only used to trigger a warning if the user tries to set a different value
-# on a free Space.
-CPU_BASIC_SLEEP_TIME = 48 * 3600  # 48 hours
-
-
 class SpaceStage(str, Enum):
     """
     Enumeration of possible stage of a Space on the Hub.
