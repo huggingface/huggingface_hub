@@ -15,11 +15,11 @@
     - local: guides/upload
       title: Upload files
     - local: guides/repository
+    - local: guides/hf_file_system
+      title: HfFileSystem
       title: Repository
     - local: guides/search
       title: Search
-    - local: guides/hf_file_system
-      title: HfFileSystem
     - local: guides/inference
       title: Inference
     - local: guides/community
