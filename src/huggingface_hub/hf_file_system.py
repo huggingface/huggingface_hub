@@ -296,7 +296,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             "/"
         )
         headers = self._api._build_hf_headers()
-        yield from paginate(path, params={}, headers=headers)
+        yield from paginate(path, params={"expand": True}, headers=headers)
 
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
