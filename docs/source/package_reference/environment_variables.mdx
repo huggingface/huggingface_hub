@@ -115,6 +115,14 @@ to disable this warning.
 
 For more details, see [cache limitations](../guides/manage-cache#limitations).
 
+### HF_HUB_DISABLE_EXPERIMENTAL_WARNING
+
+Some features of `huggingface_hub` are experimental. This means you can use them but we do not guarantee they will be
+maintained in the future. In particular, we might update the API or behavior of such features without any deprecation
+cycle. A warning message is triggered when using an experimental feature to warn you about it. If you're comfortable debugging any potential issues using an experimental feature, you can set `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` to disable the warning.
+
+If you are using an experimental feature, please let us know! Your feedback can help us design and improve it.
+
 ### HF_HUB_DISABLE_TELEMETRY
 
 By default, some data is collected by HF libraries (`transformers`, `datasets`, `gradio`,..) to monitor usage, debug issues and help prioritize features.

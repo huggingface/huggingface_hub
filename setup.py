@@ -41,6 +41,7 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
+
 extras["testing"] = extras["cli"] + [
     "jedi",
     "Jinja2",
@@ -50,6 +51,7 @@ extras["testing"] = extras["cli"] + [
     "pytest-xdist",
     "soundfile",
     "Pillow",
+    "gradio",  # to test webhooks
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`

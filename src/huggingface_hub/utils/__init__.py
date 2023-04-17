@@ -46,10 +46,13 @@ from ._hf_folder import HfFolder
 from ._http import configure_http_backend, get_session, http_backoff
 from ._pagination import paginate
 from ._paths import filter_repo_objects, IGNORE_GIT_FOLDER_PATTERNS
+from ._experimental import experimental
 from ._runtime import (
     dump_environment_info,
     get_fastai_version,
     get_fastcore_version,
+    get_gradio_version,
+    is_gradio_available,
     get_graphviz_version,
     get_hf_hub_version,
     get_hf_transfer_version,

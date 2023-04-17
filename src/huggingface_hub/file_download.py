@@ -878,7 +878,13 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         relative_src = None
 
     try:
-        _support_symlinks = are_symlinks_supported(os.path.dirname(os.path.commonpath([abs_src, abs_dst])))
+        try:
+            commonpath = os.path.commonpath([abs_src, abs_dst])
+            _support_symlinks = are_symlinks_supported(os.path.dirname(commonpath))
+        except ValueError:
+            # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
+            # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
+            _support_symlinks = os.name != "nt"
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
@@ -900,7 +906,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
                 raise
     elif new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        os.replace(src, dst)
+        shutil.move(src, dst)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(src, dst)
@@ -1560,7 +1566,7 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     finally:
         tmp_file.unlink()
 
-    os.replace(src, dst)
+    shutil.move(src, dst)
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:

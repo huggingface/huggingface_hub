@@ -66,6 +66,21 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
+    "_webhooks_payload": [
+        "WebhookPayload",
+        "WebhookPayloadComment",
+        "WebhookPayloadDiscussion",
+        "WebhookPayloadDiscussionChanges",
+        "WebhookPayloadEvent",
+        "WebhookPayloadMovedTo",
+        "WebhookPayloadRepo",
+        "WebhookPayloadUrl",
+        "WebhookPayloadWebhook",
+    ],
+    "_webhooks_server": [
+        "WebhooksServer",
+        "webhook_endpoint",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -330,6 +345,21 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
+    )
+    from ._webhooks_payload import (
+        WebhookPayload,  # noqa: F401
+        WebhookPayloadComment,  # noqa: F401
+        WebhookPayloadDiscussion,  # noqa: F401
+        WebhookPayloadDiscussionChanges,  # noqa: F401
+        WebhookPayloadEvent,  # noqa: F401
+        WebhookPayloadMovedTo,  # noqa: F401
+        WebhookPayloadRepo,  # noqa: F401
+        WebhookPayloadUrl,  # noqa: F401
+        WebhookPayloadWebhook,  # noqa: F401
+    )
+    from ._webhooks_server import (
+        WebhooksServer,  # noqa: F401
+        webhook_endpoint,  # noqa: F401
     )
     from .community import (
         Discussion,  # noqa: F401
