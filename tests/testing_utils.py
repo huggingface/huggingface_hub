@@ -16,7 +16,7 @@ import pytest
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_gradio_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -104,13 +104,26 @@ _run_git_lfs_tests = parse_flag_from_env("RUN_GIT_LFS_TESTS", default=False)
 
 def require_git_lfs(test_case):
     """
-    Decorator marking a test that requires git-lfs.
+    Decorator to mark tests that requires git-lfs.
 
     git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
     variable to a truthy value to run them.
     """
     if not _run_git_lfs_tests:
         return unittest.skip("test of git lfs workflow")(test_case)
+    else:
+        return test_case
+
+
+def require_webhooks(test_case):
+    """
+    Decorator to mark tests that requires `webhooks` extra (i.e. gradio, fastapi, pydantic).
+
+    git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
+    variable to a truthy value to run them.
+    """
+    if not is_gradio_available():
+        return unittest.skip("Skip webhook test")(test_case)
     else:
         return test_case
 
