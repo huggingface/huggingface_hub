@@ -58,6 +58,10 @@ _SUBMOD_ATTRS = {
         "logout",
         "notebook_login",
     ],
+    "_multi_commits": [
+        "MultiCommitException",
+        "plan_multi_commits",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -65,6 +69,21 @@ _SUBMOD_ATTRS = {
         "SpaceHardware",
         "SpaceRuntime",
         "SpaceStage",
+    ],
+    "_webhooks_payload": [
+        "WebhookPayload",
+        "WebhookPayloadComment",
+        "WebhookPayloadDiscussion",
+        "WebhookPayloadDiscussionChanges",
+        "WebhookPayloadEvent",
+        "WebhookPayloadMovedTo",
+        "WebhookPayloadRepo",
+        "WebhookPayloadUrl",
+        "WebhookPayloadWebhook",
+    ],
+    "_webhooks_server": [
+        "WebhooksServer",
+        "webhook_endpoint",
     ],
     "community": [
         "Discussion",
@@ -119,6 +138,7 @@ _SUBMOD_ATTRS = {
         "comment_discussion",
         "create_branch",
         "create_commit",
+        "create_commits_on_pr",
         "create_discussion",
         "create_pull_request",
         "create_repo",
@@ -155,12 +175,18 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
+        "set_space_sleep_time",
         "space_info",
         "unlike",
         "update_repo_visibility",
         "upload_file",
         "upload_folder",
         "whoami",
+    ],
+    "hf_file_system": [
+        "HfFileSystem",
+        "HfFileSystemFile",
+        "HfFileSystemResolvedPath",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -319,11 +345,30 @@ if TYPE_CHECKING:  # pragma: no cover
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
     )
+    from ._multi_commits import (
+        MultiCommitException,  # noqa: F401
+        plan_multi_commits,  # noqa: F401
+    )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
+    )
+    from ._webhooks_payload import (
+        WebhookPayload,  # noqa: F401
+        WebhookPayloadComment,  # noqa: F401
+        WebhookPayloadDiscussion,  # noqa: F401
+        WebhookPayloadDiscussionChanges,  # noqa: F401
+        WebhookPayloadEvent,  # noqa: F401
+        WebhookPayloadMovedTo,  # noqa: F401
+        WebhookPayloadRepo,  # noqa: F401
+        WebhookPayloadUrl,  # noqa: F401
+        WebhookPayloadWebhook,  # noqa: F401
+    )
+    from ._webhooks_server import (
+        WebhooksServer,  # noqa: F401
+        webhook_endpoint,  # noqa: F401
     )
     from .community import (
         Discussion,  # noqa: F401
@@ -378,6 +423,7 @@ if TYPE_CHECKING:  # pragma: no cover
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
         create_commit,  # noqa: F401
+        create_commits_on_pr,  # noqa: F401
         create_discussion,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
@@ -414,12 +460,18 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401
+        set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         whoami,  # noqa: F401
+    )
+    from .hf_file_system import (
+        HfFileSystem,  # noqa: F401
+        HfFileSystemFile,  # noqa: F401
+        HfFileSystemResolvedPath,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401

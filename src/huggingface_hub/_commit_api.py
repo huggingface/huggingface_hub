@@ -439,17 +439,11 @@ def fetch_upload_modes(
         preupload_info = _validate_preupload_info(resp.json())
         upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
 
-    # If a file is empty, it is most likely a mistake.
-    # => a warning message is triggered to warn the user.
-    #    => except if `.gitkeep` as it is a legit use case for an empty file.
-    #
     # Empty files cannot be uploaded as LFS (S3 would fail with a 501 Not Implemented)
     # => empty files are uploaded as "regular" to still allow users to commit them.
     for addition in additions:
         if addition.upload_info.size == 0:
             path = addition.path_in_repo
-            if not path.endswith(".gitkeep"):
-                warnings.warn(f"About to commit an empty file: '{path}'. Are you sure this is intended?")
             upload_modes[path] = "regular"
 
     return upload_modes

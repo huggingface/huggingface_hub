@@ -21,18 +21,23 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+from requests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
 from huggingface_hub.constants import (
     CONFIG_NAME,
+    HUGGINGFACE_HEADER_X_LINKED_ETAG,
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
 )
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     _create_symlink,
+    _get_pointer_path,
+    _normalize_etag,
     _request_wrapper,
+    _to_local_dir,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -772,6 +777,69 @@ class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
         self.assertTrue(local_path.endswith(self.filepath))
 
 
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestHfHubDownloadRelativePaths(unittest.TestCase):
+    """Regression test for HackerOne report 1928845.
+
+    Issue was that any file outside of the local dir could be overwritten (Windows only).
+
+    In the end, multiple protections have been added to prevent this (..\\ in filename forbidden on Windows, always check
+    the filepath is in local_dir/snapshot_dir).
+    """
+
+    cache_dir: Path
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=cls.repo_id)
+        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=cls.repo_id)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(repo_id=cls.repo_id)
+
+    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
+    def test_download_file_in_cache_dir(self) -> None:
+        hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
+    def test_download_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir, local_dir=local_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    def test_download_folder_file_in_cache_dir(self) -> None:
+        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir)
+
+    @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
+    def test_download_folder_file_to_local_dir(self) -> None:
+        with SoftTemporaryDirectory() as local_dir:
+            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=self.cache_dir, local_dir=local_dir)
+
+    def test_get_pointer_path_and_valid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        self.assertEqual(
+            _get_pointer_path("path/to/storage", "abcdef", "path/to/file.txt"),
+            os.path.join("path/to/storage", "snapshots", "abcdef", "path/to/file.txt"),
+        )
+
+    def test_get_pointer_path_but_invalid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
+        with self.assertRaises(ValueError):
+            _get_pointer_path("path/to/storage", "abcdef", relative_filename)
+
+    def test_to_local_dir_but_invalid_relative_filename(self) -> None:
+        # Cannot happen because of other protections, but just in case.
+        relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
+        with self.assertRaises(ValueError):
+            _to_local_dir(
+                "path/to/file_to_copy", "path/to/local/dir", relative_filename=relative_filename, use_symlinks=False
+            )
+
+
 class CreateSymlinkTest(unittest.TestCase):
     @unittest.skipIf(os.name == "nt", "No symlinks on Windows")
     @patch("huggingface_hub.file_download.are_symlinks_supported")
@@ -822,6 +890,46 @@ class CreateSymlinkTest(unittest.TestCase):
         if os.name != "nt":
             self.assertEqual(dst.resolve(), src.resolve())
         shutil.rmtree(test_dir)
+
+
+class TestNormalizeEtag(unittest.TestCase):
+    """Unit tests implemented after a server-side change broke the ETag normalization once (see #1428).
+
+    TL;DR: _normalize_etag was expecting only strong references, but the server started to return weak references after
+    a config update. Problem was quickly fixed server-side but we prefer to make sure this doesn't happen again by
+    supporting weak etags. For context, etags are used to build the cache-system structure.
+
+    For more details, see https://github.com/huggingface/huggingface_hub/pull/1428 and related issues.
+    """
+
+    def test_strong_reference(self):
+        self.assertEqual(
+            _normalize_etag('"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        )
+
+    def test_weak_reference(self):
+        self.assertEqual(
+            _normalize_etag('W/"a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"'), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
+        )
+
+    @with_production_testing
+    def test_resolve_endpoint_on_regular_file(self):
+        url = "https://huggingface.co/gpt2/resolve/main/README.md"
+        response = requests.head(url)
+        self.assertEqual(self._get_etag_and_normalize(response), "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930")
+
+    @with_production_testing
+    def test_resolve_endpoint_on_lfs_file(self):
+        url = "https://huggingface.co/gpt2/resolve/main/pytorch_model.bin"
+        response = requests.head(url)
+        self.assertEqual(
+            self._get_etag_and_normalize(response), "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
+        )
+
+    @staticmethod
+    def _get_etag_and_normalize(response: Response) -> str:
+        response.raise_for_status()
+        return _normalize_etag(response.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag"))
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
