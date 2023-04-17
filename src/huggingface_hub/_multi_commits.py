@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple
 
 from ._commit_api import CommitOperation, CommitOperationAdd, CommitOperationDelete
 from .community import DiscussionWithDetails
+from .utils import experimental
 from .utils._cache_manager import _format_size
 
 
@@ -73,6 +74,7 @@ _This is a comment posted using the `huggingface_hub` library in the context of 
 STEP_ID_REGEX = re.compile(r"- \[(?P<completed>[ |x])\].*(?P<step_id>[a-fA-F0-9]{64})", flags=re.MULTILINE)
 
 
+@experimental
 def plan_multi_commits(
     operations: Iterable[CommitOperation],
     max_operations_per_commit: int = 50,
@@ -103,6 +105,12 @@ def plan_multi_commits(
         `Tuple[List[List[CommitOperationAdd]], List[List[CommitOperationDelete]]]`: a tuple. First item is a list of
         lists of [`CommitOperationAdd`] representing the addition commits to push. The second item is a list of lists
         of [`CommitOperationDelete`] representing the deletion commits.
+
+    <Tip warning={true}>
+
+    `plan_multi_commits` is experimental. Its API and behavior is subject to change in the future without prior notice.
+
+    </Tip>
 
     Example:
     ```python

@@ -27,7 +27,13 @@ from urllib.parse import quote
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, EntryNotFoundError, RepositoryNotFoundError, get_session
+from huggingface_hub.utils import (
+    IGNORE_GIT_FOLDER_PATTERNS,
+    EntryNotFoundError,
+    RepositoryNotFoundError,
+    experimental,
+    get_session,
+)
 
 from ._commit_api import (
     CommitOperation,
@@ -2436,6 +2442,7 @@ class HfApi:
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
         )
 
+    @experimental
     @validate_hf_hub_args
     def create_commits_on_pr(
         self,
@@ -2460,6 +2467,12 @@ class HfApi:
         All deletion commits are pushed first, followed by the addition commits. The order of the commits is not
         guaranteed as we might implement parallel commits in the future. Be sure that your are not updating several
         times the same file.
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` is experimental.  Its API and behavior is subject to change in the future without prior notice.
+
+        </Tip>
 
         Args:
             repo_id (`str`):
@@ -2988,6 +3001,12 @@ class HfApi:
         `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
         sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
         it first using [`~hf_api.create_repo`].
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `multi_commits` is experimental. Its API and behavior is subject to change in the future without prior notice.
 
         </Tip>
 
