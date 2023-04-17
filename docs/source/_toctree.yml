@@ -14,12 +14,12 @@
       title: Download files
     - local: guides/upload
       title: Upload files
+    - local: guides/hf_file_system
+      title: HfFileSystem
     - local: guides/repository
       title: Repository
     - local: guides/search
       title: Search
-    - local: guides/hf_file_system
-      title: HfFileSystem
     - local: guides/inference
       title: Inference
     - local: guides/community
