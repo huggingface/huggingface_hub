@@ -234,13 +234,9 @@ class HfApiEndpointsTest(HfApiCommonTest):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
 
-        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]:
-            self._api.create_repo(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                space_sdk="static" if repo_type == REPO_TYPE_SPACE else None,
-            )
-            # Should raise an error if it fails
+        # Spaces not tested on staging (error 500)
+        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET]:
+            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
 
@@ -2273,7 +2269,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.assertEqual(runtime_after_pause.stage, SpaceStage.PAUSED)
 
         self.api.restart_space(self.repo_id)
-        time.sleep(0.2)
+        time.sleep(1.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
 

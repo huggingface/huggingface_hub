@@ -9,7 +9,7 @@ import pytest
 
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
-from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, scan_cache_dir
+from huggingface_hub.utils import DeleteCacheStrategy, HFCacheInfo, capture_output, scan_cache_dir
 from huggingface_hub.utils._cache_manager import (
     CacheNotFound,
     _format_size,
@@ -19,7 +19,6 @@ from huggingface_hub.utils._cache_manager import (
 
 from .testing_constants import TOKEN
 from .testing_utils import (
-    capture_output,
     rmtree_with_retry,
     with_production_testing,
     xfail_on_windows,

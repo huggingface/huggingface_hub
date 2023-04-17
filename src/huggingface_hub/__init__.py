@@ -70,6 +70,21 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
+    "_webhooks_payload": [
+        "WebhookPayload",
+        "WebhookPayloadComment",
+        "WebhookPayloadDiscussion",
+        "WebhookPayloadDiscussionChanges",
+        "WebhookPayloadEvent",
+        "WebhookPayloadMovedTo",
+        "WebhookPayloadRepo",
+        "WebhookPayloadUrl",
+        "WebhookPayloadWebhook",
+    ],
+    "_webhooks_server": [
+        "WebhooksServer",
+        "webhook_endpoint",
+    ],
     "community": [
         "Discussion",
         "DiscussionComment",
@@ -166,6 +181,11 @@ _SUBMOD_ATTRS = {
         "upload_file",
         "upload_folder",
         "whoami",
+    ],
+    "hf_file_system": [
+        "HfFileSystem",
+        "HfFileSystemFile",
+        "HfFileSystemResolvedPath",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -334,6 +354,21 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
     )
+    from ._webhooks_payload import (
+        WebhookPayload,  # noqa: F401
+        WebhookPayloadComment,  # noqa: F401
+        WebhookPayloadDiscussion,  # noqa: F401
+        WebhookPayloadDiscussionChanges,  # noqa: F401
+        WebhookPayloadEvent,  # noqa: F401
+        WebhookPayloadMovedTo,  # noqa: F401
+        WebhookPayloadRepo,  # noqa: F401
+        WebhookPayloadUrl,  # noqa: F401
+        WebhookPayloadWebhook,  # noqa: F401
+    )
+    from ._webhooks_server import (
+        WebhooksServer,  # noqa: F401
+        webhook_endpoint,  # noqa: F401
+    )
     from .community import (
         Discussion,  # noqa: F401
         DiscussionComment,  # noqa: F401
@@ -430,6 +465,11 @@ if TYPE_CHECKING:  # pragma: no cover
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         whoami,  # noqa: F401
+    )
+    from .hf_file_system import (
+        HfFileSystem,  # noqa: F401
+        HfFileSystemFile,  # noqa: F401
+        HfFileSystemResolvedPath,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401

@@ -13,6 +13,7 @@ def get_version() -> str:
 
 install_requires = [
     "filelock",
+    "fsspec",
     "requests",
     "tqdm>=4.42.1",
     "pyyaml>=5.1",
@@ -40,6 +41,7 @@ extras["fastai"] = [
 
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
+
 extras["testing"] = extras["cli"] + [
     "jedi",
     "Jinja2",
@@ -49,6 +51,7 @@ extras["testing"] = extras["cli"] + [
     "pytest-xdist",
     "soundfile",
     "Pillow",
+    "gradio",  # to test webhooks
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
@@ -87,7 +90,10 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     extras_require=extras,
-    entry_points={"console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"]},
+    entry_points={
+        "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
+        "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
+    },
     python_requires=">=3.7.0",
     install_requires=install_requires,
     classifiers=[

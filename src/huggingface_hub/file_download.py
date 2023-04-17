@@ -878,7 +878,13 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         relative_src = None
 
     try:
-        _support_symlinks = are_symlinks_supported(os.path.dirname(os.path.commonpath([abs_src, abs_dst])))
+        try:
+            commonpath = os.path.commonpath([abs_src, abs_dst])
+            _support_symlinks = are_symlinks_supported(os.path.dirname(commonpath))
+        except ValueError:
+            # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
+            # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
+            _support_symlinks = os.name != "nt"
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
@@ -900,7 +906,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
                 raise
     elif new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        os.replace(src, dst)
+        shutil.move(src, dst)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(src, dst)
@@ -1140,11 +1146,17 @@ def hf_hub_download(
 
     # cross platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
+    if os.name == "nt":
+        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
+            raise ValueError(
+                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
+                " owner to rename this file."
+            )
 
     # if user provides a commit_hash and they already have the file on disk,
     # shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
-        pointer_path = os.path.join(storage_folder, "snapshots", revision, relative_filename)
+        pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path):
             if local_dir is not None:
                 return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
@@ -1239,7 +1251,7 @@ def hf_hub_download(
 
         # Return pointer file if exists
         if commit_hash is not None:
-            pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
+            pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
             if os.path.exists(pointer_path):
                 if local_dir is not None:
                     return _to_local_dir(
@@ -1268,7 +1280,7 @@ def hf_hub_download(
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
-    pointer_path = os.path.join(storage_folder, "snapshots", commit_hash, relative_filename)
+    pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
@@ -1554,7 +1566,20 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     finally:
         tmp_file.unlink()
 
-    os.replace(src, dst)
+    shutil.move(src, dst)
+
+
+def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
+    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
+    snapshot_path = os.path.join(storage_folder, "snapshots")
+    pointer_path = os.path.join(snapshot_path, revision, relative_filename)
+    if Path(os.path.abspath(snapshot_path)) not in Path(os.path.abspath(pointer_path)).parents:
+        raise ValueError(
+            "Invalid pointer path: cannot create pointer path in snapshot folder if"
+            f" `storage_folder='{storage_folder}'`, `revision='{revision}'` and"
+            f" `relative_filename='{relative_filename}'`."
+        )
+    return pointer_path
 
 
 def _to_local_dir(
@@ -1564,7 +1589,14 @@ def _to_local_dir(
 
     Either symlink to blob file in cache or duplicate file depending on `use_symlinks` and file size.
     """
+    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
     local_dir_filepath = os.path.join(local_dir, relative_filename)
+    if Path(os.path.abspath(local_dir)) not in Path(os.path.abspath(local_dir_filepath)).parents:
+        raise ValueError(
+            f"Cannot copy file '{relative_filename}' to local dir '{local_dir}': file would not be in the local"
+            " directory."
+        )
+
     os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
 

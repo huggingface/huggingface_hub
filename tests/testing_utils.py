@@ -2,23 +2,21 @@ import inspect
 import os
 import shutil
 import stat
-import sys
 import time
 import unittest
 import uuid
 from contextlib import contextmanager
 from enum import Enum
 from functools import wraps
-from io import StringIO
 from pathlib import Path
-from typing import Callable, Generator, Optional, Type, TypeVar, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_gradio_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -106,13 +104,26 @@ _run_git_lfs_tests = parse_flag_from_env("RUN_GIT_LFS_TESTS", default=False)
 
 def require_git_lfs(test_case):
     """
-    Decorator marking a test that requires git-lfs.
+    Decorator to mark tests that requires git-lfs.
 
     git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
     variable to a truthy value to run them.
     """
     if not _run_git_lfs_tests:
         return unittest.skip("test of git lfs workflow")(test_case)
+    else:
+        return test_case
+
+
+def require_webhooks(test_case):
+    """
+    Decorator to mark tests that requires `webhooks` extra (i.e. gradio, fastapi, pydantic).
+
+    git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
+    variable to a truthy value to run them.
+    """
+    if not is_gradio_available():
+        return unittest.skip("Skip webhook test")(test_case)
     else:
         return test_case
 
@@ -319,30 +330,6 @@ def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
         return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
 
     return _inner_decorator
-
-
-@contextmanager
-def capture_output() -> Generator[StringIO, None, None]:
-    """Capture output that is printed to console.
-
-    Especially useful to test CLI commands.
-
-    Taken from https://stackoverflow.com/a/34738440
-
-    Example:
-    ```py
-    class TestHelloWorld(unittest.TestCase):
-        def test_hello_world(self):
-            with capture_output() as output:
-                print("hello world")
-            self.assertEqual(output.getvalue(), "hello world\n")
-    ```
-    """
-    output = StringIO()
-    previous_output = sys.stdout
-    sys.stdout = output
-    yield output
-    sys.stdout = previous_output
 
 
 T = TypeVar("T")
