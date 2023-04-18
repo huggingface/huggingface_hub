@@ -330,11 +330,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def find(
         self,
-        path,
-        maxdepth=None,
-        withdirs=False,
-        detail=False,
-        refresh=False,
+        path: str,
+        maxdepth: Optional[int] = None,
+        withdirs: bool = False,
+        detail: bool = False,
+        refresh: bool = False,
         revision: Optional[str] = None,
         **kwargs,
     ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
