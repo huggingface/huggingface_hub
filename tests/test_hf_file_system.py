@@ -212,6 +212,34 @@ class HfFileSystemTests(unittest.TestCase):
                 self.assertEqual(files[0]["type"], "file")
                 self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
 
+    @retry_endpoint
+    def test_find(self):
+        repo_files = [
+            self.hf_path + "/.gitattributes",
+            self.hf_path + "/data/binary_data.bin",
+            self.hf_path + "/data/text_data.txt",
+        ]
+
+        files = self.hffs.find(self.hf_path)
+        self.assertEqual(sorted(files), sorted(repo_files))
+
+        files_and_dirs = self.hffs.find(self.hf_path, withdirs=True)
+        self.assertEqual(sorted(files_and_dirs), sorted(repo_files + [self.hf_path + "/data"]))
+
+    @retry_endpoint
+    def test_find_no_side_effects(self):
+        files1 = self.hffs.find(self.hf_path)
+        self.assertEqual(len(files1), 3)
+
+        files2 = self.hffs.find(self.hf_path)
+        self.assertEqual(len(files2), 3)
+        self.assertEqual(files1, files2)
+
+        self.hffs.invalidate_cache(self.hf_path + "/data")
+        files3 = self.hffs.find(self.hf_path)
+        self.assertEqual(len(files2), 3)
+        self.assertEqual(files1, files3)
+
 
 @pytest.mark.parametrize("path_in_repo", ["", "foo"])
 @pytest.mark.parametrize(
