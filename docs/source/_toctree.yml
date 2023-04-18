@@ -14,12 +14,12 @@
       title: Download files
     - local: guides/upload
       title: Upload files
+    - local: guides/hf_file_system
+      title: HfFileSystem
     - local: guides/repository
       title: Repository
     - local: guides/search
       title: Search
-    - local: guides/hf_file_system
-      title: HfFileSystem
     - local: guides/inference
       title: Inference
     - local: guides/community
@@ -32,6 +32,8 @@
       title: Manage your Space
     - local: guides/integrations
       title: Integrate a library
+    - local: guides/webhooks_server
+      title: Webhooks server
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http
@@ -66,3 +68,5 @@
       title: Repo Cards and Repo Card Data
     - local: package_reference/space_runtime
       title: Space runtime
+    - local: package_reference/webhooks_server
+      title: Webhooks server

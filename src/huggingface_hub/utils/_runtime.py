@@ -35,6 +35,7 @@ _package_versions = {}
 _CANDIDATES = {
     "torch": {"torch"},
     "pydot": {"pydot"},
+    "gradio": {"gradio"},
     "graphviz": {"graphviz"},
     "tensorflow": (
         "tensorflow",
@@ -100,6 +101,15 @@ def is_fastcore_available() -> bool:
 
 def get_fastcore_version() -> str:
     return _get_version("fastcore")
+
+
+# FastAI
+def is_gradio_available() -> bool:
+    return _is_available("gradio")
+
+
+def get_gradio_version() -> str:
+    return _get_version("gradio")
 
 
 # Graphviz
@@ -254,6 +264,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()
+    info["gradio"] = get_gradio_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
@@ -264,6 +275,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
     info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
     info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
+    info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
     info["HF_HUB_ENABLE_HF_TRANSFER"] = constants.HF_HUB_ENABLE_HF_TRANSFER
 

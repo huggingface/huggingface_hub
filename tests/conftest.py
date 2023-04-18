@@ -70,6 +70,11 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
 
+@pytest.fixture(autouse=True)
+def disable_experimental_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_DISABLE_EXPERIMENTAL_WARNING", True)
+
+
 @pytest.fixture
 def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
     """Add a `repo_id` attribute referencing a Space repo on the production Hub.

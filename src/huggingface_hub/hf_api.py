@@ -27,7 +27,13 @@ from urllib.parse import quote
 import requests
 from requests.exceptions import HTTPError
 
-from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, EntryNotFoundError, RepositoryNotFoundError, get_session
+from huggingface_hub.utils import (
+    IGNORE_GIT_FOLDER_PATTERNS,
+    EntryNotFoundError,
+    RepositoryNotFoundError,
+    experimental,
+    get_session,
+)
 
 from ._commit_api import (
     CommitOperation,
@@ -37,6 +43,19 @@ from ._commit_api import (
     prepare_commit_payload,
     upload_lfs_files,
     warn_on_overwriting_operations,
+)
+from ._multi_commits import (
+    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
+    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
+    MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
+    MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
+    MultiCommitException,
+    MultiCommitStep,
+    MultiCommitStrategy,
+    multi_commit_create_pull_request,
+    multi_commit_generate_comment,
+    multi_commit_parse_pr_description,
+    plan_multi_commits,
 )
 from ._space_api import SpaceHardware, SpaceRuntime
 from .community import (
@@ -58,6 +77,7 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
+    BadRequestError,
     HfFolder,
     HfHubHTTPError,
     build_hf_headers,
@@ -2422,6 +2442,306 @@ class HfApi:
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
         )
 
+    @experimental
+    @validate_hf_hub_args
+    def create_commits_on_pr(
+        self,
+        *,
+        repo_id: str,
+        addition_commits: List[List[CommitOperationAdd]],
+        deletion_commits: List[List[CommitOperationDelete]],
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        merge_pr: bool = True,
+        num_threads: int = 5,  # TODO: use to multithread uploads
+        verbose: bool = False,
+    ) -> str:
+        """Push changes to the Hub in multiple commits.
+
+        Commits are pushed to a draft PR branch. If the upload fails or gets interrupted, it can be resumed. Progress
+        is tracked in the PR description. At the end of the process, the PR is set as open and the title is updated to
+        match the initial commit message. If `merge_pr=True` is passed, the PR is merged automatically.
+
+        All deletion commits are pushed first, followed by the addition commits. The order of the commits is not
+        guaranteed as we might implement parallel commits in the future. Be sure that your are not updating several
+        times the same file.
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` is experimental.  Its API and behavior is subject to change in the future without prior notice.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository in which the commits will be pushed. Example: `"username/my-cool-model"`.
+
+            addition_commits (`List` of `List` of [`~hf_api.CommitOperationAdd`]):
+                A list containing lists of [`~hf_api.CommitOperationAdd`]. Each sublist will result in a commit on the
+                PR.
+
+            deletion_commits
+                A list containing lists of [`~hf_api.CommitOperationDelete`]. Each sublist will result in a commit on
+                the PR. Deletion commits are pushed before addition commits.
+
+            commit_message (`str`):
+                The summary (first line) of the commit that will be created. Will also be the title of the PR.
+
+            commit_description (`str`, *optional*):
+                The description of the commit that will be created. The description will be added to the PR.
+
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
+                a model. Default is `None`.
+
+            merge_pr (`bool`):
+                If set to `True`, the Pull Request is merged at the end of the process. Defaults to `True`.
+
+            num_threads (`int`, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+
+            verbose (`bool`):
+                If set to `True`, process will run on verbose mode i.e. print information about the ongoing tasks.
+                Defaults to `False`.
+
+        Returns:
+            `str`: URL to the created PR.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi, plan_multi_commits
+        >>> addition_commits, deletion_commits = plan_multi_commits(
+        ...     operations=[
+        ...          CommitOperationAdd(...),
+        ...          CommitOperationAdd(...),
+        ...          CommitOperationDelete(...),
+        ...          CommitOperationDelete(...),
+        ...          CommitOperationAdd(...),
+        ...     ],
+        ... )
+        >>> HfApi().create_commits_on_pr(
+        ...     repo_id="my-cool-model",
+        ...     addition_commits=addition_commits,
+        ...     deletion_commits=deletion_commits,
+        ...     (...)
+        ...     verbose=True,
+        ... )
+        ```
+
+        Raises:
+            [`MultiCommitException`]:
+                If an unexpected issue occur in the process: empty commits, unexpected commits in a PR, unexpected PR
+                description, etc.
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
+        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        create it first using [`~hf_api.create_repo`].
+
+        </Tip>
+        """
+        logger = logging.get_logger(__name__ + ".create_commits_on_pr")
+        if verbose:
+            logger.setLevel("INFO")
+
+        # 1. Get strategy ID
+        logger.info(
+            f"Will create {len(deletion_commits)} deletion commit(s) and {len(addition_commits)} addition commit(s),"
+            f" totalling {sum(len(ops) for ops in addition_commits+deletion_commits)} atomic operations."
+        )
+        strategy = MultiCommitStrategy(
+            addition_commits=[MultiCommitStep(operations=operations) for operations in addition_commits],  # type: ignore
+            deletion_commits=[MultiCommitStep(operations=operations) for operations in deletion_commits],  # type: ignore
+        )
+        logger.info(f"Multi-commits strategy with ID {strategy.id}.")
+
+        # 2. Get or create a PR with this strategy ID
+        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
+            # search for a draft PR with strategy ID
+            if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
+                pr = self.get_discussion_details(
+                    repo_id=repo_id, discussion_num=discussion.num, repo_type=repo_type, token=token
+                )
+                logger.info(f"PR already exists: {pr.url}. Will resume process where it stopped.")
+                break
+        else:
+            # did not find a PR matching the strategy ID
+            pr = multi_commit_create_pull_request(
+                self,
+                repo_id=repo_id,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                strategy=strategy,
+                token=token,
+                repo_type=repo_type,
+            )
+            logger.info(f"New PR created: {pr.url}")
+
+        # 3. Parse PR description to check consistency with strategy (e.g. same commits are scheduled)
+        for event in pr.events:
+            if isinstance(event, DiscussionComment):
+                pr_comment = event
+                break
+        else:
+            raise MultiCommitException(f"PR #{pr.num} must have at least 1 comment")
+
+        description_commits = multi_commit_parse_pr_description(pr_comment.content)
+        if len(description_commits) != len(strategy.all_steps):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: got {len(description_commits)} steps in"
+                f" description but {len(strategy.all_steps)} in strategy."
+            )
+        for step_id in strategy.all_steps:
+            if step_id not in description_commits:
+                raise MultiCommitException(
+                    f"Corrupted multi-commit PR #{pr.num}: expected step {step_id} but didn't find"
+                    f" it (have {', '.join(description_commits)})."
+                )
+
+        # 4. Retrieve commit history (and check consistency)
+        commits_on_main_branch = {
+            commit.commit_id
+            for commit in self.list_repo_commits(
+                repo_id=repo_id, repo_type=repo_type, token=token, revision=DEFAULT_REVISION
+            )
+        }
+        pr_commits = [
+            commit
+            for commit in self.list_repo_commits(
+                repo_id=repo_id, repo_type=repo_type, token=token, revision=pr.git_reference
+            )
+            if commit.commit_id not in commits_on_main_branch
+        ]
+        if len(pr_commits) > 0:
+            logger.info(f"Found {len(pr_commits)} existing commits on the PR.")
+
+        # At this point `pr_commits` is a list of commits pushed to the PR. We expect all of these commits (if any) to have
+        # a step_id as title. We raise exception if an unexpected commit has been pushed.
+        if len(pr_commits) > len(strategy.all_steps):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: scheduled {len(strategy.all_steps)} steps but"
+                f" {len(pr_commits)} commits have already been pushed to the PR."
+            )
+
+        # Check which steps are already completed
+        remaining_additions = {step.id: step for step in strategy.addition_commits}
+        remaining_deletions = {step.id: step for step in strategy.deletion_commits}
+        for commit in pr_commits:
+            if commit.title in remaining_additions:
+                step = remaining_additions.pop(commit.title)
+                step.completed = True
+            elif commit.title in remaining_deletions:
+                step = remaining_deletions.pop(commit.title)
+                step.completed = True
+
+        if len(remaining_deletions) > 0 and len(remaining_additions) < len(strategy.addition_commits):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: some addition commits have already been pushed to the PR but"
+                " deletion commits are not all completed yet."
+            )
+        nb_remaining = len(remaining_deletions) + len(remaining_additions)
+        if len(pr_commits) > 0:
+            logger.info(
+                f"{nb_remaining} commits remaining ({len(remaining_deletions)} deletion commits and"
+                f" {len(remaining_additions)} addition commits)"
+            )
+
+        # 5. Push remaining commits to the PR + update description
+        # TODO: multi-thread this
+        for step in list(remaining_deletions.values()) + list(remaining_additions.values()):
+            # Push new commit
+            self.create_commit(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                commit_message=step.id,
+                revision=pr.git_reference,
+                num_threads=num_threads,
+                operations=step.operations,
+                create_pr=False,
+            )
+            step.completed = True
+            nb_remaining -= 1
+            logger.info(f"  step {step.id} completed (still {nb_remaining} to go).")
+
+            # Update PR description
+            self.edit_discussion_comment(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                discussion_num=pr.num,
+                comment_id=pr_comment.id,
+                new_content=multi_commit_generate_comment(
+                    commit_message=commit_message, commit_description=commit_description, strategy=strategy
+                ),
+            )
+        logger.info("All commits have been pushed.")
+
+        # 6. Update PR (and merge)
+        self.rename_discussion(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            discussion_num=pr.num,
+            new_title=commit_message,
+        )
+        self.change_discussion_status(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            discussion_num=pr.num,
+            new_status="open",
+            comment=MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
+        )
+        logger.info("PR is now open for reviews.")
+
+        if merge_pr:  # User don't want a PR => merge it
+            try:
+                self.merge_pull_request(
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    token=token,
+                    discussion_num=pr.num,
+                    comment=MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
+                )
+                logger.info("PR has been automatically merged (`merge_pr=True` was passed).")
+            except BadRequestError as error:
+                if error.server_message is not None and "no associated changes" in error.server_message:
+                    # PR cannot be merged as no changes are associated. We close the PR without merging with a comment to
+                    # explain.
+                    self.change_discussion_status(
+                        repo_id=repo_id,
+                        repo_type=repo_type,
+                        token=token,
+                        discussion_num=pr.num,
+                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
+                        new_status="closed",
+                    )
+                    logger.warning("Couldn't merge the PR: no associated changes.")
+                else:
+                    # PR cannot be merged for another reason (conflicting files for example). We comment the PR to explain
+                    # and re-raise the exception.
+                    self.comment_discussion(
+                        repo_id=repo_id,
+                        repo_type=repo_type,
+                        token=token,
+                        discussion_num=pr.num,
+                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE.format(
+                            error_message=error.server_message
+                        ),
+                    )
+                    raise MultiCommitException(
+                        f"Couldn't merge Pull Request in multi-commit: {error.server_message}"
+                    ) from error
+
+        return pr.url
+
     @validate_hf_hub_args
     def upload_file(
         self,
@@ -2588,9 +2908,11 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
     ):
         """
-        Upload a local folder to the given repo. The upload is done through a HTTP request and doesn't require git or
+        Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
 
         The structure of the folder will be preserved. Files with the same name already present in the repository will
@@ -2604,7 +2926,7 @@ class HfApi:
         Use the `delete_patterns` argument to specify remote files you want to delete. Input type is the same as for
         `allow_patterns` (see above). If `path_in_repo` is also provided, the patterns are matched against paths
         relative to this folder. For example, `upload_folder(..., path_in_repo="experiment", delete_patterns="logs/*")`
-        will delete any remote file under `experiment/logs/`. Note that the `.gitattributes` file will not be deleted
+        will delete any remote file under `./experiment/logs/`. Note that the `.gitattributes` file will not be deleted
         even if it matches the patterns.
 
         Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
@@ -2636,11 +2958,11 @@ class HfApi:
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request with that commit. Defaults to `False`.
-                If `revision` is not set, PR is opened against the `"main"` branch. If
-                `revision` is set and is a branch, PR is opened against this branch. If
-                `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
+                set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
+                against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server. If both `multi_commits` and `create_pr` are True,
+                the PR created in the multi-commit process is kept opened.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -2655,6 +2977,10 @@ class HfApi:
                 If provided, remote files matching any of the patterns will be deleted from the repo while committing
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
+            multi_commits (`bool`):
+                If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
+            multi_commits_verbose (`bool`):
+                If True and `multi_commits` is used, more information will be displayed to the user.
 
         Returns:
             `str`: A URL to visualize the uploaded folder on the hub
@@ -2675,6 +3001,12 @@ class HfApi:
         `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
         sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
         it first using [`~hf_api.create_repo`].
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `multi_commits` is experimental. Its API and behavior is subject to change in the future without prior notice.
 
         </Tip>
 
@@ -2713,12 +3045,16 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
+        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
 
         ```
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+
+        if multi_commits:
+            if revision is not None and revision != DEFAULT_REVISION:
+                raise ValueError("Cannot use `multi_commit` to commit changes other than the main branch.")
 
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
@@ -2730,10 +3066,6 @@ class HfApi:
         elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
         ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
-
-        commit_message = (
-            commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
-        )
 
         delete_operations = self._prepare_upload_folder_deletions(
             repo_id=repo_id,
@@ -2758,20 +3090,37 @@ class HfApi:
             ]
         commit_operations = delete_operations + add_operations
 
-        commit_info = self.create_commit(
-            repo_type=repo_type,
-            repo_id=repo_id,
-            operations=commit_operations,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            token=token,
-            revision=revision,
-            create_pr=create_pr,
-            parent_commit=parent_commit,
-        )
+        pr_url: Optional[str]
+        commit_message = commit_message or "Upload folder using huggingface_hub"
+        if multi_commits:
+            addition_commits, deletion_commits = plan_multi_commits(operations=commit_operations)
+            pr_url = self.create_commits_on_pr(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                addition_commits=addition_commits,
+                deletion_commits=deletion_commits,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                merge_pr=not create_pr,
+                verbose=multi_commits_verbose,
+            )
+        else:
+            commit_info = self.create_commit(
+                repo_type=repo_type,
+                repo_id=repo_id,
+                operations=commit_operations,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                revision=revision,
+                create_pr=create_pr,
+                parent_commit=parent_commit,
+            )
+            pr_url = commit_info.pr_url
 
-        if commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+        if create_pr and pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
@@ -3275,6 +3624,7 @@ class HfApi:
                     repo_id=discussion["repo"]["name"],
                     repo_type=discussion["repo"]["type"],
                     is_pull_request=discussion["isPullRequest"],
+                    endpoint=self.endpoint,
                 )
             page_index = page_index + 1
 
@@ -3351,6 +3701,7 @@ class HfApi:
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
+            endpoint=self.endpoint,
         )
 
     @validate_hf_hub_args
@@ -3981,7 +4332,14 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def request_space_hardware(self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None) -> None:
+    def request_space_hardware(
+        self,
+        repo_id: str,
+        hardware: SpaceHardware,
+        *,
+        token: Optional[str] = None,
+        sleep_time: Optional[int] = None,
+    ) -> SpaceRuntime:
         """Request new hardware for a Space.
 
         Args:
@@ -3991,6 +4349,13 @@ class HfApi:
                 Hardware on which to run the Space. Example: `"t4-medium"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         <Tip>
 
@@ -3998,19 +4363,80 @@ class HfApi:
 
         </Tip>
         """
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                (
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
+                ),
+                UserWarning,
+            )
+        payload: Dict[str, Any] = {"flavor": hardware}
+        if sleep_time is not None:
+            payload["sleepTimeSeconds"] = sleep_time
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
             headers=self._build_hf_headers(token=token),
-            json={"flavor": hardware},
+            json=payload,
         )
         hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def set_space_sleep_time(self, repo_id: str, sleep_time: int, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Set a custom sleep time for a Space running on upgraded hardware..
+
+        Your Space will go to sleep after X seconds of inactivity. You are not billed when your Space is in "sleep"
+        mode. If a new visitor lands on your Space, it will "wake it up". Only upgraded hardware can have a
+        configurable sleep time. To know more about the sleep stage, please refer to
+        https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to pause (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
+
+        </Tip>
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
+            headers=self._build_hf_headers(token=token),
+            json={"seconds": sleep_time},
+        )
+        hf_raise_for_status(r)
+        runtime = SpaceRuntime(r.json())
+
+        hardware = runtime.requested_hardware or runtime.hardware
+        if hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                (
+                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
+                ),
+                UserWarning,
+            )
+        return runtime
 
     @validate_hf_hub_args
     def pause_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Pause your Space.
 
         A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
-        state in which free Spaces go after 72h of inactivity. Paused time is not billed to your account, no matter the
+        state in which free Spaces go after 48h of inactivity. Paused time is not billed to your account, no matter the
         hardware you've selected. To restart your Space, use [`restart_space`] and go to your Space settings page.
 
         For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
@@ -4086,7 +4512,7 @@ class HfApi:
         private: Optional[bool] = None,
         token: Optional[str] = None,
         exist_ok: bool = False,
-    ) -> str:
+    ) -> RepoUrl:
         """Duplicate a Space.
 
         Programmatically duplicate a Space. The new Space will be created in your account and will be in the same state
@@ -4311,6 +4737,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+create_commits_on_pr = api.create_commits_on_pr
 create_branch = api.create_branch
 delete_branch = api.delete_branch
 create_tag = api.create_tag
@@ -4338,6 +4765,7 @@ add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
+set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_space = api.duplicate_space

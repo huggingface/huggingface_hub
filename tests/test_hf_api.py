@@ -955,21 +955,9 @@ class HfApiUploadEmptyFileTest(HfApiCommonTest):
         cls._api.delete_repo(repo_id=cls.repo_id)
         super().tearDownClass()
 
-    def test_upload_empty_regular_file(self) -> None:
-        with self.assertWarns(UserWarning):
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.txt", path_or_fileobj=b"")
-
-    def test_upload_empty_gitkeep_file(self) -> None:
-        # No warning in case of .gitkeep file
-        with warnings.catch_warnings(record=True) as w:
-            # Taken from https://stackoverflow.com/a/3892301
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="foo/.gitkeep", path_or_fileobj=b"")
-        self.assertEqual(len(w), 0)
-
     def test_upload_empty_lfs_file(self) -> None:
         # Should have been an LFS file, but uploaded as regular (would fail otherwise)
-        with self.assertWarns(UserWarning):
-            self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.pkl", path_or_fileobj=b"")
+        self._api.upload_file(repo_id=self.repo_id, path_in_repo="empty.pkl", path_or_fileobj=b"")
         info = self._api.repo_info(repo_id=self.repo_id, files_metadata=True)
 
         repo_file = {file.rfilename: file for file in info.siblings}["empty.pkl"]
@@ -2298,7 +2286,17 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
-        self.post_mock.return_value.json.return_value = {"url": f"{self.api.endpoint}/spaces/user/repo_id"}
+        self.post_mock.return_value.json.return_value = {
+            "url": f"{self.api.endpoint}/spaces/user/repo_id",
+            "stage": "RUNNING",
+            "sdk": "gradio",
+            "sdkVersion": "3.17.0",
+            "hardware": {
+                "current": "t4-medium",
+                "requested": "t4-medium",
+            },
+            "gcTimeout": None,
+        }
         self.patcher = patch("huggingface_hub.hf_api.get_session", get_session_mock)
         self.patcher.start()
 
@@ -2325,13 +2323,34 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
-    def test_request_space_hardware(self) -> None:
+    def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
             headers=self.api._build_hf_headers(),
             json={"flavor": "t4-medium"},
         )
+
+    def test_request_space_hardware_with_sleep_time(self) -> None:
+        self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM, sleep_time=123)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/hardware",
+            headers=self.api._build_hf_headers(),
+            json={"flavor": "t4-medium", "sleepTimeSeconds": 123},
+        )
+
+    def test_set_space_sleep_time_upgraded_hardware(self) -> None:
+        self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/sleeptime",
+            headers=self.api._build_hf_headers(),
+            json={"seconds": 123},
+        )
+
+    def test_set_space_sleep_time_cpu_basic(self) -> None:
+        self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
+        with self.assertWarns(UserWarning):
+            self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
 
 
 class ListGitRefsTest(unittest.TestCase):

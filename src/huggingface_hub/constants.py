@@ -110,6 +110,9 @@ HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
 HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING"))
 
+# Disable warning when using experimental features
+HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_EXPERIMENTAL_WARNING"))
+
 # Disable sending the cached token by default is all HTTP requests to the Hub
 HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
 
