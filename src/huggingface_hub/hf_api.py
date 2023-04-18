@@ -920,8 +920,7 @@ class HfApi:
                 A string which identify the author (user or organization) of the
                 returned models
             search (`str`, *optional*):
-                A string that will be contained in the returned models Example
-                usage:
+                A string that will be contained in the returned model ids.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
