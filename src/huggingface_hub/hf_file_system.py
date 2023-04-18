@@ -417,10 +417,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.invalidate_cache(path=resolved_path2.unresolve())
 
     def modified(self, path: str, **kwargs) -> datetime:
-        info = self.info(path, **kwargs)
-        if "last_modified" not in info:
+        path_info = self.info(path, **kwargs)
+        if "last_modified" not in path_info:
             raise IsADirectoryError(path)
-        return info["last_modified"]
+        return path_info["last_modified"]
 
     def info(self, path: str, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path)
