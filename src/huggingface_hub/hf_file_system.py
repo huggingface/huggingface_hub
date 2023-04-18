@@ -305,6 +305,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         else:
             cached_infos = self.dircache[path]
             out.extend(cached_infos)
+            # Use BFS to traverse the cache to build the "recursive "output
+            # - if the cache is incomplete, find the common prefix of the missing entries and extend the output with the result of `_ls_tree(common_prefix, recursive=True)`
             if recursive:
                 dirs_to_visit = deque([path_info for path_info in cached_infos if path_info["type"] == "directory"])
                 dirs_not_in_cache = []
