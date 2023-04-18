@@ -1,10 +1,10 @@
-import itertools
 import os
 import tempfile
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from glob import has_magic
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -54,9 +54,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Usage:
 
     ```python
-    >>> import hffs
+    >>> from huggingface_hub import HfFileSystem
 
-    >>> fs = hffs.HfFileSystem()
+    >>> fs = HfFileSystem()
 
     >>> # List files
     >>> fs.glob("my-username/my-model/*.bin")
@@ -249,85 +249,122 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        if path not in self.dircache or refresh:
-            path_prefix = (
-                HfFileSystemResolvedPath(
-                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
-                ).unresolve()
-                + "/"
-            )
-            tree_path = path
-            tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
-            try:
-                tree_item = next(tree_iter)
-            except EntryNotFoundError:
-                if "/" in resolved_path.path_in_repo:
-                    tree_path = self._parent(path)
-                    tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
-                else:
-                    raise
-            else:
-                tree_iter = itertools.chain([tree_item], tree_iter)
-            child_infos = []
-            for tree_item in tree_iter:
-                child_info = {
-                    "name": path_prefix + tree_item["path"],
-                    "size": tree_item["size"],
-                    "type": tree_item["type"],
-                }
-                if tree_item["type"] == "file":
-                    child_info.update(
-                        {
-                            "blob_id": tree_item["oid"],
-                            "lfs": tree_item.get("lfs"),
-                            "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-                        },
-                    )
-                child_infos.append(child_info)
-            self.dircache[tree_path] = child_infos
-        out = self._ls_from_cache(path)
+        try:
+            out = self._ls_tree(path, refresh=refresh, revision=resolved_path.revision)
+        except EntryNotFoundError:
+            out = self._ls_tree(self._parent(path), refresh=refresh, revision=resolved_path.revision)
+            out = [o for o in out if o["name"] == path]
+            if len(out) == 0:
+                # parent directory does not contain this file/directory
+                raise FileNotFoundError(path) from None
         if not has_revision_in_path:
             out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
         return out if detail else [o["name"] for o in out]
 
-    def _iter_tree(self, path: str, revision: Optional[str] = None, recursive: bool = False):
+    def _ls_tree(self, path: str, recursive: bool = False, refresh: bool = False, revision: Optional[str] = None):
         resolved_path = self.resolve_path(path, revision=revision)
-        path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
-            "/"
+        path = resolved_path.unresolve()
+        path_prefix = (
+            HfFileSystemResolvedPath(
+                resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+            ).unresolve()
+            + "/"
         )
-        headers = self._api._build_hf_headers()
-        params = {"recursive": recursive} if recursive else {}
-        yield from paginate(path, params=params, headers=headers)
 
-    def find(self, path, maxdepth=None, withdirs=False, detail=False, refresh=False, revision: Optional[str] = None, **kwargs) -> List[Union[str, Dict[str, Any]]]:
+        def _iter_repo_tree(resolved_path: HfFileSystemResolvedPath, recursive: bool = False) -> Iterable[Dict]:
+            path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
+                "/"
+            )
+            headers = self._api._build_hf_headers()
+            params = {"recursive": recursive} if recursive else {}
+            yield from paginate(path, params=params, headers=headers)
+
+        def _format_tree_item_as_path_info(tree_item: Dict) -> Dict:
+            path_info = {
+                "name": path_prefix + tree_item["path"],
+                "size": tree_item["size"],
+                "type": tree_item["type"],
+            }
+            if tree_item["type"] == "file":
+                path_info.update(
+                    {
+                        "blob_id": tree_item["oid"],
+                        "lfs": tree_item.get("lfs"),
+                        "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
+                    },
+                )
+            return path_info
+
+        out = []
+        if path not in self.dircache or refresh:
+            for tree_item in _iter_repo_tree(resolved_path, recursive=recursive):
+                path_info = _format_tree_item_as_path_info(tree_item)
+                parent_path = (path_prefix + self._parent(tree_item["path"])).rstrip("/")
+                self.dircache.setdefault(parent_path, []).append(path_info)
+                out.append(path_info)
+        else:
+            cached_infos = self.dircache[path]
+            out.extend(cached_infos)
+            if recursive:
+                dirs_to_visit = deque([path_info for path_info in cached_infos if path_info["type"] == "directory"])
+                dirs_not_in_cache = []
+                while dirs_to_visit:
+                    dir_info = dirs_to_visit.popleft()
+                    if dir_info["name"] not in self.dircache:
+                        dirs_not_in_cache.append(dir_info["name"])
+                    else:
+                        cached_infos = self.dircache[dir_info["name"]]
+                        out.extend(cached_infos)
+                        dirs_to_visit.extend(
+                            [path_info for path_info in cached_infos if path_info["type"] == "directory"]
+                        )
+                if dirs_not_in_cache:
+                    dirs_not_in_cache = [dir_path[len(path_prefix) :] for dir_path in dirs_not_in_cache]
+                    common_path = (path_prefix + os.path.commonpath(dirs_not_in_cache)).rstrip("/")
+                    out = [o for o in out if not o["name"].startswith(common_path)]
+                    self.dircache.pop(common_path, None)
+                    out.extend(
+                        self._ls_tree(common_path, recursive=True, refresh=refresh, revision=resolved_path.revision)
+                    )
+        return out
+
+    def find(
+        self,
+        path,
+        maxdepth=None,
+        withdirs=False,
+        detail=False,
+        refresh=False,
+        revision: Optional[str] = None,
+        **kwargs,
+    ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
         if maxdepth:
-            return super().find(path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs)
+            return super().find(
+                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
+            )
 
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + quote(resolved_path.revision, safe="")
+        revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-
-        if path not in self.dircache or refresh:
-            path_prefix = (
-                HfFileSystemResolvedPath(resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "").unresolve()
-                + "/"
-            )
-            tree_iter = self._iter_tree(path, revision=resolved_path.revision, recursive=True)
-            for tree_item in tree_iter:
-                child_info = {
-                    "name": path_prefix + tree_item["path"],
-                    "size": tree_item["size"],
-                    "type": tree_item["type"],
-                }
-                if tree_item["type"] == "file":
-                    child_info.update(
-                        {
-                            "blob_id": tree_item["oid"],
-                            "lfs": tree_item.get("lfs"),
-                            "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-                        },
-                    )
+        try:
+            out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision)
+        except EntryNotFoundError:
+            out = {}
+            if self.info(path, revision=resolved_path.revision)["type"] == "file":
+                path = path.replace(revision_in_path, "", 1) if not has_revision_in_path else path
+                out = {path: {}}
+        else:
+            if not withdirs:
+                out = [o for o in out if o["type"] != "directory"]
+            if not has_revision_in_path:
+                out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
+            out = {o["name"]: o for o in out}
+        names = sorted(out)
+        if not detail:
+            return names
+        else:
+            return {name: out[name] for name in names}
 
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
