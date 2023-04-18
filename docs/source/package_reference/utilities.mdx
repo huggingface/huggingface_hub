@@ -94,8 +94,8 @@ True
 In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
 `huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
 then use your settings. Under the hood, `huggingface_hub` uses `requests.Session` so you might want to refer to the
-[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the parameters
-available.
+[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the available
+parameters.
 
 Since `requests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
 Using sessions allows us to keep the connection open between HTTP calls and ultimately save time. If you are

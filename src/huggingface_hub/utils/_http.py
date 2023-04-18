@@ -16,10 +16,9 @@
 import io
 import threading
 import time
-from dataclasses import dataclass
 from functools import lru_cache
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Callable, Tuple, Type, Union
 
 import requests
 from requests import Response
@@ -31,106 +30,73 @@ from ._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
+BACKEND_FACTORY_T = Callable[[], requests.Session]
+_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = requests.Session
 
-@dataclass
-class SessionParameters:
-    """Data structure containing configuration for `requests.Session`.
 
-    Visit the [`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) for a description of
-    each parameter.
+def configure_http_backend(backend_factory: BACKEND_FACTORY_T = requests.Session) -> None:
     """
-
-    headers: Optional[Dict[str, Any]] = None
-    auth: Optional[Any] = None
-    proxies: Optional[Dict[str, Any]] = None
-    hooks: Optional[Dict[str, list]] = None
-    verify: Optional[bool] = None
-    cert: Optional[Union[str, Tuple[str, str]]] = None
-    max_redirects: Optional[int] = None
-    trust_env: Optional[bool] = None
-
-
-_GLOBAL_SESSION_PARAMETERS = SessionParameters()
-
-
-def configure_http_backend(
-    headers: Optional[Dict[str, Any]] = None,
-    auth: Optional[Any] = None,
-    proxies: Optional[Dict[str, Any]] = None,
-    hooks: Optional[Dict[str, list]] = None,
-    verify: Optional[bool] = None,
-    cert: Optional[Union[str, Tuple[str, str]]] = None,
-    max_redirects: Optional[int] = None,
-    trust_env: Optional[bool] = None,
-) -> None:
-    """
-    Configure the HTTP backend. All HTTP calls from `huggingface_hub` will use these settings. This can be useful if
-    you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or
-    certifications).
-
-    To get a list of all available parameters, you can refer to the official [`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced).
-    Any parameter left to `None` will default to the default value from `requests`.
+    Configure the HTTP backend by providing a `backend_factory`. Any HTTP calls made by `huggingface_hub` will use a
+    Session object instantiated by this factory. This can be useful if you are running your scripts in a specific
+    environment requiring custom configuration (e.g. custom proxy or certifications).
 
     Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
-    `huggingface_hub` creates 1 Session instance per thread. They all share the same initial configuration set in
-    [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between calls. Max
-    size is 128 to avoid memory leaks if thousands of threads are spawned.
+    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
+    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
+    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
 
     See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
 
     Example:
     ```py
+    import requests
     from huggingface_hub import configure_http_backend, get_session
 
-    # Configure proxy
-    configure_http_backend(
-        proxies={"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"},
-    )
+    # Create a factory function that returns a Session with configured proxies
+    def backend_factory() -> requests.Session:
+        session = requests.Session()
+        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
+        return session
+
+    # Set it as the default session factory
+    configure_http_backend(backend_factory=backend_factory)
 
     # In practice, this is mostly done internally in `huggingface_hub`
-    session = get_session().get("https://huggingface.co/api/models/gpt2")
+    session = get_session()
     ```
     """
-    global _GLOBAL_SESSION_PARAMETERS
-    _GLOBAL_SESSION_PARAMETERS = SessionParameters(
-        headers=headers,
-        auth=auth,
-        proxies=proxies,
-        hooks=hooks,
-        verify=verify,
-        cert=cert,
-        max_redirects=max_redirects,
-        trust_env=trust_env,
-    )
+    global _GLOBAL_BACKEND_FACTORY
+    _GLOBAL_BACKEND_FACTORY = backend_factory
     _get_session_from_cache.cache_clear()
-
-
-def get_http_backend_configuration() -> SessionParameters:
-    return _GLOBAL_SESSION_PARAMETERS
 
 
 def get_session() -> requests.Session:
     """
-    Get a `requests.Session` object, using configuration from the user.
+    Get a `requests.Session` object, using the session factory from the user.
 
     Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
-    `huggingface_hub` creates 1 Session instance per thread. They all share the same initial configuration set in
-    [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between calls. Max
-    size is 128 to avoid memory leaks if thousands of threads are spawned.
+    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
+    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
+    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
 
     See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
 
     Example:
     ```py
+    import requests
     from huggingface_hub import configure_http_backend, get_session
 
-    # Configure proxy
-    configure_http_backend(
-        proxies={"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"},
-    )
+    # Create a factory function that returns a Session with configured proxies
+    def backend_factory() -> requests.Session:
+        session = requests.Session()
+        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
+        return session
+
+    # Set it as the default session factory
+    configure_http_backend(backend_factory=backend_factory)
 
     # In practice, this is mostly done internally in `huggingface_hub`
-    session = get_session().get("https://huggingface.co/api/models/gpt2")
+    session = get_session()
     ```
     """
     return _get_session_from_cache(thread_ident=threading.get_ident())
@@ -139,30 +105,10 @@ def get_session() -> requests.Session:
 @lru_cache(maxsize=128)  # default value for Python>=3.8. Let's keep the same for Python3.7
 def _get_session_from_cache(thread_ident: int) -> requests.Session:
     """
-    Create a new session per thread using global parameters. Using LRU cache (maxsize 128) to avoid memory leaks when
+    Create a new session per thread using global factory. Using LRU cache (maxsize 128) to avoid memory leaks when
     using thousands of threads. Cache is cleared when `configure_http_backend` is called.
     """
-    session = requests.Session()
-    parameters = _GLOBAL_SESSION_PARAMETERS
-
-    if parameters.headers is not None:
-        session.headers.update(parameters.headers)
-    if parameters.auth is not None:
-        session.auth = parameters.auth
-    if parameters.proxies is not None:
-        session.proxies.update(parameters.proxies)
-    if parameters.hooks is not None:
-        session.hooks.update(parameters.hooks)
-    if parameters.verify is not None:
-        session.verify = parameters.verify
-    if parameters.cert is not None:
-        session.cert = parameters.cert
-    if parameters.max_redirects is not None:
-        session.max_redirects = parameters.max_redirects
-    if parameters.trust_env is not None:
-        session.trust_env = parameters.trust_env
-
-    return session
+    return _GLOBAL_BACKEND_FACTORY()
 
 
 def http_backoff(

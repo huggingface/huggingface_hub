@@ -4,13 +4,10 @@ import unittest
 from typing import Generator
 from unittest.mock import Mock, call, patch
 
+import requests
 from requests import ConnectTimeout, HTTPError
 
-from huggingface_hub.utils._http import (
-    configure_http_backend,
-    get_session,
-    http_backoff,
-)
+from huggingface_hub.utils._http import configure_http_backend, get_session, http_backoff
 
 
 URL = "https://www.google.com"
@@ -148,6 +145,12 @@ class TestConfigureSession(unittest.TestCase):
         # Clear all sessions after tests
         configure_http_backend()
 
+    @staticmethod
+    def _factory() -> requests.Session:
+        session = requests.Session()
+        session.headers.update({"x-test-header": 4})
+        return session
+
     def test_default_configuration(self) -> None:
         session = get_session()
         self.assertEqual(session.headers["connection"], "keep-alive")  # keep connection alive by default
@@ -160,31 +163,12 @@ class TestConfigureSession(unittest.TestCase):
         self.assertEqual(session.hooks, {"response": []})
 
     def test_set_configuration(self) -> None:
-        configure_http_backend(
-            headers={"x-test-header": 4},
-            auth="some auth",
-            proxies={"http": "127.0.0.1:300"},
-            hooks={"something": ["some hook"]},  # invalid, but it's just an example
-            verify=False,
-            cert="path/to/cart.pem",
-            max_redirects=72,
-            trust_env=False,
-        )
+        configure_http_backend(backend_factory=self._factory)
+
+        # Check headers have been set correctly
         session = get_session()
-
-        self.assertEqual(session.auth, "some auth")
-        self.assertEqual(session.proxies, {"http": "127.0.0.1:300"})  # default value is an empty dict
-        self.assertEqual(session.verify, False)
-        self.assertEqual(session.cert, "path/to/cart.pem")
-        self.assertEqual(session.max_redirects, 72)
-        self.assertEqual(session.trust_env, False)
-
-        # Header and hooks are not overwritten but updated
         self.assertNotEqual(session.headers, {"x-test-header": 4})
         self.assertEqual(session.headers["x-test-header"], 4)
-
-        self.assertNotEqual(session.hooks, {"something": ["some hook"]})
-        self.assertEqual(session.hooks["something"], ["some hook"])
 
     def test_get_session_twice(self):
         session_1 = get_session()
@@ -194,12 +178,12 @@ class TestConfigureSession(unittest.TestCase):
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
         session_1 = get_session()
-        configure_http_backend(auth="some auth")
+        configure_http_backend(backend_factory=self._factory)
 
         session_2 = get_session()
         self.assertIsNot(session_1, session_2)
-        self.assertIsNone(session_1.auth)
-        self.assertEqual(session_2.auth, "some auth")
+        self.assertIsNone(session_1.headers.get("x-test-header"))
+        self.assertEqual(session_2.headers["x-test-header"], 4)
 
     def test_get_session_multiple_threads(self):
         N = 3
