@@ -160,6 +160,7 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "like",
         "list_datasets",
+        "list_files_info",
         "list_liked_repos",
         "list_metrics",
         "list_models",
@@ -445,6 +446,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         like,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_files_info,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401

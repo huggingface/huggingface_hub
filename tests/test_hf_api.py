@@ -1019,6 +1019,116 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
             )
 
 
+class HfApiListFilesInfoTest(HfApiCommonTest):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.repo_id = cls._api.create_repo(repo_id=repo_name()).repo_id
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="A first repo",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/2/file_1_2.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_2.md"),
+            ],
+        )
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="Another commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data2", path_in_repo="3/file_3.md"),
+            ],
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._api.delete_repo(repo_id=cls.repo_id)
+
+    def test_get_regular_file_info(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="file.md"))
+        self.assertEqual(len(files), 1)
+        file = files[0]
+
+        self.assertEqual(file.rfilename, "file.md")
+        self.assertIsNone(file.lfs)
+        self.assertEqual(file.size, 4)
+        self.assertEqual(file.blob_id, "6320cd248dd8aeaab759d5871f8781b5c0505172")
+
+    def test_get_lfs_file_info(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="lfs.bin"))
+        self.assertEqual(len(files), 1)
+        file = files[0]
+
+        self.assertEqual(file.rfilename, "lfs.bin")
+        self.assertEqual(
+            file.lfs,
+            {
+                "size": 4,
+                "sha256": "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
+                "pointer_size": 126,
+            },
+        )
+        self.assertEqual(file.size, 4)
+        self.assertEqual(file.blob_id, "0a828055346279420bd02a4221c177bbcdc045d8")
+
+    def test_list_files(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2/file_2.md"]))
+        self.assertEqual(len(files), 3)
+        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+
+    def test_list_files_and_folder(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2"]))
+        self.assertEqual(len(files), 3)
+        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+
+    def test_list_unknown_path_among_other(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "unknown"]))
+        self.assertEqual(len(files), 1)
+
+    def test_list_unknown_path_alone(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="unknown"))
+        self.assertEqual(len(files), 0)
+
+    def test_list_folder_flat(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["2"]))
+        self.assertEqual(len(files), 1)
+        self.assertEqual(files[0].rfilename, "2/file_2.md")
+
+    def test_list_folder_recursively(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["1"]))
+        self.assertEqual(len(files), 2)
+        self.assertEqual({f.rfilename for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
+
+    def test_list_repo_files_manually(self):
+        files = list(self._api.list_files_info(repo_id=self.repo_id))
+        self.assertEqual(len(files), 7)
+        self.assertEqual(
+            {f.rfilename for f in files},
+            {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
+        )
+
+    def test_list_repo_files_alias(self):
+        self.assertEqual(
+            set(self._api.list_repo_files(repo_id=self.repo_id)),
+            {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
+        )
+
+    def test_list_with_root_path_is_ignored(self):
+        # must use `paths=None`
+        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="/"))
+        self.assertEqual(len(files), 0)
+
+    def test_list_with_empty_path_is_invalid(self):
+        # must use `paths=None`
+        with self.assertRaises(BadRequestError):
+            list(self._api.list_files_info(repo_id=self.repo_id, paths=""))
+
+
 class HfApiTagEndpointTest(HfApiCommonTest):
     @retry_endpoint
     @use_tmp_repo("model")
