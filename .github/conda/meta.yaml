@@ -14,6 +14,7 @@ requirements:
   host:
     - python
     - pip
+    - fsspec
     - filelock
     - requests
     - tqdm
