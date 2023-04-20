@@ -483,7 +483,7 @@ def http_get(
                 logger.debug(f"Download {url} using HF_TRANSFER.")
                 max_files = 100
                 chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size)
+                download(url, temp_file.name, max_files, chunk_size, headers=headers)
                 return
             except ImportError:
                 raise ValueError(
