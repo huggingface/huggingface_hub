@@ -25,7 +25,6 @@ from requests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
-from .testing_utils import expect_deprecation
 from huggingface_hub.constants import (
     CONFIG_NAME,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -66,6 +65,7 @@ from .testing_utils import (
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
     OfflineSimulationMode,
+    expect_deprecation,
     offline,
     repo_name,
     with_production_testing,
