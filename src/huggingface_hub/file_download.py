@@ -469,6 +469,7 @@ def http_get(
     headers: Optional[Dict[str, str]] = None,
     timeout=10.0,
     max_retries=0,
+    check_file_consistency: bool = False,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -512,6 +513,9 @@ def http_get(
     )
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
+
+    # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file. If the file is
+    #       compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
     displayed_name = url
@@ -539,7 +543,7 @@ def http_get(
             progress.update(len(chunk))
             temp_file.write(chunk)
 
-    if total is not None and total != temp_file.tell():
+    if check_file_consistency and total is not None and total != temp_file.tell():
         raise EnvironmentError(
             f"Consistency check failed: file should be of size {total} but has size"
             f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
@@ -1350,6 +1354,9 @@ def hf_hub_download(
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
+                # File is downloaded from the Hub -> we know the Content-Length header will be accurate
+                # TODO: test and revisit this when we add compression on the resolve endpoints
+                check_file_consistency=True,
             )
 
         if local_dir is None:
