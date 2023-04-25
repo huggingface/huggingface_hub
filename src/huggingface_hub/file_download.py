@@ -469,7 +469,7 @@ def http_get(
     headers: Optional[Dict[str, str]] = None,
     timeout=10.0,
     max_retries=0,
-    check_file_consistency: bool = False,
+    expected_size: Optional[int] = None,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -514,8 +514,9 @@ def http_get(
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
 
-    # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file. If the file is
-    #       compressed, the number of bytes in the saved file will be higher than 'total'.
+    # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
+    #       If the file is already partially downloaded, 'total' will be higher than the number of bytes to download.
+    #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
     displayed_name = url
@@ -543,9 +544,9 @@ def http_get(
             progress.update(len(chunk))
             temp_file.write(chunk)
 
-    if check_file_consistency and total is not None and total != temp_file.tell():
+    if expected_size is not None and expected_size != temp_file.tell():
         raise EnvironmentError(
-            f"Consistency check failed: file should be of size {total} but has size"
+            f"Consistency check failed: file should be of size {expected_size} but has size"
             f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
             " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
             " know by opening an issue on https://github.com/huggingface/huggingface_hub."
@@ -648,8 +649,8 @@ def cached_download(
     if not legacy_cache_layout:
         warnings.warn(
             (
-                "`cached_download` is the legacy way to download files from the HF hub,"
-                " please consider upgrading to `hf_hub_download`"
+                "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
+                " 'hf_hub_download'"
             ),
             FutureWarning,
         )
@@ -670,8 +671,12 @@ def cached_download(
 
     url_to_download = url
     etag = None
+    expected_size = None
     if not local_files_only:
         try:
+            # Temporary header: we want the full (decompressed) content size returned to be able to check the
+            # downloaded file size
+            headers["Accept-Encoding"] = "identity"
             r = _request_wrapper(
                 method="HEAD",
                 url=url,
@@ -681,6 +686,7 @@ def cached_download(
                 proxies=proxies,
                 timeout=etag_timeout,
             )
+            headers.pop("Accept-Encoding", None)
             hf_raise_for_status(r)
             etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
@@ -690,6 +696,8 @@ def cached_download(
                 raise OSError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
+            # We get the expected size of the file, to check the download went well.
+            expected_size = _int_or_none(r.headers.get("Content-Length"))
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
@@ -795,6 +803,7 @@ def cached_download(
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
+                expected_size=expected_size,
             )
 
         logger.info("storing %s in cache at %s", url, cache_path)
@@ -1179,6 +1188,7 @@ def hf_hub_download(
     url_to_download = url
     etag = None
     commit_hash = None
+    expected_size = None
     if not local_files_only:
         try:
             try:
@@ -1212,6 +1222,9 @@ def hf_hub_download(
                 raise OSError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
+
+            # Expected (uncompressed) size
+            expected_size = metadata.size
 
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
@@ -1354,9 +1367,7 @@ def hf_hub_download(
                 proxies=proxies,
                 resume_size=resume_size,
                 headers=headers,
-                # File is downloaded from the Hub -> we know the Content-Length header will be accurate
-                # TODO: test and revisit this when we add compression on the resolve endpoints
-                check_file_consistency=True,
+                expected_size=expected_size,
             )
 
         if local_dir is None:
@@ -1515,6 +1526,7 @@ def get_hf_file_metadata(
         commit_hash.
     """
     headers = build_hf_headers(token=token)
+    headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
     r = _request_wrapper(

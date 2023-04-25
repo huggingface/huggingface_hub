@@ -25,6 +25,7 @@ from requests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
+from .testing_utils import expect_deprecation
 from huggingface_hub.constants import (
     CONFIG_NAME,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -528,6 +529,21 @@ class CachedDownloadTests(unittest.TestCase):
             with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
                 with self.assertRaises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
+
+    @expect_deprecation("cached_download")
+    def test_cached_download_from_github(self):
+        """Regression test.
+
+        File consistency check was failing due to compression in HTTP request which made the expected size smaller than
+        the actual one. `cached_download` is deprecated but still heavily used so we need to make sure it works.
+
+        See https://github.com/huggingface/diffusers/issues/3213."""
+        with SoftTemporaryDirectory() as cache_dir:
+            cached_download(
+                url="https://raw.githubusercontent.com/huggingface/diffusers/v0.15.1/examples/community/lpw_stable_diffusion.py",
+                token=None,
+                cache_dir=cache_dir,
+            )
 
 
 @with_production_testing
