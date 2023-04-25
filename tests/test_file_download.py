@@ -33,10 +33,10 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
+    HfFileMetadata,
     _create_symlink,
     _get_pointer_path,
     _normalize_etag,
-    _request_wrapper,
     _to_local_dir,
     cached_download,
     filename_to_url,
@@ -504,12 +504,16 @@ class CachedDownloadTests(unittest.TestCase):
         See https://github.com/huggingface/huggingface_hub/pull/1396."""
         with SoftTemporaryDirectory() as cache_dir:
 
-            def _mocked_request_wrapper(*args, **kwargs):
-                response = _request_wrapper(*args, **kwargs)
-                response.headers["Content-Length"] = "450"  # will expect 450 bytes but will download 496 bytes
-                return response
+            def _mocked_hf_file_metadata(*args, **kwargs):
+                metadata = get_hf_file_metadata(*args, **kwargs)
+                return HfFileMetadata(
+                    commit_hash=metadata.commit_hash,
+                    etag=metadata.etag,
+                    location=metadata.location,
+                    size=450,  # will expect 450 bytes but will download 496 bytes
+                )
 
-            with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
+            with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
                 with self.assertRaises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir)
 
@@ -521,12 +525,16 @@ class CachedDownloadTests(unittest.TestCase):
         See https://github.com/huggingface/huggingface_hub/pull/1396."""
         with SoftTemporaryDirectory() as cache_dir:
 
-            def _mocked_request_wrapper(*args, **kwargs):
-                response = _request_wrapper(*args, **kwargs)
-                response.headers["Content-Length"] = "65000"  # will expect 65000 bytes but will download 65074 bytes
-                return response
+            def _mocked_hf_file_metadata(*args, **kwargs):
+                metadata = get_hf_file_metadata(*args, **kwargs)
+                return HfFileMetadata(
+                    commit_hash=metadata.commit_hash,
+                    etag=metadata.etag,
+                    location=metadata.location,
+                    size=65000,  # will expect 65000 bytes but will download 65074 bytes
+                )
 
-            with patch("huggingface_hub.file_download._request_wrapper", _mocked_request_wrapper):
+            with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
                 with self.assertRaises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
