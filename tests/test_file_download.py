@@ -532,12 +532,15 @@ class CachedDownloadTests(unittest.TestCase):
 
     @expect_deprecation("cached_download")
     def test_cached_download_from_github(self):
-        """Regression test.
+        """Regression test for #1449.
 
         File consistency check was failing due to compression in HTTP request which made the expected size smaller than
         the actual one. `cached_download` is deprecated but still heavily used so we need to make sure it works.
 
-        See https://github.com/huggingface/diffusers/issues/3213."""
+        See:
+        - https://github.com/huggingface/huggingface_hub/issues/1449.
+        - https://github.com/huggingface/diffusers/issues/3213.
+        """
         with SoftTemporaryDirectory() as cache_dir:
             cached_download(
                 url="https://raw.githubusercontent.com/huggingface/diffusers/v0.15.1/examples/community/lpw_stable_diffusion.py",
