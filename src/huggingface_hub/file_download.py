@@ -515,7 +515,6 @@ def http_get(
     content_length = r.headers.get("Content-Length")
 
     # NOTE: 'total' is the total number of bytes to download, not the number of bytes in the file.
-    #       If the file is already partially downloaded, 'total' will be higher than the number of bytes to download.
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
