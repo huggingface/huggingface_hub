@@ -46,19 +46,18 @@ def _filter_emissions(
         maximum_threshold = math.inf
 
     for model in models:
-        # Check ModelInfo format
-        if not hasattr(model, "cardData"):
-            continue
-        if not isinstance(model.cardData, dict):
+        card_data = getattr(model, "cardData", None)
+        if card_data is None or not isinstance(card_data, dict):
             continue
 
         # Get CO2 emission metadata
-        emission = model.cardData.get("co2_eq_emissions", None)
+        emission = card_data.get("co2_eq_emissions", None)
         if isinstance(emission, dict):
             emission = emission["emissions"]
         if not emission:
             continue
 
+        # Filter out if value is missing or out of range
         matched = re.search(r"\d+\.\d+|\d+", str(emission))
         if matched is None:
             continue
