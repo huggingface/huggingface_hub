@@ -49,7 +49,6 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
     CommitInfo,
     DatasetInfo,
-    DatasetSearchArguments,
     HfApi,
     MetricInfo,
     ModelInfo,
@@ -91,7 +90,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     require_git_lfs,
     retry_endpoint,
@@ -1384,23 +1382,20 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def setUp(self) -> None:
         self._api = HfApi()
 
-    @expect_deprecation("list_models")
     def test_list_models(self):
-        models = self._api.list_models()
+        models = list(self._api.list_models(limit=500))
         self.assertGreater(len(models), 100)
         self.assertIsInstance(models[0], ModelInfo)
 
-    @expect_deprecation("list_models")
     def test_list_models_author(self):
-        models = self._api.list_models(author="google")
+        models = list(self._api.list_models(author="google"))
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
         for model in models:
             self.assertTrue(model.modelId.startswith("google/"))
 
-    @expect_deprecation("list_models")
     def test_list_models_search(self):
-        models = self._api.list_models(search="bert")
+        models = list(self._api.list_models(search="bert"))
         self.assertGreater(len(models), 10)
         self.assertIsInstance(models[0], ModelInfo)
         for model in models[:10]:
@@ -1409,12 +1404,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
-    @expect_deprecation("list_models")
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = self._api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10)
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10))
         # we have at least 1 models
         self.assertGreater(len(models), 1)
         self.assertLessEqual(len(models), 10)
@@ -1479,108 +1473,84 @@ class HfApiPublicProductionTest(unittest.TestCase):
         ]
         self.assertListEqual(files, expected_files)
 
-    @expect_deprecation("list_datasets")
     def test_list_datasets_no_filter(self):
-        datasets = self._api.list_datasets()
+        datasets = list(self._api.list_datasets(limit=500))
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_author_and_name(self):
         f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
-        datasets = self._api.list_datasets(filter=f)
+        datasets = list(self._api.list_datasets(filter=f))
         self.assertEqual(len(datasets), 1)
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
 
-    @unittest.skip(
-        "DatasetFilter is currently broken. See"
-        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
-        " it's fixed."
-    )
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_benchmark(self):
         f = DatasetFilter(benchmark="raft")
-        datasets = self._api.list_datasets(filter=f)
+        datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("benchmark:raft" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_language_creator(self):
         f = DatasetFilter(language_creators="crowdsourced")
-        datasets = self._api.list_datasets(filter=f)
+        datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
-    @unittest.skip(
-        "DatasetFilter is currently broken. See"
-        " https://github.com/huggingface/huggingface_hub/pull/1250. Skip test until"
-        " it's fixed."
-    )
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_language_only(self):
-        datasets = self._api.list_datasets(filter=DatasetFilter(language="en"))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(language="en"), limit=100))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language:en" in datasets[0].tags)
 
-        args = DatasetSearchArguments(api=self._api)
-        datasets = self._api.list_datasets(filter=DatasetFilter(language=(args.language.en, args.language.fr)))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(language=("en", "fr")), limit=100))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language:en" in datasets[0].tags)
         self.assertTrue("language:fr" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_multilinguality(self):
-        datasets = self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual"))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_size_categories(self):
-        datasets = self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M"))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_task_categories(self):
-        datasets = self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification"))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_by_task_ids(self):
-        datasets = self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference"))
+        datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_ids:natural-language-inference" in datasets[0].tags)
 
-    @expect_deprecation("list_datasets")
     def test_list_datasets_full(self):
-        datasets = self._api.list_datasets(full=True)
+        datasets = list(self._api.list_datasets(full=True, limit=500))
         self.assertGreater(len(datasets), 100)
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertTrue(any(dataset.cardData for dataset in datasets))
 
-    @expect_deprecation("list_datasets")
     def test_list_datasets_author(self):
-        datasets = self._api.list_datasets(author="huggingface")
+        datasets = list(self._api.list_datasets(author="huggingface"))
         self.assertGreater(len(datasets), 1)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    @expect_deprecation("list_datasets")
     def test_list_datasets_search(self):
-        datasets = self._api.list_datasets(search="wikipedia")
+        datasets = list(self._api.list_datasets(search="wikipedia"))
         self.assertGreater(len(datasets), 10)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    @expect_deprecation("list_datasets")
     def test_filter_datasets_with_cardData(self):
-        datasets = self._api.list_datasets(cardData=True)
+        datasets = list(self._api.list_datasets(cardData=True, limit=500))
         self.assertGreater(
             sum([getattr(dataset, "cardData", None) is not None for dataset in datasets]),
             0,
         )
-        datasets = self._api.list_datasets()
+        datasets = list(self._api.list_datasets(limit=500))
         self.assertTrue(all([getattr(dataset, "cardData", None) is None for dataset in datasets]))
 
     def test_dataset_info(self):
@@ -1623,57 +1593,52 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(metrics[0], MetricInfo)
         self.assertTrue(any(metric.description for metric in metrics))
 
-    @expect_deprecation("list_models")
     def test_filter_models_by_author(self):
-        models = self._api.list_models(filter=ModelFilter(author="muellerzr"))
+        models = list(self._api.list_models(filter=ModelFilter(author="muellerzr")))
         self.assertGreater(len(models), 0)
         self.assertTrue("muellerzr" in models[0].modelId)
 
-    @expect_deprecation("list_models")
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = self._api.list_models(filter=ModelFilter("facebook", model_name="bart-base"))
+        models = list(self._api.list_models(filter=ModelFilter("facebook", model_name="bart-base")))
         self.assertTrue("facebook/bart-base" in models[0].modelId)
 
-    @expect_deprecation("list_models")
     def test_failing_filter_models_by_author_and_model_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = self._api.list_models(filter=ModelFilter(author="muellerzr", model_name="testme"))
+        models = list(self._api.list_models(filter=ModelFilter(author="muellerzr", model_name="testme")))
         self.assertEqual(len(models), 0)
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_library(self):
-        models = self._api.list_models(
-            filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow")
+        models = list(
+            self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow"))
         )
         self.assertEqual(len(models), 0)
 
-        models = self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        models = list(
+            self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        )
         self.assertGreater(len(models), 0)
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_task(self):
-        models = self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2"))
+        models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
         self.assertTrue("fill-mask" == models[0].pipeline_tag)
         self.assertTrue("albert-base-v2" in models[0].modelId)
 
-        models = self._api.list_models(filter=ModelFilter(task="dummytask"))
+        models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
         self.assertEqual(len(models), 0)
 
-    @expect_deprecation("list_models")
     def test_filter_models_by_language(self):
-        res_fr = self._api.list_models(filter=ModelFilter(language="fr"))
-        res_en = self._api.list_models(filter=ModelFilter(language="en"))
+        res_fr = list(self._api.list_models(filter=ModelFilter(language="fr")))
+        res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
         self.assertGreater(len(res_en), len(res_fr))
 
-    @expect_deprecation("list_models")
     def test_filter_models_with_complex_query(self):
         args = ModelSearchArguments(api=self._api)
         f = ModelFilter(
             task=args.pipeline_tag.TextClassification,
             library=[args.library.PyTorch, args.library.TensorFlow],
         )
-        models = self._api.list_models(filter=f)
+        models = list(self._api.list_models(filter=f))
         self.assertGreater(len(models), 1)
         self.assertTrue(
             ["text-classification" in model.pipeline_tag or "text-classification" in model.tags for model in models]
@@ -1691,11 +1656,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # 17g is accepted and parsed correctly as a value
         # regression test for #753
         model = ModelInfo(cardData={"co2_eq_emissions": {"emissions": "17g"}})
-        res = _filter_emissions([model], -1, 100)
+        res = list(_filter_emissions([model], -1, 100))
         assert len(res) == 1
 
     def test_filter_emissions_with_max(self):
-        models = self._api.list_models(emissions_thresholds=(None, 100), cardData=True)
+        models = self._api.list_models(emissions_thresholds=(None, 100), cardData=True, limit=1000)
         self.assertTrue(
             all(
                 [
@@ -1707,7 +1672,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         )
 
     def test_filter_emissions_with_min(self):
-        models = self._api.list_models(emissions_thresholds=(5, None), cardData=True)
+        models = self._api.list_models(emissions_thresholds=(5, None), cardData=True, limit=1000)
         self.assertTrue(
             all(
                 [
@@ -1719,7 +1684,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         )
 
     def test_filter_emissions_with_min_and_max(self):
-        models = self._api.list_models(emissions_thresholds=(5, 100), cardData=True)
+        models = self._api.list_models(emissions_thresholds=(5, 100), cardData=True, limit=1000)
         self.assertTrue(
             all(
                 [
@@ -1739,17 +1704,15 @@ class HfApiPublicProductionTest(unittest.TestCase):
             )
         )
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_full(self):
-        spaces = self._api.list_spaces(full=True)
+        spaces = list(self._api.list_spaces(full=True, limit=500))
         self.assertGreater(len(spaces), 100)
         space = spaces[0]
         self.assertIsInstance(space, SpaceInfo)
         self.assertTrue(any(space.cardData for space in spaces))
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_author(self):
-        spaces = self._api.list_spaces(author="evaluate-metric")
+        spaces = list(self._api.list_spaces(author="evaluate-metric"))
         self.assertGreater(len(spaces), 10)
         self.assertTrue(
             set([space.id for space in spaces]).issuperset(
@@ -1757,36 +1720,31 @@ class HfApiPublicProductionTest(unittest.TestCase):
             )
         )
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_search(self):
-        spaces = self._api.list_spaces(search="wikipedia")
+        spaces = list(self._api.list_spaces(search="wikipedia"))
         space = spaces[0]
         self.assertTrue("wikipedia" in space.id.lower())
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_sort_and_direction(self):
-        spaces_descending_likes = self._api.list_spaces(sort="likes", direction=-1)
-        spaces_ascending_likes = self._api.list_spaces(sort="likes")
+        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1))
+        spaces_ascending_likes = list(self._api.list_spaces(sort="likes"))
         self.assertGreater(spaces_descending_likes[0].likes, spaces_descending_likes[1].likes)
         self.assertLess(spaces_ascending_likes[-2].likes, spaces_ascending_likes[-1].likes)
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_limit(self):
-        spaces = self._api.list_spaces(limit=5)
+        spaces = list(self._api.list_spaces(limit=5))
         self.assertEqual(len(spaces), 5)
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_with_models(self):
-        spaces = self._api.list_spaces(models="bert-base-uncased")
+        spaces = list(self._api.list_spaces(models="bert-base-uncased"))
         self.assertTrue("bert-base-uncased" in getattr(spaces[0], "models", []))
 
-    @expect_deprecation("list_spaces")
     def test_list_spaces_with_datasets(self):
-        spaces = self._api.list_spaces(datasets="wikipedia")
+        spaces = list(self._api.list_spaces(datasets="wikipedia"))
         self.assertTrue("wikipedia" in getattr(spaces[0], "datasets", []))
 
     def test_list_spaces_linked(self):
-        spaces = self._api.list_spaces(linked=True)
+        spaces = list(self._api.list_spaces(linked=True))
         self.assertTrue(any((getattr(space, "models", None) is not None) for space in spaces))
         self.assertTrue(any((getattr(space, "datasets", None) is not None) for space in spaces))
         self.assertTrue(
@@ -1843,23 +1801,20 @@ class HfApiPrivateTest(HfApiCommonTest):
             dataset_info = self._api.dataset_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
             self.assertIsInstance(dataset_info, DatasetInfo)
 
-    @expect_deprecation("list_datasets")
     def test_list_private_datasets(self):
-        orig = len(self._api.list_datasets(use_auth_token=False))
-        new = len(self._api.list_datasets(use_auth_token=self._token))
+        orig = len(list(self._api.list_datasets(use_auth_token=False)))
+        new = len(list(self._api.list_datasets(use_auth_token=self._token)))
         self.assertGreater(new, orig)
 
-    @expect_deprecation("list_models")
     def test_list_private_models(self):
-        orig = len(self._api.list_models(use_auth_token=False))
-        new = len(self._api.list_models(use_auth_token=self._token))
+        orig = len(list(self._api.list_models(use_auth_token=False)))
+        new = len(list(self._api.list_models(use_auth_token=self._token)))
         self.assertGreater(new, orig)
 
-    @expect_deprecation("list_spaces")
     @with_production_testing
     def test_list_private_spaces(self):
-        orig = len(self._api.list_spaces(use_auth_token=False))
-        new = len(self._api.list_spaces(use_auth_token=self._token))
+        orig = len(list(self._api.list_spaces(use_auth_token=False)))
+        new = len(list(self._api.list_spaces(use_auth_token=self._token)))
         self.assertGreaterEqual(new, orig)
 
 
