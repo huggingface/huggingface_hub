@@ -1545,7 +1545,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(datasets[0], DatasetInfo)
 
     def test_filter_datasets_with_cardData(self):
-        datasets = list(self._api.list_datasets(cardData=True, limit=500))
+        datasets = list(self._api.list_datasets(full=True, limit=500))
         self.assertGreater(
             sum([getattr(dataset, "cardData", None) is not None for dataset in datasets]),
             0,
