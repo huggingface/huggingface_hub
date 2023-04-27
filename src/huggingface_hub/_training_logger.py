@@ -1,6 +1,21 @@
-from typing import Optional, Union, List
-from huggingface_hub import create_repo, upload_folder
+# Copyright 2020 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains a Mixin to push training logs to the Hub."""
 import os
+from typing import List, Optional, Union
+
+from .hf_api import create_repo, upload_folder
 
 
 class HFLoggerMixin:
@@ -122,14 +137,3 @@ class HFLoggerMixin:
             allow_patterns=self.repo_allow_patterns,
             ignore_patterns=self.repo_ignore_patterns,
         )
-
-
-if __name__ == "__main__":
-    from lightning.pytorch.loggers import TensorBoardLogger
-
-    class HFLogger(HFLoggerMixin, TensorBoardLogger):
-        """Extend normal TensorBoardLogger to push logs to the Hub when requested."""
-
-    logger = HFLogger("training/results", repo_id="test_hf_logger", path_in_repo="tensorboard")
-    logger.log_hyperparams({"a": 1, "b": 2})
-    logger.push_to_hub()
