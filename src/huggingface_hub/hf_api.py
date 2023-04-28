@@ -17,8 +17,10 @@ import pprint
 import re
 import textwrap
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import wraps
 from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -829,6 +831,38 @@ class HfApi:
         self.library_version = library_version
         self.user_agent = user_agent
 
+        # Calls to the Hub can be run in the background. Tasks are queued to preserve order but do not block the main
+        # thread. Can be useful to upload data during a training. ThreadPoolExecutor is initialized the first time it's
+        # used. All methods flagged as `@detachable` can be run in the background.
+        self._thread_executor: Optional[ThreadPoolExecutor] = None
+
+    def __getattribute__(self, key: str) -> Any:
+        """Wrap all methods of the class to make them detachable.
+
+        Detachable methods can be run in the background by calling `.detach()` on them. Note that static type checking
+        is not possible on `.detach()` calls with the current implementation.
+        """
+        attribute = super().__getattribute__(key)
+        if key.startswith("_") or not hasattr(attribute, "__self__"):
+            return attribute
+
+        # If __self__ attribute is set, it means we are accessing a bounded method of the class.
+        # We want to wrap it to make it detachable. Only public methods (i.e. not starting with "_") are wrapped.
+        @wraps(attribute, updated=())  # hack to wrap a class as a function
+        class _detachable_method:
+            def __call__(_inner_self, *args, **kwargs):
+                # Default use case: run synchronously
+                return attribute(*args, **kwargs)
+
+            def detach(_inner_self, *args, **kwargs):
+                # If .detach is called, queue it to the executor
+                if self._thread_executor is None:
+                    self._thread_executor = ThreadPoolExecutor(max_workers=1)
+                return self._thread_executor.submit(attribute, *args, **kwargs)
+
+        return _detachable_method()
+
+    @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -874,7 +908,9 @@ class HfApi:
             return False
 
     def get_model_tags(self) -> ModelTags:
-        "Gets all valid model tags as a nested namespace object"
+        """
+        List all valid model tags as a nested namespace object
+        """
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
@@ -883,7 +919,7 @@ class HfApi:
 
     def get_dataset_tags(self) -> DatasetTags:
         """
-        Gets all valid dataset tags as a nested namespace object.
+        List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = get_session().get(path)
