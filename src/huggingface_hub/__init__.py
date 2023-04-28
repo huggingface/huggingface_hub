@@ -70,6 +70,9 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
+    "_tensorboard_logger": [
+        "HFTensorBoardLogger",
+    ],
     "_training_logger": [
         "HFLoggerMixin",
     ],
@@ -359,6 +362,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
     )
+    from ._tensorboard_logger import HFTensorBoardLogger  # noqa: F401
     from ._training_logger import HFLoggerMixin  # noqa: F401
     from ._webhooks_payload import (
         WebhookPayload,  # noqa: F401
