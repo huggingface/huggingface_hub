@@ -276,7 +276,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "/"
             )
             headers = self._api._build_hf_headers()
-            params = {"recursive": recursive} if recursive else {}
+            params = {"expand": True, **({"recursive": True} if recursive else {})}
             yield from paginate(path, params=params, headers=headers)
 
         def _format_tree_item_as_path_info(tree_item: Dict) -> Dict:
