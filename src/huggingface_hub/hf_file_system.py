@@ -325,9 +325,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     common_path = (path_prefix + os.path.commonpath(dirs_not_in_cache)).rstrip("/")
                     # Remove the paths prefixed with the common path to avoid duplicates after extending the output with the result of `_ls_tree(common_path, recursive=True)`
                     out = [o for o in out if not o["name"].startswith(common_path)]
-                    self.dircache.pop(common_path, None)
                     out.extend(
-                        self._ls_tree(common_path, recursive=True, refresh=refresh, revision=resolved_path.revision)
+                        self._ls_tree(common_path, recursive=True, refresh=True, revision=resolved_path.revision)
                     )
         return out
 
