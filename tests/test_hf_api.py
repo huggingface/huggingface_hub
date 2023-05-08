@@ -2152,6 +2152,16 @@ class HfApiDiscussionsTest(HfApiCommonTest):
         self.assertEqual(discussion.is_pull_request, False)
         self.assertEqual(discussion.title, "Test discussion !")
 
+    @use_tmp_repo("dataset")
+    def test_create_discussion_space(self, repo_url: RepoUrl):
+        """Regression test for #1463.
+
+        Computed URL was malformed with `dataset` and `space` repo_types.
+        See https://github.com/huggingface/huggingface_hub/issues/1463.
+        """
+        discussion = self._api.create_discussion(repo_id=repo_url.repo_id, repo_type="dataset", title="title")
+        self.assertEqual(discussion.url, f"{repo_url}/discussions/1")
+
     def test_create_pull_request(self):
         discussion = self._api.create_discussion(repo_id=self.repo_id, title=" Test PR !  ", pull_request=True)
         self.assertEqual(discussion.num, 3)
