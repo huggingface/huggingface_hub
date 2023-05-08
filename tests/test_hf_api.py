@@ -1128,6 +1128,41 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         with self.assertRaises(BadRequestError):
             list(self._api.list_files_info(repo_id=self.repo_id, paths=""))
 
+    @with_production_testing
+    def test_list_files_with_expand(self):
+        files = list(
+            HfApi().list_files_info(
+                repo_id="prompthero/openjourney-v4",
+                expand=True,
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(files), 22)
+
+        # check lastCommit and security are present
+        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
+        self.assertIsNotNone(vae_model.lastCommit)
+        self.assertEqual(vae_model.lastCommit["id"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+        self.assertIsNotNone(vae_model.security)
+        self.assertTrue(vae_model.security["safe"])
+        self.assertTrue(isinstance(vae_model.security["avScan"], dict))  # all details in here
+
+    @with_production_testing
+    def test_list_files_without_expand(self):
+        files = list(
+            HfApi().list_files_info(
+                repo_id="prompthero/openjourney-v4",
+                expand=False,
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(files), 22)
+
+        # check lastCommit and security are missing
+        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
+        self.assertFalse(hasattr(vae_model, "lastCommit"))
+        self.assertFalse(hasattr(vae_model, "security"))
+
 
 class HfApiTagEndpointTest(HfApiCommonTest):
     @retry_endpoint
