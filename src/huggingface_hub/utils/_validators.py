@@ -18,9 +18,11 @@ import re
 import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any, Dict
+from typing import Any, Callable, Dict, TypeVar
 
-from ._typing import CallableT
+
+# type hint meaning "function signature not changed by decorator"
+CallableT = TypeVar("CallableT", bound=Callable)
 
 
 REPO_ID_REGEX = re.compile(
