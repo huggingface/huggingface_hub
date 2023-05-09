@@ -18,6 +18,8 @@ You can check it is up-to-date by running `make quality` and update its content 
 
 The content of this file is mostly based on HfApi implementation.
 """
+from __future__ import annotations
+
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Dict, Optional, Union
 
