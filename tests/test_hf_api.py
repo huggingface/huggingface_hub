@@ -2429,6 +2429,45 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
 
 
+class TestThreadedAPI(HfApiCommonTest):
+    def test_create_upload_and_delete_in_background(self) -> None:
+        repo_id = f"{USER}/{repo_name()}"
+
+        t0 = time.time()
+        create_repo_future = self._api.create_repo_threaded(repo_id)
+        upload_future_1 = self._api.upload_file_threaded(
+            path_or_fileobj=b"1", path_in_repo="file.txt", repo_id=repo_id, commit_message="Upload 1"
+        )
+        upload_future_2 = self._api.upload_file_threaded(
+            path_or_fileobj=b"2", path_in_repo="file.txt", repo_id=repo_id, commit_message="Upload 2"
+        )
+        delete_file_future = self._api.delete_file_threaded(
+            path_in_repo="file.txt", repo_id=repo_id, commit_message="Delete 1"
+        )
+        commits_future = self._api.list_repo_commits_threaded(repo_id=repo_id)
+        t1 = time.time()
+
+        # all futures are queued instantly
+        self.assertLessEqual(t1 - t0, 0.01)
+
+        # wait for the last job to complete
+        commits = commits_future.result()
+
+        # all of them are not complete (ran in order)
+        self.assertTrue(create_repo_future.done())
+        self.assertTrue(upload_future_1.done())
+        self.assertTrue(upload_future_2.done())
+        self.assertTrue(delete_file_future.done())
+        self.assertTrue(commits_future.done())
+
+        # 4 commits, sorted in reverse order of creation
+        self.assertEqual(len(commits), 4)
+        self.assertEqual(commits[0].title, "Delete 1")
+        self.assertEqual(commits[1].title, "Upload 2")
+        self.assertEqual(commits[2].title, "Upload 1")
+        self.assertEqual(commits[3].title, "initial commit")
+
+
 class TestSpaceAPIMocked(unittest.TestCase):
     """
     Testing Space hardware requests is resource intensive for the server (need to spawn
