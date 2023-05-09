@@ -16,6 +16,9 @@ ignore = ["E501", "F821"]
 select = ["E", "F", "I", "W"]
 line-length = 119
 
+[tool.ruff.per-file-ignores]
+"src/huggingface_hub/_threaded_hf_api.py" = ["F405"] # generate code => we assume it's good
+
 [tool.ruff.isort]
 lines-after-imports = 2
 known-first-party = ["huggingface_hub"]

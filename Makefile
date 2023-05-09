@@ -10,12 +10,14 @@ quality:
 	mypy src
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
+	python utils/check_threaded_hf_api.py
 
 style:
 	black $(check_dirs)
 	ruff $(check_dirs) --fix
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
+	python utils/check_threaded_hf_api.py --update
 
 repocard:
 	python utils/push_repocard_examples.py

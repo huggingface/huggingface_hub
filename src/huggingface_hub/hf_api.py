@@ -17,10 +17,8 @@ import pprint
 import re
 import textwrap
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import wraps
 from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -791,7 +789,7 @@ class UserLikes:
     spaces: List[str]
 
 
-class HfApi:
+class _HfApi:
     def __init__(
         self,
         endpoint: Optional[str] = None,
@@ -830,45 +828,6 @@ class HfApi:
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
-
-        # Calls to the Hub can be run in the background. Tasks are queued to preserve order but do not block the main
-        # thread. Can be useful to upload data during a training. ThreadPoolExecutor is initialized the first time it's
-        # used.
-        self._thread_pool: Optional[ThreadPoolExecutor] = None
-
-    def __getattribute__(self, key: str) -> Any:
-        """Wrap all methods of the class to make them detachable.
-
-        Detachable methods can be run in the background by calling `.detach()` on them. Note that static type checking
-        is not possible on `.detach()` calls with the current implementation.
-        """
-        attribute = super().__getattribute__(key)
-        if key.startswith("_") or not hasattr(attribute, "__self__"):
-            return attribute
-
-        # Attribute is a method to wrap
-        method = attribute
-
-        # If __self__ attribute is set, it means we are accessing a bounded method of the class.
-        # We want to wrap it to make it "threaded". Only public methods (i.e. not starting with "_") are wrapped.
-        class _threaded_method:
-            def __getattr__(self, key: str) -> Any:
-                return getattr(method, key)
-
-            def __call__(_inner_self, *args, **kwargs):
-                # Default use case: run synchronously
-                return method(*args, **kwargs)
-
-            def threaded(_inner_self, *args, **kwargs):
-                # If .threaded is called, queue it to the executor
-                if self._thread_pool is None:
-                    self._thread_pool = ThreadPoolExecutor(max_workers=1)
-                return self._thread_pool.submit(method, *args, **kwargs)
-
-            def __repr__(self) -> str:
-                return repr(method)
-
-        return wraps(method)(_threaded_method())
 
     @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
@@ -4920,6 +4879,13 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     if re_match is None:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
+
+
+from ._threaded_hf_api import _ThreadedHfApi  # noqa: E402 to avoid circular import
+
+
+class HfApi(_ThreadedHfApi):
+    pass
 
 
 api = HfApi()
