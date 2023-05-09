@@ -833,8 +833,8 @@ class HfApi:
 
         # Calls to the Hub can be run in the background. Tasks are queued to preserve order but do not block the main
         # thread. Can be useful to upload data during a training. ThreadPoolExecutor is initialized the first time it's
-        # used. All methods flagged as `@detachable` can be run in the background.
-        self._thread_executor: Optional[ThreadPoolExecutor] = None
+        # used.
+        self._thread_pool: Optional[ThreadPoolExecutor] = None
 
     def __getattribute__(self, key: str) -> Any:
         """Wrap all methods of the class to make them detachable.
@@ -846,21 +846,29 @@ class HfApi:
         if key.startswith("_") or not hasattr(attribute, "__self__"):
             return attribute
 
+        # Attribute is a method to wrap
+        method = attribute
+
         # If __self__ attribute is set, it means we are accessing a bounded method of the class.
-        # We want to wrap it to make it detachable. Only public methods (i.e. not starting with "_") are wrapped.
-        @wraps(attribute, updated=())  # hack to wrap a class as a function
-        class _detachable_method:
+        # We want to wrap it to make it "threaded". Only public methods (i.e. not starting with "_") are wrapped.
+        class _threaded_method:
+            def __getattr__(self, key: str) -> Any:
+                return getattr(method, key)
+
             def __call__(_inner_self, *args, **kwargs):
                 # Default use case: run synchronously
-                return attribute(*args, **kwargs)
+                return method(*args, **kwargs)
 
-            def detach(_inner_self, *args, **kwargs):
-                # If .detach is called, queue it to the executor
-                if self._thread_executor is None:
-                    self._thread_executor = ThreadPoolExecutor(max_workers=1)
-                return self._thread_executor.submit(attribute, *args, **kwargs)
+            def threaded(_inner_self, *args, **kwargs):
+                # If .threaded is called, queue it to the executor
+                if self._thread_pool is None:
+                    self._thread_pool = ThreadPoolExecutor(max_workers=1)
+                return self._thread_pool.submit(method, *args, **kwargs)
 
-        return _detachable_method()
+            def __repr__(self) -> str:
+                return repr(method)
+
+        return wraps(method)(_threaded_method())
 
     @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
