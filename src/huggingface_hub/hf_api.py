@@ -1841,6 +1841,7 @@ class HfApi:
         repo_id: str,
         paths: Union[List[str], str, None] = None,
         *,
+        expand: bool = False,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Optional[Union[bool, str]] = None,
@@ -1862,6 +1863,11 @@ class HfApi:
                 recursively which means that information is returned about all files in the folder and its subfolders.
                 If `None`, all files are returned (the default). If a path do not exist, it is ignored without raising
                 an exception.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the files (e.g. last commit and security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
             revision (`str`, *optional*):
                 The revision of the repository from which to get the information. Defaults to `"main"` branch.
             repo_type (`str`, *optional*):
@@ -1899,6 +1905,53 @@ class HfApi:
             ]
             ```
 
+            Get even more information about files on a repo (last commit and security scan results)
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
+            >>> list(files_info)
+            [
+                RepoFile: {
+                {'blob_id': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': None,
+                'rfilename': 'model_index.json',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                                'name': 'model_index.json',
+                                'pickleImportScan': None,
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 584}
+                },
+                RepoFile: {
+                {'blob_id': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': {'pointer_size': 134,
+                        'sha256': 'dcf4507d99b88db73f3916e2a20169fe74ada6b5582e9af56cfa80f5f3141765',
+                        'size': 334711857},
+                'rfilename': 'vae/diffusion_pytorch_model.bin',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                                'name': 'vae/diffusion_pytorch_model.bin',
+                                'pickleImportScan': {'highestSafetyLevel': 'innocuous',
+                                                    'imports': [{'module': 'torch._utils',
+                                                                'name': '_rebuild_tensor_v2',
+                                                                'safety': 'innocuous'},
+                                                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
+                                                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'}]},
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 334711857}
+                },
+                (...)
+            ]
+            ```
+
             List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
 
             ```py
@@ -1926,10 +1979,6 @@ class HfApi:
             blobId = info.pop("oid")
             lfs = info.pop("lfs", None)
             info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
-            # "lastCommit": behavior might change server-side in the near future (it might become optional)
-            # In the meantime, let's remove it so that users don't expect it
-            # TODO: set it back when https://github.com/huggingface/moon-landing/issues/5993 is settled
-            info.pop("lastCommit", None)
             if lfs is not None:
                 lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
             return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
@@ -1947,7 +1996,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
                 data={
                     "paths": paths if isinstance(paths, list) else [paths],
-                    # "expand": True, # TODO: related to "lastCommit" (see above). Do not return it for now.
+                    "expand": True,
                 },
                 headers=headers,
             )
@@ -1965,7 +2014,7 @@ class HfApi:
         for path in folder_paths:
             encoded_path = "/" + quote(path, safe="") if path else ""
             tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path}"
-            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True}):
+            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True, "expand": expand}):
                 if subpath_info["type"] == "file":
                     yield _format_as_repo_file(subpath_info)
 

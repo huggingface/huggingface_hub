@@ -81,7 +81,7 @@ class Discussion:
         """Returns the URL of the discussion on the Hub."""
         if self.repo_type is None or self.repo_type == REPO_TYPE_MODEL:
             return f"{self.endpoint}/{self.repo_id}/discussions/{self.num}"
-        return f"{self.endpoint}/{self.repo_type}/{self.repo_id}/discussions/{self.num}"
+        return f"{self.endpoint}/{self.repo_type}s/{self.repo_id}/discussions/{self.num}"
 
 
 @dataclass
