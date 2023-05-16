@@ -855,7 +855,7 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str) -> bool:
+    def _is_valid_token(self, token: str, write_permission: bool) -> bool:
         """
         Determines whether `token` is a valid token or not.
 
@@ -867,7 +867,10 @@ class HfApi:
             `bool`: `True` if valid, `False` otherwise.
         """
         try:
-            self.whoami(token=token)
+            whoami = self.whoami(token=token)
+            if write_permission and whoami["auth"]["accessToken"]["role"] != "write":
+                print("Access token with 'write' permissions required.")
+                return False
             return True
         except HTTPError:
             return False
