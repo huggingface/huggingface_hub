@@ -25,7 +25,7 @@ from .utils._cache_manager import _format_size
 
 
 if TYPE_CHECKING:
-    from .hf_api import _HfApi
+    from .hf_api import HfApi
 
 
 class MultiCommitException(Exception):
@@ -267,7 +267,7 @@ class MultiCommitStrategy:
 
 
 def multi_commit_create_pull_request(
-    api: "_HfApi",
+    api: "HfApi",
     repo_id: str,
     commit_message: str,
     commit_description: Optional[str],

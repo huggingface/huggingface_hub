@@ -31,7 +31,7 @@ jobs:
       - run: ruff tests src contrib
       - run: python utils/check_contrib_list.py
       - run: python utils/check_static_imports.py
-      - run: python utils/check_threaded_hf_api.py
+      #- run: python utils/check_threaded_hf_api.py
 
       # Run type checking at least on huggingface_hub root file to check all modules
       # that can be lazy-loaded actually exist.

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import json
 import pprint
 import re
@@ -19,6 +20,7 @@ import textwrap
 import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import wraps
 from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
@@ -91,7 +93,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 from .utils._deprecation import (
     _deprecate_arguments,
 )
-from .utils._typing import Literal, TypedDict
+from .utils._typing import CallableT, Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -788,7 +790,42 @@ class UserLikes:
     spaces: List[str]
 
 
-class _HfApi:
+def future_compatible(fn: CallableT) -> CallableT:
+    """Wrap a method of `HfApi` to handle `as_future=True`.
+
+    A method flagged as "future_compatible" will be called in a thread if `as_future=True` and return a
+    `concurrent.futures.Future` instance. Otherwise, it will be called normally and return the result.
+
+    This decorator is useful to make a method compatible with both synchronous and asynchronous code.
+    """
+    sig = inspect.signature(fn)
+    args_params = list(sig.parameters)[1:]  # remove "self" from list
+
+    @wraps(fn)
+    def _inner(self, *args, **kwargs):
+        # Get `as_future` value if provided (default to False)
+        if "as_future" in kwargs:
+            as_future = kwargs["as_future"]
+            kwargs["as_future"] = False  # avoid recursion error
+        else:
+            as_future = False
+            for param, value in zip(args_params, args):
+                if param == "as_future":
+                    as_future = value
+                    break
+
+        # Call the function in a thread if `as_future=True`
+        if as_future:
+            return self.pool.submit(fn, self, *args, **kwargs)
+
+        # Otherwise, call the function normally
+        return fn(self, *args, **kwargs)
+
+    _inner.is_future_compatible = True  # type: ignore
+    return _inner  # type: ignore
+
+
+class HfApi:
     def __init__(
         self,
         endpoint: Optional[str] = None,
@@ -4864,13 +4901,6 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     if re_match is None:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
-
-
-from ._threaded_hf_api import _ThreadedHfApi  # noqa: E402 to avoid circular import
-
-
-class HfApi(_ThreadedHfApi):
-    pass
 
 
 api = HfApi()
