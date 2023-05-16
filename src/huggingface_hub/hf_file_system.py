@@ -27,7 +27,7 @@ from .utils import (
 
 @dataclass
 class HfFileSystemResolvedPath:
-    """Data structure containing information about a resolved hffs path."""
+    """Data structure containing information about a resolved Hugging Face file system path."""
 
     repo_type: str
     repo_id: str
@@ -54,9 +54,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Usage:
 
     ```python
-    >>> import hffs
+    >>> from huggingface_hub import HfFileSystem
 
-    >>> fs = hffs.HfFileSystem()
+    >>> fs = HfFileSystem()
 
     >>> # List files
     >>> fs.glob("my-username/my-model/*.bin")
