@@ -14,9 +14,9 @@
 """Contains methods to login to the Hub."""
 import os
 import subprocess
+from functools import partial
 from getpass import getpass
 from typing import Optional
-from functools import partial
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
@@ -133,21 +133,19 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
         new_session (`bool`, defaults to `True`):
             If `True`, will request a token even if one is already saved on the machine.
         write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.    
-    
+            If `True`, requires a token with write permission.
+
     """
     if not new_session and _current_token_okay(write_permission=write_permission):
         return
 
-    print(
-        """
+    print("""
     _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
     _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
     _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-    """
-    )
+    """)
     if HfFolder.get_token() is not None:
         print(
             "    A token is already saved on your machine. Run `huggingface-cli"
@@ -203,7 +201,7 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
         new_session (`bool`, defaults to `True`):
             If `True`, will request a token even if one is already saved on the machine.
         write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.    
+            If `True`, requires a token with write permission.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -235,7 +233,7 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
     display(login_token_widget)
 
     # On click events
-    def login_token_event(t, write_permission: bool=False):
+    def login_token_event(t, write_permission: bool = False):
         """
         Event handler for the login button.
 
@@ -266,7 +264,7 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 ###
 
 
-def _login(token: str, add_to_git_credential: bool, write_permission: bool=False) -> None:
+def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
     hf_api = HfApi()
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token.")
@@ -288,6 +286,7 @@ def _login(token: str, add_to_git_credential: bool, write_permission: bool=False
     print(f"Your token has been saved to {HfFolder.path_token}")
     print("Login successful")
 
+
 def _current_token_okay(write_permission: bool = False):
     """Check if the current token is valid.
 
@@ -305,6 +304,7 @@ def _current_token_okay(write_permission: bool = False):
     if not hf_api._is_valid_token(token=token, write_permission=write_permission):
         return False
     return True
+
 
 def _is_git_credential_helper_configured() -> bool:
     """Check if a git credential helper is configured.
