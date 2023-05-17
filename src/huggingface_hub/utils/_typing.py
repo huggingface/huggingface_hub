@@ -22,11 +22,6 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal, TypedDict  # noqa: F401
 
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec  # noqa: F401
-
 HTTP_METHOD_T = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
 
 # type hint meaning "function signature not changed by decorator"

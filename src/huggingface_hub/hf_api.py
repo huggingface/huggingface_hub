@@ -94,7 +94,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 from .utils._deprecation import (
     _deprecate_arguments,
 )
-from .utils._typing import CallableT, Literal, ParamSpec, TypedDict
+from .utils._typing import CallableT, Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -105,7 +105,6 @@ from .utils.endpoint_helpers import (
 )
 
 
-P = ParamSpec("P")  # Arguments
 R = TypeVar("R")  # Return type
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -870,7 +869,7 @@ class HfApi:
         self.user_agent = user_agent
         self._thread_pool: Optional[ThreadPoolExecutor] = None
 
-    def run_as_future(self, fn: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> Future[R]:
+    def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
         Run a method in the background and return a Future instance.
 
