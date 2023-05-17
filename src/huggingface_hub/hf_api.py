@@ -29,8 +29,8 @@ from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import (
     IGNORE_GIT_FOLDER_PATTERNS,
-    LocalTokenNotFoundError,
     EntryNotFoundError,
+    LocalTokenNotFoundError,
     RepositoryNotFoundError,
     experimental,
     get_session,
