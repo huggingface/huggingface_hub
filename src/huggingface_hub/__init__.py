@@ -177,6 +177,7 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
+        "run_as_future",
         "set_space_sleep_time",
         "space_info",
         "unlike",
@@ -464,6 +465,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401
+        run_as_future,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401

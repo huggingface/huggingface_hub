@@ -20,6 +20,7 @@ import time
 import types
 import unittest
 import warnings
+from concurrent.futures import Future
 from functools import partial
 from io import BytesIO
 from pathlib import Path
@@ -2382,6 +2383,71 @@ class TestSpaceAPIProduction(unittest.TestCase):
         time.sleep(1.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestCommitInBackground(HfApiCommonTest):
+    cache_dir: Path
+
+    @use_tmp_repo()
+    def test_commit_to_repo_in_background(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        (self.cache_dir / "file.txt").write_text("content")
+        (self.cache_dir / "lfs.bin").write_text("content")
+
+        t0 = time.time()
+        upload_future_1 = self._api.upload_file(
+            path_or_fileobj=b"1", path_in_repo="1.txt", repo_id=repo_id, commit_message="Upload 1", run_as_future=True
+        )
+        upload_future_2 = self._api.upload_file(
+            path_or_fileobj=b"2", path_in_repo="2.txt", repo_id=repo_id, commit_message="Upload 2", run_as_future=True
+        )
+        upload_future_3 = self._api.upload_folder(
+            repo_id=repo_id, folder_path=self.cache_dir, commit_message="Upload folder", run_as_future=True
+        )
+        t1 = time.time()
+
+        # all futures are queued instantly
+        self.assertLessEqual(t1 - t0, 0.01)
+
+        # wait for the last job to complete
+        upload_future_3.result()
+
+        # all of them are now complete (ran in order)
+        self.assertTrue(upload_future_1.done())
+        self.assertTrue(upload_future_2.done())
+        self.assertTrue(upload_future_3.done())
+
+        # 4 commits, sorted in reverse order of creation
+        commits = self._api.list_repo_commits(repo_id=repo_id)
+        self.assertEqual(len(commits), 4)
+        self.assertEqual(commits[0].title, "Upload folder")
+        self.assertEqual(commits[1].title, "Upload 2")
+        self.assertEqual(commits[2].title, "Upload 1")
+        self.assertEqual(commits[3].title, "initial commit")
+
+    @use_tmp_repo()
+    def test_run_as_future(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        self._api.run_as_future(self._api.like, repo_id)
+        future_1 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
+        self._api.run_as_future(self._api.unlike, repo_id)
+        future_2 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
+
+        self.assertIsInstance(future_1, Future)
+        self.assertIsInstance(future_2, Future)
+
+        # Wait for first info future
+        info_1 = future_1.result()
+        self.assertFalse(future_2.done())
+
+        # Wait for second info future
+        info_2 = future_2.result()
+        self.assertTrue(future_2.done())
+
+        # Like/unlike is correct
+        self.assertEqual(info_1.likes, 1)
+        self.assertEqual(info_2.likes, 0)
 
 
 class TestSpaceAPIMocked(unittest.TestCase):
