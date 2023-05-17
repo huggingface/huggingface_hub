@@ -30,6 +30,7 @@ from requests.exceptions import HTTPError
 from huggingface_hub.utils import (
     IGNORE_GIT_FOLDER_PATTERNS,
     EntryNotFoundError,
+    LocalTokenNotFoundError,
     RepositoryNotFoundError,
     experimental,
     get_session,
@@ -90,7 +91,6 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 )
 from .utils._deprecation import (
     _deprecate_arguments,
-    _deprecate_list_output,
 )
 from .utils._typing import Literal, TypedDict
 from .utils.endpoint_helpers import (
@@ -856,22 +856,24 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str) -> bool:
+    def get_token_permission(self, token: Optional[str] = None) -> Literal["read", "write", None]:
         """
-        Determines whether `token` is a valid token or not.
+        Check if a given `token` is valid and return its permissions.
+
+        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
         Args:
-            token (`str`):
-                The token to check for validity.
+            token (`str`, *optional*):
+                The token to check for validity. Defaults to the one saved locally.
 
         Returns:
-            `bool`: `True` if valid, `False` otherwise.
+            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed or token is invalid.
         """
         try:
-            self.whoami(token=token)
-            return True
-        except HTTPError:
-            return False
+            return self.whoami(token=token)["auth"]["accessToken"]["role"]
+        except (LocalTokenNotFoundError, HTTPError):
+            return None
 
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
@@ -891,7 +893,6 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -907,9 +908,9 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
-    ) -> List[ModelInfo]:
+    ) -> Iterable[ModelInfo]:
         """
-        Get the list of all the models on huggingface.co
+        List models hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
@@ -950,9 +951,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[ModelInfo]`: a list of [`huggingface_hub.hf_api.ModelInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -1002,6 +1001,9 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
+        if emissions_thresholds is not None and cardData is None:
+            raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
+
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
         params = {}
@@ -1031,18 +1033,14 @@ class HfApi:
         if cardData:
             params.update({"cardData": True})
 
-        data = paginate(path, params=params, headers=headers)
+        # `items` is a generator
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        items = [ModelInfo(**x) for x in data]
-
+            items = islice(items, limit)  # Do not iterate over all pages
         if emissions_thresholds is not None:
-            if cardData is None:
-                raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
-            else:
-                return _filter_emissions(items, *emissions_thresholds)
-
-        return items
+            items = _filter_emissions(items, *emissions_thresholds)
+        for item in items:
+            yield ModelInfo(**item)
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -1096,12 +1094,6 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
-    @_deprecate_arguments(
-        version="0.14",
-        deprecated_args={"cardData"},
-        custom_message="Use 'full' instead.",
-    )
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -1112,12 +1104,11 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,  # deprecated
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[DatasetInfo]:
+    ) -> Iterable[DatasetInfo]:
         """
-        Get the list of all the datasets on huggingface.co
+        List datasets hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
@@ -1147,9 +1138,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[DatasetInfo]`: a list of [`huggingface_hub.hf_api.DatasetInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[DatasetInfo]`: an iterable of [`huggingface_hub.hf_api.DatasetInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -1218,13 +1207,14 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full or cardData:
+        if full:
             params.update({"full": True})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [DatasetInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
@@ -1280,7 +1270,6 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -1296,9 +1285,9 @@ class HfApi:
         linked: bool = False,
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[SpaceInfo]:
+    ) -> Iterable[SpaceInfo]:
         """
-        Get the public list of all Spaces on huggingface.co
+        List spaces hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter (`str` or `Iterable`, *optional*):
@@ -1334,9 +1323,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[SpaceInfo]`: an iterable of [`huggingface_hub.hf_api.SpaceInfo`] objects.
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
@@ -1362,10 +1349,11 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [SpaceInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield SpaceInfo(**item)
 
     @validate_hf_hub_args
     def like(
@@ -4881,6 +4869,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info

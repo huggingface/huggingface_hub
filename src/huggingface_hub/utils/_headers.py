@@ -32,6 +32,10 @@ from ._runtime import (
 from ._validators import validate_hf_hub_args
 
 
+class LocalTokenNotFoundError(EnvironmentError):
+    """Raised if local token is required but not found."""
+
+
 @validate_hf_hub_args
 def build_hf_headers(
     *,
@@ -146,7 +150,7 @@ def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
     # Case token is explicitly required
     if token is True:
         if cached_token is None:
-            raise EnvironmentError(
+            raise LocalTokenNotFoundError(
                 "Token is required (`token=True`), but no token found. You"
                 " need to provide a token or be logged in to Hugging Face with"
                 " `huggingface-cli login` or `huggingface_hub.login`. See"

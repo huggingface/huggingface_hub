@@ -182,14 +182,10 @@ def snapshot_download(
         )
 
     # if we have internet connection we retrieve the correct folder name from the huggingface api
-    _api = HfApi()
-    repo_info = _api.repo_info(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        revision=revision,
-        token=token,
-    )
+    api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent)
+    repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],
