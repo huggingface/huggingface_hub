@@ -799,8 +799,6 @@ def future_compatible(fn: CallableT) -> CallableT:
 
     A method flagged as "future_compatible" will be called in a thread if `run_as_future=True` and return a
     `concurrent.futures.Future` instance. Otherwise, it will be called normally and return the result.
-
-    This decorator is useful to make a method compatible with both synchronous and asynchronous code.
     """
     sig = inspect.signature(fn)
     args_params = list(sig.parameters)[1:]  # remove "self" from list
@@ -1439,7 +1437,11 @@ class HfApi:
 
     @validate_hf_hub_args
     def like(
-        self, repo_id: str, *, token: Optional[str] = None, repo_type: Optional[str] = None
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
     ) -> Union[None, Future[None]]:
         """
         Like a given repo on the Hub (e.g. set as favorite).
@@ -1480,7 +1482,6 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return None
 
     @validate_hf_hub_args
     def unlike(
