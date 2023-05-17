@@ -30,6 +30,7 @@ from requests.exceptions import HTTPError
 from huggingface_hub.utils import (
     IGNORE_GIT_FOLDER_PATTERNS,
     EntryNotFoundError,
+    LocalTokenNotFoundError,
     RepositoryNotFoundError,
     experimental,
     get_session,
@@ -855,22 +856,24 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str) -> bool:
+    def get_token_permission(self, token: Optional[str] = None) -> Literal["read", "write", None]:
         """
-        Determines whether `token` is a valid token or not.
+        Check if a given `token` is valid and return its permissions.
+
+        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
         Args:
-            token (`str`):
-                The token to check for validity.
+            token (`str`, *optional*):
+                The token to check for validity. Defaults to the one saved locally.
 
         Returns:
-            `bool`: `True` if valid, `False` otherwise.
+            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed or token is invalid.
         """
         try:
-            self.whoami(token=token)
-            return True
-        except HTTPError:
-            return False
+            return self.whoami(token=token)["auth"]["accessToken"]["role"]
+        except (LocalTokenNotFoundError, HTTPError):
+            return None
 
     def get_model_tags(self) -> ModelTags:
         "Gets all valid model tags as a nested namespace object"
@@ -4866,6 +4869,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info

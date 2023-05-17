@@ -14,12 +14,13 @@
 """Contains methods to login to the Hub."""
 import os
 import subprocess
+from functools import partial
 from getpass import getpass
 from typing import Optional
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
-from .hf_api import HfApi
+from .hf_api import get_token_permission
 from .utils import (
     HfFolder,
     capture_output,
@@ -36,7 +37,12 @@ from .utils import (
 logger = logging.get_logger(__name__)
 
 
-def login(token: Optional[str] = None, add_to_git_credential: bool = False) -> None:
+def login(
+    token: Optional[str] = None,
+    add_to_git_credential: bool = False,
+    new_session: bool = True,
+    write_permission: bool = False,
+) -> None:
     """Login the machine to access the Hub.
 
     The `token` is persisted in cache and set as a git credential. Once done, the machine
@@ -67,8 +73,10 @@ def login(token: Optional[str] = None, add_to_git_credential: bool = False) -> N
             is configured, a warning will be displayed to the user. If `token` is `None`,
             the value of `add_to_git_credential` is ignored and will be prompted again
             to the end user.
-
-
+        new_session (`bool`, defaults to `True`):
+            If `True`, will request a token even if one is already saved on the machine.
+        write_permission (`bool`, defaults to `False`):
+            If `True`, requires a token with write permission.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -85,11 +93,11 @@ def login(token: Optional[str] = None, add_to_git_credential: bool = False) -> N
                 " `add_to_git_credential=True` if you want to set the git"
                 " credential as well."
             )
-        _login(token, add_to_git_credential=add_to_git_credential)
+        _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
     elif is_notebook():
-        notebook_login()
+        notebook_login(new_session=new_session, write_permission=write_permission)
     else:
-        interpreter_login()
+        interpreter_login(new_session=new_session, write_permission=write_permission)
 
 
 def logout() -> None:
@@ -111,7 +119,7 @@ def logout() -> None:
 ###
 
 
-def interpreter_login() -> None:
+def interpreter_login(new_session: bool = True, write_permission: bool = False) -> None:
     """
     Displays a prompt to login to the HF website and store the token.
 
@@ -120,7 +128,18 @@ def interpreter_login() -> None:
     instead of a notebook widget.
 
     For more details, see [`login`].
+
+    Args:
+        new_session (`bool`, defaults to `True`):
+            If `True`, will request a token even if one is already saved on the machine.
+        write_permission (`bool`, defaults to `False`):
+            If `True`, requires a token with write permission.
+
     """
+    if not new_session and _current_token_okay(write_permission=write_permission):
+        print("User is already logged in.")
+        return
+
     print("""
     _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
     _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
@@ -142,7 +161,7 @@ def interpreter_login() -> None:
     token = getpass("Token: ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
-    _login(token=token, add_to_git_credential=add_to_git_credential)
+    _login(token=token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
 
 
 ###
@@ -169,7 +188,7 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login() -> None:
+def notebook_login(new_session: bool = True, write_permission: bool = False) -> None:
     """
     Displays a widget to login to the HF website and store the token.
 
@@ -178,6 +197,12 @@ def notebook_login() -> None:
     instead of a prompt in the terminal.
 
     For more details, see [`login`].
+
+    Args:
+        new_session (`bool`, defaults to `True`):
+            If `True`, will request a token even if one is already saved on the machine.
+        write_permission (`bool`, defaults to `False`):
+            If `True`, requires a token with write permission.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -187,6 +212,9 @@ def notebook_login() -> None:
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
+    if not new_session and _current_token_okay(write_permission=write_permission):
+        print("User is already logged in.")
+        return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
 
@@ -207,7 +235,14 @@ def notebook_login() -> None:
     display(login_token_widget)
 
     # On click events
-    def login_token_event(t):
+    def login_token_event(t, write_permission: bool = False):
+        """
+        Event handler for the login button.
+
+        Args:
+            write_permission (`bool`, defaults to `False`):
+                If `True`, requires a token with write permission.
+        """
         token = token_widget.value
         add_to_git_credential = git_checkbox_widget.value
         # Erase token and clear value to make sure it's not saved in the notebook.
@@ -216,14 +251,14 @@ def notebook_login() -> None:
         login_token_widget.children = [widgets.Label("Connecting...")]
         try:
             with capture_output() as captured:
-                _login(token, add_to_git_credential=add_to_git_credential)
+                _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
             message = captured.getvalue()
         except Exception as error:
             message = str(error)
         # Print result (success message or error)
         login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
 
-    token_finish_button.on_click(login_token_event)
+    token_finish_button.on_click(partial(login_token_event, write_permission=write_permission))
 
 
 ###
@@ -231,13 +266,19 @@ def notebook_login() -> None:
 ###
 
 
-def _login(token: str, add_to_git_credential: bool) -> None:
-    hf_api = HfApi()
+def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
     if token.startswith("api_org"):
-        raise ValueError("You must use your personal account token.")
-    if not hf_api._is_valid_token(token=token):
+        raise ValueError("You must use your personal account token, not an organization token.")
+
+    permission = get_token_permission(token)
+    if permission is None:
         raise ValueError("Invalid token passed!")
-    print("Token is valid.")
+    elif write_permission and permission != "write":
+        raise ValueError(
+            "Token is valid but is 'read-only' and a 'write' token is required.\nPlease provide a new token with"
+            " correct permission."
+        )
+    print(f"Token is valid (permission: {permission}).")
 
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
@@ -252,6 +293,22 @@ def _login(token: str, add_to_git_credential: bool) -> None:
     HfFolder.save_token(token)
     print(f"Your token has been saved to {HfFolder.path_token}")
     print("Login successful")
+
+
+def _current_token_okay(write_permission: bool = False):
+    """Check if the current token is valid.
+
+    Args:
+        write_permission (`bool`, defaults to `False`):
+            If `True`, requires a token with write permission.
+
+    Returns:
+        `bool`: `True` if the current token is valid, `False` otherwise.
+    """
+    permission = get_token_permission()
+    if permission is None or (write_permission and permission != "write"):
+        return False
+    return True
 
 
 def _is_git_credential_helper_configured() -> bool:
