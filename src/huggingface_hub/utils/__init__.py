@@ -41,7 +41,7 @@ from ._errors import (
 )
 from ._fixes import SoftTemporaryDirectory, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
-from ._headers import build_hf_headers, get_token_to_send
+from ._headers import build_hf_headers, get_token_to_send, LocalTokenNotFoundError
 from ._hf_folder import HfFolder
 from ._http import configure_http_backend, get_session, http_backoff
 from ._pagination import paginate

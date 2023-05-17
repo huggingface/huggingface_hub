@@ -20,7 +20,7 @@ from typing import Optional
 
 from .commands._cli_utils import ANSI
 from .commands.delete_cache import _ask_for_confirmation_no_tui
-from .hf_api import HfApi
+from .hf_api import get_token_permission
 from .utils import (
     HfFolder,
     capture_output,
@@ -137,6 +137,7 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
 
     """
     if not new_session and _current_token_okay(write_permission=write_permission):
+        print("User is already logged in.")
         return
 
     print("""
@@ -212,6 +213,7 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
     if not new_session and _current_token_okay(write_permission=write_permission):
+        print("User is already logged in.")
         return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
@@ -265,12 +267,18 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 
 
 def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
-    hf_api = HfApi()
     if token.startswith("api_org"):
-        raise ValueError("You must use your personal account token.")
-    if not hf_api._is_valid_token(token=token, write_permission=write_permission):
+        raise ValueError("You must use your personal account token, not an organization token.")
+
+    permission = get_token_permission(token)
+    if permission is None:
         raise ValueError("Invalid token passed!")
-    print("Token is valid.")
+    elif write_permission and permission != "write":
+        raise ValueError(
+            "Token is valid but is 'read-only' and a 'write' token is required.\nPlease provide a new token with"
+            " correct permission."
+        )
+    print(f"Token is valid (permission: {permission}).")
 
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
@@ -297,11 +305,8 @@ def _current_token_okay(write_permission: bool = False):
     Returns:
         `bool`: `True` if the current token is valid, `False` otherwise.
     """
-    hf_api = HfApi()
-    token = HfFolder.get_token()
-    if token is None:
-        return False
-    if not hf_api._is_valid_token(token=token, write_permission=write_permission):
+    permission = get_token_permission()
+    if permission is None or (write_permission and permission != "write"):
         return False
     return True
 
