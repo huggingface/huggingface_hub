@@ -1443,7 +1443,7 @@ class HfApi:
         *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
-    ) -> Union[None, Future[None]]:
+    ) -> None:
         """
         Like a given repo on the Hub (e.g. set as favorite).
 
