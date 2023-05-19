@@ -111,7 +111,7 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ### Non-blocking upload
 
 In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
-artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file] and
+artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
 [`upload_folder`]. This will return a [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
 object that you can use to check the status of the upload.
 

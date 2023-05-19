@@ -889,7 +889,7 @@ class HfApi:
                 Arguments with which the method will be called.
 
         Return:
-            [`Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects): a Future instance to
+            `Future`: a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects) instance to
             get the result of the task.
 
         Example:
@@ -2600,9 +2600,10 @@ class HfApi:
                 object. Defaults to `False`.
 
         Returns:
-            [`CommitInfo`]:
-                Instance of [`CommitInfo`] containing information about the newly
-                created commit (commit hash, commit url, pr url, commit message,...).
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -3129,7 +3130,8 @@ class HfApi:
 
 
         Returns:
-            `str`: The URL to visualize the uploaded file on the hub
+            `str` or `Future`: The URL to visualize the uploaded file on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -3364,7 +3366,8 @@ class HfApi:
                 object. Defaults to `False`.
 
         Returns:
-            `str`: A URL to visualize the uploaded folder on the hub
+            `str` or `Future[str]`: A URL to visualize the uploaded folder on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
