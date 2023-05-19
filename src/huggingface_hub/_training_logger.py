@@ -13,6 +13,7 @@
 # limitations under the License.
 """Contains a Mixin to push training logs to the Hub."""
 import os
+from concurrent.futures import Future
 from typing import List, Optional, Union
 
 from .hf_api import create_repo, upload_folder
@@ -27,18 +28,20 @@ class HFLoggerMixin:
     current experiment directory. In practice, it is compatible with lightning loggers (e.g. TensorBoardLogger) when
     data is saved locally.
 
-    With the current implementation, the `push_to_hub` method is synchronous, meaning it will stop the training while
-    pushing to the Hub. This is not ideal but it's safer for now (e.g. how to deal if a log file is updated while
-    being pushed?).
+    The `push_to_hub` method is asynchronous, meaning the upload action will be executed in a separate thread.
+    Warning: you must be careful not to modify the log files while they are being pushed. Make sure to push to the Hub
+    only when your script is not logging data anymore (e.g. at the end of an epoch).
 
     Example:
         ```py
-        from lightning.pytorch.loggers import TensorBoardLogger
+        from tensorboardX import SummaryWriter
 
-        class HFLogger(HFLoggerMixin, TensorBoardLogger):
-            pass
+        class HFTensorBoardLogger(HFLoggerMixin, SummaryWriter):
+            @property
+            def log_dir(self) -> str:
+                return self.logdir
 
-        logger = HFLogger("training/results", repo_id="test_hf_logger", path_in_repo="tensorboard")
+        logger = HFTensorBoardLogger("training/results", repo_id="test_hf_logger", path_in_repo="tensorboard")
         logger.log_hyperparams({"a": 1, "b": 2})
         logger.push_to_hub()
         ```
@@ -104,7 +107,9 @@ class HFLoggerMixin:
         # Will be False if the logger class is badly defined (e.g. HFLoggerMixin.__init__ is not called)
         self._hf_logger_mixin_initialized = True
 
-    def push_to_hub(self, commit_message: Optional[str] = None, commit_description: Optional[str] = None) -> None:
+    def push_to_hub(
+        self, commit_message: Optional[str] = None, commit_description: Optional[str] = None
+    ) -> Future[str]:
         if not self._hf_logger_mixin_initialized:
             raise RuntimeError(
                 "`HFLoggerMixin` must be initialized before calling `push_to_hub` but is not. This is due to"
@@ -125,7 +130,7 @@ class HFLoggerMixin:
                 " to the hub."
             )
 
-        upload_folder(
+        return upload_folder(
             repo_id=self.repo_id,
             folder_path=log_dir,
             path_in_repo=self.path_in_repo,
@@ -136,4 +141,5 @@ class HFLoggerMixin:
             revision=self.repo_revision,
             allow_patterns=self.repo_allow_patterns,
             ignore_patterns=self.repo_ignore_patterns,
+            run_as_future=True,
         )
