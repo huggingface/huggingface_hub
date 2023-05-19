@@ -26,6 +26,7 @@ from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow
 # - handle async requests
 # - if a user tries to call a task on a model that doesn't support it, I'll gracefully handle the error to print to the user the available task(s) for their model.
 #       invalid task: client.summarization(EXAMPLE, model="codenamewei/speech-to-text")
+# Make BinaryT work with URLs as well
 
 RECOMMENDED_MODELS = {
     "audio-classification": "superb/hubert-large-superb-er",
@@ -206,3 +207,23 @@ def _import_image(task: str):
     from PIL import Image
 
     return Image
+
+
+if __name__ == "__main__":
+    client = InferenceClient()
+
+    # Text to speech to text
+    audio = client.text_to_speech("Hello world")
+    client.audio_classification(audio)
+    client.automatic_speech_recognition(audio)
+
+    # Image classification
+    client.image_classification("cat.jpg")
+
+    # Image segmentation
+    for item in client.image_segmentation("cat.jpg"):
+        item["mask"].save(f"cat_{item['label']}_{item['score']}.jpg")
+
+    # NLP
+    client.summarization("The Eiffel tower...")
+    client.conversational("Hi, who are you?")
