@@ -1,10 +1,11 @@
+import base64
+import io
 import warnings
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, Optional, Union
 
 from requests import Response
-import io
-import base64
+
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
 from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow_available
@@ -38,8 +39,10 @@ RECOMMENDED_MODELS = {
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
 }
 
+UrlT = str
 PathT = Union[str, Path]
-BinaryT = Union[bytes, BinaryIO, PathT]
+BinaryT = Union[bytes, BinaryIO]
+ContentT = Union[BinaryT, PathT, UrlT]
 
 
 class InferenceClient:
@@ -57,7 +60,7 @@ class InferenceClient:
     def post(
         self,
         json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[bytes] = None,
+        data: Optional[BinaryT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
     ) -> Response:
@@ -72,24 +75,20 @@ class InferenceClient:
 
     def audio_classification(
         self,
-        audio: BinaryT,
+        audio: ContentT,
         model: Optional[str] = None,
     ) -> ClassificationOutput:
         # Recommended: superb/hubert-large-superb-er
-        if isinstance(audio, (str, Path)):
-            audio = Path(audio).read_bytes()
-        response = self.post(data=audio, model=model, task="audio-classification")
+        response = self.post(data=_open_binary(audio), model=model, task="audio-classification")
         return response.json()
 
     def automatic_speech_recognition(
         self,
-        audio: BinaryT,
+        audio: ContentT,
         model: Optional[str] = None,
     ) -> str:
         # Recommended: facebook/wav2vec2-large-960h-lv60-self
-        if isinstance(audio, (str, Path)):
-            audio = Path(audio).read_bytes()
-        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
+        response = self.post(data=_open_binary(audio), model=model, task="automatic-speech-recognition")
         return response.json()["text"]
 
     def conversational(
@@ -113,27 +112,23 @@ class InferenceClient:
 
     def image_classification(
         self,
-        image: BinaryT,
+        image: ContentT,
         model: Optional[str] = None,
     ) -> ClassificationOutput:
         # Recommended: google/vit-base-patch16-224
-        if isinstance(image, (str, Path)):
-            image = Path(image).read_bytes()
-        response = self.post(data=image, model=model, task="image-classification")
+        response = self.post(data=_open_binary(image), model=model, task="image-classification")
         return response.json()
 
     def image_segmentation(
         self,
-        image: BinaryT,
+        image: ContentT,
         model: Optional[str] = None,
     ) -> List[ImageSegmentationOutput]:
         # Recommended: facebook/detr-resnet-50-panoptic
         Image = _import_image("image-segmentation")
 
         # Segment
-        if isinstance(image, (str, Path)):
-            image = Path(image).read_bytes()
-        response = self.post(data=image, model=model, task="image-segmentation")
+        response = self.post(data=_open_binary(image), model=model, task="image-segmentation")
         output = response.json()
 
         # Parse masks as PIL Image
@@ -209,6 +204,14 @@ def _import_image(task: str):
     return Image
 
 
+def _open_binary(content: ContentT) -> BinaryT:
+    if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
+        return get_session().get(content).content
+    elif isinstance(content, (str, Path)):
+        return Path(content).read_bytes()
+    return content
+
+
 if __name__ == "__main__":
     client = InferenceClient()
 
@@ -219,11 +222,21 @@ if __name__ == "__main__":
 
     # Image classification
     client.image_classification("cat.jpg")
+    client.image_classification(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg"
+    )
 
     # Image segmentation
     for item in client.image_segmentation("cat.jpg"):
         item["mask"].save(f"cat_{item['label']}_{item['score']}.jpg")
 
-    # NLP
+    # Text summary
     client.summarization("The Eiffel tower...")
-    client.conversational("Hi, who are you?")
+
+    # Chat
+    output = client.conversational("Hi, who are you?")
+    client.conversational(
+        "Wow, that's scary!",
+        generated_responses=output["conversation"]["generated_responses"],
+        past_user_inputs=output["conversation"]["past_user_inputs"],
+    )
