@@ -17,6 +17,7 @@ ReturnT = TypeVar("ReturnT")
 # TODO: Start scheduler => sleep X seconds => flush
 # TODO: cancel + restart scheduler on each new item
 # TODO: store futures in class? How to deal with exceptions?
+# TODO: create repo at init
 
 
 class CommitScheduler(abc.ABC, Generic[ItemT, ReturnT]):
