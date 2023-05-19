@@ -12,16 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
+import inspect
 import json
 import pprint
 import re
 import textwrap
 import warnings
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import wraps
 from itertools import islice
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, overload
 from urllib.parse import quote
 
 import requests
@@ -30,6 +35,7 @@ from requests.exceptions import HTTPError
 from huggingface_hub.utils import (
     IGNORE_GIT_FOLDER_PATTERNS,
     EntryNotFoundError,
+    LocalTokenNotFoundError,
     RepositoryNotFoundError,
     experimental,
     get_session,
@@ -90,9 +96,8 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 )
 from .utils._deprecation import (
     _deprecate_arguments,
-    _deprecate_list_output,
 )
-from .utils._typing import Literal, TypedDict
+from .utils._typing import CallableT, Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -102,6 +107,8 @@ from .utils.endpoint_helpers import (
     _filter_emissions,
 )
 
+
+R = TypeVar("R")  # Return type
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -789,6 +796,39 @@ class UserLikes:
     spaces: List[str]
 
 
+def future_compatible(fn: CallableT) -> CallableT:
+    """Wrap a method of `HfApi` to handle `run_as_future=True`.
+
+    A method flagged as "future_compatible" will be called in a thread if `run_as_future=True` and return a
+    `concurrent.futures.Future` instance. Otherwise, it will be called normally and return the result.
+    """
+    sig = inspect.signature(fn)
+    args_params = list(sig.parameters)[1:]  # remove "self" from list
+
+    @wraps(fn)
+    def _inner(self, *args, **kwargs):
+        # Get `run_as_future` value if provided (default to False)
+        if "run_as_future" in kwargs:
+            run_as_future = kwargs["run_as_future"]
+            kwargs["run_as_future"] = False  # avoid recursion error
+        else:
+            run_as_future = False
+            for param, value in zip(args_params, args):
+                if param == "run_as_future":
+                    run_as_future = value
+                    break
+
+        # Call the function in a thread if `run_as_future=True`
+        if run_as_future:
+            return self.run_as_future(fn, self, *args, **kwargs)
+
+        # Otherwise, call the function normally
+        return fn(self, *args, **kwargs)
+
+    _inner.is_future_compatible = True  # type: ignore
+    return _inner  # type: ignore
+
+
 class HfApi:
     def __init__(
         self,
@@ -828,7 +868,49 @@ class HfApi:
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
+        self._thread_pool: Optional[ThreadPoolExecutor] = None
 
+    def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
+        """
+        Run a method in the background and return a Future instance.
+
+        The main goal is to run methods without blocking the main thread (e.g. to push data during a training).
+        Background jobs are queued to preserve order but are not ran in parallel. If you need to speed-up your scripts
+        by parallelizing lots of call to the API, you must setup and use your own [ThreadPoolExecutor](https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor).
+
+        Note: Most-used methods like [`upload_file`], [`upload_folder`] and [`create_commit`] have a `run_as_future: bool`
+        argument to directly call them in the background. This is equivalent to calling `api.run_as_future(...)` on them
+        but less verbose.
+
+        Args:
+            fn (`Callable`):
+                The method to run in the background.
+            *args, **kwargs:
+                Arguments with which the method will be called.
+
+        Return:
+            `Future`: a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects) instance to
+            get the result of the task.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> future = api.run_as_future(api.whoami) # instant
+            >>> future.done()
+            False
+            >>> future.result() # wait until complete and return result
+            (...)
+            >>> future.done()
+            True
+            ```
+        """
+        if self._thread_pool is None:
+            self._thread_pool = ThreadPoolExecutor(max_workers=1)
+        self._thread_pool
+        return self._thread_pool.submit(fn, *args, **kwargs)
+
+    @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -856,25 +938,29 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str) -> bool:
+    def get_token_permission(self, token: Optional[str] = None) -> Literal["read", "write", None]:
         """
-        Determines whether `token` is a valid token or not.
+        Check if a given `token` is valid and return its permissions.
+
+        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
         Args:
-            token (`str`):
-                The token to check for validity.
+            token (`str`, *optional*):
+                The token to check for validity. Defaults to the one saved locally.
 
         Returns:
-            `bool`: `True` if valid, `False` otherwise.
+            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed or token is invalid.
         """
         try:
-            self.whoami(token=token)
-            return True
-        except HTTPError:
-            return False
+            return self.whoami(token=token)["auth"]["accessToken"]["role"]
+        except (LocalTokenNotFoundError, HTTPError):
+            return None
 
     def get_model_tags(self) -> ModelTags:
-        "Gets all valid model tags as a nested namespace object"
+        """
+        List all valid model tags as a nested namespace object
+        """
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
@@ -883,7 +969,7 @@ class HfApi:
 
     def get_dataset_tags(self) -> DatasetTags:
         """
-        Gets all valid dataset tags as a nested namespace object.
+        List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = get_session().get(path)
@@ -891,7 +977,6 @@ class HfApi:
         d = r.json()
         return DatasetTags(d)
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -907,9 +992,9 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
-    ) -> List[ModelInfo]:
+    ) -> Iterable[ModelInfo]:
         """
-        Get the list of all the models on huggingface.co
+        List models hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
@@ -950,9 +1035,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[ModelInfo]`: a list of [`huggingface_hub.hf_api.ModelInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -1002,6 +1085,9 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
+        if emissions_thresholds is not None and cardData is None:
+            raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
+
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
         params = {}
@@ -1031,18 +1117,14 @@ class HfApi:
         if cardData:
             params.update({"cardData": True})
 
-        data = paginate(path, params=params, headers=headers)
+        # `items` is a generator
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        items = [ModelInfo(**x) for x in data]
-
+            items = islice(items, limit)  # Do not iterate over all pages
         if emissions_thresholds is not None:
-            if cardData is None:
-                raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
-            else:
-                return _filter_emissions(items, *emissions_thresholds)
-
-        return items
+            items = _filter_emissions(items, *emissions_thresholds)
+        for item in items:
+            yield ModelInfo(**item)
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -1096,12 +1178,6 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
-    @_deprecate_arguments(
-        version="0.14",
-        deprecated_args={"cardData"},
-        custom_message="Use 'full' instead.",
-    )
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -1112,12 +1188,11 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,  # deprecated
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[DatasetInfo]:
+    ) -> Iterable[DatasetInfo]:
         """
-        Get the list of all the datasets on huggingface.co
+        List datasets hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
@@ -1147,9 +1222,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[DatasetInfo]`: a list of [`huggingface_hub.hf_api.DatasetInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[DatasetInfo]`: an iterable of [`huggingface_hub.hf_api.DatasetInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -1218,13 +1291,14 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full or cardData:
+        if full:
             params.update({"full": True})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [DatasetInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
@@ -1280,7 +1354,6 @@ class HfApi:
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -1296,9 +1369,9 @@ class HfApi:
         linked: bool = False,
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[SpaceInfo]:
+    ) -> Iterable[SpaceInfo]:
         """
-        Get the public list of all Spaces on huggingface.co
+        List spaces hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter (`str` or `Iterable`, *optional*):
@@ -1334,9 +1407,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[SpaceInfo]`: an iterable of [`huggingface_hub.hf_api.SpaceInfo`] objects.
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
@@ -1362,10 +1433,11 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [SpaceInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield SpaceInfo(**item)
 
     @validate_hf_hub_args
     def like(
@@ -1805,6 +1877,7 @@ class HfApi:
         repo_id: str,
         paths: Union[List[str], str, None] = None,
         *,
+        expand: bool = False,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
         token: Optional[Union[bool, str]] = None,
@@ -1826,6 +1899,11 @@ class HfApi:
                 recursively which means that information is returned about all files in the folder and its subfolders.
                 If `None`, all files are returned (the default). If a path do not exist, it is ignored without raising
                 an exception.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the files (e.g. last commit and security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
             revision (`str`, *optional*):
                 The revision of the repository from which to get the information. Defaults to `"main"` branch.
             repo_type (`str`, *optional*):
@@ -1863,6 +1941,53 @@ class HfApi:
             ]
             ```
 
+            Get even more information about files on a repo (last commit and security scan results)
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
+            >>> list(files_info)
+            [
+                RepoFile: {
+                {'blob_id': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': None,
+                'rfilename': 'model_index.json',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                                'name': 'model_index.json',
+                                'pickleImportScan': None,
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 584}
+                },
+                RepoFile: {
+                {'blob_id': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': {'pointer_size': 134,
+                        'sha256': 'dcf4507d99b88db73f3916e2a20169fe74ada6b5582e9af56cfa80f5f3141765',
+                        'size': 334711857},
+                'rfilename': 'vae/diffusion_pytorch_model.bin',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                                'name': 'vae/diffusion_pytorch_model.bin',
+                                'pickleImportScan': {'highestSafetyLevel': 'innocuous',
+                                                    'imports': [{'module': 'torch._utils',
+                                                                'name': '_rebuild_tensor_v2',
+                                                                'safety': 'innocuous'},
+                                                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
+                                                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'}]},
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 334711857}
+                },
+                (...)
+            ]
+            ```
+
             List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
 
             ```py
@@ -1890,10 +2015,6 @@ class HfApi:
             blobId = info.pop("oid")
             lfs = info.pop("lfs", None)
             info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
-            # "lastCommit": behavior might change server-side in the near future (it might become optional)
-            # In the meantime, let's remove it so that users don't expect it
-            # TODO: set it back when https://github.com/huggingface/moon-landing/issues/5993 is settled
-            info.pop("lastCommit", None)
             if lfs is not None:
                 lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
             return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
@@ -1911,7 +2032,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
                 data={
                     "paths": paths if isinstance(paths, list) else [paths],
-                    # "expand": True, # TODO: related to "lastCommit" (see above). Do not return it for now.
+                    "expand": True,
                 },
                 headers=headers,
             )
@@ -1929,7 +2050,7 @@ class HfApi:
         for path in folder_paths:
             encoded_path = "/" + quote(path, safe="") if path else ""
             tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path}"
-            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True}):
+            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True, "expand": expand}):
                 if subpath_info["type"] == "file":
                     yield _format_as_repo_file(subpath_info)
 
@@ -2370,7 +2491,25 @@ class HfApi:
             )
             raise
 
-    @validate_hf_hub_args
+    @overload
+    def create_commit(  # type: ignore
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> CommitInfo:
+        ...
+
+    @overload
     def create_commit(
         self,
         repo_id: str,
@@ -2384,7 +2523,27 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
-    ) -> CommitInfo:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[CommitInfo]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -2435,11 +2594,16 @@ class HfApi:
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
                 if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            [`CommitInfo`]:
-                Instance of [`CommitInfo`] containing information about the newly
-                created commit (commit hash, commit url, pr url, commit message,...).
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -2866,7 +3030,25 @@ class HfApi:
 
         return pr.url
 
-    @validate_hf_hub_args
+    @overload
+    def upload_file(  # type: ignore
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_file(
         self,
         *,
@@ -2880,7 +3062,27 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-    ) -> str:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_file(
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -2921,10 +3123,15 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
 
         Returns:
-            `str`: The URL to visualize the uploaded file on the hub
+            `str` or `Future`: The URL to visualize the uploaded file on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -3015,7 +3222,30 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
 
-    @validate_hf_hub_args
+    @overload
+    def upload_folder(  # type: ignore
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_folder(
         self,
         *,
@@ -3034,7 +3264,32 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
-    ):
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -3105,9 +3360,14 @@ class HfApi:
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
                 If True and `multi_commits` is used, more information will be displayed to the user.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            `str`: A URL to visualize the uploaded folder on the hub
+            `str` or `Future[str]`: A URL to visualize the uploaded folder on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -4832,6 +5092,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info
@@ -4868,6 +5129,9 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Background jobs
+run_as_future = api.run_as_future
 
 # Activity API
 list_liked_repos = api.list_liked_repos

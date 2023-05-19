@@ -27,7 +27,7 @@ class TestHuggingfaceHubInit(unittest.TestCase):
                 # Assert docstring is find. This means autocomplete can also provide
                 # the help section.
                 signature_list = goto_list[0].get_signatures()
-                self.assertEqual(len(signature_list), 1)
+                self.assertEqual(len(signature_list), 2)  # create_commit has 2 signatures (normal and `run_as_future`)
                 self.assertTrue(signature_list[0].docstring().startswith("create_commit(repo_id: str,"))
                 break
         else:

@@ -108,6 +108,54 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
+### Non-blocking upload
+
+In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
+artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
+[`upload_folder`]. This will return a [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+object that you can use to check the status of the upload.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> future = api.upload_folder( # Upload in the background (non-blocking action)
+...     repo_id="username/my-model",
+...     folder_path="checkpoints-001",
+...     run_as_future=True,
+... )
+>>> future
+Future(...)
+>>> future.done()
+False
+>>> future.result() # Wait for the upload to complete (blocking action)
+...
+```
+
+<Tip>
+
+Background jobs are queued when using `run_as_future=True`. This means that you are guaranteed that the jobs will be
+executed in the correct order.
+
+</Tip>
+
+Even though background jobs are mostly useful to upload data/create commits, you can queue any method you like using
+[`run_as_future`]. For instance, you can use it to create a repo and then upload data to it in the background. The
+built-in `run_as_future` argument in upload methods is just an alias around it.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+Future(...)
+>>> api.upload_file(
+...     repo_id="username/my-model",
+...     path_in_repo="file.txt",
+...     path_or_fileobj=b"file content",
+...     run_as_future=True,
+... )
+Future(...)
+```
+
 ### Upload a folder by chunks
 
 [`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or

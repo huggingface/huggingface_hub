@@ -18,7 +18,9 @@ import re
 import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, Dict
+
+from ._typing import CallableT
 
 
 REPO_ID_REGEX = re.compile(
@@ -39,10 +41,6 @@ class HFValidationError(ValueError):
 
     Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
-
-
-# type hint meaning "function signature not changed by decorator"
-CallableT = TypeVar("CallableT", bound=Callable)
 
 
 def validate_hf_hub_args(fn: CallableT) -> CallableT:

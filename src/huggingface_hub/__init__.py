@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.14.0.dev0"
+__version__ = "0.15.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -164,6 +164,7 @@ _SUBMOD_ATTRS = {
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
+        "get_token_permission",
         "like",
         "list_datasets",
         "list_files_info",
@@ -182,6 +183,7 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "restart_space",
+        "run_as_future",
         "set_space_sleep_time",
         "space_info",
         "unlike",
@@ -452,6 +454,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
+        get_token_permission,  # noqa: F401
         like,  # noqa: F401
         list_datasets,  # noqa: F401
         list_files_info,  # noqa: F401
@@ -470,6 +473,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         restart_space,  # noqa: F401
+        run_as_future,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         unlike,  # noqa: F401
