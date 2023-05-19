@@ -12,16 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
+import inspect
 import json
 import pprint
 import re
 import textwrap
 import warnings
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import wraps
 from itertools import islice
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, overload
 from urllib.parse import quote
 
 import requests
@@ -92,7 +97,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 from .utils._deprecation import (
     _deprecate_arguments,
 )
-from .utils._typing import Literal, TypedDict
+from .utils._typing import CallableT, Literal, TypedDict
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -102,6 +107,8 @@ from .utils.endpoint_helpers import (
     _filter_emissions,
 )
 
+
+R = TypeVar("R")  # Return type
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -789,6 +796,39 @@ class UserLikes:
     spaces: List[str]
 
 
+def future_compatible(fn: CallableT) -> CallableT:
+    """Wrap a method of `HfApi` to handle `run_as_future=True`.
+
+    A method flagged as "future_compatible" will be called in a thread if `run_as_future=True` and return a
+    `concurrent.futures.Future` instance. Otherwise, it will be called normally and return the result.
+    """
+    sig = inspect.signature(fn)
+    args_params = list(sig.parameters)[1:]  # remove "self" from list
+
+    @wraps(fn)
+    def _inner(self, *args, **kwargs):
+        # Get `run_as_future` value if provided (default to False)
+        if "run_as_future" in kwargs:
+            run_as_future = kwargs["run_as_future"]
+            kwargs["run_as_future"] = False  # avoid recursion error
+        else:
+            run_as_future = False
+            for param, value in zip(args_params, args):
+                if param == "run_as_future":
+                    run_as_future = value
+                    break
+
+        # Call the function in a thread if `run_as_future=True`
+        if run_as_future:
+            return self.run_as_future(fn, self, *args, **kwargs)
+
+        # Otherwise, call the function normally
+        return fn(self, *args, **kwargs)
+
+    _inner.is_future_compatible = True  # type: ignore
+    return _inner  # type: ignore
+
+
 class HfApi:
     def __init__(
         self,
@@ -828,7 +868,49 @@ class HfApi:
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
+        self._thread_pool: Optional[ThreadPoolExecutor] = None
 
+    def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
+        """
+        Run a method in the background and return a Future instance.
+
+        The main goal is to run methods without blocking the main thread (e.g. to push data during a training).
+        Background jobs are queued to preserve order but are not ran in parallel. If you need to speed-up your scripts
+        by parallelizing lots of call to the API, you must setup and use your own [ThreadPoolExecutor](https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor).
+
+        Note: Most-used methods like [`upload_file`], [`upload_folder`] and [`create_commit`] have a `run_as_future: bool`
+        argument to directly call them in the background. This is equivalent to calling `api.run_as_future(...)` on them
+        but less verbose.
+
+        Args:
+            fn (`Callable`):
+                The method to run in the background.
+            *args, **kwargs:
+                Arguments with which the method will be called.
+
+        Return:
+            `Future`: a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects) instance to
+            get the result of the task.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> future = api.run_as_future(api.whoami) # instant
+            >>> future.done()
+            False
+            >>> future.result() # wait until complete and return result
+            (...)
+            >>> future.done()
+            True
+            ```
+        """
+        if self._thread_pool is None:
+            self._thread_pool = ThreadPoolExecutor(max_workers=1)
+        self._thread_pool
+        return self._thread_pool.submit(fn, *args, **kwargs)
+
+    @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -876,7 +958,9 @@ class HfApi:
             return None
 
     def get_model_tags(self) -> ModelTags:
-        "Gets all valid model tags as a nested namespace object"
+        """
+        List all valid model tags as a nested namespace object
+        """
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
@@ -885,7 +969,7 @@ class HfApi:
 
     def get_dataset_tags(self) -> DatasetTags:
         """
-        Gets all valid dataset tags as a nested namespace object.
+        List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = get_session().get(path)
@@ -2407,7 +2491,25 @@ class HfApi:
             )
             raise
 
-    @validate_hf_hub_args
+    @overload
+    def create_commit(  # type: ignore
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> CommitInfo:
+        ...
+
+    @overload
     def create_commit(
         self,
         repo_id: str,
@@ -2421,7 +2523,27 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
-    ) -> CommitInfo:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[CommitInfo]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -2472,11 +2594,16 @@ class HfApi:
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
                 if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            [`CommitInfo`]:
-                Instance of [`CommitInfo`] containing information about the newly
-                created commit (commit hash, commit url, pr url, commit message,...).
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -2903,7 +3030,25 @@ class HfApi:
 
         return pr.url
 
-    @validate_hf_hub_args
+    @overload
+    def upload_file(  # type: ignore
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_file(
         self,
         *,
@@ -2917,7 +3062,27 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-    ) -> str:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_file(
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -2958,10 +3123,15 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
 
         Returns:
-            `str`: The URL to visualize the uploaded file on the hub
+            `str` or `Future`: The URL to visualize the uploaded file on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -3052,7 +3222,30 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
 
-    @validate_hf_hub_args
+    @overload
+    def upload_folder(  # type: ignore
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_folder(
         self,
         *,
@@ -3071,7 +3264,32 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
-    ):
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -3142,9 +3360,14 @@ class HfApi:
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
                 If True and `multi_commits` is used, more information will be displayed to the user.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            `str`: A URL to visualize the uploaded folder on the hub
+            `str` or `Future[str]`: A URL to visualize the uploaded folder on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -4906,6 +5129,9 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Background jobs
+run_as_future = api.run_as_future
 
 # Activity API
 list_liked_repos = api.list_liked_repos
