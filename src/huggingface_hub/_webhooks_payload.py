@@ -15,14 +15,7 @@
 """Contains data structures to parse the webhooks payload."""
 from typing import List, Optional
 
-from .utils import is_gradio_available
 from .utils._typing import Literal
-
-
-if not is_gradio_available():
-    raise ImportError(
-        "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio` first."
-    )
 
 from pydantic import BaseModel
 
