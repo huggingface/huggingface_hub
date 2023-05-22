@@ -9,7 +9,7 @@ from requests import Response
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
-from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow_available
+from .utils import build_hf_headers, experimental, get_session, hf_raise_for_status, is_pillow_available
 from .utils._typing import Literal
 
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 # TODO:
 # - handle options? wait_for_model, use_gpu,... See list: https://github.com/huggingface/huggingface.js/blob/main/packages/inference/src/types.ts#L1
-# - handle parameters? we can based implementation on inference.js
+# - handle parameters? we can base implementation on inference.js
 # - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
 # - add all tasks
 # - handle async requests
@@ -51,6 +51,7 @@ BinaryT = Union[bytes, BinaryIO]
 ContentT = Union[BinaryT, PathT, UrlT]
 
 
+@experimental
 class InferenceClient:
     def __init__(
         self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[int] = None
