@@ -1,11 +1,13 @@
 import base64
 import io
+import logging
+import time
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
-from requests import Response
+from requests import HTTPError, Response
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
@@ -15,6 +17,8 @@ from .utils._typing import Literal
 
 if TYPE_CHECKING:
     from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 # Related resources:
 #    https://huggingface.co/tasks
@@ -30,9 +34,6 @@ if TYPE_CHECKING:
 # - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
 # - add all tasks
 # - handle async requests
-# - if a user tries to call a task on a model that doesn't support it, I'll gracefully handle the error to print to the user the available task(s) for their model.
-#       invalid task: client.summarization(EXAMPLE, model="codenamewei/speech-to-text")
-
 
 RECOMMENDED_MODELS = {
     "audio-classification": "superb/hubert-large-superb-er",
@@ -51,10 +52,14 @@ BinaryT = Union[bytes, BinaryIO]
 ContentT = Union[BinaryT, PathT, UrlT]
 
 
+class InferenceTimeoutError(HTTPError, TimeoutError):
+    """Error raised when a model is unavailable or the request times out."""
+
+
 @experimental
 class InferenceClient:
     def __init__(
-        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[int] = None
+        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
     ) -> None:
         # If set, `model` can be either a repo_id on the Hub or an endpoint URL.
         self.model: Optional[str] = model
@@ -76,11 +81,35 @@ class InferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        with _open_as_binary(data) as data_as_binary:
-            response = get_session().post(
-                url, json=json, data=data_as_binary, headers=self.headers, timeout=self.timeout
-            )
-        hf_raise_for_status(response)
+        t0 = time.time()
+        timeout = self.timeout
+        while True:
+            with _open_as_binary(data) as data_as_binary:
+                try:
+                    response = get_session().post(
+                        url, json=json, data=data_as_binary, headers=self.headers, timeout=self.timeout
+                    )
+                except TimeoutError as error:
+                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                    raise InferenceTimeoutError(f"Inference call timed out: {model}") from error
+
+            try:
+                hf_raise_for_status(response)
+            except HTTPError as error:
+                if error.response.status_code == 503:
+                    # If Model is unavailable, either raise a TimeoutError...
+                    if self.timeout is None or time.time() - t0 > self.timeout:
+                        raise InferenceTimeoutError(
+                            f"Model not loaded on the server: {model}. Please retry with a higher timeout."
+                        ) from error
+                    # ...or wait 1s and retry
+                    logger.info(f"Waiting for model to be loaded on the server: {error}")
+                    time.sleep(1)
+                    if timeout is not None:
+                        timeout = max(self.timeout - (time.time() - t0), 1)  # timeout of at least 1s
+                    continue
+                raise
+            break
         return response
 
     def audio_classification(
@@ -228,18 +257,20 @@ class InferenceClient:
 
 def _get_recommended_model(task: str) -> str:
     if task in RECOMMENDED_MODELS:
-        return RECOMMENDED_MODELS[task]
+        model = RECOMMENDED_MODELS[task]
+        logger.info(f"Defaulting to recommended model {model} for task {task}.")
+        return model
     raise NotImplementedError()
 
 
 @overload
 def _open_as_binary(content: ContentT) -> ContextManager[BinaryT]:
-    ...  # means "if input is not None, output will not be None"
+    ...  # means "if input is not None, output is not None"
 
 
 @overload
 def _open_as_binary(content: Literal[None]) -> ContextManager[Literal[None]]:
-    ...  # means "if input is None, output will be None"
+    ...  # means "if input is None, output is None"
 
 
 @contextmanager  # type: ignore
@@ -251,6 +282,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
+            logger.debug(f"Downloading content from {content}")
             yield get_session().get(content).content  # TODO: retrieve as stream and pipe to post request ?
             return
         content = Path(content)
@@ -262,6 +294,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
     # If content is a Path => open it
     if isinstance(content, Path):
+        logger.debug(f"Opening content from {content}")
         with content.open("rb") as f:
             yield f
     else:
