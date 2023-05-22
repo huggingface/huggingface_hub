@@ -555,6 +555,9 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
     """Open `content` as a binary file, either from a URL, a local path, or raw bytes.
 
     Do nothing if `content` is None,
+
+    TODO: handle a PIL.Image as input
+    TODO: handle base64 as input
     """
     # If content is a string => must be either a URL or a path
     if isinstance(content, str):
