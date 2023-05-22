@@ -1,3 +1,39 @@
+# coding=utf-8
+# Copyright 2019-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Related resources:
+#    https://huggingface.co/tasks
+#    https://huggingface.co/docs/huggingface.js/inference/README
+#    https://github.com/huggingface/huggingface.js/tree/main/packages/inference/src
+#    https://github.com/huggingface/text-generation-inference/tree/main/clients/python
+#    https://github.com/huggingface/text-generation-inference/blob/main/clients/python/text_generation/client.py
+#    https://huggingface.slack.com/archives/C03E4DQ9LAJ/p1680169099087869
+#
+# Some TODO:
+# - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
+# - add all tasks
+# - handle async requests
+#
+# NOTE: the philosophy of this client is "let's make it as easy as possible to use it, even if less optimized". Some
+# examples of how it translates:
+# - Timeout / Server unavailable is handled by the client in a single "timeout" parameter.
+# - Files can be provided as bytes, file paths, or URLs and the client will try to "guess" the type.
+# - Images are parsed as PIL.Image for easier manipulation.
+# - Provides a "recommended model" for each task => suboptimal but user-wise quicker to get a first script running.
+# - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
+
 import base64
 import io
 import logging
@@ -20,20 +56,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Related resources:
-#    https://huggingface.co/tasks
-#    https://huggingface.co/docs/huggingface.js/inference/README
-#    https://github.com/huggingface/huggingface.js/tree/main/packages/inference/src
-#    https://github.com/huggingface/text-generation-inference/tree/main/clients/python
-#    https://github.com/huggingface/text-generation-inference/blob/main/clients/python/text_generation/client.py
-#    https://huggingface.slack.com/archives/C03E4DQ9LAJ/p1680169099087869
-
-# TODO:
-# - handle options? wait_for_model, use_gpu,... See list: https://github.com/huggingface/huggingface.js/blob/main/packages/inference/src/types.ts#L1
-# - handle parameters? we can base implementation on inference.js
-# - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
-# - add all tasks
-# - handle async requests
 
 RECOMMENDED_MODELS = {
     "audio-classification": "superb/hubert-large-superb-er",
@@ -61,7 +83,36 @@ class InferenceClient:
     def __init__(
         self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
     ) -> None:
-        # If set, `model` can be either a repo_id on the Hub or an endpoint URL.
+        """
+        Initialize a new Inference Client.
+
+        [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
+        seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
+
+        <Tip warning={true}>
+
+        `InferenceClient` is still experimental. All tasks are not yet implemented and its API is subject to change in
+        the future.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
+
+        </Tip>
+
+        Args:
+            model (`str`, `optional`):
+                The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
+                `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, meaning the model can
+                 be passed for each task or in last resort a recommended model will be used.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token.
+            timeout (`float`, `optional`):
+                The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
+                API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+        """
         self.model: Optional[str] = model
         self.headers = build_hf_headers(token=token)
         self.timeout = timeout
@@ -76,6 +127,30 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
     ) -> Response:
+        """
+        Make a POST request to the inference server.
+
+        Args:
+            json (Union[str, Dict, List], optional):
+                The JSON data to send in the request body. Defaults to None.
+            data (Union[str, Path, bytes, BinaryIO], optional):
+                The content to send in the request body. It can be raw bytes, a pointer to an opened file, a local file
+                path, or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
+                `data` will take precedence. At least `json` or `data` must be provided.. Defaults to None.
+            model (str, optional):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
+            task (str, optional):
+                The task to perform on the inference. Used only to default to a recommended model if `model` is not
+                provided. At least `model` or `task` must be provided. Defaults to None.
+
+        Returns:
+            Response: The `requests` HTTP response.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+        """
         url = self._resolve_url(model, task)
 
         if data is not None and json is not None:
@@ -91,7 +166,7 @@ class InferenceClient:
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {model}") from error
+                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
 
             try:
                 hf_raise_for_status(response)
@@ -100,7 +175,7 @@ class InferenceClient:
                     # If Model is unavailable, either raise a TimeoutError...
                     if self.timeout is None or time.time() - t0 > self.timeout:
                         raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {model}. Please retry with a higher timeout."
+                            f"Model not loaded on the server: {url}. Please retry with a higher timeout."
                         ) from error
                     # ...or wait 1s and retry
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
@@ -117,7 +192,33 @@ class InferenceClient:
         audio: ContentT,
         model: Optional[str] = None,
     ) -> ClassificationOutput:
-        # Recommended: superb/hubert-large-superb-er
+        """
+        Perform audio classification on the provided audio content.
+
+        Args:
+            audio (Union[str, Path, bytes, BinaryIO]):
+                The audio content to classify. It can be raw audio bytes, a local audio file, or a URL pointing to an
+                audio file.
+            model (str, optional):
+                The model to use for audio classification. Can be a model ID hosted on the Hugging Face Hub
+                or a URL to a deployed Inference Endpoint. If not provided, the default recommended model for
+                audio classification will be used.
+
+        Returns:
+            [`ClassificationOutput`]: The classification output containing the predicted label and its confidence.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> client.audio_classification(audio)
+            [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
+            ```
+        """
         response = self.post(data=audio, model=model, task="audio-classification")
         return response.json()
 
@@ -126,7 +227,31 @@ class InferenceClient:
         audio: ContentT,
         model: Optional[str] = None,
     ) -> str:
-        # Recommended: facebook/wav2vec2-large-960h-lv60-self
+        """
+        Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
+
+        Args:
+            audio (Union[str, Path, bytes, BinaryIO]):
+                The content to transcribe. It can be raw audio bytes, local audio file, or a URL to an audio file.
+            model (Optional[str], optional):
+                The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. If not provided, the default recommended model for ASR will be used.
+
+        Returns:
+            str: The transcribed text.
+
+        Raises:
+            -[`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> client.automatic_speech_recognition("hello_world.wav")
+            "hello world"
+            ```
+        """
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
         return response.json()["text"]
 
@@ -138,7 +263,46 @@ class InferenceClient:
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
     ) -> ConversationalOutput:
-        # Recommended: microsoft/DialoGPT-large
+        """
+        Generate conversational responses based on the given input text (i.e. chat with the API).
+
+        Args:
+            text (str):
+                The last input from the user in the conversation.
+            generated_responses (List[str], optional):
+                A list of strings corresponding to the earlier replies from the model. Defaults to None.
+            past_user_inputs (Optional[List[str]], optional):
+                A list of strings corresponding to the earlier replies from the user. Should be of the same length of
+                `generated_responses`. Defaults to None.
+            parameters (Dict[str, Any], optional):
+                Additional parameters for the conversational task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
+            model (Optional[str], optional):
+                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                Defaults to None.
+
+        Returns:
+            [`ConversationalOutput`]: The generated conversational output.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> output = client.conversational("Hi, who are you?")
+            >>> output
+            {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
+            >>> client.conversational(
+            ...     "Wow, that's scary!",
+            ...     generated_responses=output["conversation"]["generated_responses"],
+            ...     past_user_inputs=output["conversation"]["past_user_inputs"],
+            ... )
+            ```
+        """
         payload: Dict[str, Any] = {"inputs": {"text": text}}
         if generated_responses is not None:
             payload["inputs"]["generated_responses"] = generated_responses
@@ -153,8 +317,32 @@ class InferenceClient:
         self,
         image: ContentT,
         model: Optional[str] = None,
-    ) -> ClassificationOutput:
-        # Recommended: google/vit-base-patch16-224
+    ) -> List[ClassificationOutput]:
+        """
+        Perform image classification on the given image using the specified model.
+
+        Args:
+            image (Union[str, Path, bytes, BinaryIO]):
+                The image to classify. It can be raw bytes, an image file, or a URL to an online image.
+            model (str, optional):
+                The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
+                deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
+
+        Returns:
+            List[[`ClassificationOutput`]]: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
+            [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
+            ```
+        """
         response = self.post(data=image, model=model, task="image-classification")
         return response.json()
 
@@ -163,7 +351,31 @@ class InferenceClient:
         image: ContentT,
         model: Optional[str] = None,
     ) -> List[ImageSegmentationOutput]:
-        # Recommended: facebook/detr-resnet-50-panoptic
+        """
+        Perform image segmentation on the given image using the specified model.
+
+        Args:
+            image (Union[str, Path, bytes, BinaryIO]):
+                The image to segment. It can be raw bytes, an image file, or a URL to an online image.
+            model (str, optional):
+                The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
+                deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
+
+        Returns:
+            List[`ImageSegmentationOutput`]: A list of dictionaries containing the segmented masks and associated attributes.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> client.image_segmentation("cat.jpg"):
+            [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
+            ```
+        """
 
         # Segment
         response = self.post(data=image, model=model, task="image-segmentation")
@@ -181,24 +393,60 @@ class InferenceClient:
         image: ContentT,
         model: Optional[str] = None,
         prompt: Optional[str] = None,
-        strength: Optional[str] = None,
         negative_prompt: Optional[str] = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
-        guidance_scale: Optional[int] = None,
-        guess_mode: Optional[bool] = None,
+        guidance_scale: Optional[float] = None,
+        **kwargs,
     ) -> "Image":
-        # Recommended: timbrooks/instruct-pix2pix
+        """
+        Perform image-to-image translation using a specified model.
+
+        Args:
+            image (Union[str, Path, bytes, BinaryIO]):
+                The input image for translation. It can be raw bytes, an image file, or a URL to an online image..
+            model (str, optional):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            prompt (str, optional):
+                The text prompt to guide the image generation.
+            negative_prompt (str, optional):
+                A negative prompt to guide the translation process.
+            height (int, optional):
+                The height in pixels of the generated image.
+            width (int, optional):
+                The width in pixels of the generated image.
+            num_inference_steps (int, optional):
+                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                expense of slower inference.
+            guidance_scale (float, optional):
+                Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
+                usually at the expense of lower image quality.
+
+        Returns:
+            Image: The translated image.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
+            >>> image.save("tiger.jpg")
+            ```
+        """
         parameters = {
             "prompt": prompt,
-            "strength": strength,
             "negative_prompt": negative_prompt,
             "height": height,
             "width": width,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
-            "guess_mode": guess_mode,
+            **kwargs,
         }
         if all(parameter is None for parameter in parameters.values()):
             # Either only an image to send => send as raw bytes
@@ -222,6 +470,34 @@ class InferenceClient:
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
     ) -> str:
+        """
+        Generate a summary of a given text using a specified model.
+
+        Args:
+            text (str):
+                The input text to summarize.
+            parameters (Dict[str, Any], optional):
+                Additional parameters for summarization. Check out this [page](https://huggingface.co/docs/api-inference/detailed_parameters#summarization-task)
+                for more details.
+            model (str, optional):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            str: The generated summary text.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+            >>> client.summarization("The Eiffel tower...")
+            'The Eiffel tower is one of the most famous landmarks in the world....'
+            ```
+        """
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
@@ -256,6 +532,7 @@ class InferenceClient:
 
 
 def _get_recommended_model(task: str) -> str:
+    # TODO: load from a config file? (from the Hub?) Would make sense to make updates easier.
     if task in RECOMMENDED_MODELS:
         model = RECOMMENDED_MODELS[task]
         logger.info(f"Defaulting to recommended model {model} for task {task}.")
@@ -303,6 +580,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
 
 def _b64_encode(content: ContentT) -> str:
+    """Encode a raw file (image, audio) into base64. Can be byes, an opened file, a path or a URL."""
     with _open_as_binary(content) as data:
         data_as_bytes = data if isinstance(data, bytes) else data.read()
         return base64.b64encode(data_as_bytes).decode()
