@@ -201,12 +201,6 @@ _SUBMOD_ATTRS = {
     "inference_api": [
         "InferenceApi",
     ],
-    "inference_types": [
-        "ClassificationOutput",
-        "ConversationalOutput",
-        "ConversationalOutputConversation",
-        "ImageSegmentationOutput",
-    ],
     "keras_mixin": [
         "KerasModelHubMixin",
         "from_pretrained_keras",
@@ -494,12 +488,6 @@ if TYPE_CHECKING:  # pragma: no cover
         PyTorchModelHubMixin,  # noqa: F401
     )
     from .inference_api import InferenceApi  # noqa: F401
-    from .inference_types import (
-        ClassificationOutput,  # noqa: F401
-        ConversationalOutput,  # noqa: F401
-        ConversationalOutputConversation,  # noqa: F401
-        ImageSegmentationOutput,  # noqa: F401
-    )
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401
         from_pretrained_keras,  # noqa: F401
