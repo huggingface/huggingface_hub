@@ -3,14 +3,18 @@ import io
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Generator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
 from requests import Response
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
 from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow_available
+from .utils._typing import Literal
 
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 # Related resources:
 #    https://huggingface.co/tasks
@@ -28,7 +32,7 @@ from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow
 # - handle async requests
 # - if a user tries to call a task on a model that doesn't support it, I'll gracefully handle the error to print to the user the available task(s) for their model.
 #       invalid task: client.summarization(EXAMPLE, model="codenamewei/speech-to-text")
-# Make BinaryT work with URLs as well
+
 
 RECOMMENDED_MODELS = {
     "audio-classification": "superb/hubert-large-superb-er",
@@ -36,6 +40,7 @@ RECOMMENDED_MODELS = {
     "conversational": "microsoft/DialoGPT-large",
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
+    "image-to-image": "timbrooks/instruct-pix2pix",
     "summarization": "facebook/bart-large-cnn",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
 }
@@ -129,7 +134,6 @@ class InferenceClient:
         model: Optional[str] = None,
     ) -> List[ImageSegmentationOutput]:
         # Recommended: facebook/detr-resnet-50-panoptic
-        Image = _import_image("image-segmentation")
 
         # Segment
         response = self.post(data=image, model=model, task="image-segmentation")
@@ -139,8 +143,48 @@ class InferenceClient:
         if not isinstance(output, list):
             raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
         for item in output:
-            item["mask"] = Image.open(io.BytesIO(base64.b64decode(item["mask"])))
+            item["mask"] = _b64_to_image(item["mask"])
         return output
+
+    def image_to_image(
+        self,
+        image: ContentT,
+        model: Optional[str] = None,
+        prompt: Optional[str] = None,
+        strength: Optional[str] = None,
+        negative_prompt: Optional[str] = None,
+        height: Optional[int] = None,
+        width: Optional[int] = None,
+        num_inference_steps: Optional[int] = None,
+        guidance_scale: Optional[int] = None,
+        guess_mode: Optional[bool] = None,
+    ) -> "Image":
+        # Recommended: timbrooks/instruct-pix2pix
+        parameters = {
+            "prompt": prompt,
+            "strength": strength,
+            "negative_prompt": negative_prompt,
+            "height": height,
+            "width": width,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "guess_mode": guess_mode,
+        }
+        if all(parameter is None for parameter in parameters.values()):
+            # Either only an image to send => send as raw bytes
+            self.post(data=image, model=model, task="image-to-image")
+            data = image
+            payload: Optional[Dict[str, Any]] = None
+        else:
+            # Or an image + some parameters => use base64 encoding
+            data = None
+            payload = {"inputs": _b64_encode(image)}
+            for key, value in parameters.items():
+                if value is not None:
+                    payload[key] = value
+
+        response = self.post(json=payload, data=data, model=model, task="image-to-image")
+        return _response_to_image(response)
 
     def summarization(
         self,
@@ -172,49 +216,38 @@ class InferenceClient:
                     "You must specify at least a model (repo_id or URL) or a task, either when instantiating"
                     " `InferenceClient` or when making a request."
                 )
-            model = get_model_id_by_task(task)
+            model = _get_recommended_model(task)
 
-        # If no task but model is set => fetch the default task for this pipeline
-        if task is None:
-            task = get_task_by_model_id(model)
+        # TODO: handle when task is feature-extraction / sentence-similarity
+        #       i.e. the only case where a model has several useful tasks
 
         # Compute InferenceAPI url
-        return self.get_inference_api_url(model, task)
-
-    @staticmethod
-    def get_inference_api_url(model_id: str, task: str) -> str:
-        return f"{INFERENCE_ENDPOINT}/pipeline/{task}/{model_id}"
+        return f"{INFERENCE_ENDPOINT}/models/{model}"
 
 
-def get_model_id_by_task(task: str) -> str:
+def _get_recommended_model(task: str) -> str:
     if task in RECOMMENDED_MODELS:
         return RECOMMENDED_MODELS[task]
     raise NotImplementedError()
 
 
-def get_task_by_model_id(model_id: str) -> str:
-    raise NotImplementedError()
+@overload
+def _open_as_binary(content: ContentT) -> ContextManager[BinaryT]:
+    ...  # means "if input is not None, output will not be None"
 
 
-def _import_image(task: str):
-    if not is_pillow_available():
-        raise ImportError(
-            f"Please install Pillow to use task '{task}' (`pip install Pillow`). If you don't want the image to be"
-            f" post-processed, use `client.post(..., model=model, task='{task}')` to get the raw response from the"
-            " server."
-        )
-    from PIL import Image
-
-    return Image
+@overload
+def _open_as_binary(content: Literal[None]) -> ContextManager[Literal[None]]:
+    ...  # means "if input is None, output will be None"
 
 
-@contextmanager
+@contextmanager  # type: ignore
 def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
     """Open `content` as a binary file, either from a URL, a local path, or raw bytes.
 
-    If `content` is None,
+    Do nothing if `content` is None,
     """
-    # If content is a string, it must be either a URL or a Path
+    # If content is a string => must be either a URL or a path
     if isinstance(content, str):
         if content.startswith("https://") or content.startswith("http://"):
             yield get_session().get(content).content  # TODO: retrieve as stream and pipe to post request ?
@@ -235,6 +268,39 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
         yield content
 
 
+def _b64_encode(content: ContentT) -> str:
+    with _open_as_binary(content) as data:
+        data_as_bytes = data if isinstance(data, bytes) else data.read()
+        return base64.b64encode(data_as_bytes).decode()
+
+
+def _b64_to_image(encoded_image: str) -> "Image":
+    """Parse a base64-encoded string into a PIL Image."""
+    Image = _import_pil_image()
+    return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
+
+
+def _response_to_image(response: Response) -> "Image":
+    """Parse a Response object into a PIL Image.
+
+    Expects the response body to be raw bytes. To deal with b64 encoded images, use `_b64_to_image` instead.
+    """
+    Image = _import_pil_image()
+    return Image.open(io.BytesIO(response.content))
+
+
+def _import_pil_image():
+    """Make sure `PIL` is installed on the machine."""
+    if not is_pillow_available():
+        raise ImportError(
+            "Please install Pillow to use deal with images (`pip install Pillow`). If you don't want the image to be"
+            " post-processed, use `client.post(...)` and get the raw response from the server."
+        )
+    from PIL import Image
+
+    return Image
+
+
 if __name__ == "__main__":
     client = InferenceClient()
 
@@ -252,6 +318,10 @@ if __name__ == "__main__":
     # Image segmentation
     for item in client.image_segmentation("cat.jpg"):
         item["mask"].save(f"cat_{item['label']}_{item['score']}.jpg")
+
+    # Image to image (instruct pix2pix)
+    image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
+    image.save("tiger.jpg")
 
     # Text summary
     client.summarization("The Eiffel tower...")

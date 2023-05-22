@@ -1,9 +1,10 @@
-from typing import Any, List
+from typing import TYPE_CHECKING, List
 
 from .utils._typing import TypedDict
 
 
-Image = Any
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 class ClassificationOutput(TypedDict):
@@ -24,5 +25,5 @@ class ConversationalOutput(TypedDict):
 
 class ImageSegmentationOutput(TypedDict):
     label: str
-    mask: Image
+    mask: "Image"
     score: float
