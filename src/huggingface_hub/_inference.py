@@ -1,8 +1,9 @@
 import base64
 import io
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Union
+from typing import Any, BinaryIO, Dict, Generator, List, Optional, Union
 
 from requests import Response
 
@@ -60,7 +61,7 @@ class InferenceClient:
     def post(
         self,
         json: Optional[Union[str, Dict, List]] = None,
-        data: Optional[BinaryT] = None,
+        data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
     ) -> Response:
@@ -69,7 +70,10 @@ class InferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        response = get_session().post(url, json=json, data=data, headers=self.headers, timeout=self.timeout)
+        with _open_as_binary(data) as data_as_binary:
+            response = get_session().post(
+                url, json=json, data=data_as_binary, headers=self.headers, timeout=self.timeout
+            )
         hf_raise_for_status(response)
         return response
 
@@ -79,7 +83,7 @@ class InferenceClient:
         model: Optional[str] = None,
     ) -> ClassificationOutput:
         # Recommended: superb/hubert-large-superb-er
-        response = self.post(data=_open_binary(audio), model=model, task="audio-classification")
+        response = self.post(data=audio, model=model, task="audio-classification")
         return response.json()
 
     def automatic_speech_recognition(
@@ -88,7 +92,7 @@ class InferenceClient:
         model: Optional[str] = None,
     ) -> str:
         # Recommended: facebook/wav2vec2-large-960h-lv60-self
-        response = self.post(data=_open_binary(audio), model=model, task="automatic-speech-recognition")
+        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
         return response.json()["text"]
 
     def conversational(
@@ -116,7 +120,7 @@ class InferenceClient:
         model: Optional[str] = None,
     ) -> ClassificationOutput:
         # Recommended: google/vit-base-patch16-224
-        response = self.post(data=_open_binary(image), model=model, task="image-classification")
+        response = self.post(data=image, model=model, task="image-classification")
         return response.json()
 
     def image_segmentation(
@@ -128,7 +132,7 @@ class InferenceClient:
         Image = _import_image("image-segmentation")
 
         # Segment
-        response = self.post(data=_open_binary(image), model=model, task="image-segmentation")
+        response = self.post(data=image, model=model, task="image-segmentation")
         output = response.json()
 
         # Parse masks as PIL Image
@@ -204,12 +208,31 @@ def _import_image(task: str):
     return Image
 
 
-def _open_binary(content: ContentT) -> BinaryT:
-    if isinstance(content, str) and (content.startswith("https://") or content.startswith("http://")):
-        return get_session().get(content).content
-    elif isinstance(content, (str, Path)):
-        return Path(content).read_bytes()
-    return content
+@contextmanager
+def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT], None, None]:
+    """Open `content` as a binary file, either from a URL, a local path, or raw bytes.
+
+    If `content` is None,
+    """
+    # If content is a string, it must be either a URL or a Path
+    if isinstance(content, str):
+        if content.startswith("https://") or content.startswith("http://"):
+            yield get_session().get(content).content  # TODO: retrieve as stream and pipe to post request ?
+            return
+        content = Path(content)
+        if not content.exists():
+            raise FileNotFoundError(
+                f"File not found at {content}. If `data` is a string, it must either be a URL or a path to a local"
+                " file. To pass raw content, please encode it as bytes first."
+            )
+
+    # If content is a Path => open it
+    if isinstance(content, Path):
+        with content.open("rb") as f:
+            yield f
+    else:
+        # Otherwise: already a file-like object or None
+        yield content
 
 
 if __name__ == "__main__":
