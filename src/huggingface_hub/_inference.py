@@ -82,36 +82,37 @@ class InferenceTimeoutError(HTTPError, TimeoutError):
 
 @experimental
 class InferenceClient:
-        """
-        Initialize a new Inference Client.
+    """
+    Initialize a new Inference Client.
 
-        [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
-        seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
+    [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
+    seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
 
-        <Tip warning={true}>
+    <Tip warning={true}>
 
-        `InferenceClient` is still experimental. All tasks are not yet implemented and its API is subject to change in
-        the future.
+    `InferenceClient` is still experimental. All tasks are not yet implemented and its API is subject to change in
+    the future.
 
-        </Tip>
+    </Tip>
 
-        <Tip warning={true}>
+    <Tip warning={true}>
 
-        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
+    You must have `PIL` installed if you want to work with images (`pip install Pillow`).
 
-        </Tip>
+    </Tip>
 
-        Args:
-            model (`str`, `optional`):
-                The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
-                `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, meaning the model can
-                 be passed for each task or in last resort a recommended model will be used.
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token.
-            timeout (`float`, `optional`):
-                The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
-                API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
-        """
+    Args:
+        model (`str`, `optional`):
+            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
+            `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, meaning the model can
+                be passed for each task or in last resort a recommended model will be used.
+        token (`str`, *optional*):
+            Hugging Face token. Will default to the locally saved token.
+        timeout (`float`, `optional`):
+            The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
+            API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+    """
+
     def __init__(
         self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
     ) -> None:
