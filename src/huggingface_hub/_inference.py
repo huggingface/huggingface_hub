@@ -80,7 +80,6 @@ class InferenceTimeoutError(HTTPError, TimeoutError):
     """Error raised when a model is unavailable or the request times out."""
 
 
-@experimental
 class InferenceClient:
     """
     Initialize a new Inference Client.
