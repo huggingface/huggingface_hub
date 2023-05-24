@@ -82,9 +82,6 @@ class InferenceTimeoutError(HTTPError, TimeoutError):
 
 @experimental
 class InferenceClient:
-    def __init__(
-        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
-    ) -> None:
         """
         Initialize a new Inference Client.
 
@@ -115,6 +112,9 @@ class InferenceClient:
                 The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
                 API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
         """
+    def __init__(
+        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
+    ) -> None:
         self.model: Optional[str] = model
         self.headers = build_hf_headers(token=token)
         self.timeout = timeout
