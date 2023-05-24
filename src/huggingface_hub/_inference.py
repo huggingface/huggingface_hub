@@ -66,6 +66,7 @@ RECOMMENDED_MODELS = {
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
     "image-to-image": "timbrooks/instruct-pix2pix",
     "summarization": "facebook/bart-large-cnn",
+    "text-to-image": "stabilityai/stable-diffusion-2-1",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
 }
 
@@ -505,7 +506,107 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return response.json()[0]["summary_text"]
 
+    def text_to_image(
+        self,
+        prompt: str,
+        *,
+        negative_prompt: Optional[str] = None,
+        height: Optional[float] = None,
+        width: Optional[float] = None,
+        num_inference_steps: Optional[float] = None,
+        guidance_scale: Optional[float] = None,
+        model: Optional[str] = None,
+        **kwargs,
+    ) -> "Image":
+        """
+        Generate an image based on a given text using a specified model.
+
+        Args:
+            prompt (`str`):
+                The prompt to generate an image from.
+            negative_prompt (`str`, *optional*):
+                An optional negative prompt for the image generation.
+            height (`float`, *optional*):
+                The height in pixels of the image to generate.
+            width (`float`, *optional*):
+                The width in pixels of the image to generate.
+            num_inference_steps (`int`, *optional*):
+                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                expense of slower inference.
+            guidance_scale (`float`, *optional*):
+                Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
+                usually at the expense of lower image quality.
+            model (str, optional):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            Image: The generated image.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+
+            >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
+            >>> image.save("astronaut.png")
+
+            >>> image = client.text_to_image(
+            ...     "An astronaut riding a horse on the moon.",
+            ...     negative_prompt="low resolution, blurry",
+            ...     model="stabilityai/stable-diffusion-2-1",
+            ... )
+            >>> image.save("better_astronaut.png")
+            ```
+        """
+        parameters = {
+            "inputs": prompt,
+            "negative_prompt": negative_prompt,
+            "height": height,
+            "width": width,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            **kwargs,
+        }
+        payload = {}
+        for key, value in parameters.items():
+            if value is not None:
+                payload[key] = value
+        response = self.post(json=payload, model=model, task="text-to-image")
+        return _response_to_image(response)
+
     def text_to_speech(self, text: str, model: Optional[str] = None) -> bytes:
+        """
+        Synthesize an audio of a voice pronouncing a given text.
+
+        Args:
+            text (`str`):
+                The text to synthesize.
+            model (str, optional):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            bytes: The generated audio.
+
+        Raises:
+            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
+            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+            ```py
+            >>> from pathlib import Path
+            >>> from huggingface_hub import InferenceClient
+            >>> client = InferenceClient()
+
+            >>> audio = client.text_to_speech("Hello world")
+            >>> Path("hello_world.wav").write_bytes(audio)
+            ```
+        """
         response = self.post(json={"inputs": text}, model=model, task="text-to-speech")
         return response.content
 
