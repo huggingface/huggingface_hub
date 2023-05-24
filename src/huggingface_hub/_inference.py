@@ -20,6 +20,7 @@
 #    https://github.com/huggingface/text-generation-inference/tree/main/clients/python
 #    https://github.com/huggingface/text-generation-inference/blob/main/clients/python/text_generation/client.py
 #    https://huggingface.slack.com/archives/C03E4DQ9LAJ/p1680169099087869
+#    https://github.com/huggingface/unity-api#tasks
 #
 # Some TODO:
 # - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
