@@ -151,8 +151,10 @@ class InferenceClient:
             Response: The `requests` HTTP response.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
         """
         url = self._resolve_url(model, task)
 
@@ -208,19 +210,21 @@ class InferenceClient:
                 audio classification will be used.
 
         Returns:
-            [`ClassificationOutput`]: The classification output containing the predicted label and its confidence.
+            `Dict`: The classification output containing the predicted label and its confidence.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> client.audio_classification(audio)
-            [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.audio_classification(audio)
+        [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
+        ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
         return response.json()
@@ -244,16 +248,18 @@ class InferenceClient:
             str: The transcribed text.
 
         Raises:
-            -[`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> client.automatic_speech_recognition("hello_world.wav")
-            "hello world"
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.automatic_speech_recognition("hello_world.wav")
+        "hello world"
+        ```
         """
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
         return response.json()["text"]
@@ -286,25 +292,27 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            [`ConversationalOutput`]: The generated conversational output.
+            `Dict`: The generated conversational output.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> output = client.conversational("Hi, who are you?")
-            >>> output
-            {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
-            >>> client.conversational(
-            ...     "Wow, that's scary!",
-            ...     generated_responses=output["conversation"]["generated_responses"],
-            ...     past_user_inputs=output["conversation"]["past_user_inputs"],
-            ... )
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> output = client.conversational("Hi, who are you?")
+        >>> output
+        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
+        >>> client.conversational(
+        ...     "Wow, that's scary!",
+        ...     generated_responses=output["conversation"]["generated_responses"],
+        ...     past_user_inputs=output["conversation"]["past_user_inputs"],
+        ... )
+        ```
         """
         payload: Dict[str, Any] = {"inputs": {"text": text}}
         if generated_responses is not None:
@@ -332,19 +340,21 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
         Returns:
-            List[[`ClassificationOutput`]]: a list of dictionaries containing the predicted label and associated probability.
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
-            [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
+        [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
+        ```
         """
         response = self.post(data=image, model=model, task="image-classification")
         return response.json()
@@ -365,19 +375,21 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
 
         Returns:
-            List[`ImageSegmentationOutput`]: A list of dictionaries containing the segmented masks and associated attributes.
+            `List[Dict]`: A list of dictionaries containing the segmented masks and associated attributes.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> client.image_segmentation("cat.jpg"):
-            [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.image_segmentation("cat.jpg"):
+        [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
+        ```
         """
 
         # Segment
@@ -428,19 +440,21 @@ class InferenceClient:
                 usually at the expense of lower image quality.
 
         Returns:
-            Image: The translated image.
+            `Image`: The translated image.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
-            >>> image.save("tiger.jpg")
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
+        >>> image.save("tiger.jpg")
+        ```
         """
         parameters = {
             "prompt": prompt,
@@ -487,19 +501,21 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            str: The generated summary text.
+            `str`: The generated summary text.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
-            >>> client.summarization("The Eiffel tower...")
-            'The Eiffel tower is one of the most famous landmarks in the world....'
-            ```
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.summarization("The Eiffel tower...")
+        'The Eiffel tower is one of the most famous landmarks in the world....'
+        ```
         """
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
@@ -542,27 +558,29 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            Image: The generated image.
+            `Image`: The generated image.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
 
-            >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
-            >>> image.save("astronaut.png")
+        >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
+        >>> image.save("astronaut.png")
 
-            >>> image = client.text_to_image(
-            ...     "An astronaut riding a horse on the moon.",
-            ...     negative_prompt="low resolution, blurry",
-            ...     model="stabilityai/stable-diffusion-2-1",
-            ... )
-            >>> image.save("better_astronaut.png")
-            ```
+        >>> image = client.text_to_image(
+        ...     "An astronaut riding a horse on the moon.",
+        ...     negative_prompt="low resolution, blurry",
+        ...     model="stabilityai/stable-diffusion-2-1",
+        ... )
+        >>> image.save("better_astronaut.png")
+        ```
         """
         parameters = {
             "inputs": prompt,
@@ -592,21 +610,23 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            bytes: The generated audio.
+            `bytes`: The generated audio.
 
         Raises:
-            - [`InferenceTimeoutError`]: If the model is unavailable or the request times out.
-            - HTTPError: If the request fails with an HTTP error status code other than HTTP 503.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
-            ```py
-            >>> from pathlib import Path
-            >>> from huggingface_hub import InferenceClient
-            >>> client = InferenceClient()
+        ```py
+        >>> from pathlib import Path
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
 
-            >>> audio = client.text_to_speech("Hello world")
-            >>> Path("hello_world.wav").write_bytes(audio)
-            ```
+        >>> audio = client.text_to_speech("Hello world")
+        >>> Path("hello_world.wav").write_bytes(audio)
+        ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-to-speech")
         return response.content
