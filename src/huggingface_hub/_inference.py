@@ -48,7 +48,7 @@ from requests import HTTPError, Response
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
-from .utils import build_hf_headers, experimental, get_session, hf_raise_for_status, is_pillow_available
+from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow_available
 from .utils._typing import Literal
 
 
@@ -86,13 +86,6 @@ class InferenceClient:
 
     [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
     seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
-
-    <Tip warning={true}>
-
-    `InferenceClient` is still experimental. All tasks are not yet implemented and its API is subject to change in
-    the future.
-
-    </Tip>
 
     <Tip warning={true}>
 
