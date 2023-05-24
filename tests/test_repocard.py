@@ -205,7 +205,7 @@ class RepocardMetadataTest(unittest.TestCase):
     def test_metadata_save_with_emoji_character(self):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"emoji": "🎁"})
-        content = self.filepath.read_text()
+        content = self.filepath.read_text(encoding="utf-8")
         self.assertEqual(content, DUMMY_MODELCARD_TARGET_WITH_EMOJI)
 
     def test_metadata_save_from_file_no_yaml(self):
