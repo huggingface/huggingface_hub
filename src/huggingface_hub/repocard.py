@@ -521,7 +521,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     content = ""
     # try to detect existing newline character
     if os.path.exists(local_path):
-        with open(local_path, "r", newline="") as readme:
+        with open(local_path, "r", newline="", encoding="utf8") as readme:
             content = readme.read()
             if isinstance(readme.newlines, tuple):
                 line_break = readme.newlines[0]
@@ -529,7 +529,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
                 line_break = readme.newlines
 
     # creates a new file if it not
-    with open(local_path, "w", newline="") as readme:
+    with open(local_path, "w", newline="", encoding="utf8") as readme:
         data_yaml = yaml_dump(data, sort_keys=False, line_break=line_break)
         # sort_keys: keep dict order
         match = REGEX_YAML_BLOCK.search(content)
