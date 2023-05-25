@@ -349,7 +349,7 @@ class InferenceClient:
         [-0.42943227, -0.6364878 , -1.693462  , ...,  0.41978157, -2.4336355 ,  0.6162071 ],
         ...,
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
-         ```
+        ```
         """
         response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
         np = _import_numpy()
