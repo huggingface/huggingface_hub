@@ -601,6 +601,7 @@ class InferenceClient:
         ...     ],
         ... )
         [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
+        ```
         """
         response = self.post(
             json={"inputs": {"source_sentence": sentence, "sentences": other_sentences}},

@@ -1,22 +1,25 @@
-# Inference API
+# Inference
 
-The `huggingface_hub` library allows users to programmatically access the Inference API. For more information about the
-Accelerated Inference API, please refer to the documentation [here](https://huggingface.co/docs/api-inference/index).
+Inference is the process of using a trained model to make predictions on new data. This process can be compute-intensive
+which makes it interesting to run on a remote machine. The `huggingface_hub` library provides an easy way to call a
+service that runs fast inference for hosted models. There are several services you can connect to:
+- [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
+on Hugging Face's infrastructure and for free. This service is a fast way to get started, tests different models and
+prototype AI products.
+- [Inference Endpoints](https://huggingface.co/inference-endpoints): a product to easily deploy models to production.
+Inference is run by Hugging Face in a dedicated, fully managed infrastructure on the Cloud of your choice.
+- [SageMaker Hugging Face Inference Toolkit](https://github.com/aws/sagemaker-huggingface-inference-toolkit)
 
-## InferenceAPI
-
-[[autodoc]] InferenceApi
-    - __init__
-    - __call__
-    - all
+All of these services can be called with the `InferenceClient` client. Please refer to [this guide](../guides/inference)
+for more information on how to use it.
 
 ## Inference Client
 
-[TO BE COMPLETED]
-
 [[autodoc]] InferenceClient
 
-### Types
+### Return types
+
+For most tasks, the return value has a built-in type (string, list, image...). Here is a list for the more complex types.
 
 [[autodoc]] huggingface_hub._inference_types.ClassificationOutput
 
@@ -25,3 +28,15 @@ Accelerated Inference API, please refer to the documentation [here](https://hugg
 [[autodoc]] huggingface_hub._inference_types.ConversationalOutput
 
 [[autodoc]] huggingface_hub._inference_types.ImageSegmentationOutput
+
+## InferenceAPI
+
+`InferenceAPI` is the legacy way to call the Inference API. The interface is more simplistic and requires to know
+the input parameters and output format for each task. It also lacks the ability to connect to other services like
+Inference Endpoints or AWS SageMaker. It is still supported but we recommend using `InferenceClient` whenever possible.
+
+[[autodoc]] InferenceApi
+    - __init__
+    - __call__
+    - all
+
