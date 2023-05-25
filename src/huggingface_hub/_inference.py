@@ -91,12 +91,6 @@ class InferenceClient:
     [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
     seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
 
-    <Tip warning={true}>
-
-    You must have `PIL` installed if you want to work with images (`pip install Pillow`).
-
-    </Tip>
-
     Args:
         model (`str`, `optional`):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
@@ -406,6 +400,12 @@ class InferenceClient:
         """
         Perform image segmentation on the given image using the specified model.
 
+        <Tip warning={true}>
+
+        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
+
+        </Tip>
+
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
                 The image to segment. It can be raw bytes, an image file, or a URL to an online image.
@@ -457,6 +457,12 @@ class InferenceClient:
     ) -> "Image":
         """
         Perform image-to-image translation using a specified model.
+
+        <Tip warning={true}>
+
+        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
+
+        </Tip>
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
@@ -660,6 +666,12 @@ class InferenceClient:
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
+
+        <Tip warning={true}>
+
+        You must have `PIL` installed if you want to work with images (`pip install Pillow`).
+
+        </Tip>
 
         Args:
             prompt (`str`):
