@@ -525,8 +525,8 @@ class InferenceClient:
         """
         Takes an input image and return text.
 
-        The generated text depends on the chosen model. It can be image captioning, optical character recognition (OCR),
-        Pix2Struct, etc. Please have a look to the model card to learn more about its specificities.
+        Models can be very different outputs depending on your use case (image captioning, optical character recognition
+        (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
@@ -536,7 +536,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `str`: The image caption.
+            `str`: The generated text.
 
         Raises:
             [`InferenceTimeoutError`]:
