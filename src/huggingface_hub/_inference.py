@@ -776,6 +776,7 @@ class InferenceClient:
         *,
         details: bool = False,
         stream: bool = False,
+        model: Optional[str] = None,
         do_sample: bool = False,
         max_new_tokens: int = 20,
         best_of: Optional[int] = None,
@@ -789,8 +790,85 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-        model: Optional[str] = None,
     ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
+        """
+        Given a prompt, generate the following text
+
+        Args:
+            prompt (`str`):
+                Input text.
+            details (`bool`, *optional*):
+                By default, text_generation returns a string. Pass `details=True` if you want a detailed output (tokens,
+                probabilities, seed, finish reason, etc.).
+            stream (`bool`, *optional*):
+                By default, text_generation returns the full generated text. Pass `stream=True` if you want a stream of
+                tokens to be returned.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            do_sample (`bool`, *optional*):
+                Activate logits sampling.
+            max_new_tokens (`int`, *optional*):
+                Maximum number of generated tokens.
+            best_of (`int`, *optional*):
+                Generate best_of sequences and return the one if the highest token logprobs.
+            repetition_penalty (`float`, *optional*):
+                The parameter for repetition penalty. 1.0 means no penalty. See [this paper](https://arxiv.org/pdf/1909.05858.pdf)
+                for more details.
+            return_full_text (`bool`, *optional*):
+                Whether to prepend the prompt to the generated text.
+            seed (`int`):
+                Random sampling seed.
+            stop_sequences (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop_sequences` is generated.
+            temperature (`float`, *optional*):
+                The value used to module the logits distribution.
+            top_k (`int`, *optional*):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`, *optional*):
+                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
+                higher are kept for generation.
+            truncate (`int`, *optional*):
+                Truncate inputs tokens to the given size.
+            typical_p (`float`, *optional*):
+                Typical Decoding mass. See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666)
+                for more information.
+            watermark (`bool`, *optional*):
+                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226).
+
+        Returns:
+            - `str`: generated text
+            - `TextGenerationResponse`: detailed response when `details=True` is passed
+            - `Iterable[str]`: stream of generated tokens when `stream=True` is passed
+            - `Iterable[TextGenerationStreamResponse]]`: stream of detailed responses when `details=True` and `stream=True` are passed
+
+        Raises:
+            `ValidationError`:
+                If an input parameter is not valid.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+
+        >>> client.text_generation("\ndef hello_world(name: str)", max_new_tokens=1000, model="bigcode/starcoder")
+        ' -> str:\n    return f"Hello {name}"\n\n\ndef test_hello_world():\n    assert hello_world("World") == "Hello World"\n<|endoftext|>'
+
+        >>> for token in client.text_generation("My name is", stream=True, details=True):
+        ...     print(token)
+        token=TextGenerationToken(id=27, text=' I', logprob=-3.0664062, special=False) generated_text=None details=None
+        token=TextGenerationToken(id=7, text='s', logprob=-1.9443359, special=False) generated_text=None details=None
+        token=TextGenerationToken(id=9, text='a', logprob=-2.1875, special=False) generated_text=None details=None
+        token=TextGenerationToken(id=1639, text='ak', logprob=-1.7138672, special=False) generated_text=None details=None
+        (...)
+        token=TextGenerationToken(id=12023, text=' Netherlands', logprob=-1.0224609, special=False) generated_text=None details=None
+        token=TextGenerationToken(id=5, text='.', logprob=-0.62158203, special=False) generated_text='Isaak and I am a sailor. I am from the Netherlands.' details=TextGenerationStreamDetails(finish_reason=<TextGenerationFinishReason.Length: 'length'>, generated_tokens=20, seed=None)
+        ```
+        """
         # Validate parameters
         parameters = TextGenerationParameters(
             best_of=best_of,
@@ -808,9 +886,12 @@ class InferenceClient:
             typical_p=typical_p,
             watermark=watermark,
         )
+
+        # Post request
         request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
         response = self.post(json=request.dict(), model=model, task="text-generation")
 
+        # Parse output
         if stream:
             return _stream_response(response, details)  # type: ignore
         else:
