@@ -792,7 +792,7 @@ class InferenceClient:
         watermark: bool = False,
     ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
         """
-        Given a prompt, generate the following text
+        Given a prompt, generate the following text.
 
         Args:
             prompt (`str`):
