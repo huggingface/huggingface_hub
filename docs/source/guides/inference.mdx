@@ -1,8 +1,8 @@
 # Run Inference on servers
 
 Inference is the process of using a trained model to make predictions on new data. This process can be compute-intensive
-which makes it interesting to run on a remote machine. The `huggingface_hub` library provides an easy way to call a
-service that runs fast inference for hosted models. There are several services you can connect to:
+which makes it interesting to run on a dedicated server. The `huggingface_hub` library provides an easy way to call a
+service that runs inference for hosted models. There are several services you can connect to:
 - [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
 on Hugging Face's infrastructure and for free. This service is a fast way to get started, tests different models and
 prototype AI products.
@@ -17,6 +17,13 @@ All of these services can be called with the [`InferenceClient`] client. Let's s
 [`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly, please
 refer to the [Inference API](https://huggingface.co/docs/api-inference/index) or to the
 [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
+
+</Tip>
+
+<Tip>
+
+For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
+If you are interested in game development, you might have a look to our [C# project](https://github.com/huggingface/unity-api).
 
 </Tip>
 
@@ -39,6 +46,7 @@ Let's get started with a first example:
 >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
 >>> image.save("astronaut.png")
 ```
+
 We initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the task you want
 to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
 example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
