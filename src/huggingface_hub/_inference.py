@@ -67,6 +67,7 @@ RECOMMENDED_MODELS = {
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
     "image-to-image": "timbrooks/instruct-pix2pix",
+    "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "facebook/bart-large-cnn",
     "text-to-image": "stabilityai/stable-diffusion-2-1",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
@@ -119,6 +120,7 @@ class InferenceClient:
 
     def post(
         self,
+        *,
         json: Optional[Union[str, Dict, List]] = None,
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
@@ -128,16 +130,16 @@ class InferenceClient:
         Make a POST request to the inference server.
 
         Args:
-            json (Union[str, Dict, List], optional):
+            json (`Union[str, Dict, List]`, *optional*):
                 The JSON data to send in the request body. Defaults to None.
-            data (Union[str, Path, bytes, BinaryIO], optional):
+            data (`Union[str, Path, bytes, BinaryIO]`, *optional*):
                 The content to send in the request body. It can be raw bytes, a pointer to an opened file, a local file
                 path, or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
                 `data` will take precedence. At least `json` or `data` must be provided.. Defaults to None.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
-            task (str, optional):
+            task (`str`, *optional*):
                 The task to perform on the inference. Used only to default to a recommended model if `model` is not
                 provided. At least `model` or `task` must be provided. Defaults to None.
 
@@ -189,6 +191,7 @@ class InferenceClient:
     def audio_classification(
         self,
         audio: ContentT,
+        *,
         model: Optional[str] = None,
     ) -> ClassificationOutput:
         """
@@ -198,7 +201,7 @@ class InferenceClient:
             audio (Union[str, Path, bytes, BinaryIO]):
                 The audio content to classify. It can be raw audio bytes, a local audio file, or a URL pointing to an
                 audio file.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for audio classification. Can be a model ID hosted on the Hugging Face Hub
                 or a URL to a deployed Inference Endpoint. If not provided, the default recommended model for
                 audio classification will be used.
@@ -226,6 +229,7 @@ class InferenceClient:
     def automatic_speech_recognition(
         self,
         audio: ContentT,
+        *,
         model: Optional[str] = None,
     ) -> str:
         """
@@ -234,7 +238,7 @@ class InferenceClient:
         Args:
             audio (Union[str, Path, bytes, BinaryIO]):
                 The content to transcribe. It can be raw audio bytes, local audio file, or a URL to an audio file.
-            model (Optional[str], optional):
+            model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
 
@@ -263,6 +267,7 @@ class InferenceClient:
         text: str,
         generated_responses: Optional[List[str]] = None,
         past_user_inputs: Optional[List[str]] = None,
+        *,
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
     ) -> ConversationalOutput:
@@ -270,17 +275,17 @@ class InferenceClient:
         Generate conversational responses based on the given input text (i.e. chat with the API).
 
         Args:
-            text (str):
+            text (`str`):
                 The last input from the user in the conversation.
-            generated_responses (List[str], optional):
+            generated_responses (`List[str]`, *optional*):
                 A list of strings corresponding to the earlier replies from the model. Defaults to None.
-            past_user_inputs (Optional[List[str]], optional):
+            past_user_inputs (`List[str]`, *optional*):
                 A list of strings corresponding to the earlier replies from the user. Should be of the same length of
                 `generated_responses`. Defaults to None.
-            parameters (Dict[str, Any], optional):
+            parameters (`Dict[str, Any]`, *optional*):
                 Additional parameters for the conversational task. Defaults to None. For more details about the available
                 parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
-            model (Optional[str], optional):
+            model (`str`, *optional*):
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
@@ -318,20 +323,20 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="conversational")
         return response.json()
 
-    def feature_extraction(self, text: str, model: Optional[str] = None) -> "np.ndarray":
+    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
         Args:
-            text (str):
+            text (`str`):
                 The text to embed.
-            model (Optional[str], optional):
+            model (`str`, *optional*):
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
 
         Returns:
-            `List[float]`: The embedding representing the input text.
+            `np.ndarray`: The embedding representing the input text as a float32 numpy array.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -357,15 +362,16 @@ class InferenceClient:
     def image_classification(
         self,
         image: ContentT,
+        *,
         model: Optional[str] = None,
     ) -> List[ClassificationOutput]:
         """
         Perform image classification on the given image using the specified model.
 
         Args:
-            image (Union[str, Path, bytes, BinaryIO]):
+            image (`Union[str, Path, bytes, BinaryIO]`):
                 The image to classify. It can be raw bytes, an image file, or a URL to an online image.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
@@ -392,15 +398,16 @@ class InferenceClient:
     def image_segmentation(
         self,
         image: ContentT,
+        *,
         model: Optional[str] = None,
     ) -> List[ImageSegmentationOutput]:
         """
         Perform image segmentation on the given image using the specified model.
 
         Args:
-            image (Union[str, Path, bytes, BinaryIO]):
+            image (`Union[str, Path, bytes, BinaryIO]`):
                 The image to segment. It can be raw bytes, an image file, or a URL to an online image.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
 
@@ -436,36 +443,37 @@ class InferenceClient:
     def image_to_image(
         self,
         image: ContentT,
-        model: Optional[str] = None,
         prompt: Optional[str] = None,
+        *,
         negative_prompt: Optional[str] = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
+        model: Optional[str] = None,
         **kwargs,
     ) -> "Image":
         """
         Perform image-to-image translation using a specified model.
 
         Args:
-            image (Union[str, Path, bytes, BinaryIO]):
+            image (`Union[str, Path, bytes, BinaryIO]`):
                 The input image for translation. It can be raw bytes, an image file, or a URL to an online image..
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
-            prompt (str, optional):
+            prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
-            negative_prompt (str, optional):
+            negative_prompt (`str`, *optional*):
                 A negative prompt to guide the translation process.
-            height (int, optional):
+            height (`int`, *optional*):
                 The height in pixels of the generated image.
-            width (int, optional):
+            width (`int`, *optional*):
                 The width in pixels of the generated image.
-            num_inference_steps (int, optional):
+            num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
-            guidance_scale (float, optional):
+            guidance_scale (`float`, *optional*):
                 Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
                 usually at the expense of lower image quality.
 
@@ -511,9 +519,56 @@ class InferenceClient:
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _response_to_image(response)
 
+    def sentence_similarity(
+        self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
+    ) -> List[float]:
+        """
+        Compute the semantic similarity between a sentence and a list of other sentences by comparing their embeddings.
+
+        Args:
+            sentence (`str`):
+                The main sentence to compare to others.
+            other_sentences (`List[str]`):
+                The list of sentences to compare to.
+            model (`str`, *optional*):
+                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[float]`: The embedding representing the input text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.sentence_similarity(
+        ...     "Machine learning is so easy.",
+        ...     other_sentences=[
+        ...         "Deep learning is so straightforward.",
+        ...         "This is so difficult, like rocket science.",
+        ...         "I can't believe how much I struggled with this.",
+        ...     ],
+        ... )
+        [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
+        """
+        response = self.post(
+            json={"inputs": {"source_sentence": sentence, "sentences": other_sentences}},
+            model=model,
+            task="sentence-similarity",
+        )
+        return response.json()
+
     def summarization(
         self,
         text: str,
+        *,
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
     ) -> str:
@@ -521,12 +576,12 @@ class InferenceClient:
         Generate a summary of a given text using a specified model.
 
         Args:
-            text (str):
+            text (`str`):
                 The input text to summarize.
-            parameters (Dict[str, Any], optional):
+            parameters (`Dict[str, Any]`, *optional*):
                 Additional parameters for summarization. Check out this [page](https://huggingface.co/docs/api-inference/detailed_parameters#summarization-task)
                 for more details.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
@@ -583,7 +638,7 @@ class InferenceClient:
             guidance_scale (`float`, *optional*):
                 Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
                 usually at the expense of lower image quality.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
@@ -628,14 +683,14 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="text-to-image")
         return _response_to_image(response)
 
-    def text_to_speech(self, text: str, model: Optional[str] = None) -> bytes:
+    def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
         Args:
             text (`str`):
                 The text to synthesize.
-            model (str, optional):
+            model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
