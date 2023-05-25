@@ -178,7 +178,7 @@ class InferenceClient:
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
                     time.sleep(1)
                     if timeout is not None:
-                        timeout = max(self.timeout - (time.time() - t0), 1)  # timeout of at least 1s
+                        timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                     continue
                 raise
             break
