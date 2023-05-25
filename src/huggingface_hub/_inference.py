@@ -48,11 +48,12 @@ from requests import HTTPError, Response
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
-from .utils import build_hf_headers, get_session, hf_raise_for_status, is_pillow_available
+from .utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
 from .utils._typing import Literal
 
 
 if TYPE_CHECKING:
+    import numpy as np
     from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ RECOMMENDED_MODELS = {
     "audio-classification": "superb/hubert-large-superb-er",
     "automatic-speech-recognition": "facebook/wav2vec2-large-960h-lv60-self",
     "conversational": "microsoft/DialoGPT-large",
+    "feature-extraction": "facebook/bart-base",
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
     "image-to-image": "timbrooks/instruct-pix2pix",
@@ -315,6 +317,42 @@ class InferenceClient:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="conversational")
         return response.json()
+
+    def feature_extraction(self, text: str, model: Optional[str] = None) -> "np.ndarray":
+        """
+        Generate embeddings for a given text.
+
+        Args:
+            text (str):
+                The text to embed.
+            model (Optional[str], optional):
+                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[float]`: The embedding representing the input text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.feature_extraction("Hi, who are you?")
+        array([[ 2.424802  ,  2.93384   ,  1.1750331 , ...,  1.240499, -0.13776633, -0.7889173 ],
+        [-0.42943227, -0.6364878 , -1.693462  , ...,  0.41978157, -2.4336355 ,  0.6162071 ],
+        ...,
+        [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
+         ```
+        """
+        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        np = _import_numpy()
+        return np.array(response.json()[0], dtype="float32")
 
     def image_classification(
         self,
@@ -639,11 +677,14 @@ class InferenceClient:
                 )
             model = _get_recommended_model(task)
 
-        # TODO: handle when task is feature-extraction / sentence-similarity
-        #       i.e. the only case where a model has several useful tasks
-
         # Compute InferenceAPI url
-        return f"{INFERENCE_ENDPOINT}/models/{model}"
+        return (
+            # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
+            f"{INFERENCE_ENDPOINT}/pipeline/{task}/{model}"
+            if task in ("feature-extraction", "sentence-similarity")
+            # Otherwise, we use the default endpoint
+            else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
 
 
 def _get_recommended_model(task: str) -> str:
@@ -729,6 +770,15 @@ def _import_pil_image():
     from PIL import Image
 
     return Image
+
+
+def _import_numpy():
+    """Make sure `numpy` is installed on the machine."""
+    if not is_numpy_available():
+        raise ImportError("Please install numpy to use deal with embeddings (`pip install numpy`).")
+    import numpy
+
+    return numpy
 
 
 if __name__ == "__main__":

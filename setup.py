@@ -52,6 +52,7 @@ extras["testing"] = extras["cli"] + [
     "soundfile",
     "Pillow",
     "gradio",  # to test webhooks
+    "numpy",  # for embeddings
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
