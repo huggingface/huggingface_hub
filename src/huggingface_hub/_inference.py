@@ -67,6 +67,7 @@ RECOMMENDED_MODELS = {
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
     "image-to-image": "timbrooks/instruct-pix2pix",
+    "image-to-text": "nlpconnect/vit-gpt2-image-captioning",
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "facebook/bart-large-cnn",
     "text-to-image": "stabilityai/stable-diffusion-2-1",
@@ -174,9 +175,10 @@ class InferenceClient:
             except HTTPError as error:
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
-                    if self.timeout is None or time.time() - t0 > self.timeout:
+                    if timeout is not None and time.time() - t0 > timeout:
                         raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {url}. Please retry with a higher timeout."
+                            f"Model not loaded on the server: {url}. Please retry with a higher timeout (current:"
+                            f" {self.timeout})."
                         ) from error
                     # ...or wait 1s and retry
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
@@ -459,9 +461,6 @@ class InferenceClient:
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
                 The input image for translation. It can be raw bytes, an image file, or a URL to an online image..
-            model (`str`, *optional*):
-                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
             negative_prompt (`str`, *optional*):
@@ -476,6 +475,9 @@ class InferenceClient:
             guidance_scale (`float`, *optional*):
                 Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
                 usually at the expense of lower image quality.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
             `Image`: The translated image.
@@ -518,6 +520,42 @@ class InferenceClient:
 
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _response_to_image(response)
+
+    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
+        """
+        Takes an input image and return text.
+
+        The generated text depends on the chosen model. It can be image captioning, optical character recognition (OCR),
+        Pix2Struct, etc. Please have a look to the model card to learn more about its specificities.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image to caption. It can be raw bytes, an image file, or a URL to an online image..
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `str`: The image caption.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.image_to_text("cat.jpg")
+        'a cat standing in a grassy field '
+        >>> client.image_to_text("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
+        'a dog laying on the grass next to a flower pot '
+        ```
+        """
+        response = self.post(data=image, model=model, task="image-to-text")
+        return response.json()[0]["generated_text"]
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
