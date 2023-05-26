@@ -49,6 +49,7 @@ extras["testing"] = extras["cli"] + [
     "pytest-cov",
     "pytest-env",
     "pytest-xdist",
+    "pytest-vcr",  # to mock Inference
     "soundfile",
     "Pillow",
     "gradio",  # to test webhooks

@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 import unittest
+from pathlib import Path
+
 import numpy as np
 import pytest
-from huggingface_hub import hf_hub_download, InferenceClient
 from PIL import Image
+
+from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub._inference import _open_as_binary
+
 from .testing_utils import with_production_testing
 
 
@@ -40,7 +46,7 @@ class InferenceClientVCRTest(InferenceClientTest):
     - In the CI, VRC replay is always on. If you want to test locally against the server, you can use the `--vcr-mode`
       and `--disable-vcr` command line options. See https://pytest-vcr.readthedocs.io/en/latest/configuration/.
     - If you get rate-limited locally, you can use your own token when initializing InferenceClient.
-      /!\ WARNING: if you do so, you must delete the token from the cassette before committing!
+      /!\\ WARNING: if you do so, you must delete the token from the cassette before committing!
     - If the model is not loaded on the server, you will saves a lot of HTTP 503 response in the cassette. We don't
       want those to be committed. Either delete them manually or rerun the test once the model is loaded on the server.
     """
@@ -172,5 +178,76 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(audio, bytes)
 
 
-class InferenceClientOfflineTest(InferenceClientTest):
-    pass
+class TestOpenAsBinary(InferenceClientTest):
+    def test_open_as_binary_with_none(self) -> None:
+        with _open_as_binary(None) as content:
+            self.assertIsNone(content)
+
+    def test_open_as_binary_from_str_path(self) -> None:
+        with _open_as_binary(self.image_file) as content:
+            self.assertIsInstance(content, io.BufferedReader)
+
+    def test_open_as_binary_from_pathlib_path(self) -> None:
+        with _open_as_binary(Path(self.image_file)) as content:
+            self.assertIsInstance(content, io.BufferedReader)
+
+    def test_open_as_binary_from_url(self) -> None:
+        with _open_as_binary("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/tree.png") as content:
+            self.assertIsInstance(content, bytes)
+
+    def test_open_as_binary_opened_file(self) -> None:
+        with Path(self.image_file).open("rb") as f:
+            with _open_as_binary(f) as content:
+                self.assertEqual(content, f)
+                self.assertIsInstance(content, io.BufferedReader)
+
+    def test_open_as_binary_from_bytes(self) -> None:
+        content_bytes = Path(self.image_file).read_bytes()
+        with _open_as_binary(content_bytes) as content:
+            self.assertEqual(content, content_bytes)
+
+
+class TestResolveURL(InferenceClientTest):
+    FAKE_ENDPOINT = "https://my-endpoint.hf.co"
+
+    def test_model_as_url(self):
+        self.assertEqual(InferenceClient()._resolve_url(model=self.FAKE_ENDPOINT), self.FAKE_ENDPOINT)
+
+    def test_model_as_id_no_task(self):
+        self.assertEqual(
+            InferenceClient()._resolve_url(model="username/repo_name"),
+            "https://api-inference.huggingface.co/models/username/repo_name",
+        )
+
+    def test_model_as_id_and_task_ignored(self):
+        self.assertEqual(
+            InferenceClient()._resolve_url(model="username/repo_name", task="text-to-image"),
+            # /models endpoint
+            "https://api-inference.huggingface.co/models/username/repo_name",
+        )
+
+    def test_model_as_id_and_task_not_ignored(self):
+        # Special case for feature-extraction and sentence-similarity
+        self.assertEqual(
+            InferenceClient()._resolve_url(model="username/repo_name", task="feature-extraction"),
+            # /pipeline/{task} endpoint
+            "https://api-inference.huggingface.co/pipeline/feature-extraction/username/repo_name",
+        )
+
+    def test_method_level_has_priority(self) -> None:
+        # Priority to method-level
+        self.assertEqual(
+            InferenceClient(model=self.FAKE_ENDPOINT + "_instance")._resolve_url(model=self.FAKE_ENDPOINT + "_method"),
+            self.FAKE_ENDPOINT + "_method",
+        )
+
+    def test_recommended_model_from_supported_task(self) -> None:
+        # Get recommended model
+        self.assertEqual(
+            InferenceClient()._resolve_url(task="text-to-image"),
+            "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+        )
+
+    def test_unsupported_task(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            InferenceClient()._resolve_url(task="unknown-task")

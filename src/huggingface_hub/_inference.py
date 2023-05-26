@@ -766,7 +766,7 @@ class InferenceClient:
         response = self.post(json={"inputs": text}, model=model, task="text-to-speech")
         return response.content
 
-    def _resolve_url(self, model: Optional[str], task: Optional[str]) -> str:
+    def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
 
         # If model is already a URL, ignore `task` and return directly
@@ -884,37 +884,3 @@ def _import_numpy():
     import numpy
 
     return numpy
-
-
-if __name__ == "__main__":
-    client = InferenceClient()
-
-    # Text to speech to text
-    audio = client.text_to_speech("Hello world")
-    client.audio_classification(audio)
-    client.automatic_speech_recognition(audio)
-
-    # Image classification
-    client.image_classification("cat.jpg")
-    client.image_classification(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg"
-    )
-
-    # Image segmentation
-    for item in client.image_segmentation("cat.jpg"):
-        item["mask"].save(f"cat_{item['label']}_{item['score']}.jpg")
-
-    # Image to image (instruct pix2pix)
-    image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
-    image.save("tiger.jpg")
-
-    # Text summary
-    client.summarization("The Eiffel tower...")
-
-    # Chat
-    output = client.conversational("Hi, who are you?")
-    client.conversational(
-        "Wow, that's scary!",
-        generated_responses=output["conversation"]["generated_responses"],
-        past_user_inputs=output["conversation"]["past_user_inputs"],
-    )
