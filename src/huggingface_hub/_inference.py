@@ -34,7 +34,6 @@
 # - Images are parsed as PIL.Image for easier manipulation.
 # - Provides a "recommended model" for each task => suboptimal but user-wise quicker to get a first script running.
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
-
 import base64
 import io
 import logging
