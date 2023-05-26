@@ -158,7 +158,7 @@ def _deprecate_list_output(*, version: str):
                     " to be a generator starting from version {version} in order to"
                     " implement pagination. Please avoid to use"
                     " `{f.__name__}(...).{attr_name}` or explicitly convert the output"
-                    " to a list first with `list(iter({f.__name__})(...))`.".format(
+                    " to a list first with `list(iter({f.__name__}(...)))`.".format(
                         f=f,
                         version=version,
                         # Dumb but working workaround to render `attr_name` later
