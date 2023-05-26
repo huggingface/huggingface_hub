@@ -189,7 +189,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> ClassificationOutput:
+    ) -> List[ClassificationOutput]:
         """
         Perform audio classification on the provided audio content.
 
@@ -203,7 +203,7 @@ class InferenceClient:
                 audio classification will be used.
 
         Returns:
-            `Dict`: The classification output containing the predicted label and its confidence.
+            `List[Dict]`: The classification output containing the predicted label and its confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -215,7 +215,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> client.audio_classification(audio)
+        >>> client.audio_classification("audio.wav")
         [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
         ```
         """
