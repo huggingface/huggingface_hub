@@ -18,10 +18,6 @@ All of these services can be called with the [`InferenceClient`] client. Let's s
 refer to the [Inference API](https://huggingface.co/docs/api-inference/index) or to the
 [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
 
-</Tip>
-
-<Tip>
-
 For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
 If you are interested in game development, you might have a look to our [C# project](https://github.com/huggingface/unity-api).
 
@@ -116,8 +112,9 @@ endpoints.
 has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
 
 - audio
-    - [x] audio classification ([`InferenceClient.audio_classification`])
-    - [x] speech to text (automatic_speech_recognition)
+    - [x] [`~InferenceClient.audio_classification`]
+    - [x] [audio classification](../package_reference/inference_api#huggingface_hub.InferenceClient.audio_classification)
+    - [x] [speech to text (automatic_speech_recognition)](../package_reference/inference_api#huggingface_hub.InferenceClient.audio_classification)
     - [x] text to speech
 - computer vision
     - [x] image classification
