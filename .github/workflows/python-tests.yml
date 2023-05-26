@@ -75,6 +75,10 @@ jobs:
 
           esac
 
+      # Easy debugging if CI is broken
+      - name: Pip freeze
+        run: pip freeze
+
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -149,6 +153,10 @@ jobs:
           pip install --upgrade pip
           pip install .[testing]
         # sudo apt install -y libsndfile1-dev
+
+      # Easy debugging if CI is broken
+      - name: Pip freeze
+        run: pip freeze
 
       # Run tests
       - name: Run tests
