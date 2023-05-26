@@ -79,7 +79,7 @@ jobs:
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none"
 
           case "${{ matrix.test_name }}" in
 
@@ -153,7 +153,7 @@ jobs:
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml ../tests
+        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
