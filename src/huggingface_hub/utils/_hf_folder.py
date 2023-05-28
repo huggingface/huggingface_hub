@@ -57,7 +57,10 @@ class HfFolder:
             `str` or `None`: The token, `None` if it doesn't exist.
         """
         # 0. Check if token exist in old path but not new location
-        cls._copy_to_new_path_and_warn()
+        try:
+            cls._copy_to_new_path_and_warn()
+        except PermissionError:
+            pass
 
         # 1. Is it set by environment variable ?
         token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
