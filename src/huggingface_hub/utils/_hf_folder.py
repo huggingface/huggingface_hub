@@ -59,7 +59,7 @@ class HfFolder:
         # 0. Check if token exist in old path but not new location
         try:
             cls._copy_to_new_path_and_warn()
-        except PermissionError:
+        except Exception:  # if not possible (e.g. PermissionError), do not raise
             pass
 
         # 1. Is it set by environment variable ?
