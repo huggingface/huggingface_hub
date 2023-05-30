@@ -93,8 +93,7 @@ class InferenceClient:
     Args:
         model (`str`, `optional`):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
-            `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, meaning the model can
-                be passed for each task or in last resort a recommended model will be used.
+            `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is automatically selected for the task.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token.
         timeout (`float`, `optional`):
@@ -129,7 +128,7 @@ class InferenceClient:
             data (`Union[str, Path, bytes, BinaryIO]`, *optional*):
                 The content to send in the request body. It can be raw bytes, a pointer to an opened file, a local file
                 path, or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
-                `data` will take precedence. At least `json` or `data` must be provided.. Defaults to None.
+                `data` will take precedence. At least `json` or `data` must be provided. Defaults to None.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
@@ -275,7 +274,7 @@ class InferenceClient:
             generated_responses (`List[str]`, *optional*):
                 A list of strings corresponding to the earlier replies from the model. Defaults to None.
             past_user_inputs (`List[str]`, *optional*):
-                A list of strings corresponding to the earlier replies from the user. Should be of the same length of
+                A list of strings corresponding to the earlier replies from the user. Should be the same length as
                 `generated_responses`. Defaults to None.
             parameters (`Dict[str, Any]`, *optional*):
                 Additional parameters for the conversational task. Defaults to None. For more details about the available
@@ -465,7 +464,7 @@ class InferenceClient:
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for translation. It can be raw bytes, an image file, or a URL to an online image..
+                The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
             negative_prompt (`str`, *optional*):
@@ -530,7 +529,7 @@ class InferenceClient:
         """
         Takes an input image and return text.
 
-        Models can be very different outputs depending on your use case (image captioning, optical character recognition
+        Models can have very different outputs depending on your use case (image captioning, optical character recognition
         (OCR), Pix2Struct, etc). Please have a look to the model card to learn more about a model's specificities.
 
         Args:

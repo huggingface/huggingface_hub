@@ -35,7 +35,7 @@ For most tasks, the return value has a built-in type (string, list, image...). H
 
 ## InferenceAPI
 
-[`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires to know
+[`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires knowing
 the input parameters and output format for each task. It also lacks the ability to connect to other services like
 Inference Endpoints or AWS SageMaker. It is still supported but we recommend using [`InferenceClient`] whenever possible.
 Check out [this guide](../guides/inference#legacy-inferenceapi-client) to learn how to switch from [`InferenceAPI`] to

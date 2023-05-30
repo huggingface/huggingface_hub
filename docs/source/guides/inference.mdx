@@ -99,7 +99,7 @@ your token as an instance parameter:
 
 <Tip>
 
-Authentication is NOT mandatory when using the Inference API. However, authenticated users gets a higher free-tier to
+Authentication is NOT mandatory when using the Inference API. However, authenticated users get a higher free-tier to
 play with the service. Token is also mandatory if you want to run inference on your private models or on private
 endpoints.
 
@@ -107,7 +107,7 @@ endpoints.
 
 ## Supported tasks
 
-[`InferenceClient`]'s goal is to provide the most easy-to-use interface to run inference on Hugging Face models. It
+[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It
 has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
 
 - audio
@@ -146,8 +146,8 @@ please let us know on [huggingface_hub's repo](https://github.com/huggingface/hu
 
 <Tip>
 
-Check out the tasks page (https://huggingface.co/tasks) to learn more about each task, how to use them and what are the
-most popular models for each of them.
+Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task, how to use them, and the
+most popular models for each task.
 
 </Tip>
 
@@ -161,9 +161,8 @@ all the parameters available for each task.
 
 ## Custom requests
 
-Despite the simplicity of the [`InferenceClient`] API, it is not always possible to cover all use cases. The
-[`InferenceClient.post`] method allows you to send any request to the Inference API. With this flexibility, you can
-for example handle yourself the parsing of the inputs and output. 
+However, it is not always possible to cover all use cases. For custom requests, the
+[`InferenceClient.post`] method gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs and outputs:
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -183,7 +182,7 @@ In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive
 
 ### Timeout
 
-When doing inference, there are two main causes for a timeout to happen:
+When doing inference, there are two main causes for a timeout:
 - The inference process takes a long time to complete.
 - The model is not available, for example when Inference API is loading it for the first time.
 
@@ -203,7 +202,7 @@ You can catch it and handle it in your code:
 
 ### Binary inputs
 
-Some tasks require binary inputs, for example when dealing with images or audio files. In this case, [`InferenceClient`]
+Some tasks require binary inputs, for example, when dealing with images or audio files. In this case, [`InferenceClient`]
 tries to be as permissive as possible and accept different types:
 - raw `bytes`
 - a file-like object, opened as binary (`with open("audio.wav", "rb") as f: ...`)

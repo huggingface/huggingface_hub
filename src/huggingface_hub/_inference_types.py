@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 
 class ClassificationOutput(TypedDict):
-    """Dictionary containing the output of a 'classification' task.
+    """Dictionary containing the output of a [`~InferenceClient.audio_classification`] and  [`~InferenceClient.image_classification`] task.
 
     Args:
         label (`str`):
@@ -22,7 +22,7 @@ class ClassificationOutput(TypedDict):
 
 
 class ConversationalOutputConversation(TypedDict):
-    """Dictionary containing the "conversation" part of a 'conversational' task.
+    """Dictionary containing the "conversation" part of a [`~InferenceClient.conversational`] task.
 
     Args:
         generated_responses (`List[str]`):
@@ -36,7 +36,7 @@ class ConversationalOutputConversation(TypedDict):
 
 
 class ConversationalOutput(TypedDict):
-    """Dictionary containing the output of a 'conversational' task.
+    """Dictionary containing the output of a  [`~InferenceClient.conversational`] task.
 
     Args:
         generated_text (`str`):
@@ -53,7 +53,7 @@ class ConversationalOutput(TypedDict):
 
 
 class ImageSegmentationOutput(TypedDict):
-    """Dictionary containing information about a 'image-segmentation' task. In practice, image segmentation returns a
+    """Dictionary containing information about a [`~InferenceClient.image_segmentation`] task. In practice, image segmentation returns a
     list of `ImageSegmentationOutput` with 1 item per mask.
 
     Args:
