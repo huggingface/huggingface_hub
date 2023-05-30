@@ -9,24 +9,19 @@ prototype AI products.
 - [Inference Endpoints](https://huggingface.co/inference-endpoints): a product to easily deploy models to production.
 Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
-All of these services can be called with the [`InferenceClient`] object. Let's see how to use it!
+These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
+[`InferenceApi`] client, adding specific support for tasks and handling inference on both
+[Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
+Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
 
 <Tip>
 
-[`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly, please
-refer to the [Inference API](https://huggingface.co/docs/api-inference/index) or to the
-[Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
+[`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
+your preferred tool (curl, postman,...), please refer to the [Inference API](https://huggingface.co/docs/api-inference/index)
+or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
 
 For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
 If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
-
-</Tip>
-
-<Tip>
-
-[`InferenceClient`] acts as a replacement for the legacy [`InferenceApi`] client. It adds specific support for tasks and
-handles inference on both [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
-Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
 
 </Tip>
 
@@ -46,6 +41,14 @@ We initialized an [`InferenceClient`] with the default parameters. The only thin
 to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
 example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
 file.
+
+<Tip warning={true}>
+
+The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
+[this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
+all the parameters available for each task.
+
+</Tip>
 
 ### Using a specific model
 
@@ -151,18 +154,13 @@ most popular models for each task.
 
 </Tip>
 
-<Tip warning={true}>
-
-The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
-[this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
-all the parameters available for each task.
-
-</Tip>
-
 ## Custom requests
 
-However, it is not always possible to cover all use cases. For custom requests, the
-[`InferenceClient.post`] method gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs and outputs:
+However, it is not always possible to cover all use cases. For custom requests, the [`InferenceClient.post`] method
+gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs
+and outputs. In the example below, the generated image is returned as raw bytes instead of parsing it as a `PIL Image`.
+This can be helpful if you don't have `Pillow` installed in your setup and just care about the binary content of the
+image. [`InferenceClient.post`] is also useful to handle tasks that are not yet officially supported.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -171,10 +169,6 @@ However, it is not always possible to cover all use cases. For custom requests, 
 >>> response.content # raw bytes
 b'...'
 ```
-
-In the example above, the generated image is returned as raw bytes. This can be helpful if you don't have `Pillow`
-installed in your setup and just care about the binary content of the image. [`InferenceClient.post`] is also useful
-to handle tasks that are not yet officially supported.
 
 ## Advanced tips
 

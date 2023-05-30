@@ -92,8 +92,9 @@ class InferenceClient:
 
     Args:
         model (`str`, `optional`):
-            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g.
-            `bigcode/starcoder` or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is automatically selected for the task.
+            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `bigcode/starcoder`
+            or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
+            automatically selected for the task.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token.
         timeout (`float`, `optional`):
@@ -795,7 +796,11 @@ def _get_recommended_model(task: str) -> str:
     # TODO: load from a config file? (from the Hub?) Would make sense to make updates easier.
     if task in RECOMMENDED_MODELS:
         model = RECOMMENDED_MODELS[task]
-        logger.info(f"Defaulting to recommended model {model} for task {task}.")
+        logger.info(
+            f"Defaulting to recommended model {model} for task {task}. It is recommended to explicitly pass"
+            f" `model='{model}'` as argument as we do not guarantee that the recommended model will stay the same over"
+            " time."
+        )
         return model
     raise NotImplementedError()
 
