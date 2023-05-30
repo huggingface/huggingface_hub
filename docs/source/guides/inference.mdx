@@ -114,38 +114,36 @@ endpoints.
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It
 has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
 
-- audio
-    - [x] [`~InferenceClient.audio_classification`]
-    - [x] [`~InferenceClient.automatic_speech_recognition`]
-    - [x] [`~InferenceClient.text_to_speech`]
-- computer vision
-    - [x] [`~InferenceClient.image_classification`]
-    - [x] [`~InferenceClient.image_segmentation`]
-    - [x] [`~InferenceClient.image_to_image`]
-    - [x] [`~InferenceClient.image_to_text`]
-    - [ ] object detection
-    - [x] [`~InferenceClient.text_to_image`]
-- multimodal
-    - [ ] documentation question answering
-    - [ ] visual question answering
-- nlp
-    - [x] [`~InferenceClient.conversational`]
-    - [x] [`~InferenceClient.feature_extraction`]
-    - [ ] fill mask
-    - [ ] question answering
-    - [x] [`~InferenceClient.sentence_similarity`]
-    - [x] [`~InferenceClient.summarization`]
-    - [ ] table question answering
-    - [ ] text classification
-    - [ ] text generation
-    - [ ] token classification
-    - [ ] translation
-    - [ ] zero shot classification
-- tabular
-    - [ ] tabular classification
-    - [ ] tabular regression
+| Domain | Task                           | Supported    | Models                             |
+|--------|--------------------------------|--------------|------------------------------------|
+| Audio | [Audio Classification](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
+| | [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
+| | [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
+| Computer Vision | [Image Classification](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
+| | [Image Segmentation](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
+| | [Image-to-Image](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
+| | [Image-to-Text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
+| | [Object Detection](https://huggingface.co/tasks/object-detection)               |              |  |
+| | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
+| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) |              |  |
+| | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      |              |  |
+| NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
+| | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
+| | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      |              |  |
+| | [Question Answering](https://huggingface.co/tasks/question-answering)             |              |  |
+| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
+| | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
+| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | |  |
+| | [Text Classification](https://huggingface.co/tasks/text-classification)            | |  |
+| | [Text Generation](https://huggingface.co/tasks/text-generation)   | |  |
+| | [Token Classification](https://huggingface.co/tasks/token-classification)           | |  |
+| | [Translation](https://huggingface.co/tasks/translation)       | |  |
+| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
+| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
+| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
 
-This list is meant to be completed to support all tasks. If you are particularly interested in a task not yet supported,
+
+This table is meant to be completed to support all tasks. If you are particularly interested in a task not yet supported,
 please let us know on [huggingface_hub's repo](https://github.com/huggingface/huggingface_hub).
 
 <Tip>
