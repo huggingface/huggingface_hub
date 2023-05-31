@@ -156,11 +156,10 @@ class TestDeprecationUtils(unittest.TestCase):
         self.assertEqual(
             record[0].message.args[0],
             (
-                "'dummy_deprecated' currently returns a list of objects but is planned"
-                " to be a generator starting from version xxx in order to implement"
-                " pagination. Please avoid to use `dummy_deprecated(...).__getitem__`"
-                " or explicitly convert the output to a list first with"
-                " `list(iter(dummy_deprecated)(...))`."
+                "'dummy_deprecated' currently returns a list of objects but is planned to be a generator starting from"
+                " version xxx in order to implement pagination. Please avoid to use"
+                " `dummy_deprecated(...).__getitem__` or explicitly convert the output to a list first with `[item for"
+                " item in dummy_deprecated(...)]`."
             ),
         )
 
