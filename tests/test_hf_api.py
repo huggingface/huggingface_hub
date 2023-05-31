@@ -2376,9 +2376,24 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.assertIsInstance(runtime.raw, dict)
 
     def test_pause_and_restart_space(self) -> None:
+        # Upload a fake app.py file
+        self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
+
+        # Wait for the Space to be "BUILDING"
+        count = 0
+        while True:
+            if self.api.get_space_runtime(self.repo_id).stage == SpaceStage.BUILDING:
+                break
+            time.sleep(1.0)
+            count += 1
+            if count > 10:
+                raise Exception("Space is not building after 10 seconds.")
+
+        # Pause it
         runtime_after_pause = self.api.pause_space(self.repo_id)
         self.assertEqual(runtime_after_pause.stage, SpaceStage.PAUSED)
 
+        # Restart
         self.api.restart_space(self.repo_id)
         time.sleep(1.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
