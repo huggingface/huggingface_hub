@@ -47,7 +47,7 @@ class InferenceClientVCRTest(InferenceClientTest):
       and `--disable-vcr` command line options. See https://pytest-vcr.readthedocs.io/en/latest/configuration/.
     - If you get rate-limited locally, you can use your own token when initializing InferenceClient.
       /!\\ WARNING: if you do so, you must delete the token from the cassette before committing!
-    - If the model is not loaded on the server, you will saves a lot of HTTP 503 response in the cassette. We don't
+    - If the model is not loaded on the server, you will save a lot of HTTP 503 responses in the cassette. We don't
       want those to be committed. Either delete them manually or rerun the test once the model is loaded on the server.
     """
 
