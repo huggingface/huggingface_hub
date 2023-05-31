@@ -52,6 +52,10 @@ __version__ = "0.15.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_inference": [
+        "InferenceClient",
+        "InferenceTimeoutError",
+    ],
     "_login": [
         "interpreter_login",
         "login",
@@ -342,6 +346,10 @@ __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_S
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._inference import (
+        InferenceClient,  # noqa: F401
+        InferenceTimeoutError,  # noqa: F401
+    )
     from ._login import (
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
