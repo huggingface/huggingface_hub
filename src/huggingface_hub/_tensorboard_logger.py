@@ -18,7 +18,7 @@ from concurrent.futures import Future
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from .hf_api import create_repo, upload_folder
-from .utils import is_tensorboard_available
+from .utils import experimental, is_tensorboard_available
 
 
 if is_tensorboard_available():
@@ -39,6 +39,12 @@ class HFSummaryWriter(SummaryWriter):
     Data is logged locally and then pushed to the Hub asynchronously. Pushing data to the Hub is done in a separate
     thread to avoid blocking the training script. In particular, if the upload fails for any reason (e.g. a connection
     issue), the main script will not be interrupted.
+
+    <Tip warning={true}>
+
+    `HFSummaryWriter` is experimental. Its API is subject to change in the future without prior notice.
+
+    </Tip>
 
     Args:
         repo_id (`str`):
@@ -67,23 +73,33 @@ class HFSummaryWriter(SummaryWriter):
         **kwargs:
             Additional keyword arguments passed to `SummaryWriter`.
 
-    Example:
+    Examples:
     ```py
-    from huggingface_hub import HFSummaryWriter
+    >>> from huggingface_hub import HFSummaryWriter
 
-    logger = HFSummaryWriter(repo_id="test_hf_logger")
-    logger.log_hyperparams({"a": 1, "b": 2})
-    logger.push_to_hub()
+    >>> logger = HFSummaryWriter(repo_id="test_hf_logger")
+    >>> logger.add_scalar("a", 1)
+    >>> logger.add_scalar("b", 2)
+    >>> logger.push_to_hub()
+    ```
+
+    ```py
+    >>> from huggingface_hub import HFSummaryWriter
+
+    >>> with HFSummaryWriter(repo_id="test_hf_logger") as logger:
+    ...     logger.add_scalar("a", 1)
+    ...     logger.add_scalar("b", 2)
     ```
     """
 
+    @experimental
     def __new__(cls, *args, **kwargs) -> "HFSummaryWriter":
         if not is_tensorboard_available():
             raise ImportError(
                 "You must have `tensorboard` installed to use `HFSummaryWriter`. Please run `pip install --upgrade"
                 " tensorboardX` first."
             )
-        return super().__new__(cls, *args, **kwargs)
+        return super().__new__(cls)
 
     def __init__(
         self,
@@ -118,7 +134,7 @@ class HFSummaryWriter(SummaryWriter):
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""
         super().__exit__(exc_type, exc_val, exc_tb)
-        future = self.push_to_hub(commit_message="Closing Tensorboard logger.")
+        future = self.push_to_hub(commit_message="Closing HFSummaryWriter.")
         future.result()
 
     def push_to_hub(
