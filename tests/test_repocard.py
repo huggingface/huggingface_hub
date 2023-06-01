@@ -86,6 +86,13 @@ meaning_of_life: 42
 Hello
 """
 
+DUMMY_MODELCARD_TARGET_WITH_EMOJI = """---
+emoji: 🎁
+---
+
+Hello
+"""
+
 DUMMY_MODELCARD_TARGET_NO_YAML = """---
 meaning_of_life: 42
 ---
@@ -194,6 +201,12 @@ class RepocardMetadataTest(unittest.TestCase):
         metadata_save(self.filepath, {"meaning_of_life": 42})
         content = self.filepath.read_text()
         self.assertEqual(content, DUMMY_MODELCARD_TARGET)
+
+    def test_metadata_save_with_emoji_character(self):
+        self.filepath.write_text(DUMMY_MODELCARD)
+        metadata_save(self.filepath, {"emoji": "🎁"})
+        content = self.filepath.read_text(encoding="utf-8")
+        self.assertEqual(content, DUMMY_MODELCARD_TARGET_WITH_EMOJI)
 
     def test_metadata_save_from_file_no_yaml(self):
         self.filepath.write_text("Hello\n")

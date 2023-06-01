@@ -54,8 +54,8 @@
       title: Downloading files
     - local: package_reference/mixins
       title: Mixins & serialization methods
-    - local: package_reference/inference_api
-      title: Inference API
+    - local: package_reference/inference_client
+      title: Inference Client
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities

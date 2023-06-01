@@ -49,9 +49,12 @@ extras["testing"] = extras["cli"] + [
     "pytest-cov",
     "pytest-env",
     "pytest-xdist",
+    "pytest-vcr",  # to mock Inference
+    "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
     "soundfile",
     "Pillow",
     "gradio",  # to test webhooks
+    "numpy",  # for embeddings
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`

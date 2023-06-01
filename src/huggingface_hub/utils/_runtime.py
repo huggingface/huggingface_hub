@@ -33,10 +33,15 @@ else:
 _package_versions = {}
 
 _CANDIDATES = {
-    "torch": {"torch"},
-    "pydot": {"pydot"},
+    "fastai": {"fastai"},
+    "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
+    "hf_transfer": {"hf_transfer"},
+    "jinja": {"Jinja2"},
+    "numpy": {"numpy"},
+    "pillow": {"Pillow"},
+    "pydot": {"pydot"},
     "tensorflow": (
         "tensorflow",
         "tensorflow-cpu",
@@ -49,11 +54,7 @@ _CANDIDATES = {
         "tensorflow-rocm",
         "tensorflow-macos",
     ),
-    "fastai": {"fastai"},
-    "fastcore": {"fastcore"},
-    "jinja": {"Jinja2"},
-    "pillow": {"Pillow"},
-    "hf_transfer": {"hf_transfer"},
+    "torch": {"torch"},
 }
 
 # Check once at runtime
@@ -128,6 +129,15 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# Numpy
+def is_numpy_available() -> bool:
+    return _is_available("numpy")
+
+
+def get_numpy_version() -> str:
+    return _get_version("numpy")
 
 
 # Jinja
@@ -265,6 +275,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()
     info["gradio"] = get_gradio_version()
+    info["numpy"] = get_numpy_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT

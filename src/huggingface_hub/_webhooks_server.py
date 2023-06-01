@@ -17,18 +17,15 @@ import atexit
 import inspect
 import os
 from functools import wraps
-from typing import Callable, Dict, Optional
+from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from .utils import experimental, is_gradio_available
 
 
-if not is_gradio_available():
-    raise ImportError(
-        "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio` first."
-    )
+if TYPE_CHECKING:
+    import gradio as gr
 
 
-import gradio as gr
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -92,9 +89,17 @@ class WebhooksServer:
         ```
     """
 
+    def __new__(cls, *args, **kwargs) -> "WebhooksServer":
+        if not is_gradio_available():
+            raise ImportError(
+                "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio`"
+                " first."
+            )
+        return super().__new__(cls)
+
     def __init__(
         self,
-        ui: Optional[gr.Blocks] = None,
+        ui: Optional["gr.Blocks"] = None,
         webhook_secret: Optional[str] = None,
     ) -> None:
         self._ui = ui
@@ -173,8 +178,10 @@ class WebhooksServer:
 
         ui.block_thread()
 
-    def _get_default_ui(self) -> gr.Blocks:
+    def _get_default_ui(self) -> "gr.Blocks":
         """Default UI if not provided (lists webhooks and provides basic instructions)."""
+        import gradio as gr
+
         with gr.Blocks() as ui:
             gr.Markdown("# This is an app to process 🤗 Webhooks")
             gr.Markdown(
