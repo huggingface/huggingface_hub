@@ -1,6 +1,5 @@
 import json
 import os
-import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
@@ -10,7 +9,6 @@ from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
 from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_positional_args
 
 
 if is_torch_available():
@@ -31,7 +29,6 @@ class ModelHubMixin:
     of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
     """
 
-    @_deprecate_positional_args(version="0.16")
     def save_pretrained(
         self,
         save_directory: Union[str, Path],
@@ -89,7 +86,6 @@ class ModelHubMixin:
 
     @classmethod
     @validate_hf_hub_args
-    @_deprecate_positional_args(version="0.16")
     def from_pretrained(
         cls: Type[T],
         pretrained_model_name_or_path: Union[str, Path],
@@ -133,18 +129,6 @@ class ModelHubMixin:
                 Additional kwargs to pass to the model during initialization.
         """
         model_id = pretrained_model_name_or_path
-
-        if isinstance(model_id, str) and len(model_id.split("@")) == 2:
-            warnings.warn(
-                (
-                    "Passing a revision using 'namespace/model_id@revision' pattern is"
-                    " deprecated and will be removed in version v0.16. Please pass"
-                    " 'revision=...' as argument."
-                ),
-                FutureWarning,
-            )
-            model_id, revision = model_id.split("@")
-
         config_file: Optional[str] = None
         if os.path.isdir(model_id):
             if CONFIG_NAME in os.listdir(model_id):
@@ -173,7 +157,7 @@ class ModelHubMixin:
             model_kwargs.update({"config": config})
 
         return cls._from_pretrained(
-            model_id=model_id,
+            model_id=str(model_id),
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
@@ -185,7 +169,6 @@ class ModelHubMixin:
         )
 
     @classmethod
-    @_deprecate_positional_args(version="0.16")
     def _from_pretrained(
         cls: Type[T],
         *,
@@ -347,13 +330,12 @@ class PyTorchModelHubMixin(ModelHubMixin):
         torch.save(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
 
     @classmethod
-    @_deprecate_positional_args(version="0.16")
     def _from_pretrained(
         cls,
         *,
         model_id: str,
-        revision: str,
-        cache_dir: str,
+        revision: Optional[str],
+        cache_dir: Optional[Union[str, Path]],
         force_download: bool,
         proxies: Optional[Dict],
         resume_download: bool,
