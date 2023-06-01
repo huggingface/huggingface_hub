@@ -361,9 +361,6 @@ class DatasetCardData(CardData):
             If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
         config_names (`Union[str, List[str]]`, *optional*):
             A list of the available dataset configs for the dataset.
-        ignore_metadata_errors (`str`):
-            If True, errors while parsing the metadata section will be ignored. Some information might be lost during
-            the process. Use it at your own risk.
     """
 
     def __init__(
@@ -382,7 +379,6 @@ class DatasetCardData(CardData):
         pretty_name: Optional[str] = None,
         train_eval_index: Optional[Dict] = None,
         config_names: Optional[Union[str, List[str]]] = None,
-        ignore_metadata_errors: bool = False,
         **kwargs,
     ):
         self.annotations_creators = annotations_creators
