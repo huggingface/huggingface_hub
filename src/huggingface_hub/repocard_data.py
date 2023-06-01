@@ -359,7 +359,7 @@ class DatasetCardData(CardData):
         train_eval_index (`Dict`, *optional*):
             A dictionary that describes the necessary spec for doing evaluation on the Hub.
             If not provided, it will be gathered from the 'train-eval-index' key of the kwargs.
-        configs (`Union[str, List[str]]`, *optional*):
+        config_names (`Union[str, List[str]]`, *optional*):
             A list of the available dataset configs for the dataset.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
@@ -381,7 +381,7 @@ class DatasetCardData(CardData):
         paperswithcode_id: Optional[str] = None,
         pretty_name: Optional[str] = None,
         train_eval_index: Optional[Dict] = None,
-        configs: Optional[Union[str, List[str]]] = None,
+        config_names: Optional[Union[str, List[str]]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -396,7 +396,7 @@ class DatasetCardData(CardData):
         self.task_ids = task_ids
         self.paperswithcode_id = paperswithcode_id
         self.pretty_name = pretty_name
-        self.configs = configs
+        self.config_names = config_names
 
         # TODO - maybe handle this similarly to EvalResult?
         self.train_eval_index = train_eval_index or kwargs.pop("train-eval-index", None)
