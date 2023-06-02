@@ -1,161 +1,177 @@
-import abc
 import atexit
-import json
-import threading
-from concurrent.futures import ThreadPoolExecutor
-from io import StringIO
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
-from uuid import uuid4
+import logging
+import time
+from pathlib import Path
+from threading import Lock, Thread
+from typing import List, Optional, Union, Dict
+from dataclasses import dataclass
+from .hf_api import IGNORE_GIT_FOLDER_PATTERNS, CommitInfo, HfApi, _prepare_upload_folder_additions, CommitOperationAdd
+from .utils import filter_repo_objects
 
-from .hf_api import HfApi
-
-
-ItemT = TypeVar("ItemT")
-ReturnT = TypeVar("ReturnT")
-
-# TODO: add logging everywhere
-# TODO: Start scheduler => sleep X seconds => flush
-# TODO: cancel + restart scheduler on each new item
-# TODO: store futures in class? How to deal with exceptions?
-# TODO: create repo at init
+logger = logging.getLogger(__name__)
 
 
-class CommitScheduler(abc.ABC, Generic[ItemT, ReturnT]):
+# TODO: partial files in CommitOperationAdd !!!
+
+
+@dataclass(frozen=True)
+class _FileToUpload:
+    local_path: Path
+    path_in_repo: str
+    size_limit: int
+    last_modified: float
+
+
+class CommitScheduler:
     def __init__(
         self,
-        repo_id: str,
         *,
-        repo_type: Optional[str],
+        repo_id: str,
+        folder_path: Union[str, Path],
+        every: Union[int, float] = 5,
+        path_in_repo: Optional[str] = None,
+        repo_type: Optional[str] = None,
         revision: Optional[str] = None,
+        private: bool = False,
         token: Optional[str] = None,
-        commit_after_n_items: int = 100,
-        max_items_per_commit: int = 500,
-        commit_after_n_seconds: int = 30 * 60,
-        max_seconds_in_queue: int = 120 * 60,
-        api: Optional["HfApi"] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        hf_api: Optional["HfApi"] = None,
     ) -> None:
         """
-        Scheduler class to commit items to the Hub in batches.
+        Scheduler to upload a local folder to the Hub at regular intervals (e.g. push to hub every 5 minutes).
 
         Args:
             repo_id (`str`):
                 The id of the repo to commit to.
-            repo_type (`str`, `optional`):
+            folder_path (`str` or `Path`):
+                Path to the local folder to upload regularly.
+            every (`int` or `float`, *optional*):
+                The number of minutes between each commit. Defaults to 5 minutes.
+            path_in_repo (`str`, *optional*):
+                Relative path of the directory in the repo, for example: `"checkpoints/"`. Defaults to the root folder
+                of the repository.
+            repo_type (`str`, *optional*):
                 The type of the repo to commit to. Defaults to `model`.
-            revision (`str`, `optional`):
+            revision (`str`, *optional*):
                 The revision of the repo to commit to. Defaults to `main`.
-            token (`str`, `optional`):
+            private (`bool`, *optional*):
+                Whether to make the repo private. Defaults to `False`. This value is ignored if the repo already exist.
+            token (`str`, *optional*):
                 The token to use to commit to the repo. Defaults to the token saved on the machine.
-            commit_after_n_items (`int`, `optional`):
-                The number of items to trigger a commit. If the number of items in the queue is over this threshold,
-                the scheduler triggers a commit no matter the timing.  Can be set to -1 if you don't want to schedule
-                commits based on the number of items. Defaults to 100.
-            max_items_per_commit (`int`, `optional`):
-                The maximum number of items in a single commit. If the number of items in the queue is over this
-                threshold, commits will be chunked. Can be set to -1 if you don't want to limit the number of items in
-                a single commit. Defaults to 500.
-            commit_after_n_seconds (`int`, `optional`):
-                The number of seconds to wait after the last item has been queued before triggering a commit. Can be
-                set to -1 if you don't want to schedule commits based on the timing. Defaults to 30 minutes.
-            max_seconds_in_queue (`int`, `optional`):
-                The maximum number of seconds an item can stay in the queue before being committed. Past this deadline,
-                a commit is triggered, no matter the number of items. Can be set to -1 if you don't want to limit the
-                time an item can stay in the queue. Defaults to 2 hours.
-            api (`HfApi`, `optional`):
-                The API client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are uploaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not uploaded.
+            hf_api (`HfApi`, *optional*):
+                The [`HfApi`] client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
         """
-        # Scheduler params
-        _check_positive_or_minus_one("commit_after_n_items", commit_after_n_items)
-        _check_positive_or_minus_one("max_items_per_commit", max_items_per_commit)
-        _check_positive_or_minus_one("commit_after_n_seconds", commit_after_n_seconds)
-        _check_positive_or_minus_one("max_seconds_in_queue", max_seconds_in_queue)
+        self.api = hf_api or HfApi()
 
-        self.commit_after_n_items = commit_after_n_items  # TODO
-        self.max_items_per_commit = max_items_per_commit  # TODO
-        self.commit_after_n_seconds = commit_after_n_seconds  # TODO
-        self.max_seconds_in_queue = max_seconds_in_queue  # TODO
-
-        # Commit-related
-        self.api = api or HfApi()
-        self.repo_id = repo_id
+        # Repository
+        repo_url = self.api.create_repo(
+            repo_id=repo_id, token=token, private=private, repo_type=repo_type, exist_ok=True
+        )
+        self.repo_id = repo_url.repo_id
         self.repo_type = repo_type
         self.revision = revision
         self.token = token
 
-        # Internals
-        self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(max_workers=1)
-        self._callbacks: List[Callable[[List[ItemT], ReturnT, Optional[Exception]], None]] = []
-        self._items: List[ItemT] = []
+        # Folder
+        self.folder_path = Path(folder_path).expanduser().resolve()
+        self.path_in_repo = path_in_repo or ""
+        self.allow_patterns = allow_patterns
 
-        # On last resort, flush at the end of the script
-        atexit.register(self.flush)
+        if ignore_patterns is None:
+            ignore_patterns = []
+        elif isinstance(ignore_patterns, str):
+            ignore_patterns = [ignore_patterns]
+        self.ignore_patterns = ignore_patterns + IGNORE_GIT_FOLDER_PATTERNS
 
-    def add_item(self, item: ItemT) -> None:
-        self.add_items([item])
+        if self.folder_path.is_file():
+            raise ValueError(f"'folder_path' must be a directory, not a file: '{self.folder_path}'.")
+        self.folder_path.mkdir(parents=True, exist_ok=True)
 
-    def add_items(self, items: List[ItemT]) -> None:
-        with self._lock:
-            self._items.extend(items)
-            # TODO: handle flush nicely (schedule + nb items per commit)
-            if self.max_items_per_commit > 0 and len(self._items) >= self.max_items_per_commit:
-                self.flush()
+        # Keep track of already uploaded files
+        self.last_future: Optional[CommitInfo] = None
+        self.last_uploaded: Dict[Path:float] = {}  # key is local path, value is timestamp
 
-    def register_callback(self, callback: Callable[[List[ItemT], ReturnT, Optional[Exception]], None]) -> None:
-        self._callbacks.append(callback)
+        # Scheduler
+        if not every > 0:
+            raise ValueError(f"'every' must be a positive integer, not '{every}'.")
+        self.lock = Lock()
+        self.every = every
 
-    def flush(self) -> None:
-        with self._lock:
-            self._pool.submit(self._flush, self._items)
-            self._items = []
+        logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
+        self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
+        self._scheduler_thread.start()
+        atexit.register(self._push_to_hub)
 
-    def _flush(self, items: List[ItemT]) -> ReturnT:
-        exception = None
-        try:
-            output = self._push_to_hub(items)
-        except Exception as e:
-            exception = e
+    def _run_scheduler(self) -> None:
+        """Dumb thread waiting between each scheduled push to Hub."""
+        while True:
+            self.last_future = self.api.run_as_future(self._push_to_hub)
+            time.sleep(self.every * 60)
 
-        for callback in self._callbacks:
-            try:
-                callback(items, output, exception)
-            except Exception:
-                pass
+    def _push_to_hub(self) -> Optional[CommitInfo]:
+        logger.info("Scheduled commit triggered.")
 
-        if exception is not None:
-            raise exception
-        return output
+        # Check files to upload (with lock)
+        with self.lock:
+            logger.debug("Listing files to upload for scheduled commit.")
 
-    @abc.abstractmethod
-    def _push_to_hub(self, items: List[ItemT]) -> ReturnT:
-        ...
+            # List files from folder (taken from `_prepare_upload_folder_additions`)
+            relpath_to_abspath = {
+                path.relative_to(self.folder_path).as_posix(): path
+                for path in sorted(self.folder_path.glob("**/*"))  # sorted to be deterministic
+                if path.is_file()
+            }
+            prefix = f"{self.path_in_repo.strip('/')}/" if self.path_in_repo else ""
 
+            # Filter with pattern + filter out unchanged files + retrieve current file size
+            files_to_upload: List[_FileToUpload] = []
+            for relpath in filter_repo_objects(
+                relpath_to_abspath.keys(), allow_patterns=self.allow_patterns, ignore_patterns=self.ignore_patterns
+            ):
+                local_path = relpath_to_abspath[relpath]
+                stat = local_path.stat()
+                if self.last_uploaded.get(local_path) is None or self.last_uploaded[local_path] != stat.st_mtime:
+                    files_to_upload.append(
+                        _FileToUpload(
+                            local_path=local_path,
+                            path_in_repo=prefix + relpath,
+                            size_limit=stat.st_size,
+                            last_modified=stat.st_mtime,
+                        )
+                    )
 
-class JsonlCommitScheduler(CommitScheduler[Dict, str]):
-    def _push_to_hub(self, items: List[Dict]) -> Any:
-        buffer = StringIO()
-        for item in items:
-            buffer.write(json.dumps(item))
-            buffer.write("\n")
+        # Return if nothing to upload
+        if len(files_to_upload) == 0:
+            logger.debug("Dropping schedule commit: no changed file to upload.")
+            return None
 
-        filename = f"data-{uuid4()}.jsonl"
-        self.api.upload_file(
+        # Convert `_FileToUpload` as `CommitOperationAdd` (=> compute file shas + limit to file size)
+        logger.debug("Removing unchanged files since previous scheduled commit.")
+        add_operations = [
+            # TODO: partial files!!!
+            CommitOperationAdd(
+                path_or_fileobj=file_to_upload.local_path,  # absolute path on disk
+                path_in_repo=file_to_upload.path_in_repo,  # "absolute" path in repo
+            )
+            for file_to_upload in files_to_upload
+        ]
+
+        # Upload files (append mode expected - no need for lock)
+        logger.debug("Uploading files for scheduled commit.")
+        commit_info = self.api.create_commit(
             repo_id=self.repo_id,
             repo_type=self.repo_type,
-            path_in_repo=filename,
+            operations=add_operations,
+            commit_message="Scheduled Commit",
             revision=self.revision,
-            token=self.token,
-            path_or_fileobj=buffer.getvalue().encode(),
-            commit_message="Upload JSONL file using JsonCommitScheduler",
         )
-        return filename
 
-
-scheduler = JsonlCommitScheduler("huggingface/feedback-data", repo_type="dataset")
-scheduler.register_callback(lambda items, output, exception: print(f"Uploaded {len(items)} items to {output}"))
-scheduler.add_item({"a": 1})
-
-
-def _check_positive_or_minus_one(name: str, value: int) -> None:
-    if not (value > 0 or value == -1):
-        raise ValueError(f"'{name}' must be a positive integer or -1, not {value}.")
+        # Successful commit: keep track of the latest "last_modified" for each file
+        for file in files_to_upload:
+            self.last_uploaded[file.local_path] = file.last_modified
+        return commit_info
