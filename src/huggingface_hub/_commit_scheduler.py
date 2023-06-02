@@ -1,12 +1,14 @@
 import atexit
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock, Thread
-from typing import List, Optional, Union, Dict
-from dataclasses import dataclass
-from .hf_api import IGNORE_GIT_FOLDER_PATTERNS, CommitInfo, HfApi, _prepare_upload_folder_additions, CommitOperationAdd
+from typing import Dict, List, Optional, Union
+
+from .hf_api import IGNORE_GIT_FOLDER_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
 from .utils import filter_repo_objects
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +95,7 @@ class CommitScheduler:
         self.folder_path.mkdir(parents=True, exist_ok=True)
 
         # Keep track of already uploaded files
-        self.last_future: Optional[CommitInfo] = None
-        self.last_uploaded: Dict[Path:float] = {}  # key is local path, value is timestamp
+        self.last_uploaded: Dict[Path, float] = {}  # key is local path, value is timestamp
 
         # Scheduler
         if not every > 0:
