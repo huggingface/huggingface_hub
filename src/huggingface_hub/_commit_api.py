@@ -8,8 +8,9 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -27,6 +28,10 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._typing import Literal
+
+
+if TYPE_CHECKING:
+    from .hf_api import RepoFile
 
 
 logger = logging.get_logger(__name__)
@@ -64,6 +69,35 @@ class CommitOperationDelete:
             raise ValueError(
                 f"Wrong value for `is_folder`. Must be one of [`True`, `False`, `'auto'`]. Got '{self.is_folder}'."
             )
+
+
+@dataclass
+class CommitOperationCopy:
+    """
+    Data structure holding necessary info to copy a file or a folder in a repository
+    on the Hub.
+
+    Doesn't support directories or non-LFS files yet.
+
+    Args:
+        src_path_in_repo (`str`):
+            Relative filepath in the repo of the file to be copied, for example: `"checkpoints/1fec34a/weights.bin"`
+            for a file or `"checkpoints/1fec34a/"` for a folder.
+        path_in_repo (`str`):
+            Relative filepath in the repo where the file is copied, for example: `"checkpoints/1fec34a/weights_copy.bin"`
+            for a file or `"checkpoints/1fec34a/"` for a folder.
+        src_revision (`str`):
+            The git revision of the file to be copied. Can be any valid git revision.
+            Default to the target commit revision.
+    """
+
+    src_path_in_repo: str
+    path_in_repo: str
+    src_revision: Optional[str] = None
+
+    def __post_init__(self):
+        self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
 
 
 @dataclass
@@ -206,7 +240,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
     return path_in_repo
 
 
-CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
+CommitOperation = Union[CommitOperationAdd, CommitOperationDelete, CommitOperationCopy]
 
 
 def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
@@ -449,9 +483,61 @@ def fetch_upload_modes(
     return upload_modes
 
 
+@validate_hf_hub_args
+def fetch_files_to_copy(
+    copies: Iterable[CommitOperationCopy],
+    repo_type: str,
+    repo_id: str,
+    token: Optional[str],
+    revision: str,
+    endpoint: Optional[str] = None,
+) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
+    """
+    Requests the Hub "preupload" endpoint to determine whether each input file
+    should be uploaded as a regular git blob or as git LFS blob.
+
+    Args:
+        copies (`Iterable` of :class:`CommitOperationCopy`):
+            Iterable of :class:`CommitOperationCopy` describing the files to
+            copy on the Hub.
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        token (`str`, *optional*):
+            An authentication token ( See https://huggingface.co/settings/tokens )
+        revision (`str`):
+            The git revision to upload the files to. Can be any valid git revision.
+
+    Returns: `Dict[Tuple[str, Optional[str]], RepoFile]]`
+        Key is the file path and revision of the file to copy, value is the repo file.
+
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    from .hf_api import HfApi
+
+    hf_api = HfApi(endpoint=endpoint, token=token)
+    files_to_copy = {}
+    for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
+        operations = list(operations)
+        paths = [op.src_path_in_repo for op in operations]
+        src_repo_files = hf_api.list_files_info(
+            repo_id=repo_id, paths=paths, revision=src_revision or revision, repo_type=repo_type
+        )
+        for src_repo_file, op in zip(src_repo_files, operations):
+            files_to_copy[(op.src_path_in_repo, op.src_revision)] = src_repo_file
+    return files_to_copy
+
+
 def prepare_commit_payload(
     operations: Iterable[CommitOperation],
     upload_modes: Dict[str, UploadMode],
+    files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -503,7 +589,23 @@ def prepare_commit_payload(
                 "key": "deletedFolder" if operation.is_folder else "deletedFile",
                 "value": {"path": operation.path_in_repo},
             }
-        # 2.d. Never expected to happen
+        # 2.d. Case copying a file or folder
+        elif (
+            isinstance(operation, CommitOperationCopy)
+            and (operation.src_path_in_repo, operation.src_revision) in files_to_copy
+        ):
+            file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
+            if not file_to_copy.lfs:
+                raise NotImplementedError("Copying a directory or a non-LFS file is not implemented yet")
+            yield {
+                "key": "lfsFile",
+                "value": {
+                    "path": operation.path_in_repo,
+                    "algo": "sha256",
+                    "oid": file_to_copy.lfs["sha256"],
+                },
+            }
+        # 2.e. Never expected to happen
         else:
             raise ValueError(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"

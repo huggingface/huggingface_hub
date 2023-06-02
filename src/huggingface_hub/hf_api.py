@@ -44,7 +44,9 @@ from huggingface_hub.utils import (
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
+    CommitOperationCopy,
     CommitOperationDelete,
+    fetch_files_to_copy,
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
@@ -2655,8 +2657,10 @@ class HfApi:
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
+        copies = [op for op in operations if isinstance(op, CommitOperationCopy)]
         nb_additions = len(additions)
-        nb_deletions = len(operations) - nb_additions
+        nb_copies = len(copies)
+        nb_deletions = len(operations) - nb_additions - nb_copies
 
         logger.debug(f"About to commit to the hub: {len(additions)} addition(s) and {nb_deletions} deletion(s).")
 
@@ -2676,7 +2680,14 @@ class HfApi:
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-
+        files_to_copy = fetch_files_to_copy(
+            copies=copies,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token or self.token,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
         upload_lfs_files(
             additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
             repo_type=repo_type,
@@ -2688,6 +2699,7 @@ class HfApi:
         commit_payload = prepare_commit_payload(
             operations=operations,
             upload_modes=upload_modes,
+            files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
