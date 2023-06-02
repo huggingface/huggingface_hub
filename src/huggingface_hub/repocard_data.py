@@ -379,6 +379,7 @@ class DatasetCardData(CardData):
         pretty_name: Optional[str] = None,
         train_eval_index: Optional[Dict] = None,
         config_names: Optional[Union[str, List[str]]] = None,
+        ignore_metadata_errors: bool = False,
         **kwargs,
     ):
         self.annotations_creators = annotations_creators
