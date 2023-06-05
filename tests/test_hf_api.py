@@ -942,55 +942,38 @@ class CommitApiTest(HfApiCommonTest):
             self._api.delete_repo(repo_id=repo_id)
 
     @retry_endpoint
-    def test_commit_copy_file(self):
-        """Test create commit but repo_id is lowercased.
+    @use_tmp_repo()
+    def test_commit_copy_file(self, repo_url: RepoUrl) -> None:
+        """Test CommitOperationCopy.
 
-        Regression test for #1371. Hub API is already case insensitive. Somehow the issue was with the `requests`
-        streaming implementation when generating the ndjson payload "on the fly". It seems that the server was
-        receiving only the first line which causes a confusing "400 Bad Request - Add a line with the key `lfsFile`,
-        `file` or `deletedFile`". Passing raw bytes instead of a generator fixes the problem.
-
-        See https://github.com/huggingface/huggingface_hub/issues/1371.
+        Works only when copying an LFS file.
         """
-        REPO_NAME = repo_name("commit_copy_file")
-        repo_id = self._api.create_repo(repo_id=REPO_NAME, exist_ok=False).repo_id
+        repo_id = repo_url.repo_id
 
-        try:
+        self._api.upload_file(path_or_fileobj=b"content", repo_id=repo_id, path_in_repo="file.txt")
+        self._api.upload_file(path_or_fileobj=b"LFS content", repo_id=repo_id, path_in_repo="lfs.bin")
+
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="Copy LFS file.",
+            operations=[CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin")],
+        )
+        with self.assertRaises(NotImplementedError):
             self._api.create_commit(
                 repo_id=repo_id,
-                commit_message="Add 1 regular and 1 LFs files.",
-                operations=[
-                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
-                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"LFS content"),
-                ],
+                commit_message="Copy regular file.",
+                operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.bin")],
             )
-            self._api.create_commit(
-                repo_id=repo_id,
-                commit_message="Add 1 regular and 1 LFs files.",
-                operations=[
-                    CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy.bin"),
-                ],
-            )
-            with self.assertRaises(NotImplementedError):
-                self._api.create_commit(
-                    repo_id=repo_id,
-                    commit_message="Add 1 regular and 1 LFs files.",
-                    operations=[
-                        CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file Copy.txt"),
-                    ],
-                )
-            repo_files = self._api.list_repo_files(repo_id=repo_id)
-            self.assertIn("file.txt", repo_files)
-            self.assertIn("lfs.bin", repo_files)
-            self.assertIn("lfs Copy.bin", repo_files)
-            src_repo_file, dst_repo_file = self._api.list_files_info(
-                repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"]
-            )
-            self.assertEqual(src_repo_file.lfs["sha256"], dst_repo_file.lfs["sha256"])
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=repo_id)
+
+        # Check repo files
+        repo_files = self._api.list_repo_files(repo_id=repo_id)
+        self.assertIn("file.txt", repo_files)
+        self.assertIn("lfs.bin", repo_files)
+        self.assertIn("lfs_copy.bin", repo_files)
+
+        # Check same LFS file
+        src_repo_file, dst_repo_file = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs_copy.bin"])
+        self.assertEqual(src_repo_file.lfs["sha256"], dst_repo_file.lfs["sha256"])
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):

@@ -240,7 +240,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
     return path_in_repo
 
 
-CommitOperation = Union[CommitOperationAdd, CommitOperationDelete, CommitOperationCopy]
+CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
 def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
