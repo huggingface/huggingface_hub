@@ -965,14 +965,21 @@ class CommitApiTest(HfApiCommonTest):
             self._api.create_commit(
                 repo_id=repo_id,
                 commit_message="Copy regular file.",
-                operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.bin")],
+                operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file Copy.txt")],
+            )
+        with self.assertRaises(EntryNotFoundError):
+            self._api.create_commit(
+                repo_id=repo_id,
+                commit_message="Copy a file that doesn't exist.",
+                operations=[CommitOperationCopy(src_path_in_repo="doesnt-exist.txt", path_in_repo="doesnt-exist Copy.txt")],
             )
 
         # Check repo files
         repo_files = self._api.list_repo_files(repo_id=repo_id)
         self.assertIn("file.txt", repo_files)
         self.assertIn("lfs.bin", repo_files)
-        self.assertIn("lfs_copy.bin", repo_files)
+        self.assertIn("lfs Copy.bin", repo_files)
+        self.assertIn("lfs Copy (1).bin", repo_files)
 
         # Check same LFS file
         src_repo_file, dst_repo_file = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs_copy.bin"])
