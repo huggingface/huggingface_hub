@@ -1,7 +1,9 @@
 import atexit
 import logging
+import os
 import time
 from dataclasses import dataclass
+from io import SEEK_SET, BytesIO
 from pathlib import Path
 from threading import Lock, Thread
 from typing import Dict, List, Optional, Union
@@ -13,11 +15,10 @@ from .utils import filter_repo_objects
 logger = logging.getLogger(__name__)
 
 
-# TODO: partial files in CommitOperationAdd !!!
-
-
 @dataclass(frozen=True)
 class _FileToUpload:
+    """Temporary dataclass to store info about files to upload. Not meant to be used directly."""
+
     local_path: Path
     path_in_repo: str
     size_limit: int
@@ -154,10 +155,10 @@ class CommitScheduler:
         # Convert `_FileToUpload` as `CommitOperationAdd` (=> compute file shas + limit to file size)
         logger.debug("Removing unchanged files since previous scheduled commit.")
         add_operations = [
-            # TODO: partial files!!!
             CommitOperationAdd(
-                path_or_fileobj=file_to_upload.local_path,  # absolute path on disk
-                path_in_repo=file_to_upload.path_in_repo,  # "absolute" path in repo
+                # Cap the file to its current size, even if the user append data to it while a scheduled commit is happening
+                path_or_fileobj=PartialFileIO(file_to_upload.local_path, size_limit=file_to_upload.size_limit),
+                path_in_repo=file_to_upload.path_in_repo,
             )
             for file_to_upload in files_to_upload
         ]
@@ -176,3 +177,72 @@ class CommitScheduler:
         for file in files_to_upload:
             self.last_uploaded[file.local_path] = file.last_modified
         return commit_info
+
+
+class PartialFileIO(BytesIO):
+    """A file-like object that reads only the first part of a file.
+
+    Useful to upload a file to the Hub when the user might still be appending data to it. Only the first part of the
+    file is uploaded (i.e. the part that was available when the filesystem was first scanned).
+
+    In practice, only used internally by the CommitScheduler to regularly push a folder to the Hub with minimal
+    disturbance for the user. The object is passed to `CommitOperationAdd`.
+
+    Only supports `read`, `tell` and `seek` methods.
+
+    Args:
+        file_path (`str` or `Path`):
+            Path to the file to read.
+        size_limit (`int`):
+            The maximum number of bytes to read from the file. If the file is larger than this, only the first part
+            will be read (and uploaded).
+    """
+
+    def __init__(self, file_path: Union[str, Path], size_limit: int) -> None:
+        self._file_path = Path(file_path)
+        self._file = self._file_path.open("rb")
+        self._size_limit = size_limit
+        self._length = min(size_limit, os.fstat(self._file.fileno()).st_size)
+
+    def __del__(self) -> None:
+        self._file.close()
+        return super().__del__()
+
+    def __repr__(self) -> str:
+        return f"<PartialFileIO file_path={self._file_path} size_limit={self._size_limit}>"
+
+    def __len__(self) -> int:
+        return self._length
+
+    def __getattribute__(self, name: str):
+        if name.startswith("_") or name in ("read", "tell", "seek"):  # only 3 public methods supported
+            return super().__getattribute__(name)
+        raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
+
+    def tell(self) -> int:
+        """Return the current file position."""
+        return self._file.tell()
+
+    def seek(self, __offset: int, __whence: int = SEEK_SET) -> int:
+        """Change the stream position to the given offset.
+
+        Behavior is the same as a regular file, except that the position is capped to the size limit.
+        """
+        pos = self._file.seek(__offset, __whence)
+        if pos > self._size_limit:
+            return self._file.seek(self._size_limit)
+        return pos
+
+    def read(self, __size: Optional[int] = -1) -> bytes:
+        """Read at most `__size` bytes from the file.
+
+        Behavior is the same as a regular file, except that it is capped to the size limit.
+        """
+        current = self._file.tell()
+        if __size is None or __size < 0:
+            # Read until file limit
+            truncated_size = self._size_limit - current
+        else:
+            # Read until file limit or __size
+            truncated_size = min(__size, self._size_limit - current)
+        return self._file.read(truncated_size)
