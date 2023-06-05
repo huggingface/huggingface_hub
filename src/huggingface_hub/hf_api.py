@@ -2663,7 +2663,10 @@ class HfApi:
         nb_copies = len(copies)
         nb_deletions = len(operations) - nb_additions - nb_copies
 
-        logger.debug(f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and {nb_deletions} deletion(s).")
+        logger.debug(
+            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
+            f" {nb_deletions} deletion(s)."
+        )
 
         # If updating twice the same file or update then delete a file in a single commit
         warn_on_overwriting_operations(operations)
