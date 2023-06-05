@@ -956,7 +956,10 @@ class CommitApiTest(HfApiCommonTest):
         self._api.create_commit(
             repo_id=repo_id,
             commit_message="Copy LFS file.",
-            operations=[CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin")],
+            operations=[
+                CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy.bin"),
+                CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy (1).bin"),
+            ],
         )
         with self.assertRaises(NotImplementedError):
             self._api.create_commit(
