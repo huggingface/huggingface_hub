@@ -74,19 +74,18 @@ class CommitOperationDelete:
 @dataclass
 class CommitOperationCopy:
     """
-    Data structure holding necessary info to copy a file or a folder in a repository
-    on the Hub.
+    Data structure holding necessary info to copy a file in a repository on the Hub.
 
-    Doesn't support directories or non-LFS files yet.
+    Limitations:
+      - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
+      - Cross-repository copies is not supported.
 
     Args:
         src_path_in_repo (`str`):
-            Relative filepath in the repo of the file to be copied, for example: `"checkpoints/1fec34a/weights.bin"`
-            for a file or `"checkpoints/1fec34a/"` for a folder.
+            Relative filepath in the repo of the file to be copied, e.g. `"checkpoints/1fec34a/weights.bin"`.
         path_in_repo (`str`):
-            Relative filepath in the repo where the file is copied, for example: `"checkpoints/1fec34a/weights_copy.bin"`
-            for a file or `"checkpoints/1fec34a/"` for a folder.
-        src_revision (`str`):
+            Relative filepath in the repo where to copy the file, e.g. `"checkpoints/1fec34a/weights_copy.bin"`.
+        src_revision (`str`, *optional*):
             The git revision of the file to be copied. Can be any valid git revision.
             Default to the target commit revision.
     """
