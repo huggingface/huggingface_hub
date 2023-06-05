@@ -971,7 +971,9 @@ class CommitApiTest(HfApiCommonTest):
             self._api.create_commit(
                 repo_id=repo_id,
                 commit_message="Copy a file that doesn't exist.",
-                operations=[CommitOperationCopy(src_path_in_repo="doesnt-exist.txt", path_in_repo="doesnt-exist Copy.txt")],
+                operations=[
+                    CommitOperationCopy(src_path_in_repo="doesnt-exist.txt", path_in_repo="doesnt-exist Copy.txt")
+                ],
             )
 
         # Check repo files
