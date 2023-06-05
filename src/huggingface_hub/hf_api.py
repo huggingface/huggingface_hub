@@ -46,7 +46,7 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    fetch_files_to_copy,
+    fetch_lfs_files_to_copy,
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
@@ -2663,7 +2663,7 @@ class HfApi:
         nb_copies = len(copies)
         nb_deletions = len(operations) - nb_additions - nb_copies
 
-        logger.debug(f"About to commit to the hub: {len(additions)} addition(s) and {nb_deletions} deletion(s).")
+        logger.debug(f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and {nb_deletions} deletion(s).")
 
         # If updating twice the same file or update then delete a file in a single commit
         warn_on_overwriting_operations(operations)
@@ -2681,7 +2681,7 @@ class HfApi:
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-        files_to_copy = fetch_files_to_copy(
+        files_to_copy = fetch_lfs_files_to_copy(
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,

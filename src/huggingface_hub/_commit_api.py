@@ -19,6 +19,7 @@ from huggingface_hub import get_session
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    EntryNotFoundError,
     build_hf_headers,
     chunk_iterable,
     hf_raise_for_status,
@@ -483,7 +484,7 @@ def fetch_upload_modes(
 
 
 @validate_hf_hub_args
-def fetch_files_to_copy(
+def fetch_lfs_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
@@ -492,8 +493,7 @@ def fetch_files_to_copy(
     endpoint: Optional[str] = None,
 ) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
     """
-    Requests the Hub "preupload" endpoint to determine whether each input file
-    should be uploaded as a regular git blob or as git LFS blob.
+    Requests the Hub files information of the LFS files to be copied, including their sha256.
 
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
@@ -528,8 +528,16 @@ def fetch_files_to_copy(
         src_repo_files = hf_api.list_files_info(
             repo_id=repo_id, paths=paths, revision=src_revision or revision, repo_type=repo_type
         )
-        for src_repo_file, op in zip(src_repo_files, operations):
-            files_to_copy[(op.src_path_in_repo, op.src_revision)] = src_repo_file
+        for src_repo_file in src_repo_files:
+            if not src_repo_file.lfs:
+                raise NotImplementedError("Copying a non-LFS file is not implemented yet")
+            files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
+        for operation in operations:
+            if (operation.src_path_in_repo, src_revision) not in files_to_copy:
+                raise EntryNotFoundError(
+                    f"Cannot copy {operation.src_path_in_repo} at revision "
+                    f"{src_revision or revision}: file is missing on repo."
+                )
     return files_to_copy
 
 
@@ -595,7 +603,7 @@ def prepare_commit_payload(
         ):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
             if not file_to_copy.lfs:
-                raise NotImplementedError("Copying a directory or a non-LFS file is not implemented yet")
+                raise NotImplementedError("Copying a non-LFS file is not implemented yet")
             yield {
                 "key": "lfsFile",
                 "value": {
