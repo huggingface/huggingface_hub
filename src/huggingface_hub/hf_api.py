@@ -2559,6 +2559,7 @@ class HfApi:
 
                     - [`~hf_api.CommitOperationAdd`] to upload a file
                     - [`~hf_api.CommitOperationDelete`] to delete a file
+                    - [`~hf_api.CommitOperationCopy`] to copy a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
