@@ -984,8 +984,8 @@ class CommitApiTest(HfApiCommonTest):
         self.assertIn("lfs Copy (1).bin", repo_files)
 
         # Check same LFS file
-        src_repo_file, dst_repo_file = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
-        self.assertEqual(src_repo_file.lfs["sha256"], dst_repo_file.lfs["sha256"])
+        repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
+        self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
