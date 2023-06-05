@@ -524,7 +524,7 @@ def fetch_files_to_copy(
     hf_api = HfApi(endpoint=endpoint, token=token)
     files_to_copy = {}
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
-        operations = list(operations)
+        operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
         src_repo_files = hf_api.list_files_info(
             repo_id=repo_id, paths=paths, revision=src_revision or revision, repo_type=repo_type
