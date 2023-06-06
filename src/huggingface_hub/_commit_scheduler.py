@@ -71,15 +71,6 @@ class CommitScheduler:
         """
         self.api = hf_api or HfApi()
 
-        # Repository
-        repo_url = self.api.create_repo(
-            repo_id=repo_id, token=token, private=private, repo_type=repo_type, exist_ok=True
-        )
-        self.repo_id = repo_url.repo_id
-        self.repo_type = repo_type
-        self.revision = revision
-        self.token = token
-
         # Folder
         self.folder_path = Path(folder_path).expanduser().resolve()
         self.path_in_repo = path_in_repo or ""
@@ -94,6 +85,15 @@ class CommitScheduler:
         if self.folder_path.is_file():
             raise ValueError(f"'folder_path' must be a directory, not a file: '{self.folder_path}'.")
         self.folder_path.mkdir(parents=True, exist_ok=True)
+
+        # Repository
+        repo_url = self.api.create_repo(
+            repo_id=repo_id, token=token, private=private, repo_type=repo_type, exist_ok=True
+        )
+        self.repo_id = repo_url.repo_id
+        self.repo_type = repo_type
+        self.revision = revision
+        self.token = token
 
         # Keep track of already uploaded files
         self.last_uploaded: Dict[Path, float] = {}  # key is local path, value is timestamp
@@ -117,7 +117,6 @@ class CommitScheduler:
         A stopped scheduler cannot be restarted. Mostly for tests purposes.
         """
         self.__stopped = True
-        self._scheduler_thread.join()
 
     def _run_scheduler(self) -> None:
         """Dumb thread waiting between each scheduled push to Hub."""

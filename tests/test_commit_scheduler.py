@@ -4,8 +4,135 @@ from pathlib import Path
 
 import pytest
 
-from huggingface_hub._commit_scheduler import PartialFileIO
-from huggingface_hub import CommitOperationAdd
+from huggingface_hub._commit_scheduler import PartialFileIO, CommitScheduler
+from huggingface_hub import CommitOperationAdd, RepoUrl, HfApi, hf_hub_download
+from huggingface_hub.utils import SoftTemporaryDirectory
+from unittest.mock import patch, MagicMock, call
+from .testing_utils import use_tmp_repo, repo_name
+from .testing_constants import TOKEN, ENDPOINT_STAGING
+import time
+
+
+@pytest.mark.usefixtures("fx_cache_dir")
+class TestCommitScheduler(unittest.TestCase):
+    cache_dir: Path
+
+    def setUp(self) -> None:
+        self.api = HfApi(token=TOKEN, endpoint=ENDPOINT_STAGING)
+        self.repo_name = repo_name()
+
+    def tearDown(self) -> None:
+        try:  # try stopping scheduler (if exists)
+            self.scheduler.stop()
+        except AttributeError:
+            pass
+
+        try:  # try delete temporary repo
+            self.api.delete_repo(self.repo_name)
+        except Exception:
+            pass
+
+    @patch("huggingface_hub._commit_scheduler.CommitScheduler._push_to_hub")
+    def test_mocked_push_to_hub(self, push_to_hub_mock: MagicMock) -> None:
+        self.scheduler = CommitScheduler(
+            folder_path=self.cache_dir,
+            repo_id=self.repo_name,
+            every=1 / 60 / 10,  # every 0.1s
+            hf_api=self.api,
+        )
+        time.sleep(0.25)
+
+        # Triggered 3 times (at 0.0s, 0.1s and 0.2s) with empty args
+        push_to_hub_mock.assert_has_calls([call(), call(), call()])
+
+        # Can get the last upload result
+        self.assertEqual(self.scheduler.last_future.result(), push_to_hub_mock.return_value)
+
+    def test_invalid_folder_path_is_a_file(self) -> None:
+        """Test cannot scheduler upload of a single file."""
+        file_path = self.cache_dir / "file.txt"
+        file_path.write_text("something")
+
+        with self.assertRaises(ValueError):
+            CommitScheduler(folder_path=file_path, repo_id=self.repo_name, hf_api=self.api)
+
+    def test_missing_folder_is_created(self) -> None:
+        folder_path = self.cache_dir / "folder" / "subfolder"
+        self.scheduler = CommitScheduler(folder_path=folder_path, repo_id=self.repo_name, hf_api=self.api)
+        self.assertTrue(folder_path.is_dir())
+
+    def test_sync_local_folder(self) -> None:
+        """Test sync local folder to remote repo."""
+        watched_folder = self.cache_dir / "watched_folder"
+        hub_cache = self.cache_dir / "hub"  # to download hub files
+
+        file_path = watched_folder / "file.txt"
+        lfs_path = watched_folder / "lfs.bin"
+
+        self.scheduler = CommitScheduler(
+            folder_path=watched_folder,
+            repo_id=self.repo_name,
+            every=1 / 60 / 10,  # every 0.1s
+            hf_api=self.api,
+        )
+
+        # 1 push to hub triggered (empty commit not pushed)
+        time.sleep(0.05)
+
+        # write content to files
+        with file_path.open("a") as f:
+            f.write("first line\n")
+        with lfs_path.open("a") as f:
+            f.write("binary content")
+
+        # 2 push to hub triggered (1 commit + 1 ignored)
+        time.sleep(0.2)
+        self.scheduler.last_future.result()
+
+        # new content in file
+        with file_path.open("a") as f:
+            f.write("second line\n")
+
+        # 1 push to hub triggered (1 commit)
+        time.sleep(0.1)
+        self.scheduler.last_future.result()
+
+        with lfs_path.open("a") as f:
+            f.write(" updated")
+
+        # 30 push to hub triggered (1 commit)
+        self.scheduler.stop()
+        time.sleep(3)  # wait for every threads/uploads to complete
+        self.scheduler.last_future.result()
+
+        # 4 commits expected (initial commit + 3 push to hub)
+        repo_id = self.scheduler.repo_id
+        commits = self.api.list_repo_commits(repo_id)
+        self.assertEqual(len(commits), 4)
+        push_1 = commits[2].commit_id  # sorted by last first
+        push_2 = commits[1].commit_id
+        push_3 = commits[0].commit_id
+
+        def _download(filename: str, revision: str) -> Path:
+            return Path(hf_hub_download(repo_id=repo_id, filename=filename, cache_dir=hub_cache, revision=revision))
+
+        # Check file.txt consistency
+        file_push1 = _download(filename="file.txt", revision=push_1)
+        file_push2 = _download(filename="file.txt", revision=push_2)
+        file_push3 = _download(filename="file.txt", revision=push_3)
+
+        self.assertEqual(file_push1.read_text(), "first line\n")
+        self.assertEqual(file_push2.read_text(), "first line\nsecond line\n")
+        self.assertEqual(file_push3.read_text(), "first line\nsecond line\n")
+
+        # Check lfs.bin consistency
+        lfs_push1 = _download(filename="lfs.bin", revision=push_1)
+        lfs_push2 = _download(filename="lfs.bin", revision=push_2)
+        lfs_push3 = _download(filename="lfs.bin", revision=push_3)
+
+        self.assertEqual(lfs_push1.read_text(), "binary content")
+        self.assertEqual(lfs_push2.read_text(), "binary content")
+        self.assertEqual(lfs_push3.read_text(), "binary content updated")
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
