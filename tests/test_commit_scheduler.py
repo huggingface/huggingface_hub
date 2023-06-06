@@ -1,16 +1,16 @@
+import time
 import unittest
 from io import SEEK_END
 from pathlib import Path
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from huggingface_hub._commit_scheduler import PartialFileIO, CommitScheduler
-from huggingface_hub import CommitOperationAdd, RepoUrl, HfApi, hf_hub_download
-from huggingface_hub.utils import SoftTemporaryDirectory
-from unittest.mock import patch, MagicMock, call
-from .testing_utils import use_tmp_repo, repo_name
-from .testing_constants import TOKEN, ENDPOINT_STAGING
-import time
+from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+from huggingface_hub._commit_scheduler import CommitScheduler, PartialFileIO
+
+from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_utils import repo_name
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
