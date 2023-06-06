@@ -16,9 +16,9 @@
 import re
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple, Union
 
-from ._commit_api import CommitOperation, CommitOperationAdd, CommitOperationDelete
+from ._commit_api import CommitOperationAdd, CommitOperationDelete
 from .community import DiscussionWithDetails
 from .utils import experimental
 from .utils._cache_manager import _format_size
@@ -76,7 +76,7 @@ STEP_ID_REGEX = re.compile(r"- \[(?P<completed>[ |x])\].*(?P<step_id>[a-fA-F0-9]
 
 @experimental
 def plan_multi_commits(
-    operations: Iterable[CommitOperation],
+    operations: Iterable[Union[CommitOperationAdd, CommitOperationDelete]],
     max_operations_per_commit: int = 50,
     max_upload_size_per_commit: int = 2 * 1024 * 1024 * 1024,
 ) -> Tuple[List[List[CommitOperationAdd]], List[List[CommitOperationDelete]]]:
@@ -190,7 +190,7 @@ class MultiCommitStep:
     the list of commits is kept the same.
     """
 
-    operations: List[CommitOperation]
+    operations: List[Union[CommitOperationAdd, CommitOperationDelete]]
 
     id: str = field(init=False)
     completed: bool = False
