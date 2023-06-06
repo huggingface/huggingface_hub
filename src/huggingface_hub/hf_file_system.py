@@ -8,9 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
-import requests
 
-from ._commit_api import CommitOperationDelete
+from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 from .hf_api import HfApi
 from .utils import (
@@ -310,27 +309,21 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         # TODO: Wait for https://github.com/huggingface/huggingface_hub/issues/1083 to be resolved to simplify this logic
         if same_repo and self.info(path1, revision=resolved_path1.revision)["lfs"] is not None:
-            headers = self._api._build_hf_headers(is_write_action=True)
             commit_message = f"Copy {path1} to {path2}"
-            payload = {
-                "summary": kwargs.get("commit_message", commit_message),
-                "description": kwargs.get("commit_description", ""),
-                "files": [],
-                "lfsFiles": [
-                    {
-                        "path": resolved_path2.path_in_repo,
-                        "algo": "sha256",
-                        "oid": self.info(path1, revision=resolved_path1.revision)["lfs"]["oid"],
-                    }
+            self._api.create_commit(
+                repo_id=resolved_path1.repo_id,
+                repo_type=resolved_path1.repo_type,
+                revision=resolved_path2.revision,
+                commit_message=kwargs.get("commit_message", commit_message),
+                commit_description=kwargs.get("commit_description", ""),
+                operations=[
+                    CommitOperationCopy(
+                        src_path_in_repo=resolved_path1.path_in_repo,
+                        path_in_repo=resolved_path2.path_in_repo,
+                        src_revision=resolved_path1.revision,
+                    )
                 ],
-                "deletedFiles": [],
-            }
-            r = requests.post(
-                f"{self.endpoint}/api/{resolved_path1.repo_type}s/{resolved_path1.repo_id}/commit/{safe_quote(resolved_path2.revision)}",
-                json=payload,
-                headers=headers,
             )
-            hf_raise_for_status(r)
         else:
             with self.open(path1, "rb", revision=resolved_path1.revision) as f:
                 content = f.read()
