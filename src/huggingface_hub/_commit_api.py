@@ -597,10 +597,7 @@ def prepare_commit_payload(
                 "value": {"path": operation.path_in_repo},
             }
         # 2.d. Case copying a file or folder
-        elif (
-            isinstance(operation, CommitOperationCopy)
-            and (operation.src_path_in_repo, operation.src_revision) in files_to_copy
-        ):
+        elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
             if not file_to_copy.lfs:
                 raise NotImplementedError("Copying a non-LFS file is not implemented yet")
