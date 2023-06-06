@@ -88,7 +88,7 @@ class CommitScheduler:
     >>> with csv_path.open("a") as f:
     ...     f.write("first line\n")
 
-    (...) # Some time later
+    # Some time later (...)
     >>> with csv_path.open("a") as f:
     ...     f.write("second line\n")
     ```
