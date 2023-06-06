@@ -81,6 +81,8 @@ class CommitOperationCopy:
       - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
       - Cross-repository copies are not supported.
 
+    Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
+
     Args:
         src_path_in_repo (`str`):
             Relative filepath in the repo of the file to be copied, e.g. `"checkpoints/1fec34a/weights.bin"`.

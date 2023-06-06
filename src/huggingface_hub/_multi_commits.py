@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple, Union
 
-from ._commit_api import CommitOperation, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
+from ._commit_api import CommitOperationAdd, CommitOperationDelete
 from .community import DiscussionWithDetails
 from .utils import experimental
 from .utils._cache_manager import _format_size
@@ -76,17 +76,17 @@ STEP_ID_REGEX = re.compile(r"- \[(?P<completed>[ |x])\].*(?P<step_id>[a-fA-F0-9]
 
 @experimental
 def plan_multi_commits(
-    operations: Iterable[CommitOperation],
+    operations: Iterable[Union[CommitOperationAdd, CommitOperationDelete]],
     max_operations_per_commit: int = 50,
     max_upload_size_per_commit: int = 2 * 1024 * 1024 * 1024,
-) -> Tuple[List[List[Union[CommitOperationAdd, CommitOperationCopy]]], List[List[CommitOperationDelete]]]:
+) -> Tuple[List[List[CommitOperationAdd]], List[List[CommitOperationDelete]]]:
     """Split a list of operations in a list of commits to perform.
 
     Implementation follows a sub-optimal (yet simple) algorithm:
     1. Delete operations are grouped together by commits of maximum `max_operations_per_commits` operations.
     2. All additions exceeding `max_upload_size_per_commit` are committed 1 by 1.
-    3. All remaining additions (including copies) are grouped together and split each time the `max_operations_per_commit`
-       or the `max_upload_size_per_commit` limit is reached.
+    3. All remaining additions are grouped together and split each time the `max_operations_per_commit` or the
+       `max_upload_size_per_commit` limit is reached.
 
     We do not try to optimize the splitting to get the lowest number of commits as this is a NP-hard problem (see
     [bin packing problem](https://en.wikipedia.org/wiki/Bin_packing_problem)). For our use case, it is not problematic
@@ -102,10 +102,9 @@ def plan_multi_commits(
             uploaded, 1 per commit.
 
     Returns:
-        `Tuple[List[List[Union[CommitOperationAdd, CommitOperationCopy]]], List[List[CommitOperationDelete]]]`: a tuple.
-        First item is a list of lists of [`CommitOperationAdd`] and [`CommitOperationCopy`] representing the addition
-        commits to push. The second item is a list of lists of [`CommitOperationDelete`] representing the copy and
-        deletion commits.
+        `Tuple[List[List[CommitOperationAdd]], List[List[CommitOperationDelete]]]`: a tuple. First item is a list of
+        lists of [`CommitOperationAdd`] representing the addition commits to push. The second item is a list of lists
+        of [`CommitOperationDelete`] representing the deletion commits.
 
     <Tip warning={true}>
 
@@ -142,10 +141,10 @@ def plan_multi_commits(
 
     </Tip>
     """
-    addition_commits: List[List[Union[CommitOperationAdd, CommitOperationCopy]]] = []
+    addition_commits: List[List[CommitOperationAdd]] = []
     deletion_commits: List[List[CommitOperationDelete]] = []
 
-    additions: List[Union[CommitOperationAdd, CommitOperationCopy]] = []
+    additions: List[CommitOperationAdd] = []
     additions_size = 0
     deletions: List[CommitOperationDelete] = []
     for op in operations:
@@ -155,9 +154,6 @@ def plan_multi_commits(
             if len(deletions) >= max_operations_per_commit:
                 deletion_commits.append(deletions)
                 deletions = []
-
-        elif isinstance(op, CommitOperationCopy):
-            additions.append(op)  # Upload size is always "0" for copies
 
         elif op.upload_info.size >= max_upload_size_per_commit:
             # Upload huge files 1 by 1
@@ -195,7 +191,7 @@ class MultiCommitStep:
     the list of commits is kept the same.
     """
 
-    operations: List[CommitOperation]
+    operations: List[Union[CommitOperationAdd, CommitOperationDelete]]
 
     id: str = field(init=False)
     completed: bool = False
@@ -211,11 +207,6 @@ class MultiCommitStep:
                 sha.update(b"ADD")
                 sha.update(op.path_in_repo.encode())
                 sha.update(op.upload_info.sha256)
-            elif isinstance(op, CommitOperationCopy):
-                sha.update(b"COPY")
-                sha.update(op.src_path_in_repo.encode())
-                sha.update(op.path_in_repo.encode())
-                sha.update((op.src_revision or "").encode())
             elif isinstance(op, CommitOperationDelete):
                 sha.update(b"DELETE")
                 sha.update(op.path_in_repo.encode())
