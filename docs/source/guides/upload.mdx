@@ -207,6 +207,12 @@ If you want to work at a commit-level, use the [`create_commit`] function direct
 
 - [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
+- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+
+  - `src_path_in_repo`: the repository path of the file to copy.
+  - `path_in_repo`: the repository path where the file should be copied.
+  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a differnt branch/revision.
+
 For example, if you want to upload two files and delete a file in a Hub repository:
 
 1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
@@ -219,6 +225,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ...     CommitOperationAdd(path_in_repo="weights.h5", path_or_fileobj="~/repo/weights-final.h5"),
 ...     CommitOperationDelete(path_in_repo="old-weights.h5"),
 ...     CommitOperationDelete(path_in_repo="logs/"),
+...     CommitOperationCopy(src_path_in_repo="image.png", path_in_repo="duplicate_image.png"),
 ... ]
 ```
 

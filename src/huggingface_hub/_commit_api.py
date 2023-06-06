@@ -8,8 +8,9 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -18,6 +19,7 @@ from huggingface_hub import get_session
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    EntryNotFoundError,
     build_hf_headers,
     chunk_iterable,
     hf_raise_for_status,
@@ -27,6 +29,10 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._typing import Literal
+
+
+if TYPE_CHECKING:
+    from .hf_api import RepoFile
 
 
 logger = logging.get_logger(__name__)
@@ -64,6 +70,36 @@ class CommitOperationDelete:
             raise ValueError(
                 f"Wrong value for `is_folder`. Must be one of [`True`, `False`, `'auto'`]. Got '{self.is_folder}'."
             )
+
+
+@dataclass
+class CommitOperationCopy:
+    """
+    Data structure holding necessary info to copy a file in a repository on the Hub.
+
+    Limitations:
+      - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
+      - Cross-repository copies are not supported.
+
+    Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
+
+    Args:
+        src_path_in_repo (`str`):
+            Relative filepath in the repo of the file to be copied, e.g. `"checkpoints/1fec34a/weights.bin"`.
+        path_in_repo (`str`):
+            Relative filepath in the repo where to copy the file, e.g. `"checkpoints/1fec34a/weights_copy.bin"`.
+        src_revision (`str`, *optional*):
+            The git revision of the file to be copied. Can be any valid git revision.
+            Default to the target commit revision.
+    """
+
+    src_path_in_repo: str
+    path_in_repo: str
+    src_revision: Optional[str] = None
+
+    def __post_init__(self):
+        self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
 
 
 @dataclass
@@ -206,7 +242,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
     return path_in_repo
 
 
-CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
+CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
 def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
@@ -449,9 +485,68 @@ def fetch_upload_modes(
     return upload_modes
 
 
+@validate_hf_hub_args
+def fetch_lfs_files_to_copy(
+    copies: Iterable[CommitOperationCopy],
+    repo_type: str,
+    repo_id: str,
+    token: Optional[str],
+    revision: str,
+    endpoint: Optional[str] = None,
+) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
+    """
+    Requests the Hub files information of the LFS files to be copied, including their sha256.
+
+    Args:
+        copies (`Iterable` of :class:`CommitOperationCopy`):
+            Iterable of :class:`CommitOperationCopy` describing the files to
+            copy on the Hub.
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        token (`str`, *optional*):
+            An authentication token ( See https://huggingface.co/settings/tokens )
+        revision (`str`):
+            The git revision to upload the files to. Can be any valid git revision.
+
+    Returns: `Dict[Tuple[str, Optional[str]], RepoFile]]`
+        Key is the file path and revision of the file to copy, value is the repo file.
+
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    from .hf_api import HfApi
+
+    hf_api = HfApi(endpoint=endpoint, token=token)
+    files_to_copy = {}
+    for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
+        operations = list(operations)  # type: ignore
+        paths = [op.src_path_in_repo for op in operations]
+        src_repo_files = hf_api.list_files_info(
+            repo_id=repo_id, paths=paths, revision=src_revision or revision, repo_type=repo_type
+        )
+        for src_repo_file in src_repo_files:
+            if not src_repo_file.lfs:
+                raise NotImplementedError("Copying a non-LFS file is not implemented")
+            files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
+        for operation in operations:
+            if (operation.src_path_in_repo, src_revision) not in files_to_copy:
+                raise EntryNotFoundError(
+                    f"Cannot copy {operation.src_path_in_repo} at revision "
+                    f"{src_revision or revision}: file is missing on repo."
+                )
+    return files_to_copy
+
+
 def prepare_commit_payload(
     operations: Iterable[CommitOperation],
     upload_modes: Dict[str, UploadMode],
+    files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -503,7 +598,20 @@ def prepare_commit_payload(
                 "key": "deletedFolder" if operation.is_folder else "deletedFile",
                 "value": {"path": operation.path_in_repo},
             }
-        # 2.d. Never expected to happen
+        # 2.d. Case copying a file or folder
+        elif isinstance(operation, CommitOperationCopy):
+            file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
+            if not file_to_copy.lfs:
+                raise NotImplementedError("Copying a non-LFS file is not implemented")
+            yield {
+                "key": "lfsFile",
+                "value": {
+                    "path": operation.path_in_repo,
+                    "algo": "sha256",
+                    "oid": file_to_copy.lfs["sha256"],
+                },
+            }
+        # 2.e. Never expected to happen
         else:
             raise ValueError(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"

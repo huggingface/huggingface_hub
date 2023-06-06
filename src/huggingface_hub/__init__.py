@@ -128,6 +128,7 @@ _SUBMOD_ATTRS = {
         "CommitInfo",
         "CommitOperation",
         "CommitOperationAdd",
+        "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetSearchArguments",
         "GitCommitInfo",
@@ -420,6 +421,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitInfo,  # noqa: F401
         CommitOperation,  # noqa: F401
         CommitOperationAdd,  # noqa: F401
+        CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetSearchArguments,  # noqa: F401
         GitCommitInfo,  # noqa: F401
