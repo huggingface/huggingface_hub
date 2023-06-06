@@ -74,9 +74,9 @@ class CommitScheduler:
         >>> from pathlib import Path
         >>> from huggingface_hub import CommitScheduler
 
-        # Scheduler uploads every 10mins
+        # Scheduler uploads every 10 minutes
         >>> csv_path = Path("watched_folder/data.csv")
-        >>> CommitScheduler(repo_id="test_scheduler", folder_path=csv_path.parent, every=10)
+        >>> CommitScheduler(repo_id="test_scheduler", repo_type="dataset", folder_path=csv_path.parent, every=10)
 
         >>> with csv_path.open("a") as f:
         ...     f.write("first line\n")
