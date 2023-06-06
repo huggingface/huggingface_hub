@@ -197,20 +197,18 @@ notice.
 
 ### Regular uploads
 
-The Hugging Face Hub makes it really easy to push and version data. However, it also have a few limitations, especially
-when it comes to updating thousands (or millions) of times the same file. For instance, you might want to save logs and
-artifacts of a training process or save user feedback from a deployed Space. In those cases, it makes sense to use upload
-the data as a `dataset` on the Hub for later reuse but it can be hard to make it properly. The main reason for that is
-that you don't want to version every single update of your data - which would make the git repository unusable. A
-solution to this problem is the [`CommitScheduler`]. The idea of this class is to run a background job that will 
-regularly push a local folder to the Hub. But how does it integrate with your workflow? Let's see that with a concrete
-example!
+The Hugging Face Hub makes it easy to save and version data. However, it has some limitations, especially when it comes
+to updating thousands of times the same file. For instance, you might want to save logs of a training process or user
+feedback on a deployed Space. In those cases, it makes sense to upload the data as a `dataset` on the Hub but it can be
+hard to do it properly. The main reason for that is that you don't want to version every single update of your data -
+which would make the git repository unusable. The [`CommitScheduler`] class offers an interface to solve this problem.
 
-Let's assume that you have a Gradio Space that takes as input a text and generates two translations of it. Then, the
-user can select its preferred translation. For each run, you want to save the input, output and user preference to
-analyze the results. This is a perfect use case for [`CommitScheduler`]: you want to save data to the Hub (potentially
-millions of user feedback) but you don't _need_ to save on real time at each user input. Instead, you can save the data
-locally in a JSON file and upload it only every 10 minutes. Here is an example on how to do that:
+The idea is to run a background job that will regularly push a local folder to the Hub. Let's assume that you have a
+Gradio Space that takes as input a text and generates two translations of it. Then, the user can select its preferred
+translation. For each run, you want to save the input, output and user preference to analyze the results. This is a
+perfect use case for [`CommitScheduler`]: you want to save data to the Hub (potentially millions of user feedback) but
+you don't _need_ to save on real time at each user input. Instead, you can save the data locally in a JSON file and
+upload it only every 10 minutes. Here is an example on how to do that:
 
 ```py
 >>> import json
@@ -253,19 +251,23 @@ for the JSON file, you are guaranteed that's you'll not overwrite data from a pr
 Spaces/replicas pushing concurrently to the same Hub.
 
 For more details about the [`CommitScheduler`], here is what you need to know:
-- **append-only:** it is assumed that you will only add content to the folder. You must only append data to existing
-files or create new files. Deleting or overwriting a file might corrupt your repository.
-- **git history**: the scheduler will commit the folder every `every` minutes. To avoid polluting the git repository
-too much, it is recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty
-commits. If no new content is detected in the folder, the scheduled commit is dropped.
-- **errors:** the scheduler run as background thread. It is started when you instantiate the class and never stops. In
-particular, if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and
-retry at the next scheduled commit.
-- **thread-safety:** in most cases it is safe to assume that you can write to a file without having to worry about a
-lock file. The scheduler will not crash or be corrupted if you write content to the folder while it's uploading. However
-in practice, it _is_ possible that concurrent issues happen for heavy-loaded apps. In this case, we advice to use the
-`scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for changes,
-not when it uploads data. You can safely assume that it will not affect the user experience of your Space.
+- **append-only:**
+    It is assumed that you will only add content to the folder. You must only append data to existing files or create
+    new files. Deleting or overwriting a file might corrupt your repository.
+- **git history**:
+    The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
+    recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
+    new content is detected in the folder, the scheduled commit is dropped.
+- **errors:**
+    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
+    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
+    at the next scheduled commit.
+- **thread-safety:**
+    In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
+    scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
+    _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
+    `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
+    changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
 
 ### create_commit
 
