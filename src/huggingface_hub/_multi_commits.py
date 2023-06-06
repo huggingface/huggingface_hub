@@ -120,7 +120,6 @@ def plan_multi_commits(
     ...          CommitOperationAdd(...),
     ...          CommitOperationAdd(...),
     ...          CommitOperationDelete(...),
-    ...          CommitOperationCopy(...),
     ...          CommitOperationDelete(...),
     ...          CommitOperationAdd(...),
     ...     ],
