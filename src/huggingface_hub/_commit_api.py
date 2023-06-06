@@ -79,7 +79,7 @@ class CommitOperationCopy:
 
     Limitations:
       - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
-      - Cross-repository copies is not supported.
+      - Cross-repository copies are not supported.
 
     Args:
         src_path_in_repo (`str`):
@@ -530,7 +530,7 @@ def fetch_lfs_files_to_copy(
         )
         for src_repo_file in src_repo_files:
             if not src_repo_file.lfs:
-                raise NotImplementedError("Copying a non-LFS file is not implemented yet")
+                raise NotImplementedError("Copying a non-LFS file is not implemented")
             files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
@@ -600,7 +600,7 @@ def prepare_commit_payload(
         elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
             if not file_to_copy.lfs:
-                raise NotImplementedError("Copying a non-LFS file is not implemented yet")
+                raise NotImplementedError("Copying a non-LFS file is not implemented")
             yield {
                 "key": "lfsFile",
                 "value": {
