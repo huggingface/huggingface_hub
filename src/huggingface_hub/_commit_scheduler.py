@@ -26,6 +26,74 @@ class _FileToUpload:
 
 
 class CommitScheduler:
+    """
+    Scheduler to upload a local folder to the Hub at regular intervals (e.g. push to hub every 5 minutes).
+
+    The scheduler is started when instantiated and run indefinitely. At the end of your script, a last commit is
+    triggered. Here are the main aspect you need to know about the scheduler:
+    - **append-only:**
+        It is assumed that you will only add content to the folder. You must only append data to existing files or create
+        new files. Deleting or overwriting a file might corrupt your repository.
+    - **git history**:
+        The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
+        recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
+        new content is detected in the folder, the scheduled commit is dropped.
+    - **errors:**
+        The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
+        if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
+        at the next scheduled commit.
+    - **thread-safety:**
+        In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
+        scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
+        _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
+        `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
+        changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
+
+    Checkout the [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#regular-uploads) to learn more about how to use it.
+
+    Args:
+        repo_id (`str`):
+            The id of the repo to commit to.
+        folder_path (`str` or `Path`):
+            Path to the local folder to upload regularly.
+        every (`int` or `float`, *optional*):
+            The number of minutes between each commit. Defaults to 5 minutes.
+        path_in_repo (`str`, *optional*):
+            Relative path of the directory in the repo, for example: `"checkpoints/"`. Defaults to the root folder
+            of the repository.
+        repo_type (`str`, *optional*):
+            The type of the repo to commit to. Defaults to `model`.
+        revision (`str`, *optional*):
+            The revision of the repo to commit to. Defaults to `main`.
+        private (`bool`, *optional*):
+            Whether to make the repo private. Defaults to `False`. This value is ignored if the repo already exist.
+        token (`str`, *optional*):
+            The token to use to commit to the repo. Defaults to the token saved on the machine.
+        allow_patterns (`List[str]` or `str`, *optional*):
+            If provided, only files matching at least one pattern are uploaded.
+        ignore_patterns (`List[str]` or `str`, *optional*):
+            If provided, files matching any of the patterns are not uploaded.
+        hf_api (`HfApi`, *optional*):
+            The [`HfApi`] client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
+
+    Example:
+    ```py
+    >>> from pathlib import Path
+    >>> from huggingface_hub import CommitScheduler
+
+    # Scheduler uploads every 10 minutes
+    >>> csv_path = Path("watched_folder/data.csv")
+    >>> CommitScheduler(repo_id="test_scheduler", repo_type="dataset", folder_path=csv_path.parent, every=10)
+
+    >>> with csv_path.open("a") as f:
+    ...     f.write("first line\n")
+
+    (...) # Some time later
+    >>> with csv_path.open("a") as f:
+    ...     f.write("second line\n")
+    ```
+    """
+
     def __init__(
         self,
         *,
@@ -41,73 +109,6 @@ class CommitScheduler:
         ignore_patterns: Optional[Union[List[str], str]] = None,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
-        """
-        Scheduler to upload a local folder to the Hub at regular intervals (e.g. push to hub every 5 minutes).
-
-        The scheduler is started when instantiated and run indefinitely. At the end of your script, a last commit is
-        triggered. Here are the main aspect you need to know about the scheduler:
-        - **append-only:**
-            It is assumed that you will only add content to the folder. You must only append data to existing files or create
-            new files. Deleting or overwriting a file might corrupt your repository.
-        - **git history**:
-            The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
-            recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
-            new content is detected in the folder, the scheduled commit is dropped.
-        - **errors:**
-            The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
-            if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
-            at the next scheduled commit.
-        - **thread-safety:**
-            In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
-            scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
-            _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
-            `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
-            changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
-
-        Checkout the [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#regular-uploads) to learn more about how to use it.
-
-        Args:
-            repo_id (`str`):
-                The id of the repo to commit to.
-            folder_path (`str` or `Path`):
-                Path to the local folder to upload regularly.
-            every (`int` or `float`, *optional*):
-                The number of minutes between each commit. Defaults to 5 minutes.
-            path_in_repo (`str`, *optional*):
-                Relative path of the directory in the repo, for example: `"checkpoints/"`. Defaults to the root folder
-                of the repository.
-            repo_type (`str`, *optional*):
-                The type of the repo to commit to. Defaults to `model`.
-            revision (`str`, *optional*):
-                The revision of the repo to commit to. Defaults to `main`.
-            private (`bool`, *optional*):
-                Whether to make the repo private. Defaults to `False`. This value is ignored if the repo already exist.
-            token (`str`, *optional*):
-                The token to use to commit to the repo. Defaults to the token saved on the machine.
-            allow_patterns (`List[str]` or `str`, *optional*):
-                If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`List[str]` or `str`, *optional*):
-                If provided, files matching any of the patterns are not uploaded.
-            hf_api (`HfApi`, *optional*):
-                The [`HfApi`] client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
-
-        Example:
-        ```py
-        >>> from pathlib import Path
-        >>> from huggingface_hub import CommitScheduler
-
-        # Scheduler uploads every 10 minutes
-        >>> csv_path = Path("watched_folder/data.csv")
-        >>> CommitScheduler(repo_id="test_scheduler", repo_type="dataset", folder_path=csv_path.parent, every=10)
-
-        >>> with csv_path.open("a") as f:
-        ...     f.write("first line\n")
-
-        (...) # Some time later
-        >>> with csv_path.open("a") as f:
-        ...     f.write("second line\n")
-        ```
-        """
         self.api = hf_api or HfApi()
 
         # Folder
