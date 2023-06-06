@@ -4,9 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from huggingface_hub._commit_scheduler import (
-    PartialFileIO,
-)
+from huggingface_hub._commit_scheduler import PartialFileIO
+from huggingface_hub import CommitOperationAdd
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -91,3 +90,27 @@ class TestPartialFileIO(unittest.TestCase):
         # File size limit is truncated to the actual file size at instance creation (not on the fly)
         self.assertEqual(len(file), 9)
         self.assertEqual(file._size_limit, 9)
+
+    def test_with_commit_operation_add(self) -> None:
+        # Truncated file
+        op_truncated = CommitOperationAdd(
+            path_or_fileobj=PartialFileIO(self.file_path, size_limit=5), path_in_repo="file.txt"
+        )
+        self.assertEqual(op_truncated.upload_info.size, 5)
+        self.assertEqual(op_truncated.upload_info.sample, b"12345")
+
+        with op_truncated.as_file() as f:
+            self.assertEqual(f.read(), b"12345")
+
+        # Full file
+        op_full = CommitOperationAdd(
+            path_or_fileobj=PartialFileIO(self.file_path, size_limit=9), path_in_repo="file.txt"
+        )
+        self.assertEqual(op_full.upload_info.size, 9)
+        self.assertEqual(op_full.upload_info.sample, b"123456789")
+
+        with op_full.as_file() as f:
+            self.assertEqual(f.read(), b"123456789")
+
+        # Truncated file has a different hash than the full file
+        self.assertNotEqual(op_truncated.upload_info.sha256, op_full.upload_info.sha256)
