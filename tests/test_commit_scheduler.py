@@ -101,8 +101,8 @@ class TestCommitScheduler(unittest.TestCase):
             f.write(" updated")
 
         # 5 push to hub triggered (1 commit)
-        self.scheduler.stop()
         time.sleep(5)  # wait for every threads/uploads to complete
+        self.scheduler.stop()
         self.scheduler.last_future.result()
 
         # 4 commits expected (initial commit + 3 push to hub)
