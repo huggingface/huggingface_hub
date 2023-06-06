@@ -72,12 +72,12 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(
             folder_path=watched_folder,
             repo_id=self.repo_name,
-            every=1 / 60 / 10,  # every 0.1s
+            every=1 / 60,  # every 1s
             hf_api=self.api,
         )
 
         # 1 push to hub triggered (empty commit not pushed)
-        time.sleep(0.05)
+        time.sleep(0.5)
 
         # write content to files
         with file_path.open("a") as f:
@@ -86,7 +86,7 @@ class TestCommitScheduler(unittest.TestCase):
             f.write("binary content")
 
         # 2 push to hub triggered (1 commit + 1 ignored)
-        time.sleep(0.2)
+        time.sleep(2)
         self.scheduler.last_future.result()
 
         # new content in file
@@ -94,15 +94,15 @@ class TestCommitScheduler(unittest.TestCase):
             f.write("second line\n")
 
         # 1 push to hub triggered (1 commit)
-        time.sleep(0.1)
+        time.sleep(1)
         self.scheduler.last_future.result()
 
         with lfs_path.open("a") as f:
             f.write(" updated")
 
-        # 30 push to hub triggered (1 commit)
+        # 5 push to hub triggered (1 commit)
         self.scheduler.stop()
-        time.sleep(3)  # wait for every threads/uploads to complete
+        time.sleep(5)  # wait for every threads/uploads to complete
         self.scheduler.last_future.result()
 
         # 4 commits expected (initial commit + 3 push to hub)

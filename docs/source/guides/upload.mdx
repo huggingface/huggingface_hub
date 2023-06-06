@@ -250,7 +250,7 @@ huggingface-cli lfs-enable-largefiles
 
 You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.
 
-## commit context manager
+### commit context manager
 
 The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
 
@@ -309,7 +309,7 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 >>> last_command.failed
 ```
 
-## push_to_hub
+### push_to_hub
 
 The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
 

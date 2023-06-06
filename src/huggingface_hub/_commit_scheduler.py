@@ -68,6 +68,23 @@ class CommitScheduler:
                 If provided, files matching any of the patterns are not uploaded.
             hf_api (`HfApi`, *optional*):
                 The [`HfApi`] client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
+
+        Example:
+        ```py
+        >>> from pathlib import Path
+        >>> from huggingface_hub import CommitScheduler
+
+        # Scheduler uploads every 10mins
+        >>> csv_path = Path("watched_folder/data.csv")
+        >>> CommitScheduler(repo_id="test_scheduler", folder_path=csv_path.parent, every=10)
+
+        >>> with csv_path.open("a") as f:
+        ...     f.write("first line\n")
+
+        (...) # Some time later
+        >>> with csv_path.open("a") as f:
+        ...     f.write("second line\n")
+        ```
         """
         self.api = hf_api or HfApi()
 
