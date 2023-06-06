@@ -195,20 +195,16 @@ notice.
 
 </Tip>
 
-### Regular uploads
+### Scheduled uploads
 
-The Hugging Face Hub makes it easy to save and version data. However, it has some limitations, especially when it comes
-to updating thousands of times the same file. For instance, you might want to save logs of a training process or user
-feedback on a deployed Space. In those cases, it makes sense to upload the data as a `dataset` on the Hub but it can be
-hard to do it properly. The main reason for that is that you don't want to version every single update of your data -
-which would make the git repository unusable. The [`CommitScheduler`] class offers an interface to solve this problem.
+The Hugging Face Hub makes it easy to save and version data. However, there are some limitations when updating the same file thousands of times. For instance, you might want to save logs of a training process or user
+feedback on a deployed Space. In these cases, uploading the data as a dataset on the Hub makes sense, but it can be hard to do properly. The main reason is that you don't want to version every update of your data because it'll make the git repository unusable. The [`CommitScheduler`] class offers a solution to this problem.
 
-The idea is to run a background job that will regularly push a local folder to the Hub. Let's assume that you have a
-Gradio Space that takes as input a text and generates two translations of it. Then, the user can select its preferred
-translation. For each run, you want to save the input, output and user preference to analyze the results. This is a
-perfect use case for [`CommitScheduler`]: you want to save data to the Hub (potentially millions of user feedback) but
-you don't _need_ to save on real time at each user input. Instead, you can save the data locally in a JSON file and
-upload it only every 10 minutes. Here is an example on how to do that:
+The idea is to run a background job that regularly pushes a local folder to the Hub. Let's assume you have a
+Gradio Space that takes as input some text and generates two translations of it. Then, the user can select their preferred translation. For each run, you want to save the input, output, and user preference to analyze the results. This is a
+perfect use case for [`CommitScheduler`]; you want to save data to the Hub (potentially millions of user feedback), but
+you don't _need_ to save in real-time each user's input. Instead, you can save the data locally in a JSON file and
+upload it every 10 minutes. For example:
 
 ```py
 >>> import json
@@ -246,9 +242,8 @@ upload it only every 10 minutes. Here is an example on how to do that:
 >>> demo.launch()
 ```
 
-And that's it! User input/outputs and feedback will be available as a dataset on the Hub. By using a unique file name
-for the JSON file, you are guaranteed that's you'll not overwrite data from a previous run or data from another
-Spaces/replicas pushing concurrently to the same Hub.
+And that's it! User input/outputs and feedback will be available as a dataset on the Hub. By using a unique JSON file name, you are guaranteed you won't overwrite data from a previous run or data from another
+Spaces/replicas pushing concurrently to the same repository.
 
 For more details about the [`CommitScheduler`], here is what you need to know:
 - **append-only:**
