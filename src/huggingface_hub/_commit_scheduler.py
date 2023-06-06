@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from io import SEEK_SET, BytesIO
+from io import SEEK_END, SEEK_SET, BytesIO
 from pathlib import Path
 from threading import Lock, Thread
 from typing import Dict, List, Optional, Union
@@ -109,13 +109,28 @@ class CommitScheduler:
         self._scheduler_thread.start()
         atexit.register(self._push_to_hub)
 
+        self.__stopped = False
+
+    def stop(self) -> None:
+        """Stop the scheduler.
+
+        A stopped scheduler cannot be restarted. Mostly for tests purposes.
+        """
+        self.__stopped = True
+        self._scheduler_thread.join()
+
     def _run_scheduler(self) -> None:
         """Dumb thread waiting between each scheduled push to Hub."""
         while True:
             self.last_future = self.api.run_as_future(self._push_to_hub)
             time.sleep(self.every * 60)
+            if self.__stopped:
+                break
 
     def _push_to_hub(self) -> Optional[CommitInfo]:
+        if self.__stopped:  # If stopped, already scheduled commits are ignored
+            return None
+
         logger.info("Scheduled commit triggered.")
 
         # Check files to upload (with lock)
@@ -201,8 +216,7 @@ class PartialFileIO(BytesIO):
     def __init__(self, file_path: Union[str, Path], size_limit: int) -> None:
         self._file_path = Path(file_path)
         self._file = self._file_path.open("rb")
-        self._size_limit = size_limit
-        self._length = min(size_limit, os.fstat(self._file.fileno()).st_size)
+        self._size_limit = min(size_limit, os.fstat(self._file.fileno()).st_size)
 
     def __del__(self) -> None:
         self._file.close()
@@ -212,7 +226,7 @@ class PartialFileIO(BytesIO):
         return f"<PartialFileIO file_path={self._file_path} size_limit={self._size_limit}>"
 
     def __len__(self) -> int:
-        return self._length
+        return self._size_limit
 
     def __getattribute__(self, name: str):
         if name.startswith("_") or name in ("read", "tell", "seek"):  # only 3 public methods supported
@@ -228,6 +242,11 @@ class PartialFileIO(BytesIO):
 
         Behavior is the same as a regular file, except that the position is capped to the size limit.
         """
+        if __whence == SEEK_END:
+            # SEEK_END => set from the truncated end
+            __offset = len(self) + __offset
+            __whence = SEEK_SET
+
         pos = self._file.seek(__offset, __whence)
         if pos > self._size_limit:
             return self._file.seek(self._size_limit)
