@@ -382,6 +382,9 @@ def upload_lfs_files(
         logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
         for action in filtered_actions:
             _wrapped_lfs_upload(action)
+    elif len(filtered_actions) == 1:
+        logger.debug(f"Uploading 1 LFS file to the Hub")
+        _wrapped_lfs_upload(filtered_actions[0])
     else:
         logger.debug(
             f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
