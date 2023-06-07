@@ -149,7 +149,7 @@ class CommitScheduler:
             if self.__stopped:
                 break
 
-    def trigger(self) -> Union[Future[CommitInfo], Future[None]]:
+    def trigger(self) -> Future:
         """Trigger a `push_to_hub` and return a future.
 
         This method is automatically called every `every` minutes. You can also call it manually to trigger a commit
