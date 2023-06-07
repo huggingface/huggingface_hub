@@ -46,12 +46,15 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.15.0.dev0"
+__version__ = "0.16.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_commit_scheduler": [
+        "CommitScheduler",
+    ],
     "_inference": [
         "InferenceClient",
         "InferenceTimeoutError",
@@ -131,6 +134,7 @@ _SUBMOD_ATTRS = {
         "CommitInfo",
         "CommitOperation",
         "CommitOperationAdd",
+        "CommitOperationCopy",
         "CommitOperationDelete",
         "DatasetSearchArguments",
         "GitCommitInfo",
@@ -349,6 +353,7 @@ __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_S
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._inference import (
         InferenceClient,  # noqa: F401
         InferenceTimeoutError,  # noqa: F401
@@ -424,6 +429,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitInfo,  # noqa: F401
         CommitOperation,  # noqa: F401
         CommitOperationAdd,  # noqa: F401
+        CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
         DatasetSearchArguments,  # noqa: F401
         GitCommitInfo,  # noqa: F401

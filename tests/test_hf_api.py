@@ -36,6 +36,7 @@ import huggingface_hub.lfs
 from huggingface_hub import SpaceHardware, SpaceStage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
+    CommitOperationCopy,
     CommitOperationDelete,
     fetch_upload_modes,
 )
@@ -939,6 +940,52 @@ class CommitApiTest(HfApiCommonTest):
             self.fail(err)
         finally:
             self._api.delete_repo(repo_id=repo_id)
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_commit_copy_file(self, repo_url: RepoUrl) -> None:
+        """Test CommitOperationCopy.
+
+        Works only when copying an LFS file.
+        """
+        repo_id = repo_url.repo_id
+
+        self._api.upload_file(path_or_fileobj=b"content", repo_id=repo_id, path_in_repo="file.txt")
+        self._api.upload_file(path_or_fileobj=b"LFS content", repo_id=repo_id, path_in_repo="lfs.bin")
+
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="Copy LFS file.",
+            operations=[
+                CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy.bin"),
+                CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy (1).bin"),
+            ],
+        )
+        with self.assertRaises(NotImplementedError):
+            self._api.create_commit(
+                repo_id=repo_id,
+                commit_message="Copy regular file.",
+                operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file Copy.txt")],
+            )
+        with self.assertRaises(EntryNotFoundError):
+            self._api.create_commit(
+                repo_id=repo_id,
+                commit_message="Copy a file that doesn't exist.",
+                operations=[
+                    CommitOperationCopy(src_path_in_repo="doesnt-exist.txt", path_in_repo="doesnt-exist Copy.txt")
+                ],
+            )
+
+        # Check repo files
+        repo_files = self._api.list_repo_files(repo_id=repo_id)
+        self.assertIn("file.txt", repo_files)
+        self.assertIn("lfs.bin", repo_files)
+        self.assertIn("lfs Copy.bin", repo_files)
+        self.assertIn("lfs Copy (1).bin", repo_files)
+
+        # Check same LFS file
+        repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
+        self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):

@@ -35,6 +35,7 @@ ALL_TASKS = [
     "object-detection",
     "image-segmentation",
     "text-to-image",
+    "image-to-image",
     # Others
     "tabular-classification",
     "tabular-regression",
