@@ -72,7 +72,7 @@ class HFSummaryWriter(SummaryWriter):
         token (`str`, *optional*):
             Authentication token. Will default to the stored token. See https://huggingface.co/settings/token for more
             details
-        **kwargs:
+        kwargs:
             Additional keyword arguments passed to `SummaryWriter`.
 
     Examples:
