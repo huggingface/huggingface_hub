@@ -152,7 +152,7 @@ class CommitScheduler:
         if self.__stopped:  # If stopped, already scheduled commits are ignored
             return None
 
-        logger.info("Scheduled commit triggered.")
+        logger.info("(Background) scheduled commit triggered.")
 
         # Check files to upload (with lock)
         with self.lock:
