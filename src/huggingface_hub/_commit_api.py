@@ -383,7 +383,7 @@ def upload_lfs_files(
         for action in hf_tqdm(filtered_actions):
             _wrapped_lfs_upload(action)
     elif len(filtered_actions) == 1:
-        logger.debug(f"Uploading 1 LFS file to the Hub")
+        logger.debug("Uploading 1 LFS file to the Hub")
         _wrapped_lfs_upload(filtered_actions[0])
     else:
         logger.debug(

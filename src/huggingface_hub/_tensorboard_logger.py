@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
+from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from huggingface_hub._commit_scheduler import CommitScheduler
@@ -128,6 +129,12 @@ class HFSummaryWriter(SummaryWriter):
         # Check logdir has been correctly initialized and fail early otherwise. In practice, SummaryWriter takes care of it.
         if not isinstance(self.logdir, str):
             raise ValueError(f"`self.logdir` must be a string. Got '{self.logdir}' of type {type(self.logdir)}.")
+
+        # Append logdir name to `path_in_repo`
+        if path_in_repo is None or path_in_repo == "":
+            path_in_repo = Path(self.logdir).name
+        else:
+            path_in_repo = path_in_repo.strip("/") + "/" + Path(self.logdir).name
 
         # Initialize scheduler
         self.scheduler = CommitScheduler(
