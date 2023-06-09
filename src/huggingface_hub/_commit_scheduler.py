@@ -129,7 +129,7 @@ class CommitScheduler:
         logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
         self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
         self._scheduler_thread.start()
-        atexit.register(self._push_to_hub)
+        atexit.register(self._trigger_task)
 
         self.__stopped = False
 
@@ -143,17 +143,37 @@ class CommitScheduler:
     def _run_scheduler(self) -> None:
         """Dumb thread waiting between each scheduled push to Hub."""
         while True:
-            self.last_future = self.api.run_as_future(self._push_to_hub)
+            self.last_future = self.api.run_as_future(self._trigger_task)
             time.sleep(self.every * 60)
             if self.__stopped:
                 break
 
-    def _push_to_hub(self) -> Optional[CommitInfo]:
+    def _trigger_task(self) -> Optional[CommitInfo]:
         if self.__stopped:  # If stopped, already scheduled commits are ignored
             return None
 
         logger.info("(Background) scheduled commit triggered.")
 
+        return self.push_to_hub()
+
+    def push_to_hub(self) -> Optional[CommitInfo]:
+        """
+        Push folder to the Hub and return the commit info.
+
+        <Tip warning={true}>
+
+        This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
+        queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
+        issues.
+
+        </Tip>
+
+        The default behavior of `push_to_hub` is to assume an append-only folder. It lists all files in the folder and
+        upload only changed files. If no changes are found, the method returns without committing anything. If you want
+        to change this behavior, you can inherit from [`CommitScheduler`] and override this method. This can be useful
+        for example to compress data together in a single file before committing. For more details and examples, check
+        out our integration guide.
+        """
         # Check files to upload (with lock)
         with self.lock:
             logger.debug("Listing files to upload for scheduled commit.")
