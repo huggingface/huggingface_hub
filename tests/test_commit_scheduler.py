@@ -32,7 +32,7 @@ class TestCommitScheduler(unittest.TestCase):
         except Exception:
             pass
 
-    @patch("huggingface_hub._commit_scheduler.CommitScheduler._push_to_hub")
+    @patch("huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub")
     def test_mocked_push_to_hub(self, push_to_hub_mock: MagicMock) -> None:
         self.scheduler = CommitScheduler(
             folder_path=self.cache_dir,
