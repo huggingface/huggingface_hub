@@ -33,13 +33,7 @@ Whenever you want to upload files to the Hub, you need to log in to your Hugging
   best practice to load the token from a secure vault instead of saving it in plain in
   your Colaboratory notebook.
 
-## Push files without Git
-
-If you don't have Git installed on your system, use [`create_commit`] to push your files to the Hub. [`create_commit`] uses the HTTP protocol to upload files to the Hub.
-
-However, [`create_commit`] is a low-level API for working at a commit level. The [`upload_file`] and [`upload_folder`] functions are higher-level APIs that use [`create_commit`] under the hood and are generally more convenient. We recommend trying these functions first if you don't need to work at a lower level.
-
-### Upload a file
+## Upload a file
 
 Once you've created a repository with [`create_repo`], you can upload a file to your repository using [`upload_file`].
 
@@ -56,7 +50,7 @@ Specify the path of the file to upload, where you want to upload the file to in 
 ... )
 ```
 
-### Upload a folder
+## Upload a folder
 
 Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder
 to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the
@@ -108,7 +102,7 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
-### Non-blocking upload
+## Non-blocking upload
 
 In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
 artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
@@ -156,7 +150,7 @@ Future(...)
 Future(...)
 ```
 
-### Upload a folder by chunks
+## Upload a folder by chunks
 
 [`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
 hundreds of GB), it can still be challenging. If you have a folder with a lot of files, you might want to upload
@@ -195,7 +189,7 @@ notice.
 
 </Tip>
 
-### Scheduled uploads
+## Scheduled uploads
 
 The Hugging Face Hub makes it easy to save and version data. However, there are some limitations when updating the same file thousands of times. For instance, you might want to save logs of a training process or user
 feedback on a deployed Space. In these cases, uploading the data as a dataset on the Hub makes sense, but it can be hard to do properly. The main reason is that you don't want to version every update of your data because it'll make the git repository unusable. The [`CommitScheduler`] class offers a solution to this problem.
@@ -264,9 +258,62 @@ For more details about the [`CommitScheduler`], here is what you need to know:
     `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
     changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
 
-### create_commit
+### Space persistence demo
 
-If you want to work at a commit-level, use the [`create_commit`] function directly. There are two types of operations supported by [`create_commit`]:
+Persisting data from a Space to a Dataset on the Hub is the main use case for [`CommitScheduler`]. Depending on the use
+case, you might want to structure your data differently. The structure has to be robust to concurrent users and
+restarts which often implies generating uuids. Beside robustness, you would ideally like to upload data in a format that
+is readable by the `datasets` library for later reuse. We compiled in this [interactive demo Space](https://huggingface.co/spaces/Wauplin/demo_commit_scheduler)
+implementations to tackle major use cases. Depending on your specific needs, you might need to adapt them
+
+### Custom uploads
+
+As said above, [`CommitScheduler`] assumes that your data is append-only and should be uploading "as is". However, you
+might want to customize the way data is uploaded. You can do that by creating a class inheriting from [`CommitScheduler`]
+and overwrite the `push_to_hub` method. You can overwrite this method the way you want. You are guaranteed that it will
+be called every `every` minutes in a background thread. You don't have to worry about concurrency and errors but you
+must be careful other aspects like not pushing empty commits or duplicated data.
+
+In the (simplified) example below, we overwrite `push_to_hub` to zip all PNG files in a single archive to avoid
+overloading the repo on the Hub:
+
+```py
+class ZipScheduler(CommitScheduler):
+    def push_to_hub(self):
+        # 1. List PNG files
+          png_files = list(self.folder_path.glob("*.png"))
+          if len(png_files) == 0:
+              return None  # return early if nothing to commit
+
+        # 2. Zip png files in a single archive
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / "train.zip"
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
+                for png_file in png_files:
+                    zip.write(filename=png_file, arcname=png_file.name)
+
+            # 3. Upload archive
+            self.api.upload_file(..., path_or_fileobj=archive_path)
+
+        # 4. Delete local png files to avoid re-uploading them later
+        for png_file in png_files:
+            png_file.unlink()
+```
+
+You can find a complete code in [this Gradio app](https://huggingface.co/spaces/Wauplin/demo_commit_scheduler/blob/main/app_1M_image.py).
+
+When you overwrite `push_to_hub`, you have access to the attributes of [`CommitScheduler`] and especially:
+- Folder parameters: `folder_path` and `path_in_repo`
+- Repo parameters: `repo_id`, `repo_type`, `revision`, `token`
+- The thread lock: `lock`
+
+## create_commit
+
+The [`upload_file`] and [`upload_folder`] functions are high-level APIs that are generally convenient to use. We recommend
+trying these functions first if you don't need to work at a lower level. However, if you want to work at a commit-level,
+you can use the [`create_commit`] function directly.
+
+There are two types of operations supported by [`create_commit`]:
 
 - [`CommitOperationAdd`] uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
 
@@ -316,6 +363,9 @@ In addition to [`upload_file`] and [`upload_folder`], the following functions al
 For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Push files with Git LFS
+
+All the methods described above use the Hub's API to upload files. This is the recommended way to upload files to the Hub.
+However we also provide [`Repository`], a wrapper around the git tool to manage a local repository.
 
 Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
 
