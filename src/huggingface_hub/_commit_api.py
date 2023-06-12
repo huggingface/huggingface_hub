@@ -43,6 +43,7 @@ UploadMode = Literal["lfs", "regular"]
 # Max is 1,000 per request on the Hub for HfApi.list_files_info
 # Otherwise we get:
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
+# See https://github.com/huggingface/huggingface_hub/issues/1503
 FETCH_LFS_BATCH_SIZE = 500
 
 
