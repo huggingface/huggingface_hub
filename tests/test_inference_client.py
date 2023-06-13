@@ -14,6 +14,7 @@
 import io
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -21,6 +22,7 @@ from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
 from huggingface_hub._inference import _open_as_binary
+from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
 
@@ -251,3 +253,37 @@ class TestResolveURL(InferenceClientTest):
     def test_unsupported_task(self) -> None:
         with self.assertRaises(NotImplementedError):
             InferenceClient()._resolve_url(task="unknown-task")
+
+
+class TestHeadersAndCookies(unittest.TestCase):
+    def test_headers_and_cookies(self) -> None:
+        client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
+        self.assertEqual(client.headers["X-My-Header"], "foo")
+        self.assertEqual(client.cookies["my-cookie"], "bar")
+
+    def test_headers_overwrite(self) -> None:
+        # Default user agent
+        self.assertTrue(InferenceClient().headers["user-agent"].startswith("unknown/None;"))
+
+        # Overwritten user-agent
+        self.assertEqual(InferenceClient(headers={"user-agent": "bar"}).headers["user-agent"], "bar")
+
+        # Case-insensitive overwrite
+        self.assertEqual(InferenceClient(headers={"USER-agent": "bar"}).headers["user-agent"], "bar")
+
+    @patch("huggingface_hub._inference.get_session")
+    def test_mocked_post(self, get_session_mock: MagicMock) -> None:
+        """Test that headers and cookies are correctly passed to the request."""
+        client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
+        response = client.post(data=b"content", model="username/repo_name")
+        self.assertEqual(response, get_session_mock().post.return_value)
+
+        expected_user_agent = build_hf_headers()["user-agent"]
+        get_session_mock().post.assert_called_once_with(
+            "https://api-inference.huggingface.co/models/username/repo_name",
+            json=None,
+            data=b"content",
+            headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
+            cookies={"my-cookie": "bar"},
+            timeout=None,
+        )
