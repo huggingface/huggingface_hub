@@ -180,7 +180,7 @@ class CommitScheduler:
         uploads only changed files. If no changes are found, the method returns without committing anything. If you want
         to change this behavior, you can inherit from [`CommitScheduler`] and override this method. This can be useful
         for example to compress data together in a single file before committing. For more details and examples, check
-        out our integration guide.
+        out our [integration guide](https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#scheduled-uploads).
         """
         # Check files to upload (with lock)
         with self.lock:
