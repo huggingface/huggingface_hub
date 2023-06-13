@@ -262,17 +262,16 @@ For more details about the [`CommitScheduler`], here is what you need to know:
 
 Persisting data from a Space to a Dataset on the Hub is the main use case for [`CommitScheduler`]. Depending on the use
 case, you might want to structure your data differently. The structure has to be robust to concurrent users and
-restarts which often implies generating uuids. Beside robustness, you would ideally like to upload data in a format that
-is readable by the `datasets` library for later reuse. We compiled in this [interactive demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
-implementations to tackle major use cases. Depending on your specific needs, you might need to adapt them
+restarts which often implies generating UUIDs. Besides robustness, you should upload data in a format readable by the 🤗 Datasets library for later reuse. We created a [Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+that demonstrates how to save several different data formats (you may need to adapt it for your own specific needs).
 
 ### Custom uploads
 
-As said above, [`CommitScheduler`] assumes that your data is append-only and should be uploading "as is". However, you
+[`CommitScheduler`] assumes your data is append-only and should be uploading "as is". However, you
 might want to customize the way data is uploaded. You can do that by creating a class inheriting from [`CommitScheduler`]
 and overwrite the `push_to_hub` method. You can overwrite this method the way you want. You are guaranteed that it will
 be called every `every` minutes in a background thread. You don't have to worry about concurrency and errors but you
-must be careful other aspects like not pushing empty commits or duplicated data.
+must be careful about other aspects, such as pushing empty commits or duplicated data.
 
 In the (simplified) example below, we overwrite `push_to_hub` to zip all PNG files in a single archive to avoid
 overloading the repo on the Hub:
