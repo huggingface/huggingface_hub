@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import time
+from concurrent.futures import Future
 from dataclasses import dataclass
 from io import SEEK_END, SEEK_SET, BytesIO
 from pathlib import Path
@@ -129,7 +130,7 @@ class CommitScheduler:
         logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
         self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
         self._scheduler_thread.start()
-        atexit.register(self._trigger_task)
+        atexit.register(self.trigger)
 
         self.__stopped = False
 
@@ -143,12 +144,20 @@ class CommitScheduler:
     def _run_scheduler(self) -> None:
         """Dumb thread waiting between each scheduled push to Hub."""
         while True:
-            self.last_future = self.api.run_as_future(self._trigger_task)
+            self.last_future = self.trigger()
             time.sleep(self.every * 60)
             if self.__stopped:
                 break
 
-    def _trigger_task(self) -> Optional[CommitInfo]:
+    def trigger(self) -> Future:
+        """Trigger a `push_to_hub` and return a future.
+
+        This method is automatically called every `every` minutes. You can also call it manually to trigger a commit
+        immediately, without waiting for the next scheduled commit.
+        """
+        return self.api.run_as_future(self.push_to_hub)
+
+    def _push_to_hub(self) -> Optional[CommitInfo]:
         if self.__stopped:  # If stopped, already scheduled commits are ignored
             return None
 
