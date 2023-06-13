@@ -37,12 +37,12 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(
             folder_path=self.cache_dir,
             repo_id=self.repo_name,
-            every=1 / 60 / 10,  # every 0.1s
+            every=2 / 60 / 10,  # every 0.2s
             hf_api=self.api,
         )
-        time.sleep(0.25)
+        time.sleep(0.5)
 
-        # Triggered 3 times (at 0.0s, 0.1s and 0.2s) with empty args
+        # Triggered 3 times (at 0.0s, 0.2s and 0.4s) with empty args
         push_to_hub_mock.assert_has_calls([call(), call(), call()])
 
         # Can get the last upload result
