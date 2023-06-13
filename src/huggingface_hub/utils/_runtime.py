@@ -42,6 +42,7 @@ _CANDIDATES = {
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
     "pydot": {"pydot"},
+    "tensorboard": {"tensorboardX"},
     "tensorflow": (
         "tensorflow",
         "tensorflow-cpu",
@@ -167,6 +168,15 @@ def get_pydot_version() -> str:
     return _get_version("pydot")
 
 
+# Tensorboard
+def is_tensorboard_available() -> bool:
+    return _is_available("tensorboard")
+
+
+def get_tensorboard_version() -> str:
+    return _get_version("tensorboard")
+
+
 # Tensorflow
 def is_tf_available() -> bool:
     return _is_available("tensorflow")
@@ -275,6 +285,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()
     info["gradio"] = get_gradio_version()
+    info["tensorboard"] = get_tensorboard_version()
     info["numpy"] = get_numpy_version()
 
     # Environment variables

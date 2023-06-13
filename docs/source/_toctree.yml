@@ -68,5 +68,7 @@
       title: Repo Cards and Repo Card Data
     - local: package_reference/space_runtime
       title: Space runtime
+    - local: package_reference/tensorboard
+      title: TensorBoard logger
     - local: package_reference/webhooks_server
       title: Webhooks server

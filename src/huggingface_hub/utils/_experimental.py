@@ -48,14 +48,16 @@ def experimental(fn: Callable) -> Callable:
     Hello world!
     ```
     """
+    # For classes, put the "experimental" around the "__new__" method => __new__ will be removed in warning message
+    name = fn.__qualname__[: -len(".__new__")] if fn.__qualname__.endswith(".__new__") else fn.__qualname__
 
     @wraps(fn)
     def _inner_fn(*args, **kwargs):
         if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
             warnings.warn(
                 (
-                    f"'{fn.__name__}' is experimental and might be subject to breaking changes in the future. You can"
-                    " disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment"
+                    f"'{name}' is experimental and might be subject to breaking changes in the future."
+                    " You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment"
                     " variable."
                 ),
                 UserWarning,

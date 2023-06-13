@@ -77,6 +77,9 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
     ],
+    "_tensorboard_logger": [
+        "HFSummaryWriter",
+    ],
     "_webhooks_payload": [
         "WebhookPayload",
         "WebhookPayloadComment",
@@ -371,6 +374,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
     )
+    from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
         WebhookPayload,  # noqa: F401
         WebhookPayloadComment,  # noqa: F401
