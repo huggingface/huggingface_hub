@@ -263,7 +263,7 @@ For more details about the [`CommitScheduler`], here is what you need to know:
 Persisting data from a Space to a Dataset on the Hub is the main use case for [`CommitScheduler`]. Depending on the use
 case, you might want to structure your data differently. The structure has to be robust to concurrent users and
 restarts which often implies generating uuids. Beside robustness, you would ideally like to upload data in a format that
-is readable by the `datasets` library for later reuse. We compiled in this [interactive demo Space](https://huggingface.co/spaces/Wauplin/demo_commit_scheduler)
+is readable by the `datasets` library for later reuse. We compiled in this [interactive demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
 implementations to tackle major use cases. Depending on your specific needs, you might need to adapt them
 
 ### Custom uploads
@@ -300,7 +300,7 @@ class ZipScheduler(CommitScheduler):
             png_file.unlink()
 ```
 
-You can find a complete code in [this Gradio app](https://huggingface.co/spaces/Wauplin/demo_commit_scheduler/blob/main/app_1M_image.py).
+You can find a complete code in [this Gradio app](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver/blob/main/app_1M_image.py).
 
 When you overwrite `push_to_hub`, you have access to the attributes of [`CommitScheduler`] and especially:
 - Folder parameters: `folder_path` and `path_in_repo`
