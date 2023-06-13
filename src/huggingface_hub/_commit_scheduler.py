@@ -162,7 +162,7 @@ class CommitScheduler:
             return None
 
         logger.info("(Background) scheduled commit triggered.")
-        return self._push_to_hub()
+        return self.push_to_hub()
 
     def push_to_hub(self) -> Optional[CommitInfo]:
         """
