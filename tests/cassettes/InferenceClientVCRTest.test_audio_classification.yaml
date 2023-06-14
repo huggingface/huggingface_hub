@@ -1673,7 +1673,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/superb/hubert-large-superb-er
+    uri: https://api-inference.huggingface.co/models/speechbrain/google_speech_command_xvector
   response:
     body:
       string: '[{"score":0.6658844351768494,"label":"neu"},{"score":0.1802878975868225,"label":"sad"},{"score":0.07892542332410812,"label":"hap"},{"score":0.0749022513628006,"label":"ang"}]'

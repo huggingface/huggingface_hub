@@ -40,6 +40,7 @@ import logging
 import time
 import warnings
 from contextlib import contextmanager
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
@@ -57,22 +58,6 @@ if TYPE_CHECKING:
     from PIL import Image
 
 logger = logging.getLogger(__name__)
-
-
-RECOMMENDED_MODELS = {
-    "audio-classification": "superb/hubert-large-superb-er",
-    "automatic-speech-recognition": "facebook/wav2vec2-large-960h-lv60-self",
-    "conversational": "microsoft/DialoGPT-large",
-    "feature-extraction": "facebook/bart-base",
-    "image-classification": "google/vit-base-patch16-224",
-    "image-segmentation": "facebook/detr-resnet-50-panoptic",
-    "image-to-image": "timbrooks/instruct-pix2pix",
-    "image-to-text": "nlpconnect/vit-gpt2-image-captioning",
-    "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
-    "summarization": "facebook/bart-large-cnn",
-    "text-to-image": "stabilityai/stable-diffusion-2-1",
-    "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
-}
 
 UrlT = str
 PathT = Union[str, Path]
@@ -813,16 +798,24 @@ class InferenceClient:
 
 
 def _get_recommended_model(task: str) -> str:
-    # TODO: load from a config file? (from the Hub?) Would make sense to make updates easier.
-    if task in RECOMMENDED_MODELS:
-        model = RECOMMENDED_MODELS[task]
-        logger.info(
-            f"Defaulting to recommended model {model} for task {task}. It is recommended to explicitly pass"
-            f" `model='{model}'` as argument as we do not guarantee that the recommended model will stay the same over"
-            " time."
+    model = _fetch_recommended_models().get(task)
+    if model is None:
+        raise ValueError(
+            f"Task {task} has no recommended task. Please specify a model explicitly. Visit"
+            " https://huggingface.co/tasks for more info."
         )
-        return model
-    raise NotImplementedError()
+    logger.info(
+        f"Using recommended model {model} for task {task}. Note that it is encouraged to explicitly set"
+        f" `model='{model}'` as the recommended models list might get updated without prior notice."
+    )
+    return model
+
+
+@cache
+def _fetch_recommended_models():
+    response = get_session().get("https://huggingface.co/api/tasks", headers=build_hf_headers())
+    hf_raise_for_status(response)
+    return {task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()}
 
 
 @overload
@@ -908,3 +901,10 @@ def _import_numpy():
     import numpy
 
     return numpy
+
+
+def _first_or_none(items: List[Any]) -> Optional[Any]:
+    try:
+        return items[0] or None
+    except IndexError:
+        return None
