@@ -40,7 +40,7 @@ import logging
 import time
 import warnings
 from contextlib import contextmanager
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
@@ -811,7 +811,7 @@ def _get_recommended_model(task: str) -> str:
     return model
 
 
-@cache
+@lru_cache
 def _fetch_recommended_models():
     response = get_session().get("https://huggingface.co/api/tasks", headers=build_hf_headers())
     hf_raise_for_status(response)
