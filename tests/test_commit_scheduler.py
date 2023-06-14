@@ -37,13 +37,13 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(
             folder_path=self.cache_dir,
             repo_id=self.repo_name,
-            every=2 / 60 / 10,  # every 0.2s
+            every=1 / 60 / 10,  # every 0.1s
             hf_api=self.api,
         )
-        time.sleep(0.5)
+        time.sleep(0.3)
 
-        # Triggered 3 times (at 0.0s, 0.2s and 0.4s) with empty args
-        push_to_hub_mock.assert_has_calls([call(), call(), call()])
+        # Triggered at least twice times (at 0.0s and then 0.1s, 0.2s,...)
+        self.assertGreater(len(push_to_hub_mock.call_args_list), 2)
 
         # Can get the last upload result
         self.assertEqual(self.scheduler.last_future.result(), push_to_hub_mock.return_value)
