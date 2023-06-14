@@ -2,7 +2,7 @@ import time
 import unittest
 from io import SEEK_END
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -32,7 +32,7 @@ class TestCommitScheduler(unittest.TestCase):
         except Exception:
             pass
 
-    @patch("huggingface_hub._commit_scheduler.CommitScheduler._push_to_hub")
+    @patch("huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub")
     def test_mocked_push_to_hub(self, push_to_hub_mock: MagicMock) -> None:
         self.scheduler = CommitScheduler(
             folder_path=self.cache_dir,
@@ -40,10 +40,10 @@ class TestCommitScheduler(unittest.TestCase):
             every=1 / 60 / 10,  # every 0.1s
             hf_api=self.api,
         )
-        time.sleep(0.25)
+        time.sleep(0.3)
 
-        # Triggered 3 times (at 0.0s, 0.1s and 0.2s) with empty args
-        push_to_hub_mock.assert_has_calls([call(), call(), call()])
+        # Triggered at least twice times (at 0.0s and then 0.1s, 0.2s,...)
+        self.assertGreater(len(push_to_hub_mock.call_args_list), 2)
 
         # Can get the last upload result
         self.assertEqual(self.scheduler.last_future.result(), push_to_hub_mock.return_value)

@@ -162,7 +162,26 @@ class CommitScheduler:
             return None
 
         logger.info("(Background) scheduled commit triggered.")
+        return self.push_to_hub()
 
+    def push_to_hub(self) -> Optional[CommitInfo]:
+        """
+        Push folder to the Hub and return the commit info.
+
+        <Tip warning={true}>
+
+        This method is not meant to be called directly. It is run in the background by the scheduler, respecting a
+        queue mechanism to avoid concurrent commits. Making a direct call to the method might lead to concurrency
+        issues.
+
+        </Tip>
+
+        The default behavior of `push_to_hub` is to assume an append-only folder. It lists all files in the folder and
+        uploads only changed files. If no changes are found, the method returns without committing anything. If you want
+        to change this behavior, you can inherit from [`CommitScheduler`] and override this method. This can be useful
+        for example to compress data together in a single file before committing. For more details and examples, check
+        out our [integration guide](https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#scheduled-uploads).
+        """
         # Check files to upload (with lock)
         with self.lock:
             logger.debug("Listing files to upload for scheduled commit.")
