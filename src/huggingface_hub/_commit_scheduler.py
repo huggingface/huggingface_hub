@@ -92,7 +92,7 @@ class CommitScheduler:
         ignore_patterns: Optional[Union[List[str], str]] = None,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
-        self.api = hf_api or HfApi()
+        self.api = hf_api or HfApi(token=token)
 
         # Folder
         self.folder_path = Path(folder_path).expanduser().resolve()
@@ -110,9 +110,7 @@ class CommitScheduler:
         self.folder_path.mkdir(parents=True, exist_ok=True)
 
         # Repository
-        repo_url = self.api.create_repo(
-            repo_id=repo_id, token=token, private=private, repo_type=repo_type, exist_ok=True
-        )
+        repo_url = self.api.create_repo(repo_id=repo_id, private=private, repo_type=repo_type, exist_ok=True)
         self.repo_id = repo_url.repo_id
         self.repo_type = repo_type
         self.revision = revision
