@@ -40,7 +40,6 @@ import logging
 import time
 import warnings
 from contextlib import contextmanager
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
@@ -63,6 +62,9 @@ UrlT = str
 PathT = Union[str, Path]
 BinaryT = Union[bytes, BinaryIO]
 ContentT = Union[BinaryT, PathT, UrlT]
+
+# Will be globally fetched only once (see '_fetch_recommended_models')
+_RECOMMENDED_MODELS: Optional[Dict[str, Optional[str]]] = None
 
 
 class InferenceTimeoutError(HTTPError, TimeoutError):
@@ -811,11 +813,15 @@ def _get_recommended_model(task: str) -> str:
     return model
 
 
-@lru_cache
-def _fetch_recommended_models():
-    response = get_session().get("https://huggingface.co/api/tasks", headers=build_hf_headers())
-    hf_raise_for_status(response)
-    return {task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()}
+def _fetch_recommended_models() -> Dict[str, Optional[str]]:
+    global _RECOMMENDED_MODELS
+    if _RECOMMENDED_MODELS is None:
+        response = get_session().get("https://huggingface.co/api/tasks", headers=build_hf_headers())
+        hf_raise_for_status(response)
+        _RECOMMENDED_MODELS = {
+            task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()
+        }
+    return _RECOMMENDED_MODELS
 
 
 @overload
