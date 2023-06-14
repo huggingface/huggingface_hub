@@ -2,7 +2,7 @@ import time
 import unittest
 from io import SEEK_END
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
