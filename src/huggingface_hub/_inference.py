@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
 from requests import HTTPError, Response
+from requests.structures import CaseInsensitiveDict
 
 from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from .constants import INFERENCE_ENDPOINT
@@ -96,17 +97,31 @@ class InferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
         token (`str`, *optional*):
-            Hugging Face token. Will default to the locally saved token.
+            Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
+            your token to the server.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
             API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
+        headers (`Dict[str, str]`, `optional`):
+            Additional headers to send to the server. By default only the authorization and user-agent headers are sent.
+            Values in this dictionary will override the default values.
+        cookies (`Dict[str, str]`, `optional`):
+            Additional cookies to send to the server.
     """
 
     def __init__(
-        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
+        self,
+        model: Optional[str] = None,
+        token: Union[str, bool, None] = None,
+        timeout: Optional[float] = None,
+        headers: Optional[Dict[str, str]] = None,
+        cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
-        self.headers = build_hf_headers(token=token)
+        self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
+        if headers is not None:
+            self.headers.update(headers)
+        self.cookies = cookies
         self.timeout = timeout
 
     def __repr__(self):
@@ -157,7 +172,12 @@ class InferenceClient:
             with _open_as_binary(data) as data_as_binary:
                 try:
                     response = get_session().post(
-                        url, json=json, data=data_as_binary, headers=self.headers, timeout=self.timeout
+                        url,
+                        json=json,
+                        data=data_as_binary,
+                        headers=self.headers,
+                        cookies=self.cookies,
+                        timeout=self.timeout,
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
@@ -214,7 +234,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> client.audio_classification("audio.wav")
+        >>> client.audio_classification("audio.flac")
         [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
         ```
         """
@@ -250,7 +270,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> client.automatic_speech_recognition("hello_world.wav")
+        >>> client.automatic_speech_recognition("hello_world.flac")
         "hello world"
         ```
         """
@@ -760,7 +780,7 @@ class InferenceClient:
         >>> client = InferenceClient()
 
         >>> audio = client.text_to_speech("Hello world")
-        >>> Path("hello_world.wav").write_bytes(audio)
+        >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-to-speech")

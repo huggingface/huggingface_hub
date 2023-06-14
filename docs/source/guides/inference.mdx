@@ -198,7 +198,7 @@ You can catch it and handle it in your code:
 Some tasks require binary inputs, for example, when dealing with images or audio files. In this case, [`InferenceClient`]
 tries to be as permissive as possible and accept different types:
 - raw `bytes`
-- a file-like object, opened as binary (`with open("audio.wav", "rb") as f: ...`)
+- a file-like object, opened as binary (`with open("audio.flac", "rb") as f: ...`)
 - a path (`str` or `Path`) pointing to a local file
 - a URL (`str`) pointing to a remote file (e.g. `https://...`). In this case, the file will be downloaded locally before
 sending it to the Inference API.
