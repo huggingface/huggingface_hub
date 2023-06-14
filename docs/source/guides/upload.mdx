@@ -269,7 +269,7 @@ that demonstrates how to save several different data formats (you may need to ad
 
 [`CommitScheduler`] assumes your data is append-only and should be uploading "as is". However, you
 might want to customize the way data is uploaded. You can do that by creating a class inheriting from [`CommitScheduler`]
-and overwrite the `push_to_hub` method. You can overwrite this method the way you want. You are guaranteed that it will
+and overwrite the `push_to_hub` method (feel free to overwrite it any way you want). You are guaranteed it will
 be called every `every` minutes in a background thread. You don't have to worry about concurrency and errors but you
 must be careful about other aspects, such as pushing empty commits or duplicated data.
 
