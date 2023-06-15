@@ -55,10 +55,6 @@ _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
     ],
-    "_inference": [
-        "InferenceClient",
-        "InferenceTimeoutError",
-    ],
     "_login": [
         "interpreter_login",
         "login",
@@ -205,6 +201,10 @@ _SUBMOD_ATTRS = {
     "hub_mixin": [
         "ModelHubMixin",
         "PyTorchModelHubMixin",
+    ],
+    "inference._client": [
+        "InferenceClient",
+        "InferenceTimeoutError",
     ],
     "inference_api": [
         "InferenceApi",
@@ -354,10 +354,6 @@ __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_S
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
-    from ._inference import (
-        InferenceClient,  # noqa: F401
-        InferenceTimeoutError,  # noqa: F401
-    )
     from ._login import (
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
@@ -500,6 +496,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
         PyTorchModelHubMixin,  # noqa: F401
+    )
+    from .inference._client import (
+        InferenceClient,  # noqa: F401
+        InferenceTimeoutError,  # noqa: F401
     )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
