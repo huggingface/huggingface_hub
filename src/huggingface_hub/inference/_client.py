@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2019-present, the HuggingFace Inc. team.
+# Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,10 +46,10 @@ from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator
 from requests import HTTPError, Response
 from requests.structures import CaseInsensitiveDict
 
-from ._inference_types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
-from .constants import INFERENCE_ENDPOINT
-from .utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
-from .utils._typing import Literal
+from ..constants import INFERENCE_ENDPOINT
+from ..utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
+from ..utils._typing import Literal
+from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 
 
 if TYPE_CHECKING:

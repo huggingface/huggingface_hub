@@ -21,7 +21,7 @@ import pytest
 from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
-from huggingface_hub._inference import _open_as_binary
+from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -289,7 +289,7 @@ class TestHeadersAndCookies(unittest.TestCase):
         # Case-insensitive overwrite
         self.assertEqual(InferenceClient(headers={"USER-agent": "bar"}).headers["user-agent"], "bar")
 
-    @patch("huggingface_hub._inference.get_session")
+    @patch("huggingface_hub.inference._client.get_session")
     def test_mocked_post(self, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
         client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
