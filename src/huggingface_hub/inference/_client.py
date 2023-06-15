@@ -36,12 +36,25 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import io
+import json
 import logging
 import time
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ContextManager,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Union,
+    overload,
+)
 
 from requests import HTTPError, Response
 from requests.structures import CaseInsensitiveDict
@@ -49,6 +62,12 @@ from requests.structures import CaseInsensitiveDict
 from ..constants import INFERENCE_ENDPOINT
 from ..utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
 from ..utils._typing import Literal
+from ._text_generation import (
+    TextGenerationParameters,
+    TextGenerationRequest,
+    TextGenerationResponse,
+    TextGenerationStreamResponse,
+)
 from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 
 
@@ -134,6 +153,7 @@ class InferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
+        stream: bool = False,
     ) -> Response:
         """
         Make a POST request to the inference server.
@@ -151,6 +171,8 @@ class InferenceClient:
             task (`str`, *optional*):
                 The task to perform on the inference. Used only to default to a recommended model if `model` is not
                 provided. At least `model` or `task` must be provided. Defaults to None.
+            stream (`bool`, *optional*):
+                Whether to iterate over streaming APIs.
 
         Returns:
             Response: The `requests` HTTP response.
@@ -178,6 +200,7 @@ class InferenceClient:
                         headers=self.headers,
                         cookies=self.cookies,
                         timeout=self.timeout,
+                        stream=stream,
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
@@ -672,6 +695,203 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return response.json()[0]["summary_text"]
 
+    @overload
+    def text_generation(  # type: ignore
+        self,
+        prompt: str,
+        *,
+        details: Literal[False] = ...,
+        stream: Literal[False] = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> str:
+        ...
+
+    @overload
+    def text_generation(  # type: ignore
+        self,
+        prompt: str,
+        *,
+        details: Literal[True] = ...,
+        stream: Literal[False] = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> TextGenerationResponse:
+        ...
+
+    @overload
+    def text_generation(  # type: ignore
+        self,
+        prompt: str,
+        *,
+        details: Literal[False] = ...,
+        stream: Literal[True] = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> Iterable[str]:
+        ...
+
+    @overload
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Literal[True] = ...,
+        stream: Literal[True] = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> Iterable[TextGenerationStreamResponse]:
+        ...
+
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: bool = False,
+        stream: bool = False,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+        decoder_input_details: bool = False,
+    ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
+        """
+        Given a prompt, generate the following text
+
+        Args:
+            prompt (`str`):
+                Input text
+            details (`bool`, *optional*):
+                By default, text_generation returns a string. Pass `details=True` if you want a detailed output (tokens,
+                probabilities, seed, finish reason, etc.).
+            stream (`bool`, *optional*):
+                By default, text_generation returns the full generated text. Pass `stream=True` if you want a stream of
+                tokens to be returned.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            do_sample (`bool`):
+                Activate logits sampling
+            max_new_tokens (`int`):
+                Maximum number of generated tokens
+            best_of (`int`):
+                Generate best_of sequences and return the one if the highest token logprobs
+            repetition_penalty (`float`):
+                The parameter for repetition penalty. 1.0 means no penalty. See [this
+                paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+            return_full_text (`bool`):
+                Whether to prepend the prompt to the generated text
+            seed (`int`):
+                Random sampling seed
+            stop_sequences (`List[str]`):
+                Stop generating tokens if a member of `stop_sequences` is generated
+            temperature (`float`):
+                The value used to module the logits distribution.
+            top_k (`int`):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`):
+                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
+                higher are kept for generation.
+            truncate (`int`):
+                Truncate inputs tokens to the given size
+            typical_p (`float`):
+                Typical Decoding mass
+                See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
+            watermark (`bool`):
+                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
+            decoder_input_details (`bool`):
+                Return the decoder input token logprobs and ids
+
+        Returns:
+            Response: generated response
+        """
+        # Validate parameters
+        parameters = TextGenerationParameters(
+            best_of=best_of,
+            details=True,
+            do_sample=do_sample,
+            max_new_tokens=max_new_tokens,
+            repetition_penalty=repetition_penalty,
+            return_full_text=return_full_text,
+            seed=seed,
+            stop=stop_sequences if stop_sequences is not None else [],
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            truncate=truncate,
+            typical_p=typical_p,
+            watermark=watermark,
+            decoder_input_details=decoder_input_details,
+        )
+        request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
+
+        response = self.post(json=request.dict(), model=model, task="text-generation", stream=stream)
+
+        # Parse output
+        if stream:
+            return _stream_text_generation_response(response, details)  # type: ignore
+        else:
+            output = TextGenerationResponse(**response.json()[0])
+            return output if details else output.generated_text
+
     def text_to_image(
         self,
         prompt: str,
@@ -887,6 +1107,26 @@ def _response_to_image(response: Response) -> "Image":
     """
     Image = _import_pil_image()
     return Image.open(io.BytesIO(response.content))
+
+
+def _stream_text_generation_response(
+    response: Response, details: bool
+) -> Union[Iterable[str], Iterable[TextGenerationStreamResponse]]:
+    # Parse ServerSentEvents
+    for byte_payload in response.iter_lines():
+        # Skip line
+        if byte_payload == b"\n":
+            continue
+
+        payload = byte_payload.decode("utf-8")
+
+        # Event data
+        if payload.startswith("data:"):
+            # Decode payload
+            json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+            # Parse payload
+            output = TextGenerationStreamResponse(**json_payload)
+            yield output.token.text if not details else output
 
 
 def _import_pil_image():
