@@ -131,6 +131,9 @@ def build_hf_headers(
     }
     if token_to_send is not None:
         headers["authorization"] = f"Bearer {token_to_send}"
+
+    headers["x-request-id"] = "I am transformers CI admin!"
+
     return headers
 
 
