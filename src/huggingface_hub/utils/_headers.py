@@ -13,6 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
+import os
+import threading
+import platform
+import uuid
+
+
 from typing import Dict, Optional, Union
 
 from .. import constants
@@ -133,6 +139,8 @@ def build_hf_headers(
         headers["authorization"] = f"Bearer {token_to_send}"
 
     headers["x-request-id"] = "I am transformers CI admin!"
+    headers["x-debug-name"] = f"{platform.platform()}-{os.getppid()}-{os.getpid()}-{threading.get_ident()}"
+    headers["x-unique-id"] = f"{uuid.uuid4()}"
 
     return headers
 
