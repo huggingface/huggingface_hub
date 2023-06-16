@@ -22,6 +22,7 @@
 # - added default values for all parameters (not needed in BaseModel but dataclasses yes)
 # - integrated in `huggingface_hub.InferenceClient``
 # - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
+# - NO asyncio support yet => TODO soon
 
 from dataclasses import field
 from enum import Enum
