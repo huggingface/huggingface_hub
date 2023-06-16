@@ -67,7 +67,7 @@ extras["typing"] = [
     "types-toml",
     "types-tqdm",
     "types-urllib3",
-    "pydantic",  # for text-generation classes
+    "pydantic",  # for text-generation dataclasses
 ]
 
 extras["quality"] = [
