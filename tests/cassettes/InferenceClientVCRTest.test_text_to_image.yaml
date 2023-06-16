@@ -16,7 +16,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1
+    uri: https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4
   response:
     body:
       string: !!binary |
