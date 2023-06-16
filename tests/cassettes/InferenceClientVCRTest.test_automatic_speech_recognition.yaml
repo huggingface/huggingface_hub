@@ -1673,7 +1673,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/facebook/wav2vec2-large-960h-lv60-self
+    uri: https://api-inference.huggingface.co/models/facebook/wav2vec2-base-960h
   response:
     body:
       string: '{"text":"A MAN SAID TO THE UNIVERSE SIR I EXIST"}'

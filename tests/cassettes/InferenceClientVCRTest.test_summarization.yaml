@@ -25,7 +25,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/facebook/bart-large-cnn
+    uri: https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6
   response:
     body:
       string: '[{"summary_text":"The tower is 324 metres (1,063 ft) tall, about the

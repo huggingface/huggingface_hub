@@ -16,7 +16,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-large
+    uri: https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill
   response:
     body:
       string: '{"generated_text":"I am the one who knocks.","conversation":{"generated_responses":["I
@@ -64,7 +64,7 @@ interactions:
       - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
-    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-large
+    uri: https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill
   response:
     body:
       string: '{"generated_text":"I am the one who knocks.","conversation":{"generated_responses":["I

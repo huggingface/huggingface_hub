@@ -27,6 +27,23 @@ from huggingface_hub.utils import build_hf_headers
 from .testing_utils import with_production_testing
 
 
+# Avoid call to hf.co/api/models in VCRed tests
+_RECOMMENDED_MODELS_FOR_VCR = {
+    "audio-classification": "speechbrain/google_speech_command_xvector",
+    "audio-to-audio": "speechbrain/sepformer-wham",
+    "automatic-speech-recognition": "facebook/wav2vec2-base-960h",
+    "conversational": "facebook/blenderbot-400M-distill",
+    "feature-extraction": "facebook/bart-base",
+    "image-classification": "google/vit-base-patch16-224",
+    "image-segmentation": "facebook/detr-resnet-50-panoptic",
+    "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
+    "summarization": "sshleifer/distilbart-cnn-12-6",
+    "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
+    "text-to-image": "CompVis/stable-diffusion-v1-4",
+    "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
+}
+
+
 class InferenceClientTest(unittest.TestCase):
     @classmethod
     @with_production_testing
@@ -38,6 +55,7 @@ class InferenceClientTest(unittest.TestCase):
 
 @pytest.mark.vcr
 @with_production_testing
+@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
 class InferenceClientVCRTest(InferenceClientTest):
     """
     Test for the main tasks implemented in InferenceClient. Since Inference API can be flaky, we use VCR.py and
@@ -247,11 +265,11 @@ class TestResolveURL(InferenceClientTest):
         # Get recommended model
         self.assertEqual(
             InferenceClient()._resolve_url(task="text-to-image"),
-            "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1",
+            "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4",
         )
 
     def test_unsupported_task(self) -> None:
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(ValueError):
             InferenceClient()._resolve_url(task="unknown-task")
 
 
