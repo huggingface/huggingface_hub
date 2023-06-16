@@ -142,7 +142,7 @@ def build_hf_headers(
     headers["x-request-id"] = "I am transformers CI admin!"
     headers["x-debug-name"] = f"{platform.platform()}-{os.getppid()}-{os.getpid()}-{threading.get_ident()}"
     headers["x-unique-id"] = f"{uuid.uuid4()}"
-    headers["x-debug-datetime"] = datetime.datetime.now()
+    headers["x-debug-datetime"] = str(datetime.datetime.now())
 
     return headers
 
