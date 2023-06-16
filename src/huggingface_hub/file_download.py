@@ -362,7 +362,7 @@ def _request_wrapper(
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
-    timeout: float = 10.0,
+    timeout: Optional[float] = None,
     follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
@@ -388,9 +388,9 @@ def _request_wrapper(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `2`):
             Maximum amount of time between two retries, in seconds.
-        timeout (`float`, *optional*, defaults to `10`):
+        timeout (`float`, *optional*):
             How many seconds to wait for the server to send data before
-            giving up which is passed to `requests.request`.
+            giving up which is passed to `requests.request`. Defaults to no timeouts.
         follow_relative_redirects (`bool`, *optional*, defaults to `False`)
             If True, relative redirection (redirection to the same site) will be
             resolved even when `allow_redirection` kwarg is set to False. Useful when we
@@ -465,10 +465,10 @@ def http_get(
     temp_file: BinaryIO,
     *,
     proxies=None,
-    resume_size=0,
+    resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout=10.0,
-    max_retries=0,
+    timeout: Optional[float] = None,
+    max_retries: int = 0,
     expected_size: Optional[int] = None,
 ):
     """
@@ -1502,7 +1502,7 @@ def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: float = 10,
+    timeout: Optional[float] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
