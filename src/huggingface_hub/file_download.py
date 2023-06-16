@@ -403,7 +403,7 @@ def _request_wrapper(
     headers = params["headers"].copy()
     if "authorization" in headers:
         headers["authorization"] = "HIDDEN"
-    logger.info(f"Our lovely header to Hub: {headers}")
+    logger.warning(f"Our lovely header to Hub: {headers}")
 
     # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
