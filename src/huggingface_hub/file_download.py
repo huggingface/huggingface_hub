@@ -444,18 +444,25 @@ def _request_wrapper(
                 )
         return response
 
+    timeout = 100.0
     # 3. Exponential backoff
-    return http_backoff(
-        method=method,
-        url=url,
-        max_retries=max_retries,
-        base_wait_time=base_wait_time,
-        max_wait_time=max_wait_time,
-        retry_on_exceptions=(ConnectTimeout, ProxyError),
-        retry_on_status_codes=(),
-        timeout=timeout,
-        **params,
-    )
+    try:
+        o = http_backoff(
+            method=method,
+            url=url,
+            max_retries=max_retries,
+            base_wait_time=base_wait_time,
+            max_wait_time=max_wait_time,
+            retry_on_exceptions=(ConnectTimeout, ProxyError),
+            retry_on_status_codes=(),
+            timeout=timeout,
+            **params,
+        )
+    except Exception as e:
+        logger.warning(f"Our sad header to Hub failed: {headers}!")
+        raise e
+
+    return o
 
 
 def _request_with_retry(*args, **kwargs) -> requests.Response:
@@ -673,6 +680,7 @@ def cached_download(
         library_version=library_version,
         user_agent=user_agent,
     )
+    headers["x-debug-url"] = url
 
     url_to_download = url
     etag = None
