@@ -13,14 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Taken from https://github.com/huggingface/text-generation-inference/tree/main/clients/python
+# Original implementation taken from the `text-generation` Python client (see https://pypi.org/project/text-generation/
+# and https://github.com/huggingface/text-generation-inference/tree/main/clients/python)
+#
+# Changes compared to original implementation:
+# - use pydantic.dataclasses instead of BaseModel
+# - default to Python's dataclasses if Pydantic is not installed (same implementation but no validation)
+# - added default values for all parameters (not needed in BaseModel but dataclasses yes)
+# - integrated in `huggingface_hub.InferenceClient``
+# - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
+
+from dataclasses import field
 from enum import Enum
-from typing import List, Optional
+from typing import List, NoReturn, Optional
 
-from pydantic import BaseModel, validator
+from requests import HTTPError
+
+from ..utils import is_pydantic_available
 
 
-class TextGenerationParameters(BaseModel):
+if is_pydantic_available():
+    from pydantic import validator
+    from pydantic.dataclasses import dataclass
+else:
+    # No validation if Pydantic is not installed
+    from dataclasses import dataclass  # type: ignore
+
+    def validator(x):  # type: ignore
+        return lambda y: y
+
+
+@dataclass
+class TextGenerationParameters:
     # Activate logits sampling
     do_sample: bool = False
     # Maximum number of generated tokens
@@ -31,23 +55,23 @@ class TextGenerationParameters(BaseModel):
     # Whether to prepend the prompt to the generated text
     return_full_text: bool = False
     # Stop generating tokens if a member of `stop_sequences` is generated
-    stop: List[str] = []
+    stop: List[str] = field(default_factory=lambda: [])
     # Random sampling seed
-    seed: Optional[int]
+    seed: Optional[int] = None
     # The value used to module the logits distribution.
-    temperature: Optional[float]
+    temperature: Optional[float] = None
     # The number of highest probability vocabulary tokens to keep for top-k-filtering.
-    top_k: Optional[int]
+    top_k: Optional[int] = None
     # If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
     # higher are kept for generation.
-    top_p: Optional[float]
+    top_p: Optional[float] = None
     # truncate inputs tokens to the given size
-    truncate: Optional[int]
+    truncate: Optional[int] = None
     # Typical Decoding mass
     # See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-    typical_p: Optional[float]
+    typical_p: Optional[float] = None
     # Generate best_of sequences and return the one if the highest token logprobs
-    best_of: Optional[int]
+    best_of: Optional[int] = None
     # Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
     watermark: bool = False
     # Get generation details
@@ -117,11 +141,12 @@ class TextGenerationParameters(BaseModel):
         return v
 
 
-class TextGenerationRequest(BaseModel):
+@dataclass
+class TextGenerationRequest:
     # Prompt
     inputs: str
     # Generation parameters
-    parameters: Optional[TextGenerationParameters]
+    parameters: Optional[TextGenerationParameters] = None
     # Whether to stream output tokens
     stream: bool = False
 
@@ -140,18 +165,20 @@ class TextGenerationRequest(BaseModel):
 
 
 # Decoder input tokens
-class InputToken(BaseModel):
+@dataclass
+class InputToken:
     # Token ID from the model tokenizer
     id: int
     # Token text
     text: str
     # Logprob
     # Optional since the logprob of the first token cannot be computed
-    logprob: Optional[float]
+    logprob: Optional[float] = None
 
 
 # Generated tokens
-class Token(BaseModel):
+@dataclass
+class Token:
     # Token ID from the model tokenizer
     id: int
     # Token text
@@ -174,7 +201,8 @@ class FinishReason(str, Enum):
 
 
 # Additional sequences when using the `best_of` parameter
-class BestOfSequence(BaseModel):
+@dataclass
+class BestOfSequence:
     # Generated text
     generated_text: str
     # Generation finish reason
@@ -182,31 +210,33 @@ class BestOfSequence(BaseModel):
     # Number of generated tokens
     generated_tokens: int
     # Sampling seed if sampling was activated
-    seed: Optional[int]
+    seed: Optional[int] = None
     # Decoder input tokens, empty if decoder_input_details is False
-    prefill: List[InputToken]
+    prefill: List[InputToken] = field(default_factory=lambda: [])
     # Generated tokens
-    tokens: List[Token]
+    tokens: List[Token] = field(default_factory=lambda: [])
 
 
 # `generate` details
-class Details(BaseModel):
+@dataclass
+class Details:
     # Generation finish reason
     finish_reason: FinishReason
     # Number of generated tokens
     generated_tokens: int
     # Sampling seed if sampling was activated
-    seed: Optional[int]
+    seed: Optional[int] = None
     # Decoder input tokens, empty if decoder_input_details is False
-    prefill: List[InputToken]
+    prefill: List[InputToken] = field(default_factory=lambda: [])
     # Generated tokens
-    tokens: List[Token]
+    tokens: List[Token] = field(default_factory=lambda: [])
     # Additional sequences when using the `best_of` parameter
-    best_of_sequences: Optional[List[BestOfSequence]]
+    best_of_sequences: Optional[List[BestOfSequence]] = None
 
 
 # `generate` return value
-class TextGenerationResponse(BaseModel):
+@dataclass
+class TextGenerationResponse:
     # Generated text
     generated_text: str
     # Generation details
@@ -214,22 +244,83 @@ class TextGenerationResponse(BaseModel):
 
 
 # `generate_stream` details
-class StreamDetails(BaseModel):
+@dataclass
+class StreamDetails:
     # Generation finish reason
     finish_reason: FinishReason
     # Number of generated tokens
     generated_tokens: int
     # Sampling seed if sampling was activated
-    seed: Optional[int]
+    seed: Optional[int] = None
 
 
 # `generate_stream` return value
-class TextGenerationStreamResponse(BaseModel):
+@dataclass
+class TextGenerationStreamResponse:
     # Generated token
     token: Token
     # Complete generated text
     # Only available when the generation is finished
-    generated_text: Optional[str]
+    generated_text: Optional[str] = None
     # Generation details
     # Only available when the generation is finished
-    details: Optional[StreamDetails]
+    details: Optional[StreamDetails] = None
+
+
+# TEXT GENERATION ERRORS
+# ----------------------
+# Text-generation errors are parsed separately to handle as much as possible the errors returned by the text generation
+# inference project (https://github.com/huggingface/text-generation-inference).
+# ----------------------
+
+
+class TextGenerationError(HTTPError):
+    """Generic error raised if text-generation went wrong."""
+
+
+# Text Generation Inference Errors
+class ValidationError(TextGenerationError):
+    pass
+
+
+class GenerationError(TextGenerationError):
+    pass
+
+
+class OverloadedError(TextGenerationError):
+    pass
+
+
+class IncompleteGenerationError(TextGenerationError):
+    pass
+
+
+def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
+    """
+    Try to parse text-generation-inference error message and raise HTTPError in any case.
+
+    Args:
+        error (`HTTPError`):
+            The HTTPError that have been raised.
+    """
+    # Try to parse a Text Generation Inference error
+    try:
+        payload = http_error.response.json()
+        message = payload.get("error")
+        error_type = payload.get("error_type")
+    except Exception:  # no payload
+        raise http_error
+
+    # If error_type => more information than `hf_raise_for_status`
+    if error_type is not None:
+        if error_type == "generation":
+            raise GenerationError(message) from http_error
+        if error_type == "incomplete_generation":
+            raise IncompleteGenerationError(message) from http_error
+        if error_type == "overloaded":
+            raise OverloadedError(message) from http_error
+        if error_type == "validation":
+            raise ValidationError(message) from http_error
+
+    # Otherwise, fallback to default error
+    raise http_error

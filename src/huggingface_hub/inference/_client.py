@@ -41,6 +41,7 @@ import logging
 import time
 import warnings
 from contextlib import contextmanager
+from dataclasses import asdict
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -67,6 +68,7 @@ from ._text_generation import (
     TextGenerationRequest,
     TextGenerationResponse,
     TextGenerationStreamResponse,
+    raise_text_generation_error,
 )
 from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 
@@ -801,11 +803,14 @@ class InferenceClient:
         decoder_input_details: bool = False,
     ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
         """
-        Given a prompt, generate the following text
+        Given a prompt, generate the following text.
+
+        It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
+        early failures.
 
         Args:
             prompt (`str`):
-                Input text
+                Input text.
             details (`bool`, *optional*):
                 By default, text_generation returns a string. Pass `details=True` if you want a detailed output (tokens,
                 probabilities, seed, finish reason, etc.).
@@ -850,6 +855,9 @@ class InferenceClient:
         Returns:
             Response: generated response
         """
+        # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
+        # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
+
         # Validate parameters
         parameters = TextGenerationParameters(
             best_of=best_of,
@@ -870,7 +878,11 @@ class InferenceClient:
         )
         request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
 
-        response = self.post(json=request.dict(), model=model, task="text-generation", stream=stream)
+        # Handle errors separately for more precise error messages
+        try:
+            response = self.post(json=asdict(request), model=model, task="text-generation", stream=stream)
+        except HTTPError as e:
+            raise_text_generation_error(e)
 
         # Parse output
         if stream:
