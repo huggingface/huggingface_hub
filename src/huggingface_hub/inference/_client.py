@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator
 from requests import HTTPError, Response
 from requests.structures import CaseInsensitiveDict
 
-from ..constants import INFERENCE_ENDPOINT
+from ..constants import ENDPOINT, INFERENCE_ENDPOINT
 from ..utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
 from ..utils._typing import Literal
 from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
@@ -816,7 +816,7 @@ def _get_recommended_model(task: str) -> str:
 def _fetch_recommended_models() -> Dict[str, Optional[str]]:
     global _RECOMMENDED_MODELS
     if _RECOMMENDED_MODELS is None:
-        response = get_session().get("https://huggingface.co/api/tasks", headers=build_hf_headers())
+        response = get_session().get(f"{ENDPOINT}/api/tasks", headers=build_hf_headers())
         hf_raise_for_status(response)
         _RECOMMENDED_MODELS = {
             task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()
