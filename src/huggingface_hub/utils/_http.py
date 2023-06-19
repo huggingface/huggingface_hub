@@ -48,7 +48,7 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         )
 
 
-def _backend_factory() -> requests.Session:
+def _default_backend_factory() -> requests.Session:
     session = requests.Session()
     session.mount("http://", UniqueRequestIdAdapter())
     session.mount("https://", UniqueRequestIdAdapter())
@@ -56,10 +56,10 @@ def _backend_factory() -> requests.Session:
 
 
 BACKEND_FACTORY_T = Callable[[], requests.Session]
-_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = _backend_factory
+_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = _default_backend_factory
 
 
-def configure_http_backend(backend_factory: BACKEND_FACTORY_T = requests.Session) -> None:
+def configure_http_backend(backend_factory: BACKEND_FACTORY_T = _default_backend_factory) -> None:
     """
     Configure the HTTP backend by providing a `backend_factory`. Any HTTP calls made by `huggingface_hub` will use a
     Session object instantiated by this factory. This can be useful if you are running your scripts in a specific
