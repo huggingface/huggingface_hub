@@ -851,7 +851,7 @@ class InferenceClient:
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
             decoder_input_details (`bool`):
                 Return the decoder input token logprobs and ids. You must set `details=True` as well for it to be taken
-                into account.
+                into account. Defaults to `False`.
 
         Returns:
             Response: generated response.
@@ -895,9 +895,10 @@ class InferenceClient:
         # Parse output
         if stream:
             return _stream_text_generation_response(response, details)  # type: ignore
+        elif details:
+            return TextGenerationResponse(**response.json()[0])
         else:
-            output = TextGenerationResponse(**response.json()[0])
-            return output if details else output.generated_text
+            return response.json()[0]["generated_text"]
 
     def text_to_image(
         self,

@@ -241,7 +241,7 @@ class TextGenerationResponse:
     # Generated text
     generated_text: str
     # Generation details
-    details: Details
+    details: Optional[Details] = None
 
 
 # `generate_stream` details
@@ -281,7 +281,7 @@ class TextGenerationError(HTTPError):
 
 # Text Generation Inference Errors
 class ValidationError(TextGenerationError):
-    pass
+    """Server-side validation error."""
 
 
 class GenerationError(TextGenerationError):
