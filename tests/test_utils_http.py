@@ -3,6 +3,7 @@ import time
 import unittest
 from typing import Generator
 from unittest.mock import Mock, call, patch
+from uuid import UUID
 
 import requests
 from requests import ConnectTimeout, HTTPError
@@ -219,9 +220,10 @@ class TestUniqueRequestId(unittest.TestCase):
     def test_request_id_is_used_by_server(self):
         response = get_session().get(self.api_endpoint)
 
-        request_id = response.request.headers["x-request-id"]
-        response_id = response.headers["x-request-id"]
+        request_id = response.request.headers.get("x-request-id")
+        response_id = response.headers.get("x-request-id")
         self.assertEqual(request_id, response_id)
+        self.assertTrue(_is_uuid(response_id))
 
     def test_request_id_is_unique(self):
         response_1 = get_session().get(self.api_endpoint)
@@ -231,6 +233,9 @@ class TestUniqueRequestId(unittest.TestCase):
         response_id_2 = response_2.headers["x-request-id"]
         self.assertNotEqual(response_id_1, response_id_2)
 
+        self.assertTrue(_is_uuid(response_id_1))
+        self.assertTrue(_is_uuid(response_id_2))
+
     def test_request_id_not_overwritten(self):
         response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
 
@@ -239,3 +244,12 @@ class TestUniqueRequestId(unittest.TestCase):
 
         response_id = response.headers["x-request-id"]
         self.assertEqual(response_id, "custom-id")
+
+
+def _is_uuid(string: str) -> bool:
+    # Taken from https://stackoverflow.com/a/33245493
+    try:
+        uuid_obj = UUID(string)
+    except ValueError:
+        return False
+    return str(uuid_obj) == string
