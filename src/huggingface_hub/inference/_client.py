@@ -850,18 +850,26 @@ class InferenceClient:
             watermark (`bool`):
                 Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
             decoder_input_details (`bool`):
-                Return the decoder input token logprobs and ids
+                Return the decoder input token logprobs and ids. You must set `details=True` as well for it to be taken
+                into account.
 
         Returns:
-            Response: generated response
+            Response: generated response.
         """
         # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
         # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
 
+        if decoder_input_details and not details:
+            warnings.warn(
+                "`decoder_input_details=True` has been passed to the server but `details=False` is set meaning that"
+                " the output from the server will be truncated."
+            )
+            decoder_input_details = False
+
         # Validate parameters
         parameters = TextGenerationParameters(
             best_of=best_of,
-            details=True,
+            details=details,
             do_sample=do_sample,
             max_new_tokens=max_new_tokens,
             repetition_penalty=repetition_penalty,
