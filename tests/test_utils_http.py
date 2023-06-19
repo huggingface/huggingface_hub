@@ -7,6 +7,7 @@ from unittest.mock import Mock, call, patch
 import requests
 from requests import ConnectTimeout, HTTPError
 
+from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils._http import configure_http_backend, get_session, http_backoff
 
 
@@ -210,3 +211,31 @@ class TestConfigureSession(unittest.TestCase):
             for j in range(N):
                 if i != j:
                     self.assertIsNot(sessions[i], sessions[j])
+
+
+class TestUniqueRequestId(unittest.TestCase):
+    api_endpoint = ENDPOINT + "/api/tasks"  # any endpoint is fine
+
+    def test_request_id_is_used_by_server(self):
+        response = get_session().get(self.api_endpoint)
+
+        request_id = response.request.headers["x-request-id"]
+        response_id = response.headers["x-request-id"]
+        self.assertEqual(request_id, response_id)
+
+    def test_request_id_is_unique(self):
+        response_1 = get_session().get(self.api_endpoint)
+        response_2 = get_session().get(self.api_endpoint)
+
+        response_id_1 = response_1.headers["x-request-id"]
+        response_id_2 = response_2.headers["x-request-id"]
+        self.assertNotEqual(response_id_1, response_id_2)
+
+    def test_request_id_not_overwritten(self):
+        response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
+
+        request_id = response.request.headers["x-request-id"]
+        self.assertEqual(request_id, "custom-id")
+
+        response_id = response.headers["x-request-id"]
+        self.assertEqual(response_id, "custom-id")
