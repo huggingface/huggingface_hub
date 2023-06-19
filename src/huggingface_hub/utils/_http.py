@@ -16,12 +16,14 @@
 import io
 import threading
 import time
+import uuid
 from functools import lru_cache
 from http import HTTPStatus
 from typing import Callable, Tuple, Type, Union
 
 import requests
 from requests import Response
+from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectTimeout, ProxyError
 
 from . import logging
@@ -30,8 +32,31 @@ from ._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
+
+class UniqueRequestIdAdapter(HTTPAdapter):
+    def add_headers(self, request, **kwargs):
+        super().add_headers(request, **kwargs)
+
+        # Add random request ID => easier for server-side debug
+        if "x-request-id" not in request.headers:
+            request.headers["x-request-id"] = str(uuid.uuid4())
+
+        # Add debug log
+        has_token = str(request.headers.get("authorization", "")).startswith("Bearer hf_")
+        logger.debug(
+            f"Request {request.headers['x-request-id']}: {request.method} {request.url} (authenticated: {has_token})"
+        )
+
+
+def _backend_factory() -> requests.Session:
+    session = requests.Session()
+    session.mount("http://", UniqueRequestIdAdapter())
+    session.mount("https://", UniqueRequestIdAdapter())
+    return session
+
+
 BACKEND_FACTORY_T = Callable[[], requests.Session]
-_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = requests.Session
+_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = _backend_factory
 
 
 def configure_http_backend(backend_factory: BACKEND_FACTORY_T = requests.Session) -> None:
