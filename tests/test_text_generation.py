@@ -3,22 +3,26 @@
 #
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
 import unittest
+from typing import Dict
 from unittest.mock import MagicMock
+
+import pytest
 from pydantic import ValidationError
 from requests import HTTPError
-from typing import Dict
-import pytest
+
 from huggingface_hub import InferenceClient
 from huggingface_hub.inference._text_generation import (
     FinishReason,
-    InputToken,
     GenerationError,
     IncompleteGenerationError,
+    InputToken,
     OverloadedError,
     TextGenerationParameters,
-    ValidationError as TextGenerationValidationError,
     TextGenerationRequest,
     raise_text_generation_error,
+)
+from huggingface_hub.inference._text_generation import (
+    ValidationError as TextGenerationValidationError,
 )
 
 
