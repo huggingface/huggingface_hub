@@ -55,13 +55,21 @@ from typing import (
     Optional,
     Union,
     overload,
+    Set,
 )
 
 from requests import HTTPError, Response
 from requests.structures import CaseInsensitiveDict
 
 from ..constants import ENDPOINT, INFERENCE_ENDPOINT
-from ..utils import build_hf_headers, get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
+from ..utils import (
+    build_hf_headers,
+    get_session,
+    hf_raise_for_status,
+    is_numpy_available,
+    is_pillow_available,
+    BadRequestError,
+)
 from ..utils._typing import Literal
 from ._text_generation import (
     TextGenerationParameters,
@@ -808,15 +816,26 @@ class InferenceClient:
         It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
         early failures.
 
+        API endpoint is supposed to run with the `text-generation-inference` framework (TGI). This framework is the
+        go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
+        default `transformers` + `api-inference` solution is still in use. Both approaches have very similar APIs, but
+        not exactly the same. This method is compatible with both approaches but some parameters are only available for
+        `text-generation-inference`. If some parameters are ignored, a warning message is triggered but the process
+        continues correctly.
+
+        To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
+
         Args:
             prompt (`str`):
                 Input text.
             details (`bool`, *optional*):
                 By default, text_generation returns a string. Pass `details=True` if you want a detailed output (tokens,
-                probabilities, seed, finish reason, etc.).
+                probabilities, seed, finish reason, etc.). Only available for models running on with the
+                `text-generation-inference` framework.
             stream (`bool`, *optional*):
                 By default, text_generation returns the full generated text. Pass `stream=True` if you want a stream of
-                tokens to be returned.
+                tokens to be returned. Only available for models running on with the `text-generation-inference`
+                framework.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -885,11 +904,64 @@ class InferenceClient:
             decoder_input_details=decoder_input_details,
         )
         request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
+        payload = asdict(request)
+
+        # Remove some parameters if not a TGI server
+        if not _is_tgi_server(model):
+            ignored_parameters = []
+            for key in "watermark", "stop", "details", "decoder_input_details":
+                if payload["parameters"][key] is not None:
+                    ignored_parameters.append(key)
+                del payload["parameters"][key]
+            if len(ignored_parameters) > 0:
+                warnings.warn(
+                    (
+                        "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
+                        f" {ignored_parameters}."
+                    ),
+                    UserWarning,
+                )
+            if details:
+                warnings.warn(
+                    (
+                        f"API endpoint/model for text-generation is not served via TGI. Parameter `details=True` will"
+                        f" be ignored meaning only the generated text will be returned."
+                    ),
+                    UserWarning,
+                )
+                details = False
+            if stream:
+                raise ValueError(
+                    f"API endpoint/model for text-generation is not served via TGI. Cannot return output as a stream."
+                    f" Please pass `stream=False` as input."
+                )
 
         # Handle errors separately for more precise error messages
         try:
-            response = self.post(json=asdict(request), model=model, task="text-generation", stream=stream)
+            response = self.post(json=payload, model=model, task="text-generation", stream=stream)
         except HTTPError as e:
+            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+                _set_as_non_tgi(model)
+                return self.text_generation(
+                    prompt=prompt,
+                    details=details,
+                    stream=stream,
+                    model=model,
+                    do_sample=do_sample,
+                    max_new_tokens=max_new_tokens,
+                    best_of=best_of,
+                    repetition_penalty=repetition_penalty,
+                    return_full_text=return_full_text,
+                    seed=seed,
+                    stop_sequences=stop_sequences,
+                    temperature=temperature,
+                    top_k=top_k,
+                    top_p=top_p,
+                    truncate=truncate,
+                    typical_p=typical_p,
+                    watermark=watermark,
+                    decoder_input_details=decoder_input_details,
+                )
             raise_text_generation_error(e)
 
         # Parse output
@@ -1175,3 +1247,28 @@ def _first_or_none(items: List[Any]) -> Optional[Any]:
         return items[0] or None
     except IndexError:
         return None
+
+
+# "TGI servers" are servers running on the `text-generation-inference` framework.
+# This framework is the go-to solution to run large language models at scale. However,
+# for some smaller models (e.g. "gpt2") the default `transformers` + `api-inference`
+# solution is still in use.
+#
+# Both approaches have very similar APIs, but not exactly the same. What we do first in
+# the `text_generation` method is to assume the model is served via TGI. If we realize
+# it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
+# default API with a warning message. We remember for each model if it's a TGI server
+# or not using `_NON_TGI_SERVERS` global variable.
+#
+# For more details, see https://github.com/huggingface/text-generation-inference and
+# https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
+
+_NON_TGI_SERVERS: Set[Optional[str]] = set()
+
+
+def _set_as_non_tgi(model: Optional[str]) -> None:
+    _NON_TGI_SERVERS.add(model)
+
+
+def _is_tgi_server(model: Optional[str]) -> bool:
+    model in _NON_TGI_SERVERS

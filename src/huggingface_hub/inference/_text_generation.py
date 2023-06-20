@@ -105,12 +105,6 @@ class TextGenerationParameters:
             raise ValueError("`repetition_penalty` must be strictly positive")
         return v
 
-    @validator("stop")
-    def valid_stop(cls, v):
-        if len(v) > 4:
-            raise ValueError("`stop` must contain at most 4 items")
-        return v
-
     @validator("seed")
     def valid_seed(cls, v):
         if v is not None and v < 0:
