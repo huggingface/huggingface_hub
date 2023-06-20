@@ -4,13 +4,14 @@
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
 import unittest
 from typing import Dict
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 from requests import HTTPError
 
 from huggingface_hub import InferenceClient
+from huggingface_hub.inference._client import _NON_TGI_SERVERS
 from huggingface_hub.inference._text_generation import (
     FinishReason,
     GenerationError,
@@ -135,6 +136,7 @@ def _mocked_error(payload: Dict) -> MagicMock:
 
 
 @pytest.mark.vcr
+@patch.dict("huggingface_hub.inference._client._NON_TGI_SERVERS", {})
 class TestTextGenerationClientVCR(unittest.TestCase):
     """Use VCR test to avoid making requests to the prod infra."""
 
@@ -200,3 +202,21 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         assert response.details.finish_reason == FinishReason.Length
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
+
+    def test_generate_non_tgi_endpoint(self):
+        text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
+        self.assertEqual(text, " 3 4 5 6 7 8 9 10 11 12")
+        self.assertIn("gpt2", _NON_TGI_SERVERS)
+
+        # Watermark is ignored (+ warning)
+        with self.assertWarns(UserWarning):
+            self.client.text_generation("4 5 6", model="gpt2", max_new_tokens=10, watermark=True)
+
+        # Return as detail even if details=True (+ warning)
+        with self.assertWarns(UserWarning):
+            text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, details=True)
+            self.assertIsInstance(text, str)
+
+        # Return as stream raises error
+        with self.assertRaises(ValueError):
+            self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
