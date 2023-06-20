@@ -53,9 +53,9 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Set,
     Union,
     overload,
-    Set,
 )
 
 from requests import HTTPError, Response
@@ -63,12 +63,12 @@ from requests.structures import CaseInsensitiveDict
 
 from ..constants import ENDPOINT, INFERENCE_ENDPOINT
 from ..utils import (
+    BadRequestError,
     build_hf_headers,
     get_session,
     hf_raise_for_status,
     is_numpy_available,
     is_pillow_available,
-    BadRequestError,
 )
 from ..utils._typing import Literal
 from ._text_generation import (
@@ -924,16 +924,16 @@ class InferenceClient:
             if details:
                 warnings.warn(
                     (
-                        f"API endpoint/model for text-generation is not served via TGI. Parameter `details=True` will"
-                        f" be ignored meaning only the generated text will be returned."
+                        "API endpoint/model for text-generation is not served via TGI. Parameter `details=True` will"
+                        " be ignored meaning only the generated text will be returned."
                     ),
                     UserWarning,
                 )
                 details = False
             if stream:
                 raise ValueError(
-                    f"API endpoint/model for text-generation is not served via TGI. Cannot return output as a stream."
-                    f" Please pass `stream=False` as input."
+                    "API endpoint/model for text-generation is not served via TGI. Cannot return output as a stream."
+                    " Please pass `stream=False` as input."
                 )
 
         # Handle errors separately for more precise error messages
