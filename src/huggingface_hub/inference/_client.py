@@ -816,7 +816,7 @@ class InferenceClient:
         It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
         early failures.
 
-        API endpoint is supposed to run with the `text-generation-inference` framework (TGI). This framework is the
+        API endpoint is supposed to run with the `text-generation-inference` backend (TGI). This backend is the
         go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
         default `transformers` + `api-inference` solution is still in use. Both approaches have very similar APIs, but
         not exactly the same. This method is compatible with both approaches but some parameters are only available for
@@ -831,11 +831,11 @@ class InferenceClient:
             details (`bool`, *optional*):
                 By default, text_generation returns a string. Pass `details=True` if you want a detailed output (tokens,
                 probabilities, seed, finish reason, etc.). Only available for models running on with the
-                `text-generation-inference` framework.
+                `text-generation-inference` backend.
             stream (`bool`, *optional*):
                 By default, text_generation returns the full generated text. Pass `stream=True` if you want a stream of
                 tokens to be returned. Only available for models running on with the `text-generation-inference`
-                framework.
+                backend.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -1249,8 +1249,8 @@ def _first_or_none(items: List[Any]) -> Optional[Any]:
         return None
 
 
-# "TGI servers" are servers running on the `text-generation-inference` framework.
-# This framework is the go-to solution to run large language models at scale. However,
+# "TGI servers" are servers running with the `text-generation-inference` backend.
+# This backend is the go-to solution to run large language models at scale. However,
 # for some smaller models (e.g. "gpt2") the default `transformers` + `api-inference`
 # solution is still in use.
 #
