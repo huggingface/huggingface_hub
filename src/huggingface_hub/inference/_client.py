@@ -942,7 +942,7 @@ class InferenceClient:
         except HTTPError as e:
             if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
                 _set_as_non_tgi(model)
-                return self.text_generation(
+                return self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,
@@ -1271,4 +1271,4 @@ def _set_as_non_tgi(model: Optional[str]) -> None:
 
 
 def _is_tgi_server(model: Optional[str]) -> bool:
-    model in _NON_TGI_SERVERS
+    return model not in _NON_TGI_SERVERS
