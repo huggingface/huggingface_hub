@@ -32,6 +32,35 @@ For most tasks, the return value has a built-in type (string, list, image...). H
 
 [[autodoc]] huggingface_hub.inference._types.ImageSegmentationOutput
 
+### Text generation types
+
+Text generation task has a greater support than other tasks in `InferenceClient`. In
+particular, user inputs and server outputs are validated using [Pydantic](https://docs.pydantic.dev/latest/)
+if this package is installed. Therefore, we recommend installing it (`pip install pydantic`)
+for a better user experience.
+
+You can find below the dataclasses used to validate data and in particular [`~huggingface_hub.inference._text_generation.TextGenerationParameters`] (input),
+[`~huggingface_hub.inference._text_generation.TextGenerationResponse`] (output) and 
+[`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`] (streaming output).
+
+[[autodoc]] huggingface_hub.inference._text_generation.TextGenerationParameters
+
+[[autodoc]] huggingface_hub.inference._text_generation.TextGenerationResponse
+
+[[autodoc]] huggingface_hub.inference._text_generation.TextGenerationStreamResponse
+
+[[autodoc]] huggingface_hub.inference._text_generation.InputToken
+
+[[autodoc]] huggingface_hub.inference._text_generation.Token
+
+[[autodoc]] huggingface_hub.inference._text_generation.FinishReason
+
+[[autodoc]] huggingface_hub.inference._text_generation.BestOfSequence
+
+[[autodoc]] huggingface_hub.inference._text_generation.Details
+
+[[autodoc]] huggingface_hub.inference._text_generation.StreamDetails
+
 ## InferenceAPI
 
 [`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires knowing

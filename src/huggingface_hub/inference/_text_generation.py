@@ -46,6 +46,45 @@ else:
 
 @dataclass
 class TextGenerationParameters:
+    """
+    Parameters for text generation.
+
+    Args:
+        do_sample (`bool`, *optional*):
+            Activate logits sampling. Defaults to False.
+        max_new_tokens (`int`, *optional*):
+            Maximum number of generated tokens. Defaults to 20.
+        repetition_penalty (`Optional[float]`, *optional*):
+            The parameter for repetition penalty. A value of 1.0 means no penalty. See [this paper](https://arxiv.org/pdf/1909.05858.pdf)
+            for more details. Defaults to None.
+        return_full_text (`bool`, *optional*):
+            Whether to prepend the prompt to the generated text. Defaults to False.
+        stop (`List[str]`, *optional*):
+            Stop generating tokens if a member of `stop_sequences` is generated. Defaults to an empty list.
+        seed (`Optional[int]`, *optional*):
+            Random sampling seed. Defaults to None.
+        temperature (`Optional[float]`, *optional*):
+            The value used to modulate the logits distribution. Defaults to None.
+        top_k (`Optional[int]`, *optional*):
+            The number of highest probability vocabulary tokens to keep for top-k-filtering. Defaults to None.
+        top_p (`Optional[float]`, *optional*):
+            If set to a value less than 1, only the smallest set of most probable tokens with probabilities that add up
+            to `top_p` or higher are kept for generation. Defaults to None.
+        truncate (`Optional[int]`, *optional*):
+            Truncate input tokens to the given size. Defaults to None.
+        typical_p (`Optional[float]`, *optional*):
+            Typical Decoding mass. See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666)
+            for more information. Defaults to None.
+        best_of (`Optional[int]`, *optional*):
+            Generate `best_of` sequences and return the one with the highest token logprobs. Defaults to None.
+        watermark (`bool`, *optional*):
+            Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226). Defaults to False.
+        details (`bool`, *optional*):
+            Get generation details. Defaults to False.
+        decoder_input_details (`bool`, *optional*):
+            Get decoder input token logprobs and ids. Defaults to False.
+    """
+
     # Activate logits sampling
     do_sample: bool = False
     # Maximum number of generated tokens
@@ -144,6 +183,18 @@ class TextGenerationParameters:
 
 @dataclass
 class TextGenerationRequest:
+    """
+    Request object for text generation (only for internal use).
+
+    Args:
+        inputs (`str`):
+            The prompt for text generation.
+        parameters (`Optional[TextGenerationParameters]`, *optional*):
+            Generation parameters.
+        stream (`bool`, *optional*):
+            Whether to stream output tokens. Defaults to False.
+    """
+
     # Prompt
     inputs: str
     # Generation parameters
@@ -168,6 +219,18 @@ class TextGenerationRequest:
 # Decoder input tokens
 @dataclass
 class InputToken:
+    """
+    Represents an input token.
+
+    Args:
+        id (`int`):
+            Token ID from the model tokenizer.
+        text (`str`):
+            Token text.
+        logprob (`float` or `None`):
+            Log probability of the token. Optional since the logprob of the first token cannot be computed.
+    """
+
     # Token ID from the model tokenizer
     id: int
     # Token text
@@ -180,6 +243,21 @@ class InputToken:
 # Generated tokens
 @dataclass
 class Token:
+    """
+    Represents a token.
+
+    Args:
+        id (`int`):
+            Token ID from the model tokenizer.
+        text (`str`):
+            Token text.
+        logprob (`float`):
+            Log probability of the token.
+        special (`bool`):
+            Indicates whether the token is a special token. It can be used to ignore
+            tokens when concatenating.
+    """
+
     # Token ID from the model tokenizer
     id: int
     # Token text
@@ -204,6 +282,24 @@ class FinishReason(str, Enum):
 # Additional sequences when using the `best_of` parameter
 @dataclass
 class BestOfSequence:
+    """
+    Represents a best-of sequence generated during text generation.
+
+    Args:
+        generated_text (`str`):
+            The generated text.
+        finish_reason (`FinishReason`):
+            The reason for the generation to finish, represented by a `FinishReason` value.
+        generated_tokens (`int`):
+            The number of generated tokens in the sequence.
+        seed (`Optional[int]`):
+            The sampling seed if sampling was activated.
+        prefill (`List[InputToken]`):
+            The decoder input tokens. Empty if `decoder_input_details` is False. Defaults to an empty list.
+        tokens (`List[Token]`):
+            The generated tokens. Defaults to an empty list.
+    """
+
     # Generated text
     generated_text: str
     # Generation finish reason
@@ -221,6 +317,24 @@ class BestOfSequence:
 # `generate` details
 @dataclass
 class Details:
+    """
+    Represents details of a text generation.
+
+    Args:
+        finish_reason (`FinishReason`):
+            The reason for the generation to finish, represented by a `FinishReason` value.
+        generated_tokens (`int`):
+            The number of generated tokens.
+        seed (`Optional[int]`):
+            The sampling seed if sampling was activated.
+        prefill (`List[InputToken]`, *optional*):
+            The decoder input tokens. Empty if `decoder_input_details` is False. Defaults to an empty list.
+        tokens (`List[Token]`):
+            The generated tokens. Defaults to an empty list.
+        best_of_sequences (`Optional[List[BestOfSequence]]`):
+            Additional sequences when using the `best_of` parameter.
+    """
+
     # Generation finish reason
     finish_reason: FinishReason
     # Number of generated tokens
@@ -238,6 +352,18 @@ class Details:
 # `generate` return value
 @dataclass
 class TextGenerationResponse:
+    """
+    Represents a response for text generation.
+
+    In practice, if `details=False` is passed (default), only the generated text is returned.
+
+    Args:
+        generated_text (`str`):
+            The generated text.
+        details (`Optional[Details]`):
+            Generation details. Returned only if `details=True` is sent to the server.
+    """
+
     # Generated text
     generated_text: str
     # Generation details
@@ -247,6 +373,18 @@ class TextGenerationResponse:
 # `generate_stream` details
 @dataclass
 class StreamDetails:
+    """
+    Represents details of a text generation stream.
+
+    Args:
+        finish_reason (`FinishReason`):
+            The reason for the generation to finish, represented by a `FinishReason` value.
+        generated_tokens (`int`):
+            The number of generated tokens.
+        seed (`Optional[int]`):
+            The sampling seed if sampling was activated.
+    """
+
     # Generation finish reason
     finish_reason: FinishReason
     # Number of generated tokens
@@ -258,6 +396,18 @@ class StreamDetails:
 # `generate_stream` return value
 @dataclass
 class TextGenerationStreamResponse:
+    """
+    Represents a response for text generation when `stream=True` is passed
+
+    Args:
+        token (`Token`):
+            The generated token.
+        generated_text (`Optional[str]`, *optional*):
+            The complete generated text. Only available when the generation is finished.
+        details (`Optional[StreamDetails]`, *optional*):
+            Generation details. Only available when the generation is finished.
+    """
+
     # Generated token
     token: Token
     # Complete generated text
