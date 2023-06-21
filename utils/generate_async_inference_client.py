@@ -131,7 +131,7 @@ def _await_post_method_call(code: str) -> str:
 def _remove_examples_from_public_methods(code: str) -> str:
     # "Example" sections are not valid in async methods. Let's remove them.
     return re.sub(
-        "\n\\(s*)Example:\n\\s*```py.*?```\n",
+        "\n\\s*Example:\n\\s*```py.*?```\n",
         repl="\n",
         string=code,
         flags=re.DOTALL,
