@@ -174,7 +174,7 @@ class AsyncInferenceClient:
                             continue
                         raise error
 
-    def audio_classification(
+    async def audio_classification(
         self,
         audio: ContentT,
         *,
@@ -212,7 +212,7 @@ class AsyncInferenceClient:
         response = self.post(data=audio, model=model, task="audio-classification")
         return _bytes_to_dict(response)
 
-    def automatic_speech_recognition(
+    async def automatic_speech_recognition(
         self,
         audio: ContentT,
         *,
@@ -248,7 +248,7 @@ class AsyncInferenceClient:
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
         return _bytes_to_dict(response)["text"]
 
-    def conversational(
+    async def conversational(
         self,
         text: str,
         generated_responses: Optional[List[str]] = None,
@@ -309,7 +309,7 @@ class AsyncInferenceClient:
         response = self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)
 
-    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -345,7 +345,7 @@ class AsyncInferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
-    def image_classification(
+    async def image_classification(
         self,
         image: ContentT,
         *,
@@ -381,7 +381,7 @@ class AsyncInferenceClient:
         response = self.post(data=image, model=model, task="image-classification")
         return _bytes_to_dict(response)
 
-    def image_segmentation(
+    async def image_segmentation(
         self,
         image: ContentT,
         *,
@@ -432,7 +432,7 @@ class AsyncInferenceClient:
             item["mask"] = _b64_to_image(item["mask"])
         return output
 
-    def image_to_image(
+    async def image_to_image(
         self,
         image: ContentT,
         prompt: Optional[str] = None,
@@ -516,7 +516,7 @@ class AsyncInferenceClient:
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
-    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
+    async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
         """
         Takes an input image and return text.
 
@@ -552,7 +552,7 @@ class AsyncInferenceClient:
         response = self.post(data=image, model=model, task="image-to-text")
         return _bytes_to_dict(response)[0]["generated_text"]
 
-    def sentence_similarity(
+    async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
         """
@@ -599,7 +599,7 @@ class AsyncInferenceClient:
         )
         return _bytes_to_dict(response)
 
-    def summarization(
+    async def summarization(
         self,
         text: str,
         *,
@@ -642,7 +642,7 @@ class AsyncInferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
-    def text_to_image(
+    async def text_to_image(
         self,
         prompt: str,
         *,
@@ -723,7 +723,7 @@ class AsyncInferenceClient:
         response = self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
-    def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
+    async def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 

@@ -99,6 +99,7 @@ ASYNC_POST_CODE = """
 
 
 def _make_post_async(code: str) -> str:
+    # Update AsyncInferenceClient.post() implementation (use aiohttp instead of requests)
     return re.sub(
         r"def post\((\n.*?\"\"\".*?\"\"\"\n).*?(\n\W*def )",
         repl=rf"async def post(\1{ASYNC_POST_CODE}\2",
@@ -109,11 +110,18 @@ def _make_post_async(code: str) -> str:
 
 
 def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
+    # Update `raises`-part in docstrings
     return code.replace("`HTTPError`:", "`aiohttp.ClientResponseError`:")
 
 
 def _make_public_methods_async(code: str) -> str:
-    return code
+    # Add `async` keyword in front of public methods (of AsyncClientInference)
+    return re.sub(
+        r"(\n    )(def [a-z]\w*?\(\s*self,)",
+        repl=r"\1async \2",
+        string=code,
+        flags=re.DOTALL,
+    )
 
 
 def _remove_examples_from_public_methods(code: str) -> str:
