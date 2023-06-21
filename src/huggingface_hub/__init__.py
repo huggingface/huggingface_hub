@@ -202,6 +202,9 @@ _SUBMOD_ATTRS = {
         "ModelHubMixin",
         "PyTorchModelHubMixin",
     ],
+    "inference._async_client": [
+        "AsyncInferenceClient",
+    ],
     "inference._client": [
         "InferenceClient",
         "InferenceTimeoutError",
@@ -497,6 +500,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelHubMixin,  # noqa: F401
         PyTorchModelHubMixin,  # noqa: F401
     )
+    from .inference._async_client import AsyncInferenceClient  # noqa: F401
     from .inference._client import (
         InferenceClient,  # noqa: F401
         InferenceTimeoutError,  # noqa: F401
