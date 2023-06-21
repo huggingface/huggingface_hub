@@ -209,7 +209,7 @@ class AsyncInferenceClient:
         [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
         ```
         """
-        response = self.post(data=audio, model=model, task="audio-classification")
+        response = await self.post(data=audio, model=model, task="audio-classification")
         return _bytes_to_dict(response)
 
     async def automatic_speech_recognition(
@@ -245,7 +245,7 @@ class AsyncInferenceClient:
         "hello world"
         ```
         """
-        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
+        response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
         return _bytes_to_dict(response)["text"]
 
     async def conversational(
@@ -306,7 +306,7 @@ class AsyncInferenceClient:
             payload["inputs"]["past_user_inputs"] = past_user_inputs
         if parameters is not None:
             payload["parameters"] = parameters
-        response = self.post(json=payload, model=model, task="conversational")
+        response = await self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)
 
     async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
@@ -341,7 +341,7 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
@@ -378,7 +378,7 @@ class AsyncInferenceClient:
         [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
         ```
         """
-        response = self.post(data=image, model=model, task="image-classification")
+        response = await self.post(data=image, model=model, task="image-classification")
         return _bytes_to_dict(response)
 
     async def image_segmentation(
@@ -422,7 +422,7 @@ class AsyncInferenceClient:
         """
 
         # Segment
-        response = self.post(data=image, model=model, task="image-segmentation")
+        response = await self.post(data=image, model=model, task="image-segmentation")
         output = _bytes_to_dict(response)
 
         # Parse masks as PIL Image
@@ -513,7 +513,7 @@ class AsyncInferenceClient:
                 if value is not None:
                     payload[key] = value
 
-        response = self.post(json=payload, data=data, model=model, task="image-to-image")
+        response = await self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
@@ -549,7 +549,7 @@ class AsyncInferenceClient:
         'a dog laying on the grass next to a flower pot '
         ```
         """
-        response = self.post(data=image, model=model, task="image-to-text")
+        response = await self.post(data=image, model=model, task="image-to-text")
         return _bytes_to_dict(response)[0]["generated_text"]
 
     async def sentence_similarity(
@@ -592,7 +592,7 @@ class AsyncInferenceClient:
         [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
         ```
         """
-        response = self.post(
+        response = await self.post(
             json={"inputs": {"source_sentence": sentence, "sentences": other_sentences}},
             model=model,
             task="sentence-similarity",
@@ -639,7 +639,7 @@ class AsyncInferenceClient:
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
-        response = self.post(json=payload, model=model, task="summarization")
+        response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
     async def text_to_image(
@@ -720,7 +720,7 @@ class AsyncInferenceClient:
         for key, value in parameters.items():
             if value is not None:
                 payload[key] = value
-        response = self.post(json=payload, model=model, task="text-to-image")
+        response = await self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
     async def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
@@ -753,7 +753,7 @@ class AsyncInferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        return self.post(json={"inputs": text}, model=model, task="text-to-speech")
+        return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model

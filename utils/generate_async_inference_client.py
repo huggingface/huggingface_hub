@@ -124,6 +124,10 @@ def _make_public_methods_async(code: str) -> str:
     )
 
 
+def _await_post_method_call(code: str) -> str:
+    return code.replace("self.post(", "await self.post(")
+
+
 def _remove_examples_from_public_methods(code: str) -> str:
     return code
 
@@ -136,6 +140,7 @@ def generate_async_client_code(code: str) -> str:
     code = _make_post_async(code)
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _make_public_methods_async(code)
+    code = _await_post_method_call(code)
     code = _remove_examples_from_public_methods(code)
     return code
 
