@@ -33,6 +33,18 @@
 # - Images are parsed as PIL.Image for easier manipulation.
 # - Provides a "recommended model" for each task => suboptimal but user-wise quicker to get a first script running.
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
+
+## TODO for scriptable version:
+#
+# - import aiohttp
+# - replace "class InferenceClient:" by "class AsyncInferenceClient:"
+# - make .post from sync to async
+# - replace "`HTTPError`:" by "`aiohttp.ClientResponseError`:" in docstrings
+# - update all public methods except `post` with `async` keyword
+# - replace "self.post(" by "await self.post("
+# - remove examples from public methods
+# - remove ### headers parts and replace with a big warning
+
 import base64
 import io
 import json
