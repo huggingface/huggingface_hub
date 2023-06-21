@@ -130,7 +130,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
         """
 
@@ -174,7 +174,6 @@ class AsyncInferenceClient:
                             continue
                         raise error
 
-
     def audio_classification(
         self,
         audio: ContentT,
@@ -199,7 +198,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -235,7 +234,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -283,7 +282,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -328,7 +327,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -368,7 +367,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -410,7 +409,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -482,7 +481,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -537,7 +536,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -575,7 +574,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -626,7 +625,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -689,7 +688,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
@@ -741,7 +740,7 @@ class AsyncInferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:

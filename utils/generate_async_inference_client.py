@@ -53,7 +53,7 @@ def _add_aiohttp_import(code: str) -> str:
 
 
 def _rename_to_AsyncInferenceClient(code: str) -> str:
-    return code.replace("class InferenceClient:", "class AsyncInferenceClient:")
+    return code.replace("class InferenceClient:", "class AsyncInferenceClient:", 1)
 
 
 ASYNC_POST_CODE = """
@@ -95,8 +95,7 @@ ASYNC_POST_CODE = """
                             if timeout is not None:
                                 timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                             continue
-                        raise error
-"""
+                        raise error"""
 
 
 def _make_post_async(code: str) -> str:
@@ -110,7 +109,7 @@ def _make_post_async(code: str) -> str:
 
 
 def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
-    return code
+    return code.replace("`HTTPError`:", "`aiohttp.ClientResponseError`:")
 
 
 def _make_public_methods_async(code: str) -> str:
