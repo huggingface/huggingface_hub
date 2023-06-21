@@ -13,38 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Related resources:
-#    https://huggingface.co/tasks
-#    https://huggingface.co/docs/huggingface.js/inference/README
-#    https://github.com/huggingface/huggingface.js/tree/main/packages/inference/src
-#    https://github.com/huggingface/text-generation-inference/tree/main/clients/python
-#    https://github.com/huggingface/text-generation-inference/blob/main/clients/python/text_generation/client.py
-#    https://huggingface.slack.com/archives/C03E4DQ9LAJ/p1680169099087869
-#    https://github.com/huggingface/unity-api#tasks
-#
-# Some TODO:
-# - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
-# - add all tasks
-#
-# NOTE: the philosophy of this client is "let's make it as easy as possible to use it, even if less optimized". Some
-# examples of how it translates:
-# - Timeout / Server unavailable is handled by the client in a single "timeout" parameter.
-# - Files can be provided as bytes, file paths, or URLs and the client will try to "guess" the type.
-# - Images are parsed as PIL.Image for easier manipulation.
-# - Provides a "recommended model" for each task => suboptimal but user-wise quicker to get a first script running.
-# - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
-
-## TODO for scriptable version:
-#
-# - import aiohttp
-# - replace "class InferenceClient:" by "class AsyncInferenceClient:"
-# - make .post from sync to async
-# - replace "`HTTPError`:" by "`aiohttp.ClientResponseError`:" in docstrings
-# - update all public methods except `post` with `async` keyword
-# - replace "self.post(" by "await self.post("
-# - remove examples from public methods
-# - remove ### headers parts and replace with a big warning
-
+# WARNING
+# This entire file has been generated automatically based on `src/huggingface_hub/inference/_client.py`.
+# To re-generate it, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
+# WARNING
 import base64
 import io
 import json
@@ -134,7 +106,7 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-    ) -> aiohttp.ClientResponse:
+    ) -> bytes:
         """
         Make a POST request to the inference server.
 
@@ -153,7 +125,7 @@ class AsyncInferenceClient:
                 provided. At least `model` or `task` must be provided. Defaults to None.
 
         Returns:
-            Response: The `requests` HTTP response.
+            bytes: The raw bytes returned by the server.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -161,6 +133,7 @@ class AsyncInferenceClient:
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
         """
+
         url = self._resolve_url(model, task)
 
         if data is not None and json is not None:
@@ -200,6 +173,7 @@ class AsyncInferenceClient:
                                 timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                             continue
                         raise error
+
 
     def audio_classification(
         self,

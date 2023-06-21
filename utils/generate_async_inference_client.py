@@ -15,6 +15,7 @@
 """Contains a tool to generate `src/huggingface_hub/inference/_async_client.py`."""
 import argparse
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import NoReturn
@@ -26,9 +27,110 @@ ASYNC_CLIENT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" /
 SYNC_CLIENT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" / "inference" / "_client.py"
 
 
-def generate_async_client_code(sync_client_code: str) -> str:
+def _add_warning_to_file_header(code: str) -> str:
+    warning_message = (
+        "#\n# WARNING\n# This entire file has been generated automatically based on"
+        " `src/huggingface_hub/inference/_client.py`.\n# To re-generate it, run `make style` or `python"
+        " ./utils/generate_async_inference_client.py --update`.\n# WARNING"
+    )
+    return re.sub(
+        r"(\n# limitations under the License.\n)(.*?)(\nimport )",
+        repl=rf"\1{warning_message}\3",
+        string=code,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
+def _add_aiohttp_import(code: str) -> str:
+    return re.sub(
+        r"(\nimport .*?\n)",
+        repl=r"\1import aiohttp\n",
+        string=code,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
+def _rename_to_AsyncInferenceClient(code: str) -> str:
+    return code.replace("class InferenceClient:", "class AsyncInferenceClient:")
+
+
+ASYNC_POST_CODE = """
+        url = self._resolve_url(model, task)
+
+        if data is not None and json is not None:
+            warnings.warn("Ignoring `json` as `data` is passed as binary.")
+
+        t0 = time.time()
+        timeout = self.timeout
+        while True:
+            with _open_as_binary(data) as data_as_binary:
+                async with aiohttp.ClientSession(
+                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                ) as client:
+                    try:
+                        async with client.post(
+                            url,
+                            headers=build_hf_headers(),
+                            json=json,
+                            data=data_as_binary,
+                        ) as response:
+                            response.raise_for_status()
+                            return await response.read()
+                    except TimeoutError as error:
+                        # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                        raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                    except aiohttp.ClientResponseError as error:
+                        if response.status == 503:
+                            # If Model is unavailable, either raise a TimeoutError...
+                            if timeout is not None and time.time() - t0 > timeout:
+                                raise InferenceTimeoutError(
+                                    f"Model not loaded on the server: {url}. Please retry with a higher timeout"
+                                    f" (current: {self.timeout})."
+                                ) from error
+                            # ...or wait 1s and retry
+                            logger.info(f"Waiting for model to be loaded on the server: {error}")
+                            time.sleep(1)
+                            if timeout is not None:
+                                timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
+                            continue
+                        raise error
+"""
+
+
+def _make_post_async(code: str) -> str:
+    return re.sub(
+        r"def post\((\n.*?\"\"\".*?\"\"\"\n).*?(\n\W*def )",
+        repl=rf"async def post(\1{ASYNC_POST_CODE}\2",
+        string=code,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+
+def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
+    return code
+
+
+def _make_public_methods_async(code: str) -> str:
+    return code
+
+
+def _remove_examples_from_public_methods(code: str) -> str:
+    return code
+
+
+def generate_async_client_code(code: str) -> str:
     """Generate AsyncInferenceClient source code."""
-    return ASYNC_CLIENT_FILE_PATH.read_text()
+    code = _add_warning_to_file_header(code)
+    code = _add_aiohttp_import(code)
+    code = _rename_to_AsyncInferenceClient(code)
+    code = _make_post_async(code)
+    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
+    code = _make_public_methods_async(code)
+    code = _remove_examples_from_public_methods(code)
+    return code
 
 
 def format_source_code(code: str) -> str:
