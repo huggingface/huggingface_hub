@@ -35,6 +35,7 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import io
+import json
 import logging
 import time
 import warnings
@@ -43,7 +44,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ContextManager, Dict, Generator, List, Optional, Union, overload
 
 import aiohttp
-from requests import HTTPError, Response
+from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from ..constants import ENDPOINT, INFERENCE_ENDPOINT
@@ -73,7 +74,7 @@ class InferenceTimeoutError(HTTPError, TimeoutError):
 
 class AsyncInferenceClient:
     """
-    Initialize a new Async Inference Client.
+    Initialize a new Inference Client.
 
     [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
     seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
@@ -112,7 +113,7 @@ class AsyncInferenceClient:
         self.timeout = timeout
 
     def __repr__(self):
-        return f"<AsyncInferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
+        return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
     async def post(
         self,
@@ -168,8 +169,7 @@ class AsyncInferenceClient:
                             data=data_as_binary,
                         ) as response:
                             response.raise_for_status()
-                            await response.read()  # read content while session is open
-                            return response
+                            return await response.read()
                     except TimeoutError as error:
                         # Convert any `TimeoutError` to a `InferenceTimeoutError`
                         raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
@@ -225,7 +225,7 @@ class AsyncInferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return response.json()
+        return _bytes_to_dict(response)
 
     def automatic_speech_recognition(
         self,
@@ -261,7 +261,7 @@ class AsyncInferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
-        return response.json()["text"]
+        return _bytes_to_dict(response)["text"]
 
     def conversational(
         self,
@@ -322,9 +322,9 @@ class AsyncInferenceClient:
         if parameters is not None:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="conversational")
-        return response.json()
+        return _bytes_to_dict(response)
 
-    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -356,9 +356,9 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
         np = _import_numpy()
-        return np.array((await response.json())[0], dtype="float32")
+        return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
     def image_classification(
         self,
@@ -394,7 +394,7 @@ class AsyncInferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return response.json()
+        return _bytes_to_dict(response)
 
     def image_segmentation(
         self,
@@ -438,7 +438,7 @@ class AsyncInferenceClient:
 
         # Segment
         response = self.post(data=image, model=model, task="image-segmentation")
-        output = response.json()
+        output = _bytes_to_dict(response)
 
         # Parse masks as PIL Image
         if not isinstance(output, list):
@@ -518,7 +518,6 @@ class AsyncInferenceClient:
         }
         if all(parameter is None for parameter in parameters.values()):
             # Either only an image to send => send as raw bytes
-            self.post(data=image, model=model, task="image-to-image")
             data = image
             payload: Optional[Dict[str, Any]] = None
         else:
@@ -530,7 +529,7 @@ class AsyncInferenceClient:
                     payload[key] = value
 
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
-        return _response_to_image(response)
+        return _bytes_to_image(response)
 
     def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
         """
@@ -566,7 +565,7 @@ class AsyncInferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-to-text")
-        return response.json()[0]["generated_text"]
+        return _bytes_to_dict(response)[0]["generated_text"]
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -613,7 +612,7 @@ class AsyncInferenceClient:
             model=model,
             task="sentence-similarity",
         )
-        return response.json()
+        return _bytes_to_dict(response)
 
     def summarization(
         self,
@@ -656,7 +655,7 @@ class AsyncInferenceClient:
         if parameters is not None:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="summarization")
-        return response.json()[0]["summary_text"]
+        return _bytes_to_dict(response)[0]["summary_text"]
 
     def text_to_image(
         self,
@@ -737,7 +736,7 @@ class AsyncInferenceClient:
             if value is not None:
                 payload[key] = value
         response = self.post(json=payload, model=model, task="text-to-image")
-        return _response_to_image(response)
+        return _bytes_to_image(response)
 
     def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
         """
@@ -769,8 +768,7 @@ class AsyncInferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        response = self.post(json={"inputs": text}, model=model, task="text-to-speech")
-        return response.content
+        return self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
@@ -878,13 +876,21 @@ def _b64_to_image(encoded_image: str) -> "Image":
     return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
-def _response_to_image(response: Response) -> "Image":
-    """Parse a Response object into a PIL Image.
+def _bytes_to_dict(content: bytes) -> "Image":
+    """Parse bytes from a Response object into a Python dictionary.
+
+    Expects the response body to be encoded-JSON data.
+    """
+    return json.loads(content.decode())
+
+
+def _bytes_to_image(content: bytes) -> "Image":
+    """Parse bytes from a Response object into a PIL Image.
 
     Expects the response body to be raw bytes. To deal with b64 encoded images, use `_b64_to_image` instead.
     """
     Image = _import_pil_image()
-    return Image.open(io.BytesIO(response.content))
+    return Image.open(io.BytesIO(content))
 
 
 def _import_pil_image():
