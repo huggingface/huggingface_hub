@@ -294,7 +294,7 @@ class TestHeadersAndCookies(unittest.TestCase):
         """Test that headers and cookies are correctly passed to the request."""
         client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
         response = client.post(data=b"content", model="username/repo_name")
-        self.assertEqual(response, get_session_mock().post.return_value)
+        self.assertEqual(response, get_session_mock().post.return_value.content)
 
         expected_user_agent = build_hf_headers()["user-agent"]
         get_session_mock().post.assert_called_once_with(
