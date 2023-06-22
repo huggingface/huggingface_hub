@@ -403,7 +403,6 @@ def _request_wrapper(
     headers = params["headers"].copy()
     if "authorization" in headers:
         headers["authorization"] = "HIDDEN"
-    logger.warning(f"Our lovely header to Hub: {headers}")
 
     # 1. Check online mode
     _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
@@ -444,7 +443,6 @@ def _request_wrapper(
                 )
         return response
 
-    timeout = 100.0
     # 3. Exponential backoff
     try:
         o = http_backoff(
@@ -459,7 +457,9 @@ def _request_wrapper(
             **params,
         )
     except Exception as e:
+        logger.info(f"Our sad header to Hub failed: {headers}!")
         logger.warning(f"Our sad header to Hub failed: {headers}!")
+        logger.error(f"Our sad header to Hub failed: {headers}!")
         raise e
 
     return o
