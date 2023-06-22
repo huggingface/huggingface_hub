@@ -139,9 +139,9 @@ def build_hf_headers(
     if token_to_send is not None:
         headers["authorization"] = f"Bearer {token_to_send}"
 
-    headers["x-request-id"] = "I am transformers CI admin!"
+    headers["x-request-id"] = f"{uuid.uuid4()}"
     headers["x-debug-name"] = f"{platform.platform()}-{os.getppid()}-{os.getpid()}-{threading.get_ident()}"
-    headers["x-unique-id"] = f"{uuid.uuid4()}"
+    headers["x-debug-user"] = "I am transformers CI admin!"
     headers["x-debug-datetime"] = str(datetime.datetime.now())
 
     return headers
