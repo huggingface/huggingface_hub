@@ -459,6 +459,7 @@ def _request_wrapper(
     except Exception as e:
         logger.info(f"Our sad header to Hub failed: {headers}!")
         logger.warning(f"Our sad header to Hub failed: {headers}!")
+        logger.debug(f"Our sad header to Hub failed: {headers}!")
         logger.error(f"Our sad header to Hub failed: {headers}!")
         raise e
 
