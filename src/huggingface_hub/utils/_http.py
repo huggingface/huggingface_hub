@@ -22,7 +22,7 @@ from typing import Callable, Tuple, Type, Union
 
 import requests
 from requests import Response
-from requests.exceptions import Timeout, ProxyError
+from requests.exceptions import ProxyError, Timeout
 
 from . import logging
 from ._typing import HTTP_METHOD_T

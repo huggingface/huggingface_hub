@@ -19,7 +19,7 @@ from urllib.parse import quote, urlparse
 
 import requests
 from filelock import FileLock
-from requests.exceptions import Timeout, ProxyError
+from requests.exceptions import ProxyError, Timeout
 
 from huggingface_hub import constants
 
