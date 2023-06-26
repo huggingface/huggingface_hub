@@ -1,0 +1,43 @@
+interactions:
+- request:
+    body: '{"inputs": {"image": "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgwnLpRPAAA...
+", "text": "tree,house"}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '40'
+      Content-Type:
+      - application/json
+      user-agent:
+      - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32
+  response:
+    body:
+      string: 'tree'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '240'
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 26 May 2023 08:01:21 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.467'
+      x-compute-type:
+      - cache
+    status:
+      code: 200
+      message: OK

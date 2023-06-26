@@ -41,6 +41,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
     "text-to-image": "CompVis/stable-diffusion-v1-4",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
+    "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
 
@@ -196,6 +197,10 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")
         self.assertIsInstance(audio, bytes)
+
+    def test_zero_shot_image_classification(self) -> None:
+        word = self.client.zero_shot_image_classification(self.image_file, "tree")
+        self.assertIsInstance(word, str)
 
 
 class TestOpenAsBinary(InferenceClientTest):
