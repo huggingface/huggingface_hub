@@ -873,12 +873,20 @@ class InferenceClient:
                 into account. Defaults to `False`.
 
         Returns:
-            `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`: generated response.
-            Format depends on the input:
-            - `str` if `stream=False ` and `details=False` (default)
-            - `Iterable[str]` if `stream=True` and `details=False`
-            - [`~huggingface_hub.inference._text_generation.TextGenerationResponse`] if `stream=False` and `details=True`
-            - [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`] if `details=True` and `stream=True`
+            `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`:
+            Generated response from the server:
+            - if `stream=False` and `details=False` (default), a generated text is returned as a `str`
+            - if `stream=True` and `details=False`, the generated text is returned token by token in a `Iterable[str]`
+            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
+            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`]
+
+        Raises:
+            `ValidationError`:
+                If input values are not valid. No HTTP call is made to the server.
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
         """
         # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
         # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
