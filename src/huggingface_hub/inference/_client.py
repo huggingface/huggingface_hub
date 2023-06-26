@@ -874,10 +874,11 @@ class InferenceClient:
 
         Returns:
             `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`: generated response.
-            Format depends on the input. If `details=False` (the default), the generated text is returned as a string. If
-            `details=False` and `stream=True`, an `Iterable[str]` is returned. If `details=True`, a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
-            object is returned, containing details about the generated text. Finally, if `details=True` and `stream=True`
-            are passed, an iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`] is passed.
+            Format depends on the input:
+            - `str` if `stream=False ` and `details=False` (default)
+            - `Iterable[str]` if `stream=True` and `details=False`
+            - [`~huggingface_hub.inference._text_generation.TextGenerationResponse`] if `stream=False` and `details=True`
+            - [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`] if `details=True` and `stream=True`
         """
         # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
         # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
