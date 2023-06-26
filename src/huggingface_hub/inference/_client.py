@@ -874,9 +874,9 @@ class InferenceClient:
 
         Returns:
             `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`:
-            Generated response from the server:
-            - if `stream=False` and `details=False` (default), a generated text is returned as a `str`
-            - if `stream=True` and `details=False`, the generated text is returned token by token in a `Iterable[str]`
+            Generated text returned from the server:
+            - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
+            - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
             - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
             - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`]
 
@@ -887,6 +887,81 @@ class InferenceClient:
                 If the model is unavailable or the request times out.
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+
+        # Case 1: generate text
+        >>> client.text_generation("The huggingface_hub library is ", max_new_tokens=12)
+        '100% open source and built to be easy to use.'
+
+        # Case 2: iterate over the generated tokens. Useful for large generation.
+        >>> for token in client.text_generation("The huggingface_hub library is ", max_new_tokens=12, stream=True):
+        ...     print(token)
+        100
+        %
+        open
+        source
+        and
+        built
+        to
+        be
+        easy
+        to
+        use
+        .
+
+        # Case 3: get more details about the generation process.
+        >>> client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
+        TextGenerationResponse(
+            generated_text='100% open source and built to be easy to use.',
+            details=Details(
+                finish_reason=<FinishReason.Length: 'length'>,
+                generated_tokens=12,
+                seed=None,
+                prefill=[
+                    InputToken(id=487, text='The', logprob=None),
+                    InputToken(id=53789, text=' hugging', logprob=-13.171875),
+                    (...)
+                    InputToken(id=204, text=' ', logprob=-7.0390625)
+                ],
+                tokens=[
+                    Token(id=1425, text='100', logprob=-1.0175781, special=False),
+                    Token(id=16, text='%', logprob=-0.0463562, special=False),
+                    (...)
+                    Token(id=25, text='.', logprob=-0.5703125, special=False)
+                ],
+                best_of_sequences=None
+            )
+        )
+
+        # Case 4: iterate over the generated tokens with more details.
+        # Last object is more complete, containing the full generated text and the finish reason.
+        >>> for details in client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
+        ...     print(details)
+        ...
+        TextGenerationStreamResponse(token=Token(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
+        TextGenerationStreamResponse(token=Token(
+            id=25,
+            text='.',
+            logprob=-0.5703125,
+            special=False),
+            generated_text='100% open source and built to be easy to use.',
+            details=StreamDetails(finish_reason=<FinishReason.Length: 'length'>, generated_tokens=12, seed=None)
+        )
+        ```
         """
         # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
         # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
