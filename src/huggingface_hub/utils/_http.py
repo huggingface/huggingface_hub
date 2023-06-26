@@ -22,7 +22,7 @@ from typing import Callable, Tuple, Type, Union
 
 import requests
 from requests import Response
-from requests.exceptions import ConnectTimeout, ProxyError
+from requests.exceptions import ProxyError, Timeout
 
 from . import logging
 from ._typing import HTTP_METHOD_T
@@ -119,7 +119,7 @@ def http_backoff(
     base_wait_time: float = 1,
     max_wait_time: float = 8,
     retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
-        ConnectTimeout,
+        Timeout,
         ProxyError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
@@ -148,10 +148,10 @@ def http_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(ConnectTimeout, ProxyError,)`):
+        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(Timeout, ProxyError,)`):
             Define which exceptions must be caught to retry the request. Can be a single
             type or a tuple of types.
-            By default, retry on `ConnectTimeout` and `ProxyError`.
+            By default, retry on `Timeout` and `ProxyError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
