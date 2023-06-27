@@ -362,7 +362,7 @@ def _request_wrapper(
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
     follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
@@ -467,7 +467,7 @@ def http_get(
     proxies=None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
     max_retries: int = 0,
     expected_size: Optional[int] = None,
 ):
@@ -1502,7 +1502,7 @@ def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
