@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from requests import HTTPError
 
 from huggingface_hub import InferenceClient
-from huggingface_hub.inference._client import _NON_TGI_SERVERS
+from huggingface_hub.inference._common import _NON_TGI_SERVERS
 from huggingface_hub.inference._text_generation import (
     FinishReason,
     GenerationError,
