@@ -41,6 +41,7 @@ _CANDIDATES = {
     "jinja": {"Jinja2"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
+    "pydantic": {"pydantic"},
     "pydot": {"pydot"},
     "tensorboard": {"tensorboardX"},
     "tensorflow": (
@@ -157,6 +158,15 @@ def is_pillow_available() -> bool:
 
 def get_pillow_version() -> str:
     return _get_version("pillow")
+
+
+# Pydantic
+def is_pydantic_available() -> bool:
+    return _is_available("pydantic")
+
+
+def get_pydantic_version() -> str:
+    return _get_version("pydantic")
 
 
 # Pydot
@@ -287,6 +297,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
     info["numpy"] = get_numpy_version()
+    info["pydantic"] = get_pydantic_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
