@@ -128,7 +128,7 @@ class AsyncInferenceClient:
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
     @overload
-    def post(  # type: ignore
+    async def post(  # type: ignore
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -140,7 +140,7 @@ class AsyncInferenceClient:
         pass
 
     @overload
-    def post(  # type: ignore
+    async def post(  # type: ignore
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -600,7 +600,7 @@ class AsyncInferenceClient:
         return _bytes_to_dict(response)[0]["summary_text"]
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -624,7 +624,7 @@ class AsyncInferenceClient:
         ...
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -648,7 +648,7 @@ class AsyncInferenceClient:
         ...
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,

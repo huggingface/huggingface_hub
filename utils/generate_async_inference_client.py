@@ -34,11 +34,19 @@ def _add_warning_to_file_header(code: str) -> str:
         " ./utils/generate_async_inference_client.py --update`.\n# WARNING"
     )
     return re.sub(
-        r"(\n# limitations under the License.\n)(.*?)(\nimport )",
+        r"""
+        ( # Group1: license (end)
+            \n
+            \#\ limitations\ under\ the\ License.
+            \n
+        )
+        (.*?) # Group2 : all notes and comments (to be replaced)
+        (\nimport[ ]) # Group3: import section (start)
+        """,
         repl=rf"\1{warning_message}\3",
         string=code,
         count=1,
-        flags=re.DOTALL,
+        flags=re.DOTALL | re.VERBOSE,
     )
 
 
@@ -117,10 +125,20 @@ def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
 def _make_public_methods_async(code: str) -> str:
     # Add `async` keyword in front of public methods (of AsyncClientInference)
     return re.sub(
-        r"(\n    )(def [a-z]\w*?\(\s*self,)",
-        repl=r"\1async \2",
+        r"""
+        # Group 1: newline  + 4-spaces indent
+        (\n\ {4})
+        # Group 2: def + method name + parenthesis + optionally type: ignore + self
+        (
+            def[ ] # def
+            [a-z]\w*? # method name (not starting by _)
+            \( # parenthesis
+            (\s*\#[ ]type:[ ]ignore)? # optionally type: ignore
+            \s*self, # expect self, as first arg
+        )""",
+        repl=r"\1async \2",  # insert "async" keyword
         string=code,
-        flags=re.DOTALL,
+        flags=re.DOTALL | re.VERBOSE,
     )
 
 
@@ -131,10 +149,17 @@ def _await_post_method_call(code: str) -> str:
 def _remove_examples_from_public_methods(code: str) -> str:
     # "Example" sections are not valid in async methods. Let's remove them.
     return re.sub(
-        "\n\\s*Example:\n\\s*```py.*?```\n",
+        r"""
+        \n\s*
+        Example:\n\s* # example section
+        ```py # start
+        .*? # anything
+        ``` # end
+        \n
+        """,
         repl="\n",
         string=code,
-        flags=re.DOTALL,
+        flags=re.DOTALL | re.VERBOSE,
     )
 
 
