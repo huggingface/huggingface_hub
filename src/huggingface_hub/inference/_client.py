@@ -35,7 +35,6 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import io
-from requests import Response
 import json
 import logging
 import time
