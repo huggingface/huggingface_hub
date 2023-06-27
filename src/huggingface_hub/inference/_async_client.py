@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncIterable,
     BinaryIO,
     ContextManager,
     Dict,
@@ -41,7 +42,7 @@ from typing import (
     overload,
 )
 
-import aiohttp
+from aiohttp import ClientResponse, ClientResponseError, ClientSession, ClientTimeout
 from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
@@ -198,36 +199,37 @@ class AsyncInferenceClient:
         timeout = self.timeout
         while True:
             with _open_as_binary(data) as data_as_binary:
-                async with aiohttp.ClientSession(
-                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
-                ) as client:
-                    try:
-                        async with client.post(
-                            url,
-                            headers=build_hf_headers(),
-                            json=json,
-                            data=data_as_binary,
-                        ) as response:
-                            response.raise_for_status()
-                            return await response.read()
-                    except TimeoutError as error:
-                        # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                        raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
-                    except aiohttp.ClientResponseError as error:
-                        if response.status == 503:
-                            # If Model is unavailable, either raise a TimeoutError...
-                            if timeout is not None and time.time() - t0 > timeout:
-                                raise InferenceTimeoutError(
-                                    f"Model not loaded on the server: {url}. Please retry with a higher timeout"
-                                    f" (current: {self.timeout})."
-                                ) from error
-                            # ...or wait 1s and retry
-                            logger.info(f"Waiting for model to be loaded on the server: {error}")
-                            time.sleep(1)
-                            if timeout is not None:
-                                timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                            continue
-                        raise error
+                # Do not use context manager as we don't want to close the connection immediately when returning
+                # a stream
+                client = ClientSession(headers=self.headers, cookies=self.cookies, timeout=ClientTimeout(self.timeout))
+
+                try:
+                    response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response.raise_for_status()
+                    if stream:
+                        return _yield_from(client, response)
+                    else:
+                        content = await response.read()
+                        await client.close()
+                        return content
+                except TimeoutError as error:
+                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                except ClientResponseError as error:
+                    if response.status == 503:
+                        # If Model is unavailable, either raise a TimeoutError...
+                        if timeout is not None and time.time() - t0 > timeout:
+                            raise InferenceTimeoutError(
+                                f"Model not loaded on the server: {url}. Please retry with a higher timeout"
+                                f" (current: {self.timeout})."
+                            ) from error
+                        # ...or wait 1s and retry
+                        logger.info(f"Waiting for model to be loaded on the server: {error}")
+                        time.sleep(1)
+                        if timeout is not None:
+                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
+                        continue
+                    raise error
 
     async def audio_classification(
         self,
@@ -1101,11 +1103,11 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-def _stream_text_generation_response(
-    bytes_output_as_lines: Iterable[bytes], details: bool
-) -> Union[Iterable[str], Iterable[TextGenerationStreamResponse]]:
+async def _stream_text_generation_response(
+    bytes_output_as_lines: AsyncIterable[bytes], details: bool
+) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
     # Parse ServerSentEvents
-    for byte_payload in bytes_output_as_lines:
+    async for byte_payload in bytes_output_as_lines:
         # Skip line
         if byte_payload == b"\n":
             continue
@@ -1140,6 +1142,12 @@ def _import_numpy():
     import numpy
 
     return numpy
+
+
+async def _yield_from(client: ClientSession, response: ClientResponse) -> AsyncIterable[bytes]:
+    async for byte_payload in response.content:
+        yield byte_payload
+    await client.close()
 
 
 def _first_or_none(items: List[Any]) -> Optional[Any]:
