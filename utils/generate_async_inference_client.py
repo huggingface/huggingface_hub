@@ -27,6 +27,77 @@ ASYNC_CLIENT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" /
 SYNC_CLIENT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" / "inference" / "_client.py"
 
 
+def generate_async_client_code(code: str) -> str:
+    """Generate AsyncInferenceClient source code."""
+    # Warning message "this is an automatically generated file"
+    code = _add_warning_to_file_header(code)
+
+    # Imports specific to asyncio
+    code = _add_imports(code)
+
+    # Define `AsyncInferenceClient`
+    code = _rename_to_AsyncInferenceClient(code)
+
+    # Refactor `.post` method to be async + adapt calls
+    code = _make_post_async(code)
+    code = _await_post_method_call(code)
+    code = _use_async_streaming_util(code)
+
+    # Make all tasks-method async
+    code = _make_public_methods_async(code)
+
+    # Update some docstrings
+    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
+    code = _remove_examples_from_public_methods(code)
+    return code
+
+
+def format_source_code(code: str) -> str:
+    """Apply formatter on a generated source code."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = Path(tmpdir) / "async_client.py"
+        filepath.write_text(code)
+        ruff_bin = find_ruff_bin()
+        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix", "--quiet"])
+        return filepath.read_text()
+
+
+def check_async_client(update: bool) -> NoReturn:
+    """Check AsyncInferenceClient is correctly defined and consistent with InferenceClient.
+
+    This script is used in the `make style` and `make quality` checks.
+    """
+    sync_client_code = SYNC_CLIENT_FILE_PATH.read_text()
+    current_async_client_code = ASYNC_CLIENT_FILE_PATH.read_text()
+
+    raw_async_client_code = generate_async_client_code(sync_client_code)
+
+    formatted_async_client_code = format_source_code(raw_async_client_code)
+
+    # If expected `__init__.py` content is different, test fails. If '--update-init-file'
+    # is used, `__init__.py` file is updated before the test fails.
+    if current_async_client_code != formatted_async_client_code:
+        if update:
+            ASYNC_CLIENT_FILE_PATH.write_text(formatted_async_client_code)
+
+            print(
+                "✅ AsyncInferenceClient source code has been updated in"
+                " `./src/huggingface_hub/inference/_async_client.py`.\n   Please make sure the changes are accurate"
+                " and commit them."
+            )
+            exit(0)
+        else:
+            print(
+                "❌ Expected content mismatch in `./src/huggingface_hub/inference/_async_client.py`.\n   It is most"
+                " likely that you modified some InferenceClient code and did not update the the AsyncInferenceClient"
+                " one.\n   Please run `make style` or `python utils/generate_async_inference_client.py --update`."
+            )
+            exit(1)
+
+    print("✅ All good! (AsyncInferenceClient)")
+    exit(0)
+
+
 def _add_warning_to_file_header(code: str) -> str:
     warning_message = (
         "#\n# WARNING\n# This entire file has been generated automatically based on"
@@ -187,66 +258,6 @@ def _use_async_streaming_util(code: str) -> str:
         "_stream_text_generation_response",
         "_async_stream_text_generation_response",
     )
-
-
-def generate_async_client_code(code: str) -> str:
-    """Generate AsyncInferenceClient source code."""
-    code = _add_warning_to_file_header(code)
-    code = _add_imports(code)
-    code = _rename_to_AsyncInferenceClient(code)
-    code = _make_post_async(code)
-    code = _await_post_method_call(code)
-    code = _make_public_methods_async(code)
-    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
-    code = _remove_examples_from_public_methods(code)
-    code = _use_async_streaming_util(code)
-    return code
-
-
-def format_source_code(code: str) -> str:
-    """Apply formatter on a generated source code."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = Path(tmpdir) / "async_client.py"
-        filepath.write_text(code)
-        ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix", "--quiet"])
-        return filepath.read_text()
-
-
-def check_async_client(update: bool) -> NoReturn:
-    """Check AsyncInferenceClient is correctly defined and consistent with InferenceClient.
-
-    This script is used in the `make style` and `make quality` checks.
-    """
-    sync_client_code = SYNC_CLIENT_FILE_PATH.read_text()
-    current_async_client_code = ASYNC_CLIENT_FILE_PATH.read_text()
-
-    raw_async_client_code = generate_async_client_code(sync_client_code)
-
-    formatted_async_client_code = format_source_code(raw_async_client_code)
-
-    # If expected `__init__.py` content is different, test fails. If '--update-init-file'
-    # is used, `__init__.py` file is updated before the test fails.
-    if current_async_client_code != formatted_async_client_code:
-        if update:
-            ASYNC_CLIENT_FILE_PATH.write_text(formatted_async_client_code)
-
-            print(
-                "✅ AsyncInferenceClient source code has been updated in"
-                " `./src/huggingface_hub/inference/_async_client.py`.\n   Please make sure the changes are accurate"
-                " and commit them."
-            )
-            exit(0)
-        else:
-            print(
-                "❌ Expected content mismatch in `./src/huggingface_hub/inference/_async_client.py`.\n   It is most"
-                " likely that you modified some InferenceClient code and did not update the the AsyncInferenceClient"
-                " one.\n   Please run `make style` or `python utils/generate_async_inference_client.py --update`."
-            )
-            exit(1)
-
-    print("✅ All good! (AsyncInferenceClient)")
-    exit(0)
 
 
 if __name__ == "__main__":
