@@ -54,7 +54,9 @@ def _add_imports(code: str) -> str:
     # global imports
     code = re.sub(
         r"(\nimport .*?\n)",
-        repl=(r"\1" + "from ..utils import is_aiohttp_available\n" + "from typing import AsyncIterable\n"),
+        repl=(
+            r"\1" + "from ._common import _async_yield_from, _import_aiohttp\n" + "from typing import AsyncIterable\n"
+        ),
         string=code,
         count=1,
         flags=re.DOTALL,
@@ -98,7 +100,7 @@ ASYNC_POST_CODE = """
                     response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
                     response.raise_for_status()
                     if stream:
-                        return _yield_from(client, response)
+                        return _async_yield_from(client, response)
                     else:
                         content = await response.read()
                         await client.close()
@@ -180,22 +182,10 @@ def _remove_examples_from_public_methods(code: str) -> str:
     )
 
 
-def _add_utils_functions(code: str) -> str:
-    return (
-        code
-        + """\n\nasync def _yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
-    async for byte_payload in response.content:
-        yield byte_payload
-    await client.close()
-    """
-        + """\n\ndef _import_aiohttp():
-    # Make sure `aiohttp` is installed on the machine.
-    if not is_aiohttp_available():
-        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
-    import aiohttp
-
-    return aiohttp
-    """
+def _use_async_streaming_util(code: str) -> str:
+    return code.replace(
+        "_stream_text_generation_response",
+        "_async_stream_text_generation_response",
     )
 
 
@@ -205,11 +195,11 @@ def generate_async_client_code(code: str) -> str:
     code = _add_imports(code)
     code = _rename_to_AsyncInferenceClient(code)
     code = _make_post_async(code)
-    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
-    code = _make_public_methods_async(code)
     code = _await_post_method_call(code)
+    code = _make_public_methods_async(code)
+    code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _remove_examples_from_public_methods(code)
-    code = _add_utils_functions(code)
+    code = _use_async_streaming_util(code)
     return code
 
 
