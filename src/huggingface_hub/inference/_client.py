@@ -1038,7 +1038,7 @@ class InferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = self.post(json=payload, model=model, task="text-generation", stream=stream)
+            bytes_output = self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
         except HTTPError as e:
             if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
                 _set_as_non_tgi(model)

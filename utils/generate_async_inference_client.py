@@ -198,13 +198,20 @@ ASYNC_POST_CODE = """
 
 def _make_post_async(code: str) -> str:
     # Update AsyncInferenceClient.post() implementation (use aiohttp instead of requests)
-    return re.sub(
-        r"def post\((\n.*?\"\"\".*?\"\"\"\n).*?(\n\W*def )",
+    code = re.sub(
+        r"""
+        def[ ]post\( # definition
+            (\n.*?\"\"\".*?\"\"\"\n) # Group1: docstring
+            .*? # implementation (to be overwritten)
+        (\n\W*def ) # Group2: next method
+        """,
         repl=rf"async def post(\1{ASYNC_POST_CODE}\2",
         string=code,
         count=1,
-        flags=re.DOTALL,
+        flags=re.DOTALL | re.VERBOSE,
     )
+    # Update `post`'s type annotations
+    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]", 2)
 
 
 def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:

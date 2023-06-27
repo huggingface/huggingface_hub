@@ -24,6 +24,7 @@ from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncIterable,
     Dict,
     Iterable,
     List,
@@ -138,7 +139,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[True] = ...,
-    ) -> Iterable[bytes]:
+    ) -> AsyncIterable[bytes]:
         pass
 
     async def post(
@@ -149,7 +150,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: bool = False,
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, AsyncIterable[bytes]]:
         """
         Make a POST request to the inference server.
 
@@ -853,7 +854,7 @@ class AsyncInferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)
+            bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
         except HTTPError as e:
             if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
                 _set_as_non_tgi(model)
