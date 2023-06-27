@@ -136,7 +136,7 @@ def _mocked_error(payload: Dict) -> MagicMock:
 
 
 @pytest.mark.vcr
-@patch.dict("huggingface_hub.inference._client._NON_TGI_SERVERS", {})
+@patch.dict("huggingface_hub.inference._common._NON_TGI_SERVERS", {})
 class TestTextGenerationClientVCR(unittest.TestCase):
     """Use VCR test to avoid making requests to the prod infra."""
 
