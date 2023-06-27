@@ -388,7 +388,7 @@ def _request_wrapper(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `2`):
             Maximum amount of time between two retries, in seconds.
-        timeout (`float`, *optional*, defaults to `60`):
+        timeout (`float`, *optional*, defaults to `10`):
             How many seconds to wait for the server to send data before
             giving up which is passed to `requests.request`.
         follow_relative_redirects (`bool`, *optional*, defaults to `False`)
