@@ -49,6 +49,7 @@ from ._paths import filter_repo_objects, IGNORE_GIT_FOLDER_PATTERNS
 from ._experimental import experimental
 from ._runtime import (
     dump_environment_info,
+    get_aiohttp_version,
     get_fastai_version,
     get_fastcore_version,
     get_gradio_version,
@@ -64,6 +65,7 @@ from ._runtime import (
     get_tensorboard_version,
     get_tf_version,
     get_torch_version,
+    is_aiohttp_available,
     is_fastai_available,
     is_fastcore_available,
     is_numpy_available,

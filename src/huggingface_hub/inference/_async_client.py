@@ -42,7 +42,6 @@ from typing import (
     overload,
 )
 
-from aiohttp import ClientResponse, ClientResponseError, ClientSession, ClientTimeout
 from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
@@ -52,6 +51,7 @@ from ..utils import (
     build_hf_headers,
     get_session,
     hf_raise_for_status,
+    is_aiohttp_available,
     is_numpy_available,
     is_pillow_available,
 )
@@ -68,6 +68,7 @@ from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentatio
 
 if TYPE_CHECKING:
     import numpy as np
+    from aiohttp import ClientResponse, ClientSession
     from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -190,6 +191,8 @@ class AsyncInferenceClient:
                 If the request fails with an HTTP error status code other than HTTP 503.
         """
 
+        aiohttp = _import_aiohttp()
+
         url = self._resolve_url(model, task)
 
         if data is not None and json is not None:
@@ -201,7 +204,9 @@ class AsyncInferenceClient:
             with _open_as_binary(data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                client = ClientSession(headers=self.headers, cookies=self.cookies, timeout=ClientTimeout(self.timeout))
+                client = aiohttp.ClientSession(
+                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                )
 
                 try:
                     response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
@@ -215,7 +220,7 @@ class AsyncInferenceClient:
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
-                except ClientResponseError as error:
+                except aiohttp.ClientResponseError as error:
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
                         if timeout is not None and time.time() - t0 > timeout:
@@ -1103,11 +1108,11 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
-async def _stream_text_generation_response(
-    bytes_output_as_lines: AsyncIterable[bytes], details: bool
-) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+def _stream_text_generation_response(
+    bytes_output_as_lines: Iterable[bytes], details: bool
+) -> Union[Iterable[str], Iterable[TextGenerationStreamResponse]]:
     # Parse ServerSentEvents
-    async for byte_payload in bytes_output_as_lines:
+    for byte_payload in bytes_output_as_lines:
         # Skip line
         if byte_payload == b"\n":
             continue
@@ -1144,12 +1149,6 @@ def _import_numpy():
     return numpy
 
 
-async def _yield_from(client: ClientSession, response: ClientResponse) -> AsyncIterable[bytes]:
-    async for byte_payload in response.content:
-        yield byte_payload
-    await client.close()
-
-
 def _first_or_none(items: List[Any]) -> Optional[Any]:
     try:
         return items[0] or None
@@ -1180,3 +1179,18 @@ def _set_as_non_tgi(model: Optional[str]) -> None:
 
 def _is_tgi_server(model: Optional[str]) -> bool:
     return model not in _NON_TGI_SERVERS
+
+
+async def _yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
+    async for byte_payload in response.content:
+        yield byte_payload
+    await client.close()
+
+
+def _import_aiohttp():
+    # Make sure `aiohttp` is installed on the machine.
+    if not is_aiohttp_available():
+        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
+    import aiohttp
+
+    return aiohttp

@@ -50,14 +50,26 @@ def _add_warning_to_file_header(code: str) -> str:
     )
 
 
-def _add_aiohttp_import(code: str) -> str:
-    return re.sub(
+def _add_imports(code: str) -> str:
+    # global imports
+    code = re.sub(
         r"(\nimport .*?\n)",
-        repl=r"\1import aiohttp\n",
+        repl=(r"\1" + "from ..utils import is_aiohttp_available\n" + "from typing import AsyncIterable\n"),
         string=code,
         count=1,
         flags=re.DOTALL,
     )
+
+    # type-checking imports
+    code = re.sub(
+        r"(\nif TYPE_CHECKING:\n)",
+        repl=r"\1    from aiohttp import ClientResponse, ClientSession\n",
+        string=code,
+        count=1,
+        flags=re.DOTALL,
+    )
+
+    return code
 
 
 def _rename_to_AsyncInferenceClient(code: str) -> str:
@@ -65,6 +77,8 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
 
 
 ASYNC_POST_CODE = """
+        aiohttp = _import_aiohttp()
+
         url = self._resolve_url(model, task)
 
         if data is not None and json is not None:
@@ -74,36 +88,39 @@ ASYNC_POST_CODE = """
         timeout = self.timeout
         while True:
             with _open_as_binary(data) as data_as_binary:
-                async with aiohttp.ClientSession(
+                # Do not use context manager as we don't want to close the connection immediately when returning
+                # a stream
+                client = aiohttp.ClientSession(
                     headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
-                ) as client:
-                    try:
-                        async with client.post(
-                            url,
-                            headers=build_hf_headers(),
-                            json=json,
-                            data=data_as_binary,
-                        ) as response:
-                            response.raise_for_status()
-                            return await response.read()
-                    except TimeoutError as error:
-                        # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                        raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
-                    except aiohttp.ClientResponseError as error:
-                        if response.status == 503:
-                            # If Model is unavailable, either raise a TimeoutError...
-                            if timeout is not None and time.time() - t0 > timeout:
-                                raise InferenceTimeoutError(
-                                    f"Model not loaded on the server: {url}. Please retry with a higher timeout"
-                                    f" (current: {self.timeout})."
-                                ) from error
-                            # ...or wait 1s and retry
-                            logger.info(f"Waiting for model to be loaded on the server: {error}")
-                            time.sleep(1)
-                            if timeout is not None:
-                                timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                            continue
-                        raise error"""
+                )
+
+                try:
+                    response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response.raise_for_status()
+                    if stream:
+                        return _yield_from(client, response)
+                    else:
+                        content = await response.read()
+                        await client.close()
+                        return content
+                except TimeoutError as error:
+                    # Convert any `TimeoutError` to a `InferenceTimeoutError`
+                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                except aiohttp.ClientResponseError as error:
+                    if response.status == 503:
+                        # If Model is unavailable, either raise a TimeoutError...
+                        if timeout is not None and time.time() - t0 > timeout:
+                            raise InferenceTimeoutError(
+                                f"Model not loaded on the server: {url}. Please retry with a higher timeout"
+                                f" (current: {self.timeout})."
+                            ) from error
+                        # ...or wait 1s and retry
+                        logger.info(f"Waiting for model to be loaded on the server: {error}")
+                        time.sleep(1)
+                        if timeout is not None:
+                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
+                        continue
+                    raise error"""
 
 
 def _make_post_async(code: str) -> str:
@@ -163,16 +180,36 @@ def _remove_examples_from_public_methods(code: str) -> str:
     )
 
 
+def _add_utils_functions(code: str) -> str:
+    return (
+        code
+        + """\n\nasync def _yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
+    async for byte_payload in response.content:
+        yield byte_payload
+    await client.close()
+    """
+        + """\n\ndef _import_aiohttp():
+    # Make sure `aiohttp` is installed on the machine.
+    if not is_aiohttp_available():
+        raise ImportError("Please install aiohttp to use `AsyncInferenceClient` (`pip install aiohttp`).")
+    import aiohttp
+
+    return aiohttp
+    """
+    )
+
+
 def generate_async_client_code(code: str) -> str:
     """Generate AsyncInferenceClient source code."""
     code = _add_warning_to_file_header(code)
-    code = _add_aiohttp_import(code)
+    code = _add_imports(code)
     code = _rename_to_AsyncInferenceClient(code)
     code = _make_post_async(code)
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _make_public_methods_async(code)
     code = _await_post_method_call(code)
     code = _remove_examples_from_public_methods(code)
+    code = _add_utils_functions(code)
     return code
 
 
