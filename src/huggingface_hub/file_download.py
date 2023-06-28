@@ -19,7 +19,7 @@ from urllib.parse import quote, urlparse
 
 import requests
 from filelock import FileLock
-from requests.exceptions import ConnectTimeout, ProxyError
+from requests.exceptions import ProxyError, Timeout
 
 from huggingface_hub import constants
 
@@ -362,7 +362,7 @@ def _request_wrapper(
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
     follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
@@ -373,7 +373,7 @@ def _request_wrapper(
        If enabled, a `OfflineModeIsEnabled` exception is raised.
     2. Follow relative redirections if `follow_relative_redirects=True` even when
        `allow_redirection` kwarg is set to False.
-    3. Retry in case request fails with a `ConnectTimeout`, with exponential backoff.
+    3. Retry in case request fails with a `Timeout` or `ProxyError`, with exponential backoff.
 
     Args:
         method (`str`):
@@ -388,7 +388,7 @@ def _request_wrapper(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `2`):
             Maximum amount of time between two retries, in seconds.
-        timeout (`float`, *optional*, defaults to `60`):
+        timeout (`float`, *optional*, defaults to `10`):
             How many seconds to wait for the server to send data before
             giving up which is passed to `requests.request`.
         follow_relative_redirects (`bool`, *optional*, defaults to `False`)
@@ -445,7 +445,7 @@ def _request_wrapper(
         max_retries=max_retries,
         base_wait_time=base_wait_time,
         max_wait_time=max_wait_time,
-        retry_on_exceptions=(ConnectTimeout, ProxyError),
+        retry_on_exceptions=(Timeout, ProxyError),
         retry_on_status_codes=(),
         timeout=timeout,
         **params,
@@ -467,7 +467,7 @@ def http_get(
     proxies=None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
     max_retries: int = 0,
     expected_size: Optional[int] = None,
 ):
@@ -1502,7 +1502,7 @@ def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 60.0,
+    timeout: Optional[float] = 10.0,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
