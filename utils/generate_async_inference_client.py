@@ -172,6 +172,9 @@ ASYNC_POST_CODE = """
 
                 try:
                     response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response_error_payload = None
+                    if response.status != 200:
+                        response_error_payload = await response.json()  # get payload before connection closed
                     response.raise_for_status()
                     if stream:
                         return _async_yield_from(client, response)
@@ -184,6 +187,7 @@ ASYNC_POST_CODE = """
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
                 except aiohttp.ClientResponseError as error:
+                    error.response_error_payload = response_error_payload
                     await client.close()
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
@@ -256,7 +260,8 @@ def _adapt_text_generation_to_async(code: str) -> str:
     """,
         """
         except _import_aiohttp().ClientResponseError as e:
-            if e.code == 400:
+            error_message = getattr(e, "response_error_payload", {}).get("error", "")
+            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
     """,
     )
 
