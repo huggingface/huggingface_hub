@@ -33,12 +33,10 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from ..constants import INFERENCE_ENDPOINT
 from ..utils import (
-    BadRequestError,
     build_hf_headers,
 )
 from ..utils._typing import Literal
@@ -207,9 +205,11 @@ class AsyncInferenceClient:
                         await client.close()
                         return content
                 except TimeoutError as error:
+                    await client.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
                 except aiohttp.ClientResponseError as error:
+                    await client.close()
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
                         if timeout is not None and time.time() - t0 > timeout:
@@ -1039,10 +1039,10 @@ class AsyncInferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
-        except HTTPError as e:
-            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+        except _import_aiohttp().ClientResponseError as e:
+            if e.code == 400:
                 _set_as_non_tgi(model)
-                return self.text_generation(  # type: ignore
+                return await self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,

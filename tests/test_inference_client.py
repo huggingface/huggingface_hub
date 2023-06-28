@@ -187,6 +187,9 @@ class InferenceClientVCRTest(InferenceClientTest):
             ),
         )
 
+    def test_text_generation(self) -> None:
+        """Tested separately in `test_inference_text_generation.py`."""
+
     def test_text_to_image(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)

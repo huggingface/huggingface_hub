@@ -44,7 +44,10 @@ def generate_async_client_code(code: str) -> str:
     code = _use_async_streaming_util(code)
 
     # Make all tasks-method async
-    code = _make_public_methods_async(code)
+    code = _make_tasks_methods_async(code)
+
+    # Adapt text_generation error catching
+    code = _adapt_text_generation_to_async(code)
 
     # Update some docstrings
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
@@ -177,9 +180,11 @@ ASYNC_POST_CODE = """
                         await client.close()
                         return content
                 except TimeoutError as error:
+                    await client.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
                 except aiohttp.ClientResponseError as error:
+                    await client.close()
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
                         if timeout is not None and time.time() - t0 > timeout:
@@ -219,7 +224,7 @@ def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:
     return code.replace("`HTTPError`:", "`aiohttp.ClientResponseError`:")
 
 
-def _make_public_methods_async(code: str) -> str:
+def _make_tasks_methods_async(code: str) -> str:
     # Add `async` keyword in front of public methods (of AsyncClientInference)
     return re.sub(
         r"""
@@ -237,6 +242,27 @@ def _make_public_methods_async(code: str) -> str:
         string=code,
         flags=re.DOTALL | re.VERBOSE,
     )
+
+
+def _adapt_text_generation_to_async(code: str) -> str:
+    # Text-generation task has to be handled specifically since it has a recursive call mechanism (to retry on non-tgi
+    # servers)
+
+    # Catch `aiohttp` error instead of `requests` error
+    code = code.replace(
+        """
+        except HTTPError as e:
+            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+    """,
+        """
+        except _import_aiohttp().ClientResponseError as e:
+            if e.code == 400:
+    """,
+    )
+
+    # Await recursive call
+    code = code.replace("return self.text_generation", "return await self.text_generation")
+    return code
 
 
 def _await_post_method_call(code: str) -> str:
