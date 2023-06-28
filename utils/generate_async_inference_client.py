@@ -48,7 +48,7 @@ def generate_async_client_code(code: str) -> str:
 
     # Update some docstrings
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
-    code = _remove_examples_from_public_methods(code)
+    code = _update_examples_in_public_methods(code)
     return code
 
 
@@ -243,21 +243,41 @@ def _await_post_method_call(code: str) -> str:
     return code.replace("self.post(", "await self.post(")
 
 
-def _remove_examples_from_public_methods(code: str) -> str:
-    # "Example" sections are not valid in async methods. Let's remove them.
-    return re.sub(
+def _update_example_code_block(code_block: str) -> str:
+    """Update an atomic code block example from a docstring."""
+    code_block = "\n        # Must be run in an async context" + code_block
+    code_block = code_block.replace("InferenceClient", "AsyncInferenceClient")
+    code_block = code_block.replace("client.", "await client.")
+    code_block = code_block.replace(" for ", " async for ")
+    return code_block
+
+
+def _update_examples_in_public_methods(code: str) -> str:
+    for match in re.finditer(
         r"""
         \n\s*
         Example:\n\s* # example section
         ```py # start
-        .*? # anything
+        (.*?) # code block
         ``` # end
         \n
         """,
-        repl="\n",
         string=code,
         flags=re.DOTALL | re.VERBOSE,
-    )
+    ):
+        # Example, including code block
+        full_match = match.group()
+
+        # Code block alone
+        code_block = match.group(1)
+
+        # Update code block in example
+        updated_match = full_match.replace(code_block, _update_example_code_block(code_block))
+
+        # Update example in full script
+        code = code.replace(full_match, updated_match)
+
+    return code
 
 
 def _use_async_streaming_util(code: str) -> str:
