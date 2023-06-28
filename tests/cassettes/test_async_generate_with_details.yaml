@@ -1,0 +1,39 @@
+interactions:
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+  response:
+    body:
+      string: '[{"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":3,"text":"
+        ","logprob":-2.0078125,"special":false}]}}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '212'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 11:10:47 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '60'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - xRLXLRG8hYGeww6snaG8C
+      x-sha:
+      - ad196ce8c46191d6a52592960835ff96d30152b5
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+version: 1

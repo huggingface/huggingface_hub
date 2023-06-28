@@ -58,6 +58,7 @@ extras["testing"] = (
         "pytest-env",
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
+        "pytest-asyncio"  # for AsyncInferenceClient
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",

@@ -9,31 +9,29 @@ interactions:
     uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
   response:
     body:
-      string: 'data:{"token":{"id":3,"text":" ","logprob":-2.0078125,"special":false},"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":null}}
-
-
-        '
+      string: '{"error":"Input validation error: `inputs` tokens + `max_new_tokens`
+        must be <= 1512. Given: 2 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
       Connection:
       - keep-alive
-      Content-Length:
-      - '163'
       Content-Type:
-      - text/event-stream
+      - application/json
       Date:
-      - Wed, 28 Jun 2023 10:27:48 GMT
+      - Wed, 28 Jun 2023 11:10:49 GMT
+      Transfer-Encoding:
+      - chunked
       Vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-type:
-      - cache
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-request-id:
-      - Qgu9uc-Gzel6DefCHj3We
+      - 150LdPvga5vff_3f0MeMv
       x-sha:
       - ad196ce8c46191d6a52592960835ff96d30152b5
     status:
-      code: 200
-      message: OK
+      code: 422
+      message: Unprocessable Entity
     url: https://api-inference.huggingface.co/models/google/flan-t5-xxl
 version: 1

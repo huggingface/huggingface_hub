@@ -9,27 +9,28 @@ interactions:
     uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
   response:
     body:
-      string: 'data:{"token":{"id":3,"text":" ","logprob":-2.0078125,"special":false},"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":null}}
-
-
-        '
+      string: '[{"generated_text":"","details":{"finish_reason":"length","generated_tokens":1,"seed":6270333398812658761,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":3,"text":"
+        ","logprob":-2.0058594,"special":false}],"best_of_sequences":[{"generated_text":"super","finish_reason":"length","generated_tokens":1,"seed":1747517474421013729,"prefill":[{"id":0,"text":"<pad>","logprob":null}],"tokens":[{"id":1355,"text":"
+        super","logprob":-9.484375,"special":false}]}]}}]'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
       Connection:
       - keep-alive
       Content-Length:
-      - '163'
+      - '475'
       Content-Type:
-      - text/event-stream
+      - application/json
       Date:
-      - Wed, 28 Jun 2023 10:27:50 GMT
+      - Wed, 28 Jun 2023 11:10:48 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '59'
       x-compute-type:
       - cache
       x-request-id:
-      - jGyMdYa4AaIsSeZ4wl0cI
+      - UZNvXhDkv_krGEbjvx8Pi
       x-sha:
       - ad196ce8c46191d6a52592960835ff96d30152b5
     status:
