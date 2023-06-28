@@ -20,6 +20,12 @@ for more information on how to use it.
 
 [[autodoc]] InferenceClient
 
+## Async Inference Client
+
+An async version of [`InferenceClient`] exist to make async calls to your endpoint.
+
+[[autodoc]] AsyncInferenceClient
+
 ### InferenceTimeoutError
 
 [[autodoc]] InferenceTimeoutError
