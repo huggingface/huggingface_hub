@@ -199,7 +199,10 @@ class AsyncInferenceClient:
                     response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
                     response_error_payload = None
                     if response.status != 200:
-                        response_error_payload = await response.json()  # get payload before connection closed
+                        try:
+                            response_error_payload = await response.json()  # get payload before connection closed
+                        except Exception:
+                            pass
                     response.raise_for_status()
                     if stream:
                         return _async_yield_from(client, response)

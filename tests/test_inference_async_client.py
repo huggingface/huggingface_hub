@@ -5,11 +5,11 @@ Tests are run directly with pytest instead of unittest.TestCase as it's much eas
 Not all tasks are tested. We extensively test `text_generation` method since it's the most complex one (has different
 return types + uses streaming requests on demand). Tests are mostly duplicates from test_inference_text_generation.py`.
 
-For completeness we also run a test on a simple task (`test_async_feature_extraction`) and assume all other tasks
+For completeness we also run a test on a simple task (`test_async_sentence_similarity`) and assume all other tasks
 work as well.
 """
 import pytest
-import numpy as np
+
 import huggingface_hub.inference._common
 from huggingface_hub import AsyncInferenceClient
 from huggingface_hub.inference._common import _is_tgi_server
@@ -124,8 +124,16 @@ async def test_async_generate_stream_with_details(async_client: AsyncInferenceCl
     assert response.details.seed is None
 
 
+@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_feature_extraction(async_client: AsyncInferenceClient) -> None:
-    embedding = await async_client.feature_extraction("Hi, who are you?")
-    assert isinstance(embedding, np.ndarray)
-    assert embedding.shape == (8, 768)
+async def test_async_sentence_similarity() -> None:
+    async_client = AsyncInferenceClient()
+    scores = await async_client.sentence_similarity(
+        "Machine learning is so easy.",
+        other_sentences=[
+            "Deep learning is so straightforward.",
+            "This is so difficult, like rocket science.",
+            "I can't believe how much I struggled with this.",
+        ],
+    )
+    assert scores == [0.7785726189613342, 0.4587625563144684, 0.2906219959259033]
