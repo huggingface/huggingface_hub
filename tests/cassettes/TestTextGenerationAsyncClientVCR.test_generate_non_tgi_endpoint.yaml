@@ -1,0 +1,308 @@
+interactions:
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '{"error":"The following `model_kwargs` are not used by the model: [''details'',
+        ''stop'', ''watermark'', ''decoder_input_details''] (note: typos in the generate
+        arguments will also show up in this list)","warnings":["There was an inference
+        error: The following `model_kwargs` are not used by the model: [''details'',
+        ''stop'', ''watermark'', ''decoder_input_details''] (note: typos in the generate
+        arguments will also show up in this list)"]}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Expose-Headers:
+      - x-compute-type, x-compute-time
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:27:43 GMT
+      Server:
+      - uvicorn
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.004'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - OFaGPRuL2_0FgDGDBnI8W
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 400
+      message: Bad Request
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '46'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:27:44 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.243'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 1fz9pD9sQWSbmnwejrXfX
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 7 8 9 10 11 12 13 14 15 16"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '50'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:27:45 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.205'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - aclIUBHjqaW43czhhBGzo
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '46'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:27:47 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.243'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - Re8ROtv3Bqfzf9rkt3hwN
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '{"error":"The following `model_kwargs` are not used by the model: [''details'',
+        ''stop'', ''watermark'', ''decoder_input_details''] (note: typos in the generate
+        arguments will also show up in this list)","warnings":["There was an inference
+        error: The following `model_kwargs` are not used by the model: [''details'',
+        ''stop'', ''watermark'', ''decoder_input_details''] (note: typos in the generate
+        arguments will also show up in this list)"]}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Expose-Headers:
+      - x-compute-type, x-compute-time
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:29:38 GMT
+      Server:
+      - uvicorn
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.003'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - jG70yfoZFqtjlVx4YiZ_K
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 400
+      message: Bad Request
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '46'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:29:39 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.243'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - sNShHOdnaJGJ1FhgPa9hH
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 7 8 9 10 11 12 13 14 15 16"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '50'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:29:40 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.205'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 7s0zBgK8EdfLoILd2aefS
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/gpt2
+  response:
+    body:
+      string: '[{"generated_text":" 3 4 5 6 7 8 9 10 11 12"}]'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '46'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 28 Jun 2023 10:29:41 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.243'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - IO28Ul_wT2NS3Bvkl95Eg
+      x-sha:
+      - e7da7f221d5bf496a48136c0cd264e630fe9fcc8
+    status:
+      code: 200
+      message: OK
+    url: https://api-inference.huggingface.co/models/gpt2
+version: 1
