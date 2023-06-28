@@ -173,6 +173,20 @@ image. [`InferenceClient.post`] is also useful to handle tasks that are not yet 
 b'...'
 ```
 
+## Async client
+
+If you need to make async calls, you can use the [`AsyncInferenceClient`]. It has the same features as the sync-only
+client and its API is the same. To use it, you must install aiohttp (`pip install aiohttp`).
+
+```py
+>>> from huggingface_hub import AsyncInferenceClient
+>>> client = AsyncInferenceClient()
+
+>>> async def generate_image():
+...     image await client.text_to_image("An astronaut riding a horse on the moon.")
+...     image.save("astronaut.png")
+```
+
 ## Advanced tips
 
 In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
