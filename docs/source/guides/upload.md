@@ -303,13 +303,18 @@ class ZipScheduler(CommitScheduler):
             png_file.unlink()
 ```
 
-You can find a complete code in [this Gradio app](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver/blob/main/app_1M_image.py).
-
 When you overwrite `push_to_hub`, you have access to the attributes of [`CommitScheduler`] and especially:
 - [`HfApi`] client: `api`
 - Folder parameters: `folder_path` and `path_in_repo`
 - Repo parameters: `repo_id`, `repo_type`, `revision`
 - The thread lock: `lock`
+
+<Tip>
+
+For more examples of custom schedulers, check out our [demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+containing different implementations depending on your use cases.
+
+</Tip>
 
 ## create_commit
 

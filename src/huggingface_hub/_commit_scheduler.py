@@ -160,7 +160,11 @@ class CommitScheduler:
             return None
 
         logger.info("(Background) scheduled commit triggered.")
-        return self.push_to_hub()
+        try:
+            return self.push_to_hub()
+        except Exception as e:
+            logger.error(f"Error while pushing to Hub: {e}")  # Depending on the setup, error might be silenced
+            raise
 
     def push_to_hub(self) -> Optional[CommitInfo]:
         """
