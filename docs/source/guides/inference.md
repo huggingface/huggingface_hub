@@ -63,7 +63,7 @@ What if you want to use a specific model? You can specify it either as a paramet
 # Initialize client for a specific model
 >>> client = InferenceClient(model="prompthero/openjourney-v4")
 >>> client.text_to_image(...)
-# Or use a generic client but pass your model as an argument 
+# Or use a generic client but pass your model as an argument
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="prompthero/openjourney-v4")
 ```
@@ -88,7 +88,7 @@ code as before, changing only the `model` parameter:
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> client = InferenceClient(model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
-# or 
+# or
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
 ```
@@ -129,6 +129,8 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Image-to-Text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
 | | [Object Detection](https://huggingface.co/tasks/object-detection)               |              |  |
 | | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
+| | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
+
 | Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) |              |  |
 | | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      |              |  |
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
@@ -223,7 +225,7 @@ Here is a short guide to help you migrate from [`InferenceApi`] to [`InferenceCl
 
 ### Initialization
 
-Change from 
+Change from
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -239,7 +241,7 @@ to
 
 ### Run on a specific task
 
-Change from 
+Change from
 
 ```python
 >>> from huggingface_hub import InferenceApi
