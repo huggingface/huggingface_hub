@@ -1241,7 +1241,7 @@ class AsyncInferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return response.json()
+        return _bytes_to_dict(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
