@@ -789,7 +789,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence
+            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -799,11 +799,10 @@ class InferenceClient:
 
         Example:
         ```py
-        >>> from pathlib import Path
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
 
-        >>> client.zero_shot_image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg", "dog,cat,horse", model="openai/clip-vit-base-patch32")
+        >>> client.zero_shot_image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg", ["dog", "cat", "horse"], model="openai/clip-vit-base-patch32")
         [{"label": "dog", "score": 0.956}, ...]
         """
 
@@ -812,7 +811,7 @@ class InferenceClient:
             raise ValueError("You must specify at least 2 classes to compare. Please specify more than 1 class.")
 
         response = self.post(
-            json={"image": _b64_encode(image), "parameters": {"candidate_labels": labels}},
+            json={"image": _b64_encode(image), "parameters": {"candidate_labels": ",".join(labels)}},
             model=model,
             task="zero-shot-image-classification",
         )

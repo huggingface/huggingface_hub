@@ -199,7 +199,7 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(audio, bytes)
 
     def test_zero_shot_image_classification(self) -> None:
-        output = self.client.zero_shot_image_classification(self.image_file, "tree,woman,cat")
+        output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
