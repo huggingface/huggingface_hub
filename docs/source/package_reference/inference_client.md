@@ -22,7 +22,14 @@ for more information on how to use it.
 
 ## Async Inference Client
 
-An async version of [`InferenceClient`] exist to make async calls to your endpoint.
+An async version of the client is also provided, based on `asyncio` and `aiohttp`.
+To use it, you can either install `aiohttp` directly or use the `[inference]` extra:
+
+```
+pip install --upgrade huggingface_hub[inference]
+# or
+# pip install aiohttp
+```
 
 [[autodoc]] AsyncInferenceClient
 

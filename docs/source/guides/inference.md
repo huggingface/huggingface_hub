@@ -175,17 +175,33 @@ b'...'
 
 ## Async client
 
-If you need to make async calls, you can use the [`AsyncInferenceClient`]. It has the same features as the sync-only
-client and its API is the same. To use it, you must install aiohttp (`pip install aiohttp`).
+An async version of the client is also provided, based on `asyncio` and `aiohttp`. You can either install `aiohttp`
+directly or use the `[inference]` extra:
+
+```
+pip install --upgrade huggingface_hub[inference]
+# or
+# pip install aiohttp
+```
+
+After installation all async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are
+strictly the same as the sync-only version.
 
 ```py
+# Code must be run in a asyncio concurrent context.
+# $ python -m asyncio
 >>> from huggingface_hub import AsyncInferenceClient
 >>> client = AsyncInferenceClient()
 
->>> async def generate_image():
-...     image await client.text_to_image("An astronaut riding a horse on the moon.")
-...     image.save("astronaut.png")
+>>> image = await client.text_to_image("An astronaut riding a horse on the moon.")
+>>> image.save("astronaut.png")
+
+>>> async for token in await client.text_generation("The Huggingface Hub is", stream=True):
+...     print(token, end="")
+ a platform for sharing and discussing ML-related content.
 ```
+
+For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
 
 ## Advanced tips
 
