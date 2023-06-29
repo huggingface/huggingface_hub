@@ -1208,6 +1208,7 @@ class InferenceClient:
         ...     labels=["dog", "cat", "horse"],
         ... )
         [{"label": "dog", "score": 0.956}, ...]
+        ```
         """
 
         # Raise valueerror if input is less than 2 labels
