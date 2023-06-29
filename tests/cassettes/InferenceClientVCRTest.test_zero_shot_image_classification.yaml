@@ -14,7 +14,10 @@ interactions:
       Content-Type:
       - application/json
       user-agent:
-      - unknown/None; hf_hub/0.16.0.dev0; python/3.9.6
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+      x-request-id:
+      - 53212844-9c57-46cc-abca-e5ce84243fb7
     method: POST
     uri: https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32
   response:
@@ -28,17 +31,17 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 27 Jun 2023 15:04:13 GMT
+      - Thu, 29 Jun 2023 10:46:06 GMT
       access-control-allow-credentials:
       - 'true'
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '0.093'
+      - '0.090'
       x-compute-type:
       - cache
       x-request-id:
-      - XGMxd-zMt9dfAfP02Fmhi
+      - 53212844-9c57-46cc-abca-e5ce84243fb7
       x-sha:
       - e6a30b603a447e251fdaca1c3056b2a16cdfebeb
     status:

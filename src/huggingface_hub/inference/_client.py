@@ -1206,7 +1206,6 @@ class InferenceClient:
         >>> client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
         ...     labels=["dog", "cat", "horse"],
-        ...     model="openai/clip-vit-base-patch32"
         ... )
         [{"label": "dog", "score": 0.956}, ...]
         """
