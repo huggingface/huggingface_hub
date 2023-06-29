@@ -23,21 +23,21 @@ def patch_non_tgi_server(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def async_client() -> AsyncInferenceClient:
+def tgi_client() -> AsyncInferenceClient:
     return AsyncInferenceClient(model="google/flan-t5-xxl")
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_no_details(async_client: AsyncInferenceClient) -> None:
-    response = await async_client.text_generation("test", details=False, max_new_tokens=1)
+async def test_async_generate_no_details(tgi_client: AsyncInferenceClient) -> None:
+    response = await tgi_client.text_generation("test", details=False, max_new_tokens=1)
     assert response == ""
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_with_details(async_client: AsyncInferenceClient) -> None:
-    response = await async_client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
+async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> None:
+    response = await tgi_client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
 
     assert response.generated_text == ""
     assert response.details.finish_reason == FinishReason.Length
@@ -53,8 +53,8 @@ async def test_async_generate_with_details(async_client: AsyncInferenceClient) -
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_best_of(async_client: AsyncInferenceClient) -> None:
-    response = await async_client.text_generation(
+async def test_async_generate_best_of(tgi_client: AsyncInferenceClient) -> None:
+    response = await tgi_client.text_generation(
         "test", max_new_tokens=1, best_of=2, do_sample=True, decoder_input_details=True, details=True
     )
 
@@ -66,53 +66,52 @@ async def test_async_generate_best_of(async_client: AsyncInferenceClient) -> Non
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_validation_error(async_client: AsyncInferenceClient) -> None:
+async def test_async_generate_validation_error(tgi_client: AsyncInferenceClient) -> None:
     with pytest.raises(TextGenerationValidationError):
-        await async_client.text_generation("test", max_new_tokens=10_000)
+        await tgi_client.text_generation("test", max_new_tokens=10_000)
 
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_non_tgi_endpoint(async_client: AsyncInferenceClient) -> None:
-    text = await async_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
+async def test_async_generate_non_tgi_endpoint(tgi_client: AsyncInferenceClient) -> None:
+    text = await tgi_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
     assert text == " 3 4 5 6 7 8 9 10 11 12"
     assert not _is_tgi_server("gpt2")
 
     # Watermark is ignored (+ warning)
     with pytest.warns(UserWarning):
-        await async_client.text_generation("4 5 6", model="gpt2", max_new_tokens=10, watermark=True)
+        await tgi_client.text_generation("4 5 6", model="gpt2", max_new_tokens=10, watermark=True)
 
     # Return as detail even if details=True (+ warning)
     with pytest.warns(UserWarning):
-        text = await async_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, details=True)
+        text = await tgi_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, details=True)
     assert isinstance(text, str)
 
     # Return as stream raises error
     with pytest.raises(ValueError):
-        await async_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
+        await tgi_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
 
 
+@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_stream_no_details(async_client: AsyncInferenceClient) -> None:
-    iterator = await async_client.text_generation("test", max_new_tokens=1, stream=True, details=True)
-    responses = []
-    async for response in iterator:
-        responses.append(response)
+async def test_async_generate_stream_no_details(tgi_client: AsyncInferenceClient) -> None:
+    responses = [
+        response async for response in await tgi_client.text_generation("test", max_new_tokens=1, stream=True)
+    ]
 
     assert len(responses) == 1
     response = responses[0]
 
-    assert response.generated_text == ""
-    assert response.details.finish_reason == FinishReason.Length
-    assert response.details.generated_tokens == 1
-    assert response.details.seed is None
+    assert isinstance(response, str)
+    assert response == " "
 
 
+@pytest.mark.vcr
 @pytest.mark.asyncio
-async def test_async_generate_stream_with_details(async_client: AsyncInferenceClient) -> None:
+async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClient) -> None:
     responses = [
         response
-        async for response in await async_client.text_generation("test", max_new_tokens=1, stream=True, details=True)
+        async for response in await tgi_client.text_generation("test", max_new_tokens=1, stream=True, details=True)
     ]
 
     assert len(responses) == 1
