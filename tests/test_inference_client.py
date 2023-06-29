@@ -313,4 +313,5 @@ class TestHeadersAndCookies(unittest.TestCase):
             headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
             cookies={"my-cookie": "bar"},
             timeout=None,
+            stream=False,
         )

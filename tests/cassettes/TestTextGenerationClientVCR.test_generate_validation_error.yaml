@@ -1,0 +1,50 @@
+interactions:
+- request:
+    body: '{"inputs": "test", "parameters": {"do_sample": false, "max_new_tokens":
+      10000, "repetition_penalty": null, "return_full_text": false, "stop": [], "seed":
+      null, "temperature": null, "top_k": null, "top_p": null, "truncate": null, "typical_p":
+      null, "best_of": null, "watermark": false, "details": false, "decoder_input_details":
+      false}, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '352'
+      Content-Type:
+      - application/json
+      user-agent:
+      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
+  response:
+    body:
+      string: '{"error":"Input validation error: `inputs` tokens + `max_new_tokens`
+        must be <= 1512. Given: 2 `inputs` tokens and 10000 `max_new_tokens`","error_type":"validation"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 19 Jun 2023 15:22:09 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-origin:
+      - '*'
+      vary:
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-request-id:
+      - JXgh_Lwucgb8AbjAKAXMn
+      x-sha:
+      - ad196ce8c46191d6a52592960835ff96d30152b5
+    status:
+      code: 422
+      message: Unprocessable Entity
+version: 1

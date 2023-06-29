@@ -55,6 +55,7 @@ extras["testing"] = extras["cli"] + [
     "Pillow",
     "gradio",  # to test webhooks
     "numpy",  # for embeddings
+    "pydantic",  # for text-generation-inference
 ]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
@@ -66,6 +67,7 @@ extras["typing"] = [
     "types-toml",
     "types-tqdm",
     "types-urllib3",
+    "pydantic",  # for text-generation dataclasses
 ]
 
 extras["quality"] = [

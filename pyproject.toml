@@ -7,6 +7,9 @@ preview = true
 ignore_missing_imports = true
 no_implicit_optional = true
 scripts_are_modules = true
+plugins = [
+  "pydantic.mypy"
+]
 
 [tool.ruff]
 # Ignored rules:
