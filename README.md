@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-    *The official Python client for the Huggingface Hub.*
+    <i>The official Python client for the Huggingface Hub.</i>
 </p>
 
 <p align="center">
