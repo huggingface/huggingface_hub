@@ -1,8 +1,7 @@
 <p align="center">
   <br/>
-  <picture>
     <img alt="huggingface_hub library logo" src="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg" width="376" height="59" style="max-width: 100%;">
-  </picture>
+  <br/>
 </p>
 
 <p align="center">
