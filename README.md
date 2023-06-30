@@ -140,7 +140,7 @@ The advantages are:
 
 If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.
 
-## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜♥️🧡
+## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜🧡❤️
 
 Everyone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.
 Answering questions, helping others, reaching out and improving the documentations are immensely valuable to the community.
