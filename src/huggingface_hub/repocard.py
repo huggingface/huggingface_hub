@@ -200,7 +200,7 @@ class RepoCard:
 
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if the card fails validation checks.
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the request to the Hub API fails for any other reason.
 
         </Tip>
