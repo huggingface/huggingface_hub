@@ -103,7 +103,7 @@ class InferenceClient:
     """
 
     def __init__(
-        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = None
+        self, model: Optional[str] = None, token: Optional[str] = None, timeout: Optional[float] = 500
     ) -> None:
         self.model: Optional[str] = model
         self.headers = build_hf_headers(token=token)

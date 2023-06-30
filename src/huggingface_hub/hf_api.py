@@ -1615,7 +1615,7 @@ class HfApi:
         repo_id: str,
         *,
         revision: Optional[str] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = 500.0,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
         token: Optional[Union[bool, str]] = None,
@@ -1683,7 +1683,7 @@ class HfApi:
         repo_id: str,
         *,
         revision: Optional[str] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = 500.0,
         files_metadata: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> DatasetInfo:
@@ -1746,7 +1746,7 @@ class HfApi:
         repo_id: str,
         *,
         revision: Optional[str] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = 500.0,
         files_metadata: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> SpaceInfo:
@@ -1810,7 +1810,7 @@ class HfApi:
         *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = 500.0,
         files_metadata: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
@@ -2062,7 +2062,7 @@ class HfApi:
         *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
-        timeout: Optional[float] = None,
+        timeout: Optional[float] = 500.0,
         token: Optional[Union[bool, str]] = None,
     ) -> List[str]:
         """
