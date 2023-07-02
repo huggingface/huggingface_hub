@@ -445,7 +445,7 @@ def _request_wrapper(
         max_retries=max_retries,
         base_wait_time=base_wait_time,
         max_wait_time=max_wait_time,
-        retry_on_exceptions=(Timeout, ProxyError),
+        retry_on_exceptions=(Timeout, ProxyError, requests.exceptions.ConnectionError),
         retry_on_status_codes=(),
         timeout=timeout,
         **params,
