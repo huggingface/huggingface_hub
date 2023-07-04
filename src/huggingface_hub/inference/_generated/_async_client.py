@@ -64,7 +64,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._typing import Literal
 
-from ._common import _async_yield_from, _import_aiohttp
+from .._common import _async_yield_from, _import_aiohttp
 
 
 if TYPE_CHECKING:

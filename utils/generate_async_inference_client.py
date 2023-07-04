@@ -133,7 +133,7 @@ def _add_imports(code: str) -> str:
     code = re.sub(
         r"(\nimport .*?\n)",
         repl=(
-            r"\1" + "from ._common import _async_yield_from, _import_aiohttp\n" + "from typing import AsyncIterable\n"
+            r"\1" + "from .._common import _async_yield_from, _import_aiohttp\n" + "from typing import AsyncIterable\n"
         ),
         string=code,
         count=1,
