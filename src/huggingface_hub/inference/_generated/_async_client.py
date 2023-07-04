@@ -36,35 +36,35 @@ from typing import (
 
 from requests.structures import CaseInsensitiveDict
 
-from ..constants import INFERENCE_ENDPOINT
-from ..utils import (
-    build_hf_headers,
-)
-from ..utils._typing import Literal
-from ._common import (
+from huggingface_hub.constants import INFERENCE_ENDPOINT
+from huggingface_hub.inference._common import (
     ContentT,
     InferenceTimeoutError,
     _async_stream_text_generation_response,
-    _async_yield_from,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
     _bytes_to_image,
     _get_recommended_model,
-    _import_aiohttp,
     _import_numpy,
     _is_tgi_server,
     _open_as_binary,
     _set_as_non_tgi,
 )
-from ._text_generation import (
+from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
     TextGenerationRequest,
     TextGenerationResponse,
     TextGenerationStreamResponse,
     raise_text_generation_error,
 )
-from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
+from huggingface_hub.inference._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
+from huggingface_hub.utils import (
+    build_hf_headers,
+)
+from huggingface_hub.utils._typing import Literal
+
+from ._common import _async_yield_from, _import_aiohttp
 
 
 if TYPE_CHECKING:

@@ -51,15 +51,8 @@ from typing import (
 from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
-from ..constants import INFERENCE_ENDPOINT
-from ..utils import (
-    BadRequestError,
-    build_hf_headers,
-    get_session,
-    hf_raise_for_status,
-)
-from ..utils._typing import Literal
-from ._common import (
+from huggingface_hub.constants import INFERENCE_ENDPOINT
+from huggingface_hub.inference._common import (
     ContentT,
     InferenceTimeoutError,
     _b64_encode,
@@ -73,14 +66,21 @@ from ._common import (
     _set_as_non_tgi,
     _stream_text_generation_response,
 )
-from ._text_generation import (
+from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
     TextGenerationRequest,
     TextGenerationResponse,
     TextGenerationStreamResponse,
     raise_text_generation_error,
 )
-from ._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
+from huggingface_hub.inference._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
+from huggingface_hub.utils import (
+    BadRequestError,
+    build_hf_headers,
+    get_session,
+    hf_raise_for_status,
+)
+from huggingface_hub.utils._typing import Literal
 
 
 if TYPE_CHECKING:
