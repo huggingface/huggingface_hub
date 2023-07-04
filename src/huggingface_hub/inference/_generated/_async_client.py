@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 # WARNING
-# This entire file has been generated automatically based on `src/huggingface_hub/inference/_client.py`.
-# To re-generate it, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
+# This entire file has been adapted from the sync-client code in `src/huggingface_hub/inference/_client.py`.
+# Any change in InferenceClient will be automatically reflected in AsyncInferenceClient.
+# To re-generate the code, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
 # WARNING
 import logging
 import time
