@@ -3153,7 +3153,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3389,7 +3389,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             if some parameter value is invalid
@@ -3582,7 +3582,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4058,7 +4058,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4148,7 +4148,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4233,7 +4233,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4333,7 +4333,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4400,7 +4400,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4470,7 +4470,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4529,7 +4529,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4585,7 +4585,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4643,7 +4643,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -4936,7 +4936,7 @@ class HfApi:
             attributes like `endpoint`, `repo_type` and `repo_id`.
 
         Raises:
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`~utils.RepositoryNotFoundError`]
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
