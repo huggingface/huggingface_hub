@@ -274,6 +274,17 @@ def _adapt_text_generation_to_async(code: str) -> str:
 
     # Await recursive call
     code = code.replace("return self.text_generation", "return await self.text_generation")
+
+    # Update return types: Iterable -> AsyncIterable
+    code = code.replace(") -> Iterable[str]:", ") -> AsyncIterable[str]:")
+    code = code.replace(
+        ") -> Iterable[TextGenerationStreamResponse]:", ") -> AsyncIterable[TextGenerationStreamResponse]:"
+    )
+    code = code.replace(
+        ") -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:",
+        ") -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:",
+    )
+
     return code
 
 

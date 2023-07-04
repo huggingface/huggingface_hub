@@ -27,7 +27,6 @@ from typing import (
     Any,
     AsyncIterable,
     Dict,
-    Iterable,
     List,
     Optional,
     Union,
@@ -780,7 +779,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[str]:
+    ) -> AsyncIterable[str]:
         ...
 
     @overload
@@ -804,7 +803,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[TextGenerationStreamResponse]:
+    ) -> AsyncIterable[TextGenerationStreamResponse]:
         ...
 
     async def text_generation(
@@ -828,7 +827,7 @@ class AsyncInferenceClient:
         typical_p: Optional[float] = None,
         watermark: bool = False,
         decoder_input_details: bool = False,
-    ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
+    ) -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
         """
         Given a prompt, generate the following text.
 
