@@ -29,6 +29,11 @@ extras["cli"] = [
     # Note: installs `prompt-toolkit` in the background
 ]
 
+extras["inference"] = [
+    "aiohttp",  # for AsyncInferenceClient
+    "pydantic",  # for text-generation-inference
+]
+
 extras["torch"] = [
     "torch",
 ]
@@ -42,21 +47,25 @@ extras["fastai"] = [
 extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
 
 
-extras["testing"] = extras["cli"] + [
-    "jedi",
-    "Jinja2",
-    "pytest",
-    "pytest-cov",
-    "pytest-env",
-    "pytest-xdist",
-    "pytest-vcr",  # to mock Inference
-    "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
-    "soundfile",
-    "Pillow",
-    "gradio",  # to test webhooks
-    "numpy",  # for embeddings
-    "pydantic",  # for text-generation-inference
-]
+extras["testing"] = (
+    extras["cli"]
+    + extras["inference"]
+    + [
+        "jedi",
+        "Jinja2",
+        "pytest",
+        "pytest-cov",
+        "pytest-env",
+        "pytest-xdist",
+        "pytest-vcr",  # to mock Inference
+        "pytest-asyncio",  # for AsyncInferenceClient
+        "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
+        "soundfile",
+        "Pillow",
+        "gradio",  # to test webhooks
+        "numpy",  # for embeddings
+    ]
+)
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.

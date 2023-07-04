@@ -10,12 +10,14 @@ quality:
 	mypy src
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
+	python utils/generate_async_inference_client.py
 
 style:
 	black $(check_dirs)
 	ruff $(check_dirs) --fix
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
+	python utils/generate_async_inference_client.py --update
 
 repocard:
 	python utils/push_repocard_examples.py

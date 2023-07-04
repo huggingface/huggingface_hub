@@ -455,8 +455,10 @@ def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
             The HTTPError that have been raised.
     """
     # Try to parse a Text Generation Inference error
+
     try:
-        payload = http_error.response.json()
+        # Hacky way to retrieve payload in case of aiohttp error
+        payload = getattr(http_error, "response_error_payload", None) or http_error.response.json()
         message = payload.get("error")
         error_type = payload.get("error_type")
     except Exception:  # no payload

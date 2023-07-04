@@ -56,7 +56,7 @@ class InferenceClientTest(unittest.TestCase):
 
 @pytest.mark.vcr
 @with_production_testing
-@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
+@patch("huggingface_hub.inference._common._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
 class InferenceClientVCRTest(InferenceClientTest):
     """
     Test for the main tasks implemented in InferenceClient. Since Inference API can be flaky, we use VCR.py and
@@ -188,6 +188,9 @@ class InferenceClientVCRTest(InferenceClientTest):
             ),
         )
 
+    def test_text_generation(self) -> None:
+        """Tested separately in `test_inference_text_generation.py`."""
+
     def test_text_to_image(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
@@ -303,7 +306,7 @@ class TestHeadersAndCookies(unittest.TestCase):
         """Test that headers and cookies are correctly passed to the request."""
         client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
         response = client.post(data=b"content", model="username/repo_name")
-        self.assertEqual(response, get_session_mock().post.return_value)
+        self.assertEqual(response, get_session_mock().post.return_value.content)
 
         expected_user_agent = build_hf_headers()["user-agent"]
         get_session_mock().post.assert_called_once_with(

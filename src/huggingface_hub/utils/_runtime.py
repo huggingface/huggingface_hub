@@ -33,6 +33,7 @@ else:
 _package_versions = {}
 
 _CANDIDATES = {
+    "aiohttp": {"aiohttp"},
     "fastai": {"fastai"},
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
@@ -86,6 +87,15 @@ def get_python_version() -> str:
 # Huggingface Hub
 def get_hf_hub_version() -> str:
     return __version__
+
+
+# aiohttp
+def is_aiohttp_available() -> bool:
+    return _is_available("aiohttp")
+
+
+def get_aiohttp_version() -> str:
+    return _get_version("aiohttp")
 
 
 # FastAI
@@ -298,6 +308,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["tensorboard"] = get_tensorboard_version()
     info["numpy"] = get_numpy_version()
     info["pydantic"] = get_pydantic_version()
+    info["aiohttp"] = get_aiohttp_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT

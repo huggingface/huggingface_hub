@@ -175,6 +175,36 @@ image. [`InferenceClient.post`] is also useful to handle tasks that are not yet 
 b'...'
 ```
 
+## Async client
+
+An async version of the client is also provided, based on `asyncio` and `aiohttp`. You can either install `aiohttp`
+directly or use the `[inference]` extra:
+
+```sh
+pip install --upgrade huggingface_hub[inference]
+# or
+# pip install aiohttp
+```
+
+After installation all async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are
+strictly the same as the sync-only version.
+
+```py
+# Code must be run in a asyncio concurrent context.
+# $ python -m asyncio
+>>> from huggingface_hub import AsyncInferenceClient
+>>> client = AsyncInferenceClient()
+
+>>> image = await client.text_to_image("An astronaut riding a horse on the moon.")
+>>> image.save("astronaut.png")
+
+>>> async for token in await client.text_generation("The Huggingface Hub is", stream=True):
+...     print(token, end="")
+ a platform for sharing and discussing ML-related content.
+```
+
+For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
+
 ## Advanced tips
 
 In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.

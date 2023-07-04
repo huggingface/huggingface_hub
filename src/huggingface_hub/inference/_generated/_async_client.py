@@ -13,26 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Related resources:
-#    https://huggingface.co/tasks
-#    https://huggingface.co/docs/huggingface.js/inference/README
-#    https://github.com/huggingface/huggingface.js/tree/main/packages/inference/src
-#    https://github.com/huggingface/text-generation-inference/tree/main/clients/python
-#    https://github.com/huggingface/text-generation-inference/blob/main/clients/python/text_generation/client.py
-#    https://huggingface.slack.com/archives/C03E4DQ9LAJ/p1680169099087869
-#    https://github.com/huggingface/unity-api#tasks
-#
-# Some TODO:
-# - validate inputs/options/parameters? with Pydantic for instance? or only optionally?
-# - add all tasks
-#
-# NOTE: the philosophy of this client is "let's make it as easy as possible to use it, even if less optimized". Some
-# examples of how it translates:
-# - Timeout / Server unavailable is handled by the client in a single "timeout" parameter.
-# - Files can be provided as bytes, file paths, or URLs and the client will try to "guess" the type.
-# - Images are parsed as PIL.Image for easier manipulation.
-# - Provides a "recommended model" for each task => suboptimal but user-wise quicker to get a first script running.
-# - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
+# WARNING
+# This entire file has been adapted from the sync-client code in `src/huggingface_hub/inference/_client.py`.
+# Any change in InferenceClient will be automatically reflected in AsyncInferenceClient.
+# To re-generate the code, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
+# WARNING
 import logging
 import time
 import warnings
@@ -40,21 +25,21 @@ from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncIterable,
     Dict,
-    Iterable,
     List,
     Optional,
     Union,
     overload,
 )
 
-from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import INFERENCE_ENDPOINT
 from huggingface_hub.inference._common import (
     ContentT,
     InferenceTimeoutError,
+    _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
@@ -64,7 +49,6 @@ from huggingface_hub.inference._common import (
     _is_tgi_server,
     _open_as_binary,
     _set_as_non_tgi,
-    _stream_text_generation_response,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -75,12 +59,11 @@ from huggingface_hub.inference._text_generation import (
 )
 from huggingface_hub.inference._types import ClassificationOutput, ConversationalOutput, ImageSegmentationOutput
 from huggingface_hub.utils import (
-    BadRequestError,
     build_hf_headers,
-    get_session,
-    hf_raise_for_status,
 )
 from huggingface_hub.utils._typing import Literal
+
+from .._common import _async_yield_from, _import_aiohttp
 
 
 if TYPE_CHECKING:
@@ -90,7 +73,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class InferenceClient:
+class AsyncInferenceClient:
     """
     Initialize a new Inference Client.
 
@@ -134,7 +117,7 @@ class InferenceClient:
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
     @overload
-    def post(  # type: ignore
+    async def post(  # type: ignore
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -146,7 +129,7 @@ class InferenceClient:
         pass
 
     @overload
-    def post(  # type: ignore
+    async def post(  # type: ignore
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -154,10 +137,10 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[True] = ...,
-    ) -> Iterable[bytes]:
+    ) -> AsyncIterable[bytes]:
         pass
 
-    def post(
+    async def post(
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -165,7 +148,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: bool = False,
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, AsyncIterable[bytes]]:
         """
         Make a POST request to the inference server.
 
@@ -191,9 +174,12 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
         """
+
+        aiohttp = _import_aiohttp()
+
         url = self._resolve_url(model, task)
 
         if data is not None and json is not None:
@@ -203,40 +189,50 @@ class InferenceClient:
         timeout = self.timeout
         while True:
             with _open_as_binary(data) as data_as_binary:
+                # Do not use context manager as we don't want to close the connection immediately when returning
+                # a stream
+                client = aiohttp.ClientSession(
+                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                )
+
                 try:
-                    response = get_session().post(
-                        url,
-                        json=json,
-                        data=data_as_binary,
-                        headers=self.headers,
-                        cookies=self.cookies,
-                        timeout=self.timeout,
-                        stream=stream,
-                    )
+                    response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response_error_payload = None
+                    if response.status != 200:
+                        try:
+                            response_error_payload = await response.json()  # get payload before connection closed
+                        except Exception:
+                            pass
+                    response.raise_for_status()
+                    if stream:
+                        return _async_yield_from(client, response)
+                    else:
+                        content = await response.read()
+                        await client.close()
+                        return content
                 except TimeoutError as error:
+                    await client.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                except aiohttp.ClientResponseError as error:
+                    error.response_error_payload = response_error_payload
+                    await client.close()
+                    if response.status == 503:
+                        # If Model is unavailable, either raise a TimeoutError...
+                        if timeout is not None and time.time() - t0 > timeout:
+                            raise InferenceTimeoutError(
+                                f"Model not loaded on the server: {url}. Please retry with a higher timeout"
+                                f" (current: {self.timeout})."
+                            ) from error
+                        # ...or wait 1s and retry
+                        logger.info(f"Waiting for model to be loaded on the server: {error}")
+                        time.sleep(1)
+                        if timeout is not None:
+                            timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
+                        continue
+                    raise error
 
-            try:
-                hf_raise_for_status(response)
-                return response.iter_lines() if stream else response.content
-            except HTTPError as error:
-                if error.response.status_code == 503:
-                    # If Model is unavailable, either raise a TimeoutError...
-                    if timeout is not None and time.time() - t0 > timeout:
-                        raise InferenceTimeoutError(
-                            f"Model not loaded on the server: {url}. Please retry with a higher timeout (current:"
-                            f" {self.timeout})."
-                        ) from error
-                    # ...or wait 1s and retry
-                    logger.info(f"Waiting for model to be loaded on the server: {error}")
-                    time.sleep(1)
-                    if timeout is not None:
-                        timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
-                    continue
-                raise
-
-    def audio_classification(
+    async def audio_classification(
         self,
         audio: ContentT,
         *,
@@ -260,21 +256,22 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.audio_classification("audio.flac")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.audio_classification("audio.flac")
         [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
         ```
         """
-        response = self.post(data=audio, model=model, task="audio-classification")
+        response = await self.post(data=audio, model=model, task="audio-classification")
         return _bytes_to_dict(response)
 
-    def automatic_speech_recognition(
+    async def automatic_speech_recognition(
         self,
         audio: ContentT,
         *,
@@ -296,21 +293,22 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.automatic_speech_recognition("hello_world.flac")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.automatic_speech_recognition("hello_world.flac")
         "hello world"
         ```
         """
-        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
+        response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
         return _bytes_to_dict(response)["text"]
 
-    def conversational(
+    async def conversational(
         self,
         text: str,
         generated_responses: Optional[List[str]] = None,
@@ -344,17 +342,18 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> output = client.conversational("Hi, who are you?")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> output = await client.conversational("Hi, who are you?")
         >>> output
-        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
-        >>> client.conversational(
+        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 async for open-end generation.']}
+        >>> await client.conversational(
         ...     "Wow, that's scary!",
         ...     generated_responses=output["conversation"]["generated_responses"],
         ...     past_user_inputs=output["conversation"]["past_user_inputs"],
@@ -368,10 +367,10 @@ class InferenceClient:
             payload["inputs"]["past_user_inputs"] = past_user_inputs
         if parameters is not None:
             payload["parameters"] = parameters
-        response = self.post(json=payload, model=model, task="conversational")
+        response = await self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)
 
-    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -389,25 +388,26 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.feature_extraction("Hi, who are you?")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.feature_extraction("Hi, who are you?")
         array([[ 2.424802  ,  2.93384   ,  1.1750331 , ...,  1.240499, -0.13776633, -0.7889173 ],
         [-0.42943227, -0.6364878 , -1.693462  , ...,  0.41978157, -2.4336355 ,  0.6162071 ],
         ...,
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
-    def image_classification(
+    async def image_classification(
         self,
         image: ContentT,
         *,
@@ -429,21 +429,22 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
         [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
         ```
         """
-        response = self.post(data=image, model=model, task="image-classification")
+        response = await self.post(data=image, model=model, task="image-classification")
         return _bytes_to_dict(response)
 
-    def image_segmentation(
+    async def image_segmentation(
         self,
         image: ContentT,
         *,
@@ -471,20 +472,21 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.image_segmentation("cat.jpg"):
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.image_segmentation("cat.jpg"):
         [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
         ```
         """
 
         # Segment
-        response = self.post(data=image, model=model, task="image-segmentation")
+        response = await self.post(data=image, model=model, task="image-segmentation")
         output = _bytes_to_dict(response)
 
         # Parse masks as PIL Image
@@ -494,7 +496,7 @@ class InferenceClient:
             item["mask"] = _b64_to_image(item["mask"])
         return output
 
-    def image_to_image(
+    async def image_to_image(
         self,
         image: ContentT,
         prompt: Optional[str] = None,
@@ -543,14 +545,15 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> image = client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> image = await client.image_to_image("cat.jpg", prompt="turn the cat into a tiger")
         >>> image.save("tiger.jpg")
         ```
         """
@@ -575,10 +578,10 @@ class InferenceClient:
                 if value is not None:
                     payload[key] = value
 
-        response = self.post(json=payload, data=data, model=model, task="image-to-image")
+        response = await self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
-    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
+    async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
         """
         Takes an input image and return text.
 
@@ -598,23 +601,24 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.image_to_text("cat.jpg")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.image_to_text("cat.jpg")
         'a cat standing in a grassy field '
-        >>> client.image_to_text("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
+        >>> await client.image_to_text("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
         'a dog laying on the grass next to a flower pot '
         ```
         """
-        response = self.post(data=image, model=model, task="image-to-text")
+        response = await self.post(data=image, model=model, task="image-to-text")
         return _bytes_to_dict(response)[0]["generated_text"]
 
-    def sentence_similarity(
+    async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
         """
@@ -636,14 +640,15 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.sentence_similarity(
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.sentence_similarity(
         ...     "Machine learning is so easy.",
         ...     other_sentences=[
         ...         "Deep learning is so straightforward.",
@@ -654,14 +659,14 @@ class InferenceClient:
         [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
         ```
         """
-        response = self.post(
+        response = await self.post(
             json={"inputs": {"source_sentence": sentence, "sentences": other_sentences}},
             model=model,
             task="sentence-similarity",
         )
         return _bytes_to_dict(response)
 
-    def summarization(
+    async def summarization(
         self,
         text: str,
         *,
@@ -687,25 +692,26 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.summarization("The Eiffel tower...")
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.summarization("The Eiffel tower...")
         'The Eiffel tower is one of the most famous landmarks in the world....'
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
-        response = self.post(json=payload, model=model, task="summarization")
+        response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -729,7 +735,7 @@ class InferenceClient:
         ...
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -753,7 +759,7 @@ class InferenceClient:
         ...
 
     @overload
-    def text_generation(  # type: ignore
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -773,11 +779,11 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[str]:
+    ) -> AsyncIterable[str]:
         ...
 
     @overload
-    def text_generation(
+    async def text_generation(
         self,
         prompt: str,
         *,
@@ -797,10 +803,10 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[TextGenerationStreamResponse]:
+    ) -> AsyncIterable[TextGenerationStreamResponse]:
         ...
 
-    def text_generation(
+    async def text_generation(
         self,
         prompt: str,
         *,
@@ -821,7 +827,7 @@ class InferenceClient:
         typical_p: Optional[float] = None,
         watermark: bool = False,
         decoder_input_details: bool = False,
-    ) -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:
+    ) -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
         """
         Given a prompt, generate the following text.
 
@@ -897,20 +903,21 @@ class InferenceClient:
                 If input values are not valid. No HTTP call is made to the server.
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
 
         # Case 1: generate text
-        >>> client.text_generation("The huggingface_hub library is ", max_new_tokens=12)
+        >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12)
         '100% open source and built to be easy to use.'
 
-        # Case 2: iterate over the generated tokens. Useful for large generation.
-        >>> for token in client.text_generation("The huggingface_hub library is ", max_new_tokens=12, stream=True):
+        # Case 2: iterate over the generated tokens. Useful async for large generation.
+        >>> async for token in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, stream=True):
         ...     print(token)
         100
         %
@@ -926,7 +933,7 @@ class InferenceClient:
         .
 
         # Case 3: get more details about the generation process.
-        >>> client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
+        >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
         TextGenerationResponse(
             generated_text='100% open source and built to be easy to use.',
             details=Details(
@@ -951,7 +958,7 @@ class InferenceClient:
 
         # Case 4: iterate over the generated tokens with more details.
         # Last object is more complete, containing the full generated text and the finish reason.
-        >>> for details in client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
+        >>> async for details in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
         ...     print(details)
         ...
         TextGenerationStreamResponse(token=Token(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
@@ -1038,11 +1045,12 @@ class InferenceClient:
 
         # Handle errors separately for more precise error messages
         try:
-            bytes_output = self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
-        except HTTPError as e:
-            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+            bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
+        except _import_aiohttp().ClientResponseError as e:
+            error_message = getattr(e, "response_error_payload", {}).get("error", "")
+            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
                 _set_as_non_tgi(model)
-                return self.text_generation(  # type: ignore
+                return await self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,
@@ -1066,12 +1074,12 @@ class InferenceClient:
 
         # Parse output
         if stream:
-            return _stream_text_generation_response(bytes_output, details)  # type: ignore
+            return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
         data = _bytes_to_dict(bytes_output)[0]
         return TextGenerationResponse(**data) if details else data["generated_text"]
 
-    def text_to_image(
+    async def text_to_image(
         self,
         prompt: str,
         *,
@@ -1117,18 +1125,19 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
 
-        >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
+        >>> image = await client.text_to_image("An astronaut riding a horse on the moon.")
         >>> image.save("astronaut.png")
 
-        >>> image = client.text_to_image(
+        >>> image = await client.text_to_image(
         ...     "An astronaut riding a horse on the moon.",
         ...     negative_prompt="low resolution, blurry",
         ...     model="stabilityai/stable-diffusion-2-1",
@@ -1149,10 +1158,10 @@ class InferenceClient:
         for key, value in parameters.items():
             if value is not None:
                 payload[key] = value
-        response = self.post(json=payload, model=model, task="text-to-image")
+        response = await self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
-    def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
+    async def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
@@ -1169,22 +1178,23 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
+        # Must be run in an async context
         >>> from pathlib import Path
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
 
-        >>> audio = client.text_to_speech("Hello world")
+        >>> audio = await client.text_to_speech("Hello world")
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        return self.post(json={"inputs": text}, model=model, task="text-to-speech")
+        return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
-    def zero_shot_image_classification(
+    async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
     ) -> List[ClassificationOutput]:
         """
@@ -1205,15 +1215,16 @@ class InferenceClient:
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
-            `HTTPError`:
+            `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
 
-        >>> client.zero_shot_image_classification(
+        >>> await client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
         ...     labels=["dog", "cat", "horse"],
         ... )
@@ -1225,7 +1236,7 @@ class InferenceClient:
         if len(labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare. Please specify more than 1 class.")
 
-        response = self.post(
+        response = await self.post(
             json={"image": _b64_encode(image), "parameters": {"candidate_labels": ",".join(labels)}},
             model=model,
             task="zero-shot-image-classification",

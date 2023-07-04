@@ -207,6 +207,9 @@ _SUBMOD_ATTRS = {
         "InferenceClient",
         "InferenceTimeoutError",
     ],
+    "inference._generated._async_client": [
+        "AsyncInferenceClient",
+    ],
     "inference_api": [
         "InferenceApi",
     ],
@@ -503,6 +506,7 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceClient,  # noqa: F401
         InferenceTimeoutError,  # noqa: F401
     )
+    from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401
