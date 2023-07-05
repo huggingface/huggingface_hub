@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from .constants import INFERENCE_ENDPOINT
 from .hf_api import HfApi
 from .utils import build_hf_headers, get_session, is_pillow_available, logging, validate_hf_hub_args
+from .utils._deprecation import _deprecate_method
 
 
 logger = logging.get_logger(__name__)

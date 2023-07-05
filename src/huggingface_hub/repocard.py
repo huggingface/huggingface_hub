@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Literal, Optional, Type, Union
 
 import requests
 import yaml
@@ -21,7 +21,6 @@ from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, SoftTemporaryDirectory, validate_hf_hub_args
-from .utils._typing import Literal
 from .utils.logging import get_logger
 
 

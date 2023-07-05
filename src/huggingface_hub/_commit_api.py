@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
 from tqdm.contrib.concurrent import thread_map
 
@@ -28,7 +28,6 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._typing import Literal
 
 
 if TYPE_CHECKING:

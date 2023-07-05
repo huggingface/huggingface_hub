@@ -43,6 +43,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Union,
     overload,
@@ -80,7 +81,6 @@ from huggingface_hub.utils import (
     get_session,
     hf_raise_for_status,
 )
-from huggingface_hub.utils._typing import Literal
 
 
 if TYPE_CHECKING:

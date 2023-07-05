@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from functools import partial
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
@@ -64,7 +64,7 @@ from .utils import (
 )
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
-from .utils._typing import HTTP_METHOD_T, Literal
+from .utils._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)

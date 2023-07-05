@@ -29,6 +29,7 @@ from typing import (
     Generator,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Union,
@@ -46,7 +47,6 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ..utils._typing import Literal
 from ._text_generation import (
     TextGenerationStreamResponse,
 )

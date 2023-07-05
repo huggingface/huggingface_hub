@@ -6,11 +6,10 @@ for more information on Pull Requests, Discussions, and the community tab.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from .constants import REPO_TYPE_MODEL
 from .utils import parse_datetime
-from .utils._typing import Literal
 
 
 DiscussionStatus = Literal["open", "closed", "merged", "draft"]

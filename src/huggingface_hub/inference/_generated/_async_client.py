@@ -28,6 +28,7 @@ from typing import (
     AsyncIterable,
     Dict,
     List,
+    Literal,
     Optional,
     Union,
     overload,
@@ -61,7 +62,6 @@ from huggingface_hub.inference._types import ClassificationOutput, Conversationa
 from huggingface_hub.utils import (
     build_hf_headers,
 )
-from huggingface_hub.utils._typing import Literal
 
 from .._common import _async_yield_from, _import_aiohttp
 
