@@ -6,7 +6,7 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
 from urllib.parse import urlparse
 
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
@@ -22,7 +22,6 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._typing import TypedDict
 
 
 logger = logging.get_logger(__name__)

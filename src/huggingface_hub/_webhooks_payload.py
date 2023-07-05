@@ -13,11 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
-
-from .utils._typing import Literal
 
 
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they

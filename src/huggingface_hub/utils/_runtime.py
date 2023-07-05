@@ -13,22 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Check presence of installed packages at runtime."""
+import importlib.metadata
 import platform
 import sys
 from typing import Any, Dict
-
-import packaging.version
 
 from .. import __version__, constants
 
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
-
-if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata  # type: ignore
-else:
-    import importlib.metadata as importlib_metadata  # type: ignore
-
 
 _package_versions = {}
 
@@ -65,9 +58,9 @@ for candidate_name, package_names in _CANDIDATES.items():
     _package_versions[candidate_name] = "N/A"
     for name in package_names:
         try:
-            _package_versions[candidate_name] = importlib_metadata.version(name)
+            _package_versions[candidate_name] = importlib.metadata.version(name)
             break
-        except importlib_metadata.PackageNotFoundError:
+        except importlib.metadata.PackageNotFoundError:
             pass
 
 

@@ -26,7 +26,22 @@ from datetime import datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar, Union, overload
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+    overload,
+)
 from urllib.parse import quote
 
 import requests
@@ -99,7 +114,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 from .utils._deprecation import (
     _deprecate_arguments,
 )
-from .utils._typing import CallableT, Literal, TypedDict
+from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,

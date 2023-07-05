@@ -127,7 +127,7 @@ def get_session() -> requests.Session:
     return _get_session_from_cache(thread_ident=threading.get_ident())
 
 
-@lru_cache(maxsize=128)  # default value for Python>=3.8. Let's keep the same for Python3.7
+@lru_cache
 def _get_session_from_cache(thread_ident: int) -> requests.Session:
     """
     Create a new session per thread using global factory. Using LRU cache (maxsize 128) to avoid memory leaks when
