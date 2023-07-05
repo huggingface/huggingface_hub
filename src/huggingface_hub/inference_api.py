@@ -91,15 +91,14 @@ class InferenceApi:
     """
 
     @validate_hf_hub_args
-    # TODO: add deprecation starting from version v0.16.0 so that we can proactively adapt external scripts.
-    # @_deprecate_method(
-    #     version="0.18.0",
-    #     message=(
-    #         "`InferenceApi` client is deprecated in favor of the more feature-complete `InferenceClient`. Check out"
-    #         " this guide to learn how to convert your script to use it:"
-    #         " https://huggingface.co/docs/huggingface_hub/guides/inference#legacy-inferenceapi-client."
-    #     ),
-    # )
+    @_deprecate_method(
+        version="0.19.0",
+        message=(
+            "`InferenceApi` client is deprecated in favor of the more feature-complete `InferenceClient`. Check out"
+            " this guide to learn how to convert your script to use it:"
+            " https://huggingface.co/docs/huggingface_hub/guides/inference#legacy-inferenceapi-client."
+        ),
+    )
     def __init__(
         self,
         repo_id: str,
