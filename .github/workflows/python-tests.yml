@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.11"]
+        python-version: ["3.8", "3.11"]
         test_name:
           [
             "Repository only",
@@ -29,13 +29,13 @@ jobs:
             "torch",
           ]
         include:
-          - python-version: "3.11" # LFS not ran on 3.7
+          - python-version: "3.11" # LFS not ran on 3.8
             test_name: "lfs"
-          - python-version: "3.7"
+          - python-version: "3.8"
             test_name: "fastai"  # fastai not supported on 3.11 -> test it on 3.10
           - python-version: "3.10"
             test_name: "fastai"
-          - python-version: "3.7"
+          - python-version: "3.8"
             test_name: "tensorflow" # Tensorflow not supported on 3.11 -> test it on 3.10
           - python-version: "3.10"
             test_name: "tensorflow"
@@ -131,14 +131,14 @@ jobs:
   build-windows:
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
-    # Lighter version of the tests with only 1 test suite running on Python3.7.
+    # Lighter version of the tests with only 1 test suite running on Python3.8.
     runs-on: windows-latest
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7"]
+        python-version: ["3.8"]
 
     steps:
       - uses: actions/checkout@v2

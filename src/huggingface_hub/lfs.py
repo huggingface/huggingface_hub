@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from math import ceil
 from os.path import getsize
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
 
 from requests.auth import HTTPBasicAuth
 
@@ -30,7 +30,6 @@ from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_
 from huggingface_hub.utils import get_session
 
 from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, validate_hf_hub_args
-from .utils._typing import TypedDict
 from .utils.sha import sha256, sha_fileobj
 
 

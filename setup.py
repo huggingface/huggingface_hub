@@ -18,7 +18,6 @@ install_requires = [
     "tqdm>=4.42.1",
     "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
-    "importlib_metadata;python_version<'3.8'",
     "packaging>=20.9",
 ]
 
@@ -108,7 +107,7 @@ setup(
         "console_scripts": ["huggingface-cli=huggingface_hub.commands.huggingface_cli:main"],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
-    python_requires=">=3.7.0",
+    python_requires=">=3.8.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
@@ -118,7 +117,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",

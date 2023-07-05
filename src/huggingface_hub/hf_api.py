@@ -37,6 +37,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -113,7 +114,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
 from .utils._deprecation import (
     _deprecate_arguments,
 )
-from .utils._typing import CallableT, TypedDict
+from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
