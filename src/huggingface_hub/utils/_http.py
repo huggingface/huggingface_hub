@@ -33,19 +33,27 @@ from ._typing import HTTP_METHOD_T
 
 logger = logging.get_logger(__name__)
 
+# Both headers are used by the Hub to debug failed requests.
+# `X_AMZN_TRACE_ID` is better as it also works to debug on Cloudfront and ALB.
+# If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
+X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+X_REQUEST_ID = "x-request-id"
+
 
 class UniqueRequestIdAdapter(HTTPAdapter):
+    X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+
     def add_headers(self, request, **kwargs):
         super().add_headers(request, **kwargs)
 
         # Add random request ID => easier for server-side debug
-        if "x-request-id" not in request.headers:
-            request.headers["x-request-id"] = str(uuid.uuid4())
+        if X_AMZN_TRACE_ID not in request.headers:
+            request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
 
         # Add debug log
         has_token = str(request.headers.get("authorization", "")).startswith("Bearer hf_")
         logger.debug(
-            f"Request {request.headers['x-request-id']}: {request.method} {request.url} (authenticated: {has_token})"
+            f"Request {request.headers[X_AMZN_TRACE_ID]}: {request.method} {request.url} (authenticated: {has_token})"
         )
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
@@ -53,7 +61,7 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         try:
             return super().send(request, *args, **kwargs)
         except requests.RequestException as e:
-            request_id = request.headers.get("x-request-id")
+            request_id = request.headers.get(X_AMZN_TRACE_ID)
             if request_id is not None:
                 # Taken from https://stackoverflow.com/a/58270258
                 e.args = (*e.args, f"(Request ID: {request_id})")
