@@ -220,21 +220,21 @@ class TestUniqueRequestId(unittest.TestCase):
     def test_request_id_is_used_by_server(self):
         response = get_session().get(self.api_endpoint)
 
-        request_id = response.request.headers.get("x-request-id")
+        request_id = response.request.headers.get("X-Amzn-Trace-Id")
         response_id = response.headers.get("x-request-id")
-        self.assertEqual(request_id, response_id)
-        self.assertTrue(_is_uuid(response_id))
+        self.assertIn(request_id, response_id)
+        self.assertTrue(_is_uuid(request_id))
 
     def test_request_id_is_unique(self):
         response_1 = get_session().get(self.api_endpoint)
         response_2 = get_session().get(self.api_endpoint)
 
-        response_id_1 = response_1.headers["x-request-id"]
-        response_id_2 = response_2.headers["x-request-id"]
-        self.assertNotEqual(response_id_1, response_id_2)
+        request_id_1 = response_1.request.headers["X-Amzn-Trace-Id"]
+        request_id_2 = response_2.request.headers["X-Amzn-Trace-Id"]
+        self.assertNotEqual(request_id_1, request_id_2)
 
-        self.assertTrue(_is_uuid(response_id_1))
-        self.assertTrue(_is_uuid(response_id_2))
+        self.assertTrue(_is_uuid(request_id_1))
+        self.assertTrue(_is_uuid(request_id_2))
 
     def test_request_id_not_overwritten(self):
         response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
