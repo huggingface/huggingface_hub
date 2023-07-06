@@ -25,6 +25,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ProxyError, Timeout
+from requests.models import PreparedRequest
 
 from . import logging
 from ._typing import HTTP_METHOD_T
@@ -46,6 +47,17 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         logger.debug(
             f"Request {request.headers['x-request-id']}: {request.method} {request.url} (authenticated: {has_token})"
         )
+
+    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        """Catch any RequestException to append request id to the error message for debugging."""
+        try:
+            return super().send(request, *args, **kwargs)
+        except requests.RequestException as e:
+            request_id = request.headers.get("x-request-id")
+            if request_id is not None:
+                # Taken from https://stackoverflow.com/a/58270258
+                e.args = (*e.args, f"(Request ID: {request_id})")
+            raise
 
 
 def _default_backend_factory() -> requests.Session:
