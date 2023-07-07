@@ -218,18 +218,24 @@ class TestConfigureSession(unittest.TestCase):
         # Get main process session
         main_session = get_session()
 
-        def _in_child():
-            # Put `repr(session)` in queue because putting the `Session` object directly would duplicate it.
-            # Repr looks like this: "<requests.sessions.Session object at 0x7f5adcc41e40>"
-            queue.put(repr(get_session()))
-
         # Fork a new process and get session in it
-        queue = Queue()
-        Process(target=_in_child).start()
-        child_session = queue.get()
+        Process(target=_process_target_get_session_in_forked_process).start()
+        child_session = process_queue.get()
 
         # Check sessions are different
         self.assertNotEqual(repr(main_session), child_session)
+
+
+# Used in test_get_session_in_forked_process
+# Must be defined at global scope to be pickable on Windows.
+# See https://stackoverflow.com/a/72776044.
+process_queue = Queue()
+
+
+def _process_target_get_session_in_forked_process():
+    # Put `repr(session)` in queue because putting the `Session` object directly would duplicate it.
+    # Repr looks like this: "<requests.sessions.Session object at 0x7f5adcc41e40>"
+    process_queue.put(repr(get_session()))
 
 
 class TestUniqueRequestId(unittest.TestCase):
