@@ -14,6 +14,7 @@
 # limitations under the License.
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
 import io
+import os
 import threading
 import time
 import uuid
@@ -144,11 +145,11 @@ def get_session() -> requests.Session:
     session = get_session()
     ```
     """
-    return _get_session_from_cache(thread_ident=threading.get_ident())
+    return _get_session_from_cache(process_id=os.getpid(), thread_id=threading.get_ident())
 
 
 @lru_cache(maxsize=128)  # default value for Python>=3.8. Let's keep the same for Python3.7
-def _get_session_from_cache(thread_ident: int) -> requests.Session:
+def _get_session_from_cache(process_id: int, thread_id: int) -> requests.Session:
     """
     Create a new session per thread using global factory. Using LRU cache (maxsize 128) to avoid memory leaks when
     using thousands of threads. Cache is cleared when `configure_http_backend` is called.
