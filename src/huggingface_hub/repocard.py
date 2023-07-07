@@ -96,6 +96,9 @@ class RepoCard:
             self.text = content[match.end() :]
             data_dict = yaml.safe_load(yaml_block)
 
+            if data_dict is None:
+                data_dict = {}
+
             # The YAML block's data should be a dictionary
             if not isinstance(data_dict, dict):
                 raise ValueError("repo card metadata block should be a dict")
