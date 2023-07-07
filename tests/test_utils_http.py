@@ -1,6 +1,7 @@
 import threading
 import time
 import unittest
+from multiprocessing import Process, Queue
 from typing import Generator
 from unittest.mock import Mock, call, patch
 from uuid import UUID
@@ -212,6 +213,23 @@ class TestConfigureSession(unittest.TestCase):
             for j in range(N):
                 if i != j:
                     self.assertIsNot(sessions[i], sessions[j])
+
+    def test_get_session_in_forked_process(self):
+        # Get main process session
+        main_session = get_session()
+
+        def _in_child():
+            # Put `repr(session)` in queue because putting the `Session` object directly would duplicate it.
+            # Repr looks like this: "<requests.sessions.Session object at 0x7f5adcc41e40>"
+            queue.put(repr(get_session()))
+
+        # Fork a new process and get session in it
+        queue = Queue()
+        Process(target=_in_child).start()
+        child_session = queue.get()
+
+        # Check sessions are different
+        self.assertNotEqual(repr(main_session), child_session)
 
 
 class TestUniqueRequestId(unittest.TestCase):
