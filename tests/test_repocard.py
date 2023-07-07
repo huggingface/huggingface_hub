@@ -171,6 +171,14 @@ model-index:
 This is a test model card.
 """
 
+DUMMY_MODELCARD_EMPTY_METADATA = """
+---
+---
+# Begin of markdown after an empty metadata.
+
+Some cool dataset card.
+"""
+
 
 def require_jinja(test_case):
     """
@@ -223,6 +231,16 @@ class RepocardMetadataTest(unittest.TestCase):
         self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
         data = metadata_load(self.filepath)
         self.assertEqual(data, None)
+
+    def test_empty_metadata_returns_none(self):
+        self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
+        data = metadata_load(self.filepath)
+        self.assertEqual(data, None)
+
+    def test_empty_metadata_returns_none(self):
+        self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
+        self.assertIsNone(metadata_load(self.filepath))
+        self.assertEqual(RepoCard.load(self.filepath).data.to_dict(), {})
 
     def test_metadata_eval_result(self):
         data = metadata_eval_result(

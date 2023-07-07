@@ -96,6 +96,9 @@ class RepoCard:
             self.text = content[match.end() :]
             data_dict = yaml.safe_load(yaml_block)
 
+            if data_dict is None:
+                data_dict = {}
+
             # The YAML block's data should be a dictionary
             if not isinstance(data_dict, dict):
                 raise ValueError("repo card metadata block should be a dict")
@@ -501,10 +504,9 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
     if match:
         yaml_block = match.group(2)
         data = yaml.safe_load(yaml_block)
-        if isinstance(data, dict):
+        if data is None or isinstance(data, dict):
             return data
-        else:
-            raise ValueError("repo card metadata block should be a dict")
+        raise ValueError("repo card metadata block should be a dict")
     else:
         return None
 
