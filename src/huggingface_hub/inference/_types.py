@@ -66,7 +66,7 @@ class ConversationalOutput(TypedDict):
 
 class ImageSegmentationOutput(TypedDict):
     """Dictionary containing information about a [`~InferenceClient.image_segmentation`] task. In practice, image segmentation returns a
-    list of `ObjectDetectionOutput` with 1 item per mask.
+    list of `ImageSegmentationOutput` with 1 item per mask.
 
     Args:
         label (`str`):
