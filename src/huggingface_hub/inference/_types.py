@@ -66,7 +66,7 @@ class ConversationalOutput(TypedDict):
 
 class ImageSegmentationOutput(TypedDict):
     """Dictionary containing information about a [`~InferenceClient.image_segmentation`] task. In practice, image segmentation returns a
-    list of `ImageSegmentationOutput` with 1 item per mask.
+    list of `ObjectDetectionOutput` with 1 item per mask.
 
     Args:
         label (`str`):
@@ -79,4 +79,22 @@ class ImageSegmentationOutput(TypedDict):
 
     label: str
     mask: "Image"
+    score: float
+
+
+class ObjectDetectionOutput(TypedDict):
+    """Dictionary containing information about a [`~InferenceClient.object_detection`] task.
+
+    Args:
+        label (`str`):
+            The label corresponding to the detected object.
+        box (`List[float]]`):
+            A list of 4 floats corresponding to the bounding box pixel
+            coordinates of the detected object in the image.
+        score (`float`):
+            The score corresponding to the detected object.
+    """
+
+    label: str
+    box: List[float]
     score: float
