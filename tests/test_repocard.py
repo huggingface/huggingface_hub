@@ -232,12 +232,12 @@ class RepocardMetadataTest(unittest.TestCase):
         data = metadata_load(self.filepath)
         self.assertEqual(data, None)
 
-    def test_empty_metadata_returns_none(self):
+    def test_empty_metadata_returns_none_with_metadata_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
         data = metadata_load(self.filepath)
         self.assertEqual(data, None)
 
-    def test_empty_metadata_returns_none(self):
+    def test_empty_metadata_returns_none_with_repocard_load(self):
         self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
         self.assertIsNone(metadata_load(self.filepath))
         self.assertEqual(RepoCard.load(self.filepath).data.to_dict(), {})
