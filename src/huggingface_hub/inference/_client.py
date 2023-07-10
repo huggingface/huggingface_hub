@@ -657,7 +657,7 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.object_detection("people.jpg"):
-        [{"score":0.9486683011054993,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}}] ... '}
+        [{"score":0.9486683011054993,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}}, ... ]
         ```
         """
         # detect objects
