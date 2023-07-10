@@ -88,13 +88,13 @@ class ObjectDetectionOutput(TypedDict):
     Args:
         label (`str`):
             The label corresponding to the detected object.
-        box (`List[float]]`):
-            A list of 4 floats corresponding to the bounding box pixel
-            coordinates of the detected object in the image.
+        box (`dict`):
+            A dict response of bounding box coordinates of
+            the detected object: xmin, ymin, xmax, ymax
         score (`float`):
             The score corresponding to the detected object.
     """
 
     label: str
-    box: List[float]
+    box: dict
     score: float

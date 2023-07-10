@@ -36,6 +36,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "feature-extraction": "facebook/bart-base",
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
+    "object-detection": "facebook/detr-resnet-50",
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "sshleifer/distilbart-cnn-12-6",
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
@@ -156,6 +157,19 @@ class InferenceClientVCRTest(InferenceClientTest):
     # def test_image_to_text(self) -> None:
     #     caption = self.client.image_to_text(self.image_file)
     #     self.assertEqual(caption, "")
+
+    def test_object_detection(self) -> None:
+        output = self.client.object_detection(self.image_file)
+        self.assertIsInstance(output, list)
+        self.assertGreater(len(output), 0)
+        for item in output:
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["label"], str)
+            self.assertIsInstance(item["box"], dict)
+            self.assertIn("xmin", item["box"])
+            self.assertIn("ymin", item["box"])
+            self.assertIn("xmax", item["box"])
+            self.assertIn("ymax", item["box"])
 
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(

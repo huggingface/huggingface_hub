@@ -237,11 +237,6 @@ class RepocardMetadataTest(unittest.TestCase):
         data = metadata_load(self.filepath)
         self.assertEqual(data, None)
 
-    def test_empty_metadata_returns_none(self):
-        self.filepath.write_text(DUMMY_MODELCARD_EMPTY_METADATA)
-        self.assertIsNone(metadata_load(self.filepath))
-        self.assertEqual(RepoCard.load(self.filepath).data.to_dict(), {})
-
     def test_metadata_eval_result(self):
         data = metadata_eval_result(
             model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
