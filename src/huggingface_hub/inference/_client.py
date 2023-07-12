@@ -49,7 +49,8 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
+from attr import dataclass
+from requests import HTTPError, request
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import INFERENCE_ENDPOINT
@@ -94,6 +95,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+# Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
+@dataclass
+class ModelStatus:
+    loaded: bool
+    state: str
+    compute_type: str
+    framework: str
 
 class InferenceClient:
     """
@@ -1308,4 +1317,53 @@ class InferenceClient:
             if task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
+
+    def get_model_status(self, model: Optional[str] = None, *, token: Optional[str] = None) -> ModelStatus:
+        """
+            A function which returns the status os a specific model, from the huggingface Inference API.
+
+            Parameters:
+            -----------
+            model -> Optional[str], default=None
+                Identifier of the model for witch the status gonna be returned(retrieve). If model is not provided, 
+                the model associated with this instance of InferenceClient will be used. The 
+                identifier should not be a URL.
+
+            token -> Optional[str], default=None
+                 Optional token for authenticating with the Hugging Face API. If not provided, the 
+                 token associated with this instance of InferenceClient will be used.
+            
+                 
+            Raises
+            ------
+            ValueError
+                If the model is missing, meaning is not provided. Or the provided model is a URL. And finally
+                it raises an error if the API returns an error message(missing model).
+            
+                
+            Returns
+            -------
+            ModelStatus
+                An instance of ModelStatus dataclass, containing information about the state of 
+                the model: load, state, compute type and framework.
+        """
+        model = model or self.model
+        if model is None:
+             raise ValueError("Model id not provided")
+        if model.startswith("https://"):
+            raise ValueError("...")  # only works for InferenceAPI, not any URL 
+        
+        huggingface_interface_response = request.get(f"https://api-inference.huggingface.co/status/{model}")
+        huggingface_interface_response.raise_for_status()
+        
+        response_data = huggingface_interface_response.json()
+        if "error" in response_data:
+            raise ValueError(response_data["error"])
+        
+        return ModelStatus(
+            loaded=response_data['loaded'],
+            state=response_data['state'],
+            compute_type=response_data['compute_type'],
+            framework=response_data['framework'],
         )
