@@ -38,8 +38,10 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .utils import (
+    HfFolder,
     EntryNotFoundError,
     LocalEntryNotFoundError,
+    RepositoryNotFoundError,
     SoftTemporaryDirectory,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
@@ -1245,6 +1247,12 @@ def hf_hub_download(
             # Otherwise, our Internet connection is down.
             # etag is None
             pass
+        except RepositoryNotFoundError:
+            if HfFolder.get_token() is None:
+                print('Not logged in, so should expect file to reside locally; if there are no local files, then we have a problem.')
+                pass
+            else:
+                raise
 
     # etag is None == we don't have a connection or we passed local_files_only.
     # try to get the last downloaded one from the specified revision.
