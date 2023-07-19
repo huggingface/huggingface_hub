@@ -49,7 +49,7 @@ from typing import (
     overload,
 )
 
-from attr import dataclass
+from dataclasses import dataclass
 from requests import HTTPError, request
 from requests.structures import CaseInsensitiveDict
 
