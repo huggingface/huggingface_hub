@@ -1321,7 +1321,7 @@ class InferenceClient:
 
     def get_model_status(self, model: Optional[str] = None, *, token: Optional[str] = None) -> ModelStatus:
         """
-            A function which returns the status os a specific model, from the huggingface Inference API.
+            A function which returns the status of a specific model, from the Inference API.
 
             Parameters:
             -----------
