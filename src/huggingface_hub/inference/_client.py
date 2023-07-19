@@ -1352,7 +1352,7 @@ class InferenceClient:
         if model is None:
              raise ValueError("Model id not provided")
         if model.startswith("https://"):
-            raise ValueError("...")  # only works for InferenceAPI, not any URL 
+            raise NotImplementedError("Model status is only available for Inference API endpoints.")
         
         huggingface_interface_response = request.get(f"https://api-inference.huggingface.co/status/{model}")
         huggingface_interface_response.raise_for_status()
