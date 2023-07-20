@@ -48,8 +48,6 @@ from typing import (
     Union,
     overload,
 )
-
-from dataclasses import dataclass
 from requests import HTTPError, request
 from requests.structures import CaseInsensitiveDict
 
@@ -67,6 +65,7 @@ from huggingface_hub.inference._common import (
     _open_as_binary,
     _set_as_non_tgi,
     _stream_text_generation_response,
+    ModelStatus,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -96,13 +95,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
-@dataclass
-class ModelStatus:
-    loaded: bool
-    state: str
-    compute_type: str
-    framework: str
 
 class InferenceClient:
     """
@@ -1323,30 +1315,28 @@ class InferenceClient:
         """
             A function which returns the status of a specific model, from the Inference API.
 
-            Parameters:
-            -----------
-            model -> Optional[str], default=None
-                Identifier of the model for witch the status gonna be returned(retrieve). If model is not provided, 
-                the model associated with this instance of InferenceClient will be used. The 
-                identifier should not be a URL.
+            Args:
+                model (`str`, *optional*):
+                    Identifier of the model for witch the status gonna be returned(retrieve). If model is not provided, 
+                    the model associated with this instance of InferenceClient will be used. The 
+                    identifier should not be a URL.
 
-            token -> Optional[str], default=None
-                 Optional token for authenticating with the Hugging Face API. If not provided, the 
-                 token associated with this instance of InferenceClient will be used.
+                token (`str`, *optional*)
+                     Optional token for authenticating with the Hugging Face API. If not provided, the 
+                     token associated with this instance of InferenceClient will be used.
             
-                 
-            Raises
-            ------
-            ValueError
-                If the model is missing, meaning is not provided. Or the provided model is a URL. And finally
-                it raises an error if the API returns an error message(missing model).
-            
+
+            Returns:
+                ModelStatus: An instance of ModelStatus dataclass, containing information,
+                             about the state of the model: load, state, compute type and framework.
+                      
+            Raises:
+                [`ValueError`]:
+                    If the model is missing, meaning is not provided. 
+                    And if if the API returns an error message(missing model).
+                [`NotImplementedError`]:
+                    If the provided model is a URL.
                 
-            Returns
-            -------
-            ModelStatus
-                An instance of ModelStatus dataclass, containing information about the state of 
-                the model: load, state, compute type and framework.
         """
         model = model or self.model
         if model is None:
