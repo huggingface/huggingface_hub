@@ -1354,7 +1354,7 @@ class InferenceClient:
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         
-        huggingface_interface_response = request.get(f"https://api-inference.huggingface.co/status/{model}")
+        huggingface_interface_response = get_session().get(f"{INFERENCE_ENDPOINT}/status/{model}")
         huggingface_interface_response.raise_for_status()
         
         response_data = huggingface_interface_response.json()
