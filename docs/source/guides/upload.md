@@ -387,7 +387,7 @@ starting the upload.
 
 What are we talking about when we say "large uploads" and what are their associated limitations? Large uploads can be
 very diverse, from repositories with a few huge files (e.g. model weights) to repositories with thousands of small files
-(e.g. an image dataset). Each repository type will have its own limitations so here is a list of factors to consider:
+(e.g. an image dataset). Each repository will have its own limitations so here is a list of factors to consider:
 
 - **Repository size**: The total size of the data you're planning to upload. There is no hard limit on the size of a repository on
 Hub. However if you plan to upload hundreds of GBs or even TBs of data, we would be grateful if you could let us know
@@ -396,7 +396,7 @@ in advance to be aware of it. It's also better to get assistance if you have que
 Git to version the data which has its limitations:
     - The total number of files in the repo. It cannot exceed 1M files. If you are planning to upload more than 1M files,
       we recommend to merge the data into fewer files. For example, json files can be merged into a single jsonl file or
-      large datasets can be exported as parquet.
+      large datasets can be exported as parquet files.
     - The maximum number of files per folder. It cannot exceed 10k files per folder. A simple solution for that is to
       create a repository structure that uses subdirectories. A repo with 1k folder from `000/` to `999/` each one of
       them containing at most 1000 files is already enough.
