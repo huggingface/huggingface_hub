@@ -36,6 +36,7 @@ from typing import (
     overload,
 )
 
+from dataclasses import dataclass
 from requests import HTTPError
 
 from ..constants import ENDPOINT
@@ -63,6 +64,29 @@ BinaryT = Union[bytes, BinaryIO]
 ContentT = Union[BinaryT, PathT, UrlT]
 
 logger = logging.getLogger(__name__)
+
+
+# Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
+@dataclass
+class ModelStatus:
+    """
+        This Dataclass represents the the model status in the Hugging Face Inference API.
+
+        Attributes
+            loaded (`bool`): 
+                If the model is currently loaded.
+            state (`str`): 
+                The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'
+            compute_type (`str`): 
+                The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
+            framework (`str`): 
+                The name of the framework that the model was built with, such as 'transformers'
+                or 'text-generation-inference'.
+    """
+    loaded: bool
+    state: str
+    compute_type: str
+    framework: str
 
 
 class InferenceTimeoutError(HTTPError, TimeoutError):
