@@ -1068,18 +1068,14 @@ class InferenceClient:
                 del payload["parameters"][key]
             if len(ignored_parameters) > 0:
                 warnings.warn(
-                    (
-                        "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
-                        f" {ignored_parameters}."
-                    ),
+                    "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
+                    f" {ignored_parameters}.",
                     UserWarning,
                 )
             if details:
                 warnings.warn(
-                    (
-                        "API endpoint/model for text-generation is not served via TGI. Parameter `details=True` will"
-                        " be ignored meaning only the generated text will be returned."
-                    ),
+                    "API endpoint/model for text-generation is not served via TGI. Parameter `details=True` will"
+                    " be ignored meaning only the generated text will be returned.",
                     UserWarning,
                 )
                 details = False
