@@ -164,6 +164,11 @@ ASYNC_POST_CODE = """
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
+        # Set Accept header if relevant
+        headers = self.headers.copy()
+        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
+            headers["Accept"] = "image/png"
+
         t0 = time.time()
         timeout = self.timeout
         while True:
@@ -171,11 +176,11 @@ ASYNC_POST_CODE = """
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
                 client = aiohttp.ClientSession(
-                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
                 )
 
                 try:
-                    response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response = await client.post(url, json=json, data=data_as_binary)
                     response_error_payload = None
                     if response.status != 200:
                         try:

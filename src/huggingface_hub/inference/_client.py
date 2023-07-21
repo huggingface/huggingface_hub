@@ -54,6 +54,7 @@ from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import INFERENCE_ENDPOINT
 from huggingface_hub.inference._common import (
+    TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
     _b64_encode,
@@ -204,6 +205,11 @@ class InferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
+        # Set Accept header if relevant
+        headers = self.headers.copy()
+        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
+            headers["Accept"] = "image/png"
+
         t0 = time.time()
         timeout = self.timeout
         while True:
@@ -213,7 +219,7 @@ class InferenceClient:
                         url,
                         json=json,
                         data=data_as_binary,
-                        headers=self.headers,
+                        headers=headers,
                         cookies=self.cookies,
                         timeout=self.timeout,
                         stream=stream,
