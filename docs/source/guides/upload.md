@@ -379,9 +379,19 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Tips and tricks for large uploads
 
-There are some limitations to be aware of when you're trying to upload a large amount of data. Given the time it takes to stream the data, it can be very annoying to
-get a commit to fail at the end of the process. We gathered a list of tips and recommendations to think about before
-starting the upload.
+There are some limitations to be aware of when you're trying to upload a large amount of data. Given the time it takes to stream the data, it can be very annoying to get a commit to fail at the end of the process. We gathered a list of tips and recommendations to think about before starting the upload.
+
+
+| Characteristic   | Limit              | Type of limit                  | Recommended approach                     |
+| ---------------- | ------------------ | ------------------------------ | ---------------------------------------- |
+| Repo size        | unlimited          | Ø                              | contact us for large repos (TBs of data) |
+| Files per repo   | 1M max             | hard limit                     | merge data into fewer files              |
+| Files per folder | 10k max            | hard limit                     | use subdirectories in repo               |
+| File size        | ~10GB max          | soft limit (can go up to 50GB) | split data into chunked files            |
+| Commit size      | ~100 files         | soft limit (risk of timeouts)  | upload files in multiple commits         |
+| Commits per repo | ~1000-3000 commits | soft limit (risk of slower UX) | upload multiple files per commit         |
+
+Please read the next section to get a better understanding of those limits and how to deal with them.
 
 ### Hub repository size limitations
 
@@ -389,8 +399,7 @@ What are we talking about when we say "large uploads", and what are their associ
 very diverse, from repositories with a few huge files (e.g. model weights) to repositories with thousands of small files
 (e.g. an image dataset). Each repository will have its own limitations, so here is a list of factors to consider:
 
-- **Repository size**: The total size of the data you're planning to upload. There is no hard limit on a Hub repository size. However, if you plan to upload hundreds of GBs or even TBs of data, we would appreciate it if you could let us know
-in advance so we can better help you if have any questions during the process.
+- **Repository size**: The total size of the data you're planning to upload. There is no hard limit on a Hub repository size. However, if you plan to upload hundreds of GBs or even TBs of data, we would appreciate it if you could let us know in advance so we can better help you if have any questions during the process. You can contact us at datasets@huggingface.co or on [our Discord](http://hf.co/join/discord).
 - **Number of files**: There are two practical limits about the number of files in your repo. Under the hood, the Hub uses
 Git to version the data which has its limitations:
     - The total number of files in the repo cannot exceed 1M files. If you are planning to upload more than 1M files,
