@@ -87,10 +87,8 @@ class TestDeprecationUtils(unittest.TestCase):
         self.assertEqual(len(record), 1)
         self.assertEqual(
             record[0].message.args[0],
-            (
-                "Deprecated argument(s) used in 'dummy_deprecated_default_message': a."
-                " Will not be supported from version 'xxx'."
-            ),
+            "Deprecated argument(s) used in 'dummy_deprecated_default_message': a."
+            " Will not be supported from version 'xxx'.",
         )
 
     def test_deprecate_arguments_with_custom_warning_message(self) -> None:
@@ -110,11 +108,9 @@ class TestDeprecationUtils(unittest.TestCase):
         self.assertEqual(len(record), 1)
         self.assertEqual(
             record[0].message.args[0],
-            (
-                "Deprecated argument(s) used in 'dummy_deprecated_custom_message': a."
-                " Will not be supported from version 'xxx'.\n\nThis is a custom"
-                " message."
-            ),
+            "Deprecated argument(s) used in 'dummy_deprecated_custom_message': a."
+            " Will not be supported from version 'xxx'.\n\nThis is a custom"
+            " message.",
         )
 
     def test_deprecated_method(self) -> None:
@@ -130,10 +126,8 @@ class TestDeprecationUtils(unittest.TestCase):
         self.assertEqual(len(record), 1)
         self.assertEqual(
             record[0].message.args[0],
-            (
-                "'dummy_deprecated' (from 'tests.test_utils_deprecation') is deprecated"
-                " and will be removed from version 'xxx'. This is a custom message."
-            ),
+            "'dummy_deprecated' (from 'tests.test_utils_deprecation') is deprecated"
+            " and will be removed from version 'xxx'. This is a custom message.",
         )
 
     def test_deprecate_list_output(self) -> None:
@@ -155,12 +149,10 @@ class TestDeprecationUtils(unittest.TestCase):
         # (check real message once)
         self.assertEqual(
             record[0].message.args[0],
-            (
-                "'dummy_deprecated' currently returns a list of objects but is planned to be a generator starting from"
-                " version xxx in order to implement pagination. Please avoid to use"
-                " `dummy_deprecated(...).__getitem__` or explicitly convert the output to a list first with `[item for"
-                " item in dummy_deprecated(...)]`."
-            ),
+            "'dummy_deprecated' currently returns a list of objects but is planned to be a generator starting from"
+            " version xxx in order to implement pagination. Please avoid to use"
+            " `dummy_deprecated(...).__getitem__` or explicitly convert the output to a list first with `[item for"
+            " item in dummy_deprecated(...)]`.",
         )
 
         # __setitem__

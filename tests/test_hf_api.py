@@ -2750,10 +2750,8 @@ class RepoUrlTest(unittest.TestCase):
         # __repr__ is modified for debugging purposes
         self.assertEqual(
             repr(url),
-            (
-                "RepoUrl('https://huggingface.co/gpt2',"
-                " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')"
-            ),
+            "RepoUrl('https://huggingface.co/gpt2',"
+            " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')",
         )
 
     def test_repo_url_endpoint(self):
