@@ -427,14 +427,6 @@ client-side. However, it can happen (in rare cases) that even if the timeout is 
 completed server-side. This can be checked manually by browsing the repo on the Hub. To prevent this timeout, we recommend
 to add around 50-100 files per commit.
 
-To summarize it quickly:
-- Reach out to us for large repos (TBs of data)
-- Max 1M files on the repo
-- Max 10k files per folder
-- ~10GB max per file
-- ~100 max files per commit
-- ~1000-3000 commits maximum
-
 ### Practical tips
 
 Now that we saw the technical aspects you must consider when structuring your repository, let's see some practical
