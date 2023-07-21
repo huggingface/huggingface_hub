@@ -461,7 +461,7 @@ However we also provide [`Repository`], a wrapper around the git tool to manage 
 <Tip warning={true}>
 
 Although [`Repository`] is not formally deprecated, we recommend using the HTTP-based methods described above instead.
-For more details about this recommendation, please have a look to [this guide](../concepts/git_vs_http) explaining the
+For more details about this recommendation, please have a look at [this guide](../concepts/git_vs_http) explaining the
 core differences between HTTP-based and Git-based approaches.
 
 </Tip>
