@@ -36,11 +36,9 @@ def _deprecate_positional_args(*, version: str):
             ]
             args_msg = ", ".join(args_msg)
             warnings.warn(
-                (
-                    f"Deprecated positional argument(s) used in '{f.__name__}': pass"
-                    f" {args_msg} as keyword args. From version {version} passing these"
-                    " as positional arguments will result in an error,"
-                ),
+                f"Deprecated positional argument(s) used in '{f.__name__}': pass"
+                f" {args_msg} as keyword args. From version {version} passing these"
+                " as positional arguments will result in an error,",
                 FutureWarning,
             )
             kwargs.update(zip(sig.parameters, args))

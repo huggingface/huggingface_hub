@@ -4780,11 +4780,9 @@ class HfApi:
         """
         if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
-                (
-                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
-                ),
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
         payload: Dict[str, Any] = {"flavor": hardware}
@@ -4837,11 +4835,9 @@ class HfApi:
         hardware = runtime.requested_hardware or runtime.hardware
         if hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
-                (
-                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
-                ),
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
         return runtime
