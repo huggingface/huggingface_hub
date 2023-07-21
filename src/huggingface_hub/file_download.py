@@ -39,6 +39,7 @@ from .constants import (
 )
 from .utils import (
     EntryNotFoundError,
+    GatedRepoError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -1253,7 +1254,8 @@ def hf_hub_download(
             # - Repository is private and invalid/missing token sent
             # - Repository is gated and invalid/missing token sent
             # - Hub is down (error 500 or 504)
-            # => let's warn the user and switch to 'local_files_only=True' to check if the files are already cached.
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
             head_call_error = error
             pass
 
@@ -1302,7 +1304,7 @@ def hf_hub_download(
                 "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
                 " hf.co look-ups and downloads online, set 'local_files_only' to False."
             )
-        elif isinstance(head_call_error, RepositoryNotFoundError):
+        elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
             # Repo not found => let's raise the actual error
             raise head_call_error
         else:
