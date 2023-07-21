@@ -647,10 +647,8 @@ def cached_download(
     """
     if not legacy_cache_layout:
         warnings.warn(
-            (
-                "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
-                " 'hf_hub_download'"
-            ),
+            "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
+            " 'hf_hub_download'",
             FutureWarning,
         )
 
@@ -1102,10 +1100,8 @@ def hf_hub_download(
     """
     if force_filename is not None:
         warnings.warn(
-            (
-                "The `force_filename` parameter is deprecated as a new caching system, "
-                "which keeps the filenames as they are on the Hub, is now in place."
-            ),
+            "The `force_filename` parameter is deprecated as a new caching system, "
+            "which keeps the filenames as they are on the Hub, is now in place.",
             FutureWarning,
         )
         legacy_cache_layout = True

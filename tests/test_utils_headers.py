@@ -110,12 +110,10 @@ class TestUserAgentHeadersUtil(unittest.TestCase):
         mock_is_torch_available.return_value = True
         self.assertEqual(
             self._get_user_agent(),
-            (
-                f"unknown/None; hf_hub/{get_hf_hub_version()};"
-                f" python/{get_python_version()}; torch/torch_version;"
-                " tensorflow/tf_version; fastai/fastai_version;"
-                " fastcore/fastcore_version"
-            ),
+            f"unknown/None; hf_hub/{get_hf_hub_version()};"
+            f" python/{get_python_version()}; torch/torch_version;"
+            " tensorflow/tf_version; fastai/fastai_version;"
+            " fastcore/fastcore_version",
         )
 
     @patch("huggingface_hub.utils._headers.is_torch_available")
