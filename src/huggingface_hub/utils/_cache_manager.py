@@ -585,10 +585,8 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     cache_dir = Path(cache_dir).expanduser().resolve()
     if not cache_dir.exists():
         raise CacheNotFound(
-            (
-                f"Cache directory not found: {cache_dir}. Please use `cache_dir`"
-                " argument or set `HUGGINGFACE_HUB_CACHE` environment variable."
-            ),
+            f"Cache directory not found: {cache_dir}. Please use `cache_dir`"
+            " argument or set `HUGGINGFACE_HUB_CACHE` environment variable.",
             cache_dir=cache_dir,
         )
 
