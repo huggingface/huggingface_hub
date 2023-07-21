@@ -113,6 +113,7 @@ However, `huggingface_hub` has more advanced features to make things easier. Let
 
 
 ### Non-blocking uploads
+
 In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
 artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
 [`upload_folder`]. This will return a [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -378,44 +379,41 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Tips and tricks for large uploads
 
-The above guide shows how to technically upload files to the Hub. However there are a few things to know when you're
-trying to upload a large quantity of data. Given the time it takes to stream the data, it can be very annoying to
+There are some limitations to be aware of when you're trying to upload a large amount of data. Given the time it takes to stream the data, it can be very annoying to
 get a commit to fail at the end of the process. We gathered a list of tips and recommendations to think about before
 starting the upload.
 
-### Technical limitations
+### Hub repository size limitations
 
-What are we talking about when we say "large uploads" and what are their associated limitations? Large uploads can be
+What are we talking about when we say "large uploads", and what are their associated limitations? Large uploads can be
 very diverse, from repositories with a few huge files (e.g. model weights) to repositories with thousands of small files
-(e.g. an image dataset). Each repository will have its own limitations so here is a list of factors to consider:
+(e.g. an image dataset). Each repository will have its own limitations, so here is a list of factors to consider:
 
-- **Repository size**: The total size of the data you're planning to upload. There is no hard limit on the size of a repository on
-Hub. However if you plan to upload hundreds of GBs or even TBs of data, we would be grateful if you could let us know
-in advance to be aware of it. It's also better to get assistance if you have questions on your process.
+- **Repository size**: The total size of the data you're planning to upload. There is no hard limit on a Hub repository size. However, if you plan to upload hundreds of GBs or even TBs of data, we would appreciate it if you could let us know
+in advance so we can better help you if have any questions during the process.
 - **Number of files**: There are two practical limits about the number of files in your repo. Under the hood, the Hub uses
 Git to version the data which has its limitations:
-    - The total number of files in the repo. It cannot exceed 1M files. If you are planning to upload more than 1M files,
-      we recommend to merge the data into fewer files. For example, json files can be merged into a single jsonl file or
-      large datasets can be exported as parquet files.
-    - The maximum number of files per folder. It cannot exceed 10k files per folder. A simple solution for that is to
-      create a repository structure that uses subdirectories. A repo with 1k folder from `000/` to `999/` each one of
-      them containing at most 1000 files is already enough.
+    - The total number of files in the repo cannot exceed 1M files. If you are planning to upload more than 1M files,
+      we recommend merging the data into fewer files. For example, json files can be merged into a single jsonl file or
+      large datasets can be exported as Parquet files.
+    - The maximum number of files per folder cannot exceed 10k files per folder. A simple solution is to
+      create a repository structure that uses subdirectories. For example, a repo with 1k folders from `000/` to `999/`, each containing at most 1000 files, is already enough.
 - **File size**: individual files also have a limit on their maximum size. In the case of uploading large files (e.g.
 model weights), we strongly recommend to split them **into chunks of around 10GB each**. There are a few reasons for this:
     - Uploading and downloading smaller files is easier both for you and the other users. Connection issues can always
       happen when streaming data and smaller files avoid resuming from the beginning in case of errors.
     - Files are served to the users using CloudFront. From our experience, files above 30GB are not cached by this service
       leading to a slower download speed.
-    - A hard-limit of 50GB has been set on the Hub. If you try to commit larger files, an error will be returned by the server.
-- **Number of commits**: The total number of commits on your repo history. There is no hard limit for this. However, from
+    - A hard-limit of 50GB has been set on the Hub for an individual file. If you try to commit larger files, an error will be returned by the server.
+- **Number of commits**: There is no hard limit for the total number of commits on your repo history. However, from
 our experience, the user experience on the Hub start to degrade after a few thousands commits. We are always working to
 improve the service but one must always remember that a git repository is not meant to work as a database with a lot of
 writings. In case your repo's history gets very large, it is always possible to squash all the commits to get a
 fresh start.
 - **Number of operations per commit**: Once again, there is no hard-limit here. When a commit is done on the Hub, each
 git operation (addition or delete) is checked by the server before actually doing it. This means that when a hundred LFS
-files are committed at once, the server must check if each file has been correctly uploaded -checking its existence
-and size-. A timeout of 60s is set on the request, meaning that if the process takes more time an error is raised
+files are committed at once, the server must check if each file has been correctly uploaded, checking its existence
+and size. A timeout of 60s is set on the request, meaning that if the process takes more time an error is raised
 client-side. However, it can happen (in rare cases) that even if the timeout is raised client-side, the process is still
 completed server-side. This can be checked manually by browsing the repo on the Hub. To prevent this timeout, we recommend
 to add around 50-100 files per commit.
@@ -433,16 +431,16 @@ To summarize it quickly:
 Now that we saw the technical aspects you must consider when structuring your repository, let's see some practical
 tips to make your upload process as smooth as possible.
 
-- **Start small**: We recommend to start with a small amount of data to test your upload script. It's easier to iterate
+- **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate
 on a script when failing takes only a small amount of time.
-- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen but it's always
-best to consider that something will fail at least once -no matter if it's due to your machine, your connection or our
-servers. For example if you plan to upload a large number of files, it's best to keep track locally of which files you
+- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always
+best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our
+servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you
 already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never
 be re-uploaded twice but checking it client-side can still save some time.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed-up
-uploads on machines with very high bandwidth. To use it you must install it (`pip install hf_transfer`) and enable it
-by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as environment variable. You can then use `huggingface_hub` normally.
+uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
+by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
 Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like progress
 bars or advanced error handling.
 
