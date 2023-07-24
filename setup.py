@@ -30,7 +30,7 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
-    "pydantic",  # for text-generation-inference
+    "pydantic<2.0",  # for text-generation-inference
 ]
 
 extras["torch"] = [
@@ -75,7 +75,7 @@ extras["typing"] = [
     "types-toml",
     "types-tqdm",
     "types-urllib3",
-    "pydantic",  # for text-generation dataclasses
+    "pydantic<2.0",  # for text-generation dataclasses
 ]
 
 extras["quality"] = [
