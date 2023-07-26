@@ -330,3 +330,15 @@ class TestHeadersAndCookies(unittest.TestCase):
             timeout=None,
             stream=False,
         )
+
+    @patch("huggingface_hub.inference._client._bytes_to_image")
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_accept_header_image(self, get_session_mock: MagicMock, bytes_to_image_mock: MagicMock) -> None:
+        """Test that Accept: image/png header is set for image tasks."""
+        client = InferenceClient()
+
+        response = client.text_to_image("An astronaut riding a horse")
+        self.assertEqual(response, bytes_to_image_mock.return_value)
+
+        headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
+        self.assertEqual(headers["Accept"], "image/png")
