@@ -5048,7 +5048,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         Returns:
