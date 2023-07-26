@@ -95,7 +95,7 @@ def fx_production_space(request: SubRequest) -> Generator[None, None, None]:
     ```
     """
     # Check if production token exists
-    if PRODUCTION_TOKEN is None:
+    if not PRODUCTION_TOKEN:
         pytest.skip("Skip Space tests. `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable is not set.")
 
     # Generate repo id from prod token
