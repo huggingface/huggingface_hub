@@ -39,7 +39,10 @@ from .constants import (
 )
 from .utils import (
     EntryNotFoundError,
+    GatedRepoError,
     LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
     SoftTemporaryDirectory,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
@@ -1185,6 +1188,7 @@ def hf_hub_download(
     etag = None
     commit_hash = None
     expected_size = None
+    head_call_error: Optional[Exception] = None
     if not local_files_only:
         try:
             try:
@@ -1237,13 +1241,31 @@ def hf_hub_download(
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             OfflineModeIsEnabled,
-        ):
+        ) as error:
             # Otherwise, our Internet connection is down.
             # etag is None
+            head_call_error = error
+            pass
+        except (RevisionNotFoundError, EntryNotFoundError):
+            # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
+            raise
+        except requests.HTTPError as error:
+            # Multiple reasons for an http error:
+            # - Repository is private and invalid/missing token sent
+            # - Repository is gated and invalid/missing token sent
+            # - Hub is down (error 500 or 504)
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
+            head_call_error = error
             pass
 
-    # etag is None == we don't have a connection or we passed local_files_only.
-    # try to get the last downloaded one from the specified revision.
+    # etag can be None for several reasons:
+    # 1. we passed local_files_only.
+    # 2. we don't have a connection
+    # 3. Hub is down (HTTP 500 or 504)
+    # 4. repo is not found -for example private or gated- and invalid/missing token sent
+    # => Try to get the last downloaded one from the specified revision.
+    #
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
     if etag is None:
@@ -1279,16 +1301,19 @@ def hf_hub_download(
         # Notify the user about that
         if local_files_only:
             raise LocalEntryNotFoundError(
-                "Cannot find the requested files in the disk cache and"
-                " outgoing traffic has been disabled. To enable hf.co look-ups"
-                " and downloads online, set 'local_files_only' to False."
+                "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
+                " hf.co look-ups and downloads online, set 'local_files_only' to False."
             )
+        elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
+            # Repo not found => let's raise the actual error
+            raise head_call_error
         else:
+            # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
             raise LocalEntryNotFoundError(
-                "Connection error, and we cannot find the requested files in"
-                " the disk cache. Please try again or make sure your Internet"
-                " connection is on."
-            )
+                "An error happened while trying to locate the file on the Hub and we cannot find the requested files"
+                " in the local cache. Please check your connection and try again or make sure your Internet connection"
+                " is on."
+            ) from head_call_error
 
     # From now on, etag and commit_hash are not None.
     assert etag is not None, "etag must have been retrieved from server"
