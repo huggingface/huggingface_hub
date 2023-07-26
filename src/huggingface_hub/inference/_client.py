@@ -1323,7 +1323,7 @@ class InferenceClient:
             
 
             Returns:
-                ModelStatus: An instance of ModelStatus dataclass, containing information,
+                [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
                              about the state of the model: load, state, compute type and framework.
                       
             Raises:
