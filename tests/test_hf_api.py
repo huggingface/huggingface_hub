@@ -2524,7 +2524,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
-        self.post_mock.return_value.json.return_value =  {
+        self.post_mock.return_value.json.return_value = {
             "url": f"{self.api.endpoint}/spaces/user/repo_id",
             "stage": "RUNNING",
             "sdk": "gradio",
@@ -2537,7 +2537,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             "gcTimeout": None,
         }
         self.delete_mock = get_session_mock().delete
-        self.delete_mock.return_value.json.return_value =  {
+        self.delete_mock.return_value.json.return_value = {
             "url": f"{self.api.endpoint}/spaces/user/repo_id",
             "stage": "RUNNING",
             "sdk": "gradio",
@@ -2603,7 +2603,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
-        
+
     def test_request_space_storage(self) -> None:
         runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
         self.post_mock.assert_called_once_with(
@@ -2612,7 +2612,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={"tier": "large"},
         )
         assert runtime.storage == SpaceStorage.LARGE
-    
+
     def test_delete_space_storage(self) -> None:
         runtime = self.api.delete_space_storage(self.repo_id)
         self.delete_mock.assert_called_once_with(
