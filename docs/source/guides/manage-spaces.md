@@ -152,13 +152,16 @@ You can choose the storage tier of your choice to access disk space that persist
 
 ```py
 >>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, hardware=SpaceStorage.LARGE)
+>>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
 ```
 
 You can also delete your storage, losing all the data permanently.
 ```py
 >>> api.delete_space_storage(repo_id=repo_id)
 ```
+
+Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
+you must delete the storage first then request the new desired tier.
 
 ## More advanced: temporarily upgrade your Space !
 
