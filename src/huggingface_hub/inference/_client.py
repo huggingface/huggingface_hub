@@ -1318,8 +1318,8 @@ class InferenceClient:
                     identifier cannot be a URL.
 
                 token (`str`, *optional*)
-                     Optional token for authenticating with the Hugging Face API. If not provided, the 
-                     token associated with this instance of InferenceClient will be used.
+                      Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
+            your token to the server.
             
 
             Returns:
