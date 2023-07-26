@@ -5013,7 +5013,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
             storage (`str` or [`SpaceStorage`]):
                Storage tier. Either 'small', 'medium', or 'large'.
             token (`str`, *optional*):
