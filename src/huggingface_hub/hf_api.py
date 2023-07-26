@@ -80,7 +80,7 @@ from ._multi_commits import (
     multi_commit_parse_pr_description,
     plan_multi_commits,
 )
-from ._space_api import SpaceHardware, SpaceRuntime
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
 from .community import (
     Discussion,
     DiscussionComment,
@@ -5001,6 +5001,70 @@ class HfApi:
 
         return RepoUrl(r.json()["url"], endpoint=self.endpoint)
 
+    @validate_hf_hub_args
+    def request_space_storage(
+        self,
+        repo_id: str,
+        storage: SpaceStorage,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Request persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            storage (`str` or [`SpaceStorage`]):
+               Storage tier. Either 'small', 'medium', or 'large'.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is not possible to decrease persistent storage after its granted. To do so, you must delete it
+        via [`delete_space_storage`].
+
+        </Tip>
+        """
+        payload: Dict[str, SpaceStorage] = {"tier": storage}
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def delete_space_storage(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Delete persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+        Raises:
+            [`BadRequestError`]
+                If space has no persistent storage.
+
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
     def _build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
@@ -5185,3 +5249,5 @@ set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_space = api.duplicate_space
+request_space_storage = api.request_space_storage
+delete_space_storage = api.delete_space_storage
