@@ -72,7 +72,7 @@ class ModelStatus:
     """
         This Dataclass represents the the model status in the Hugging Face Inference API.
 
-        Attributes
+        Args:
             loaded (`bool`): 
                 If the model is currently loaded.
             state (`str`): 
