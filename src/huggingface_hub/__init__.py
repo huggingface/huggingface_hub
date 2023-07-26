@@ -72,6 +72,7 @@ _SUBMOD_ATTRS = {
         "SpaceHardware",
         "SpaceRuntime",
         "SpaceStage",
+        "SpaceStorage",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -156,6 +157,7 @@ _SUBMOD_ATTRS = {
         "delete_folder",
         "delete_repo",
         "delete_space_secret",
+        "delete_space_storage",
         "delete_tag",
         "duplicate_space",
         "edit_discussion_comment",
@@ -184,6 +186,7 @@ _SUBMOD_ATTRS = {
         "repo_info",
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
+        "request_space_storage",
         "restart_space",
         "run_as_future",
         "set_space_sleep_time",
@@ -373,6 +376,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
+        SpaceStorage,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -455,6 +459,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_folder,  # noqa: F401
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
+        delete_space_storage,  # noqa: F401
         delete_tag,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
@@ -483,6 +488,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_info,  # noqa: F401
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
+        request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         run_as_future,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
