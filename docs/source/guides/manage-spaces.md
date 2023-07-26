@@ -5,8 +5,8 @@ rendered properly in your Markdown viewer.
 # Manage your Space
 
 In this guide, we will see how to manage your Space runtime
-([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) and
-[hardware](https://huggingface.co/docs/hub/spaces-gpus)) using `huggingface_hub`.
+([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
+[hardware](https://huggingface.co/docs/hub/spaces-gpus), and [storage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)) using `huggingface_hub`.
 
 ## A simple example: configure secrets and hardware.
 
@@ -145,6 +145,19 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 
 ```py
 >>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
+```
+
+**6. Add persistent storage to your Space**
+You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
+
+```py
+>>> from huggingface_hub import SpaceStorage
+>>> api.request_space_storage(repo_id=repo_id, hardware=SpaceStorage.LARGE)
+```
+
+You can also delete your storage, losing all the data permanently.
+```py
+>>> api.delete_space_storage(repo_id=repo_id)
 ```
 
 ## More advanced: temporarily upgrade your Space !

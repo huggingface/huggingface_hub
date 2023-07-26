@@ -33,7 +33,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import SpaceHardware, SpaceStage
+from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -2524,7 +2524,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
 
         get_session_mock = Mock()
         self.post_mock = get_session_mock().post
-        self.post_mock.return_value.json.return_value = {
+        self.post_mock.return_value.json.return_value =  {
             "url": f"{self.api.endpoint}/spaces/user/repo_id",
             "stage": "RUNNING",
             "sdk": "gradio",
@@ -2533,6 +2533,20 @@ class TestSpaceAPIMocked(unittest.TestCase):
                 "current": "t4-medium",
                 "requested": "t4-medium",
             },
+            "storage": "large",
+            "gcTimeout": None,
+        }
+        self.delete_mock = get_session_mock().delete
+        self.delete_mock.return_value.json.return_value =  {
+            "url": f"{self.api.endpoint}/spaces/user/repo_id",
+            "stage": "RUNNING",
+            "sdk": "gradio",
+            "sdkVersion": "3.17.0",
+            "hardware": {
+                "current": "t4-medium",
+                "requested": "t4-medium",
+            },
+            "storage": None,
             "gcTimeout": None,
         }
         self.patcher = patch("huggingface_hub.hf_api.get_session", get_session_mock)
@@ -2589,6 +2603,23 @@ class TestSpaceAPIMocked(unittest.TestCase):
         self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
+        
+    def test_request_space_storage(self) -> None:
+        runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
+            headers=self.api._build_hf_headers(),
+            json={"tier": "large"},
+        )
+        assert runtime.storage == SpaceStorage.LARGE
+    
+    def test_delete_space_storage(self) -> None:
+        runtime = self.api.delete_space_storage(self.repo_id)
+        self.delete_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
+            headers=self.api._build_hf_headers(),
+        )
+        assert runtime.storage is None
 
 
 class ListGitRefsTest(unittest.TestCase):
