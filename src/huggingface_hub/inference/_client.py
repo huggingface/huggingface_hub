@@ -1313,9 +1313,9 @@ class InferenceClient:
 
             Args:
                 model (`str`, *optional*):
-                    Identifier of the model for witch the status gonna be returned(retrieve). If model is not provided, 
-                    the model associated with this instance of InferenceClient will be used. The 
-                    identifier should not be a URL.
+                    Identifier of the model for witch the status gonna be checked. If model is not provided, 
+                    the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the 
+                    identifier cannot be a URL.
 
                 token (`str`, *optional*)
                      Optional token for authenticating with the Hugging Face API. If not provided, the 
