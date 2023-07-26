@@ -5024,7 +5024,7 @@ class HfApi:
         <Tip>
 
         It is not possible to decrease persistent storage after its granted. To do so, you must delete it
-        via delete_space_storage.
+        via [`delete_space_storage`].
 
         </Tip>
         """
