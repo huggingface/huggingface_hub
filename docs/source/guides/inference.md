@@ -130,7 +130,6 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
 | | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
 | | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-
 | Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) |              |  |
 | | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      |              |  |
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
