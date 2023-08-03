@@ -864,9 +864,8 @@ class HfApi:
 
         Args:
             endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. To
-                be set if you are using a private hub. Otherwise, one can set the
-                `HF_ENDPOINT` environment variable.
+                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise,
+                one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if
                 not provided.

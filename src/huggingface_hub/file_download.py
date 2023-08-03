@@ -27,6 +27,7 @@ from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
+    ENDPOINT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -176,6 +177,7 @@ def hf_hub_url(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Construct the URL of a file from the given information.
 
@@ -197,6 +199,9 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        endpoint (`str`, *optional*):
+            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+            environment variable.
 
     Example:
 
@@ -247,11 +252,13 @@ def hf_hub_url(
 
     if revision is None:
         revision = DEFAULT_REVISION
-    return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id,
-        revision=quote(revision, safe=""),
-        filename=quote(filename),
+    url = HUGGINGFACE_CO_URL_TEMPLATE.format(
+        repo_id=repo_id, revision=quote(revision, safe=""), filename=quote(filename)
     )
+    # Update endpoint if provided
+    if endpoint is not None and url.startswith(ENDPOINT):
+        url = endpoint + url[len(ENDPOINT) :]
+    return url
 
 
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
@@ -962,6 +969,7 @@ def hf_hub_download(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -1035,6 +1043,9 @@ def hf_hub_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        endpoint (`str`, *optional*):
+            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+            environment variable.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -1116,6 +1127,7 @@ def hf_hub_download(
             subfolder=subfolder,
             repo_type=repo_type,
             revision=revision,
+            endpoint=endpoint,
         )
 
         return cached_download(
@@ -1175,7 +1187,7 @@ def hf_hub_download(
                 return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
             return pointer_path
 
-    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
 
     headers = build_hf_headers(
         token=token,
