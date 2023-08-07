@@ -26,8 +26,8 @@ from huggingface_hub import constants
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
-    HF_HUB_DISABLE_SYMLINKS_WARNING,
     ENDPOINT,
+    HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
