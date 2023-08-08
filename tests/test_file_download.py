@@ -361,6 +361,21 @@ class CachedDownloadTests(unittest.TestCase):
             )
         )
 
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_hf_hub_url_with_endpoint(self):
+        self.assertEqual(
+            hf_hub_url(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                endpoint="https://hf-ci.co",
+            ),
+            "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
+        )
+
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,

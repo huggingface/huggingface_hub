@@ -2512,6 +2512,76 @@ class TestCommitInBackground(HfApiCommonTest):
         self.assertEqual(info_2.likes, 0)
 
 
+class TestDownloadHfApiAlias(unittest.TestCase):
+    def setUp(self) -> None:
+        self.api = HfApi(
+            endpoint="https://hf.co",
+            token="user_token",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+        )
+        return super().setUp()
+
+    @patch("huggingface_hub.file_download.hf_hub_download")
+    def test_hf_hub_download_alias(self, mock: Mock) -> None:
+        self.api.hf_hub_download("my_repo_id", "file.txt")
+        mock.assert_called_once_with(
+            # Call values
+            repo_id="my_repo_id",
+            filename="file.txt",
+            # HfAPI values
+            endpoint="https://hf.co",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+            token="user_token",
+            # Default values
+            subfolder=None,
+            repo_type=None,
+            revision=None,
+            cache_dir=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
+            force_download=False,
+            force_filename=None,
+            proxies=None,
+            etag_timeout=10,
+            resume_download=False,
+            local_files_only=False,
+            legacy_cache_layout=False,
+        )
+
+    @patch("huggingface_hub._snapshot_download.snapshot_download")
+    def test_snapshot_download_alias(self, mock: Mock) -> None:
+        self.api.snapshot_download("my_repo_id")
+        mock.assert_called_once_with(
+            # Call values
+            repo_id="my_repo_id",
+            # HfAPI values
+            endpoint="https://hf.co",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+            token="user_token",
+            # Default values
+            repo_type=None,
+            revision=None,
+            cache_dir=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
+            proxies=None,
+            etag_timeout=10,
+            resume_download=False,
+            force_download=False,
+            local_files_only=False,
+            allow_patterns=None,
+            ignore_patterns=None,
+            max_workers=8,
+            tqdm_class=None,
+        )
+
+
 class TestSpaceAPIMocked(unittest.TestCase):
     """
     Testing Space hardware requests is resource intensive for the server (need to spawn
