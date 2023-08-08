@@ -584,7 +584,7 @@ class InferenceClient:
             payload = {"inputs": _b64_encode(image)}
             for key, value in parameters.items():
                 if value is not None:
-                    payload[key] = value
+                    payload.setdefault("parameters", {})[key] = value
 
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
@@ -1191,8 +1191,8 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
+        payload = {"inputs": prompt}
         parameters = {
-            "inputs": prompt,
             "negative_prompt": negative_prompt,
             "height": height,
             "width": width,
@@ -1200,10 +1200,9 @@ class InferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        payload = {}
         for key, value in parameters.items():
             if value is not None:
-                payload[key] = value
+                payload.setdefault("parameters", {})[key] = value
         response = self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
