@@ -1202,7 +1202,7 @@ class InferenceClient:
         }
         for key, value in parameters.items():
             if value is not None:
-                payload.setdefault("parameters", {})[key] = value
+                payload.setdefault("parameters", {})[key] = value  # type: ignore
         response = self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
