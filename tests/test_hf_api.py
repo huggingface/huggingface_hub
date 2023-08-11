@@ -2691,6 +2691,14 @@ class TestSpaceAPIMocked(unittest.TestCase):
         )
         assert runtime.storage is None
 
+    def test_restart_space_factory_reboot(self) -> None:
+        self.api.restart_space(self.repo_id, factory_reboot=True)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/restart",
+            headers=self.api._build_hf_headers(),
+            params={"factory": "true"},
+        )
+
 
 class ListGitRefsTest(unittest.TestCase):
     @classmethod
