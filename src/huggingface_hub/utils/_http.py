@@ -59,14 +59,26 @@ class UniqueRequestIdAdapter(HTTPAdapter):
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
         """Catch any RequestException to append request id to the error message for debugging."""
-        try:
-            return super().send(request, *args, **kwargs)
-        except requests.RequestException as e:
-            request_id = request.headers.get(X_AMZN_TRACE_ID)
-            if request_id is not None:
-                # Taken from https://stackoverflow.com/a/58270258
-                e.args = (*e.args, f"(Request ID: {request_id})")
-            raise
+        succeed = False
+        n_tries = 0
+        max_tries = 10
+        interval = 3
+        while not succeed and n_tries < max_tries:
+            try:
+                n_tries += 1
+                succeed = True
+                return super().send(request, *args, **kwargs)
+            except requests.RequestException as e:
+                succeed = False
+                request_id = request.headers.get(X_AMZN_TRACE_ID)
+                if request_id is not None:
+                    # Taken from https://stackoverflow.com/a/58270258
+                    e.args = (*e.args, f"(Request ID: {request_id})")
+                    logger.warning(f"Request {request_id} failed with error: {e}")
+                    if n_tries == max_tries:
+                        raise e
+                    logger.warning(f"Retrying {n_tries}/{max_tries} in {interval} seconds...")
+                    time.sleep(interval)
 
 
 def _default_backend_factory() -> requests.Session:
