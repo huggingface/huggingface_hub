@@ -5172,7 +5172,9 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def restart_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
+    def restart_space(
+        self, repo_id: str, *, token: Optional[str] = None, factory_reboot: bool = False
+    ) -> SpaceRuntime:
         """Restart your Space.
 
         This is the only way to programmatically restart a Space if you've put it on Pause (see [`pause_space`]). You
@@ -5186,6 +5188,8 @@ class HfApi:
                 ID of the Space to restart. Example: `"Salesforce/BLIP2"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+            factory_reboot (`bool`, *optional*):
+                If `True`, the Space will be rebuilt from scratch without caching any requirements.
 
         Returns:
             [`SpaceRuntime`]: Runtime information about your Space.
@@ -5201,8 +5205,11 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
+        payload = {}
+        if factory_reboot:
+            payload["factory"] = "true"
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), json=payload
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
