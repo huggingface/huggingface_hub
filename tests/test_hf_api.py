@@ -2696,7 +2696,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
         self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/spaces/{self.repo_id}/restart",
             headers=self.api._build_hf_headers(),
-            json={"factory": "true"},
+            params={"factory": "true"},
         )
 
 

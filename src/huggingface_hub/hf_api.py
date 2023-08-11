@@ -5205,11 +5205,11 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
-        payload = {}
+        params = {}
         if factory_reboot:
-            payload["factory"] = "true"
+            params["factory"] = "true"
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), json=payload
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), params=params
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
