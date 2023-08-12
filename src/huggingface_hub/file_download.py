@@ -961,6 +961,49 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+def _check_disk_space(expected_size, temp_file, local_dir=None):
+    """Check if there is enough free disk space to download the file.
+
+    Args:
+        expected_size: The expected size of the file in bytes.
+        temp_file: The temporary file where the file will be downloaded to.
+        local_dir: The directory where the file will be stored after downloading.
+
+    Returns:
+        True if there is enough free disk space, False otherwise.
+        Also logs a warning if there is not enough disk space.
+    """
+
+    temp_dir = os.path.dirname(temp_file.name)
+    temp_dir_size = shutil.disk_usage(temp_dir).free
+
+    target_dir = None
+    if local_dir is not None:
+        target_dir = os.path.dirname(local_dir)
+
+    target_dir_size = None
+    if target_dir is not None:
+        target_dir_size = shutil.disk_usage(target_dir).free
+
+    has_enough_space = temp_dir_size >= expected_size and (target_dir_size is None or target_dir_size >= expected_size)
+
+    if not has_enough_space:
+        if target_dir is not None:
+            logger.warning(
+                "Not enough free disk space to download the file. The expected file size is: {:,.2f} MB. Temporary"
+                " file path: {} ({:,.2f} MB free), target directory: {} ({:,.2f} MB free)".format(
+                    expected_size / 1e6, temp_dir, temp_dir_size / 1e6, target_dir, target_dir_size / 1e6
+                )
+            )
+        else:
+            logger.warning(
+                "Not enough free disk space to download the file. The expected file size is: {:,.2f} MB. Temporary"
+                " file path: {} ({:,.2f} MB free).".format(expected_size / 1e6, temp_dir, temp_dir_size / 1e6)
+            )
+
+    return has_enough_space
+
+
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -1393,6 +1436,13 @@ def hf_hub_download(
         # Otherwise you get corrupt cache entries if the download gets interrupted.
         with temp_file_manager() as temp_file:
             logger.info("downloading %s to %s", url, temp_file.name)
+
+            if local_dir is None:
+                target_dir = os.path.dirname(blob_path)
+            else:
+                target_dir = os.path.dirname(local_dir)
+
+            _check_disk_space(expected_size, temp_file, target_dir)
 
             http_get(
                 url_to_download,
