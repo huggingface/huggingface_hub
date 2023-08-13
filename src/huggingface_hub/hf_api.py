@@ -1995,6 +1995,8 @@ class HfApi:
 
             file_exists("not-a-file", "huggingface/transformers")
             False
+
+        </Tip>
         """
         url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
         try:
