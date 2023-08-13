@@ -1989,10 +1989,10 @@ class HfApi:
         
         Example:
 
-            file_exists("huggingface/transformers", "config.json")
+            file_exists("config.json", "huggingface/transformers")
             True
             
-            file_exists("huggingface/transformers", "not-a-file")
+            file_exists("not-a-file", "huggingface/transformers")
             False
         """
         url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
