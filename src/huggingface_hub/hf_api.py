@@ -53,6 +53,7 @@ from huggingface_hub.utils import (
     EntryNotFoundError,
     LocalTokenNotFoundError,
     RepositoryNotFoundError,
+    RevisionNotFoundError,
     experimental,
     get_session,
 )
@@ -124,7 +125,10 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-
+from .file_download import (
+    hf_hub_url,
+    get_hf_file_metadata,
+)
 
 R = TypeVar("R")  # Return type
 
@@ -1887,6 +1891,116 @@ class HfApi:
             timeout=timeout,
             files_metadata=files_metadata,
         )
+
+    @validate_hf_hub_args
+    def repo_exists(
+        self,
+        repo_id: str, 
+        repo_type: Optional[str] = None, 
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a repository exists on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+        
+        Returns:
+            True if the repository exists, False otherwise.
+        
+        <Tip>
+        
+        Raises the following error:
+
+            - [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+        
+        Example:
+
+        repo_exists("huggingface/transformers")
+        True
+
+        repo_exists("huggingface/not-a-repo")
+        False
+
+        </Tip>
+        """
+        try:
+            repo_info(repo_id, repo_type=repo_type, token=token)
+            return True
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def file_exists(
+        self,
+        filename: str,
+        repo_id: str,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a file exists in a repository on the Hugging Face Hub.
+
+        Args:
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+        
+        Returns:
+            True if the file exists, False otherwise.
+        
+        <Tip>
+
+        Raises the following errors:
+
+            - [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            - [`~utils.EntryNotFoundError`]
+                If the file to download cannot be found.    
+            - [`~utils.RevisionNotFoundError`]
+                If the revision to download from cannot be found.        
+        
+        Example:
+
+            file_exists("huggingface/transformers", "config.json")
+            True
+            
+            file_exists("huggingface/transformers", "not-a-file")
+            False
+        """
+        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        try:
+            get_hf_file_metadata(url, token=token)
+            return True
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            return False
 
     @validate_hf_hub_args
     def list_files_info(

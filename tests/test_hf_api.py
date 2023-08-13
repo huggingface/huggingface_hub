@@ -165,6 +165,18 @@ class HfApiEndpointsTest(HfApiCommonTest):
         mock_HfFolder().get_token.assert_not_called()
 
     @retry_endpoint
+    def test_repo_exists(self):
+        self.assertTrue(self._api.repo_exists("gpt2"))
+        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+
+    @retry_endpoint
+    def test_file_exists(self):
+        self.assertTrue(self._api.file_exists("config.json", "gpt2"))
+        self.assertFalse(self._api.file_exists("config.json", "repo-that-does-not-exist"))  # missing repo
+        self.assertFalse(self._api.file_exists("file-does-not-exist", "gpt2"))  # missing file
+        self.assertFalse(self._api.file_exists("config.json", "gpt2", revision="revision-that-does-not-exist"))  # missing revision
+
+    @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
         # See https://github.com/huggingface/huggingface_hub/issues/751
