@@ -174,7 +174,9 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertTrue(self._api.file_exists("config.json", "gpt2"))
         self.assertFalse(self._api.file_exists("config.json", "repo-that-does-not-exist"))  # missing repo
         self.assertFalse(self._api.file_exists("file-does-not-exist", "gpt2"))  # missing file
-        self.assertFalse(self._api.file_exists("config.json", "gpt2", revision="revision-that-does-not-exist"))  # missing revision
+        self.assertFalse(
+            self._api.file_exists("config.json", "gpt2", revision="revision-that-does-not-exist")
+        )  # missing revision
 
     @retry_endpoint
     def test_delete_repo_error_message(self):

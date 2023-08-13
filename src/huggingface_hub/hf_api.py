@@ -101,6 +101,10 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
 )
+from .file_download import (
+    get_hf_file_metadata,
+    hf_hub_url,
+)
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
     HfFolder,
@@ -125,10 +129,7 @@ from .utils.endpoint_helpers import (
     ModelTags,
     _filter_emissions,
 )
-from .file_download import (
-    hf_hub_url,
-    get_hf_file_metadata,
-)
+
 
 R = TypeVar("R")  # Return type
 
@@ -1895,8 +1896,8 @@ class HfApi:
     @validate_hf_hub_args
     def repo_exists(
         self,
-        repo_id: str, 
-        repo_type: Optional[str] = None, 
+        repo_id: str,
+        repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> bool:
         """
@@ -1914,18 +1915,18 @@ class HfApi:
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
-        
+
         Returns:
             True if the repository exists, False otherwise.
-        
+
         <Tip>
-        
+
         Raises the following error:
 
             - [`~utils.RepositoryNotFoundError`]
                 If the repository to download from cannot be found. This may be because it doesn't exist,
                 or because it is set to `private` and you do not have access.
-        
+
         Example:
 
         repo_exists("huggingface/transformers")
@@ -1971,10 +1972,10 @@ class HfApi:
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
-        
+
         Returns:
             True if the file exists, False otherwise.
-        
+
         <Tip>
 
         Raises the following errors:
@@ -1983,15 +1984,15 @@ class HfApi:
                 If the repository to download from cannot be found. This may be because it doesn't exist,
                 or because it is set to `private` and you do not have access.
             - [`~utils.EntryNotFoundError`]
-                If the file to download cannot be found.    
+                If the file to download cannot be found.
             - [`~utils.RevisionNotFoundError`]
-                If the revision to download from cannot be found.        
-        
+                If the revision to download from cannot be found.
+
         Example:
 
             file_exists("config.json", "huggingface/transformers")
             True
-            
+
             file_exists("not-a-file", "huggingface/transformers")
             False
         """
