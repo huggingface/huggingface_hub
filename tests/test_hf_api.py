@@ -2408,6 +2408,29 @@ class TestSpaceAPIProduction(unittest.TestCase):
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
 
+    def test_manage_variables(self) -> None:
+        # Get variables
+        self.api.get_space_variables(self.repo_id)
+
+        # Add 2 variables
+        self.api.add_space_variable(self.repo_id, "foo", "123")
+        self.api.add_space_variable(self.repo_id, "MODEL_REPO_ID", "user/repo")
+
+        # Add 1 variable with optional description
+        self.api.add_space_variable(self.repo_id, "MODEL_PAPER", "arXiv", "found it there")
+
+        # Update variable
+        self.api.add_space_variable(self.repo_id, "foo", "456")
+
+        # Update variable with optional description
+        self.api.add_space_variable(self.repo_id, "foo", "456", "updated description")
+
+        # Delete variable
+        self.api.delete_space_variable(self.repo_id, "gh_api_key")
+
+        # Doesn't fail on missing key
+        self.api.delete_space_variable(self.repo_id, "missing_key")
+
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
 
