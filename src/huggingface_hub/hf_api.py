@@ -4975,7 +4975,9 @@ class HfApi:
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
-    def add_space_secret(self, repo_id: str, key: str, value: str, *, token: Optional[str] = None) -> None:
+    def add_space_secret(
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
         """Adds or updates a secret in a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -4988,13 +4990,18 @@ class HfApi:
                 Secret key. Example: `"GITHUB_API_KEY"`
             value (`str`):
                 Secret value. Example: `"your_github_api_key"`.
+            description (`str`, *optional*):
+                Secret description. Example: `"Github API key to access the Github API"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
-            json={"key": key, "value": value},
+            json=payload,
         )
         hf_raise_for_status(r)
 
