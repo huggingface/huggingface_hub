@@ -1897,6 +1897,7 @@ class HfApi:
     def repo_exists(
         self,
         repo_id: str,
+        *,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> bool:
@@ -1921,24 +1922,19 @@ class HfApi:
 
         <Tip>
 
-        Raises the following error:
-
-            - [`~utils.RepositoryNotFoundError`]
-                If the repository to download from cannot be found. This may be because it doesn't exist,
-                or because it is set to `private` and you do not have access.
-
-        Example:
-
-        repo_exists("huggingface/transformers")
-        True
-
-        repo_exists("huggingface/not-a-repo")
-        False
+        Examples:
+            ```py
+            >>> from huggingface_hub import repo_exists
+            >>> repo_exists("huggingface/transformers")
+            True
+            >>> repo_exists("huggingface/not-a-repo")
+            False
+            ```
 
         </Tip>
         """
         try:
-            repo_info(repo_id, repo_type=repo_type, token=token)
+            repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
         except RepositoryNotFoundError:
             return False
@@ -1946,8 +1942,9 @@ class HfApi:
     @validate_hf_hub_args
     def file_exists(
         self,
-        filename: str,
         repo_id: str,
+        filename: str,
+        *,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
         token: Optional[str] = None,
@@ -1956,12 +1953,12 @@ class HfApi:
         Checks if a file exists in a repository on the Hugging Face Hub.
 
         Args:
-            filename (`str`):
-                The name of the file to check, for example:
-                `"config.json"`
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
@@ -1978,29 +1975,22 @@ class HfApi:
 
         <Tip>
 
-        Raises the following errors:
-
-            - [`~utils.RepositoryNotFoundError`]
-                If the repository to download from cannot be found. This may be because it doesn't exist,
-                or because it is set to `private` and you do not have access.
-            - [`~utils.EntryNotFoundError`]
-                If the file to download cannot be found.
-            - [`~utils.RevisionNotFoundError`]
-                If the revision to download from cannot be found.
-
-        Example:
-
-            file_exists("config.json", "huggingface/transformers")
+        Examples:
+            ```py
+            >>> from huggingface_hub import file_exists
+            >>> file_exists("bigcode/starcoder", "config.json")
             True
-
-            file_exists("not-a-file", "huggingface/transformers")
+            >>> file_exists("bigcode/starcoder", "not-a-file")
             False
+            >>> file_exists("bigcode/not-a-repo", "config.json")
+            False
+            ```
 
         </Tip>
         """
         url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
         try:
-            get_hf_file_metadata(url, token=token)
+            get_hf_file_metadata(url, token=token or self.token)
             return True
         except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
             return False
@@ -5611,6 +5601,8 @@ dataset_info = api.dataset_info
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+repo_exists = api.repo_exists
+file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
