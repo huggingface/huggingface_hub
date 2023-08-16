@@ -355,7 +355,7 @@ class TextGenerationResponse:
     """
     Represents a response for text generation.
 
-    In practice, if `details=False` is passed (default), only the generated text is returned.
+    Only returned when `details=True`.
 
     Args:
         generated_text (`str`):
@@ -397,7 +397,9 @@ class StreamDetails:
 @dataclass
 class TextGenerationStreamResponse:
     """
-    Represents a response for text generation when `stream=True` is passed
+    Represents a response for streaming text generation.
+
+    Only returned when `details=True` and `stream=True`.
 
     Args:
         token (`Token`):
