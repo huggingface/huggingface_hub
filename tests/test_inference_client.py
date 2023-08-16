@@ -203,11 +203,17 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
-    def test_text_to_image(self) -> None:
+    def test_text_to_image_default(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
         self.assertEqual(image.height, 768)
         self.assertEqual(image.width, 768)
+
+    def test_text_to_image_with_parameters(self) -> None:
+        image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
+        self.assertIsInstance(image, Image.Image)
+        self.assertEqual(image.height, 256)
+        self.assertEqual(image.width, 256)
 
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")
