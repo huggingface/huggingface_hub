@@ -2413,8 +2413,15 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.api.add_space_secret(self.repo_id, "token", "hf_api_123456")
         self.api.add_space_secret(self.repo_id, "gh_api_key", "******")
 
+        # Add secret with optional description
+        self.api.add_space_secret(self.repo_id, "bar", "123", description="This is a secret")
+
         # Update secret
         self.api.add_space_secret(self.repo_id, "foo", "456")
+
+        # Update secret with optional description
+        self.api.add_space_secret(self.repo_id, "foo", "789", description="This is a secret")
+        self.api.add_space_secret(self.repo_id, "bar", "456", description="This is another secret")
 
         # Delete secret
         self.api.delete_space_secret(self.repo_id, "gh_api_key")

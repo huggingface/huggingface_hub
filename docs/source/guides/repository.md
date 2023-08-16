@@ -71,7 +71,7 @@ Specify the `repo_id` of the repository you want to delete:
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
 ```
 
-### Clone a repository (only for Spaces)
+### Duplicate a repository (only for Spaces)
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
 This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
