@@ -22,7 +22,6 @@
 # - added default values for all parameters (not needed in BaseModel but dataclasses yes)
 # - integrated in `huggingface_hub.InferenceClient``
 # - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
-# - NO asyncio support yet => TODO soon
 
 from dataclasses import field
 from enum import Enum
@@ -355,7 +354,7 @@ class TextGenerationResponse:
     """
     Represents a response for text generation.
 
-    In practice, if `details=False` is passed (default), only the generated text is returned.
+    Only returned when `details=True`, otherwise a string is returned.
 
     Args:
         generated_text (`str`):
@@ -397,7 +396,9 @@ class StreamDetails:
 @dataclass
 class TextGenerationStreamResponse:
     """
-    Represents a response for text generation when `stream=True` is passed
+    Represents a response for streaming text generation.
+
+    Only returned when `details=True` and `stream=True`.
 
     Args:
         token (`Token`):
