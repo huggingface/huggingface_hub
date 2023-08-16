@@ -35,7 +35,7 @@ The `huggingface_hub` library allows you to interact with the [Hugging Face Hub]
 - [Manage your repositories](https://huggingface.co/docs/huggingface_hub/guides/repository).
 - [Run Inference](https://huggingface.co/docs/huggingface_hub/guides/inference) on deployed models.
 - [Search](https://huggingface.co/docs/huggingface_hub/guides/search) for models, datasets and Spaces.
-- [Share Model Cards](https://huggingface.co/docs/huggingface_hub/main/en/guides/model-cards) to document your models.
+- [Share modelcards](https://huggingface.co/docs/huggingface_hub/main/en/guides/model-cards) to document your models.
 - [Engage with the community](https://huggingface.co/docs/huggingface_hub/guides/community) through PRs and comments.
 
 ## Installation
