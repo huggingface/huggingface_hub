@@ -5021,7 +5021,7 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
-    def get_space_variables(self, repo_id: str, *, token: Optional[str] = None) -> Iterable[SpaceVariable]:
+    def get_space_variables(self, repo_id: str, *, token: Optional[str] = None) -> Dict[str, SpaceVariable]:
         """Gets all variables from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -5038,13 +5038,12 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
-        for k, v in r.json().items():
-            yield (SpaceVariable(k, v))
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
     def add_space_variable(
         self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
-    ) -> Iterable[SpaceVariable]:
+    ) -> Dict[str, SpaceVariable]:
         """Adds or updates a variable in a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -5071,10 +5070,12 @@ class HfApi:
             json=payload,
         )
         hf_raise_for_status(r)
-        return self.get_space_variables(repo_id, token=token)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
-    def delete_space_variable(self, repo_id: str, key: str, *, token: Optional[str] = None) -> Iterable[SpaceVariable]:
+    def delete_space_variable(
+        self, repo_id: str, key: str, *, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
         """Deletes a variable from a Space.
 
         Variables allow to set environment variables to a Space without hardcoding them.
@@ -5094,7 +5095,7 @@ class HfApi:
             json={"key": key},
         )
         hf_raise_for_status(r)
-        return self.get_space_variables(repo_id, token=token)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
 
     @validate_hf_hub_args
     def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:

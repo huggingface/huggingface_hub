@@ -2412,7 +2412,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
         # Get variables
         self.api.get_space_variables(self.repo_id)
 
-        # Add 2 variables
+        # Add 3 variables
         self.api.add_space_variable(self.repo_id, "foo", "123")
         self.api.add_space_variable(self.repo_id, "MODEL_REPO_ID", "user/repo")
 
@@ -2430,6 +2430,10 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Doesn't fail on missing key
         self.api.delete_space_variable(self.repo_id, "missing_key")
+
+        # Returning all variables created
+        variables = self.api.get_space_variables(self.repo_id)
+        self.assertEquals(len(variables), 3)
 
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)

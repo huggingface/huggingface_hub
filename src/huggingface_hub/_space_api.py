@@ -142,10 +142,11 @@ class SpaceVariable:
     key: str
     value: str
     description: Optional[str]
-    updatedAt: datetime
+    updated_at: datetime
 
-    def __init__(self, k, v: Dict) -> None:
-        self.key = k
-        self.value = v["value"]
-        self.description = v["description"]
-        self.updatedAt = parse_datetime(v["updatedAt"])
+    def __init__(self, key: str, values: Dict) -> None:
+        self.key = key
+        self.value = values["value"]
+        if "description" in values.keys():
+            self.description = values["description"]
+        self.updated_at = parse_datetime(values["updatedAt"])
