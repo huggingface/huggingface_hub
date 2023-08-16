@@ -379,17 +379,19 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 ## Tips and tricks for large uploads
 
-There are some limitations to be aware of when you're trying to upload a large amount of data. Given the time it takes to stream the data, it can be very annoying to get a commit to fail at the end of the process. We gathered a list of tips and recommendations to think about before starting the upload.
+There are some limitations to be aware of when you're dealing with a large amount of data in your repo. Given the time it takes to stream the data, it can be very annoying to get an upload/push to fail at the end of the process or encounter a degraded experience, be it on hf.co or when working locally. We gathered a list of tips and recommendations to think about when structuring your repo.
 
 
-| Characteristic   | Limit              | Type of limit                  | Recommended approach                     |
-| ---------------- | ------------------ | ------------------------------ | ---------------------------------------- |
-| Repo size        | unlimited          | Ø                              | contact us for large repos (TBs of data) |
-| Files per repo   | 1M max             | hard limit                     | merge data into fewer files              |
-| Files per folder | 10k max            | hard limit                     | use subdirectories in repo               |
-| File size        | ~10GB max          | soft limit (can go up to 50GB) | split data into chunked files            |
-| Commit size      | ~100 files         | soft limit (risk of timeouts)  | upload files in multiple commits         |
-| Commits per repo | ~1000-3000 commits | soft limit (risk of slower UX) | upload multiple files per commit         |
+| Characteristic     | Recommended        | Tips                                     |
+| ----------------   | ------------------ | ---------------------------------------- |
+| Repo size          | -                  | contact us for large repos (TBs of data) |
+| Files per repo     | <100k              | merge data into fewer files              |
+| Entries per folder | <10k               | use subdirectories in repo               |
+| File size          | <5GB               | split data into chunked files            |
+| Commit size        | <100 files*        | upload files in multiple commits         |
+| Commits per repo   | -                  | upload multiple files per commit         |
+
+_* Not relevant when using `git` CLI directly_
 
 Please read the next section to get a better understanding of those limits and how to deal with them.
 
@@ -397,32 +399,33 @@ Please read the next section to get a better understanding of those limits and h
 
 What are we talking about when we say "large uploads", and what are their associated limitations? Large uploads can be
 very diverse, from repositories with a few huge files (e.g. model weights) to repositories with thousands of small files
-(e.g. an image dataset). Each repository will have its own limitations, so here is a list of factors to consider:
+(e.g. an image dataset).
+
+Under the hood, the Hub uses Git to version the data, which has structural implications on what you can do in your repo.
+If your repo is crossing some of the numbers mentioned in the previous section, **we strongly encourage you to check out [`git-sizer`](https://github.com/github/git-sizer)**,
+which has very detailed documentation about the different factors that will impact your experience. Here is a TL;DR of factors to consider:
 
 - **Repository size**: The total size of the data you're planning to upload. There is no hard limit on a Hub repository size. However, if you plan to upload hundreds of GBs or even TBs of data, we would appreciate it if you could let us know in advance so we can better help you if have any questions during the process. You can contact us at datasets@huggingface.co or on [our Discord](http://hf.co/join/discord).
-- **Number of files**: There are two practical limits about the number of files in your repo. Under the hood, the Hub uses
-Git to version the data which has its limitations:
-    - The total number of files in the repo cannot exceed 1M files. If you are planning to upload more than 1M files,
-      we recommend merging the data into fewer files. For example, json files can be merged into a single jsonl file or
-      large datasets can be exported as Parquet files.
+- **Number of files**:
+    - For optimal experience, we recommend to keep the total number of files under 100k. Try merging the data into fewer files if you have more.
+      For example, json files can be merged into a single jsonl file or large datasets can be exported as Parquet files.
     - The maximum number of files per folder cannot exceed 10k files per folder. A simple solution is to
       create a repository structure that uses subdirectories. For example, a repo with 1k folders from `000/` to `999/`, each containing at most 1000 files, is already enough.
 - **File size**: individual files also have a limit on their maximum size. In the case of uploading large files (e.g.
-model weights), we strongly recommend to split them **into chunks of around 10GB each**. There are a few reasons for this:
+model weights), we strongly recommend to split them **into chunks of around 5GB each**. There are a few reasons for this:
     - Uploading and downloading smaller files is easier both for you and the other users. Connection issues can always
       happen when streaming data and smaller files avoid resuming from the beginning in case of errors.
-    - Files are served to the users using CloudFront. From our experience, files above 30GB are not cached by this service
+    - Files are served to the users using CloudFront. From our experience, huge files are not cached by this service
       leading to a slower download speed.
-    - A hard-limit of 50GB has been set on the Hub for an individual file. If you try to commit larger files, an error will be returned by the server.
 - **Number of commits**: There is no hard limit for the total number of commits on your repo history. However, from
 our experience, the user experience on the Hub start to degrade after a few thousands commits. We are always working to
 improve the service but one must always remember that a git repository is not meant to work as a database with a lot of
 writings. In case your repo's history gets very large, it is always possible to squash all the commits to get a
 fresh start.
-- **Number of operations per commit**: Once again, there is no hard-limit here. When a commit is done on the Hub, each
-git operation (addition or delete) is checked by the server before actually doing it. This means that when a hundred LFS
-files are committed at once, the server must check if each file has been correctly uploaded, checking its existence
-and size. A timeout of 60s is set on the request, meaning that if the process takes more time an error is raised
+- **Number of operations per commit**: Once again, there is no hard-limit here. When a commit is uploaded on the Hub, each
+git operation (addition or delete) is checked by the server. When a hundred LFS files are committed at once,
+each file is checked individually to make sure it's been correctly uploaded. When pushing data through HTTP with `huggingface_hub`,
+a timeout of 60s is set on the request, meaning that if the process takes more time an error is raised
 client-side. However, it can happen (in rare cases) that even if the timeout is raised client-side, the process is still
 completed server-side. This can be checked manually by browsing the repo on the Hub. To prevent this timeout, we recommend
 to add around 50-100 files per commit.
