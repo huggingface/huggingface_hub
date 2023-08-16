@@ -2417,13 +2417,13 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.api.add_space_variable(self.repo_id, "MODEL_REPO_ID", "user/repo")
 
         # Add 1 variable with optional description
-        self.api.add_space_variable(self.repo_id, "MODEL_PAPER", "arXiv", "found it there")
+        self.api.add_space_variable(self.repo_id, "MODEL_PAPER", "arXiv", description="found it there")
 
         # Update variable
         self.api.add_space_variable(self.repo_id, "foo", "456")
 
         # Update variable with optional description
-        self.api.add_space_variable(self.repo_id, "foo", "456", "updated description")
+        self.api.add_space_variable(self.repo_id, "foo", "456", description="updated description")
 
         # Delete variable
         self.api.delete_space_variable(self.repo_id, "gh_api_key")

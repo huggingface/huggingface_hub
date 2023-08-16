@@ -5043,7 +5043,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def add_space_variable(
-        self, repo_id: str, key: str, value: str, description: Optional[str] = str(), *, token: Optional[str] = None
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
     ) -> Iterable[SpaceVariable]:
         """Adds or updates a variable in a Space.
 
@@ -5062,10 +5062,13 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
-            json={"key": key, "value": value, "description": description},
+            json=payload,
         )
         hf_raise_for_status(r)
         return self.get_space_variables(repo_id, token=token)
