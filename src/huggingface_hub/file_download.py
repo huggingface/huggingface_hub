@@ -961,11 +961,11 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-def _check_disk_space(expected_size: Optional[int], target_dir: Union[str, Path]) -> None:
+def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> bool:
     """Check disk usage and log a warning if there is not enough disk space to download the file.
 
     Args:
-        expected_size (`int`, *optional*):
+        expected_size (`int`):
             The expected size of the file in bytes.
         target_dir (`str`):
             The directory where the file will be stored after downloading.
@@ -980,7 +980,7 @@ def _check_disk_space(expected_size: Optional[int], target_dir: Union[str, Path]
         logger.warning(
             "Not enough free disk space to download the file. "
             f"The expected file size is: {expected_size / 1e6:.2f} MB. "
-            f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free space."
+            f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
         )
 
     return has_enough_space

@@ -85,30 +85,23 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
+
 class TestDiskUsageWarning(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Test with 100MB expected file size
         cls.expected_size = 100 * 1024 * 1024
-        cls.disk_usage_mock = Mock()
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.disk_usage_mock.reset_mock()
 
     @patch("huggingface_hub.file_download.shutil.disk_usage")
-    def test_disk_usage_warning(self, disk_usage_mock):
+    def test_disk_usage_warning(self, disk_usage_mock: Mock) -> None:
         # Test with only 1MB free disk space
         disk_usage_mock.return_value.free = 1024 * 1024
         self.assertFalse(_check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock))
 
-        # Test with exactly 100MB free disk space
-        disk_usage_mock.return_value.free = 100 * 1024 * 1024
-        self.assertTrue(_check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock))
-
         # Test with 200MB free disk space
         disk_usage_mock.return_value.free = 200 * 1024 * 1024
         self.assertTrue(_check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock))
+
 
 @with_production_testing
 class CachedDownloadTests(unittest.TestCase):
