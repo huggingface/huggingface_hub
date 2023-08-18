@@ -978,7 +978,7 @@ def _check_disk_space(expected_size: Optional[int], target_dir: Union[str, Path]
 
     if not has_enough_space:
         logger.warning(
-            f"Not enough free disk space to download the file. "
+            "Not enough free disk space to download the file. "
             f"The expected file size is: {expected_size / 1e6:.2f} MB. "
             f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free space."
         )
@@ -1419,7 +1419,7 @@ def hf_hub_download(
         with temp_file_manager() as temp_file:
             logger.info("downloading %s to %s", url, temp_file.name)
 
-            if expected_size is not None: # might be None if HTTP header not set correctly
+            if expected_size is not None:  # might be None if HTTP header not set correctly
                 # Check tmp path
                 _check_disk_space(expected_size, os.path.dirname(temp_file.name))
 
