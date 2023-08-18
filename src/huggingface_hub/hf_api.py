@@ -1990,7 +1990,9 @@ class HfApi:
         """
         url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
         try:
-            get_hf_file_metadata(url, token=token or self.token)
+            if token is None:
+                token = self.token
+            get_hf_file_metadata(url, token=token)
             return True
         except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
             return False
