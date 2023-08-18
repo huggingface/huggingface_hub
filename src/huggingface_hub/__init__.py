@@ -142,7 +142,8 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "UserLikes",
         "add_space_secret",
-        "add_space_variablechange_discussion_status",
+        "add_space_variable",
+        "change_discussion_status",
         "comment_discussion",
         "create_branch",
         "create_commit",
@@ -446,7 +447,8 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         UserLikes,  # noqa: F401
         add_space_secret,  # noqa: F401
-        add_space_variablechange_discussion_status,  # noqa: F401
+        add_space_variable,  # noqa: F401
+        change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
         create_commit,  # noqa: F401

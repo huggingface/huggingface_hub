@@ -147,6 +147,5 @@ class SpaceVariable:
     def __init__(self, key: str, values: Dict) -> None:
         self.key = key
         self.value = values["value"]
-        if "description" in values.keys():
-            self.description = values["description"]
+        self.description = values.get("description")
         self.updated_at = parse_datetime(values["updatedAt"])
