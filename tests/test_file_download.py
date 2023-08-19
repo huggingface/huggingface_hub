@@ -22,6 +22,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 from requests import Response
+import warnings
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
@@ -85,7 +86,6 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
-
 class TestDiskUsageWarning(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -94,13 +94,22 @@ class TestDiskUsageWarning(unittest.TestCase):
 
     @patch("huggingface_hub.file_download.shutil.disk_usage")
     def test_disk_usage_warning(self, disk_usage_mock: Mock) -> None:
-        # Test with only 1MB free disk space
+        # Test with only 1MB free disk space / not enough disk space, with UserWarning expected
         disk_usage_mock.return_value.free = 1024 * 1024
-        self.assertFalse(_check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock))
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            _check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock)
+            assert len(w) == 1
+            assert issubclass(w[-1].category, UserWarning)
 
-        # Test with 200MB free disk space
+        # Test with 200MB free disk space / enough disk space, with no warning expected
         disk_usage_mock.return_value.free = 200 * 1024 * 1024
-        self.assertTrue(_check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock))
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            _check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock)
+            assert len(w) == 0
 
 
 @with_production_testing

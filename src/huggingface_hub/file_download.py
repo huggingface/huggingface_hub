@@ -961,7 +961,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
-def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> bool:
+def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
     """Check disk usage and log a warning if there is not enough disk space to download the file.
 
     Args:
@@ -977,13 +977,11 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> bool:
     has_enough_space = target_dir_free >= expected_size
 
     if not has_enough_space:
-        logger.warning(
+        warnings.warn(
             "Not enough free disk space to download the file. "
             f"The expected file size is: {expected_size / 1e6:.2f} MB. "
             f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
         )
-
-    return has_enough_space
 
 
 @validate_hf_hub_args
