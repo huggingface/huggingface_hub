@@ -16,13 +16,13 @@ import re
 import shutil
 import stat
 import unittest
+import warnings
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 from requests import Response
-import warnings
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi
@@ -85,6 +85,7 @@ DATASET_ID = SAMPLE_DATASET_IDENTIFIER
 DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257c61"
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
+
 
 class TestDiskUsageWarning(unittest.TestCase):
     @classmethod
