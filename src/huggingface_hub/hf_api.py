@@ -1934,7 +1934,7 @@ class HfApi:
         </Tip>
         """
         try:
-            repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+            self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
         except RepositoryNotFoundError:
             return False

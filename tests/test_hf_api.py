@@ -139,6 +139,41 @@ def test_repo_id_no_warning():
         assert not len(record)
 
 
+class HfApiRepoFileExistsTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name(), private=True).repo_id
+        print("Repo ID :", self.repo_id)
+        self.upload = self._api.upload_file(repo_id=self.repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+        print("Upload :", self.upload)
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    @retry_endpoint
+    def test_repo_exists(self):
+        print(TOKEN)
+        self.assertTrue(self._api.repo_exists(self.repo_id))
+        self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
+        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+
+    @retry_endpoint
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://hub-ci.huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_file_exists(self):
+        self.assertTrue(self._api.file_exists(self.repo_id, "file.txt"))
+        self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
+        self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
+        self.assertFalse(
+            self._api.file_exists(self.repo_id, "file.txt", revision="revision-that-does-not-exist")
+        )  # missing revision
+        self.assertFalse(self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
+
+
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
@@ -163,20 +198,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
         mock_HfFolder().get_token.assert_not_called()
-
-    @retry_endpoint
-    def test_repo_exists(self):
-        self.assertTrue(self._api.repo_exists("gpt2"))
-        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
-
-    @retry_endpoint
-    def test_file_exists(self):
-        self.assertTrue(self._api.file_exists("config.json", "gpt2"))
-        self.assertFalse(self._api.file_exists("config.json", "repo-that-does-not-exist"))  # missing repo
-        self.assertFalse(self._api.file_exists("file-does-not-exist", "gpt2"))  # missing file
-        self.assertFalse(
-            self._api.file_exists("config.json", "gpt2", revision="revision-that-does-not-exist")
-        )  # missing revision
 
     @retry_endpoint
     def test_delete_repo_error_message(self):
