@@ -200,6 +200,14 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_text_classification(self) -> None:
+        output = self.client.text_classification(["I like you", "I love you."])
+        self.assertIsInstance(output, list)
+        self.assertEqual(len(output), 2)
+        for item in output:
+            self.assertIsInstance(item[0]["score"], float)
+            self.assertIsInstance(item[0]["label"], str)
+
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 

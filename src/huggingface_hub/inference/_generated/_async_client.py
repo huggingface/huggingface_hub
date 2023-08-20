@@ -770,6 +770,55 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
+    async def text_classification(
+        self, text: List[str], *, parameters: Optional[Dict[str, Any]] = None, model: Optional[str] = None
+    ) -> List[ClassificationOutput]:
+        """
+        Perform sentiment-analysis on the given text.
+
+        Args:
+            text (`str`):
+                A list of strings to be classified.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the text classification task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#text-classification-task)
+            model (`str`, *optional*):
+                The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> output = await client.text_classification(["I like you", "I love you"])
+        >>> output
+        [[{'label': 'POSITIVE', 'score': 0.9998695850372314},
+        {'label': 'NEGATIVE', 'score': 0.0001304351753788069}],
+        [{'label': 'POSITIVE', 'score': 0.9998656511306763},
+        {'label': 'NEGATIVE', 'score': 0.00013436275185085833}]]
+        ```
+        """
+        payload: Dict[str, Any] = {"inputs": text}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="text-classification",
+        )
+        return _bytes_to_dict(response)
+
     @overload
     async def text_generation(  # type: ignore
         self,
