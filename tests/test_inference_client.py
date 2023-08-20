@@ -171,6 +171,16 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIn("xmax", item["box"])
             self.assertIn("ymax", item["box"])
 
+    def test_question_answering(self) -> None:
+        model = "deepset/roberta-base-squad2"
+        output = self.client.question_answering(question="What is the meaning of life?", context="42", model=model)
+        self.assertIsInstance(output, dict)
+        self.assertGreater(len(output), 0)
+        self.assertIsInstance(output["score"], float)
+        self.assertIsInstance(output["start"], int)
+        self.assertIsInstance(output["end"], int)
+        self.assertIsInstance(output["answer"], str)
+
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(
             "Machine learning is so easy.",

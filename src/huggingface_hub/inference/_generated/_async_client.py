@@ -64,6 +64,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    QuestionAnsweringOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -677,6 +678,61 @@ class AsyncInferenceClient:
         if not isinstance(output, list):
             raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
         return output
+
+    async def question_answering(
+        self, question: str, context: str, model: str, *, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[QuestionAnsweringOutput]:
+        """
+        Perform sentiment-analysis on the given text.
+
+        Args:
+            question (`str`):
+                Question to be answered.
+            context (`str`):
+                The context of the question.
+            model (`str`):
+                The model to use for the text question-answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the text classification task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#text-classification-task)
+
+
+        Returns:
+            `Dict`: a dictionary containing:
+            - answer:	A string that’s the answer within the text.
+            - score:	A float that represents how likely that the answer is correct
+            - start:	The index (string wise) of the start of the answer within context.
+            - stop:	    The index (string wise) of the stop of the answer within context.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> output = await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
+        >>> output
+        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        ```
+        """
+        if model is None:
+            raise ValueError("You must specify a model. Task question-answering has no recommended standard model.")
+
+        payload: Dict[str, Any] = {"question": question, "context": context}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="question_answering",
+        )
+        return _bytes_to_dict(response)
 
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
