@@ -108,4 +108,4 @@ class TranslationOutput(TypedDict):
             The translated text.
     """
 
-    trasnlation_text: str
+    translation_text: str
