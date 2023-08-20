@@ -1,0 +1,49 @@
+interactions:
+- request:
+    body: '{"inputs": "My name is Sarah Jessica Parker but you can call me Jessica"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '73'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - d19b39c0-95d3-4879-b316-3b4dbea8d77e
+      user-agent:
+      - unknown/None; hf_hub/0.17.0.dev0; python/3.10.12
+    method: POST
+    uri: https://api-inference.huggingface.co/models/dbmdz/bert-large-cased-finetuned-conll03-english
+  response:
+    body:
+      string: '[{"entity_group":"PER","score":0.9991335868835449,"word":"Sarah Jessica
+        Parker","start":11,"end":31},{"entity_group":"PER","score":0.9979913234710693,"word":"Jessica","start":52,"end":59}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '188'
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 20 Aug 2023 14:01:19 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.070'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 2trJlwwa5RQvr-9LZEsq3
+      x-sha:
+      - f2482bf01f5da0f0eb8e183ffd8cc3885aa90b14
+    status:
+      code: 200
+      message: OK
+version: 1
