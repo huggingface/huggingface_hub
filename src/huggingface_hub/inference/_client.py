@@ -1255,6 +1255,7 @@ class InferenceClient:
                 The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
                 Defaults to None.
+
         Returns:
             `List[Dict]`: a list of dictionaries containing:
             - entity_group:	The type for the entity being recognized (model specific).
@@ -1262,11 +1263,13 @@ class InferenceClient:
             - word:	        The string that was captured.
             - start:	    The offset stringwise where the answer is located. Useful to disambiguate if word occurs multiple times.
             - end:	        The offset stringwise where the answer is located. Useful to disambiguate if word occurs multiple times.
+
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
+
         Example:
         ```py
         >>> from huggingface_hub import InferenceClient
