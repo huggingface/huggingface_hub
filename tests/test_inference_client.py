@@ -219,6 +219,14 @@ class InferenceClientVCRTest(InferenceClientTest):
         audio = self.client.text_to_speech("Hello world")
         self.assertIsInstance(audio, bytes)
 
+    def test_translation(self) -> None:
+        model = "t5-small"
+        output = self.client.translation("Hello world", model=model)
+        self.assertIsInstance(output, list)
+        self.assertGreater(len(output), 0)
+        for item in output:
+            self.assertIsInstance(item["translation_text"], str)
+
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
         self.assertIsInstance(output, list)

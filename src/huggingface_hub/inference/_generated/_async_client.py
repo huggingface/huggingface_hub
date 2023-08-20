@@ -64,6 +64,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    TranslationOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -1248,6 +1249,52 @@ class AsyncInferenceClient:
         ```
         """
         return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
+
+    async def translation(
+        self, text: List[str], *, parameters: Optional[Dict[str, Any]] = None, model: Optional[str] = None
+    ) -> List[TranslationOutput]:
+        """
+        Convert text from one language to another.
+
+        Args:
+            text (`str`):
+                A list of strings to be translated.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the translation task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#translation-task)
+            model (`str`, *optional*):
+                The model to use for the translation task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended translation model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the translated text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> output = await client.translation("My name is Wolfgang and I live in Berlin")
+        >>> output
+        [{'translation_text': 'Mein Name ist Wolfgang und ich lebe in Berlin.'}]
+        ```
+        """
+        payload: Dict[str, Any] = {"inputs": text}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="translation",
+        )
+        return _bytes_to_dict(response)
 
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None

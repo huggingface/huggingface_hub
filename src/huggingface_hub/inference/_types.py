@@ -98,3 +98,14 @@ class ObjectDetectionOutput(TypedDict):
     label: str
     box: dict
     score: float
+
+
+class TranslationOutput(TypedDict):
+    """Dictionary containing information about a [`~InferenceClient.translation`] task.
+
+    Args:
+        translation_text (`str`):
+            The translated text.
+    """
+
+    trasnlation_text: str

@@ -142,7 +142,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Text Classification](https://huggingface.co/tasks/text-classification)            | |  |
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
 | | [Token Classification](https://huggingface.co/tasks/token-classification)           | |  |
-| | [Translation](https://huggingface.co/tasks/translation)       | |  |
+| | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
 | | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
 | Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
 | | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
