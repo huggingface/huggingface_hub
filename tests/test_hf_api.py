@@ -143,9 +143,7 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
         self.repo_id = self._api.create_repo(repo_name(), private=True).repo_id
-        print("Repo ID :", self.repo_id)
         self.upload = self._api.upload_file(repo_id=self.repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
-        print("Upload :", self.upload)
 
     def tearDown(self) -> None:
         self._api.delete_repo(self.repo_id)
@@ -153,7 +151,6 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
 
     @retry_endpoint
     def test_repo_exists(self):
-        print(TOKEN)
         self.assertTrue(self._api.repo_exists(self.repo_id))
         self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
         self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
