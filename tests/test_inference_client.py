@@ -125,6 +125,17 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(embedding, np.ndarray)
         self.assertEqual(embedding.shape, (8, 768))
 
+    def test_fill_mask(self) -> None:
+        model = "distilroberta-base"
+        output = self.client.fill_mask("The goal of life is <mask>.", model=model)
+        self.assertIsInstance(output, list)
+        self.assertEqual(len(output[0]), 4)
+        self.assertIsInstance(output[0], dict)
+        self.assertEqual(
+            set(k for el in output for k in el.keys()),
+            {"score", "sequence", "token", "token_str"},
+        )
+
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
         self.assertIsInstance(output, list)

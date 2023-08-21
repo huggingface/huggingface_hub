@@ -134,7 +134,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      |              |  |
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
-| | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      |              |  |
+| | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
 | | [Question Answering](https://huggingface.co/tasks/question-answering)             |              |  |
 | | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
 | | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
