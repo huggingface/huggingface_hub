@@ -683,7 +683,7 @@ class AsyncInferenceClient:
         self, question: str, context: str, model: str, *, parameters: Optional[Dict[str, Any]] = None
     ) -> List[QuestionAnsweringOutput]:
         """
-        Perform sentiment-analysis on the given text.
+        Retrieve the answer to a question from a given text.
 
         Args:
             question (`str`):
