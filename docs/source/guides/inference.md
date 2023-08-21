@@ -138,7 +138,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Question Answering](https://huggingface.co/tasks/question-answering)             |              |  |
 | | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
 | | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | |  |
+| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table-question-answering`] |
 | | [Text Classification](https://huggingface.co/tasks/text-classification)            | |  |
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
 | | [Token Classification](https://huggingface.co/tasks/token-classification)           | |  |

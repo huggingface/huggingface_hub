@@ -200,6 +200,25 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_table_question_answering(self) -> None:
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        query = [
+            "How many stars does the transformers repository have?",
+            "What is the total of stars?",
+        ]
+        model = "google/tapas-base-finetuned-wtq"
+        output = self.client.table_question_answering(query=query, table=table, model=model)
+        self.assertEqual(type(output), list)
+        self.assertEqual(len(output[0]), 4)
+        self.assertEqual(type(output[0]), dict)
+        self.assertEqual(
+            set(k for el in output for k in el.keys()),
+            {"aggregator", "answer", "cells", "coordinates"},
+        )
+
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 

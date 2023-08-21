@@ -80,6 +80,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    QuestionAnsweringOutput,
 )
 from huggingface_hub.utils import (
     BadRequestError,
@@ -762,6 +763,74 @@ class InferenceClient:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
+
+    def table_question_answering(
+        self,
+        query: List[str],
+        table: Dict[str, Any],
+        model: Optional[str],
+        *,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> List[QuestionAnsweringOutput]:
+        """
+        Retrieve the answer to a question from information given in a table.
+
+        Args:
+            query (`str`):
+                The query in plain text that you want to ask the table.
+            table (`str`):
+                A table of data represented as a dict of lists where entries are headers and the lists are all the values, all lists must have the same size.
+            model (`str`):
+                The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the table-question-answering task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#table-question-answering-task)
+
+        Returns:
+            `Dict`: a dictionary containing:
+            - answer:	    The plaintext answer.
+            - coordinates:	A list of coordinates of the cells referenced in the answer.
+            - cells:	    A list of coordinates of the cells contents.
+            - aggregator:	The aggregator used to get the answer.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> query = "How many stars does the transformers repository have?"
+        >>> table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        >>> output = client.table_question_answering(query=query, table=table, model="google/tapas-base-finetuned-wtq")
+        >>> output
+        {'answer': 'AVERAGE > 36542',
+        'coordinates': [[0, 1]],
+        'cells': ['36542'],
+        'aggregator': 'AVERAGE'}
+        ```
+        """
+        if model is None:
+            raise ValueError(
+                "You must specify a model. Task table-question-answering has no recommended standard model."
+            )
+
+        payload: Dict[str, Any] = {"query": query, "table": table}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = self.post(
+            json=payload,
+            model=model,
+            task="table-question-answering",
+        )
+        return _bytes_to_dict(response)
 
     @overload
     def text_generation(  # type: ignore
