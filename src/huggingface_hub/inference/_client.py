@@ -686,11 +686,11 @@ class InferenceClient:
             context (`str`):
                 The context of the question.
             model (`str`):
-                The model to use for the text question-answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
             parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the text classification task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#text-classification-task)
+                Additional parameters for the question answering task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#question-answering-task)
 
 
         Returns:
@@ -724,7 +724,7 @@ class InferenceClient:
         response = self.post(
             json=payload,
             model=model,
-            task="question_answering",
+            task="question-answering",
         )
         return _bytes_to_dict(response)
 
