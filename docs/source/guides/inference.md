@@ -145,7 +145,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Translation](https://huggingface.co/tasks/translation)       | |  |
 | | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
 | Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
-| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
+| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
 
 This table is meant to be completed to support all tasks. If you are particularly interested in a task not yet supported,

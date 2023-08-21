@@ -763,6 +763,59 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
+    def tabular_regression(
+        self, table: Dict[str, Any], model: str, *, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[float]:
+        """
+        Predicting a numerical target value given a set of attributes/features in a table.
+
+        Args:
+            table (`Dict[str, Any]`):
+                Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
+            model (`str`):
+                The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the tabular-regression task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#tabular-regression-task)
+
+        Returns:
+            `List`: a list of predicted numerical target values.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> data = {
+        "Height": ["11.52", "12.48", "12.3778"],
+        "Length1": ["23.2", "24", "23.9"],
+        "Length2": ["25.4", "26.3", "26.5"],
+        "Length3": ["30", "31.2", "31.1"],
+        "Species": ["Bream", "Bream", "Bream"],
+        "Width": ["4.02", "4.3056", "4.6961"],
+        }
+        >>> model = "scikit-learn/Fish-Weight"
+        >>> output = client.tabular_regression(data=data, model=model, parameters={"wait_for_model":"true"})
+        >>> output
+        [110, 120, 130]
+        ```
+        """
+        payload: Dict[str, Any] = {"table": table}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = self.post(
+            json=payload,
+            model=model,
+            task="tabular-regression",
+        )
+        return _bytes_to_dict(response)
+
     @overload
     def text_generation(  # type: ignore
         self,

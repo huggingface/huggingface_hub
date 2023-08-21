@@ -200,6 +200,21 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_tabular_regression(self) -> None:
+        clf_table = {
+            "Height": ["11.52", "12.48", "12.3778"],
+            "Length1": ["23.2", "24", "23.9"],
+            "Length2": ["25.4", "26.3", "26.5"],
+            "Length3": ["30", "31.2", "31.1"],
+            "Species": ["Bream", "Bream", "Bream"],
+            "Width": ["4.02", "4.3056", "4.6961"],
+        }
+        model = "scikit-learn/Fish-Weight"
+        parameters = {"wait_for_model": True}
+        output = self.client.tabular_regression(table=clf_table, model=model, parameters=parameters)
+        self.assertIsInstance(output, list)
+        self.assertGreater(len(output), 0)
+
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
