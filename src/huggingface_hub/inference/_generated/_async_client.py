@@ -770,6 +770,65 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
+    async def tabular_classification(
+        self, table: Dict[str, Any], model: str, *, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[ClassificationOutput]:
+        """
+        Classifying a target category (a group) based on a set of attributes.
+
+        Args:
+            data (`Dict[str, Any]`):
+                Set of attributes to classify.
+            model (`str`):
+                The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional parameters for the tabular-classification task. Defaults to None. For more details about the available
+                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#tabular-classification-task)
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> data = {
+        "fixed_acidity": ["7.4", "7.8", "10.3"],
+        "volatile_acidity": ["0.7", "0.88", "0.32"],
+        "citric_acid": ["0", "0", "0.45"],
+        "residual_sugar": ["1.9", "2.6", "6.4"],
+        "chlorides": ["0.076", "0.098", "0.073"],
+        "free_sulfur_dioxide": ["11", "25", "5"],
+        "total_sulfur_dioxide": ["34", "67", "13"],
+        "density": ["0.9978", "0.9968", "0.9976"],
+        "pH": ["3.51", "3.2", "3.23"],
+        "sulphates": ["0.56", "0.68", "0.82"],
+        "alcohol": ["9.4", "9.8", "12.6"],
+        }
+        >>> model = "julien-c/wine-quality"
+        >>> output = await await client.tabular_classification(data=data, model=model, parameters={"wait_for_model":"true"})
+        >>> output
+        ["5", "5", "5"]
+        ```
+        """
+        payload: Dict[str, Any] = {"table": table}
+        if parameters is not None:
+            payload["parameters"] = parameters
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="tabular-classification",
+        )
+        return _bytes_to_dict(response)
+
     @overload
     async def text_generation(  # type: ignore
         self,
