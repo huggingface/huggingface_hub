@@ -108,7 +108,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
 
     def run(self):
         if self.args.token:
-            self.token = self.args.token 
+            self.token = self.args.token
             HfFolder.save_token(self.args.token)
         else:
             self.token = HfFolder.get_token()
