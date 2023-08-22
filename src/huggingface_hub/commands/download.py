@@ -116,12 +116,10 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             print("Not logged in")
 
         if self.args.type not in REPO_TYPES:
-            print(
-                f"Invalid repo --type: {self.args.type}.",
-                "Can be one of:",
-                f"{', '.join([item for item in REPO_TYPES if isinstance(item, str)])}.",
+            raise ValueError(
+                f"Invalid repo --type: {self.args.type}. "
+                f"Can be one of: {', '.join([item for item in REPO_TYPES if isinstance(item, str)])}."
             )
-            exit(1)
 
         local_dir = os.path.abspath(self.args.to_local_dir or "")
 
