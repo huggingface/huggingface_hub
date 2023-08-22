@@ -103,11 +103,11 @@ class UploadCommand(BaseHuggingfaceCLICommand):
 
     def run(self):
         if self.args.token:
-            self.token = self.args.token 
+            self.token = self.args.token
             HfFolder.save_token(self.args.token)
         else:
             self.token = HfFolder.get_token()
-        
+
         if self.token is None:
             raise ValueError("Not logged in or token is not provided. Consider running `huggingface-cli login`.")
 
@@ -120,7 +120,8 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.path = "." if self.args.path is None else self.args.path
 
         self.path_in_repo = (
-            self.args.path_in_repo if self.args.path_in_repo 
+            self.args.path_in_repo
+            if self.args.path_in_repo
             else (os.path.relpath(self.path).replace("\\", "/") if self.path != "." else "/")
         )
 
