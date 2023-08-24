@@ -135,6 +135,7 @@ class InferenceClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
+        self.token = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -635,8 +636,8 @@ class InferenceClient:
         tasks: Optional[Union[str, List[str]]] = None,
         *,
         frameworks: Optional[Union[str, List[str]]] = None,
-        token: Optional[str] = None,
-    ) -> Dict[str, List[str]]:
+        token: Optional[Union[str, bool, None]] = None,
+    ) -> Dict[str, List[tuple[str, str]]]:
         """
         List models hosted on the Huggingface Hub, given some filters.
 
@@ -651,8 +652,10 @@ class InferenceClient:
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
         """
-        headers = self.headers.copy()
-        params = {}
+        if token is None:
+            token = self.token
+        headers = build_hf_headers(token=token)
+        params: Dict[str, str] = {}
 
         frameworks = [frameworks] if isinstance(frameworks, str) else (frameworks or FRAMEWORKS)
 
@@ -662,10 +665,8 @@ class InferenceClient:
             for item in paginate(f"{INFERENCE_ENDPOINT}/framework/{framework}", params=params, headers=headers)
         ]
 
-        if tasks is None:
-            tasks = list(set(info.task for info in all_model_info))
-        elif not isinstance(tasks, (list, tuple)):  # If tasks is a string, convert to a list.
-            tasks = [tasks]
+        tasks = tasks or list(set(info.task for info in all_model_info))
+        tasks = tasks if isinstance(tasks, (list, tuple)) else [tasks]
 
         filtered_model_info = [info for info in all_model_info if info.task in tasks]
 
