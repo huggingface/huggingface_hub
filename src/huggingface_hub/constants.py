@@ -127,7 +127,7 @@ TASKS = [
     "token-classification",
     "translation",
     "tabular-classification",
-    "tabular-regression"
+    "tabular-regression",
 ]
 
 

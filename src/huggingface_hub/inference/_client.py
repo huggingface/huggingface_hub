@@ -631,11 +631,7 @@ class InferenceClient:
         return _bytes_to_dict(response)[0]["generated_text"]
 
     def list_deployed_models(
-        self,
-        tasks: Optional[List[str]] = None,
-        *, 
-        frameworks: Optional[List[str]] = None, 
-        token: Optional[str] = None
+        self, tasks: Optional[List[str]] = None, *, frameworks: Optional[List[str]] = None, token: Optional[str] = None
     ) -> Dict[str, List[str]]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -666,8 +662,12 @@ class InferenceClient:
             for framework in frameworks:
                 path = f"{INFERENCE_ENDPOINT}/framework/{framework}"
                 items = paginate(path, params=params, headers=headers)
-                
-                [task_items[item["task"]].append((item["model_id"], framework)) for item in items if item["task"] in tasks]
+
+                [
+                    task_items[item["task"]].append((item["model_id"], framework))
+                    for item in items
+                    if item["task"] in tasks
+                ]
 
         return task_items
 
