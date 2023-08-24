@@ -158,6 +158,45 @@ class InferenceClientVCRTest(InferenceClientTest):
     #     caption = self.client.image_to_text(self.image_file)
     #     self.assertEqual(caption, "")
 
+    def test_list_deployed_models(self) -> None:
+        """Test with no filter"""
+        models = self.client.list_deployed_models()
+
+        self.assertIsInstance(models, dict)
+        for key in models.keys():
+            self.assertIsInstance(models[key][0], tuple)
+
+        """Test with one framework"""
+        models = self.client.list_deployed_models(frameworks="transformers")
+
+        self.assertIsInstance(models, dict)
+        for key in models.keys():
+            self.assertIsInstance(models[key][0], tuple)
+
+        """Test with multiple frameworks"""
+        models = self.client.list_deployed_models(frameworks=["transformers", "diffusers"])
+
+        self.assertIsInstance(models, dict)
+        for key in models.keys():
+            self.assertIsInstance(models[key][0], tuple)
+
+        """Test with one task"""
+        models = self.client.list_deployed_models("conversational")
+
+        self.assertIsInstance(models, dict)
+        self.assertIn("conversational", models.keys())
+        for key in models.keys():
+            self.assertIsInstance(models[key][0], tuple)
+
+        """Test with multiple tasks"""
+        models = self.client.list_deployed_models(["conversational", "text-classification"])
+
+        self.assertIsInstance(models, dict)
+        self.assertIn("conversational", models.keys())
+        self.assertIn("text-classification", models.keys())
+        for key in models.keys():
+            self.assertIsInstance(models[key][0], tuple)
+
     def test_object_detection(self) -> None:
         output = self.client.object_detection(self.image_file)
         self.assertIsInstance(output, list)
