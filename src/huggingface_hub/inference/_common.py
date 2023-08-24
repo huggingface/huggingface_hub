@@ -18,6 +18,7 @@ import io
 import json
 import logging
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -66,6 +67,25 @@ ContentT = Union[BinaryT, PathT, UrlT]
 TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ModelInfo:
+    compute_type: str
+    model_id: str
+    sha: str
+    task: str
+    framework: str
+
+    @classmethod
+    def from_item(cls, item, framework):
+        return cls(
+            compute_type=item["compute_type"],
+            model_id=item["model_id"],
+            sha=item["sha"],
+            task=item["task"],
+            framework=framework,
+        )
 
 
 class InferenceTimeoutError(HTTPError, TimeoutError):

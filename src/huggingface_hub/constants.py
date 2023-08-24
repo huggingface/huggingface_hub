@@ -99,36 +99,6 @@ FRAMEWORKS = [
     "bertopic",
     "peft",
 ]
-TASKS = [
-    "audio-classification",
-    "audio-to-audio",
-    "audio-to-text",
-    "audio-to-speech",
-    "automatic-speech-recognition",
-    "text-to-speech",
-    "image-classification",
-    "image-segmentation",
-    "image-to-image",
-    "image-to-text",
-    "object-detection",
-    "text-to-image",
-    "zero-shot-image-classification",
-    "document-question-answering",
-    "visual-question-answering",
-    "conversational",
-    "feature-extraction",
-    "fill-mask",
-    "question-answering",
-    "sentence-similarity",
-    "summarization",
-    "table-question-answering",
-    "text-classification",
-    "text-generation",
-    "token-classification",
-    "translation",
-    "tabular-classification",
-    "tabular-regression",
-]
 
 
 # default cache

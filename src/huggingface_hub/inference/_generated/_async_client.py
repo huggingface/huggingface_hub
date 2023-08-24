@@ -39,12 +39,12 @@ from requests.structures import CaseInsensitiveDict
 from huggingface_hub.constants import (
     FRAMEWORKS,
     INFERENCE_ENDPOINT,
-    TASKS,
 )
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelInfo,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -635,7 +635,11 @@ class AsyncInferenceClient:
         return _bytes_to_dict(response)[0]["generated_text"]
 
     async def list_deployed_models(
-        self, tasks: Optional[List[str]] = None, *, frameworks: Optional[List[str]] = None, token: Optional[str] = None
+        self,
+        tasks: Optional[Union[str, List[str]]] = None,
+        *,
+        frameworks: Optional[Union[str, List[str]]] = None,
+        token: Optional[str] = None,
     ) -> Dict[str, List[str]]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -651,29 +655,30 @@ class AsyncInferenceClient:
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
         """
-        headers = self._build_hf_headers(token=token)
+        headers = self.headers.copy()
         params = {}
 
-        # Use the default if not provided.
-        if frameworks is None:
-            frameworks = FRAMEWORKS
+        frameworks = [frameworks] if isinstance(frameworks, str) else (frameworks or FRAMEWORKS)
+
+        all_model_info = [
+            ModelInfo.from_item(item, framework)
+            for framework in frameworks
+            for item in paginate(f"{INFERENCE_ENDPOINT}/framework/{framework}", params=params, headers=headers)
+        ]
+
         if tasks is None:
-            tasks = TASKS
+            tasks = list(set(info.task for info in all_model_info))
+        elif not isinstance(tasks, (list, tuple)):  # If tasks is a string, convert to a list.
+            tasks = [tasks]
 
-        task_items = {task: [] for task in tasks}
+        filtered_model_info = [info for info in all_model_info if info.task in tasks]
 
-        if tasks:
-            for framework in frameworks:
-                path = f"{INFERENCE_ENDPOINT}/framework/{framework}"
-                items = paginate(path, params=params, headers=headers)
+        tasks_models = {
+            task: [(info.model_id, info.framework) for info in filtered_model_info if info.task == task]
+            for task in tasks
+        }
 
-                [
-                    task_items[item["task"]].append((item["model_id"], framework))
-                    for item in items
-                    if item["task"] in tasks
-                ]
-
-        return task_items
+        return tasks_models
 
     async def object_detection(
         self,
@@ -1343,29 +1348,6 @@ class AsyncInferenceClient:
             task="zero-shot-image-classification",
         )
         return _bytes_to_dict(response)
-
-    def _build_hf_headers(
-        self,
-        token: Optional[Union[bool, str]] = None,
-        is_write_action: bool = False,
-        library_name: Optional[str] = None,
-        library_version: Optional[str] = None,
-        user_agent: Union[Dict, str, None] = None,
-    ) -> Dict[str, str]:
-        """
-        Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client
-        when `token` is not provided.
-        """
-        # if token is None:
-        #     # Cannot do `token = token or self.token` as token can be `False`.
-        #     token = self.token
-        return build_hf_headers(
-            token=token,
-            is_write_action=is_write_action,
-            library_name=library_name,
-            library_version=library_version,
-            user_agent=user_agent,
-        )
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
