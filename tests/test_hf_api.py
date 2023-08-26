@@ -2652,6 +2652,82 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    def test_create_space_with_hardware_and_sleep_time(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+            space_sleepTimeSeconds=123,
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "hardware": "t4-medium",
+                "sleepTimeSeconds": 123,
+            },
+        )
+
+    def test_create_space_with_storage(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_storage=SpaceStorage.LARGE,
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "storageTier": "large",
+            },
+        )
+
+    def test_create_space_with_secrets_and_variables(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_secrets=[
+                {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testsecret2", "value": "Testvalue"},
+            ],
+            space_variables=[
+                {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testvariable2", "value": "Testvalue"},
+            ],
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "secrets": [
+                    {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testsecret2", "value": "Testvalue"},
+                ],
+                "variables": [
+                    {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testvariable2", "value": "Testvalue"},
+                ],
+            },
+        )
+
     def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
