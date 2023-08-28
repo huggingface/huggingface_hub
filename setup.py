@@ -88,6 +88,11 @@ extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
 
+extras["docs"] = extras["all"] + [
+    "hf-doc-builder",
+    "watchdog",
+]
+
 
 setup(
     name="huggingface_hub",
