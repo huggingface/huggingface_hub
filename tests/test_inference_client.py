@@ -330,3 +330,37 @@ class TestHeadersAndCookies(unittest.TestCase):
             timeout=None,
             stream=False,
         )
+
+class TestModelStatus(unittest.TestCase):
+    
+    # too big model test case
+    def test_too_big_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("facebook/nllb-moe-54b")
+        self.assertEqual(model_status.loaded, False)
+        self.assertEqual(model_status.state, "TooBig")
+        self.assertEqual(model_status.compute_type, "cpu")
+        self.assertEqual(model_status.framework, "transformers")
+
+    # loaded model test case
+    def test_loaded_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("bigcode/starcoder")
+        self.assertEqual(model_status.loaded, False)
+        self.assertEqual(model_status.state, "Loaded")
+        self.assertEqual(model_status.compute_type, "gpu")
+        self.assertEqual(model_status.framework, "text-generation-inference")
+
+    # unknown model test case
+    def test_unknown_model(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(ValueError):
+            client.get_model_status("unknown/model")
+
+    # model as url test case    
+    def test_model_as_url(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(NotImplementedError):
+            client.get_model_status("https://unkown/model")
+
+
