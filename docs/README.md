@@ -33,8 +33,8 @@ check how they look before committing for instance). You don't have to commit th
 
 ## Building the documentation
 
-Once you have setup the `doc-builder` and additional packages, you can generate the documentation by 
-typing the following command:
+Once you have setup the `doc-builder` and additional packages with the pip install command above, 
+you can generate the documentation by typing the following command:
 
 ```bash
 doc-builder build huggingface_hub docs/source/en/ --build_dir ~/tmp/test-build
@@ -65,7 +65,7 @@ The `preview` command only works with existing doc files. When you add a complet
 
 ## Adding a new element to the navigation bar
 
-Accepted files are Markdown (.md or .mdx).
+Accepted files are Markdown (.md).
 
 Create a file with its extension and put it in the source directory. You can then link it to the toc-tree by putting
 the filename without the extension in the [`_toctree.yml`](https://github.com/huggingface/huggingface_hub/blob/main/docs/source/en/_toctree.yml) file.
@@ -106,7 +106,7 @@ although we can write them directly in Markdown.
 
 Adding a new tutorial or section is done in two steps:
 
-- Add a new file under `./source`. This file can either be ReStructuredText (.rst) or Markdown (.md).
+- Add a new Markdown (.md) file under `./source`. 
 - Link that file in `./source/_toctree.yml` on the correct toc-tree.
 
 Make sure to put your new file under the proper section. If you have a doubt, feel free to ask in a Github Issue or PR.
