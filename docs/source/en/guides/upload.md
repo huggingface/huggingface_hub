@@ -341,7 +341,7 @@ There are two types of operations supported by [`create_commit`]:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a differnt branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 
@@ -419,6 +419,7 @@ There are a few reasons for this:
       happen when streaming data and smaller files avoid resuming from the beginning in case of errors.
     - Files are served to the users using CloudFront. From our experience, huge files are not cached by this service
       leading to a slower download speed.
+In all cases no single LFS file will be able to be >50GB. I.e. 50GB is the hard limit for single file size.
 - **Number of commits**: There is no hard limit for the total number of commits on your repo history. However, from
 our experience, the user experience on the Hub starts to degrade after a few thousand commits. We are constantly working to
 improve the service, but one must always remember that a git repository is not meant to work as a database with a lot of
