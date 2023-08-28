@@ -11,7 +11,7 @@ Once an issue exists, post a comment to indicate which chapters you'd like to wo
 
 **🍴 Fork the repository**
 
-First, you'll need to [fork the Transformers repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo). You can do this by clicking on the **Fork** button on the top-right corner of this repo's page.
+First, you'll need to [fork the `huggingface_hub` repo](https://docs.github.com/en/get-started/quickstart/fork-a-repo). You can do this by clicking on the **Fork** button on the top-right corner of this repo's page.
 
 Once you've forked the repo, you'll want to get the files on your local machine for editing. You can do that by cloning the fork with Git as follows:
 
