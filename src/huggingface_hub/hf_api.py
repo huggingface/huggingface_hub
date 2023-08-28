@@ -53,6 +53,7 @@ from huggingface_hub.utils import (
     EntryNotFoundError,
     LocalTokenNotFoundError,
     RepositoryNotFoundError,
+    RevisionNotFoundError,
     experimental,
     get_session,
 )
@@ -99,6 +100,10 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+)
+from .file_download import (
+    get_hf_file_metadata,
+    hf_hub_url,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
@@ -1887,6 +1892,110 @@ class HfApi:
             timeout=timeout,
             files_metadata=files_metadata,
         )
+
+    @validate_hf_hub_args
+    def repo_exists(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a repository exists on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import repo_exists
+            >>> repo_exists("huggingface/transformers")
+            True
+            >>> repo_exists("huggingface/not-a-repo")
+            False
+            ```
+
+        </Tip>
+        """
+        try:
+            self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+            return True
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def file_exists(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a file exists in a repository on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the file exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import file_exists
+            >>> file_exists("bigcode/starcoder", "config.json")
+            True
+            >>> file_exists("bigcode/starcoder", "not-a-file")
+            False
+            >>> file_exists("bigcode/not-a-repo", "config.json")
+            False
+            ```
+
+        </Tip>
+        """
+        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        try:
+            if token is None:
+                token = self.token
+            get_hf_file_metadata(url, token=token)
+            return True
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            return False
 
     @validate_hf_hub_args
     def list_files_info(
@@ -5558,6 +5667,8 @@ dataset_info = api.dataset_info
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+repo_exists = api.repo_exists
+file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
