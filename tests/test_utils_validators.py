@@ -56,9 +56,7 @@ class TestRepoIdValidator(unittest.TestCase):
     def test_not_valid_repo_ids(self) -> None:
         """Test `repo_id` validation on not valid values."""
         for repo_id in self.NOT_VALID_VALUES:
-            with self.assertRaises(
-                HFValidationError, msg=f"'{repo_id}' must not be valid"
-            ):
+            with self.assertRaises(HFValidationError, msg=f"'{repo_id}' must not be valid"):
                 validate_repo_id(repo_id)
 
 
@@ -89,21 +87,15 @@ class TestSmoothlyDeprecateUseAuthToken(unittest.TestCase):
 
     def test_input_kwargs_not_mutated_by_smooth_deprecation(self) -> None:
         initial_kwargs = {"a": "b", "use_auth_token": "token"}
-        kwargs = smoothly_deprecate_use_auth_token(
-            fn_name="name", has_token=False, kwargs=initial_kwargs
-        )
+        kwargs = smoothly_deprecate_use_auth_token(fn_name="name", has_token=False, kwargs=initial_kwargs)
         self.assertEqual(kwargs, {"a": "b", "token": "token"})
-        self.assertEqual(  # not mutated!
-            initial_kwargs, {"a": "b", "use_auth_token": "token"}
-        )
+        self.assertEqual(initial_kwargs, {"a": "b", "use_auth_token": "token"})  # not mutated!
 
     def test_with_both_token_and_use_auth_token(self) -> None:
         with self.assertWarns(UserWarning):
             # `use_auth_token` is ignored !
             self.assertEqual(
-                self.dummy_token_function(
-                    token="this_is_a_token", use_auth_token="this_is_a_use_auth_token"
-                ),
+                self.dummy_token_function(token="this_is_a_token", use_auth_token="this_is_a_use_auth_token"),
                 ("this_is_a_token", {}),
             )
 
@@ -111,9 +103,7 @@ class TestSmoothlyDeprecateUseAuthToken(unittest.TestCase):
         # `use_auth_token` is accepted by `dummy_use_auth_token_function`
         # => `smoothly_deprecate_use_auth_token` is not called
         self.assertEqual(
-            self.dummy_use_auth_token_function(
-                use_auth_token="this_is_a_use_auth_token"
-            ),
+            self.dummy_use_auth_token_function(use_auth_token="this_is_a_use_auth_token"),
             ("this_is_a_use_auth_token", {}),
         )
 

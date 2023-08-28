@@ -129,10 +129,7 @@ def cached_assets_path(
     try:
         path.mkdir(exist_ok=True, parents=True)
     except (FileExistsError, NotADirectoryError):
-        raise ValueError(
-            "Corrupted assets folder: cannot create directory because of an existing"
-            f" file ({path})."
-        )
+        raise ValueError(f"Corrupted assets folder: cannot create directory because of an existing file ({path}).")
 
     # Return
     return path

@@ -20,6 +20,8 @@ from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
+IGNORE_GIT_FOLDER_PATTERNS = [".git", ".git/*", "*/.git", "**/.git/**"]
+
 
 def filter_repo_objects(
     items: Iterable[T],
@@ -41,10 +43,10 @@ def filter_repo_objects(
         items (`Iterable`):
             List of items to filter.
         allow_patterns (`str` or `List[str]`, *optional*):
-            Patterns constituing the allowlist. If provided, item paths must match at
+            Patterns constituting the allowlist. If provided, item paths must match at
             least one pattern from the allowlist.
         ignore_patterns (`str` or `List[str]`, *optional*):
-            Patterns constituing the denylist. If provided, item paths must not match
+            Patterns constituting the denylist. If provided, item paths must not match
             any patterns from the denylist.
         key (`Callable[[T], str]`, *optional*):
             Single-argument function to extract a path from each item. If not provided,
@@ -97,10 +99,7 @@ def filter_repo_objects(
                 return item
             if isinstance(item, Path):
                 return str(item)
-            raise ValueError(
-                f"Please provide `key` argument in `filter_repo_objects`: `{item}` is"
-                " not a string."
-            )
+            raise ValueError(f"Please provide `key` argument in `filter_repo_objects`: `{item}` is not a string.")
 
         key = _identity  # Items must be `str` or `Path`, otherwise raise ValueError
 
@@ -108,15 +107,11 @@ def filter_repo_objects(
         path = key(item)
 
         # Skip if there's an allowlist and path doesn't match any
-        if allow_patterns is not None and not any(
-            fnmatch(path, r) for r in allow_patterns
-        ):
+        if allow_patterns is not None and not any(fnmatch(path, r) for r in allow_patterns):
             continue
 
         # Skip if there's a denylist and path matches any
-        if ignore_patterns is not None and any(
-            fnmatch(path, r) for r in ignore_patterns
-        ):
+        if ignore_patterns is not None and any(fnmatch(path, r) for r in ignore_patterns):
             continue
 
         yield item

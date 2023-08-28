@@ -15,10 +15,10 @@ def _is_true(value: Optional[str]) -> bool:
     return value.upper() in ENV_VARS_TRUE_VALUES
 
 
-def _is_true_or_auto(value: Optional[str]) -> bool:
+def _as_int(value: Optional[str]) -> Optional[int]:
     if value is None:
-        return False
-    return value.upper() in ENV_VARS_TRUE_AND_AUTO_VALUES
+        return None
+    return int(value)
 
 
 # Constants for file downloads
@@ -39,14 +39,14 @@ HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
-ENDPOINT = os.getenv("HF_ENDPOINT") or (
-    "https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co"
-)
+ENDPOINT = os.getenv("HF_ENDPOINT") or ("https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co")
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
+
+INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -57,7 +57,7 @@ REPO_TYPE_DATASET = "dataset"
 REPO_TYPE_SPACE = "space"
 REPO_TYPE_MODEL = "model"
 REPO_TYPES = [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET, REPO_TYPE_SPACE]
-SPACES_SDK_TYPES = ["gradio", "streamlit", "static"]
+SPACES_SDK_TYPES = ["gradio", "streamlit", "docker", "static"]
 
 REPO_TYPES_URL_PREFIXES = {
     REPO_TYPE_DATASET: "datasets/",
@@ -83,11 +83,12 @@ default_cache_path = os.path.join(hf_cache_home, "hub")
 default_assets_cache_path = os.path.join(hf_cache_home, "assets")
 
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
-HUGGINGFACE_ASSETS_CACHE = os.getenv(
-    "HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path
-)
+HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
 
-HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
+HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+
+# Opt-out from telemetry requests
+HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") or os.environ.get("DISABLE_TELEMETRY"))
 
 # In the past, token was stored in a hardcoded location
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
@@ -103,17 +104,28 @@ HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
 # TL;DR: env variable has priority over code
 __HF_HUB_DISABLE_PROGRESS_BARS = os.environ.get("HF_HUB_DISABLE_PROGRESS_BARS")
 HF_HUB_DISABLE_PROGRESS_BARS: Optional[bool] = (
-    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS)
-    if __HF_HUB_DISABLE_PROGRESS_BARS is not None
-    else None
+    _is_true(__HF_HUB_DISABLE_PROGRESS_BARS) if __HF_HUB_DISABLE_PROGRESS_BARS is not None else None
 )
 
 # Disable warning on machines that do not support symlinks (e.g. Windows non-developer)
-HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(
-    os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING")
-)
+HF_HUB_DISABLE_SYMLINKS_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SYMLINKS_WARNING"))
+
+# Disable warning when using experimental features
+HF_HUB_DISABLE_EXPERIMENTAL_WARNING: bool = _is_true(os.environ.get("HF_HUB_DISABLE_EXPERIMENTAL_WARNING"))
 
 # Disable sending the cached token by default is all HTTP requests to the Hub
-HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(
-    os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN")
+HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IMPLICIT_TOKEN"))
+
+# Enable fast-download using external dependency "hf_transfer"
+# See:
+# - https://pypi.org/project/hf-transfer/
+# - https://github.com/huggingface/hf_transfer (private)
+HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
+
+
+# Used if download to `local_dir` and `local_dir_use_symlinks="auto"`
+# Files smaller than 5MB are copy-pasted while bigger files are symlinked. The idea is to save disk-usage by symlinking
+# huge files (i.e. LFS files most of the time) while allowing small files to be manually edited in local folder.
+HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
+    _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
 )

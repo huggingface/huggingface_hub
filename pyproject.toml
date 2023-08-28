@@ -1,5 +1,5 @@
 [tool.black]
-line-length = 88
+line-length = 119
 target_version = ['py37', 'py38', 'py39', 'py310']
 preview = true
 
@@ -7,3 +7,18 @@ preview = true
 ignore_missing_imports = true
 no_implicit_optional = true
 scripts_are_modules = true
+plugins = [
+  "pydantic.mypy"
+]
+
+[tool.ruff]
+# Ignored rules:
+#   "E501" -> line length violation
+#   "F821" -> undefined named in type annotation (e.g. Literal["something"])
+ignore = ["E501", "F821"]
+select = ["E", "F", "I", "W"]
+line-length = 119
+
+[tool.ruff.isort]
+lines-after-imports = 2
+known-first-party = ["huggingface_hub"]

@@ -18,7 +18,9 @@ import re
 import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, Dict
+
+from ._typing import CallableT
 
 
 REPO_ID_REGEX = re.compile(
@@ -39,10 +41,6 @@ class HFValidationError(ValueError):
 
     Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
-
-
-# type hint meaning "function signature not changed by decorator"
-CallableT = TypeVar("CallableT", bound=Callable)
 
 
 def validate_hf_hub_args(fn: CallableT) -> CallableT:
@@ -99,9 +97,7 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
 
     # Should the validator switch `use_auth_token` values to `token`? In practice, always
     # True in `huggingface_hub`. Might not be the case in a downstream library.
-    check_use_auth_token = (
-        "use_auth_token" not in signature.parameters and "token" in signature.parameters
-    )
+    check_use_auth_token = "use_auth_token" not in signature.parameters and "token" in signature.parameters
 
     @wraps(fn)
     def _inner_fn(*args, **kwargs):
@@ -110,16 +106,14 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
             zip(signature.parameters, args),  # Args values
             kwargs.items(),  # Kwargs values
         ):
-            if arg_name == "repo_id":
+            if arg_name in ["repo_id", "from_id", "to_id"]:
                 validate_repo_id(arg_value)
 
             elif arg_name == "token" and arg_value is not None:
                 has_token = True
 
         if check_use_auth_token:
-            kwargs = smoothly_deprecate_use_auth_token(
-                fn_name=fn.__name__, has_token=has_token, kwargs=kwargs
-            )
+            kwargs = smoothly_deprecate_use_auth_token(fn_name=fn.__name__, has_token=has_token, kwargs=kwargs)
 
         return fn(*args, **kwargs)
 
@@ -158,9 +152,7 @@ def validate_repo_id(repo_id: str) -> None:
     """
     if not isinstance(repo_id, str):
         # Typically, a Path is not a repo_id
-        raise HFValidationError(
-            f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'."
-        )
+        raise HFValidationError(f"Repo id must be a string, not {type(repo_id)}: '{repo_id}'.")
 
     if repo_id.count("/") > 1:
         raise HFValidationError(
@@ -182,9 +174,7 @@ def validate_repo_id(repo_id: str) -> None:
         raise HFValidationError(f"Repo_id cannot end by '.git': '{repo_id}'.")
 
 
-def smoothly_deprecate_use_auth_token(
-    fn_name: str, has_token: bool, kwargs: Dict[str, Any]
-) -> Dict[str, Any]:
+def smoothly_deprecate_use_auth_token(fn_name: str, has_token: bool, kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """Smoothly deprecate `use_auth_token` in the `huggingface_hub` codebase.
 
     The long-term goal is to remove any mention of `use_auth_token` in the codebase in

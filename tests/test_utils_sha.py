@@ -2,14 +2,14 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
-from tempfile import TemporaryDirectory
 
+from huggingface_hub.utils import SoftTemporaryDirectory
 from huggingface_hub.utils.sha import sha_fileobj
 
 
 class TestShaUtils(unittest.TestCase):
     def test_sha_fileobj(self):
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             content = b"Random content" * 1000
             sha = sha256(content).digest()
 

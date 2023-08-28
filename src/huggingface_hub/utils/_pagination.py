@@ -17,7 +17,7 @@ from typing import Dict, Iterable, Optional
 
 import requests
 
-from . import hf_raise_for_status, logging
+from . import get_session, hf_raise_for_status, logging
 
 
 logger = logging.get_logger(__name__)
@@ -31,7 +31,8 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
     - https://docs.github.com/en/rest/guides/traversing-with-pagination#link-header
     """
-    r = requests.get(path, params=params, headers=headers)
+    session = get_session()
+    r = session.get(path, params=params, headers=headers)
     hf_raise_for_status(r)
     yield from r.json()
 
@@ -40,7 +41,7 @@ def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
     next_page = _get_next_page(r)
     while next_page is not None:
         logger.debug(f"Pagination detected. Requesting next page: {next_page}")
-        r = requests.get(next_page, headers=headers)
+        r = session.get(next_page, headers=headers)
         hf_raise_for_status(r)
         yield from r.json()
         next_page = _get_next_page(r)

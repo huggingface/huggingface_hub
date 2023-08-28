@@ -2,7 +2,13 @@ comment:
   # https://docs.codecov.com/docs/pull-request-comments#requiring-changes
   require_changes: true
   # https://docs.codecov.com/docs/pull-request-comments#after_n_builds
-  after_n_builds: 11
+  after_n_builds: 12
+
+coverage:
+  status:
+    # not in PRs
+    patch: false
+    project: false
 
 github_checks:
   annotations: false

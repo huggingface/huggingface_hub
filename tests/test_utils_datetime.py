@@ -14,9 +14,7 @@ class TestDatetimeUtils(unittest.TestCase):
             datetime(2022, 8, 19, 7, 19, 38, 123000, tzinfo=timezone.utc),
         )
 
-        with pytest.raises(
-            ValueError, match=r".*Cannot parse '2022-08-19T07:19:38' as a datetime.*"
-        ):
+        with pytest.raises(ValueError, match=r".*Cannot parse '2022-08-19T07:19:38' as a datetime.*"):
             parse_datetime("2022-08-19T07:19:38")
 
         with pytest.raises(

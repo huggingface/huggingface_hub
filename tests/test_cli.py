@@ -12,9 +12,7 @@ class TestCLI(unittest.TestCase):
 
         TODO: add other subcommands.
         """
-        self.parser = ArgumentParser(
-            "huggingface-cli", usage="huggingface-cli <command> [<args>]"
-        )
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
         commands_parser = self.parser.add_subparsers()
         ScanCacheCommand.register_subcommand(commands_parser)
         DeleteCacheCommand.register_subcommand(commands_parser)

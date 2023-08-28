@@ -1,6 +1,5 @@
 import json
 import os
-import tempfile
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL, PicklingError
 from typing import Any, Dict, List, Optional, Union
@@ -11,13 +10,13 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import (
+    SoftTemporaryDirectory,
     get_fastai_version,
     get_fastcore_version,
     get_python_version,
 )
 
 from .utils import logging, validate_hf_hub_args
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
@@ -145,16 +144,11 @@ def _check_fastai_fastcore_pyproject_versions(
     # If the package is specified but not the version (e.g. "fastai" instead of "fastai=2.4"), the default versions are the highest.
     fastai_packages = [pck for pck in package_versions if pck.startswith("fastai")]
     if len(fastai_packages) == 0:
-        logger.warning(
-            "The repository does not have a fastai version specified in the"
-            " `pyproject.toml`."
-        )
+        logger.warning("The repository does not have a fastai version specified in the `pyproject.toml`.")
     # fastai_version is an empty string if not specified
     else:
         fastai_version = str(fastai_packages[0]).partition("=")[2]
-        if fastai_version != "" and version.Version(fastai_version) < version.Version(
-            fastai_min_version
-        ):
+        if fastai_version != "" and version.Version(fastai_version) < version.Version(fastai_min_version):
             raise ImportError(
                 "`from_pretrained_fastai` requires"
                 f" fastai>={fastai_min_version} version but the model to load uses"
@@ -163,16 +157,11 @@ def _check_fastai_fastcore_pyproject_versions(
 
     fastcore_packages = [pck for pck in package_versions if pck.startswith("fastcore")]
     if len(fastcore_packages) == 0:
-        logger.warning(
-            "The repository does not have a fastcore version specified in the"
-            " `pyproject.toml`."
-        )
+        logger.warning("The repository does not have a fastcore version specified in the `pyproject.toml`.")
     # fastcore_version is an empty string if not specified
     else:
         fastcore_version = str(fastcore_packages[0]).partition("=")[2]
-        if fastcore_version != "" and version.Version(
-            fastcore_version
-        ) < version.Version(fastcore_min_version):
+        if fastcore_version != "" and version.Version(fastcore_version) < version.Version(fastcore_min_version):
             raise ImportError(
                 "`from_pretrained_fastai` requires"
                 f" fastcore>={fastcore_min_version} version, but you are using fastcore"
@@ -282,9 +271,7 @@ def _save_pretrained_fastai(
     # if the user provides config then we update it with the fastai and fastcore versions in CONFIG_TEMPLATE.
     if config is not None:
         if not isinstance(config, dict):
-            raise RuntimeError(
-                f"Provided config should be a dict. Got: '{type(config)}'"
-            )
+            raise RuntimeError(f"Provided config should be a dict. Got: '{type(config)}'")
         path = os.path.join(save_directory, CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
@@ -353,21 +340,12 @@ def from_pretrained_fastai(
     return load_learner(os.path.join(storage_folder, "model.pkl"))
 
 
-@_deprecate_positional_args(version="0.12")
-@_deprecate_arguments(
-    version="0.12",
-    deprecated_args={
-        "git_user",
-        "git_email",
-    },
-)
 @validate_hf_hub_args
 def push_to_hub_fastai(
-    # NOTE: New arguments since 0.9
     learner,
     *,
     repo_id: str,
-    commit_message: str = "Add model",
+    commit_message: str = "Push FastAI model using huggingface_hub.",
     private: bool = False,
     token: Optional[str] = None,
     config: Optional[dict] = None,
@@ -375,28 +353,15 @@ def push_to_hub_fastai(
     create_pr: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
+    delete_patterns: Optional[Union[List[str], str]] = None,
     api_endpoint: Optional[str] = None,
-    # NOTE: deprecated signature that will change in 0.12
-    git_user: Optional[str] = None,
-    git_email: Optional[str] = None,
-    # TODO (release 0.12): signature must be the following
-    # learner,
-    # repo_id: Optional[str] = None,  # optional only until 0.12
-    # commit_message: str = "Add model",
-    # private: Optional[bool] = None,
-    # token: Optional[str] = None,
-    # config: Optional[dict] = None,
-    # branch: Optional[str] = None,
-    # create_pr: Optional[bool] = None,
-    # allow_patterns: Optional[Union[List[str], str]] = None,
-    # ignore_patterns: Optional[Union[List[str], str]] = None,
-    # api_endpoint: Optional[str] = None,
 ):
     """
     Upload learner checkpoint files to the Hub.
 
-    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be
-    pushed to the hub. See [`upload_folder`] reference for more details.
+    Use `allow_patterns` and `ignore_patterns` to precisely filter which files should be pushed to the hub. Use
+    `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
+    details.
 
     Args:
         learner (`Learner`):
@@ -424,6 +389,9 @@ def push_to_hub_fastai(
             If provided, only files matching at least one pattern are pushed.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
+        delete_patterns (`List[str]` or `str`, *optional*):
+            If provided, remote files matching any of the patterns will be deleted from the repo.
+
     Returns:
         The url of the commit of your model in the given repository.
 
@@ -436,24 +404,16 @@ def push_to_hub_fastai(
 
     </Tip>
     """
-
     _check_fastai_fastcore_versions()
     api = HfApi(endpoint=api_endpoint)
-    api.create_repo(
-        repo_id=repo_id,
-        repo_type="model",
-        token=token,
-        private=private,
-        exist_ok=True,
-    )
+    repo_id = api.create_repo(repo_id=repo_id, token=token, private=private, exist_ok=True).repo_id
 
     # Push the files to the repo in a single commit
-    with tempfile.TemporaryDirectory() as tmp:
+    with SoftTemporaryDirectory() as tmp:
         saved_path = Path(tmp) / repo_id
         _save_pretrained_fastai(learner, saved_path, config=config)
         return api.upload_folder(
             repo_id=repo_id,
-            repo_type="model",
             token=token,
             folder_path=saved_path,
             commit_message=commit_message,
@@ -461,4 +421,5 @@ def push_to_hub_fastai(
             create_pr=create_pr,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
+            delete_patterns=delete_patterns,
         )

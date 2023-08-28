@@ -13,29 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Check presence of installed packages at runtime."""
+import importlib.metadata
 import platform
 import sys
 from typing import Any, Dict
 
-import packaging.version
-
-from .. import __version__
+from .. import __version__, constants
 
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
-if packaging.version.Version(_PY_VERSION) < packaging.version.Version("3.8.0"):
-    import importlib_metadata  # type: ignore
-else:
-    import importlib.metadata as importlib_metadata  # type: ignore
-
-
 _package_versions = {}
 
 _CANDIDATES = {
-    "torch": {"torch"},
-    "pydot": {"pydot"},
+    "aiohttp": {"aiohttp"},
+    "fastai": {"fastai"},
+    "fastcore": {"fastcore"},
+    "gradio": {"gradio"},
     "graphviz": {"graphviz"},
+    "hf_transfer": {"hf_transfer"},
+    "jinja": {"Jinja2"},
+    "numpy": {"numpy"},
+    "pillow": {"Pillow"},
+    "pydantic": {"pydantic"},
+    "pydot": {"pydot"},
+    "tensorboard": {"tensorboardX"},
     "tensorflow": (
         "tensorflow",
         "tensorflow-cpu",
@@ -48,9 +50,7 @@ _CANDIDATES = {
         "tensorflow-rocm",
         "tensorflow-macos",
     ),
-    "fastai": {"fastai"},
-    "fastcore": {"fastcore"},
-    "jinja": {"Jinja2"},
+    "torch": {"torch"},
 }
 
 # Check once at runtime
@@ -58,9 +58,9 @@ for candidate_name, package_names in _CANDIDATES.items():
     _package_versions[candidate_name] = "N/A"
     for name in package_names:
         try:
-            _package_versions[candidate_name] = importlib_metadata.version(name)
+            _package_versions[candidate_name] = importlib.metadata.version(name)
             break
-        except importlib_metadata.PackageNotFoundError:
+        except importlib.metadata.PackageNotFoundError:
             pass
 
 
@@ -82,6 +82,15 @@ def get_hf_hub_version() -> str:
     return __version__
 
 
+# aiohttp
+def is_aiohttp_available() -> bool:
+    return _is_available("aiohttp")
+
+
+def get_aiohttp_version() -> str:
+    return _get_version("aiohttp")
+
+
 # FastAI
 def is_fastai_available() -> bool:
     return _is_available("fastai")
@@ -100,6 +109,15 @@ def get_fastcore_version() -> str:
     return _get_version("fastcore")
 
 
+# FastAI
+def is_gradio_available() -> bool:
+    return _is_available("gradio")
+
+
+def get_gradio_version() -> str:
+    return _get_version("gradio")
+
+
 # Graphviz
 def is_graphviz_available() -> bool:
     return _is_available("graphviz")
@@ -107,6 +125,24 @@ def is_graphviz_available() -> bool:
 
 def get_graphviz_version() -> str:
     return _get_version("graphviz")
+
+
+# hf_transfer
+def is_hf_transfer_available() -> bool:
+    return _is_available("hf_transfer")
+
+
+def get_hf_transfer_version() -> str:
+    return _get_version("hf_transfer")
+
+
+# Numpy
+def is_numpy_available() -> bool:
+    return _is_available("numpy")
+
+
+def get_numpy_version() -> str:
+    return _get_version("numpy")
 
 
 # Jinja
@@ -118,6 +154,24 @@ def get_jinja_version() -> str:
     return _get_version("jinja")
 
 
+# Pillow
+def is_pillow_available() -> bool:
+    return _is_available("pillow")
+
+
+def get_pillow_version() -> str:
+    return _get_version("pillow")
+
+
+# Pydantic
+def is_pydantic_available() -> bool:
+    return _is_available("pydantic")
+
+
+def get_pydantic_version() -> str:
+    return _get_version("pydantic")
+
+
 # Pydot
 def is_pydot_available() -> bool:
     return _is_available("pydot")
@@ -125,6 +179,15 @@ def is_pydot_available() -> bool:
 
 def get_pydot_version() -> str:
     return _get_version("pydot")
+
+
+# Tensorboard
+def is_tensorboard_available() -> bool:
+    return _is_available("tensorboard")
+
+
+def get_tensorboard_version() -> str:
+    return _get_version("tensorboard")
 
 
 # Tensorflow
@@ -232,6 +295,26 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Jinja2"] = get_jinja_version()
     info["Graphviz"] = get_graphviz_version()
     info["Pydot"] = get_pydot_version()
+    info["Pillow"] = get_pillow_version()
+    info["hf_transfer"] = get_hf_transfer_version()
+    info["gradio"] = get_gradio_version()
+    info["tensorboard"] = get_tensorboard_version()
+    info["numpy"] = get_numpy_version()
+    info["pydantic"] = get_pydantic_version()
+    info["aiohttp"] = get_aiohttp_version()
+
+    # Environment variables
+    info["ENDPOINT"] = constants.ENDPOINT
+    info["HUGGINGFACE_HUB_CACHE"] = constants.HUGGINGFACE_HUB_CACHE
+    info["HUGGINGFACE_ASSETS_CACHE"] = constants.HUGGINGFACE_ASSETS_CACHE
+    info["HF_TOKEN_PATH"] = constants.HF_TOKEN_PATH
+    info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
+    info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
+    info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
+    info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
+    info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
+    info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
+    info["HF_HUB_ENABLE_HF_TRANSFER"] = constants.HF_HUB_ENABLE_HF_TRANSFER
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")

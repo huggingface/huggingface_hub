@@ -41,10 +41,7 @@ def production_endpoint() -> Generator:
 
     patchers = (
         [patch(target + ".ENDPOINT", PROD_ENDPOINT) for target in ENDPOINT_TARGETS]
-        + [
-            patch(target + ".HUGGINGFACE_CO_URL_TEMPLATE", PROD_URL_TEMPLATE)
-            for target in URL_TEMPLATE_TARGETS
-        ]
+        + [patch(target + ".HUGGINGFACE_CO_URL_TEMPLATE", PROD_URL_TEMPLATE) for target in URL_TEMPLATE_TARGETS]
         + [patch.object(api, "endpoint", PROD_URL_TEMPLATE)]
     )
 

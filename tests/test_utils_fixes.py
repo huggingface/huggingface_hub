@@ -1,6 +1,7 @@
 import unittest
+from pathlib import Path
 
-from huggingface_hub.utils import yaml_dump
+from huggingface_hub.utils import SoftTemporaryDirectory, yaml_dump
 
 
 class TestYamlDump(unittest.TestCase):
@@ -11,6 +12,16 @@ class TestYamlDump(unittest.TestCase):
         self.assertEqual(yaml_dump({"some unicode": "日本か"}), "some unicode: 日本か\n")
 
     def test_yaml_dump_explicit_no_unicode(self) -> None:
-        self.assertEqual(
-            yaml_dump({"emoji": "👀"}, allow_unicode=False), 'emoji: "\\U0001F440"\n'
-        )
+        self.assertEqual(yaml_dump({"emoji": "👀"}, allow_unicode=False), 'emoji: "\\U0001F440"\n')
+
+
+class TestTemporaryDirectory(unittest.TestCase):
+    def test_temporary_directory(self) -> None:
+        with SoftTemporaryDirectory(prefix="prefix", suffix="suffix") as tmpdir:
+            self.assertIsInstance(tmpdir, str)
+            path = Path(tmpdir)
+            self.assertTrue(path.name.startswith("prefix"))
+            self.assertTrue(path.name.endswith("suffix"))
+            self.assertTrue(path.is_dir())
+        # Tmpdir is deleted
+        self.assertFalse(path.is_dir())

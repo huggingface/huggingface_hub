@@ -23,11 +23,10 @@ import sys
 from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
-import requests
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
 
-from ..utils import hf_raise_for_status, logging
+from ..utils import get_session, hf_raise_for_status, logging
 
 
 logger = logging.get_logger(__name__)
@@ -60,9 +59,7 @@ class LfsCommands(BaseHuggingfaceCLICommand):
             "lfs-enable-largefiles",
             help="Configure your repository to enable upload of files > 5GB.",
         )
-        enable_parser.add_argument(
-            "path", type=str, help="Local path to repository you want to configure."
-        )
+        enable_parser.add_argument("path", type=str, help="Local path to repository you want to configure.")
         enable_parser.set_defaults(func=lambda args: LfsEnableCommand(args))
 
         upload_parser = parser.add_parser(
@@ -87,8 +84,7 @@ class LfsEnableCommand:
             cwd=local_path,
         )
         subprocess.run(
-            "git config lfs.customtransfer.multipart.args"
-            f" {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
+            f"git config lfs.customtransfer.multipart.args {LFS_MULTIPART_UPLOAD_COMMAND}".split(),
             check=True,
             cwd=local_path,
         )
@@ -126,9 +122,7 @@ class LfsUploadCommand:
         # sends initiation data to the process over stdin.
         # This tells the process useful information about the configuration.
         init_msg = json.loads(sys.stdin.readline().strip())
-        if not (
-            init_msg.get("event") == "init" and init_msg.get("operation") == "upload"
-        ):
+        if not (init_msg.get("event") == "init" and init_msg.get("operation") == "upload"):
             write_msg({"error": {"code": 32, "message": "Wrong lfs init operation"}})
             sys.exit(1)
 
@@ -176,7 +170,7 @@ class LfsUploadCommand:
                         seek_from=i * chunk_size,
                         read_limit=chunk_size,
                     ) as data:
-                        r = requests.put(presigned_url, data=data)
+                        r = get_session().put(presigned_url, data=data)
                         hf_raise_for_status(r)
                         parts.append(
                             {
@@ -196,7 +190,7 @@ class LfsUploadCommand:
                         )
                         # Not precise but that's ok.
 
-            r = requests.post(
+            r = get_session().post(
                 completion_url,
                 json={
                     "oid": oid,

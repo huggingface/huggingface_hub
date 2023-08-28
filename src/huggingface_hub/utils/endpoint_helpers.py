@@ -16,50 +16,55 @@ with the aim for a user-friendly interface.
 import math
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+
+
+if TYPE_CHECKING:
+    from ..hf_api import ModelInfo
 
 
 def _filter_emissions(
-    models,
+    models: Iterable["ModelInfo"],
     minimum_threshold: Optional[float] = None,
     maximum_threshold: Optional[float] = None,
-):
-    """Filters a list of models for those that include an emission tag
-    and limit them to between two thresholds
+) -> Iterable["ModelInfo"]:
+    """Filters a list of models for those that include an emission tag and limit them to between two thresholds
 
     Args:
-        models (`ModelInfo` or `List`):
-            A list of `ModelInfo`'s to filter by.
+        models (Iterable of `ModelInfo`):
+            A list of models to filter.
         minimum_threshold (`float`, *optional*):
             A minimum carbon threshold to filter by, such as 1.
         maximum_threshold (`float`, *optional*):
             A maximum carbon threshold to filter by, such as 10.
     """
     if minimum_threshold is None and maximum_threshold is None:
-        raise ValueError(
-            "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`"
-        )
+        raise ValueError("Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
     if minimum_threshold is None:
         minimum_threshold = -1
     if maximum_threshold is None:
         maximum_threshold = math.inf
-    emissions = []
-    for i, model in enumerate(models):
-        if hasattr(model, "cardData"):
-            if isinstance(model.cardData, dict):
-                emission = model.cardData.get("co2_eq_emissions", None)
-                if isinstance(emission, dict):
-                    emission = emission["emissions"]
-                if emission:
-                    emission = str(emission)
-                    matched = re.search(r"\d+\.\d+|\d+", emission)
-                    if matched is not None:
-                        emissions.append((i, float(matched.group(0))))
-    filtered_results = []
-    for idx, emission in emissions:
-        if emission >= minimum_threshold and emission <= maximum_threshold:
-            filtered_results.append(models[idx])
-    return filtered_results
+
+    for model in models:
+        card_data = getattr(model, "cardData", None)
+        if card_data is None or not isinstance(card_data, dict):
+            continue
+
+        # Get CO2 emission metadata
+        emission = card_data.get("co2_eq_emissions", None)
+        if isinstance(emission, dict):
+            emission = emission["emissions"]
+        if not emission:
+            continue
+
+        # Filter out if value is missing or out of range
+        matched = re.search(r"\d+\.\d+|\d+", str(emission))
+        if matched is None:
+            continue
+
+        emission_value = float(matched.group(0))
+        if emission_value >= minimum_threshold and emission_value <= maximum_threshold:
+            yield model
 
 
 @dataclass
@@ -300,14 +305,13 @@ class GeneralTags(AttributeDictionary):
             self._unpack_and_assign_dictionary(key)
 
     def _unpack_and_assign_dictionary(self, key: str):
-        "Assignes nested attributes to `self.key` containing information as an `AttributeDictionary`"
-        setattr(self, key, AttributeDictionary())
-        for item in self._tag_dictionary[key]:
-            ref = getattr(self, key)
-            item["label"] = (
-                item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
-            )
-            setattr(ref, item["label"], item["id"])
+        "Assign nested attributes to `self.key` containing information as an `AttributeDictionary`"
+        ref = AttributeDictionary()
+        setattr(self, key, ref)
+        for item in self._tag_dictionary.get(key, []):
+            label = item["label"].replace(" ", "").replace("-", "_").replace(".", "_")
+            ref[label] = item["id"]
+        self[key] = ref
 
 
 class ModelTags(GeneralTags):

@@ -39,6 +39,7 @@ class SpaceStage(str, Enum):
     RUNTIME_ERROR = "RUNTIME_ERROR"
     DELETING = "DELETING"
     STOPPED = "STOPPED"
+    PAUSED = "PAUSED"
 
 
 class SpaceHardware(str, Enum):
@@ -62,6 +63,23 @@ class SpaceHardware(str, Enum):
     A100_LARGE = "a100-large"
 
 
+class SpaceStorage(str, Enum):
+    """
+    Enumeration of persistent storage available for your Space on the Hub.
+
+    Value can be compared to a string:
+    ```py
+    assert SpaceStorage.SMALL == "small"
+    ```
+
+    Taken from https://github.com/huggingface/moon-landing/blob/main/server/repo_types/SpaceHardwareFlavor.ts#L24 (private url).
+    """
+
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
 @dataclass
 class SpaceRuntime:
     """
@@ -77,6 +95,10 @@ class SpaceRuntime:
             Requested hardware. Can be different than `hardware` especially if the request
             has just been made. Example: "t4-medium". Can be `None` if no hardware has
             been requested yet.
+        sleep_time (`int` or `None`):
+            Number of seconds the Space will be kept alive after the last request. By default (if value is `None`), the
+            Space will never go to sleep if it's running on an upgraded hardware, while it will go to sleep after 48
+            hours on a free 'cpu-basic' hardware. For more details, see https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
@@ -85,4 +107,14 @@ class SpaceRuntime:
     stage: SpaceStage
     hardware: Optional[SpaceHardware]
     requested_hardware: Optional[SpaceHardware]
+    sleep_time: Optional[int]
+    storage: Optional[SpaceStorage]
     raw: Dict
+
+    def __init__(self, data: Dict) -> None:
+        self.stage = data["stage"]
+        self.hardware = data["hardware"]["current"]
+        self.requested_hardware = data["hardware"]["requested"]
+        self.sleep_time = data["gcTimeout"]
+        self.storage = data["storage"]
+        self.raw = data

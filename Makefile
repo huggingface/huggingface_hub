@@ -6,17 +6,18 @@ check_dirs := contrib src tests utils setup.py
 
 quality:
 	black --check $(check_dirs)
-	isort --check-only $(check_dirs)
-	flake8 $(check_dirs)
+	ruff $(check_dirs)
 	mypy src
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
+	python utils/generate_async_inference_client.py
 
 style:
 	black $(check_dirs)
-	isort $(check_dirs)
+	ruff $(check_dirs) --fix
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
+	python utils/generate_async_inference_client.py --update
 
 repocard:
 	python utils/push_repocard_examples.py
@@ -37,7 +38,7 @@ test:
 #	make contrib            : setup and run ALL tests
 #	make contrib_clear      : delete all virtual envs
 # Use -j4 flag to run jobs in parallel.
-CONTRIB_LIBS := sentence_transformers timm
+CONTRIB_LIBS := sentence_transformers spacy timm
 CONTRIB_JOBS := $(addprefix contrib_,${CONTRIB_LIBS})
 CONTRIB_CLEAR_JOBS := $(addprefix contrib_clear_,${CONTRIB_LIBS})
 CONTRIB_SETUP_JOBS := $(addprefix contrib_setup_,${CONTRIB_LIBS})

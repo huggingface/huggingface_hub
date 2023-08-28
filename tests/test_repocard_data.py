@@ -1,9 +1,11 @@
 import unittest
 
 import pytest
-
 import yaml
+
+from huggingface_hub import SpaceCardData
 from huggingface_hub.repocard_data import (
+    CardData,
     DatasetCardData,
     EvalResult,
     ModelCardData,
@@ -35,6 +37,33 @@ model-index:
     - type: acc
       value: 0.9
 """
+
+
+class BaseCardDataTest(unittest.TestCase):
+    def test_metadata_behave_as_dict(self):
+        metadata = CardData(foo="bar")
+
+        # .get and __getitem__
+        self.assertEqual(metadata.get("foo"), "bar")
+        self.assertEqual(metadata.get("FOO"), None)  # case sensitive
+        self.assertEqual(metadata["foo"], "bar")
+        with self.assertRaises(KeyError):  # case sensitive
+            _ = metadata["FOO"]
+
+        # __setitem__
+        metadata["foo"] = "BAR"
+        self.assertEqual(metadata.get("foo"), "BAR")
+        self.assertEqual(metadata["foo"], "BAR")
+
+        # __contains__
+        self.assertTrue("foo" in metadata)
+        self.assertFalse("FOO" in metadata)
+
+        # export
+        self.assertEqual(str(metadata), "foo: BAR")
+
+        # .pop
+        self.assertEqual(metadata.pop("foo"), "BAR")
 
 
 class ModelCardDataTest(unittest.TestCase):
@@ -112,9 +141,7 @@ class ModelCardDataTest(unittest.TestCase):
         self.assertEqual(eval_results[2].verify_token, 1234)
 
     def test_card_data_requires_model_name_for_eval_results(self):
-        with pytest.raises(
-            ValueError, match="`eval_results` requires `model_name` to be set."
-        ):
+        with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
             ModelCardData(
                 eval_results=[
                     EvalResult(
@@ -143,11 +170,9 @@ class ModelCardDataTest(unittest.TestCase):
         model_index = eval_results_to_model_index(data.model_name, data.eval_results)
 
         self.assertEqual(model_index[0]["name"], "my-cool-model")
-        self.assertEqual(
-            model_index[0]["results"][0]["task"]["type"], "image-classification"
-        )
+        self.assertEqual(model_index[0]["results"][0]["task"]["type"], "image-classification")
 
-    def test_abitrary_incoming_card_data(self):
+    def test_arbitrary_incoming_card_data(self):
         data = ModelCardData(
             model_name="my-cool-model",
             eval_results=[
@@ -159,13 +184,13 @@ class ModelCardDataTest(unittest.TestCase):
                     metric_value=0.9,
                 ),
             ],
-            some_abitrary_kwarg="some_value",
+            some_arbitrary_kwarg="some_value",
         )
 
-        self.assertEqual(data.some_abitrary_kwarg, "some_value")
+        self.assertEqual(data.some_arbitrary_kwarg, "some_value")
 
         data_dict = data.to_dict()
-        self.assertEqual(data_dict["some_abitrary_kwarg"], "some_value")
+        self.assertEqual(data_dict["some_arbitrary_kwarg"], "some_value")
 
 
 class DatasetCardDataTest(unittest.TestCase):
@@ -199,3 +224,23 @@ class DatasetCardDataTest(unittest.TestCase):
         self.assertTrue(card_data.to_dict().get("train_eval_index") is None)
         # And train-eval-index should be in the dict
         self.assertEqual(card_data.to_dict()["train-eval-index"], train_eval_index)
+
+
+class SpaceCardDataTest(unittest.TestCase):
+    def test_space_card_data(self) -> None:
+        card_data = SpaceCardData(
+            title="Dreambooth Training",
+            license="mit",
+            sdk="gradio",
+            duplicated_from="multimodalart/dreambooth-training",
+        )
+        self.assertEqual(
+            card_data.to_dict(),
+            {
+                "title": "Dreambooth Training",
+                "sdk": "gradio",
+                "license": "mit",
+                "duplicated_from": "multimodalart/dreambooth-training",
+            },
+        )
+        self.assertIsNone(card_data.tags)  # SpaceCardData has some default attributes

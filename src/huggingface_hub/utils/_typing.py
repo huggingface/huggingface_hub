@@ -13,12 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Handle typing imports based on system compatibility."""
-import sys
+from typing import Callable, Literal, TypeVar
 
-
-if sys.version_info >= (3, 8):
-    from typing import Literal, TypedDict
-else:
-    from typing_extensions import Literal, TypedDict  # noqa: F401
 
 HTTP_METHOD_T = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
+
+# type hint meaning "function signature not changed by decorator"
+CallableT = TypeVar("CallableT", bound=Callable)

@@ -27,9 +27,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
 
     @patch("huggingface_hub.file_download.os.symlink")
     @patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {})
-    def test_are_symlinks_supported_windows_specific_dir(
-        self, mock_symlink: Mock
-    ) -> None:
+    def test_are_symlinks_supported_windows_specific_dir(self, mock_symlink: Mock) -> None:
         mock_symlink.side_effect = [OSError(), None]  # First dir not supported then yes
         this_dir = Path(__file__).parent
 
@@ -49,9 +47,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             self.assertTrue(are_symlinks_supported())  # True
 
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_download_no_symlink_new_file(
-        self, mock_are_symlinks_supported: Mock
-    ) -> None:
+    def test_download_no_symlink_new_file(self, mock_are_symlinks_supported: Mock) -> None:
         mock_are_symlinks_supported.return_value = False
         filepath = Path(
             hf_hub_download(
@@ -70,9 +66,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         self.assertEqual(len(list((Path(filepath).parents[2] / "blobs").glob("*"))), 0)
 
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_download_no_symlink_existing_file(
-        self, mock_are_symlinks_supported: Mock
-    ) -> None:
+    def test_download_no_symlink_existing_file(self, mock_are_symlinks_supported: Mock) -> None:
         mock_are_symlinks_supported.return_value = True
         filepath = Path(
             hf_hub_download(
@@ -110,9 +104,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         self.assertTrue(blob_path.is_file())
 
     @patch("huggingface_hub.file_download.are_symlinks_supported")
-    def test_scan_and_delete_cache_no_symlinks(
-        self, mock_are_symlinks_supported: Mock
-    ) -> None:
+    def test_scan_and_delete_cache_no_symlinks(self, mock_are_symlinks_supported: Mock) -> None:
         """Test scan_cache_dir works as well when cache-system doesn't use symlinks."""
         OLDER_REVISION = "44c70f043cfe8162efc274ff531575e224a0e6f0"
 
@@ -191,9 +183,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
         # Since files are not shared (README.md is duplicated in cache), the total size
         # of the repo is the sum of each revision size. If symlinks were used, the total
         # size of the repo would be lower.
-        self.assertEqual(
-            repo.size_on_disk, main_revision.size_on_disk + older_revision.size_on_disk
-        )
+        self.assertEqual(repo.size_on_disk, main_revision.size_on_disk + older_revision.size_on_disk)
 
         # Test delete repo strategy
         strategy_delete_repo = report.delete_revisions(main_ref, OLDER_REVISION)
@@ -209,9 +199,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
             strategy_delete_revision.blobs,
             {file.blob_path for file in older_revision.files},
         )
-        self.assertEqual(
-            strategy_delete_revision.snapshots, {older_revision.snapshot_path}
-        )
+        self.assertEqual(strategy_delete_revision.snapshots, {older_revision.snapshot_path})
         self.assertEqual(len(strategy_delete_revision.refs), 0)
         self.assertEqual(len(strategy_delete_revision.repos), 0)
         strategy_delete_revision.execute()  # Execute without error

@@ -14,19 +14,147 @@
 # limitations under the License.
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
 import io
+import os
+import threading
 import time
+import uuid
+from functools import lru_cache
 from http import HTTPStatus
-from typing import Tuple, Type, Union
+from typing import Callable, Tuple, Type, Union
 
 import requests
 from requests import Response
-from requests.exceptions import ConnectTimeout, ProxyError
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ProxyError, Timeout
+from requests.models import PreparedRequest
 
 from . import logging
 from ._typing import HTTP_METHOD_T
 
 
 logger = logging.get_logger(__name__)
+
+# Both headers are used by the Hub to debug failed requests.
+# `X_AMZN_TRACE_ID` is better as it also works to debug on Cloudfront and ALB.
+# If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
+X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+X_REQUEST_ID = "x-request-id"
+
+
+class UniqueRequestIdAdapter(HTTPAdapter):
+    X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+
+    def add_headers(self, request, **kwargs):
+        super().add_headers(request, **kwargs)
+
+        # Add random request ID => easier for server-side debug
+        if X_AMZN_TRACE_ID not in request.headers:
+            request.headers[X_AMZN_TRACE_ID] = request.headers.get(X_REQUEST_ID) or str(uuid.uuid4())
+
+        # Add debug log
+        has_token = str(request.headers.get("authorization", "")).startswith("Bearer hf_")
+        logger.debug(
+            f"Request {request.headers[X_AMZN_TRACE_ID]}: {request.method} {request.url} (authenticated: {has_token})"
+        )
+
+    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        """Catch any RequestException to append request id to the error message for debugging."""
+        try:
+            return super().send(request, *args, **kwargs)
+        except requests.RequestException as e:
+            request_id = request.headers.get(X_AMZN_TRACE_ID)
+            if request_id is not None:
+                # Taken from https://stackoverflow.com/a/58270258
+                e.args = (*e.args, f"(Request ID: {request_id})")
+            raise
+
+
+def _default_backend_factory() -> requests.Session:
+    session = requests.Session()
+    session.mount("http://", UniqueRequestIdAdapter())
+    session.mount("https://", UniqueRequestIdAdapter())
+    return session
+
+
+BACKEND_FACTORY_T = Callable[[], requests.Session]
+_GLOBAL_BACKEND_FACTORY: BACKEND_FACTORY_T = _default_backend_factory
+
+
+def configure_http_backend(backend_factory: BACKEND_FACTORY_T = _default_backend_factory) -> None:
+    """
+    Configure the HTTP backend by providing a `backend_factory`. Any HTTP calls made by `huggingface_hub` will use a
+    Session object instantiated by this factory. This can be useful if you are running your scripts in a specific
+    environment requiring custom configuration (e.g. custom proxy or certifications).
+
+    Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
+    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
+    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
+    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
+
+    See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
+
+    Example:
+    ```py
+    import requests
+    from huggingface_hub import configure_http_backend, get_session
+
+    # Create a factory function that returns a Session with configured proxies
+    def backend_factory() -> requests.Session:
+        session = requests.Session()
+        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
+        return session
+
+    # Set it as the default session factory
+    configure_http_backend(backend_factory=backend_factory)
+
+    # In practice, this is mostly done internally in `huggingface_hub`
+    session = get_session()
+    ```
+    """
+    global _GLOBAL_BACKEND_FACTORY
+    _GLOBAL_BACKEND_FACTORY = backend_factory
+    _get_session_from_cache.cache_clear()
+
+
+def get_session() -> requests.Session:
+    """
+    Get a `requests.Session` object, using the session factory from the user.
+
+    Use [`get_session`] to get a configured Session. Since `requests.Session` is not guaranteed to be thread-safe,
+    `huggingface_hub` creates 1 Session instance per thread. They are all instantiated using the same `backend_factory`
+    set in [`configure_http_backend`]. A LRU cache is used to cache the created sessions (and connections) between
+    calls. Max size is 128 to avoid memory leaks if thousands of threads are spawned.
+
+    See [this issue](https://github.com/psf/requests/issues/2766) to know more about thread-safety in `requests`.
+
+    Example:
+    ```py
+    import requests
+    from huggingface_hub import configure_http_backend, get_session
+
+    # Create a factory function that returns a Session with configured proxies
+    def backend_factory() -> requests.Session:
+        session = requests.Session()
+        session.proxies = {"http": "http://10.10.1.10:3128", "https": "https://10.10.1.11:1080"}
+        return session
+
+    # Set it as the default session factory
+    configure_http_backend(backend_factory=backend_factory)
+
+    # In practice, this is mostly done internally in `huggingface_hub`
+    session = get_session()
+    ```
+    """
+    return _get_session_from_cache(process_id=os.getpid(), thread_id=threading.get_ident())
+
+
+@lru_cache
+def _get_session_from_cache(process_id: int, thread_id: int) -> requests.Session:
+    """
+    Create a new session per thread using global factory. Using LRU cache (maxsize 128) to avoid memory leaks when
+    using thousands of threads. Cache is cleared when `configure_http_backend` is called.
+    """
+    return _GLOBAL_BACKEND_FACTORY()
 
 
 def http_backoff(
@@ -37,7 +165,7 @@ def http_backoff(
     base_wait_time: float = 1,
     max_wait_time: float = 8,
     retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
-        ConnectTimeout,
+        Timeout,
         ProxyError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
@@ -66,10 +194,10 @@ def http_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(ConnectTimeout, ProxyError,)`):
+        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(Timeout, ProxyError,)`):
             Define which exceptions must be caught to retry the request. Can be a single
             type or a tuple of types.
-            By default, retry on `ConnectTimeout` and `ProxyError`.
+            By default, retry on `Timeout` and `ProxyError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
@@ -117,6 +245,7 @@ def http_backoff(
     if "data" in kwargs and isinstance(kwargs["data"], io.IOBase):
         io_obj_initial_pos = kwargs["data"].tell()
 
+    session = get_session()
     while True:
         nb_tries += 1
         try:
@@ -126,15 +255,12 @@ def http_backoff(
                 kwargs["data"].seek(io_obj_initial_pos)
 
             # Perform request and return if status_code is not in the retry list.
-            response = requests.request(method=method, url=url, **kwargs)
+            response = session.request(method=method, url=url, **kwargs)
             if response.status_code not in retry_on_status_codes:
                 return response
 
             # Wrong status code returned (HTTP 503 for instance)
-            logger.warning(
-                f"HTTP Error {response.status_code} thrown while requesting"
-                f" {method} {url}"
-            )
+            logger.warning(f"HTTP Error {response.status_code} thrown while requesting {method} {url}")
             if nb_tries > max_retries:
                 response.raise_for_status()  # Will raise uncaught exception
                 # We return response to avoid infinite loop in the corner case where the

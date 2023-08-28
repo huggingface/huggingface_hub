@@ -26,16 +26,12 @@ class CacheAssetsTest(unittest.TestCase):
         self.assertTrue(path.is_dir())  # And dir is created
 
     def test_cached_assets_path_without_subfolder(self) -> None:
-        path = cached_assets_path(
-            library_name="datasets", namespace="SQuAD", assets_dir=self.cache_dir
-        )
+        path = cached_assets_path(library_name="datasets", namespace="SQuAD", assets_dir=self.cache_dir)
         self.assertEqual(path, self.cache_dir / "datasets" / "SQuAD" / "default")
         self.assertTrue(path.is_dir())
 
     def test_cached_assets_path_without_namespace(self) -> None:
-        path = cached_assets_path(
-            library_name="datasets", subfolder="download", assets_dir=self.cache_dir
-        )
+        path = cached_assets_path(library_name="datasets", subfolder="download", assets_dir=self.cache_dir)
         self.assertEqual(path, self.cache_dir / "datasets" / "default" / "download")
         self.assertTrue(path.is_dir())
 
@@ -53,10 +49,7 @@ class CacheAssetsTest(unittest.TestCase):
         )
         self.assertEqual(
             path,
-            self.cache_dir
-            / "ReAlLy--dumb"
-            / "user--repo_name"
-            / "this--is--not--clever",
+            self.cache_dir / "ReAlLy--dumb" / "user--repo_name" / "this--is--not--clever",
         )
         self.assertTrue(path.is_dir())
 

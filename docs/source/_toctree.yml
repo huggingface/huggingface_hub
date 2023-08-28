@@ -10,24 +10,30 @@
   sections:
     - local: guides/overview
       title: Overview
-    - local: how-to-manage
-      title: Create and manage repositories
-    - local: how-to-downstream
-      title: Download files from the Hub
-    - local: how-to-upstream
-      title: Upload files to the Hub
-    - local: searching-the-hub
-      title: Searching the Hub
-    - local: how-to-inference
-      title: Access the Inference API
-    - local: how-to-discussions-and-pull-requests
-      title: Interact with Discussions and Pull Requests
-    - local: how-to-cache
-      title: Manage the Cache
-    - local: how-to-model-cards
-      title: Create and Share Model Cards
-    - local: guides/manage_spaces
-      title: Manage your Space runtime
+    - local: guides/download
+      title: Download files
+    - local: guides/upload
+      title: Upload files
+    - local: guides/hf_file_system
+      title: HfFileSystem
+    - local: guides/repository
+      title: Repository
+    - local: guides/search
+      title: Search
+    - local: guides/inference
+      title: Inference
+    - local: guides/community
+      title: Community Tab
+    - local: guides/manage-cache
+      title: Cache
+    - local: guides/model-cards
+      title: Model Cards
+    - local: guides/manage-spaces
+      title: Manage your Space
+    - local: guides/integrations
+      title: Integrate a library
+    - local: guides/webhooks_server
+      title: Webhooks server
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http
@@ -48,8 +54,10 @@
       title: Downloading files
     - local: package_reference/mixins
       title: Mixins & serialization methods
-    - local: package_reference/inference_api
-      title: Inference API
+    - local: package_reference/inference_client
+      title: Inference Client
+    - local: package_reference/hf_file_system
+      title: HfFileSystem
     - local: package_reference/utilities
       title: Utilities
     - local: package_reference/community
@@ -60,3 +68,7 @@
       title: Repo Cards and Repo Card Data
     - local: package_reference/space_runtime
       title: Space runtime
+    - local: package_reference/tensorboard
+      title: TensorBoard logger
+    - local: package_reference/webhooks_server
+      title: Webhooks server

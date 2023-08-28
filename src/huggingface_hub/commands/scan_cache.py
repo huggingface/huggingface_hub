@@ -32,18 +32,13 @@ from ._cli_utils import ANSI, tabulate
 class ScanCacheCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        scan_cache_parser = parser.add_parser(
-            "scan-cache", help="Scan cache directory."
-        )
+        scan_cache_parser = parser.add_parser("scan-cache", help="Scan cache directory.")
 
         scan_cache_parser.add_argument(
             "--dir",
             type=str,
             default=None,
-            help=(
-                "cache directory to scan (optional). Default to the"
-                " default HuggingFace cache."
-            ),
+            help="cache directory to scan (optional). Default to the default HuggingFace cache.",
         )
         scan_cache_parser.add_argument(
             "-v",
@@ -98,9 +93,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             ", ".join(sorted(repo.refs)),
                             str(repo.repo_path),
                         ]
-                        for repo in sorted(
-                            hf_cache_info.repos, key=lambda repo: repo.repo_path
-                        )
+                        for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
                     ],
                     headers=[
                         "REPO ID",
@@ -128,12 +121,8 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                             ", ".join(sorted(revision.refs)),
                             str(revision.snapshot_path),
                         ]
-                        for repo in sorted(
-                            hf_cache_info.repos, key=lambda repo: repo.repo_path
-                        )
-                        for revision in sorted(
-                            repo.revisions, key=lambda revision: revision.commit_hash
-                        )
+                        for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
+                        for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash)
                     ],
                     headers=[
                         "REPO ID",

@@ -2,9 +2,9 @@ import os
 import unittest
 from hashlib import sha256
 from io import BytesIO
-from tempfile import TemporaryDirectory
 
 from huggingface_hub.lfs import SliceFileObj, UploadInfo
+from huggingface_hub.utils import SoftTemporaryDirectory
 
 
 class TestUploadInfo(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestUploadInfo(unittest.TestCase):
         self.sample = self.content[:512]
 
     def test_upload_info_from_path(self):
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             filepath = os.path.join(tmpdir, "file.bin")
             with open(filepath, "wb+") as file:
                 file.write(self.content)
@@ -111,16 +111,14 @@ class TestSliceFileObj(unittest.TestCase):
     def test_slice_fileobj_file(self):
         self.content = b"RANDOM self.content uauabciabeubahveb" * 1024
 
-        with TemporaryDirectory() as tmpdir:
+        with SoftTemporaryDirectory() as tmpdir:
             filepath = os.path.join(tmpdir, "file.bin")
             with open(filepath, "wb+") as f:
                 f.write(self.content)
             with open(filepath, "rb") as fileobj:
                 prev_pos = fileobj.tell()
                 # Test read
-                with SliceFileObj(
-                    fileobj, seek_from=24, read_limit=18
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=24, read_limit=18) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.read(), self.content[24:42])
                     self.assertEqual(fileobj_slice.tell(), 18)
@@ -129,9 +127,7 @@ class TestSliceFileObj(unittest.TestCase):
 
                 self.assertEqual(fileobj.tell(), prev_pos)
 
-                with SliceFileObj(
-                    fileobj, seek_from=0, read_limit=990
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=0, read_limit=990) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     self.assertEqual(fileobj_slice.read(200), self.content[0:200])
                     self.assertEqual(fileobj_slice.read(500), self.content[200:700])
@@ -140,9 +136,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.read(200), b"")
 
                 # Test seek with whence = os.SEEK_SET
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(2, os.SEEK_SET)
                     self.assertEqual(fileobj_slice.tell(), 2)
@@ -155,9 +149,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.fileobj.tell(), 200)
 
                 # Test seek with whence = os.SEEK_CUR
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(-5, os.SEEK_CUR)
                     self.assertEqual(fileobj_slice.tell(), 0)
@@ -173,9 +165,7 @@ class TestSliceFileObj(unittest.TestCase):
                     self.assertEqual(fileobj_slice.fileobj.tell(), 100)
 
                 # Test seek with whence = os.SEEK_END
-                with SliceFileObj(
-                    fileobj, seek_from=100, read_limit=100
-                ) as fileobj_slice:
+                with SliceFileObj(fileobj, seek_from=100, read_limit=100) as fileobj_slice:
                     self.assertEqual(fileobj_slice.tell(), 0)
                     fileobj_slice.seek(-5, os.SEEK_END)
                     self.assertEqual(fileobj_slice.tell(), 95)

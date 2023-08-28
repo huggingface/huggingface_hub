@@ -6,32 +6,44 @@ import io
 import os
 import warnings
 from collections import defaultdict
-from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
-import requests
+from tqdm.contrib.concurrent import thread_map
 
-from .constants import ENDPOINT
-from .lfs import UploadInfo, _validate_batch_actions, lfs_upload, post_lfs_batch_info
+from huggingface_hub import get_session
+
+from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
+from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    EntryNotFoundError,
     build_hf_headers,
     chunk_iterable,
     hf_raise_for_status,
     logging,
+    tqdm_stream_file,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_method
-from .utils._typing import Literal
+from .utils import tqdm as hf_tqdm
+
+
+if TYPE_CHECKING:
+    from .hf_api import RepoFile
 
 
 logger = logging.get_logger(__name__)
 
 
 UploadMode = Literal["lfs", "regular"]
+
+# Max is 1,000 per request on the Hub for HfApi.list_files_info
+# Otherwise we get:
+# HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
+# See https://github.com/huggingface/huggingface_hub/issues/1503
+FETCH_LFS_BATCH_SIZE = 500
 
 
 @dataclass
@@ -55,13 +67,44 @@ class CommitOperationDelete:
     is_folder: Union[bool, Literal["auto"]] = "auto"
 
     def __post_init__(self):
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
+
         if self.is_folder == "auto":
             self.is_folder = self.path_in_repo.endswith("/")
         if not isinstance(self.is_folder, bool):
             raise ValueError(
-                "Wrong value for `is_folder`. Must be one of [`True`, `False`,"
-                f" `'auto'`]. Got '{self.is_folder}'."
+                f"Wrong value for `is_folder`. Must be one of [`True`, `False`, `'auto'`]. Got '{self.is_folder}'."
             )
+
+
+@dataclass
+class CommitOperationCopy:
+    """
+    Data structure holding necessary info to copy a file in a repository on the Hub.
+
+    Limitations:
+      - Only LFS files can be copied. To copy a regular file, you need to download it locally and re-upload it
+      - Cross-repository copies are not supported.
+
+    Note: you can combine a [`CommitOperationCopy`] and a [`CommitOperationDelete`] to rename an LFS file on the Hub.
+
+    Args:
+        src_path_in_repo (`str`):
+            Relative filepath in the repo of the file to be copied, e.g. `"checkpoints/1fec34a/weights.bin"`.
+        path_in_repo (`str`):
+            Relative filepath in the repo where to copy the file, e.g. `"checkpoints/1fec34a/weights_copy.bin"`.
+        src_revision (`str`, *optional*):
+            The git revision of the file to be copied. Can be any valid git revision.
+            Default to the target commit revision.
+    """
+
+    src_path_in_repo: str
+    path_in_repo: str
+    src_revision: Optional[str] = None
+
+    def __post_init__(self):
+        self.src_path_in_repo = _validate_path_in_repo(self.src_path_in_repo)
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
 
 
 @dataclass
@@ -95,16 +138,15 @@ class CommitOperationAdd:
 
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
+        self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
+
         # Validate `path_or_fileobj` value
         if isinstance(self.path_or_fileobj, Path):
             self.path_or_fileobj = str(self.path_or_fileobj)
         if isinstance(self.path_or_fileobj, str):
             path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(path_or_fileobj):
-                raise ValueError(
-                    f"Provided path: '{path_or_fileobj}' is not a file on the local"
-                    " file system"
-                )
+                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file on the local file system")
         elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
             # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -118,8 +160,7 @@ class CommitOperationAdd:
                 self.path_or_fileobj.seek(0, os.SEEK_CUR)
             except (OSError, AttributeError) as exc:
                 raise ValueError(
-                    "path_or_fileobj is a file-like object but does not implement"
-                    " seek() and tell()"
+                    "path_or_fileobj is a file-like object but does not implement seek() and tell()"
                 ) from exc
 
         # Compute "upload_info" attribute
@@ -130,21 +171,17 @@ class CommitOperationAdd:
         else:
             self.upload_info = UploadInfo.from_fileobj(self.path_or_fileobj)
 
-    @_deprecate_method(
-        version="0.14", message="Operation is validated at initialization."
-    )
-    def validate(self) -> None:
-        pass
-
-    @_deprecate_method(version="0.14", message="Use `upload_info` property instead.")
-    def _upload_info(self) -> UploadInfo:
-        return self.upload_info
-
     @contextmanager
-    def as_file(self):
+    def as_file(self, with_tqdm: bool = False) -> Iterator[BinaryIO]:
         """
         A context manager that yields a file-like object allowing to read the underlying
         data behind `path_or_fileobj`.
+
+        Args:
+            with_tqdm (`bool`, *optional*, defaults to `False`):
+                If True, iterating over the file object will display a progress bar. Only
+                works if the file-like object is a path to a file. Pure bytes and buffers
+                are not supported.
 
         Example:
 
@@ -157,12 +194,26 @@ class CommitOperationAdd:
 
         >>> with operation.as_file() as file:
         ...     content = file.read()
-        ```
 
+        >>> with operation.as_file(with_tqdm=True) as file:
+        ...     while True:
+        ...         data = file.read(1024)
+        ...         if not data:
+        ...              break
+        config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
+
+        >>> with operation.as_file(with_tqdm=True) as file:
+        ...     requests.put(..., data=file)
+        config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
+        ```
         """
-        if isinstance(self.path_or_fileobj, str):
-            with open(self.path_or_fileobj, "rb") as file:
-                yield file
+        if isinstance(self.path_or_fileobj, str) or isinstance(self.path_or_fileobj, Path):
+            if with_tqdm:
+                with tqdm_stream_file(self.path_or_fileobj) as file:
+                    yield file
+            else:
+                with open(self.path_or_fileobj, "rb") as file:
+                    yield file
         elif isinstance(self.path_or_fileobj, bytes):
             yield io.BytesIO(self.path_or_fileobj)
         elif isinstance(self.path_or_fileobj, io.BufferedIOBase):
@@ -180,7 +231,23 @@ class CommitOperationAdd:
             return base64.b64encode(file.read())
 
 
-CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
+def _validate_path_in_repo(path_in_repo: str) -> str:
+    # Validate `path_in_repo` value to prevent a server-side issue
+    if path_in_repo.startswith("/"):
+        path_in_repo = path_in_repo[1:]
+    if path_in_repo == "." or path_in_repo == ".." or path_in_repo.startswith("../"):
+        raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
+    if path_in_repo.startswith("./"):
+        path_in_repo = path_in_repo[2:]
+    if any(part == ".git" for part in path_in_repo.split("/")):
+        raise ValueError(
+            "Invalid `path_in_repo` in CommitOperation: cannot update files under a '.git/' folder (path:"
+            f" '{path_in_repo}')."
+        )
+    return path_in_repo
+
+
+CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
 def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
@@ -284,99 +351,56 @@ def upload_lfs_files(
         if batch_errors_chunk:
             message = "\n".join(
                 [
-                    f'Encountered error for file with OID {err.get("oid")}:'
-                    f' `{err.get("error", {}).get("message")}'
+                    f'Encountered error for file with OID {err.get("oid")}: `{err.get("error", {}).get("message")}'
                     for err in batch_errors_chunk
                 ]
             )
             raise ValueError(f"LFS batch endpoint returned errors:\n{message}")
 
         batch_actions += batch_actions_chunk
-
-    # Step 2: upload files concurrently according to these instructions
     oid2addop = {add_op.upload_info.sha256.hex(): add_op for add_op in additions}
-    with ThreadPoolExecutor(max_workers=num_threads) as pool:
-        logger.debug(
-            f"Uploading {len(batch_actions)} LFS files to the Hub using up to"
-            f" {num_threads} threads concurrently"
-        )
-        # Upload the files concurrently, stopping on the first exception
-        futures2operation: Dict[futures.Future, CommitOperationAdd] = {
-            pool.submit(
-                _upload_lfs_object,
-                operation=oid2addop[batch_action["oid"]],
-                lfs_batch_action=batch_action,
-                token=token,
-            ): oid2addop[batch_action["oid"]]
-            for batch_action in batch_actions
-        }
-        completed, pending = futures.wait(
-            futures2operation,
-            return_when=futures.FIRST_EXCEPTION,
-        )
 
-        for pending_future in pending:
-            # Cancel pending futures
-            # Uploads already in progress can't be stopped unfortunately,
-            # as `requests` does not support cancelling / aborting a request
-            pending_future.cancel()
+    # Step 2: ignore files that have already been uploaded
+    filtered_actions = []
+    for action in batch_actions:
+        if action.get("actions") is None:
+            logger.debug(
+                f"Content of file {oid2addop[action['oid']].path_in_repo} is already"
+                " present upstream - skipping upload."
+            )
+        else:
+            filtered_actions.append(action)
 
-        for future in completed:
-            operation = futures2operation[future]
-            try:
-                future.result()
-            except Exception as exc:
-                # Raise the first exception encountered
-                raise RuntimeError(
-                    f"Error while uploading {operation.path_in_repo} to the Hub"
-                ) from exc
-
-
-def _upload_lfs_object(
-    operation: CommitOperationAdd, lfs_batch_action: dict, token: Optional[str]
-):
-    """
-    Handles uploading a given object to the Hub with the LFS protocol.
-
-    Defers to [`~utils.lfs.lfs_upload`] for the actual upload logic.
-
-    Can be a No-op if the content of the file is already present on the hub
-    large file storage.
-
-    Args:
-        operation (`CommitOperationAdd`):
-            The add operation triggering this upload
-        lfs_batch_action (`dict`):
-            Upload instructions from the LFS batch endpoint for this object.
-            See [`~utils.lfs.post_lfs_batch_info`] for more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
-
-    Raises: `ValueError` if `lfs_batch_action` is improperly formatted
-    """
-    _validate_batch_actions(lfs_batch_action)
-    upload_info = operation.upload_info
-    actions = lfs_batch_action.get("actions")
-    if actions is None:
-        # The file was already uploaded
-        logger.debug(
-            f"Content of file {operation.path_in_repo} is already present upstream"
-            " - skipping upload"
-        )
+    if len(filtered_actions) == 0:
+        logger.debug("No LFS files to upload.")
         return
-    upload_action = lfs_batch_action["actions"].get("upload")
-    verify_action = lfs_batch_action["actions"].get("verify")
 
-    with operation.as_file() as fileobj:
-        logger.debug(f"Uploading {operation.path_in_repo} as LFS file...")
-        lfs_upload(
-            fileobj=fileobj,
-            upload_action=upload_action,
-            verify_action=verify_action,
-            upload_info=upload_info,
-            token=token,
+    # Step 3: upload files concurrently according to these instructions
+    def _wrapped_lfs_upload(batch_action) -> None:
+        try:
+            operation = oid2addop[batch_action["oid"]]
+            lfs_upload(operation=operation, lfs_batch_action=batch_action, token=token)
+        except Exception as exc:
+            raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
+
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
+        for action in hf_tqdm(filtered_actions):
+            _wrapped_lfs_upload(action)
+    elif len(filtered_actions) == 1:
+        logger.debug("Uploading 1 LFS file to the Hub")
+        _wrapped_lfs_upload(filtered_actions[0])
+    else:
+        logger.debug(
+            f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
-        logger.debug(f"{operation.path_in_repo}: Upload successful")
+        thread_map(
+            _wrapped_lfs_upload,
+            filtered_actions,
+            desc=f"Upload {len(filtered_actions)} LFS files",
+            max_workers=num_threads,
+            tqdm_class=hf_tqdm,
+        )
 
 
 def _validate_preupload_info(preupload_info: dict):
@@ -405,7 +429,7 @@ def fetch_upload_modes(
     create_pr: bool = False,
 ) -> Dict[str, UploadMode]:
     """
-    Requests the Hub "preupload" endpoint to determine wether each input file
+    Requests the Hub "preupload" endpoint to determine whether each input file
     should be uploaded as a regular git blob or as git LFS blob.
 
     Args:
@@ -449,7 +473,7 @@ def fetch_upload_modes(
             ]
         }
 
-        resp = requests.post(
+        resp = get_session().post(
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
             json=payload,
             headers=headers,
@@ -457,32 +481,84 @@ def fetch_upload_modes(
         )
         hf_raise_for_status(resp)
         preupload_info = _validate_preupload_info(resp.json())
-        upload_modes.update(
-            **{file["path"]: file["uploadMode"] for file in preupload_info["files"]}
-        )
+        upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
 
-    # If a file is empty, it is most likely a mistake.
-    # => a warning message is triggered to warn the user.
-    #    => except if `.gitkeep` as it is a legit use case for an empty file.
-    #
     # Empty files cannot be uploaded as LFS (S3 would fail with a 501 Not Implemented)
     # => empty files are uploaded as "regular" to still allow users to commit them.
     for addition in additions:
         if addition.upload_info.size == 0:
             path = addition.path_in_repo
-            if not path.endswith(".gitkeep"):
-                warnings.warn(
-                    f"About to commit an empty file: '{path}'. Are you sure this is"
-                    " intended?"
-                )
             upload_modes[path] = "regular"
 
     return upload_modes
 
 
+@validate_hf_hub_args
+def fetch_lfs_files_to_copy(
+    copies: Iterable[CommitOperationCopy],
+    repo_type: str,
+    repo_id: str,
+    token: Optional[str],
+    revision: str,
+    endpoint: Optional[str] = None,
+) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
+    """
+    Requests the Hub files information of the LFS files to be copied, including their sha256.
+
+    Args:
+        copies (`Iterable` of :class:`CommitOperationCopy`):
+            Iterable of :class:`CommitOperationCopy` describing the files to
+            copy on the Hub.
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        token (`str`, *optional*):
+            An authentication token ( See https://huggingface.co/settings/tokens )
+        revision (`str`):
+            The git revision to upload the files to. Can be any valid git revision.
+
+    Returns: `Dict[Tuple[str, Optional[str]], RepoFile]]`
+        Key is the file path and revision of the file to copy, value is the repo file.
+
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    from .hf_api import HfApi
+
+    hf_api = HfApi(endpoint=endpoint, token=token)
+    files_to_copy = {}
+    for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
+        operations = list(operations)  # type: ignore
+        paths = [op.src_path_in_repo for op in operations]
+        for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
+            src_repo_files = hf_api.list_files_info(
+                repo_id=repo_id,
+                paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
+                revision=src_revision or revision,
+                repo_type=repo_type,
+            )
+            for src_repo_file in src_repo_files:
+                if not src_repo_file.lfs:
+                    raise NotImplementedError("Copying a non-LFS file is not implemented")
+                files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
+        for operation in operations:
+            if (operation.src_path_in_repo, src_revision) not in files_to_copy:
+                raise EntryNotFoundError(
+                    f"Cannot copy {operation.src_path_in_repo} at revision "
+                    f"{src_revision or revision}: file is missing on repo."
+                )
+    return files_to_copy
+
+
 def prepare_commit_payload(
     operations: Iterable[CommitOperation],
     upload_modes: Dict[str, UploadMode],
+    files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -508,10 +584,7 @@ def prepare_commit_payload(
     # 2. Send operations, one per line
     for operation in operations:
         # 2.a. Case adding a regular file
-        if (
-            isinstance(operation, CommitOperationAdd)
-            and upload_modes.get(operation.path_in_repo) == "regular"
-        ):
+        if isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "regular":
             yield {
                 "key": "file",
                 "value": {
@@ -521,10 +594,7 @@ def prepare_commit_payload(
                 },
             }
         # 2.b. Case adding an LFS file
-        elif (
-            isinstance(operation, CommitOperationAdd)
-            and upload_modes.get(operation.path_in_repo) == "lfs"
-        ):
+        elif isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "lfs":
             yield {
                 "key": "lfsFile",
                 "value": {
@@ -540,7 +610,20 @@ def prepare_commit_payload(
                 "key": "deletedFolder" if operation.is_folder else "deletedFile",
                 "value": {"path": operation.path_in_repo},
             }
-        # 2.d. Never expected to happen
+        # 2.d. Case copying a file or folder
+        elif isinstance(operation, CommitOperationCopy):
+            file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
+            if not file_to_copy.lfs:
+                raise NotImplementedError("Copying a non-LFS file is not implemented")
+            yield {
+                "key": "lfsFile",
+                "value": {
+                    "path": operation.path_in_repo,
+                    "algo": "sha256",
+                    "oid": file_to_copy.lfs["sha256"],
+                },
+            }
+        # 2.e. Never expected to happen
         else:
             raise ValueError(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"

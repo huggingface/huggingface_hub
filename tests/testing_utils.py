@@ -1,22 +1,22 @@
 import inspect
 import os
+import shutil
 import stat
-import sys
 import time
 import unittest
 import uuid
 from contextlib import contextmanager
-from distutils.util import strtobool
 from enum import Enum
 from functools import wraps
-from io import StringIO
-from typing import Callable, Generator, Optional, TypeVar
+from pathlib import Path
+from typing import Callable, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
 import pytest
-
-from huggingface_hub.utils import logging
+import requests
 from requests.exceptions import HTTPError
+
+from huggingface_hub.utils import is_gradio_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -35,9 +35,7 @@ DUMMY_MODEL_ID_REVISION_INVALID = "aaaaaaa"
 # This commit does not exist, so we should 404.
 DUMMY_MODEL_ID_PINNED_SHA1 = "d9e9f15bc825e4b2c9249e9578f884bbcb5e3684"
 # Sha-1 of config.json on the top of `main`, for checking purposes
-DUMMY_MODEL_ID_PINNED_SHA256 = (
-    "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
-)
+DUMMY_MODEL_ID_PINNED_SHA256 = "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3"
 # Sha-256 of pytorch_model.bin on the top of `main`, for checking purposes
 
 # "hf-internal-testing/dummy-will-be-renamed" has been renamed to "hf-internal-testing/dummy-renamed"
@@ -47,9 +45,10 @@ DUMMY_RENAMED_NEW_MODEL_ID = "hf-internal-testing/dummy-renamed"
 SAMPLE_DATASET_IDENTIFIER = "lhoestq/custom_squad"
 # Example dataset ids
 DUMMY_DATASET_ID = "lhoestq/test"
-DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = (  # on branch "test-branch"
-    "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"
-)
+DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT = "81d06f998585f8ee10e6e3a2ea47203dc75f2a16"  # on branch "test-branch"
+
+YES = ("y", "yes", "t", "true", "on", "1")
+NO = ("n", "no", "f", "false", "off", "0")
 
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
@@ -70,20 +69,21 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     return f"{prefix}-{id}-{ts}"
 
 
-def parse_flag_from_env(key, default=False):
+def parse_flag_from_env(key: str, default: bool = False) -> bool:
     try:
         value = os.environ[key]
     except KeyError:
         # KEY isn't set, default to `default`.
-        _value = default
+        return default
+
+    # KEY is set, convert it to True or False.
+    if value.lower() in YES:
+        return True
+    elif value.lower() in NO:
+        return False
     else:
-        # KEY is set, convert it to True or False.
-        try:
-            _value = strtobool(value)
-        except ValueError:
-            # More values are supported, but let's keep the message simple.
-            raise ValueError("If set, {} must be yes or no.".format(key))
-    return _value
+        # More values are supported, but let's keep the message simple.
+        raise ValueError(f"If set, '{key}' must be one of {YES+NO}. Got '{value}'.")
 
 
 def parse_int_from_env(key, default=None):
@@ -104,13 +104,26 @@ _run_git_lfs_tests = parse_flag_from_env("RUN_GIT_LFS_TESTS", default=False)
 
 def require_git_lfs(test_case):
     """
-    Decorator marking a test that requires git-lfs.
+    Decorator to mark tests that requires git-lfs.
 
     git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
     variable to a truthy value to run them.
     """
     if not _run_git_lfs_tests:
         return unittest.skip("test of git lfs workflow")(test_case)
+    else:
+        return test_case
+
+
+def require_webhooks(test_case):
+    """
+    Decorator to mark tests that requires `webhooks` extra (i.e. gradio, fastapi, pydantic).
+
+    git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
+    variable to a truthy value to run them.
+    """
+    if not is_gradio_available():
+        return unittest.skip("Skip webhook test")(test_case)
     else:
         return test_case
 
@@ -149,8 +162,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         invalid_url = "https://10.255.255.1"
         if kwargs.get("timeout") is None:
             raise RequestWouldHangIndefinitelyError(
-                f"Tried a call to {url} in offline mode with no timeout set. Please set"
-                " a timeout."
+                f"Tried a call to {url} in offline mode with no timeout set. Please set a timeout."
             )
         kwargs["timeout"] = timeout
         try:
@@ -159,9 +171,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             # The following changes in the error are just here to make the offline timeout error prettier
             e.request.url = url
             max_retry_error = e.args[0]
-            max_retry_error.args = (
-                max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),
-            )
+            max_retry_error.args = (max_retry_error.args[0].replace("10.255.255.1", f"OfflineMock[{url}]"),)
             e.args = (max_retry_error,)
             raise
 
@@ -171,11 +181,15 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
     if mode is OfflineSimulationMode.CONNECTION_FAILS:
         # inspired from https://stackoverflow.com/a/18601897
         with patch("socket.socket", offline_socket):
-            yield
+            with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
+                get_session_mock.return_value = requests.Session()  # not an existing one
+                yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
         with patch("requests.request", timeout_request):
-            yield
+            with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
+                get_session_mock().request = timeout_request
+                yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
             yield
@@ -186,6 +200,10 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 def set_write_permission_and_retry(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def rmtree_with_retry(path: Union[str, Path]) -> None:
+    shutil.rmtree(path, onerror=set_write_permission_and_retry)
 
 
 def with_production_testing(func):
@@ -244,7 +262,7 @@ def expect_deprecation(function_name: str):
     """
     Decorator to flag tests that we expect to use deprecated arguments.
 
-    Parameters:
+    Args:
         function_name (`str`):
             Name of the function that we expect to use in a deprecated way.
 
@@ -294,28 +312,24 @@ def expect_deprecation(function_name: str):
     return _inner_decorator
 
 
-@contextmanager
-def capture_output() -> Generator[StringIO, None, None]:
-    """Capture output that is printed to console.
-
-    Especially useful to test CLI commands.
-
-    Taken from https://stackoverflow.com/a/34738440
-
-    Example:
-    ```py
-    class TestHelloWorld(unittest.TestCase):
-        def test_hello_world(self):
-            with capture_output() as output:
-                print("hello world")
-            self.assertEqual(output.getvalue(), "hello world\n")
-    ```
+def xfail_on_windows(reason: str, raises: Optional[Type[Exception]] = None):
     """
-    output = StringIO()
-    previous_output = sys.stdout
-    sys.stdout = output
-    yield output
-    sys.stdout = previous_output
+    Decorator to flag tests that we expect to fail on Windows.
+
+    Will not raise an error if the expected error happens while running on Windows machine.
+    If error is expected but does not happen, the test fails as well.
+
+    Args:
+        reason (`str`):
+            Reason why it should fail.
+        raises (`Type[Exception]`):
+            The error type we except to happen.
+    """
+
+    def _inner_decorator(test_function: Callable) -> Callable:
+        return pytest.mark.xfail(os.name == "nt", reason=reason, raises=raises, strict=True, run=True)(test_function)
+
+    return _inner_decorator
 
 
 T = TypeVar("T")
@@ -419,10 +433,9 @@ def handle_injection_in_test(fn: Callable) -> Callable:
             if name == "self":
                 continue
             assert parameter.annotation is Mock
-            assert name in mocks, (
-                f"Mock `{name}` not found for test `{fn.__name__}`. Available:"
-                f" {', '.join(sorted(mocks.keys()))}"
-            )
+            assert (
+                name in mocks
+            ), f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
             new_kwargs[name] = mocks[name]
 
         # Run test only with a subset of mocks
@@ -439,21 +452,18 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
 
     Example:
     ```py
+    from huggingface_hub import RepoUrl
     from .testing_utils import use_tmp_repo
 
     class HfApiCommonTest(unittest.TestCase):
         _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-        _user = USER
-        _repo_id: str
 
         @use_tmp_repo()
-        def test_create_tag_on_model(self) -> None:
-            self._repo_id  # populated
+        def test_create_tag_on_model(self, repo_url: RepoUrl) -> None:
             (...)
 
         @use_tmp_repo("dataset")
-        def test_create_tag_on_dataset(self) -> None:
-            self._repo_id  # populated
+        def test_create_tag_on_dataset(self, repo_url: RepoUrl) -> None:
             (...)
     ```
     """
@@ -464,13 +474,11 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
             self = args[0]
             assert isinstance(self, unittest.TestCase)
 
-            repo_id = f"{self._user}/{repo_name(prefix=repo_type)}"
-            self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
+            repo_url = self._api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type)
             try:
-                self._repo_id = repo_id
-                return test_fn(*args, **kwargs)
+                return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:
-                self._api.delete_repo(repo_id=repo_id, repo_type=repo_type)
+                self._api.delete_repo(repo_id=repo_url.repo_id, repo_type=repo_type)
 
         return _inner
 

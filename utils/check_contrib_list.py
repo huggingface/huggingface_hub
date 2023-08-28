@@ -45,23 +45,17 @@ def check_contrib_list(update: bool) -> NoReturn:
     the list."""
     # List contrib test suites
     contrib_list = sorted(
-        path.name
-        for path in CONTRIB_PATH.glob("*")
-        if path.is_dir() and not path.name.startswith("_")
+        path.name for path in CONTRIB_PATH.glob("*") if path.is_dir() and not path.name.startswith("_")
     )
 
     # Check Makefile is consistent with list
     makefile_content = MAKEFILE_PATH.read_text()
-    makefile_expected_content = MAKEFILE_REGEX.sub(
-        f"CONTRIB_LIBS := {' '.join(contrib_list)}", makefile_content
-    )
+    makefile_expected_content = MAKEFILE_REGEX.sub(f"CONTRIB_LIBS := {' '.join(contrib_list)}", makefile_content)
 
     # Check workflow is consistent with list
     workflow_content = WORKFLOW_PATH.read_text()
     _substitute = "\n".join(f'{" "*10}"{lib}",' for lib in contrib_list)
-    workflow_content_expected = WORKFLOW_REGEX.sub(
-        rf"\g<before>{_substitute}\n\g<after>", workflow_content
-    )
+    workflow_content_expected = WORKFLOW_REGEX.sub(rf"\g<before>{_substitute}\n\g<after>", workflow_content)
 
     #
     failed = False

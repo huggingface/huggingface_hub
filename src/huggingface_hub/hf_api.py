@@ -12,30 +12,76 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
+import inspect
 import json
-import os
+import pprint
 import re
+import textwrap
 import warnings
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime
+from functools import wraps
 from itertools import islice
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+    overload,
+)
 from urllib.parse import quote
 
 import requests
-from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from requests.exceptions import HTTPError
+from tqdm.auto import tqdm as base_tqdm
+
+from huggingface_hub.utils import (
+    IGNORE_GIT_FOLDER_PATTERNS,
+    EntryNotFoundError,
+    LocalTokenNotFoundError,
+    RepositoryNotFoundError,
+    experimental,
+    get_session,
+)
 
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
+    CommitOperationCopy,
     CommitOperationDelete,
+    fetch_lfs_files_to_copy,
     fetch_upload_modes,
     prepare_commit_payload,
     upload_lfs_files,
     warn_on_overwriting_operations,
 )
-from ._space_api import SpaceHardware, SpaceRuntime
+from ._multi_commits import (
+    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
+    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
+    MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
+    MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
+    MultiCommitException,
+    MultiCommitStep,
+    MultiCommitStrategy,
+    multi_commit_create_pull_request,
+    multi_commit_generate_comment,
+    multi_commit_parse_pr_description,
+    plan_multi_commits,
+)
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
 from .community import (
     Discussion,
     DiscussionComment,
@@ -55,26 +101,21 @@ from .constants import (
     SPACES_SDK_TYPES,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
+    BadRequestError,
     HfFolder,
     HfHubHTTPError,
     build_hf_headers,
-    erase_from_credential_store,
     filter_repo_objects,
     hf_raise_for_status,
     logging,
+    paginate,
     parse_datetime,
-    read_from_credential_store,
     validate_hf_hub_args,
-    write_to_credential_store,
 )
 from .utils._deprecation import (
     _deprecate_arguments,
-    _deprecate_list_output,
-    _deprecate_method,
-    _deprecate_positional_args,
 )
-from .utils._pagination import paginate
-from .utils._typing import Literal, TypedDict
+from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     AttributeDictionary,
     DatasetFilter,
@@ -85,15 +126,27 @@ from .utils.endpoint_helpers import (
 )
 
 
+R = TypeVar("R")  # Return type
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+
 
 logger = logging.get_logger(__name__)
 
 
-def repo_type_and_id_from_hf_id(
-    hf_id: str, hub_url: Optional[str] = None
-) -> Tuple[Optional[str], Optional[str], str]:
+class ReprMixin:
+    """Mixin to create the __repr__ for a class"""
+
+    def __repr__(self):
+        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
+        if "\n" in formatted_value:
+            return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
+        else:
+            return f"{self.__class__.__name__}: {formatted_value}"
+
+
+def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
     """
     Returns the repo type and ID from a huggingface.co URL linking to a
     repository
@@ -104,6 +157,8 @@ def repo_type_and_id_from_hf_id(
 
             - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
             - https://huggingface.co/<namespace>/<repo_id>
+            - hf://<repo_type>/<namespace>/<repo_id>
+            - hf://<namespace>/<repo_id>
             - <repo_type>/<namespace>/<repo_id>
             - <namespace>/<repo_id>
             - <repo_id>
@@ -113,9 +168,21 @@ def repo_type_and_id_from_hf_id(
     Returns:
         A tuple with three items: repo_type (`str` or `None`), namespace (`str` or
         `None`) and repo_id (`str`).
+
+    Raises:
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If URL cannot be parsed.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `repo_type` is unknown.
     """
+    input_hf_id = hf_id
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
+
+    HFFS_PREFIX = "hf://"
+    if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
+        hf_id = hf_id[len(HFFS_PREFIX) :]
+
     url_segments = hf_id.split("/")
     is_hf_id = len(url_segments) <= 3
 
@@ -126,6 +193,10 @@ def repo_type_and_id_from_hf_id(
             namespace = None
         if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
+        elif namespace in REPO_TYPES_MAPPING:
+            # Mean canonical dataset or model
+            repo_type = REPO_TYPES_MAPPING[namespace]
+            namespace = None
         else:
             repo_type = None
     elif is_hf_id:
@@ -133,21 +204,29 @@ def repo_type_and_id_from_hf_id(
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
             repo_type, namespace, repo_id = url_segments[-3:]
         elif len(url_segments) == 2:
-            # Passed <user>/<model_id> or <org>/<model_id>
-            namespace, repo_id = hf_id.split("/")[-2:]
-            repo_type = None
+            if url_segments[0] in REPO_TYPES_MAPPING:
+                # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
+                repo_type = REPO_TYPES_MAPPING[url_segments[0]]
+                namespace = None
+                repo_id = hf_id.split("/")[-1]
+            else:
+                # Passed <user>/<model_id> or <org>/<model_id>
+                namespace, repo_id = hf_id.split("/")[-2:]
+                repo_type = None
         else:
             # Passed <model_id>
             repo_id = url_segments[0]
             namespace, repo_type = None, None
     else:
-        raise ValueError(
-            f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}"
-        )
+        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
+    # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
+    if repo_type in REPO_TYPES_MAPPING:
+        repo_type = REPO_TYPES_MAPPING[repo_type]
+    if repo_type == "":
+        repo_type = None
     if repo_type not in REPO_TYPES:
-        assert repo_type is not None, "repo_type `None` do not have mapping"
-        repo_type = REPO_TYPES_MAPPING.get(repo_type)
+        raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
 
@@ -155,6 +234,7 @@ def repo_type_and_id_from_hf_id(
 class BlobLfsInfo(TypedDict, total=False):
     size: int
     sha256: str
+    pointer_size: int
 
 
 @dataclass
@@ -213,25 +293,83 @@ class CommitInfo:
             self.pr_num = None
 
 
-class RepoFile:
+class RepoUrl(str):
+    """Subclass of `str` describing a repo URL on the Hub.
+
+    `RepoUrl` is returned by `HfApi.create_repo`. It inherits from `str` for backward
+    compatibility. At initialization, the URL is parsed to populate properties:
+    - endpoint (`str`)
+    - namespace (`Optional[str]`)
+    - repo_name (`str`)
+    - repo_id (`str`)
+    - repo_type (`Literal["model", "dataset", "space"]`)
+    - url (`str`)
+
+    Args:
+        url (`Any`):
+            String value of the repo url.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+
+    Example:
+    ```py
+    >>> RepoUrl('https://huggingface.co/gpt2')
+    RepoUrl('https://huggingface.co/gpt2', endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')
+
+    >>> RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co')
+    RepoUrl('https://hub-ci.huggingface.co/datasets/dummy_user/dummy_dataset', endpoint='https://hub-ci.huggingface.co', repo_type='dataset', repo_id='dummy_user/dummy_dataset')
+
+    >>> RepoUrl('hf://datasets/my-user/my-dataset')
+    RepoUrl('hf://datasets/my-user/my-dataset', endpoint='https://huggingface.co', repo_type='dataset', repo_id='user/dataset')
+
+    >>> HfApi.create_repo("dummy_model")
+    RepoUrl('https://huggingface.co/Wauplin/dummy_model', endpoint='https://huggingface.co', repo_type='model', repo_id='Wauplin/dummy_model')
+    ```
+
+    Raises:
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If URL cannot be parsed.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `repo_type` is unknown.
     """
-    Data structure that represents a public file inside a repo, accessible from
-    huggingface.co
+
+    def __new__(cls, url: Any, endpoint: Optional[str] = None):
+        return super(RepoUrl, cls).__new__(cls, url)
+
+    def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
+        super().__init__()
+        # Parse URL
+        self.endpoint = endpoint or ENDPOINT
+        repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
+
+        # Populate fields
+        self.namespace = namespace
+        self.repo_name = repo_name
+        self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
+        self.repo_type = repo_type or REPO_TYPE_MODEL
+        self.url = str(self)  # just in case it's needed
+
+    def __repr__(self) -> str:
+        return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+class RepoFile(ReprMixin):
+    """
+    Data structure that represents a public file inside a repo, accessible from huggingface.co
 
     Args:
         rfilename (str):
-            file name, relative to the repo root. This is the only attribute
-            that's guaranteed to be here, but under certain conditions there can
-            certain other stuff.
+            file name, relative to the repo root. This is the only attribute that's guaranteed to be here, but under
+            certain conditions there can certain other stuff.
         size (`int`, *optional*):
-            The file's size, in bytes. This attribute is present when `files_metadata` argument
-            of [`repo_info`] is set to `True`. It's `None` otherwise.
+            The file's size, in bytes. This attribute is present when `files_metadata` argument of [`repo_info`] is set
+            to `True`. It's `None` otherwise.
         blob_id (`str`, *optional*):
-            The file's git OID. This attribute is present when `files_metadata` argument
-            of [`repo_info`] is set to `True`. It's `None` otherwise.
+            The file's git OID. This attribute is present when `files_metadata` argument of [`repo_info`] is set to
+            `True`. It's `None` otherwise.
         lfs (`BlobLfsInfo`, *optional*):
-            The file's LFS metadata. This attribute is present when`files_metadata` argument
-            of [`repo_info`] is set to `True` and the file is stored with Git LFS. It's `None` otherwise.
+            The file's LFS metadata. This attribute is present when`files_metadata` argument of [`repo_info`] is set to
+            `True` and the file is stored with Git LFS. It's `None` otherwise.
     """
 
     def __init__(
@@ -254,12 +392,8 @@ class RepoFile:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        items = (f"{k}='{v}'" for k, v in self.__dict__.items())
-        return f"{self.__class__.__name__}({', '.join(items)})"
 
-
-class ModelInfo:
+class ModelInfo(ReprMixin):
     """
     Info about a model accessible from huggingface.co
 
@@ -309,21 +443,13 @@ class ModelInfo:
         self.lastModified = lastModified
         self.tags = tags
         self.pipeline_tag = pipeline_tag
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
         self.author = author
         self.config = config
         self.securityStatus = securityStatus
         for k, v in kwargs.items():
             setattr(self, k, v)
-
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
 
     def __str__(self):
         r = f"Model Name: {self.modelId}, Tags: {self.tags}"
@@ -332,7 +458,7 @@ class ModelInfo:
         return r
 
 
-class DatasetInfo:
+class DatasetInfo(ReprMixin):
     """
     Info about a dataset accessible from huggingface.co
 
@@ -343,7 +469,7 @@ class DatasetInfo:
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
-        tags (`Listr[str]`, *optional*):
+        tags (`List[str]`, *optional*):
             List of tags.
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
@@ -385,9 +511,7 @@ class DatasetInfo:
         self.description = description
         self.citation = citation
         self.cardData = cardData
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         # Legacy stuff, "key" is always returned with an empty string
         # because of old versions of the datasets lib that need this field
         kwargs.pop("key", None)
@@ -395,18 +519,12 @@ class DatasetInfo:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
-
     def __str__(self):
         r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
 
 
-class SpaceInfo:
+class SpaceInfo(ReprMixin):
     """
     Info about a Space accessible from huggingface.co
 
@@ -444,22 +562,14 @@ class SpaceInfo:
         self.id = id
         self.sha = sha
         self.lastModified = lastModified
-        self.siblings = (
-            [RepoFile(**x) for x in siblings] if siblings is not None else []
-        )
+        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
         self.author = author
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
 
-
-class MetricInfo:
+class MetricInfo(ReprMixin):
     """
     Info about a public metric accessible from huggingface.co
     """
@@ -482,12 +592,6 @@ class MetricInfo:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        s = f"{self.__class__.__name__}:" + " {"
-        for key, val in self.__dict__.items():
-            s += f"\n\t{key}: {val}"
-        return s + "\n}"
-
     def __str__(self):
         r = f"Metric Name: {self.id}"
         return r
@@ -503,9 +607,21 @@ class ModelSearchArguments(AttributeDictionary):
 
     ```python
     >>> args = ModelSearchArguments()
-    >>> args.author_or_organization.huggingface
+
+    >>> args.author.huggingface
+    'huggingface'
+
     >>> args.language.en
+    'en'
     ```
+
+    <Tip warning={true}>
+
+    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all models on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
     """
 
     def __init__(self, api: Optional["HfApi"] = None):
@@ -541,9 +657,21 @@ class DatasetSearchArguments(AttributeDictionary):
 
     ```python
     >>> args = DatasetSearchArguments()
-    >>> args.author_or_organization.huggingface
+
+    >>> args.author.huggingface
+    'huggingface'
+
     >>> args.language.en
+    'language:en'
     ```
+
+    <Tip warning={true}>
+
+    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all datasets on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
     """
 
     def __init__(self, api: Optional["HfApi"] = None):
@@ -569,6 +697,156 @@ class DatasetSearchArguments(AttributeDictionary):
         self["author"] = author_dict
 
 
+@dataclass
+class GitRefInfo:
+    """
+    Contains information about a git reference for a repo on the Hub.
+
+    Args:
+        name (`str`):
+            Name of the reference (e.g. tag name or branch name).
+        ref (`str`):
+            Full git ref on the Hub (e.g. `"refs/heads/main"` or `"refs/tags/v1.0"`).
+        target_commit (`str`):
+            OID of the target commit for the ref (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
+    """
+
+    name: str
+    ref: str
+    target_commit: str
+
+    def __init__(self, data: Dict) -> None:
+        self.name = data["name"]
+        self.ref = data["ref"]
+        self.target_commit = data["targetCommit"]
+
+
+@dataclass
+class GitRefs:
+    """
+    Contains information about all git references for a repo on the Hub.
+
+    Object is returned by [`list_repo_refs`].
+
+    Args:
+        branches (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about branches on the repo.
+        converts (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about "convert" refs on the repo.
+            Converts are refs used (internally) to push preprocessed data in Dataset repos.
+        tags (`List[GitRefInfo]`):
+            A list of [`GitRefInfo`] containing information about tags on the repo.
+    """
+
+    branches: List[GitRefInfo]
+    converts: List[GitRefInfo]
+    tags: List[GitRefInfo]
+
+
+@dataclass
+class GitCommitInfo:
+    """
+    Contains information about a git commit for a repo on the Hub. Check out [`list_repo_commits`] for more details.
+
+    Args:
+        commit_id (`str`):
+            OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
+        authors (`List[str]`):
+            List of authors of the commit.
+        created_at (`datetime`):
+            Datetime when the commit was created.
+        title (`str`):
+            Title of the commit. This is a free-text value entered by the authors.
+        message (`str`):
+            Description of the commit. This is a free-text value entered by the authors.
+        formatted_title (`str`):
+            Title of the commit formatted as HTML. Only returned if `formatted=True` is set.
+        formatted_message (`str`):
+            Description of the commit formatted as HTML. Only returned if `formatted=True` is set.
+    """
+
+    commit_id: str
+
+    authors: List[str]
+    created_at: datetime
+    title: str
+    message: str
+
+    formatted_title: Optional[str]
+    formatted_message: Optional[str]
+
+    def __init__(self, data: Dict) -> None:
+        self.commit_id = data["id"]
+        self.authors = [author["user"] for author in data["authors"]]
+        self.created_at = parse_datetime(data["date"])
+        self.title = data["title"]
+        self.message = data["message"]
+
+        self.formatted_title = data.get("formatted", {}).get("title")
+        self.formatted_message = data.get("formatted", {}).get("message")
+
+
+@dataclass
+class UserLikes:
+    """
+    Contains information about a user likes on the Hub.
+
+    Args:
+        user (`str`):
+            Name of the user for which we fetched the likes.
+        total (`int`):
+            Total number of likes.
+        datasets (`List[str]`):
+            List of datasets liked by the user (as repo_ids).
+        models (`List[str]`):
+            List of models liked by the user (as repo_ids).
+        spaces (`List[str]`):
+            List of spaces liked by the user (as repo_ids).
+    """
+
+    # Metadata
+    user: str
+    total: int
+
+    # User likes
+    datasets: List[str]
+    models: List[str]
+    spaces: List[str]
+
+
+def future_compatible(fn: CallableT) -> CallableT:
+    """Wrap a method of `HfApi` to handle `run_as_future=True`.
+
+    A method flagged as "future_compatible" will be called in a thread if `run_as_future=True` and return a
+    `concurrent.futures.Future` instance. Otherwise, it will be called normally and return the result.
+    """
+    sig = inspect.signature(fn)
+    args_params = list(sig.parameters)[1:]  # remove "self" from list
+
+    @wraps(fn)
+    def _inner(self, *args, **kwargs):
+        # Get `run_as_future` value if provided (default to False)
+        if "run_as_future" in kwargs:
+            run_as_future = kwargs["run_as_future"]
+            kwargs["run_as_future"] = False  # avoid recursion error
+        else:
+            run_as_future = False
+            for param, value in zip(args_params, args):
+                if param == "run_as_future":
+                    run_as_future = value
+                    break
+
+        # Call the function in a thread if `run_as_future=True`
+        if run_as_future:
+            return self.run_as_future(fn, self, *args, **kwargs)
+
+        # Otherwise, call the function normally
+        return fn(self, *args, **kwargs)
+
+    _inner.is_future_compatible = True  # type: ignore
+    return _inner  # type: ignore
+
+
 class HfApi:
     def __init__(
         self,
@@ -587,9 +865,8 @@ class HfApi:
 
         Args:
             endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. To
-                be set if you are using a private hub. Otherwise, one can set the
-                `HF_ENDPOINT` environment variable.
+                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise,
+                one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
@@ -608,7 +885,49 @@ class HfApi:
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
+        self._thread_pool: Optional[ThreadPoolExecutor] = None
 
+    def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
+        """
+        Run a method in the background and return a Future instance.
+
+        The main goal is to run methods without blocking the main thread (e.g. to push data during a training).
+        Background jobs are queued to preserve order but are not ran in parallel. If you need to speed-up your scripts
+        by parallelizing lots of call to the API, you must setup and use your own [ThreadPoolExecutor](https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor).
+
+        Note: Most-used methods like [`upload_file`], [`upload_folder`] and [`create_commit`] have a `run_as_future: bool`
+        argument to directly call them in the background. This is equivalent to calling `api.run_as_future(...)` on them
+        but less verbose.
+
+        Args:
+            fn (`Callable`):
+                The method to run in the background.
+            *args, **kwargs:
+                Arguments with which the method will be called.
+
+        Return:
+            `Future`: a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects) instance to
+            get the result of the task.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> future = api.run_as_future(api.whoami) # instant
+            >>> future.done()
+            False
+            >>> future.result() # wait until complete and return result
+            (...)
+            >>> future.done()
+            True
+            ```
+        """
+        if self._thread_pool is None:
+            self._thread_pool = ThreadPoolExecutor(max_workers=1)
+        self._thread_pool
+        return self._thread_pool.submit(fn, *args, **kwargs)
+
+    @validate_hf_hub_args
     def whoami(self, token: Optional[str] = None) -> Dict:
         """
         Call HF API to know "whoami".
@@ -618,7 +937,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         """
-        r = requests.get(
+        r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
             headers=self._build_hf_headers(
                 # If `token` is provided and not `None`, it will be used by default.
@@ -636,75 +955,45 @@ class HfApi:
             ) from e
         return r.json()
 
-    def _is_valid_token(self, token: str) -> bool:
+    def get_token_permission(self, token: Optional[str] = None) -> Literal["read", "write", None]:
         """
-        Determines whether `token` is a valid token or not.
+        Check if a given `token` is valid and return its permissions.
+
+        For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
         Args:
-            token (`str`):
-                The token to check for validity.
+            token (`str`, *optional*):
+                The token to check for validity. Defaults to the one saved locally.
 
         Returns:
-            `bool`: `True` if valid, `False` otherwise.
+            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed or token is invalid.
         """
         try:
-            self.whoami(token=token)
-            return True
-        except HTTPError:
-            return False
-
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.set_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `set_git_credential` instead."
-        ),
-    )
-    def set_access_token(access_token: str):
-        """
-        Saves the passed access token so git can correctly authenticate the
-        user.
-
-        Args:
-            access_token (`str`):
-                The access token to save.
-        """
-        write_to_credential_store(USERNAME_PLACEHOLDER, access_token)
-
-    @staticmethod
-    @_deprecate_method(
-        version="0.14",
-        message=(
-            "`HfApi.unset_access_token` is deprecated as it is very ambiguous. Use"
-            " `login` or `unset_git_credential` instead."
-        ),
-    )
-    def unset_access_token():
-        """
-        Resets the user's access token.
-        """
-        erase_from_credential_store(USERNAME_PLACEHOLDER)
+            return self.whoami(token=token)["auth"]["accessToken"]["role"]
+        except (LocalTokenNotFoundError, HTTPError):
+            return None
 
     def get_model_tags(self) -> ModelTags:
-        "Gets all valid model tags as a nested namespace object"
+        """
+        List all valid model tags as a nested namespace object
+        """
         path = f"{self.endpoint}/api/models-tags-by-type"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return ModelTags(d)
 
     def get_dataset_tags(self) -> DatasetTags:
         """
-        Gets all valid dataset tags as a nested namespace object.
+        List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetTags(d)
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -720,9 +1009,9 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
-    ) -> List[ModelInfo]:
+    ) -> Iterable[ModelInfo]:
         """
-        Get the list of all the models on huggingface.co
+        List models hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
@@ -732,8 +1021,7 @@ class HfApi:
                 A string which identify the author (user or organization) of the
                 returned models
             search (`str`, *optional*):
-                A string that will be contained in the returned models Example
-                usage:
+                A string that will be contained in the returned model ids.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
@@ -764,9 +1052,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[ModelInfo]`: a list of [`huggingface_hub.hf_api.ModelInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -816,6 +1102,9 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
+        if emissions_thresholds is not None and cardData is None:
+            raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
+
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
         params = {}
@@ -845,21 +1134,14 @@ class HfApi:
         if cardData:
             params.update({"cardData": True})
 
-        data = paginate(path, params=params, headers=headers)
+        # `items` is a generator
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        items = [ModelInfo(**x) for x in data]
-
+            items = islice(items, limit)  # Do not iterate over all pages
         if emissions_thresholds is not None:
-            if cardData is None:
-                raise ValueError(
-                    "`emissions_thresholds` were passed without setting"
-                    " `cardData=True`."
-                )
-            else:
-                return _filter_emissions(items, *emissions_thresholds)
-
-        return items
+            items = _filter_emissions(items, *emissions_thresholds)
+        for item in items:
+            yield ModelInfo(**item)
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -880,11 +1162,7 @@ class HfApi:
 
         # Handling tasks
         if model_filter.task is not None:
-            filter_list.extend(
-                [model_filter.task]
-                if isinstance(model_filter.task, str)
-                else model_filter.task
-            )
+            filter_list.extend([model_filter.task] if isinstance(model_filter.task, str) else model_filter.task)
 
         # Handling dataset
         if model_filter.trained_dataset is not None:
@@ -898,18 +1176,12 @@ class HfApi:
         # Handling library
         if model_filter.library:
             filter_list.extend(
-                [model_filter.library]
-                if isinstance(model_filter.library, str)
-                else model_filter.library
+                [model_filter.library] if isinstance(model_filter.library, str) else model_filter.library
             )
 
         # Handling tags
         if model_filter.tags:
-            tags.extend(
-                [model_filter.tags]
-                if isinstance(model_filter.tags, str)
-                else model_filter.tags
-            )
+            tags.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
 
         query_dict: Dict[str, Any] = {}
         if model_str is not None:
@@ -923,12 +1195,6 @@ class HfApi:
         query_dict["filter"] = tuple(filter_list)
         return query_dict
 
-    @_deprecate_arguments(
-        version="0.14",
-        deprecated_args={"cardData"},
-        custom_message="Use 'full' instead.",
-    )
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_datasets(
         self,
@@ -939,12 +1205,11 @@ class HfApi:
         sort: Union[Literal["lastModified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
-        cardData: Optional[bool] = None,  # deprecated
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[DatasetInfo]:
+    ) -> Iterable[DatasetInfo]:
         """
-        Get the list of all the datasets on huggingface.co
+        List datasets hosted on the Huggingface Hub, given some filters.
 
         Args:
             filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
@@ -974,9 +1239,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[DatasetInfo]`: a list of [`huggingface_hub.hf_api.DatasetInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[DatasetInfo]`: an iterable of [`huggingface_hub.hf_api.DatasetInfo`] objects.
 
         Example usage with the `filter` argument:
 
@@ -1045,13 +1308,14 @@ class HfApi:
             params.update({"direction": direction})
         if limit is not None:
             params.update({"limit": limit})
-        if full or cardData:
+        if full:
             params.update({"full": True})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [DatasetInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
         """
@@ -1102,12 +1366,11 @@ class HfApi:
             `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
         """
         path = f"{self.endpoint}/api/metrics"
-        r = requests.get(path)
+        r = get_session().get(path)
         hf_raise_for_status(r)
         d = r.json()
         return [MetricInfo(**x) for x in d]
 
-    @_deprecate_list_output(version="0.14")
     @validate_hf_hub_args
     def list_spaces(
         self,
@@ -1123,12 +1386,12 @@ class HfApi:
         linked: bool = False,
         full: Optional[bool] = None,
         token: Optional[str] = None,
-    ) -> List[SpaceInfo]:
+    ) -> Iterable[SpaceInfo]:
         """
-        Get the public list of all Spaces on huggingface.co
+        List spaces hosted on the Huggingface Hub, given some filters.
 
         Args:
-            filter `str` or `Iterable`, *optional*):
+            filter (`str` or `Iterable`, *optional*):
                 A string tag or list of tags that can be used to identify Spaces on the Hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned Spaces.
@@ -1161,9 +1424,7 @@ class HfApi:
                 If `False`, token is not sent in the request header.
 
         Returns:
-            `List[SpaceInfo]`: a list of [`huggingface_hub.hf_api.SpaceInfo`] objects.
-             To anticipate future pagination, please consider the return value to be a
-             simple iterator.
+            `Iterable[SpaceInfo]`: an iterable of [`huggingface_hub.hf_api.SpaceInfo`] objects.
         """
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
@@ -1189,10 +1450,181 @@ class HfApi:
         if models is not None:
             params.update({"models": models})
 
-        data = paginate(path, params=params, headers=headers)
+        items = paginate(path, params=params, headers=headers)
         if limit is not None:
-            data = islice(data, limit)  # Do not iterate over all pages
-        return [SpaceInfo(**x) for x in data]
+            items = islice(items, limit)  # Do not iterate over all pages
+        for item in items:
+            yield SpaceInfo(**item)
+
+    @validate_hf_hub_args
+    def like(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Like a given repo on the Hub (e.g. set as favorite).
+
+        See also [`unlike`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to like. Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if liking a dataset or space, `None` or
+                `"model"` if liking a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import like, list_liked_repos, unlike
+        >>> like("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        True
+        >>> unlike("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        False
+        ```
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        response = get_session().post(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def unlike(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Unlike a given repo on the Hub (e.g. remove from favorite list).
+
+        See also [`like`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to unlike. Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if unliking a dataset or space, `None` or
+                `"model"` if unliking a model. Default is `None`.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import like, list_liked_repos, unlike
+        >>> like("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        True
+        >>> unlike("gpt2")
+        >>> "gpt2" in list_liked_repos().models
+        False
+        ```
+        """
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        response = get_session().delete(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def list_liked_repos(
+        self,
+        user: Optional[str] = None,
+        *,
+        token: Optional[str] = None,
+    ) -> UserLikes:
+        """
+        List all public repos liked by a user on huggingface.co.
+
+        This list is public so token is optional. If `user` is not passed, it defaults to
+        the logged in user.
+
+        See also [`like`] and [`unlike`].
+
+        Args:
+            user (`str`, *optional*):
+                Name of the user for which you want to fetch the likes.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                Used only if `user` is not passed to implicitly determine the current
+                user name.
+
+        Returns:
+            [`UserLikes`]: object containing the user name and 3 lists of repo ids (1 for
+            models, 1 for datasets and 1 for Spaces).
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If `user` is not passed and no token found (either from argument or from machine).
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_liked_repos
+
+        >>> likes = list_liked_repos("julien-c")
+
+        >>> likes.user
+        "julien-c"
+
+        >>> likes.models
+        ["osanseviero/streamlit_1.15", "Xhaheen/ChatGPT_HF", ...]
+        ```
+        """
+        # User is either provided explicitly or retrieved from current token.
+        if user is None:
+            me = self.whoami(token=token)
+            if me["type"] == "user":
+                user = me["name"]
+            else:
+                raise ValueError(
+                    "Cannot list liked repos. You must provide a 'user' as input or be logged in as a user."
+                )
+
+        path = f"{self.endpoint}/api/users/{user}/likes"
+        headers = self._build_hf_headers(token=token)
+
+        likes = list(paginate(path, params={}, headers=headers))
+        # Looping over a list of items similar to:
+        #   {
+        #       'createdAt': '2021-09-09T21:53:27.000Z',
+        #       'repo': {
+        #           'name': 'PaddlePaddle/PaddleOCR',
+        #           'type': 'space'
+        #        }
+        #   }
+        # Let's loop 3 times over the received list. Less efficient but more straightforward to read.
+        return UserLikes(
+            user=user,
+            total=len(likes),
+            models=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "model"],
+            datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
+            spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
+        )
 
     @validate_hf_hub_args
     def model_info(
@@ -1250,21 +1682,14 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if securityStatus:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
-        r = requests.get(
-            path,
-            headers=headers,
-            timeout=timeout,
-            params=params,
-        )
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return ModelInfo(**d)
@@ -1321,15 +1746,13 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return DatasetInfo(**d)
@@ -1386,15 +1809,13 @@ class HfApi:
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
-            else (
-                f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}"
-            )
+            else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
         params = {}
         if files_metadata:
             params["blobs"] = True
 
-        r = requests.get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         d = r.json()
         return SpaceInfo(**d)
@@ -1420,6 +1841,9 @@ class HfApi:
             revision (`str`, *optional*):
                 The revision of the repository from which to get the
                 information.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
             files_metadata (`bool`, *optional*):
@@ -1465,6 +1889,190 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def list_files_info(
+        self,
+        repo_id: str,
+        paths: Union[List[str], str, None] = None,
+        *,
+        expand: bool = False,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> Iterable[RepoFile]:
+        """
+        List files on a repo and get information about them.
+
+        Takes as input a list of paths. Those paths can be either files or folders. Two server endpoints are called:
+        1. POST "/paths-info" to get information about the provided paths. Called once.
+        2. GET  "/tree?recursive=True" to paginate over the input folders. Called only if a folder path is provided as
+           input. Will be called multiple times to follow pagination.
+        If no path is provided as input, step 1. is ignored and all files from the repo are listed.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            paths (`Union[List[str], str, None]`, *optional*):
+                The paths to get information about. Paths to files are directly resolved. Paths to folders are resolved
+                recursively which means that information is returned about all files in the folder and its subfolders.
+                If `None`, all files are returned (the default). If a path do not exist, it is ignored without raising
+                an exception.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the files (e.g. last commit and security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            repo_type (`str`, *optional*):
+                The type of the repository from which to get the information (`"model"`, `"dataset"` or `"space"`.
+                Defaults to `"model"`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            `Iterable[RepoFile]`:
+                The information about the files, as an iterable of [`RepoFile`] objects. The order of the files is
+                not guaranteed.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+
+        Examples:
+
+            Get information about files on a repo.
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> files_info = list_files_info("lysandre/arxiv-nlp", ["README.md", "config.json"])
+            >>> files_info
+            <generator object HfApi.list_files_info at 0x7f93b848e730>
+            >>> list(files_info)
+            [
+                RepoFile: {"blob_id": "43bd404b159de6fba7c2f4d3264347668d43af25", "lfs": None, "rfilename": "README.md", "size": 391},
+                RepoFile: {"blob_id": "2f9618c3a19b9a61add74f70bfb121335aeef666", "lfs": None, "rfilename": "config.json", "size": 554},
+            ]
+            ```
+
+            Get even more information about files on a repo (last commit and security scan results)
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
+            >>> list(files_info)
+            [
+                RepoFile: {
+                {'blob_id': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': None,
+                'rfilename': 'model_index.json',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': '815004af1a321eaed1d93f850b2e94b0c0678e42',
+                                'name': 'model_index.json',
+                                'pickleImportScan': None,
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 584}
+                },
+                RepoFile: {
+                {'blob_id': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
+                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                                'title': 'Upload diffusers weights (#48)'},
+                'lfs': {'pointer_size': 134,
+                        'sha256': 'dcf4507d99b88db73f3916e2a20169fe74ada6b5582e9af56cfa80f5f3141765',
+                        'size': 334711857},
+                'rfilename': 'vae/diffusion_pytorch_model.bin',
+                'security': {'avScan': {'virusFound': False, 'virusNames': None},
+                                'blobId': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
+                                'name': 'vae/diffusion_pytorch_model.bin',
+                                'pickleImportScan': {'highestSafetyLevel': 'innocuous',
+                                                    'imports': [{'module': 'torch._utils',
+                                                                'name': '_rebuild_tensor_v2',
+                                                                'safety': 'innocuous'},
+                                                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
+                                                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'}]},
+                                'repositoryId': 'models/prompthero/openjourney-v4',
+                                'safe': True},
+                'size': 334711857}
+                },
+                (...)
+            ]
+            ```
+
+            List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
+
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> [info.rfilename for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
+            ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
+            ```
+
+            List all files on a repo.
+            ```py
+            >>> from huggingface_hub import list_files_info
+            >>> [info.rfilename for info in list_files_info("glue", repo_type="dataset")]
+            ['.gitattributes', 'README.md', 'dataset_infos.json', 'glue.py']
+            ```
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        headers = self._build_hf_headers(token=token)
+
+        def _format_as_repo_file(info: Dict) -> RepoFile:
+            # Quick alias very specific to the server return type of /paths-info and /tree endpoints. Let's keep this
+            # logic here.
+            rfilename = info.pop("path")
+            size = info.pop("size")
+            blobId = info.pop("oid")
+            lfs = info.pop("lfs", None)
+            info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
+            if lfs is not None:
+                lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
+            return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
+
+        folder_paths = []
+        if paths is None:
+            # `paths` is not provided => list all files from the repo
+            folder_paths.append("")
+        elif paths == []:
+            # corner case: server would return a 400 error if `paths` is an empty list. Let's return early.
+            return
+        else:
+            # `paths` is provided => get info about those
+            response = get_session().post(
+                f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
+                data={
+                    "paths": paths if isinstance(paths, list) else [paths],
+                    "expand": True,
+                },
+                headers=headers,
+            )
+            hf_raise_for_status(response)
+            paths_info = response.json()
+
+            # List top-level files first
+            for path_info in paths_info:
+                if path_info["type"] == "file":
+                    yield _format_as_repo_file(path_info)
+                else:
+                    folder_paths.append(path_info["path"])
+
+        # List files in subdirectories
+        for path in folder_paths:
+            encoded_path = "/" + quote(path, safe="") if path else ""
+            tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path}"
+            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True, "expand": expand}):
+                if subpath_info["type"] == "file":
+                    yield _format_as_repo_file(subpath_info)
+
+    @_deprecate_arguments(version="0.17", deprecated_args=["timeout"], custom_message="timeout is not used anymore.")
+    @validate_hf_hub_args
     def list_repo_files(
         self,
         repo_id: str,
@@ -1479,37 +2087,166 @@ class HfApi:
 
         Args:
             repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            revision (`str`, *optional*):
+                The revision of the model repository from which to get the information.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
+                a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            `List[str]`: the list of files in a given repository.
+        """
+        return [
+            f.rfilename
+            for f in self.list_files_info(
+                repo_id=repo_id, paths=None, revision=revision, repo_type=repo_type, token=token
+            )
+        ]
+
+    @validate_hf_hub_args
+    def list_repo_refs(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> GitRefs:
+        """
+        Get the list of refs of a given repo (both tags and branches).
+
+        Args:
+            repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
-            revision (`str`, *optional*):
-                The revision of the model repository from which to get the
-                information.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
-                `None`.
-            timeout (`float`, *optional*):
-                Whether to set a timeout for the request to the Hub.
+                Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
+                `None` or `"model"` if listing from a model. Default is `None`.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
 
-        Returns:
-            `List[str]`: the list of files in a given repository.
-        """
-        repo_info = self.repo_info(
-            repo_id,
-            revision=revision,
-            repo_type=repo_type,
-            token=token,
-            timeout=timeout,
+        Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.list_repo_refs("gpt2")
+        GitRefs(branches=[GitRefInfo(name='main', ref='refs/heads/main', target_commit='e7da7f221d5bf496a48136c0cd264e630fe9fcc8')], converts=[], tags=[])
+
+        >>> api.list_repo_refs("bigcode/the-stack", repo_type='dataset')
+        GitRefs(
+            branches=[
+                GitRefInfo(name='main', ref='refs/heads/main', target_commit='18edc1591d9ce72aa82f56c4431b3c969b210ae3'),
+                GitRefInfo(name='v1.1.a1', ref='refs/heads/v1.1.a1', target_commit='f9826b862d1567f3822d3d25649b0d6d22ace714')
+            ],
+            converts=[],
+            tags=[
+                GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
+            ]
         )
-        return [f.rfilename for f in repo_info.siblings]
+        ```
+
+        Returns:
+            [`GitRefs`]: object containing all information about branches and tags for a
+            repo on the Hub.
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        response = get_session().get(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+        data = response.json()
+        return GitRefs(
+            branches=[GitRefInfo(item) for item in data["branches"]],
+            converts=[GitRefInfo(item) for item in data["converts"]],
+            tags=[GitRefInfo(item) for item in data["tags"]],
+        )
 
     @validate_hf_hub_args
-    @_deprecate_positional_args(version="0.12")
+    def list_repo_commits(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+        revision: Optional[str] = None,
+        formatted: bool = False,
+    ) -> List[GitCommitInfo]:
+        """
+        Get the list of commits of a given revision for a repo on the Hub.
+
+        Commits are sorted by date (last commit first).
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if listing commits from a dataset or a Space, `None` or `"model"` if
+                listing from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            formatted (`bool`):
+                Whether to return the HTML-formatted title and description of the commits. Defaults to False.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+
+        # Commits are sorted by date (last commit first)
+        >>> initial_commit = api.list_repo_commits("gpt2")[-1]
+
+        # Initial commit is always a system commit containing the `.gitattributes` file.
+        >>> initial_commit
+        GitCommitInfo(
+            commit_id='9b865efde13a30c13e0a33e536cf3e4a5a9d71d8',
+            authors=['system'],
+            created_at=datetime.datetime(2019, 2, 18, 10, 36, 15, tzinfo=datetime.timezone.utc),
+            title='initial commit',
+            message='',
+            formatted_title=None,
+            formatted_message=None
+        )
+
+        # Create an empty branch by deriving from initial commit
+        >>> api.create_branch("gpt2", "new_empty_branch", revision=initial_commit.commit_id)
+        ```
+
+        Returns:
+            List[[`GitCommitInfo`]]: list of objects containing information about the commits for a repo on the Hub.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+
+        # Paginate over results and return the list of commits.
+        return [
+            GitCommitInfo(item)
+            for item in paginate(
+                f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
+                headers=self._build_hf_headers(token=token),
+                params={"expand[]": "formatted"} if formatted else {},
+            )
+        ]
+
+    @validate_hf_hub_args
     def create_repo(
         self,
         repo_id: str,
@@ -1520,7 +2257,7 @@ class HfApi:
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
         space_hardware: Optional[str] = None,
-    ) -> str:
+    ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
         Args:
@@ -1538,12 +2275,13 @@ class HfApi:
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
             space_sdk (`str`, *optional*):
-                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", or "static".
+                Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
 
         Returns:
-            `str`: URL to the newly created repo.
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
@@ -1562,30 +2300,24 @@ class HfApi:
                     f" of {SPACES_SDK_TYPES} when repo_type is 'space'`"
                 )
             if space_sdk not in SPACES_SDK_TYPES:
-                raise ValueError(
-                    f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}."
-                )
+                raise ValueError(f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}.")
             json["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
-            warnings.warn(
-                "Ignoring provided space_sdk because repo_type is not 'space'."
-            )
+            warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
         if space_hardware is not None:
             if repo_type == "space":
                 json["hardware"] = space_hardware
             else:
-                warnings.warn(
-                    "Ignoring provided space_hardware because repo_type is not 'space'."
-                )
+                warnings.warn("Ignoring provided space_hardware because repo_type is not 'space'.")
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        r = get_session().post(path, headers=headers, json=json)
 
         try:
             hf_raise_for_status(r)
@@ -1593,11 +2325,20 @@ class HfApi:
             if exist_ok and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
+            elif exist_ok and err.response.status_code == 403:
+                # No write permission on the namespace but repo might already exist
+                try:
+                    self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+                    if repo_type is None or repo_type == REPO_TYPE_MODEL:
+                        return RepoUrl(f"{self.endpoint}/{repo_id}")
+                    return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
+                except HfHubHTTPError:
+                    raise
             else:
                 raise
 
         d = r.json()
-        return d["url"]
+        return RepoUrl(d["url"], endpoint=self.endpoint)
 
     @validate_hf_hub_args
     def delete_repo(
@@ -1642,7 +2383,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.delete(path, headers=headers, json=json)
+        r = get_session().delete(path, headers=headers, json=json)
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
@@ -1697,7 +2438,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
-        r = requests.put(
+        r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
             headers=self._build_hf_headers(token=token, is_write_action=True),
             json={"private": private},
@@ -1718,7 +2459,7 @@ class HfApi:
 
         Note there are certain limitations. For more information about moving
         repositories, please see
-        https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo.
+        https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo.
 
         Args:
             from_id (`str`):
@@ -1745,16 +2486,10 @@ class HfApi:
         </Tip>
         """
         if len(from_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid repo_id: {from_id}. It should have a namespace"
-                " (:namespace:/:repo_name:)"
-            )
+            raise ValueError(f"Invalid repo_id: {from_id}. It should have a namespace (:namespace:/:repo_name:)")
 
         if len(to_id.split("/")) != 2:
-            raise ValueError(
-                f"Invalid repo_id: {to_id}. It should have a namespace"
-                " (:namespace:/:repo_name:)"
-            )
+            raise ValueError(f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)")
 
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # Hub won't accept `None`.
@@ -1763,17 +2498,35 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/move"
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = requests.post(path, headers=headers, json=json)
+        r = get_session().post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
             e.append_to_message(
                 "\nFor additional documentation please see"
-                " https://hf.co/docs/hub/main#how-can-i-rename-or-transfer-a-repo."
+                " https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo."
             )
             raise
 
-    @validate_hf_hub_args
+    @overload
+    def create_commit(  # type: ignore
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> CommitInfo:
+        ...
+
+    @overload
     def create_commit(
         self,
         repo_id: str,
@@ -1787,7 +2540,27 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
-    ) -> CommitInfo:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[CommitInfo]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def create_commit(
+        self,
+        repo_id: str,
+        operations: Iterable[CommitOperation],
+        *,
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
@@ -1801,6 +2574,7 @@ class HfApi:
 
                     - [`~hf_api.CommitOperationAdd`] to upload a file
                     - [`~hf_api.CommitOperationDelete`] to delete a file
+                    - [`~hf_api.CommitOperationCopy`] to copy a file
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -1833,16 +2607,21 @@ class HfApi:
 
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string.
-                Shorthands (7 first characters) are also supported.If specified and `create_pr` is `False`,
+                Shorthands (7 first characters) are also supported. If specified and `create_pr` is `False`,
                 the commit will fail if `revision` does not point to `parent_commit`. If specified and `create_pr`
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
                 if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            [`CommitInfo`]:
-                Instance of [`CommitInfo`] containing information about the newly
-                created commit (commit hash, commit url, pr url, commit message,...).
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
 
         Raises:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -1879,31 +2658,28 @@ class HfApi:
 
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
-                "`parent_commit` is not a valid commit OID. It must match the"
-                f" following regex: {REGEX_COMMIT_OID}"
+                f"`parent_commit` is not a valid commit OID. It must match the following regex: {REGEX_COMMIT_OID}"
             )
 
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
 
-        commit_description = (
-            commit_description if commit_description is not None else ""
-        )
+        commit_description = commit_description if commit_description is not None else ""
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        revision = (
-            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
-        )
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
+        copies = [op for op in operations if isinstance(op, CommitOperationCopy)]
         nb_additions = len(additions)
-        nb_deletions = len(operations) - nb_additions
+        nb_copies = len(copies)
+        nb_deletions = len(operations) - nb_additions - nb_copies
 
         logger.debug(
-            f"About to commit to the hub: {len(additions)} addition(s) and"
+            f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
         )
 
@@ -1923,13 +2699,16 @@ class HfApi:
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
             raise
-
+        files_to_copy = fetch_lfs_files_to_copy(
+            copies=copies,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token or self.token,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
         upload_lfs_files(
-            additions=[
-                addition
-                for addition in additions
-                if upload_modes[addition.path_in_repo] == "lfs"
-            ],
+            additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
@@ -1939,6 +2718,7 @@ class HfApi:
         commit_payload = prepare_commit_payload(
             operations=operations,
             upload_modes=upload_modes,
+            files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
@@ -1955,14 +2735,11 @@ class HfApi:
             "Content-Type": "application/x-ndjson",
             **self._build_hf_headers(token=token, is_write_action=True),
         }
+        data = b"".join(_payload_as_ndjson())
+        params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = requests.post(
-                url=commit_url,
-                headers=headers,
-                data=_payload_as_ndjson(),  # type: ignore
-                params={"create_pr": "1"} if create_pr else None,
-            )
+            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -1984,7 +2761,325 @@ class HfApi:
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
         )
 
+    @experimental
     @validate_hf_hub_args
+    def create_commits_on_pr(
+        self,
+        *,
+        repo_id: str,
+        addition_commits: List[List[CommitOperationAdd]],
+        deletion_commits: List[List[CommitOperationDelete]],
+        commit_message: str,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        merge_pr: bool = True,
+        num_threads: int = 5,  # TODO: use to multithread uploads
+        verbose: bool = False,
+    ) -> str:
+        """Push changes to the Hub in multiple commits.
+
+        Commits are pushed to a draft PR branch. If the upload fails or gets interrupted, it can be resumed. Progress
+        is tracked in the PR description. At the end of the process, the PR is set as open and the title is updated to
+        match the initial commit message. If `merge_pr=True` is passed, the PR is merged automatically.
+
+        All deletion commits are pushed first, followed by the addition commits. The order of the commits is not
+        guaranteed as we might implement parallel commits in the future. Be sure that your are not updating several
+        times the same file.
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` is experimental.  Its API and behavior is subject to change in the future without prior notice.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository in which the commits will be pushed. Example: `"username/my-cool-model"`.
+
+            addition_commits (`List` of `List` of [`~hf_api.CommitOperationAdd`]):
+                A list containing lists of [`~hf_api.CommitOperationAdd`]. Each sublist will result in a commit on the
+                PR.
+
+            deletion_commits
+                A list containing lists of [`~hf_api.CommitOperationDelete`]. Each sublist will result in a commit on
+                the PR. Deletion commits are pushed before addition commits.
+
+            commit_message (`str`):
+                The summary (first line) of the commit that will be created. Will also be the title of the PR.
+
+            commit_description (`str`, *optional*):
+                The description of the commit that will be created. The description will be added to the PR.
+
+            token (`str`, *optional*):
+                Authentication token, obtained with `HfApi.login` method. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
+                a model. Default is `None`.
+
+            merge_pr (`bool`):
+                If set to `True`, the Pull Request is merged at the end of the process. Defaults to `True`.
+
+            num_threads (`int`, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+
+            verbose (`bool`):
+                If set to `True`, process will run on verbose mode i.e. print information about the ongoing tasks.
+                Defaults to `False`.
+
+        Returns:
+            `str`: URL to the created PR.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi, plan_multi_commits
+        >>> addition_commits, deletion_commits = plan_multi_commits(
+        ...     operations=[
+        ...          CommitOperationAdd(...),
+        ...          CommitOperationAdd(...),
+        ...          CommitOperationDelete(...),
+        ...          CommitOperationDelete(...),
+        ...          CommitOperationAdd(...),
+        ...     ],
+        ... )
+        >>> HfApi().create_commits_on_pr(
+        ...     repo_id="my-cool-model",
+        ...     addition_commits=addition_commits,
+        ...     deletion_commits=deletion_commits,
+        ...     (...)
+        ...     verbose=True,
+        ... )
+        ```
+
+        Raises:
+            [`MultiCommitException`]:
+                If an unexpected issue occur in the process: empty commits, unexpected commits in a PR, unexpected PR
+                description, etc.
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
+        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        create it first using [`~hf_api.create_repo`].
+
+        </Tip>
+        """
+        logger = logging.get_logger(__name__ + ".create_commits_on_pr")
+        if verbose:
+            logger.setLevel("INFO")
+
+        # 1. Get strategy ID
+        logger.info(
+            f"Will create {len(deletion_commits)} deletion commit(s) and {len(addition_commits)} addition commit(s),"
+            f" totalling {sum(len(ops) for ops in addition_commits+deletion_commits)} atomic operations."
+        )
+        strategy = MultiCommitStrategy(
+            addition_commits=[MultiCommitStep(operations=operations) for operations in addition_commits],  # type: ignore
+            deletion_commits=[MultiCommitStep(operations=operations) for operations in deletion_commits],  # type: ignore
+        )
+        logger.info(f"Multi-commits strategy with ID {strategy.id}.")
+
+        # 2. Get or create a PR with this strategy ID
+        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
+            # search for a draft PR with strategy ID
+            if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
+                pr = self.get_discussion_details(
+                    repo_id=repo_id, discussion_num=discussion.num, repo_type=repo_type, token=token
+                )
+                logger.info(f"PR already exists: {pr.url}. Will resume process where it stopped.")
+                break
+        else:
+            # did not find a PR matching the strategy ID
+            pr = multi_commit_create_pull_request(
+                self,
+                repo_id=repo_id,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                strategy=strategy,
+                token=token,
+                repo_type=repo_type,
+            )
+            logger.info(f"New PR created: {pr.url}")
+
+        # 3. Parse PR description to check consistency with strategy (e.g. same commits are scheduled)
+        for event in pr.events:
+            if isinstance(event, DiscussionComment):
+                pr_comment = event
+                break
+        else:
+            raise MultiCommitException(f"PR #{pr.num} must have at least 1 comment")
+
+        description_commits = multi_commit_parse_pr_description(pr_comment.content)
+        if len(description_commits) != len(strategy.all_steps):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: got {len(description_commits)} steps in"
+                f" description but {len(strategy.all_steps)} in strategy."
+            )
+        for step_id in strategy.all_steps:
+            if step_id not in description_commits:
+                raise MultiCommitException(
+                    f"Corrupted multi-commit PR #{pr.num}: expected step {step_id} but didn't find"
+                    f" it (have {', '.join(description_commits)})."
+                )
+
+        # 4. Retrieve commit history (and check consistency)
+        commits_on_main_branch = {
+            commit.commit_id
+            for commit in self.list_repo_commits(
+                repo_id=repo_id, repo_type=repo_type, token=token, revision=DEFAULT_REVISION
+            )
+        }
+        pr_commits = [
+            commit
+            for commit in self.list_repo_commits(
+                repo_id=repo_id, repo_type=repo_type, token=token, revision=pr.git_reference
+            )
+            if commit.commit_id not in commits_on_main_branch
+        ]
+        if len(pr_commits) > 0:
+            logger.info(f"Found {len(pr_commits)} existing commits on the PR.")
+
+        # At this point `pr_commits` is a list of commits pushed to the PR. We expect all of these commits (if any) to have
+        # a step_id as title. We raise exception if an unexpected commit has been pushed.
+        if len(pr_commits) > len(strategy.all_steps):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: scheduled {len(strategy.all_steps)} steps but"
+                f" {len(pr_commits)} commits have already been pushed to the PR."
+            )
+
+        # Check which steps are already completed
+        remaining_additions = {step.id: step for step in strategy.addition_commits}
+        remaining_deletions = {step.id: step for step in strategy.deletion_commits}
+        for commit in pr_commits:
+            if commit.title in remaining_additions:
+                step = remaining_additions.pop(commit.title)
+                step.completed = True
+            elif commit.title in remaining_deletions:
+                step = remaining_deletions.pop(commit.title)
+                step.completed = True
+
+        if len(remaining_deletions) > 0 and len(remaining_additions) < len(strategy.addition_commits):
+            raise MultiCommitException(
+                f"Corrupted multi-commit PR #{pr.num}: some addition commits have already been pushed to the PR but"
+                " deletion commits are not all completed yet."
+            )
+        nb_remaining = len(remaining_deletions) + len(remaining_additions)
+        if len(pr_commits) > 0:
+            logger.info(
+                f"{nb_remaining} commits remaining ({len(remaining_deletions)} deletion commits and"
+                f" {len(remaining_additions)} addition commits)"
+            )
+
+        # 5. Push remaining commits to the PR + update description
+        # TODO: multi-thread this
+        for step in list(remaining_deletions.values()) + list(remaining_additions.values()):
+            # Push new commit
+            self.create_commit(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                commit_message=step.id,
+                revision=pr.git_reference,
+                num_threads=num_threads,
+                operations=step.operations,
+                create_pr=False,
+            )
+            step.completed = True
+            nb_remaining -= 1
+            logger.info(f"  step {step.id} completed (still {nb_remaining} to go).")
+
+            # Update PR description
+            self.edit_discussion_comment(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                discussion_num=pr.num,
+                comment_id=pr_comment.id,
+                new_content=multi_commit_generate_comment(
+                    commit_message=commit_message, commit_description=commit_description, strategy=strategy
+                ),
+            )
+        logger.info("All commits have been pushed.")
+
+        # 6. Update PR (and merge)
+        self.rename_discussion(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            discussion_num=pr.num,
+            new_title=commit_message,
+        )
+        self.change_discussion_status(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            discussion_num=pr.num,
+            new_status="open",
+            comment=MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
+        )
+        logger.info("PR is now open for reviews.")
+
+        if merge_pr:  # User don't want a PR => merge it
+            try:
+                self.merge_pull_request(
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    token=token,
+                    discussion_num=pr.num,
+                    comment=MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
+                )
+                logger.info("PR has been automatically merged (`merge_pr=True` was passed).")
+            except BadRequestError as error:
+                if error.server_message is not None and "no associated changes" in error.server_message:
+                    # PR cannot be merged as no changes are associated. We close the PR without merging with a comment to
+                    # explain.
+                    self.change_discussion_status(
+                        repo_id=repo_id,
+                        repo_type=repo_type,
+                        token=token,
+                        discussion_num=pr.num,
+                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
+                        new_status="closed",
+                    )
+                    logger.warning("Couldn't merge the PR: no associated changes.")
+                else:
+                    # PR cannot be merged for another reason (conflicting files for example). We comment the PR to explain
+                    # and re-raise the exception.
+                    self.comment_discussion(
+                        repo_id=repo_id,
+                        repo_type=repo_type,
+                        token=token,
+                        discussion_num=pr.num,
+                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE.format(
+                            error_message=error.server_message
+                        ),
+                    )
+                    raise MultiCommitException(
+                        f"Couldn't merge Pull Request in multi-commit: {error.server_message}"
+                    ) from error
+
+        return pr.url
+
+    @overload
+    def upload_file(  # type: ignore
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_file(
         self,
         *,
@@ -1998,7 +3093,27 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
-    ) -> str:
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_file(
+        self,
+        *,
+        path_or_fileobj: Union[str, Path, bytes, BinaryIO],
+        path_in_repo: str,
+        repo_id: str,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -2039,16 +3154,21 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
 
         Returns:
-            `str`: The URL to visualize the uploaded file on the hub
+            `str` or `Future`: The URL to visualize the uploaded file on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -2106,9 +3226,7 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
         commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Upload {path_in_repo} with huggingface_hub"
+            commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
         )
         operation = CommitOperationAdd(
             path_or_fileobj=path_or_fileobj,
@@ -2135,7 +3253,30 @@ class HfApi:
         # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
         return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
 
-    @validate_hf_hub_args
+    @overload
+    def upload_folder(  # type: ignore
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[False] = ...,
+    ) -> str:
+        ...
+
+    @overload
     def upload_folder(
         self,
         *,
@@ -2151,21 +3292,55 @@ class HfApi:
         parent_commit: Optional[str] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
-    ):
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[True] = ...,
+    ) -> Future[str]:
+        ...
+
+    @validate_hf_hub_args
+    @future_compatible
+    def upload_folder(
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: bool = False,
+        multi_commits_verbose: bool = False,
+        run_as_future: bool = False,
+    ) -> Union[str, Future[str]]:
         """
-        Upload a local folder to the given repo. The upload is done
-        through a HTTP requests, and doesn't require git or git-lfs to be
-        installed.
+        Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
+        git-lfs to be installed.
 
-        The structure of the folder will be preserved. Files with the same name
-        already present in the repository will be overwritten, others will be left untouched.
+        The structure of the folder will be preserved. Files with the same name already present in the repository will
+        be overwritten. Others will be left untouched.
 
-        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files
-        to upload. These parameters accept either a single pattern or a list of
-        patterns. Patterns are Standard Wildcards (globbing patterns) as documented
-        [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both
-        `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By
-        default, all files from the folder are uploaded.
+        Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters
+        accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as
+        documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and
+        `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+
+        Use the `delete_patterns` argument to specify remote files you want to delete. Input type is the same as for
+        `allow_patterns` (see above). If `path_in_repo` is also provided, the patterns are matched against paths
+        relative to this folder. For example, `upload_folder(..., path_in_repo="experiment", delete_patterns="logs/*")`
+        will delete any remote file under `./experiment/logs/`. Note that the `.gitattributes` file will not be deleted
+        even if it matches the patterns.
+
+        Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore`
+        file is not taken into account.
 
         Uses `HfApi.create_commit` under the hood.
 
@@ -2193,11 +3368,11 @@ class HfApi:
             commit_description (`str` *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
-                Whether or not to create a Pull Request with that commit. Defaults to `False`.
-                If `revision` is not set, PR is opened against the `"main"` branch. If
-                `revision` is set and is a branch, PR is opened against this branch. If
-                `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server.
+                Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
+                set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
+                against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server. If both `multi_commits` and `create_pr` are True,
+                the PR created in the multi-commit process is kept opened.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -2208,15 +3383,28 @@ class HfApi:
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`List[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not uploaded.
+            delete_patterns (`List[str]` or `str`, *optional*):
+                If provided, remote files matching any of the patterns will be deleted from the repo while committing
+                new files. This is useful if you don't know which files have already been uploaded.
+                Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
+            multi_commits (`bool`):
+                If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
+            multi_commits_verbose (`bool`):
+                If True and `multi_commits` is used, more information will be displayed to the user.
+            run_as_future (`bool`, *optional*):
+                Whether or not to run this method in the background. Background jobs are run sequentially without
+                blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+                object. Defaults to `False`.
 
         Returns:
-            `str`: A URL to visualize the uploaded folder on the hub
+            `str` or `Future[str]`: A URL to visualize the uploaded folder on the hub. If `run_as_future=True` is passed,
+            returns a Future object which will contain the result when executed.
 
         <Tip>
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             if some parameter value is invalid
@@ -2225,16 +3413,22 @@ class HfApi:
 
         <Tip warning={true}>
 
-        `upload_folder` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
+        `upload_folder` assumes that the repo already exists on the Hub. If you get a Client error 404, please make
+        sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist, create
+        it first using [`~hf_api.create_repo`].
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `multi_commits` is experimental. Its API and behavior is subject to change in the future without prior notice.
 
         </Tip>
 
         Example:
 
         ```python
+        # Upload checkpoints folder except the log files
         >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
@@ -2245,6 +3439,19 @@ class HfApi:
         ... )
         # "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
 
+        # Upload checkpoints folder including logs while deleting existing logs from the repo
+        # Useful if you don't know exactly which log files have already being pushed
+        >>> upload_folder(
+        ...     folder_path="local/checkpoints",
+        ...     path_in_repo="remote/experiment/checkpoints",
+        ...     repo_id="username/my-dataset",
+        ...     repo_type="datasets",
+        ...     token="my_token",
+        ...     delete_patterns="**/logs/*.txt",
+        ... )
+        "https://huggingface.co/datasets/username/my-dataset/tree/main/remote/experiment/checkpoints"
+
+        # Upload checkpoints folder while creating a PR
         >>> upload_folder(
         ...     folder_path="local/checkpoints",
         ...     path_in_repo="remote/experiment/checkpoints",
@@ -2253,44 +3460,82 @@ class HfApi:
         ...     token="my_token",
         ...     create_pr=True,
         ... )
-        # "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
+        "https://huggingface.co/datasets/username/my-dataset/tree/refs%2Fpr%2F1/remote/experiment/checkpoints"
 
         ```
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
 
+        if multi_commits:
+            if revision is not None and revision != DEFAULT_REVISION:
+                raise ValueError("Cannot use `multi_commit` to commit changes other than the main branch.")
+
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
             path_in_repo = ""
 
-        commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Upload {path_in_repo} with huggingface_hub"
-        )
+        # Do not upload .git folder
+        if ignore_patterns is None:
+            ignore_patterns = []
+        elif isinstance(ignore_patterns, str):
+            ignore_patterns = [ignore_patterns]
+        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
 
-        files_to_add = _prepare_upload_folder_commit(
+        delete_operations = self._prepare_upload_folder_deletions(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=DEFAULT_REVISION if create_pr else revision,
+            token=token,
+            path_in_repo=path_in_repo,
+            delete_patterns=delete_patterns,
+        )
+        add_operations = _prepare_upload_folder_additions(
             folder_path,
             path_in_repo,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
         )
 
-        commit_info = self.create_commit(
-            repo_type=repo_type,
-            repo_id=repo_id,
-            operations=files_to_add,
-            commit_message=commit_message,
-            commit_description=commit_description,
-            token=token,
-            revision=revision,
-            create_pr=create_pr,
-            parent_commit=parent_commit,
-        )
+        # Optimize operations: if some files will be overwritten, we don't need to delete them first
+        if len(add_operations) > 0:
+            added_paths = set(op.path_in_repo for op in add_operations)
+            delete_operations = [
+                delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
+            ]
+        commit_operations = delete_operations + add_operations
 
-        if commit_info.pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
+        pr_url: Optional[str]
+        commit_message = commit_message or "Upload folder using huggingface_hub"
+        if multi_commits:
+            addition_commits, deletion_commits = plan_multi_commits(operations=commit_operations)
+            pr_url = self.create_commits_on_pr(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                addition_commits=addition_commits,
+                deletion_commits=deletion_commits,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                merge_pr=not create_pr,
+                verbose=multi_commits_verbose,
+            )
+        else:
+            commit_info = self.create_commit(
+                repo_type=repo_type,
+                repo_id=repo_id,
+                operations=commit_operations,
+                commit_message=commit_message,
+                commit_description=commit_description,
+                token=token,
+                revision=revision,
+                create_pr=create_pr,
+                parent_commit=parent_commit,
+            )
+            pr_url = commit_info.pr_url
+
+        if create_pr and pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
@@ -2352,7 +3597,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -2368,9 +3613,7 @@ class HfApi:
 
         """
         commit_message = (
-            commit_message
-            if commit_message is not None
-            else f"Delete {path_in_repo} with huggingface_hub"
+            commit_message if commit_message is not None else f"Delete {path_in_repo} with huggingface_hub"
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
@@ -2442,18 +3685,307 @@ class HfApi:
             repo_id=repo_id,
             repo_type=repo_type,
             token=token,
-            operations=[
-                CommitOperationDelete(path_in_repo=path_in_repo, is_folder=True)
-            ],
+            operations=[CommitOperationDelete(path_in_repo=path_in_repo, is_folder=True)],
             revision=revision,
             commit_message=(
-                commit_message
-                if commit_message is not None
-                else f"Delete folder {path_in_repo} with huggingface_hub"
+                commit_message if commit_message is not None else f"Delete folder {path_in_repo} with huggingface_hub"
             ),
             commit_description=commit_description,
             create_pr=create_pr,
             parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+        force_download: bool = False,
+        force_filename: Optional[str] = None,
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        local_files_only: bool = False,
+        legacy_cache_layout: bool = False,
+    ) -> str:
+        """Download a given file if it's not already present in the local cache.
+
+        The new cache file layout looks like this:
+        - The cache directory contains one subfolder per repo_id (namespaced by repo type)
+        - inside each repo folder:
+            - refs is a list of the latest known revision => commit_hash pairs
+            - blobs contains the actual file blobs (identified by their git-sha or sha256, depending on
+            whether they're LFS files or not)
+            - snapshots contains one subfolder per commit, each "commit" contains the subset of the files
+            that have been resolved at that particular commit. Each filename is a symlink to the blob
+            at that particular commit.
+
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+        how you want to move those files:
+        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+            environment variable.
+        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+            This is optimal in term of disk usage but files must not be manually edited.
+        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+            local dir. This means disk usage is not optimized.
+        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+            they will be re-downloaded entirely.
+
+        ```
+        [  96]  .
+        └── [ 160]  models--julien-c--EsperBERTo-small
+            ├── [ 160]  blobs
+            │   ├── [321M]  403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+            │   ├── [ 398]  7cb18dc9bafbfcf74629a4b760af1b160957a83e
+            │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
+            ├── [  96]  refs
+            │   └── [  40]  main
+            └── [ 128]  snapshots
+                ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+                │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+                │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+                └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+                    ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+                    └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        ```
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            subfolder (`str`, *optional*):
+                An optional value corresponding to a folder inside the model repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+                `None` or `"model"` if downloading from a model. Default is `None`.
+            revision (`str`, *optional*):
+                An optional Git revision id which can be a branch name, a tag, or a
+                commit hash.
+            endpoint (`str`, *optional*):
+                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+                environment variable.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored.
+            local_dir (`str` or `Path`, *optional*):
+                If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
+                a regular file (see description for more details).
+            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+                already exists) or downloaded from the Hub and not cached. See description for more details.
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether the file should be downloaded even if it already exists in
+                the local cache.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to
+                `requests.request`.
+            etag_timeout (`float`, *optional*, defaults to `10`):
+                When fetching ETag, how many seconds to wait for the server to send
+                data before giving up which is passed to `requests.request`.
+            resume_download (`bool`, *optional*, defaults to `False`):
+                If `True`, resume a previously interrupted download.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the
+                local cached file if it exists.
+            legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+                If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
+                then `cached_download`. This is deprecated as the new cache layout is
+                more powerful.
+
+        Returns:
+            Local path (string) of file or if networking is off, last version of
+            file cached on disk.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            if `token=True` and the token cannot be found.
+            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+            if ETag cannot be determined.
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid
+            - [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+            - [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+            - [`~utils.EntryNotFoundError`]
+            If the file to download cannot be found.
+            - [`~utils.LocalEntryNotFoundError`]
+            If network is disabled or unavailable and file is not found in cache.
+
+        </Tip>
+        """
+        from .file_download import hf_hub_download
+
+        return hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            subfolder=subfolder,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_dir_use_symlinks=local_dir_use_symlinks,
+            user_agent=self.user_agent,
+            force_download=force_download,
+            force_filename=force_filename,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            token=self.token,
+            local_files_only=local_files_only,
+            legacy_cache_layout=legacy_cache_layout,
+        )
+
+    @validate_hf_hub_args
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        force_download: bool = False,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[base_tqdm] = None,
+    ) -> str:
+        """Download repo files.
+
+        Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
+        a repo, because you don't know which ones you will need a priori. All files are nested inside a folder in order
+        to keep their actual filename relative to that folder. You can also filter which files to download using
+        `allow_patterns` and `ignore_patterns`.
+
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+        how you want to move those files:
+        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+            environment variable.
+        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+            This is optimal in term of disk usage but files must not be manually edited.
+        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+            local dir. This means disk usage is not optimized.
+        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+            they will be re-downloaded entirely.
+
+        An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
+        configured. It is also not possible to filter which files to download when cloning a repository using git.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+                `None` or `"model"` if downloading from a model. Default is `None`.
+            revision (`str`, *optional*):
+                An optional Git revision id which can be a branch name, a tag, or a
+                commit hash.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored.
+            local_dir (`str` or `Path`, *optional*:
+                If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
+                regular files (see description for more details).
+            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+                already exists) or downloaded from the Hub and not cached. See description for more details.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to
+                `requests.request`.
+            etag_timeout (`float`, *optional*, defaults to `10`):
+                When fetching ETag, how many seconds to wait for the server to send
+                data before giving up which is passed to `requests.request`.
+            resume_download (`bool`, *optional*, defaults to `False):
+                If `True`, resume a previously interrupted download.
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether the file should be downloaded even if it already exists in the local cache.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the
+                local cached file if it exists.
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are downloaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not downloaded.
+            max_workers (`int`, *optional*):
+                Number of concurrent threads to download files (1 thread = 1 file download).
+                Defaults to 8.
+            tqdm_class (`tqdm`, *optional*):
+                If provided, overwrites the default behavior for the progress bar. Passed
+                argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+                Note that the `tqdm_class` is not passed to each individual download.
+                Defaults to the custom HF progress bar that can be disabled by setting
+                `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+
+        Returns:
+            Local folder path (string) of repo snapshot
+
+        <Tip>
+
+        Raises the following errors:
+
+        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+        if `token=True` and the token cannot be found.
+        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+        ETag cannot be determined.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        if some parameter value is invalid
+
+        </Tip>
+        """
+        from ._snapshot_download import snapshot_download
+
+        return snapshot_download(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_dir_use_symlinks=local_dir_use_symlinks,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            user_agent=self.user_agent,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            force_download=force_download,
+            token=self.token,
+            local_files_only=local_files_only,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            max_workers=max_workers,
+            tqdm_class=tqdm_class,
         )
 
     @validate_hf_hub_args
@@ -2462,12 +3994,14 @@ class HfApi:
         repo_id: str,
         *,
         branch: str,
+        revision: Optional[str] = None,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
     ) -> None:
         """
-        Create a new branch from `main` on a repo on the Hub.
+        Create a new branch for a repo on the Hub, starting from the specified revision (defaults to `main`).
+        To find a revision suiting your needs, you can use [`list_repo_refs`] or [`list_repo_commits`].
 
         Args:
             repo_id (`str`):
@@ -2476,6 +4010,11 @@ class HfApi:
 
             branch (`str`):
                 The name of the branch to create.
+
+            revision (`str`, *optional*):
+                The git revision to create the branch from. It can be a branch name or
+                the OID/SHA of a commit, as a hexadecimal string. Defaults to the head
+                of the `"main"` branch.
 
             token (`str`, *optional*):
                 Authentication token. Will default to the stored token.
@@ -2504,9 +4043,12 @@ class HfApi:
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
         headers = self._build_hf_headers(token=token, is_write_action=True)
+        payload = {}
+        if revision is not None:
+            payload["startingPoint"] = revision
 
         # Create branch
-        response = requests.post(url=branch_url, headers=headers)
+        response = get_session().post(url=branch_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -2559,7 +4101,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token, is_write_action=True)
 
         # Delete branch
-        response = requests.delete(url=branch_url, headers=headers)
+        response = get_session().delete(url=branch_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -2616,9 +4158,7 @@ class HfApi:
         """
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
-        revision = (
-            quote(revision, safe="") if revision is not None else DEFAULT_REVISION
-        )
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
@@ -2628,7 +4168,7 @@ class HfApi:
             payload["message"] = tag_message
 
         # Tag
-        response = requests.post(url=tag_url, headers=headers, json=payload)
+        response = get_session().post(url=tag_url, headers=headers, json=payload)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -2678,7 +4218,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token, is_write_action=True)
 
         # Un-tag
-        response = requests.delete(url=tag_url, headers=headers)
+        response = get_session().delete(url=tag_url, headers=headers)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -2768,10 +4308,8 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         def _fetch_discussion_page(page_index: int):
-            path = (
-                f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
-            )
-            resp = requests.get(path, headers=headers)
+            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
+            resp = get_session().get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -2794,6 +4332,7 @@ class HfApi:
                     repo_id=discussion["repo"]["name"],
                     repo_type=discussion["repo"]["type"],
                     is_pull_request=discussion["isPullRequest"],
+                    endpoint=self.endpoint,
                 )
             page_index = page_index + 1
 
@@ -2827,7 +4366,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -2844,27 +4383,17 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
 
-        path = (
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
-        )
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         headers = self._build_hf_headers(token=token)
-        resp = requests.get(path, params={"diff": "1"}, headers=headers)
+        resp = get_session().get(path, params={"diff": "1"}, headers=headers)
         hf_raise_for_status(resp)
 
         discussion_details = resp.json()
         is_pull_request = discussion_details["isPullRequest"]
 
-        target_branch = (
-            discussion_details["changes"]["base"] if is_pull_request else None
-        )
-        conflicting_files = (
-            discussion_details["filesWithConflicts"] if is_pull_request else None
-        )
-        merge_commit_oid = (
-            discussion_details["changes"].get("mergeCommitId", None)
-            if is_pull_request
-            else None
-        )
+        target_branch = discussion_details["changes"]["base"] if is_pull_request else None
+        conflicting_files = discussion_details["filesWithConflicts"] if is_pull_request else None
+        merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
 
         return DiscussionWithDetails(
             title=discussion_details["title"],
@@ -2880,6 +4409,7 @@ class HfApi:
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
+            endpoint=self.endpoint,
         )
 
     @validate_hf_hub_args
@@ -2926,7 +4456,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -2953,7 +4483,7 @@ class HfApi:
         )
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        resp = requests.post(
+        resp = get_session().post(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
                 "title": title.strip(),
@@ -2985,7 +4515,7 @@ class HfApi:
 
         Creating a Pull Request with changes can also be done at once with [`HfApi.create_commit`];
 
-        This is a wrapper around [`HfApi.create_discusssion`].
+        This is a wrapper around [`HfApi.create_discussion`].
 
         Args:
             repo_id (`str`):
@@ -3011,7 +4541,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3111,7 +4641,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3178,7 +4708,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3248,7 +4778,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3307,7 +4837,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3363,7 +4893,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3421,7 +4951,7 @@ class HfApi:
 
         Raises the following errors:
 
-            - [`HTTPError`](https://2.python-requests.org/en/master/api/#requests.HTTPError)
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
               if the HuggingFace API returned an error
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if some parameter value is invalid
@@ -3432,8 +4962,7 @@ class HfApi:
         </Tip>
         """
         warnings.warn(
-            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is"
-            " irreversible.",
+            "Hidden comments' content cannot be retrieved anymore. Hiding a comment is irreversible.",
             UserWarning,
         )
         resp = self._post_discussion_changes(
@@ -3445,8 +4974,9 @@ class HfApi:
         )
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
+    @validate_hf_hub_args
     def add_space_secret(
-        self, repo_id: str, key: str, value: str, *, token: Optional[str] = None
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """Adds or updates a secret in a Space.
 
@@ -3460,19 +4990,23 @@ class HfApi:
                 Secret key. Example: `"GITHUB_API_KEY"`
             value (`str`):
                 Secret value. Example: `"your_github_api_key"`.
+            description (`str`, *optional*):
+                Secret description. Example: `"Github API key to access the Github API"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.post(
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
+        r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
-            json={"key": key, "value": value},
+            json=payload,
         )
         hf_raise_for_status(r)
 
-    def delete_space_secret(
-        self, repo_id: str, key: str, *, token: Optional[str] = None
-    ) -> None:
+    @validate_hf_hub_args
+    def delete_space_secret(self, repo_id: str, key: str, *, token: Optional[str] = None) -> None:
         """Deletes a secret from a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -3486,39 +5020,15 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = requests.delete(
+        r = get_session().delete(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
         )
         hf_raise_for_status(r)
 
-    def get_space_secrets(
-        self, repo_id: str, *, token: Optional[str] = None
-    ) -> Dict[str, str]:
-        """Gets all secrets from a Space.
-
-        Secrets allow to set secret keys or tokens to a Space without hardcoding them.
-        More for details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-
-        Args:
-            repo_id (`str`):
-                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if not provided.
-        Returns:
-            `Dict[str, str]`: dictionary containing all key/value pairs.
-        """
-        r = requests.get(
-            f"{self.endpoint}/api/spaces/{repo_id}/secrets",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(r)
-        return r.json()
-
-    def get_space_runtime(
-        self, repo_id: str, *, token: Optional[str] = None
-    ) -> SpaceRuntime:
+    @validate_hf_hub_args
+    def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
         Args:
@@ -3528,25 +5038,23 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
         Returns:
-            `SpaceRuntime`: dataclass containing runtime information about a Space
-             including Space stage and hardware.
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
-        r = requests.get(
-            f"{self.endpoint}/api/spaces/{repo_id}/runtime",
-            headers=self._build_hf_headers(token=token),
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
-        data = r.json()
-        return SpaceRuntime(
-            stage=data["stage"],
-            hardware=data["hardware"]["current"],
-            requested_hardware=data["hardware"]["requested"],
-            raw=data,
-        )
+        return SpaceRuntime(r.json())
 
+    @validate_hf_hub_args
     def request_space_hardware(
-        self, repo_id: str, hardware: SpaceHardware, *, token: Optional[str] = None
-    ) -> None:
+        self,
+        repo_id: str,
+        hardware: SpaceHardware,
+        *,
+        token: Optional[str] = None,
+        sleep_time: Optional[int] = None,
+    ) -> SpaceRuntime:
         """Request new hardware for a Space.
 
         Args:
@@ -3556,20 +5064,313 @@ class HfApi:
                 Hardware on which to run the Space. Example: `"t4-medium"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
 
         <Tip>
 
-        It is also possible to request hardware directly when creating the Space repo!
-        See [`create_repo`] for details.
+        It is also possible to request hardware directly when creating the Space repo! See [`create_repo`] for details.
 
         </Tip>
         """
-        r = requests.post(
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                UserWarning,
+            )
+        payload: Dict[str, Any] = {"flavor": hardware}
+        if sleep_time is not None:
+            payload["sleepTimeSeconds"] = sleep_time
+        r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
             headers=self._build_hf_headers(token=token),
-            json={"flavor": hardware},
+            json=payload,
         )
         hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def set_space_sleep_time(self, repo_id: str, sleep_time: int, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Set a custom sleep time for a Space running on upgraded hardware..
+
+        Your Space will go to sleep after X seconds of inactivity. You are not billed when your Space is in "sleep"
+        mode. If a new visitor lands on your Space, it will "wake it up". Only upgraded hardware can have a
+        configurable sleep time. To know more about the sleep stage, please refer to
+        https://huggingface.co/docs/hub/spaces-gpus#sleep-time.
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to pause (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is also possible to set a custom sleep time when requesting hardware with [`request_space_hardware`].
+
+        </Tip>
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
+            headers=self._build_hf_headers(token=token),
+            json={"seconds": sleep_time},
+        )
+        hf_raise_for_status(r)
+        runtime = SpaceRuntime(r.json())
+
+        hardware = runtime.requested_hardware or runtime.hardware
+        if hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                UserWarning,
+            )
+        return runtime
+
+    @validate_hf_hub_args
+    def pause_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
+        """Pause your Space.
+
+        A paused Space stops executing until manually restarted by its owner. This is different from the sleeping
+        state in which free Spaces go after 48h of inactivity. Paused time is not billed to your account, no matter the
+        hardware you've selected. To restart your Space, use [`restart_space`] and go to your Space settings page.
+
+        For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to pause. Example: `"Salesforce/BLIP2"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space including `stage=PAUSED` and requested hardware.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can pause it. If you want to manage a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def restart_space(
+        self, repo_id: str, *, token: Optional[str] = None, factory_reboot: bool = False
+    ) -> SpaceRuntime:
+        """Restart your Space.
+
+        This is the only way to programmatically restart a Space if you've put it on Pause (see [`pause_space`]). You
+        must be the owner of the Space to restart it. If you are using an upgraded hardware, your account will be
+        billed as soon as the Space is restarted. You can trigger a restart no matter the current state of a Space.
+
+        For more details, please visit [the docs](https://huggingface.co/docs/hub/spaces-gpus#pause).
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to restart. Example: `"Salesforce/BLIP2"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+            factory_reboot (`bool`, *optional*):
+                If `True`, the Space will be rebuilt from scratch without caching any requirements.
+
+        Returns:
+            [`SpaceRuntime`]: Runtime information about your Space.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If your Space is not found (error 404). Most probably wrong repo_id or your space is private but you
+                are not authenticated.
+            [`~utils.HfHubHTTPError`]:
+                403 Forbidden: only the owner of a Space can restart it. If you want to restart a Space that you don't
+                own, either ask the owner by opening a Discussion or duplicate the Space.
+            [`~utils.BadRequestError`]:
+                If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
+                a static Space, you can set it to private.
+        """
+        params = {}
+        if factory_reboot:
+            params["factory"] = "true"
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), params=params
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def duplicate_space(
+        self,
+        from_id: str,
+        to_id: Optional[str] = None,
+        *,
+        private: Optional[bool] = None,
+        token: Optional[str] = None,
+        exist_ok: bool = False,
+    ) -> RepoUrl:
+        """Duplicate a Space.
+
+        Programmatically duplicate a Space. The new Space will be created in your account and will be in the same state
+        as the original Space (running or paused). You can duplicate a Space no matter the current state of a Space.
+
+        Args:
+            from_id (`str`):
+                ID of the Space to duplicate. Example: `"pharma/CLIP-Interrogator"`.
+            to_id (`str`, *optional*):
+                ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
+                name as the original Space, but in your account.
+            private (`bool`, *optional*):
+                Whether the new Space should be private or not. Defaults to the same privacy as the original Space.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+            exist_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo already exists.
+
+        Returns:
+            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
+            attributes like `endpoint`, `repo_type` and `repo_id`.
+
+        Raises:
+            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+              if the HuggingFace API returned an error
+            - [`~utils.RepositoryNotFoundError`]
+              If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
+              or because it is set to `private` and you do not have access.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_space
+
+        # Duplicate a Space to your account
+        >>> duplicate_space("multimodalart/dreambooth-training")
+        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+        # Can set custom destination id and visibility flag.
+        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", private=True)
+        RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
+        ```
+        """
+        # Parse to_id if provided
+        parsed_to_id = RepoUrl(to_id) if to_id is not None else None
+
+        # Infer target repo_id
+        to_namespace = (  # set namespace manually or default to username
+            parsed_to_id.namespace
+            if parsed_to_id is not None and parsed_to_id.namespace is not None
+            else self.whoami(token)["name"]
+        )
+        to_repo_name = parsed_to_id.repo_name if to_id is not None else RepoUrl(from_id).repo_name  # type: ignore
+
+        # repository must be a valid repo_id (namespace/repo_name).
+        payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
+
+        # private is optional with this endpoint, with None defaulting to the original space's privacy.
+        if private is not None:
+            payload["private"] = private
+
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{from_id}/duplicate",
+            headers=self._build_hf_headers(token=token, is_write_action=True),
+            json=payload,
+        )
+
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if exist_ok and err.response.status_code == 409:
+                # Repo already exists and `exist_ok=True`
+                pass
+            else:
+                raise
+
+        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+
+    @validate_hf_hub_args
+    def request_space_storage(
+        self,
+        repo_id: str,
+        storage: SpaceStorage,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Request persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            storage (`str` or [`SpaceStorage`]):
+               Storage tier. Either 'small', 'medium', or 'large'.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is not possible to decrease persistent storage after its granted. To do so, you must delete it
+        via [`delete_space_storage`].
+
+        </Tip>
+        """
+        payload: Dict[str, SpaceStorage] = {"tier": storage}
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def delete_space_storage(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Delete persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+        Raises:
+            [`BadRequestError`]
+                If space has no persistent storage.
+
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
 
     def _build_hf_headers(
         self,
@@ -3594,8 +5395,48 @@ class HfApi:
             user_agent=user_agent or self.user_agent,
         )
 
+    def _prepare_upload_folder_deletions(
+        self,
+        repo_id: str,
+        repo_type: Optional[str],
+        revision: Optional[str],
+        token: Optional[str],
+        path_in_repo: str,
+        delete_patterns: Optional[Union[List[str], str]],
+    ) -> List[CommitOperationDelete]:
+        """Generate the list of Delete operations for a commit to delete files from a repo.
 
-def _prepare_upload_folder_commit(
+        List remote files and match them against the `delete_patterns` constraints. Returns a list of [`CommitOperationDelete`]
+        with the matching items.
+
+        Note: `.gitattributes` file is essential to make a repo work properly on the Hub. This file will always be
+              kept even if it matches the `delete_patterns` constraints.
+        """
+        if delete_patterns is None:
+            # If no delete patterns, no need to list and filter remote files
+            return []
+
+        # List remote files
+        filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
+
+        # Compute relative path in repo
+        if path_in_repo:
+            path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
+            relpath_to_abspath = {
+                file[len(path_in_repo) :]: file for file in filenames if file.startswith(path_in_repo)
+            }
+        else:
+            relpath_to_abspath = {file: file for file in filenames}
+
+        # Apply filter on relative paths and return
+        return [
+            CommitOperationDelete(path_in_repo=relpath_to_abspath[relpath], is_folder=False)
+            for relpath in filter_repo_objects(relpath_to_abspath.keys(), allow_patterns=delete_patterns)
+            if relpath_to_abspath[relpath] != ".gitattributes"
+        ]
+
+
+def _prepare_upload_folder_additions(
     folder_path: Union[str, Path],
     path_in_repo: str,
     allow_patterns: Optional[Union[List[str], str]] = None,
@@ -3606,32 +5447,29 @@ def _prepare_upload_folder_commit(
     Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
     constraints are discarded.
     """
-    folder_path = os.path.normpath(os.path.expanduser(folder_path))
-    if not os.path.isdir(folder_path):
+    folder_path = Path(folder_path).expanduser().resolve()
+    if not folder_path.is_dir():
         raise ValueError(f"Provided path: '{folder_path}' is not a directory")
 
-    files_to_add: List[CommitOperationAdd] = []
-    for dirpath, _, filenames in os.walk(folder_path):
-        for filename in filenames:
-            abs_path = os.path.join(dirpath, filename)
-            rel_path = os.path.relpath(abs_path, folder_path)
-            files_to_add.append(
-                CommitOperationAdd(
-                    path_or_fileobj=abs_path,
-                    path_in_repo=os.path.normpath(
-                        os.path.join(path_in_repo, rel_path)
-                    ).replace(os.sep, "/"),
-                )
-            )
+    # List files from folder
+    relpath_to_abspath = {
+        path.relative_to(folder_path).as_posix(): path
+        for path in sorted(folder_path.glob("**/*"))  # sorted to be deterministic
+        if path.is_file()
+    }
 
-    return list(
-        filter_repo_objects(
-            files_to_add,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            key=lambda x: x.path_in_repo,
+    # Filter files and return
+    # Patterns are applied on the path relative to `folder_path`. `path_in_repo` is prefixed after the filtering.
+    prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
+    return [
+        CommitOperationAdd(
+            path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
+            path_in_repo=prefix + relpath,  # "absolute" path in repo
         )
-    )
+        for relpath in filter_repo_objects(
+            relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+        )
+    ]
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
@@ -3645,19 +5483,14 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     """
     re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
     if re_match is None:
-        raise RuntimeError(
-            "Unexpected response from the hub, expected a Pull Request URL but got:"
-            f" '{pr_url}'"
-        )
+        raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
 
 
 api = HfApi()
 
-set_access_token = api.set_access_token
-unset_access_token = api.unset_access_token
-
 whoami = api.whoami
+get_token_permission = api.get_token_permission
 
 list_models = api.list_models
 model_info = api.model_info
@@ -3670,6 +5503,9 @@ space_info = api.space_info
 
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
+list_repo_refs = api.list_repo_refs
+list_repo_commits = api.list_repo_commits
+list_files_info = api.list_files_info
 
 list_metrics = api.list_metrics
 
@@ -3685,12 +5521,22 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+create_commits_on_pr = api.create_commits_on_pr
 create_branch = api.create_branch
 delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
 
+# Background jobs
+run_as_future = api.run_as_future
+
+# Activity API
+list_liked_repos = api.list_liked_repos
+like = api.like
+unlike = api.unlike
+
+# Community API
 get_discussion_details = api.get_discussion_details
 get_repo_discussions = api.get_repo_discussions
 create_discussion = api.create_discussion
@@ -3704,6 +5550,11 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
-get_space_secrets = api.get_space_secrets
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
+set_space_sleep_time = api.set_space_sleep_time
+pause_space = api.pause_space
+restart_space = api.restart_space
+duplicate_space = api.duplicate_space
+request_space_storage = api.request_space_storage
+delete_space_storage = api.delete_space_storage

@@ -6,10 +6,10 @@ for more information on Pull Requests, Discussions, and the community tab.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
+from .constants import REPO_TYPE_MODEL
 from .utils import parse_datetime
-from .utils._typing import Literal
 
 
 DiscussionStatus = Literal["open", "closed", "merged", "draft"]
@@ -44,9 +44,15 @@ class Discussion:
             The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a Pull Request.
+            Whether or not this is a Pull Request.
         created_at (`datetime`):
             The `datetime` of creation of the Discussion / Pull Request.
+        endpoint (`str`):
+            Endpoint of the Hub. Default is https://huggingface.co.
+        git_reference (`str`, *optional*):
+            (property) Git reference to which changes can be pushed if this is a Pull Request, `None` otherwise.
+        url (`str`):
+            (property) URL of the discussion on the Hub.
     """
 
     title: str
@@ -57,6 +63,7 @@ class Discussion:
     author: str
     is_pull_request: bool
     created_at: datetime
+    endpoint: str
 
     @property
     def git_reference(self) -> Optional[str]:
@@ -67,6 +74,13 @@ class Discussion:
         if self.is_pull_request:
             return f"refs/pr/{self.num}"
         return None
+
+    @property
+    def url(self) -> str:
+        """Returns the URL of the discussion on the Hub."""
+        if self.repo_type is None or self.repo_type == REPO_TYPE_MODEL:
+            return f"{self.endpoint}/{self.repo_id}/discussions/{self.num}"
+        return f"{self.endpoint}/{self.repo_type}s/{self.repo_id}/discussions/{self.num}"
 
 
 @dataclass
@@ -96,7 +110,7 @@ class DiscussionWithDetails(Discussion):
             The username of the Discussion / Pull Request author.
             Can be `"deleted"` if the user has been deleted since.
         is_pull_request (`bool`):
-            Wether or not this is a Pull Request.
+            Whether or not this is a Pull Request.
         created_at (`datetime`):
             The `datetime` of creation of the Discussion / Pull Request.
         events (`list` of [`DiscussionEvent`])
@@ -112,6 +126,12 @@ class DiscussionWithDetails(Discussion):
             the merge commit, `None` otherwise.
         diff (`str`, *optional*):
             The git diff if this is a Pull Request , `None` otherwise.
+        endpoint (`str`):
+            Endpoint of the Hub. Default is https://huggingface.co.
+        git_reference (`str`, *optional*):
+            (property) Git reference to which changes can be pushed if this is a Pull Request, `None` otherwise.
+        url (`str`):
+            (property) URL of the discussion on the Hub.
     """
 
     events: List["DiscussionEvent"]
@@ -175,7 +195,7 @@ class DiscussionComment(DiscussionEvent):
         content (`str`):
             The raw markdown content of the comment. Mentions, links and images are not rendered.
         edited (`bool`):
-            Wether or not this comment has been edited.
+            Whether or not this comment has been edited.
         hidden (`bool`):
             Whether or not this comment has been hidden.
     """
@@ -196,7 +216,7 @@ class DiscussionComment(DiscussionEvent):
 
     @property
     def last_edited_by(self) -> str:
-        """The last edit tiem, as a `datetime` object."""
+        """The last edit time, as a `datetime` object."""
         return self._event["data"]["latest"].get("author", {}).get("name", "deleted")
 
     @property
