@@ -341,7 +341,7 @@ There are two types of operations supported by [`create_commit`]:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a differnt branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 
