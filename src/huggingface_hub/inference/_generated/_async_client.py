@@ -68,8 +68,6 @@ from huggingface_hub.inference._types import (
 )
 from huggingface_hub.utils import (
     build_hf_headers,
-    get_session,
-    hf_raise_for_status,
 )
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -1326,7 +1324,7 @@ class AsyncInferenceClient:
             else f"{INFERENCE_ENDPOINT}/models/{model}"
         )
 
-    async def get_model_status(self, model: Optional[str] = None, *, token: Optional[str] = None) -> ModelStatus:
+    async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         A function which returns the status of a specific model, from the Inference API.
 
@@ -1336,33 +1334,23 @@ class AsyncInferenceClient:
                 the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
                 identifier cannot be a URL.
 
-            token (`str`, *optional*)
-                  Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
-        your token to the server.
-
 
         Returns:
             [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
                          about the state of the model: load, state, compute type and framework.
-
-        Raises:
-            [`ValueError`]:
-                If the model is missing, meaning is not provided.
-                And if if the API returns an error message(missing model).
-            [`NotImplementedError`]:
-                If the provided model is a URL.
-
         """
         model = model or self.model
         if model is None:
-            raise ValueError("Model id not provided")
+            raise ValueError("Model id not provided.")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
+        url = f"{INFERENCE_ENDPOINT}/status/{model}"
 
-        huggingface_interface_response = get_session().get(f"{INFERENCE_ENDPOINT}/status/{model}")
-        hf_raise_for_status(huggingface_interface_response)
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_data = await response.json()
 
-        response_data = huggingface_interface_response.json()
         if "error" in response_data:
             raise ValueError(response_data["error"])
 
