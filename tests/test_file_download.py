@@ -56,7 +56,7 @@ from huggingface_hub.utils import (
     SoftTemporaryDirectory,
 )
 
-from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN, PRODUCTION_TOKEN
+from .testing_constants import ENDPOINT_STAGING, PRODUCTION_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
