@@ -56,7 +56,7 @@ from huggingface_hub.utils import (
     SoftTemporaryDirectory,
 )
 
-from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
+from .testing_constants import ENDPOINT_STAGING, PRODUCTION_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -613,6 +613,29 @@ class CachedDownloadTests(unittest.TestCase):
                 cache_dir=cache_dir,
             )
 
+    @with_production_testing
+    def test_download_from_a_gated_repo_with_hf_hub_download(self):
+        """Checks `hf_hub_download` outputs error on gated repo.
+
+        Regression test for #1121.
+        https://github.com/huggingface/huggingface_hub/pull/1121
+
+        Cannot test on staging as dynamically setting a gated repo doesn't work there.
+        """
+        # Cannot download file as repo is gated
+        with SoftTemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                GatedRepoError,
+                "Access to model .* is restricted and you are not in the authorized list",
+            ):
+                hf_hub_download(
+                    # Starcoder is gated on production
+                    repo_id="bigcode/starcoder",
+                    filename=".gitattributes",
+                    token=PRODUCTION_TOKEN,
+                    cache_dir=tmpdir,
+                )
+
 
 @with_production_testing
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -770,37 +793,6 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             )
             self.assertFalse(config_path.is_symlink())
             self.assertNotEquals(config_path.read_text(), "this will be overwritten")
-
-
-class StagingCachedDownloadTest(unittest.TestCase):
-    def test_download_from_a_gated_repo_with_hf_hub_download(self):
-        """Checks `hf_hub_download` outputs error on gated repo.
-
-        Regression test for #1121.
-        https://github.com/huggingface/huggingface_hub/pull/1121
-        """
-        # Create a gated repo on the fly. Repo is created by "other user" so that the
-        # usual CI user don't have access to it.
-        api = HfApi(token=OTHER_TOKEN)
-        repo_url = api.create_repo(repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True)
-        requests.put(
-            f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
-            headers=api._build_hf_headers(),
-            json={"gated": "auto"},
-        ).raise_for_status()
-
-        # Cannot download file as repo is gated
-        with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaisesRegex(
-                GatedRepoError,
-                "Access to model .* is restricted and you are not in the authorized list",
-            ):
-                hf_hub_download(
-                    repo_id=repo_url.repo_id,
-                    filename=".gitattributes",
-                    use_auth_token=TOKEN,
-                    cache_dir=tmpdir,
-                )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
