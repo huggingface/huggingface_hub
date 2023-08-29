@@ -131,6 +131,14 @@ class tqdm(old_tqdm):
             kwargs["disable"] = True
         super().__init__(*args, **kwargs)
 
+    def __delattr__(self, attr):
+        """fix for https://github.com/huggingface/huggingface_hub/issues/1603"""
+        try:
+            del self.__dict__[attr]
+        except KeyError:
+            if attr != "_lock":
+                raise AttributeError(attr)
+
 
 @contextmanager
 def tqdm_stream_file(path: Union[Path, str]) -> Iterator[io.BufferedReader]:
