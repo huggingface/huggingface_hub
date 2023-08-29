@@ -48,13 +48,16 @@ from typing import (
     Union,
     overload,
 )
-from requests import HTTPError, request
+
+from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import INFERENCE_ENDPOINT
 from huggingface_hub.inference._common import (
+    TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelStatus,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
@@ -65,7 +68,6 @@ from huggingface_hub.inference._common import (
     _open_as_binary,
     _set_as_non_tgi,
     _stream_text_generation_response,
-    ModelStatus,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -93,7 +95,6 @@ if TYPE_CHECKING:
     from PIL import Image
 
 logger = logging.getLogger(__name__)
-
 
 
 class InferenceClient:
@@ -205,6 +206,11 @@ class InferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
+        # Set Accept header if relevant
+        headers = self.headers.copy()
+        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
+            headers["Accept"] = "image/png"
+
         t0 = time.time()
         timeout = self.timeout
         while True:
@@ -214,7 +220,7 @@ class InferenceClient:
                         url,
                         json=json,
                         data=data_as_binary,
-                        headers=self.headers,
+                        headers=headers,
                         cookies=self.cookies,
                         timeout=self.timeout,
                         stream=stream,
@@ -579,7 +585,7 @@ class InferenceClient:
             payload = {"inputs": _b64_encode(image)}
             for key, value in parameters.items():
                 if value is not None:
-                    payload[key] = value
+                    payload.setdefault("parameters", {})[key] = value
 
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
@@ -1186,8 +1192,8 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
+        payload = {"inputs": prompt}
         parameters = {
-            "inputs": prompt,
             "negative_prompt": negative_prompt,
             "height": height,
             "width": width,
@@ -1195,10 +1201,9 @@ class InferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        payload = {}
         for key, value in parameters.items():
             if value is not None:
-                payload[key] = value
+                payload.setdefault("parameters", {})[key] = value  # type: ignore
         response = self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
@@ -1309,47 +1314,47 @@ class InferenceClient:
 
     def get_model_status(self, model: Optional[str] = None, *, token: Optional[str] = None) -> ModelStatus:
         """
-            A function which returns the status of a specific model, from the Inference API.
+        A function which returns the status of a specific model, from the Inference API.
 
-            Args:
-                model (`str`, *optional*):
-                    Identifier of the model for witch the status gonna be checked. If model is not provided, 
-                    the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the 
-                    identifier cannot be a URL.
+        Args:
+            model (`str`, *optional*):
+                Identifier of the model for witch the status gonna be checked. If model is not provided,
+                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                identifier cannot be a URL.
 
-                token (`str`, *optional*)
-                      Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
-            your token to the server.
-            
+            token (`str`, *optional*)
+                  Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
+        your token to the server.
 
-            Returns:
-                [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
-                             about the state of the model: load, state, compute type and framework.
-                      
-            Raises:
-                [`ValueError`]:
-                    If the model is missing, meaning is not provided. 
-                    And if if the API returns an error message(missing model).
-                [`NotImplementedError`]:
-                    If the provided model is a URL.
-                
+
+        Returns:
+            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
+                         about the state of the model: load, state, compute type and framework.
+
+        Raises:
+            [`ValueError`]:
+                If the model is missing, meaning is not provided.
+                And if if the API returns an error message(missing model).
+            [`NotImplementedError`]:
+                If the provided model is a URL.
+
         """
         model = model or self.model
         if model is None:
-             raise ValueError("Model id not provided")
+            raise ValueError("Model id not provided")
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
-        
+
         huggingface_interface_response = get_session().get(f"{INFERENCE_ENDPOINT}/status/{model}")
-        huggingface_interface_response.raise_for_status()
-        
+        hf_raise_for_status(huggingface_interface_response)
+
         response_data = huggingface_interface_response.json()
         if "error" in response_data:
             raise ValueError(response_data["error"])
-        
+
         return ModelStatus(
-            loaded=response_data['loaded'],
-            state=response_data['state'],
-            compute_type=response_data['compute_type'],
-            framework=response_data['framework'],
+            loaded=response_data["loaded"],
+            state=response_data["state"],
+            compute_type=response_data["compute_type"],
+            framework=response_data["framework"],
         )

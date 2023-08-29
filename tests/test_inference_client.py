@@ -22,7 +22,7 @@ from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import with_production_testing
 
@@ -203,11 +203,17 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
-    def test_text_to_image(self) -> None:
+    def test_text_to_image_default(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
-        self.assertEqual(image.height, 768)
-        self.assertEqual(image.width, 768)
+        self.assertEqual(image.height, 512)
+        self.assertEqual(image.width, 512)
+
+    def test_text_to_image_with_parameters(self) -> None:
+        image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
+        self.assertIsInstance(image, Image.Image)
+        self.assertEqual(image.height, 256)
+        self.assertEqual(image.width, 256)
 
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")
@@ -331,13 +337,25 @@ class TestHeadersAndCookies(unittest.TestCase):
             stream=False,
         )
 
+    @patch("huggingface_hub.inference._client._bytes_to_image")
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_accept_header_image(self, get_session_mock: MagicMock, bytes_to_image_mock: MagicMock) -> None:
+        """Test that Accept: image/png header is set for image tasks."""
+        client = InferenceClient()
+
+        response = client.text_to_image("An astronaut riding a horse")
+        self.assertEqual(response, bytes_to_image_mock.return_value)
+
+        headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
+        self.assertEqual(headers["Accept"], "image/png")
+
+
 class TestModelStatus(unittest.TestCase):
-    
     # too big model test case
     def test_too_big_model(self) -> None:
         client = InferenceClient()
         model_status = client.get_model_status("facebook/nllb-moe-54b")
-        self.assertEqual(model_status.loaded, False)
+        self.assertFalse(model_status.loaded)
         self.assertEqual(model_status.state, "TooBig")
         self.assertEqual(model_status.compute_type, "cpu")
         self.assertEqual(model_status.framework, "transformers")
@@ -346,7 +364,7 @@ class TestModelStatus(unittest.TestCase):
     def test_loaded_model(self) -> None:
         client = InferenceClient()
         model_status = client.get_model_status("bigcode/starcoder")
-        self.assertEqual(model_status.loaded, False)
+        self.assertTrue(model_status.loaded)
         self.assertEqual(model_status.state, "Loaded")
         self.assertEqual(model_status.compute_type, "gpu")
         self.assertEqual(model_status.framework, "text-generation-inference")
@@ -354,13 +372,11 @@ class TestModelStatus(unittest.TestCase):
     # unknown model test case
     def test_unknown_model(self) -> None:
         client = InferenceClient()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(HfHubHTTPError):
             client.get_model_status("unknown/model")
 
-    # model as url test case    
+    # model as url test case
     def test_model_as_url(self) -> None:
         client = InferenceClient()
         with self.assertRaises(NotImplementedError):
             client.get_model_status("https://unkown/model")
-
-

@@ -33,7 +33,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import SpaceHardware, SpaceStage
+from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -137,6 +137,38 @@ def test_repo_id_no_warning():
         with warnings.catch_warnings(record=True) as record:
             getattr(api, method)(REPO_NAME, repo_type=REPO_TYPE_MODEL, **kwargs)
         assert not len(record)
+
+
+class HfApiRepoFileExistsTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name(), private=True).repo_id
+        self.upload = self._api.upload_file(repo_id=self.repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    @retry_endpoint
+    def test_repo_exists(self):
+        self.assertTrue(self._api.repo_exists(self.repo_id))
+        self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
+        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+
+    @retry_endpoint
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://hub-ci.huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_file_exists(self):
+        self.assertTrue(self._api.file_exists(self.repo_id, "file.txt"))
+        self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
+        self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
+        self.assertFalse(
+            self._api.file_exists(self.repo_id, "file.txt", revision="revision-that-does-not-exist")
+        )  # missing revision
+        self.assertFalse(self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
 
 
 class HfApiEndpointsTest(HfApiCommonTest):
@@ -2351,16 +2383,18 @@ class ActivityApiTest(unittest.TestCase):
         self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_liked_repos_no_auth(self) -> None:
-        # Create a list 1 liked repo
-        liked_repo_name = "repo-that-is-liked-public"
-        repo_url = self.api.create_repo(liked_repo_name, exist_ok=True, token=TOKEN)
-        self.api.like(repo_url.repo_id, token=TOKEN)
+        # Create a repo + like
+        repo_id = self.api.create_repo(repo_name(), exist_ok=True, token=TOKEN).repo_id
+        self.api.like(repo_id, token=TOKEN)
 
         # Fetch liked repos without auth
-        likes = self.api.list_liked_repos(USER)
+        likes = self.api.list_liked_repos(USER, token=False)
         self.assertEqual(likes.user, USER)
         self.assertGreater(len(likes.models) + len(likes.datasets) + len(likes.spaces), 0)
-        self.assertIn(repo_url.repo_id, likes.models)
+        self.assertIn(repo_id, likes.models)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
@@ -2399,8 +2433,15 @@ class TestSpaceAPIProduction(unittest.TestCase):
         self.api.add_space_secret(self.repo_id, "token", "hf_api_123456")
         self.api.add_space_secret(self.repo_id, "gh_api_key", "******")
 
+        # Add secret with optional description
+        self.api.add_space_secret(self.repo_id, "bar", "123", description="This is a secret")
+
         # Update secret
         self.api.add_space_secret(self.repo_id, "foo", "456")
+
+        # Update secret with optional description
+        self.api.add_space_secret(self.repo_id, "foo", "789", description="This is a secret")
+        self.api.add_space_secret(self.repo_id, "bar", "456", description="This is another secret")
 
         # Delete secret
         self.api.delete_space_secret(self.repo_id, "gh_api_key")
@@ -2512,6 +2553,76 @@ class TestCommitInBackground(HfApiCommonTest):
         self.assertEqual(info_2.likes, 0)
 
 
+class TestDownloadHfApiAlias(unittest.TestCase):
+    def setUp(self) -> None:
+        self.api = HfApi(
+            endpoint="https://hf.co",
+            token="user_token",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+        )
+        return super().setUp()
+
+    @patch("huggingface_hub.file_download.hf_hub_download")
+    def test_hf_hub_download_alias(self, mock: Mock) -> None:
+        self.api.hf_hub_download("my_repo_id", "file.txt")
+        mock.assert_called_once_with(
+            # Call values
+            repo_id="my_repo_id",
+            filename="file.txt",
+            # HfAPI values
+            endpoint="https://hf.co",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+            token="user_token",
+            # Default values
+            subfolder=None,
+            repo_type=None,
+            revision=None,
+            cache_dir=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
+            force_download=False,
+            force_filename=None,
+            proxies=None,
+            etag_timeout=10,
+            resume_download=False,
+            local_files_only=False,
+            legacy_cache_layout=False,
+        )
+
+    @patch("huggingface_hub._snapshot_download.snapshot_download")
+    def test_snapshot_download_alias(self, mock: Mock) -> None:
+        self.api.snapshot_download("my_repo_id")
+        mock.assert_called_once_with(
+            # Call values
+            repo_id="my_repo_id",
+            # HfAPI values
+            endpoint="https://hf.co",
+            library_name="cool_one",
+            library_version="1.0.0",
+            user_agent="myself",
+            token="user_token",
+            # Default values
+            repo_type=None,
+            revision=None,
+            cache_dir=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
+            proxies=None,
+            etag_timeout=10,
+            resume_download=False,
+            force_download=False,
+            local_files_only=False,
+            allow_patterns=None,
+            ignore_patterns=None,
+            max_workers=8,
+            tqdm_class=None,
+        )
+
+
 class TestSpaceAPIMocked(unittest.TestCase):
     """
     Testing Space hardware requests is resource intensive for the server (need to spawn
@@ -2533,6 +2644,20 @@ class TestSpaceAPIMocked(unittest.TestCase):
                 "current": "t4-medium",
                 "requested": "t4-medium",
             },
+            "storage": "large",
+            "gcTimeout": None,
+        }
+        self.delete_mock = get_session_mock().delete
+        self.delete_mock.return_value.json.return_value = {
+            "url": f"{self.api.endpoint}/spaces/user/repo_id",
+            "stage": "RUNNING",
+            "sdk": "gradio",
+            "sdkVersion": "3.17.0",
+            "hardware": {
+                "current": "t4-medium",
+                "requested": "t4-medium",
+            },
+            "storage": None,
             "gcTimeout": None,
         }
         self.patcher = patch("huggingface_hub.hf_api.get_session", get_session_mock)
@@ -2589,6 +2714,31 @@ class TestSpaceAPIMocked(unittest.TestCase):
         self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
         with self.assertWarns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
+
+    def test_request_space_storage(self) -> None:
+        runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
+            headers=self.api._build_hf_headers(),
+            json={"tier": "large"},
+        )
+        assert runtime.storage == SpaceStorage.LARGE
+
+    def test_delete_space_storage(self) -> None:
+        runtime = self.api.delete_space_storage(self.repo_id)
+        self.delete_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
+            headers=self.api._build_hf_headers(),
+        )
+        assert runtime.storage is None
+
+    def test_restart_space_factory_reboot(self) -> None:
+        self.api.restart_space(self.repo_id, factory_reboot=True)
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/restart",
+            headers=self.api._build_hf_headers(),
+            params={"factory": "true"},
+        )
 
 
 class ListGitRefsTest(unittest.TestCase):

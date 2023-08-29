@@ -46,12 +46,14 @@ from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
+from tqdm.auto import tqdm as base_tqdm
 
 from huggingface_hub.utils import (
     IGNORE_GIT_FOLDER_PATTERNS,
     EntryNotFoundError,
     LocalTokenNotFoundError,
     RepositoryNotFoundError,
+    RevisionNotFoundError,
     experimental,
     get_session,
 )
@@ -80,7 +82,7 @@ from ._multi_commits import (
     multi_commit_parse_pr_description,
     plan_multi_commits,
 )
-from ._space_api import SpaceHardware, SpaceRuntime
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
 from .community import (
     Discussion,
     DiscussionComment,
@@ -98,6 +100,10 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+)
+from .file_download import (
+    get_hf_file_metadata,
+    hf_hub_url,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
@@ -864,9 +870,8 @@ class HfApi:
 
         Args:
             endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. To
-                be set if you are using a private hub. Otherwise, one can set the
-                `HF_ENDPOINT` environment variable.
+                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise,
+                one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
@@ -1887,6 +1892,110 @@ class HfApi:
             timeout=timeout,
             files_metadata=files_metadata,
         )
+
+    @validate_hf_hub_args
+    def repo_exists(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a repository exists on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import repo_exists
+            >>> repo_exists("huggingface/transformers")
+            True
+            >>> repo_exists("huggingface/not-a-repo")
+            False
+            ```
+
+        </Tip>
+        """
+        try:
+            self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+            return True
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def file_exists(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a file exists in a repository on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the file exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import file_exists
+            >>> file_exists("bigcode/starcoder", "config.json")
+            True
+            >>> file_exists("bigcode/starcoder", "not-a-file")
+            False
+            >>> file_exists("bigcode/not-a-repo", "config.json")
+            False
+            ```
+
+        </Tip>
+        """
+        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        try:
+            if token is None:
+                token = self.token
+            get_hf_file_metadata(url, token=token)
+            return True
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            return False
 
     @validate_hf_hub_args
     def list_files_info(
@@ -3696,6 +3805,299 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def hf_hub_download(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        subfolder: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+        force_download: bool = False,
+        force_filename: Optional[str] = None,
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        local_files_only: bool = False,
+        legacy_cache_layout: bool = False,
+    ) -> str:
+        """Download a given file if it's not already present in the local cache.
+
+        The new cache file layout looks like this:
+        - The cache directory contains one subfolder per repo_id (namespaced by repo type)
+        - inside each repo folder:
+            - refs is a list of the latest known revision => commit_hash pairs
+            - blobs contains the actual file blobs (identified by their git-sha or sha256, depending on
+            whether they're LFS files or not)
+            - snapshots contains one subfolder per commit, each "commit" contains the subset of the files
+            that have been resolved at that particular commit. Each filename is a symlink to the blob
+            at that particular commit.
+
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+        how you want to move those files:
+        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+            environment variable.
+        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+            This is optimal in term of disk usage but files must not be manually edited.
+        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+            local dir. This means disk usage is not optimized.
+        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+            they will be re-downloaded entirely.
+
+        ```
+        [  96]  .
+        └── [ 160]  models--julien-c--EsperBERTo-small
+            ├── [ 160]  blobs
+            │   ├── [321M]  403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+            │   ├── [ 398]  7cb18dc9bafbfcf74629a4b760af1b160957a83e
+            │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
+            ├── [  96]  refs
+            │   └── [  40]  main
+            └── [ 128]  snapshots
+                ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+                │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+                │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+                └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+                    ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+                    └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        ```
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            subfolder (`str`, *optional*):
+                An optional value corresponding to a folder inside the model repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+                `None` or `"model"` if downloading from a model. Default is `None`.
+            revision (`str`, *optional*):
+                An optional Git revision id which can be a branch name, a tag, or a
+                commit hash.
+            endpoint (`str`, *optional*):
+                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+                environment variable.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored.
+            local_dir (`str` or `Path`, *optional*):
+                If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
+                a regular file (see description for more details).
+            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+                already exists) or downloaded from the Hub and not cached. See description for more details.
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether the file should be downloaded even if it already exists in
+                the local cache.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to
+                `requests.request`.
+            etag_timeout (`float`, *optional*, defaults to `10`):
+                When fetching ETag, how many seconds to wait for the server to send
+                data before giving up which is passed to `requests.request`.
+            resume_download (`bool`, *optional*, defaults to `False`):
+                If `True`, resume a previously interrupted download.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the
+                local cached file if it exists.
+            legacy_cache_layout (`bool`, *optional*, defaults to `False`):
+                If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
+                then `cached_download`. This is deprecated as the new cache layout is
+                more powerful.
+
+        Returns:
+            Local path (string) of file or if networking is off, last version of
+            file cached on disk.
+
+        <Tip>
+
+        Raises the following errors:
+
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            if `token=True` and the token cannot be found.
+            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+            if ETag cannot be determined.
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid
+            - [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+            - [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+            - [`~utils.EntryNotFoundError`]
+            If the file to download cannot be found.
+            - [`~utils.LocalEntryNotFoundError`]
+            If network is disabled or unavailable and file is not found in cache.
+
+        </Tip>
+        """
+        from .file_download import hf_hub_download
+
+        return hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            subfolder=subfolder,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_dir_use_symlinks=local_dir_use_symlinks,
+            user_agent=self.user_agent,
+            force_download=force_download,
+            force_filename=force_filename,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            token=self.token,
+            local_files_only=local_files_only,
+            legacy_cache_layout=legacy_cache_layout,
+        )
+
+    @validate_hf_hub_args
+    def snapshot_download(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        cache_dir: Union[str, Path, None] = None,
+        local_dir: Union[str, Path, None] = None,
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+        proxies: Optional[Dict] = None,
+        etag_timeout: float = 10,
+        resume_download: bool = False,
+        force_download: bool = False,
+        local_files_only: bool = False,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        max_workers: int = 8,
+        tqdm_class: Optional[base_tqdm] = None,
+    ) -> str:
+        """Download repo files.
+
+        Download a whole snapshot of a repo's files at the specified revision. This is useful when you want all files from
+        a repo, because you don't know which ones you will need a priori. All files are nested inside a folder in order
+        to keep their actual filename relative to that folder. You can also filter which files to download using
+        `allow_patterns` and `ignore_patterns`.
+
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
+        how you want to move those files:
+        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
+            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
+            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
+            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
+            environment variable.
+        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
+            This is optimal in term of disk usage but files must not be manually edited.
+        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
+            local dir. This means disk usage is not optimized.
+        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
+            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
+            they will be re-downloaded entirely.
+
+        An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
+        configured. It is also not possible to filter which files to download when cloning a repository using git.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if downloading from a dataset or space,
+                `None` or `"model"` if downloading from a model. Default is `None`.
+            revision (`str`, *optional*):
+                An optional Git revision id which can be a branch name, a tag, or a
+                commit hash.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored.
+            local_dir (`str` or `Path`, *optional*:
+                If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
+                regular files (see description for more details).
+            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
+                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
+                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
+                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
+                already exists) or downloaded from the Hub and not cached. See description for more details.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to
+                `requests.request`.
+            etag_timeout (`float`, *optional*, defaults to `10`):
+                When fetching ETag, how many seconds to wait for the server to send
+                data before giving up which is passed to `requests.request`.
+            resume_download (`bool`, *optional*, defaults to `False):
+                If `True`, resume a previously interrupted download.
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether the file should be downloaded even if it already exists in the local cache.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, avoid downloading the file and return the path to the
+                local cached file if it exists.
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are downloaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not downloaded.
+            max_workers (`int`, *optional*):
+                Number of concurrent threads to download files (1 thread = 1 file download).
+                Defaults to 8.
+            tqdm_class (`tqdm`, *optional*):
+                If provided, overwrites the default behavior for the progress bar. Passed
+                argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+                Note that the `tqdm_class` is not passed to each individual download.
+                Defaults to the custom HF progress bar that can be disabled by setting
+                `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+
+        Returns:
+            Local folder path (string) of repo snapshot
+
+        <Tip>
+
+        Raises the following errors:
+
+        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+        if `token=True` and the token cannot be found.
+        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+        ETag cannot be determined.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        if some parameter value is invalid
+
+        </Tip>
+        """
+        from ._snapshot_download import snapshot_download
+
+        return snapshot_download(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+            cache_dir=cache_dir,
+            local_dir=local_dir,
+            local_dir_use_symlinks=local_dir_use_symlinks,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            user_agent=self.user_agent,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            resume_download=resume_download,
+            force_download=force_download,
+            token=self.token,
+            local_files_only=local_files_only,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            max_workers=max_workers,
+            tqdm_class=tqdm_class,
+        )
+
+    @validate_hf_hub_args
     def create_branch(
         self,
         repo_id: str,
@@ -4682,7 +5084,9 @@ class HfApi:
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
-    def add_space_secret(self, repo_id: str, key: str, value: str, *, token: Optional[str] = None) -> None:
+    def add_space_secret(
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
         """Adds or updates a secret in a Space.
 
         Secrets allow to set secret keys or tokens to a Space without hardcoding them.
@@ -4695,13 +5099,18 @@ class HfApi:
                 Secret key. Example: `"GITHUB_API_KEY"`
             value (`str`):
                 Secret value. Example: `"your_github_api_key"`.
+            description (`str`, *optional*):
+                Secret description. Example: `"Github API key to access the Github API"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
-            json={"key": key, "value": value},
+            json=payload,
         )
         hf_raise_for_status(r)
 
@@ -4879,7 +5288,9 @@ class HfApi:
         return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
-    def restart_space(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
+    def restart_space(
+        self, repo_id: str, *, token: Optional[str] = None, factory_reboot: bool = False
+    ) -> SpaceRuntime:
         """Restart your Space.
 
         This is the only way to programmatically restart a Space if you've put it on Pause (see [`pause_space`]). You
@@ -4893,6 +5304,8 @@ class HfApi:
                 ID of the Space to restart. Example: `"Salesforce/BLIP2"`.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+            factory_reboot (`bool`, *optional*):
+                If `True`, the Space will be rebuilt from scratch without caching any requirements.
 
         Returns:
             [`SpaceRuntime`]: Runtime information about your Space.
@@ -4908,8 +5321,11 @@ class HfApi:
                 If your Space is a static Space. Static Spaces are always running and never billed. If you want to hide
                 a static Space, you can set it to private.
         """
+        params = {}
+        if factory_reboot:
+            params["factory"] = "true"
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), params=params
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -5000,6 +5416,70 @@ class HfApi:
                 raise
 
         return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+
+    @validate_hf_hub_args
+    def request_space_storage(
+        self,
+        repo_id: str,
+        storage: SpaceStorage,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Request persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            storage (`str` or [`SpaceStorage`]):
+               Storage tier. Either 'small', 'medium', or 'large'.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+
+        <Tip>
+
+        It is not possible to decrease persistent storage after its granted. To do so, you must delete it
+        via [`delete_space_storage`].
+
+        </Tip>
+        """
+        payload: Dict[str, SpaceStorage] = {"tier": storage}
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
+
+    @validate_hf_hub_args
+    def delete_space_storage(
+        self,
+        repo_id: str,
+        *,
+        token: Optional[str] = None,
+    ) -> SpaceRuntime:
+        """Delete persistent storage for a Space.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        Returns:
+            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
+        Raises:
+            [`BadRequestError`]
+                If space has no persistent storage.
+
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/storage",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return SpaceRuntime(r.json())
 
     def _build_hf_headers(
         self,
@@ -5130,6 +5610,8 @@ dataset_info = api.dataset_info
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+repo_exists = api.repo_exists
+file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
@@ -5185,3 +5667,5 @@ set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_space = api.duplicate_space
+request_space_storage = api.request_space_storage
+delete_space_storage = api.delete_space_storage

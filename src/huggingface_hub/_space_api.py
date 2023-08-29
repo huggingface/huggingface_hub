@@ -63,6 +63,23 @@ class SpaceHardware(str, Enum):
     A100_LARGE = "a100-large"
 
 
+class SpaceStorage(str, Enum):
+    """
+    Enumeration of persistent storage available for your Space on the Hub.
+
+    Value can be compared to a string:
+    ```py
+    assert SpaceStorage.SMALL == "small"
+    ```
+
+    Taken from https://github.com/huggingface/moon-landing/blob/main/server/repo_types/SpaceHardwareFlavor.ts#L24 (private url).
+    """
+
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
 @dataclass
 class SpaceRuntime:
     """
@@ -91,6 +108,7 @@ class SpaceRuntime:
     hardware: Optional[SpaceHardware]
     requested_hardware: Optional[SpaceHardware]
     sleep_time: Optional[int]
+    storage: Optional[SpaceStorage]
     raw: Dict
 
     def __init__(self, data: Dict) -> None:
@@ -98,4 +116,5 @@ class SpaceRuntime:
         self.hardware = data["hardware"]["current"]
         self.requested_hardware = data["hardware"]["requested"]
         self.sleep_time = data["gcTimeout"]
+        self.storage = data["storage"]
         self.raw = data

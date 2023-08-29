@@ -26,6 +26,7 @@ from huggingface_hub import constants
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
     DEFAULT_REVISION,
+    ENDPOINT,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_CO_URL_TEMPLATE,
@@ -39,7 +40,10 @@ from .constants import (
 )
 from .utils import (
     EntryNotFoundError,
+    GatedRepoError,
     LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
     SoftTemporaryDirectory,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
@@ -173,6 +177,7 @@ def hf_hub_url(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Construct the URL of a file from the given information.
 
@@ -194,6 +199,9 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        endpoint (`str`, *optional*):
+            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+            environment variable.
 
     Example:
 
@@ -244,11 +252,13 @@ def hf_hub_url(
 
     if revision is None:
         revision = DEFAULT_REVISION
-    return HUGGINGFACE_CO_URL_TEMPLATE.format(
-        repo_id=repo_id,
-        revision=quote(revision, safe=""),
-        filename=quote(filename),
+    url = HUGGINGFACE_CO_URL_TEMPLATE.format(
+        repo_id=repo_id, revision=quote(revision, safe=""), filename=quote(filename)
     )
+    # Update endpoint if provided
+    if endpoint is not None and url.startswith(ENDPOINT):
+        url = endpoint + url[len(ENDPOINT) :]
+    return url
 
 
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
@@ -951,6 +961,29 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
+    """Check disk usage and log a warning if there is not enough disk space to download the file.
+
+    Args:
+        expected_size (`int`):
+            The expected size of the file in bytes.
+        target_dir (`str`):
+            The directory where the file will be stored after downloading.
+    """
+
+    target_dir = str(target_dir)
+    target_dir_free = shutil.disk_usage(target_dir).free
+
+    has_enough_space = target_dir_free >= expected_size
+
+    if not has_enough_space:
+        warnings.warn(
+            "Not enough free disk space to download the file. "
+            f"The expected file size is: {expected_size / 1e6:.2f} MB. "
+            f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
+        )
+
+
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -959,6 +992,7 @@ def hf_hub_download(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -1032,6 +1066,9 @@ def hf_hub_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
+        endpoint (`str`, *optional*):
+            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+            environment variable.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -1113,6 +1150,7 @@ def hf_hub_download(
             subfolder=subfolder,
             repo_type=repo_type,
             revision=revision,
+            endpoint=endpoint,
         )
 
         return cached_download(
@@ -1172,7 +1210,7 @@ def hf_hub_download(
                 return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
             return pointer_path
 
-    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision)
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
 
     headers = build_hf_headers(
         token=token,
@@ -1185,6 +1223,7 @@ def hf_hub_download(
     etag = None
     commit_hash = None
     expected_size = None
+    head_call_error: Optional[Exception] = None
     if not local_files_only:
         try:
             try:
@@ -1237,13 +1276,31 @@ def hf_hub_download(
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout,
             OfflineModeIsEnabled,
-        ):
+        ) as error:
             # Otherwise, our Internet connection is down.
             # etag is None
+            head_call_error = error
+            pass
+        except (RevisionNotFoundError, EntryNotFoundError):
+            # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
+            raise
+        except requests.HTTPError as error:
+            # Multiple reasons for an http error:
+            # - Repository is private and invalid/missing token sent
+            # - Repository is gated and invalid/missing token sent
+            # - Hub is down (error 500 or 504)
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
+            head_call_error = error
             pass
 
-    # etag is None == we don't have a connection or we passed local_files_only.
-    # try to get the last downloaded one from the specified revision.
+    # etag can be None for several reasons:
+    # 1. we passed local_files_only.
+    # 2. we don't have a connection
+    # 3. Hub is down (HTTP 500 or 504)
+    # 4. repo is not found -for example private or gated- and invalid/missing token sent
+    # => Try to get the last downloaded one from the specified revision.
+    #
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
     if etag is None:
@@ -1279,16 +1336,19 @@ def hf_hub_download(
         # Notify the user about that
         if local_files_only:
             raise LocalEntryNotFoundError(
-                "Cannot find the requested files in the disk cache and"
-                " outgoing traffic has been disabled. To enable hf.co look-ups"
-                " and downloads online, set 'local_files_only' to False."
+                "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
+                " hf.co look-ups and downloads online, set 'local_files_only' to False."
             )
+        elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
+            # Repo not found => let's raise the actual error
+            raise head_call_error
         else:
+            # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
             raise LocalEntryNotFoundError(
-                "Connection error, and we cannot find the requested files in"
-                " the disk cache. Please try again or make sure your Internet"
-                " connection is on."
-            )
+                "An error happened while trying to locate the file on the Hub and we cannot find the requested files"
+                " in the local cache. Please check your connection and try again or make sure your Internet connection"
+                " is on."
+            ) from head_call_error
 
     # From now on, etag and commit_hash are not None.
     assert etag is not None, "etag must have been retrieved from server"
@@ -1356,6 +1416,15 @@ def hf_hub_download(
         # Otherwise you get corrupt cache entries if the download gets interrupted.
         with temp_file_manager() as temp_file:
             logger.info("downloading %s to %s", url, temp_file.name)
+
+            if expected_size is not None:  # might be None if HTTP header not set correctly
+                # Check tmp path
+                _check_disk_space(expected_size, os.path.dirname(temp_file.name))
+
+                # Check destination
+                _check_disk_space(expected_size, os.path.dirname(blob_path))
+                if local_dir is not None:
+                    _check_disk_space(expected_size, local_dir)
 
             http_get(
                 url_to_download,

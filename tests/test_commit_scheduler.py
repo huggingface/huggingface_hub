@@ -40,9 +40,9 @@ class TestCommitScheduler(unittest.TestCase):
             every=1 / 60 / 10,  # every 0.1s
             hf_api=self.api,
         )
-        time.sleep(0.3)
+        time.sleep(0.5)
 
-        # Triggered at least twice times (at 0.0s and then 0.1s, 0.2s,...)
+        # Triggered at least twice (at 0.0s and then 0.1s, 0.2s,...)
         self.assertGreater(len(push_to_hub_mock.call_args_list), 2)
 
         # Can get the last upload result

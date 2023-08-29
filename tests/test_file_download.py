@@ -16,6 +16,7 @@ import re
 import shutil
 import stat
 import unittest
+import warnings
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -34,6 +35,7 @@ from huggingface_hub.constants import (
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
+    _check_disk_space,
     _create_symlink,
     _get_pointer_path,
     _normalize_etag,
@@ -54,7 +56,7 @@ from huggingface_hub.utils import (
     SoftTemporaryDirectory,
 )
 
-from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
+from .testing_constants import ENDPOINT_STAGING, PRODUCTION_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -83,6 +85,32 @@ DATASET_ID = SAMPLE_DATASET_IDENTIFIER
 DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257c61"
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
+
+
+class TestDiskUsageWarning(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Test with 100MB expected file size
+        cls.expected_size = 100 * 1024 * 1024
+
+    @patch("huggingface_hub.file_download.shutil.disk_usage")
+    def test_disk_usage_warning(self, disk_usage_mock: Mock) -> None:
+        # Test with only 1MB free disk space / not enough disk space, with UserWarning expected
+        disk_usage_mock.return_value.free = 1024 * 1024
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            _check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock)
+            assert len(w) == 1
+            assert issubclass(w[-1].category, UserWarning)
+
+        # Test with 200MB free disk space / enough disk space, with no warning expected
+        disk_usage_mock.return_value.free = 200 * 1024 * 1024
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            _check_disk_space(expected_size=self.expected_size, target_dir=disk_usage_mock)
+            assert len(w) == 0
 
 
 @with_production_testing
@@ -152,6 +180,20 @@ class CachedDownloadTests(unittest.TestCase):
                     local_files_only=True,
                     cache_dir=tmpdir,
                 )
+
+    def test_private_repo_and_file_cached_locally(self):
+        api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        repo_id = api.create_repo(repo_id=repo_name(), private=True).repo_id
+        api.upload_file(path_or_fileobj=b"content", path_in_repo=CONFIG_NAME, repo_id=repo_id)
+
+        with SoftTemporaryDirectory() as tmpdir:
+            # Download a first time with token => file is cached
+            filepath_1 = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir, token=TOKEN)
+
+            # Download without token => return cached file
+            filepath_2 = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+
+            self.assertEqual(filepath_1, filepath_2)
 
     def test_file_cached_and_read_only_access(self):
         """Should works if file is already cached and user has read-only permission.
@@ -345,6 +387,21 @@ class CachedDownloadTests(unittest.TestCase):
                 # "./resolve/main/config.json" and not "./resolve/main//config.json"
                 f"{DUMMY_MODEL_ID}/resolve/main/config.json",
             )
+        )
+
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_hf_hub_url_with_endpoint(self):
+        self.assertEqual(
+            hf_hub_url(
+                DUMMY_MODEL_ID,
+                filename=CONFIG_NAME,
+                endpoint="https://hf-ci.co",
+            ),
+            "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
         )
 
     def test_hf_hub_download_legacy(self):
@@ -556,6 +613,29 @@ class CachedDownloadTests(unittest.TestCase):
                 cache_dir=cache_dir,
             )
 
+    @with_production_testing
+    def test_download_from_a_gated_repo_with_hf_hub_download(self):
+        """Checks `hf_hub_download` outputs error on gated repo.
+
+        Regression test for #1121.
+        https://github.com/huggingface/huggingface_hub/pull/1121
+
+        Cannot test on staging as dynamically setting a gated repo doesn't work there.
+        """
+        # Cannot download file as repo is gated
+        with SoftTemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                GatedRepoError,
+                "Access to model .* is restricted and you are not in the authorized list",
+            ):
+                hf_hub_download(
+                    # Starcoder is gated on production
+                    repo_id="bigcode/starcoder",
+                    filename=".gitattributes",
+                    token=PRODUCTION_TOKEN,
+                    cache_dir=tmpdir,
+                )
+
 
 @with_production_testing
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -713,37 +793,6 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
             )
             self.assertFalse(config_path.is_symlink())
             self.assertNotEquals(config_path.read_text(), "this will be overwritten")
-
-
-class StagingCachedDownloadTest(unittest.TestCase):
-    def test_download_from_a_gated_repo_with_hf_hub_download(self):
-        """Checks `hf_hub_download` outputs error on gated repo.
-
-        Regression test for #1121.
-        https://github.com/huggingface/huggingface_hub/pull/1121
-        """
-        # Create a gated repo on the fly. Repo is created by "other user" so that the
-        # usual CI user don't have access to it.
-        api = HfApi(token=OTHER_TOKEN)
-        repo_url = api.create_repo(repo_id="gated_repo_for_huggingface_hub_ci", exist_ok=True)
-        requests.put(
-            f"{repo_url.endpoint}/api/models/{repo_url.repo_id}/settings",
-            headers=api._build_hf_headers(),
-            json={"gated": "auto"},
-        ).raise_for_status()
-
-        # Cannot download file as repo is gated
-        with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaisesRegex(
-                GatedRepoError,
-                "Access to model .* is restricted and you are not in the authorized list",
-            ):
-                hf_hub_download(
-                    repo_id=repo_url.repo_id,
-                    filename=".gitattributes",
-                    use_auth_token=TOKEN,
-                    cache_dir=tmpdir,
-                )
 
 
 @pytest.mark.usefixtures("fx_cache_dir")

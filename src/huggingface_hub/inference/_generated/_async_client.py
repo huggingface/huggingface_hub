@@ -38,8 +38,10 @@ from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import INFERENCE_ENDPOINT
 from huggingface_hub.inference._common import (
+    TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelStatus,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -66,6 +68,8 @@ from huggingface_hub.inference._types import (
 )
 from huggingface_hub.utils import (
     build_hf_headers,
+    get_session,
+    hf_raise_for_status,
 )
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -190,6 +194,11 @@ class AsyncInferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
+        # Set Accept header if relevant
+        headers = self.headers.copy()
+        if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
+            headers["Accept"] = "image/png"
+
         t0 = time.time()
         timeout = self.timeout
         while True:
@@ -197,11 +206,11 @@ class AsyncInferenceClient:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
                 client = aiohttp.ClientSession(
-                    headers=self.headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
                 )
 
                 try:
-                    response = await client.post(url, headers=build_hf_headers(), json=json, data=data_as_binary)
+                    response = await client.post(url, json=json, data=data_as_binary)
                     response_error_payload = None
                     if response.status != 200:
                         try:
@@ -581,7 +590,7 @@ class AsyncInferenceClient:
             payload = {"inputs": _b64_encode(image)}
             for key, value in parameters.items():
                 if value is not None:
-                    payload[key] = value
+                    payload.setdefault("parameters", {})[key] = value
 
         response = await self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
@@ -1195,8 +1204,8 @@ class AsyncInferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
+        payload = {"inputs": prompt}
         parameters = {
-            "inputs": prompt,
             "negative_prompt": negative_prompt,
             "height": height,
             "width": width,
@@ -1204,10 +1213,9 @@ class AsyncInferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        payload = {}
         for key, value in parameters.items():
             if value is not None:
-                payload[key] = value
+                payload.setdefault("parameters", {})[key] = value  # type: ignore
         response = await self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
@@ -1316,4 +1324,51 @@ class AsyncInferenceClient:
             if task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
+
+    async def get_model_status(self, model: Optional[str] = None, *, token: Optional[str] = None) -> ModelStatus:
+        """
+        A function which returns the status of a specific model, from the Inference API.
+
+        Args:
+            model (`str`, *optional*):
+                Identifier of the model for witch the status gonna be checked. If model is not provided,
+                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                identifier cannot be a URL.
+
+            token (`str`, *optional*)
+                  Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
+        your token to the server.
+
+
+        Returns:
+            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
+                         about the state of the model: load, state, compute type and framework.
+
+        Raises:
+            [`ValueError`]:
+                If the model is missing, meaning is not provided.
+                And if if the API returns an error message(missing model).
+            [`NotImplementedError`]:
+                If the provided model is a URL.
+
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided")
+        if model.startswith("https://"):
+            raise NotImplementedError("Model status is only available for Inference API endpoints.")
+
+        huggingface_interface_response = get_session().get(f"{INFERENCE_ENDPOINT}/status/{model}")
+        hf_raise_for_status(huggingface_interface_response)
+
+        response_data = huggingface_interface_response.json()
+        if "error" in response_data:
+            raise ValueError(response_data["error"])
+
+        return ModelStatus(
+            loaded=response_data["loaded"],
+            state=response_data["state"],
+            compute_type=response_data["compute_type"],
+            framework=response_data["framework"],
         )

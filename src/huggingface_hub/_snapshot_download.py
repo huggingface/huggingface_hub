@@ -24,8 +24,9 @@ logger = logging.get_logger(__name__)
 def snapshot_download(
     repo_id: str,
     *,
-    revision: Optional[str] = None,
     repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -71,12 +72,15 @@ def snapshot_download(
     Args:
         repo_id (`str`):
             A user or an organization name and a repo name separated by a `/`.
-        revision (`str`, *optional*):
-            An optional Git revision id which can be a branch name, a tag, or a
-            commit hash.
         repo_type (`str`, *optional*):
             Set to `"dataset"` or `"space"` if downloading from a dataset or space,
             `None` or `"model"` if downloading from a model. Default is `None`.
+        revision (`str`, *optional*):
+            An optional Git revision id which can be a branch name, a tag, or a
+            commit hash.
+        endpoint (`str`, *optional*):
+            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
+            environment variable.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         local_dir (`str` or `Path`, *optional*:
@@ -181,7 +185,7 @@ def snapshot_download(
         )
 
     # if we have internet connection we retrieve the correct folder name from the huggingface api
-    api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent)
+    api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint)
     repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
 
@@ -212,6 +216,7 @@ def snapshot_download(
             filename=repo_file,
             repo_type=repo_type,
             revision=commit_hash,
+            endpoint=endpoint,
             cache_dir=cache_dir,
             local_dir=local_dir,
             local_dir_use_symlinks=local_dir_use_symlinks,

@@ -18,6 +18,7 @@ import io
 import json
 import logging
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -36,7 +37,6 @@ from typing import (
     overload,
 )
 
-from dataclasses import dataclass
 from requests import HTTPError
 
 from ..constants import ENDPOINT
@@ -63,6 +63,9 @@ PathT = Union[str, Path]
 BinaryT = Union[bytes, BinaryIO]
 ContentT = Union[BinaryT, PathT, UrlT]
 
+# Use to set a Accept: image/png header
+TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,19 +73,20 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelStatus:
     """
-        This Dataclass represents the the model status in the Hugging Face Inference API.
+    This Dataclass represents the the model status in the Hugging Face Inference API.
 
-        Args:
-            loaded (`bool`): 
-                If the model is currently loaded.
-            state (`str`): 
-                The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'
-            compute_type (`str`): 
-                The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
-            framework (`str`): 
-                The name of the framework that the model was built with, such as 'transformers'
-                or 'text-generation-inference'.
+    Args:
+        loaded (`bool`):
+            If the model is currently loaded.
+        state (`str`):
+            The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'
+        compute_type (`str`):
+            The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
+        framework (`str`):
+            The name of the framework that the model was built with, such as 'transformers'
+            or 'text-generation-inference'.
     """
+
     loaded: bool
     state: str
     compute_type: str
