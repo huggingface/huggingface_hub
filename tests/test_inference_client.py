@@ -206,8 +206,8 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_to_image_default(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
-        self.assertEqual(image.height, 768)
-        self.assertEqual(image.width, 768)
+        self.assertEqual(image.height, 512)
+        self.assertEqual(image.width, 512)
 
     def test_text_to_image_with_parameters(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
