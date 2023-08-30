@@ -114,10 +114,10 @@ def read_msg() -> Optional[Dict]:
 
 
 class LfsUploadCommand:
-    def __init__(self, args):
+    def __init__(self, args) -> None:
         self.args = args
 
-    def run(self):
+    def run(self) -> None:
         # Immediately after invoking a custom transfer process, git-lfs
         # sends initiation data to the process over stdin.
         # This tells the process useful information about the configuration.
