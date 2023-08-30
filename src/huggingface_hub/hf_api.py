@@ -53,6 +53,7 @@ from huggingface_hub.utils import (
     EntryNotFoundError,
     LocalTokenNotFoundError,
     RepositoryNotFoundError,
+    RevisionNotFoundError,
     experimental,
     get_session,
 )
@@ -81,7 +82,7 @@ from ._multi_commits import (
     multi_commit_parse_pr_description,
     plan_multi_commits,
 )
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from .community import (
     Discussion,
     DiscussionComment,
@@ -99,6 +100,10 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+)
+from .file_download import (
+    get_hf_file_metadata,
+    hf_hub_url,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
@@ -1887,6 +1892,110 @@ class HfApi:
             timeout=timeout,
             files_metadata=files_metadata,
         )
+
+    @validate_hf_hub_args
+    def repo_exists(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a repository exists on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import repo_exists
+            >>> repo_exists("huggingface/transformers")
+            True
+            >>> repo_exists("huggingface/not-a-repo")
+            False
+            ```
+
+        </Tip>
+        """
+        try:
+            self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+            return True
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def file_exists(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a file exists in a repository on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the file exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import file_exists
+            >>> file_exists("bigcode/starcoder", "config.json")
+            True
+            >>> file_exists("bigcode/starcoder", "not-a-file")
+            False
+            >>> file_exists("bigcode/not-a-repo", "config.json")
+            False
+            ```
+
+        </Tip>
+        """
+        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        try:
+            if token is None:
+                token = self.token
+            get_hf_file_metadata(url, token=token)
+            return True
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            return False
 
     @validate_hf_hub_args
     def list_files_info(
@@ -5028,6 +5137,83 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
+    def get_space_variables(self, repo_id: str, *, token: Optional[str] = None) -> Dict[str, SpaceVariable]:
+        """Gets all variables from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def add_space_variable(
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Adds or updates a variable in a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            value (`str`):
+                Variable value. Example: `"the_model_repo_id"`.
+            description (`str`):
+                Description of the variable. Example: `"Model Repo ID of the implemented model"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def delete_space_variable(
+        self, repo_id: str, key: str, *, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Deletes a variable from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json={"key": key},
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
     def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
@@ -5501,6 +5687,8 @@ dataset_info = api.dataset_info
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+repo_exists = api.repo_exists
+file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
@@ -5550,6 +5738,9 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
+get_space_variables = api.get_space_variables
+add_space_variable = api.add_space_variable
+delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time

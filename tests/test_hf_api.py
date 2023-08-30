@@ -139,6 +139,38 @@ def test_repo_id_no_warning():
         assert not len(record)
 
 
+class HfApiRepoFileExistsTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name(), private=True).repo_id
+        self.upload = self._api.upload_file(repo_id=self.repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    @retry_endpoint
+    def test_repo_exists(self):
+        self.assertTrue(self._api.repo_exists(self.repo_id))
+        self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
+        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+
+    @retry_endpoint
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://hub-ci.huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_file_exists(self):
+        self.assertTrue(self._api.file_exists(self.repo_id, "file.txt"))
+        self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
+        self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
+        self.assertFalse(
+            self._api.file_exists(self.repo_id, "file.txt", revision="revision-that-does-not-exist")
+        )  # missing revision
+        self.assertFalse(self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
+
+
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
@@ -2351,16 +2383,18 @@ class ActivityApiTest(unittest.TestCase):
         self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_liked_repos_no_auth(self) -> None:
-        # Create a list 1 liked repo
-        liked_repo_name = "repo-that-is-liked-public"
-        repo_url = self.api.create_repo(liked_repo_name, exist_ok=True, token=TOKEN)
-        self.api.like(repo_url.repo_id, token=TOKEN)
+        # Create a repo + like
+        repo_id = self.api.create_repo(repo_name(), exist_ok=True, token=TOKEN).repo_id
+        self.api.like(repo_id, token=TOKEN)
 
         # Fetch liked repos without auth
-        likes = self.api.list_liked_repos(USER)
+        likes = self.api.list_liked_repos(USER, token=False)
         self.assertEqual(likes.user, USER)
         self.assertGreater(len(likes.models) + len(likes.datasets) + len(likes.spaces), 0)
-        self.assertIn(repo_url.repo_id, likes.models)
+        self.assertIn(repo_id, likes.models)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
@@ -2414,6 +2448,33 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
+
+    def test_manage_variables(self) -> None:
+        # Get variables
+        self.api.get_space_variables(self.repo_id)
+
+        # Add 3 variables
+        self.api.add_space_variable(self.repo_id, "foo", "123")
+        self.api.add_space_variable(self.repo_id, "MODEL_REPO_ID", "user/repo")
+
+        # Add 1 variable with optional description
+        self.api.add_space_variable(self.repo_id, "MODEL_PAPER", "arXiv", description="found it there")
+
+        # Update variable
+        self.api.add_space_variable(self.repo_id, "foo", "456")
+
+        # Update variable with optional description
+        self.api.add_space_variable(self.repo_id, "foo", "456", description="updated description")
+
+        # Delete variable
+        self.api.delete_space_variable(self.repo_id, "gh_api_key")
+
+        # Doesn't fail on missing key
+        self.api.delete_space_variable(self.repo_id, "missing_key")
+
+        # Returning all variables created
+        variables = self.api.get_space_variables(self.repo_id)
+        self.assertEquals(len(variables), 3)
 
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
