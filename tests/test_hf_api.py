@@ -2692,7 +2692,7 @@ class TestSpaceAPIMocked(unittest.TestCase):
             repo_type="space",
             space_sdk="gradio",
             space_hardware=SpaceHardware.T4_MEDIUM,
-            space_sleepTimeSeconds=123,
+            space_sleep_time=123,
         )
         self.post_mock.assert_called_once_with(
             f"{self.api.endpoint}/api/repos/create",

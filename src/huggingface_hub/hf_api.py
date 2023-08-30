@@ -2367,7 +2367,7 @@ class HfApi:
         space_sdk: Optional[str] = None,
         space_hardware: Optional[SpaceHardware] = None,
         space_storage: Optional[SpaceStorage] = None,
-        space_sleepTimeSeconds: Optional[int] = None,
+        space_sleep_time: Optional[int] = None,
         space_secrets: Optional[List[Dict[str, str]]] = None,
         space_variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
@@ -2393,16 +2393,16 @@ class HfApi:
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
             space_storage (`SpaceStorage` or `str`, *optional*):
                 Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
-            space_sleepTimeSeconds (`int`, *optional*):
+            space_sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
             space_secrets (`List[Dict[str, str]]`, *optional*):
-                Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
             space_variables (`List[Dict[str, str]]`, *optional*):
-                Variables allow to set environment variables to a Space without hardcoding them.
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
@@ -2435,12 +2435,12 @@ class HfApi:
         function_args = [
             "space_hardware",
             "space_storage",
-            "space_sleepTimeSeconds",
+            "space_sleep_time",
             "space_secrets",
             "space_variables",
         ]
         json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleepTimeSeconds, space_secrets, space_variables]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
 
         if repo_type == "space":
             json.update({k: v for k, v in zip(json_keys, values) if v is not None})
@@ -5370,7 +5370,7 @@ class HfApi:
         exist_ok: bool = False,
         hardware: Optional[SpaceHardware] = None,
         storage: Optional[SpaceStorage] = None,
-        sleepTimeSeconds: Optional[int] = None,
+        sleep_time: Optional[int] = None,
         secrets: Optional[List[Dict[str, str]]] = None,
         variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
@@ -5395,16 +5395,16 @@ class HfApi:
                 Choice of Hardware. Example: `"t4-medium"`. See [`SpaceHardware`] for a complete list.
             storage (`SpaceStorage` or `str`, *optional*):
                 Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
-            sleepTimeSeconds (`int`, *optional*):
+            sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
                 the sleep time (value is fixed to 48 hours of inactivity).
                 See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
             secrets (`List[Dict[str, str]]`, *optional*):
-                Secrets allow to set secret keys or tokens to a Space without hardcoding them.
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
             variables (`List[Dict[str, str]]`, *optional*):
-                Variables allow to set environment variables to a Space without hardcoding them.
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
                 For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
@@ -5446,10 +5446,10 @@ class HfApi:
         payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
         keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [private, hardware, storage, sleepTimeSeconds, secrets, variables]
+        values = [private, hardware, storage, sleep_time, secrets, variables]
         payload.update({k: v for k, v in zip(keys, values) if v is not None})
 
-        if sleepTimeSeconds is not None and hardware == SpaceHardware.CPU_BASIC:
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
                 "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
                 " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
