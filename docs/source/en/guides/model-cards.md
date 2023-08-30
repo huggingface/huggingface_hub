@@ -323,3 +323,46 @@ model-index:
     - type: f1
       value: 0.65
 ```
+
+### Update modelcard Metadata
+
+Well let's say that you want to update some of `Metadata` of a `Modelcard`. In this section you will read what is a `Metadata` in the `Modelcard` context, and finally you will be able to read and understand some examples of code.
+
+Let's start from what is `Metadata` in this case for `Modelcard` context. The `Metadata` refers to a hash map (or key value) context that provides some high-level information about user's model. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. If you want to read more and with more detail you can give a glance to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
+
+Now lets see some examples on how you can update those `Metadata` of a `Modelcard`.
+
+#### Import the card.data
+
+Before you start you need to import the `card.data` from `huggingface_hub`.
+```python
+from huggingface_hub import card.data
+```
+
+#### Basic update
+First of all lets see how you can make a basic update.
+```python 
+repo_id = "Your repo id"
+metadata_update(repo_id, {"pipeline_tag": "image-classification"})
+```
+
+With this two lines of code you will update (or add, if not existing) the pipeline_tag metadata to the image-classification.
+
+#### Overwrite existing Fields
+You can easily overwrite the existing `Metadata` of your model.
+
+```python
+metadata_update(repo_id, {"pipeline_tag": "text-generation"}, overwrite=True)
+```
+
+Using this line of code you can success the overwrite. With the `overwrite=True` field, even if the `pipeline_tag` field exists, it will be updated to the new value. (It will overwrite the field.)
+
+#### Propose Metadata updates on Repositories the user doesn't own
+
+Last but not least you can propose some changes to a repository witch is not your and belongs to an other user.
+
+```python
+metadata_update(repo_id, {"pipeline_tag": "text-classification"}, create_pr=True)
+```
+
+If you want to suggest a change to a repository that belongs to another user, you can simply use the `create_pr=True` field. This will create a `pull request` on the model repository, which will allow the owner of this repository to review and merge your suggestions if approve them.
