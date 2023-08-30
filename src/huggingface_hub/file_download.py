@@ -961,6 +961,29 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     return REPO_ID_SEPARATOR.join(parts)
 
 
+def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
+    """Check disk usage and log a warning if there is not enough disk space to download the file.
+
+    Args:
+        expected_size (`int`):
+            The expected size of the file in bytes.
+        target_dir (`str`):
+            The directory where the file will be stored after downloading.
+    """
+
+    target_dir = str(target_dir)
+    target_dir_free = shutil.disk_usage(target_dir).free
+
+    has_enough_space = target_dir_free >= expected_size
+
+    if not has_enough_space:
+        warnings.warn(
+            "Not enough free disk space to download the file. "
+            f"The expected file size is: {expected_size / 1e6:.2f} MB. "
+            f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
+        )
+
+
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -1393,6 +1416,15 @@ def hf_hub_download(
         # Otherwise you get corrupt cache entries if the download gets interrupted.
         with temp_file_manager() as temp_file:
             logger.info("downloading %s to %s", url, temp_file.name)
+
+            if expected_size is not None:  # might be None if HTTP header not set correctly
+                # Check tmp path
+                _check_disk_space(expected_size, os.path.dirname(temp_file.name))
+
+                # Check destination
+                _check_disk_space(expected_size, os.path.dirname(blob_path))
+                if local_dir is not None:
+                    _check_disk_space(expected_size, local_dir)
 
             http_get(
                 url_to_download,

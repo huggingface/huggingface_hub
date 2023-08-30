@@ -26,4 +26,12 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 [[autodoc]] SpaceStage
 
+### SpaceStorage
+
+[[autodoc]] SpaceStorage
+
+### SpaceVariable
+
+[[autodoc]] SpaceVariable
+
 

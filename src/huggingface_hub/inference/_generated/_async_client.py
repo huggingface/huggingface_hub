@@ -41,6 +41,7 @@ from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelStatus,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -1370,4 +1371,41 @@ class AsyncInferenceClient:
             if task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
+
+    async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
+        """
+        A function which returns the status of a specific model, from the Inference API.
+
+        Args:
+            model (`str`, *optional*):
+                Identifier of the model for witch the status gonna be checked. If model is not provided,
+                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                identifier cannot be a URL.
+
+
+        Returns:
+            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
+                         about the state of the model: load, state, compute type and framework.
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith("https://"):
+            raise NotImplementedError("Model status is only available for Inference API endpoints.")
+        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_data = await response.json()
+
+        if "error" in response_data:
+            raise ValueError(response_data["error"])
+
+        return ModelStatus(
+            loaded=response_data["loaded"],
+            state=response_data["state"],
+            compute_type=response_data["compute_type"],
+            framework=response_data["framework"],
         )
