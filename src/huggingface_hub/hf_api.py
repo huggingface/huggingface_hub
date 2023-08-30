@@ -82,7 +82,7 @@ from ._multi_commits import (
     multi_commit_parse_pr_description,
     plan_multi_commits,
 )
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from .community import (
     Discussion,
     DiscussionComment,
@@ -5137,6 +5137,83 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
+    def get_space_variables(self, repo_id: str, *, token: Optional[str] = None) -> Dict[str, SpaceVariable]:
+        """Gets all variables from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def add_space_variable(
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Adds or updates a variable in a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            value (`str`):
+                Variable value. Example: `"the_model_repo_id"`.
+            description (`str`):
+                Description of the variable. Example: `"Model Repo ID of the implemented model"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def delete_space_variable(
+        self, repo_id: str, key: str, *, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Deletes a variable from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json={"key": key},
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
     def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
@@ -5661,6 +5738,9 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
+get_space_variables = api.get_space_variables
+add_space_variable = api.add_space_variable
+delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
