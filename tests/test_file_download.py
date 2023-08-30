@@ -622,7 +622,7 @@ class CachedDownloadTests(unittest.TestCase):
 
         Cannot test on staging as dynamically setting a gated repo doesn't work there.
         """
-        if PRODUCTION_TOKEN is None:  # No need to test in contrib PRs (when secret is not set)
+        if not PRODUCTION_TOKEN:  # No need to test in contrib PRs (when secret is not set)
             return
         # Cannot download file as repo is gated
         with SoftTemporaryDirectory() as tmpdir:
