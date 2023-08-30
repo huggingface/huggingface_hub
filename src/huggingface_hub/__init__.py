@@ -73,6 +73,7 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
         "SpaceStorage",
+        "SpaceVariable",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -382,6 +383,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
+        SpaceVariable,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
