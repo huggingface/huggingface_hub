@@ -73,6 +73,7 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
         "SpaceStorage",
+        "SpaceVariable",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -142,6 +143,7 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "UserLikes",
         "add_space_secret",
+        "add_space_variable",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -158,6 +160,7 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_space_secret",
         "delete_space_storage",
+        "delete_space_variable",
         "delete_tag",
         "duplicate_space",
         "edit_discussion_comment",
@@ -168,6 +171,7 @@ _SUBMOD_ATTRS = {
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
+        "get_space_variables",
         "get_token_permission",
         "like",
         "list_datasets",
@@ -379,6 +383,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
+        SpaceVariable,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -446,6 +451,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         UserLikes,  # noqa: F401
         add_space_secret,  # noqa: F401
+        add_space_variable,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -462,6 +468,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
+        delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
@@ -472,6 +479,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
+        get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
         like,  # noqa: F401
         list_datasets,  # noqa: F401
