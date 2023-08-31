@@ -2762,6 +2762,43 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    def test_duplicate_space(self) -> None:
+        self.api.duplicate_space(
+            self.repo_id,
+            to_id=f"{USER}/new_repo_id",
+            private=True,
+            hardware=SpaceHardware.T4_MEDIUM,
+            storage=SpaceStorage.LARGE,
+            sleep_time=123,
+            secrets=[
+                {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testsecret2", "value": "Testvalue"},
+            ],
+            variables=[
+                {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testvariable2", "value": "Testvalue"},
+            ],
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/duplicate",
+            headers=self.api._build_hf_headers(),
+            json={
+                "repository": f"{USER}/new_repo_id",
+                "private": True,
+                "hardware": "t4-medium",
+                "storageTier": "large",
+                "sleepTimeSeconds": 123,
+                "secrets": [
+                    {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testsecret2", "value": "Testvalue"},
+                ],
+                "variables": [
+                    {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testvariable2", "value": "Testvalue"},
+                ],
+            },
+        )
+
     def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
