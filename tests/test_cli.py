@@ -72,7 +72,7 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.path, "my-file")
         self.assertEqual(args.path_in_repo, None)
-        self.assertEqual(args.repo_type, None)
+        self.assertEqual(args.repo_type, "model")
         self.assertEqual(args.revision, None)
         self.assertEqual(args.include, None)
         self.assertEqual(args.exclude, None)
@@ -94,7 +94,7 @@ class TestUploadCommand(unittest.TestCase):
                 "my-file",
                 "/",
                 "--repo-type",
-                "model",
+                "dataset",
                 "--revision",
                 "v1.0.0",
                 "--include",
@@ -120,7 +120,7 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.path, "my-file")
         self.assertEqual(args.path_in_repo, "/")
-        self.assertEqual(args.repo_type, "model")
+        self.assertEqual(args.repo_type, "dataset")
         self.assertEqual(args.revision, "v1.0.0")
         self.assertEqual(args.include, ["*.json", "*.yaml"])
         self.assertEqual(args.exclude, ["*.log", "*.txt"])

@@ -52,8 +52,9 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         )
         upload_parser.add_argument(
             "--repo-type",
-            type=str,
-            help="The type of the repo to upload to (e.g. `dataset`).",
+            choices=["model", "dataset", "space"],
+            default="model",
+            help="Type of the repo to upload to (e.g. `dataset`).",
         )
         upload_parser.add_argument(
             "--revision",
