@@ -39,8 +39,8 @@ from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
 
 from huggingface_hub import HfApi
-from huggingface_hub.utils import enable_progress_bars, disable_progress_bars
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 
 class DownloadCommand(BaseHuggingfaceCLICommand):
