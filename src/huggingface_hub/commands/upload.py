@@ -20,7 +20,7 @@ Usage:
 """
 import os
 import warnings
-from argparse import _SubParsersAction
+from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
 
 from huggingface_hub import HfApi
@@ -51,9 +51,9 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             help="Path in repo. (optional)",
         )
         upload_parser.add_argument(
-            "--type",
+            "--repo-type",
             type=str,
-            help="The type of the repo to upload (e.g. `dataset`).",
+            help="The type of the repo to upload to (e.g. `dataset`).",
         )
         upload_parser.add_argument(
             "--revision",
@@ -61,19 +61,19 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             help="The revision of the repo to upload.",
         )
         upload_parser.add_argument(
-            "--allow-patterns",
+            "--include",
             nargs="+",
             type=str,
             help="Glob patterns to match files to upload.",
         )
         upload_parser.add_argument(
-            "--ignore-patterns",
+            "--exclude",
             nargs="+",
             type=str,
             help="Glob patterns to exclude from files to upload.",
         )
         upload_parser.add_argument(
-            "--delete-patterns",
+            "--delete",
             nargs="+",
             type=str,
             help="Glob patterns for file to be deleted from the repo while committing.",
@@ -110,24 +110,24 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         )
         upload_parser.set_defaults(func=UploadCommand)
 
-    def __init__(self, args):
+    def __init__(self, args: Namespace) -> None:
         self.api = HfApi(token=args.token)
         self.repo_id: str = args.repo_id
         self.path: str = args.path
         self.path_in_repo: str = args.path_in_repo
-        self.type: Optional[str] = args.type
+        self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
-        self.allow_patterns: List[str] = args.allow_patterns
-        self.ignore_patterns: List[str] = args.ignore_patterns
-        self.delete_patterns: List[str] = args.delete_patterns
+        self.include: List[str] = args.include
+        self.exclude: List[str] = args.exclude
+        self.delete: List[str] = args.delete
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
-        self.create_pr: Optional[bool] = args.create_pr
-        self.every: Optional[bool] = args.every
+        self.create_pr: bool = args.create_pr
+        self.every: bool = args.every
         self.token: Optional[str] = args.token
         self.quiet: bool = args.quiet
 
-    def run(self):
+    def run(self) -> None:
         if self.quiet:
             disable_progress_bars()
             with warnings.catch_warnings():
@@ -148,15 +148,15 @@ class UploadCommand(BaseHuggingfaceCLICommand):
 
         # File or Folder based uploading
         if os.path.isfile(self.path):
-            if self.allow_patterns or self.ignore_patterns:
-                raise ValueError("--allow-patterns / --ignore-patterns cannot be used with a file path.")
+            if self.include or self.exclude or self.delete:
+                raise ValueError("--include / --exclude / --delete cannot be used with a file path.")
 
             return self.api.upload_file(
                 path_or_fileobj=self.path,
                 path_in_repo=self.path_in_repo,
                 repo_id=self.repo_id,
                 token=self.token,
-                repo_type=self.type,
+                repo_type=self.repo_type,
                 revision=self.revision,
                 commit_message=self.commit_message,
                 commit_description=self.commit_description,
@@ -170,14 +170,14 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 path_in_repo=self.path_in_repo,
                 repo_id=self.repo_id,
                 token=self.token,
-                repo_type=self.type,
+                repo_type=self.repo_type,
                 revision=self.revision,
                 commit_message=self.commit_message,
                 commit_description=self.commit_description,
                 create_pr=self.create_pr,
-                allow_patterns=self.allow_patterns,
-                ignore_patterns=self.ignore_patterns,
-                delete_patterns=self.delete_patterns,
+                allow_patterns=self.include,
+                ignore_patterns=self.exclude,
+                delete_patterns=self.delete,
                 run_as_future=self.every,
             )
 

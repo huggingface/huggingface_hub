@@ -72,11 +72,11 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.path, "my-file")
         self.assertEqual(args.path_in_repo, None)
-        self.assertEqual(args.type, None)
+        self.assertEqual(args.repo_type, None)
         self.assertEqual(args.revision, None)
-        self.assertEqual(args.allow_patterns, None)
-        self.assertEqual(args.ignore_patterns, None)
-        self.assertEqual(args.delete_patterns, None)
+        self.assertEqual(args.include, None)
+        self.assertEqual(args.exclude, None)
+        self.assertEqual(args.delete, None)
         self.assertEqual(args.commit_message, None)
         self.assertEqual(args.commit_description, None)
         self.assertEqual(args.create_pr, False)
@@ -93,17 +93,17 @@ class TestUploadCommand(unittest.TestCase):
                 DUMMY_MODEL_ID,
                 "my-file",
                 "/",
-                "--type",
+                "--repo-type",
                 "model",
                 "--revision",
                 "v1.0.0",
-                "--allow-patterns",
+                "--include",
                 "*.json",
                 "*.yaml",
-                "--ignore-patterns",
+                "--exclude",
                 "*.log",
                 "*.txt",
-                "--delete-patterns",
+                "--delete",
                 "*.config",
                 "*.secret",
                 "--commit-message",
@@ -120,11 +120,11 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.path, "my-file")
         self.assertEqual(args.path_in_repo, "/")
-        self.assertEqual(args.type, "model")
+        self.assertEqual(args.repo_type, "model")
         self.assertEqual(args.revision, "v1.0.0")
-        self.assertEqual(args.allow_patterns, ["*.json", "*.yaml"])
-        self.assertEqual(args.ignore_patterns, ["*.log", "*.txt"])
-        self.assertEqual(args.delete_patterns, ["*.config", "*.secret"])
+        self.assertEqual(args.include, ["*.json", "*.yaml"])
+        self.assertEqual(args.exclude, ["*.log", "*.txt"])
+        self.assertEqual(args.delete, ["*.config", "*.secret"])
         self.assertEqual(args.commit_message, "My commit message")
         self.assertEqual(args.commit_description, "My commit description")
         self.assertEqual(args.create_pr, True)
