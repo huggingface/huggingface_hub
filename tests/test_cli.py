@@ -3,6 +3,11 @@ from argparse import ArgumentParser
 
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
+from huggingface_hub.commands.upload import UploadCommand
+
+from .testing_utils import (
+    DUMMY_MODEL_ID,
+)
 
 
 class TestCLI(unittest.TestCase):
@@ -50,3 +55,80 @@ class TestCLI(unittest.TestCase):
         args = self.parser.parse_args(["delete-cache", "--dir", "something"])
         self.assertEqual(args.dir, "something")
         self.assertEqual(args.func, DeleteCacheCommand)
+
+
+class TestUploadCommand(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
+        """
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        commands_parser = self.parser.add_subparsers()
+        UploadCommand.register_subcommand(commands_parser)
+
+    def test_upload_basic(self) -> None:
+        """Test `huggingface-cli upload my-file to dummy-repo`."""
+        args = self.parser.parse_args(["upload", DUMMY_MODEL_ID, "my-file"])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.path, "my-file")
+        self.assertEqual(args.path_in_repo, None)
+        self.assertEqual(args.type, None)
+        self.assertEqual(args.revision, None)
+        self.assertEqual(args.allow_patterns, None)
+        self.assertEqual(args.ignore_patterns, None)
+        self.assertEqual(args.delete_patterns, None)
+        self.assertEqual(args.commit_message, None)
+        self.assertEqual(args.commit_description, None)
+        self.assertEqual(args.create_pr, False)
+        self.assertEqual(args.every, False)
+        self.assertEqual(args.token, None)
+        self.assertEqual(args.quiet, False)
+        self.assertEqual(args.func, UploadCommand)
+
+    def test_upload_with_all_options(self) -> None:
+        """Test `huggingface-cli upload my-file to dummy-repo with all options selected`."""
+        args = self.parser.parse_args(
+            [
+                "upload",
+                DUMMY_MODEL_ID,
+                "my-file",
+                "/",
+                "--type",
+                "model",
+                "--revision",
+                "v1.0.0",
+                "--allow-patterns",
+                "*.json",
+                "*.yaml",
+                "--ignore-patterns",
+                "*.log",
+                "*.txt",
+                "--delete-patterns",
+                "*.config",
+                "*.secret",
+                "--commit-message",
+                "My commit message",
+                "--commit-description",
+                "My commit description",
+                "--create-pr",
+                "--every",
+                "--token",
+                "my-token",
+                "--quiet",
+            ]
+        )
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.path, "my-file")
+        self.assertEqual(args.path_in_repo, "/")
+        self.assertEqual(args.type, "model")
+        self.assertEqual(args.revision, "v1.0.0")
+        self.assertEqual(args.allow_patterns, ["*.json", "*.yaml"])
+        self.assertEqual(args.ignore_patterns, ["*.log", "*.txt"])
+        self.assertEqual(args.delete_patterns, ["*.config", "*.secret"])
+        self.assertEqual(args.commit_message, "My commit message")
+        self.assertEqual(args.commit_description, "My commit description")
+        self.assertEqual(args.create_pr, True)
+        self.assertEqual(args.every, True)
+        self.assertEqual(args.token, "my-token")
+        self.assertEqual(args.quiet, True)
+        self.assertEqual(args.func, UploadCommand)
