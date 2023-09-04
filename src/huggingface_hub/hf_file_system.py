@@ -130,7 +130,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         elif path.split("/")[0] + "/" in REPO_TYPES_URL_PREFIXES.values():
             if "/" not in path:
                 # can't list repositories at the repository type level
-                raise NotImplementedError("Acces to repositories lists is not implemented.")
+                raise NotImplementedError("Access to repositories lists is not implemented.")
             repo_type, path = path.split("/", 1)
             repo_type = REPO_TYPES_MAPPING[repo_type]
         else:
@@ -173,7 +173,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 revision = _align_revision_in_path_with_revision(revision_in_path, revision)
             repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
             if not repo_and_revision_exist:
-                raise NotImplementedError("Acces to repositories lists is not implemented.")
+                raise NotImplementedError("Access to repositories lists is not implemented.")
 
         revision = revision if revision is not None else DEFAULT_REVISION
         return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo)
