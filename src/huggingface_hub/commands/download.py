@@ -20,17 +20,17 @@ Usage:
     # Download file
     huggingface-cli download gpt2 config.json
 
-    # Download full space quietly
-    huggingface-cli download jbilcke-hf/comic-factory --repo-type=space --quiet
-
-    # Download with filter
-    huggingface-cli download gpt2 --allow-patterns="*.safetensors"
-
-    # Download from revision
+    # Download entire repo
     huggingface-cli download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
+
+    # Download repo with filters
+    huggingface-cli download gpt2 --include="*.safetensors"
 
     # Download with token
     huggingface-cli download Wauplin/private-model --token=hf_***
+
+    # Download quietly (no progress bar, no warnings, only the returned path)
+    huggingface-cli download gpt2 config.json --quiet
 
 TODO: add --to-local-dir (as `store_true` or as str path?)
 """
