@@ -764,18 +764,13 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
-    def text_classification(
-        self, text: List[str], *, parameters: Optional[Dict[str, Any]] = None, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> ClassificationOutput:
         """
         Perform sentiment-analysis on the given text.
 
         Args:
             text (`str`):
-                A list of strings to be classified.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the text classification task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#text-classification-task)
+                A string to be classified.
             model (`str`, *optional*):
                 The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
@@ -794,23 +789,18 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> output = client.text_classification(["I like you", "I love you"])
+        >>> output = client.text_classification("I like you")
         >>> output
-        [[{'label': 'POSITIVE', 'score': 0.9998695850372314},
-        {'label': 'NEGATIVE', 'score': 0.0001304351753788069}],
-        [{'label': 'POSITIVE', 'score': 0.9998656511306763},
-        {'label': 'NEGATIVE', 'score': 0.00013436275185085833}]]
+        {'label': 'POSITIVE', 'score': 0.9998695850372314}
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
-        if parameters is not None:
-            payload["parameters"] = parameters
         response = self.post(
             json=payload,
             model=model,
             task="text-classification",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)[0][0]
 
     @overload
     def text_generation(  # type: ignore

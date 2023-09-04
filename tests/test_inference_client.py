@@ -201,12 +201,11 @@ class InferenceClientVCRTest(InferenceClientTest):
         )
 
     def test_text_classification(self) -> None:
-        output = self.client.text_classification(["I like you", "I love you."])
-        self.assertIsInstance(output, list)
+        output = self.client.text_classification("I like you")
+        self.assertIsInstance(output, dict)
         self.assertEqual(len(output), 2)
-        for item in output:
-            self.assertIsInstance(item[0]["score"], float)
-            self.assertIsInstance(item[0]["label"], str)
+        self.assertIsInstance(output["score"], float)
+        self.assertIsInstance(output["label"], str)
 
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
