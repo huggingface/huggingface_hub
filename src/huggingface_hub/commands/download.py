@@ -37,7 +37,7 @@ Usage:
 """
 import warnings
 from argparse import Namespace, _SubParsersAction
-from typing import List, Optional
+from typing import List, Literal, Optional, Union
 
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
@@ -124,18 +124,20 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.exclude: Optional[List[str]] = args.exclude
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
-        self.local_dir_use_symlinks: Optional[str] = args.local_dir_use_symlinks
         self.force_download: bool = args.force_download
         self.resume_download: bool = args.resume_download
         self.quiet: bool = args.quiet
 
         # Raise if local_dir_use_symlinks is invalid
+        self.local_dir_use_symlinks: Union[Literal["auto"], bool]
         use_symlinks_lowercase = args.local_dir_use_symlinks.lower()
         if use_symlinks_lowercase == "true":
             self.local_dir_use_symlinks = True
         elif use_symlinks_lowercase == "false":
             self.local_dir_use_symlinks = False
-        elif use_symlinks_lowercase != "auto":
+        elif use_symlinks_lowercase == "auto":
+            self.local_dir_use_symlinks = "auto"
+        else:
             raise ValueError(
                 f"'{args.local_dir_use_symlinks}' is not a valid value for `local_dir_use_symlinks`. It must be either"
                 " 'auto', 'True' or 'False'."
