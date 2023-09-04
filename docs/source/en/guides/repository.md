@@ -75,7 +75,7 @@ Specify the `repo_id` of the repository you want to delete:
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
 This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
-You will still need to configure your own settings (hardware and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
+You will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
 
 ```py
 >>> from huggingface_hub import duplicate_space
