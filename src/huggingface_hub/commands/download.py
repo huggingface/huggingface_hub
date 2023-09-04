@@ -32,7 +32,8 @@ Usage:
     # Download quietly (no progress bar, no warnings, only the returned path)
     huggingface-cli download gpt2 config.json --quiet
 
-TODO: add --to-local-dir (as `store_true` or as str path?)
+    # Download to local dir
+    huggingface-cli download gpt2 --local-dir=./models/gpt2
 """
 import warnings
 from argparse import Namespace, _SubParsersAction
@@ -72,12 +73,33 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             "--exclude", nargs="*", type=str, help="Glob patterns to exclude from files to download."
         )
         download_parser.add_argument(
+            "--cache-dir", type=str, help="Path to the directory where to save the downloaded files."
+        )
+        download_parser.add_argument(
+            "--local-dir",
+            type=str,
+            help=(
+                "If set, the downloaded file will be placed under this directory either as a symlink (default) or a"
+                " regular file. Check out"
+                " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
+                " details."
+            ),
+        )
+        download_parser.add_argument(
+            "--local-dir-use-symlinks",
+            choices=["auto", "True", "False"],
+            default="auto",
+            help=(
+                "To be used with `local_dir`. If set to 'auto', the cache directory will be used and the file will be"
+                " either duplicated or symlinked to the local directory depending on its size. It set to `True`, a"
+                " symlink will be created, no matter the file size. If set to `False`, the file will either be"
+                " duplicated from cache (if already exists) or downloaded from the Hub and not cached."
+            ),
+        )
+        download_parser.add_argument(
             "--force-download",
             action="store_true",
             help="If True, the files will be downloaded even if they are already cached.",
-        )
-        download_parser.add_argument(
-            "--cache-dir", type=str, help="Path to the directory where to save the downloaded files."
         )
         download_parser.add_argument(
             "--resume-download", action="store_true", help="If True, resume a previously interrupted download."
@@ -100,10 +122,24 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.revision: Optional[str] = args.revision
         self.include: Optional[List[str]] = args.include
         self.exclude: Optional[List[str]] = args.exclude
+        self.cache_dir: Optional[str] = args.cache_dir
+        self.local_dir: Optional[str] = args.local_dir
+        self.local_dir_use_symlinks: Optional[str] = args.local_dir_use_symlinks
         self.force_download: bool = args.force_download
         self.resume_download: bool = args.resume_download
-        self.cache_dir: Optional[str] = args.cache_dir
         self.quiet: bool = args.quiet
+
+        # Raise if local_dir_use_symlinks is invalid
+        use_symlinks_lowercase = args.local_dir_use_symlinks.lower()
+        if use_symlinks_lowercase == "true":
+            self.local_dir_use_symlinks = True
+        elif use_symlinks_lowercase == "false":
+            self.local_dir_use_symlinks = False
+        elif use_symlinks_lowercase != "auto":
+            raise ValueError(
+                f"'{args.local_dir_use_symlinks}' is not a valid value for `local_dir_use_symlinks`. It must be either"
+                " 'auto', 'True' or 'False'."
+            )
 
     def run(self) -> None:
         if self.quiet:
@@ -116,7 +152,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             print(self._download())  # Print path to downloaded files
 
     def _download(self) -> str:
-        # Warns user if patterns are ignored
+        # Warn user if patterns are ignored
         if len(self.filenames) > 0:
             if self.include is not None and len(self.include) > 0:
                 warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
@@ -134,6 +170,9 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 resume_download=self.resume_download,
                 force_download=self.force_download,
                 token=self.token,
+                local_dir=self.local_dir,
+                local_dir_use_symlinks=self.local_dir_use_symlinks,
+                library_name="huggingface-cli",
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
@@ -154,4 +193,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             force_download=self.force_download,
             cache_dir=self.cache_dir,
             token=self.token,
+            local_dir=self.local_dir,
+            local_dir_use_symlinks=self.local_dir_use_symlinks,
+            library_name="huggingface-cli",
         )

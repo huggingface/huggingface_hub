@@ -73,14 +73,16 @@ class TestDownloadCommand(unittest.TestCase):
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(len(args.filenames), 0)
         self.assertEqual(args.repo_type, "model")
-        self.assertEqual(args.revision, None)
-        self.assertEqual(args.include, None)
-        self.assertEqual(args.exclude, None)
-        self.assertEqual(args.force_download, False)
-        self.assertEqual(args.cache_dir, None)
-        self.assertEqual(args.resume_download, False)
-        self.assertEqual(args.token, None)
-        self.assertEqual(args.quiet, False)
+        self.assertIsNone(args.revision)
+        self.assertIsNone(args.include)
+        self.assertIsNone(args.exclude)
+        self.assertIsNone(args.cache_dir)
+        self.assertIsNone(args.local_dir)
+        self.assertEqual(args.local_dir_use_symlinks, "auto")
+        self.assertFalse(args.force_download)
+        self.assertFalse(args.resume_download)
+        self.assertIsNone(args.token)
+        self.assertFalse(args.quiet)
         self.assertEqual(args.func, DownloadCommand)
 
     def test_download_with_all_options(self) -> None:
@@ -106,6 +108,10 @@ class TestDownloadCommand(unittest.TestCase):
                 "--token",
                 "my-token",
                 "--quiet",
+                "--local-dir",
+                ".",
+                "--local-dir-use-symlinks",
+                "True",
             ]
         )
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
@@ -113,11 +119,13 @@ class TestDownloadCommand(unittest.TestCase):
         self.assertEqual(args.revision, "v1.0.0")
         self.assertEqual(args.include, ["*.json", "*.yaml"])
         self.assertEqual(args.exclude, ["*.log", "*.txt"])
-        self.assertEqual(args.force_download, True)
+        self.assertTrue(args.force_download)
         self.assertEqual(args.cache_dir, "/tmp")
-        self.assertEqual(args.resume_download, True)
+        self.assertEqual(args.local_dir, ".")
+        self.assertTrue(args.local_dir_use_symlinks)
+        self.assertTrue(args.resume_download)
         self.assertEqual(args.token, "my-token")
-        self.assertEqual(args.quiet, True)
+        self.assertTrue(args.quiet)
         self.assertEqual(args.func, DownloadCommand)
 
     @patch("huggingface_hub.commands.download.hf_hub_download")
@@ -133,6 +141,8 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=False,
             resume_download=False,
             cache_dir=None,
+            local_dir=".",
+            local_dir_use_symlinks="auto",
             quiet=False,
         )
 
@@ -150,6 +160,9 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=False,
             force_download=False,
             token="hf_****",
+            local_dir=".",
+            local_dir_use_symlinks="auto",
+            library_name="huggingface-cli",
         )
 
     @patch("huggingface_hub.commands.download.snapshot_download")
@@ -165,6 +178,8 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=True,
             resume_download=True,
             cache_dir=None,
+            local_dir="/path/to/dir",
+            local_dir_use_symlinks="False",
             quiet=False,
         )
         DownloadCommand(args).run()
@@ -180,6 +195,9 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=True,
             cache_dir=None,
             token="hf_****",
+            local_dir="/path/to/dir",
+            local_dir_use_symlinks=False,
+            library_name="huggingface-cli",
         )
 
     @patch("huggingface_hub.commands.download.snapshot_download")
@@ -196,6 +214,8 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=True,
             cache_dir=None,
             quiet=False,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
         )
         DownloadCommand(args).run()
 
@@ -209,7 +229,10 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=True,
             force_download=True,
             cache_dir=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
             token=None,
+            library_name="huggingface-cli",
         )
 
     @patch("huggingface_hub.commands.download.snapshot_download")
@@ -226,6 +249,8 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=True,
             cache_dir=None,
             quiet=False,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
         )
 
         with self.assertWarns(UserWarning):
@@ -242,6 +267,9 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=True,
             cache_dir=None,
             token=None,
+            local_dir=None,
+            local_dir_use_symlinks="auto",
+            library_name="huggingface-cli",
         )
 
         # Same but quiet (no warnings)

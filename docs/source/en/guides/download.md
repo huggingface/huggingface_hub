@@ -199,6 +199,24 @@ want to pipe the output to another command in a script.
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
+By default, files will be downloaded to the cache directory defined by `HF_HOME` environment variable (or `~/.cache/huggingface/hub` if unset). You
+can override this by using the `--cache-dir` option:
+
+```bash
+>>> huggingface-cli download gpt2 config.json --cache-dir=./cache
+./cache/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
+```
+
+If you want to download files to a local folder, without the cache directory structure, you can use `--local-dir`.
+Downloading to a local folder comes with its limitations listed [in this table](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder).
+
+
+```bash
+>>> huggingface-cli download gpt2 config.json --local-dir=./models/gpt2
+./models/gpt2/config.json
+```
+
+
 More options exists to download from a different repo type or revision and to include/exclude files to download using
 glob patterns:
 
