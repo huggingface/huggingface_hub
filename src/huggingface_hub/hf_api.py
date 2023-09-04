@@ -2365,7 +2365,11 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
-        space_hardware: Optional[str] = None,
+        space_hardware: Optional[SpaceHardware] = None,
+        space_storage: Optional[SpaceStorage] = None,
+        space_sleep_time: Optional[int] = None,
+        space_secrets: Optional[List[Dict[str, str]]] = None,
+        space_variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -2387,6 +2391,19 @@ class HfApi:
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
+            space_storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
+            space_sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            space_secrets (`List[Dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            space_variables (`List[Dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -2399,7 +2416,7 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json = {"name": name, "organization": organization, "private": private}
+        json: Dict[str, Any] = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -2415,11 +2432,23 @@ class HfApi:
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
-        if space_hardware is not None:
-            if repo_type == "space":
-                json["hardware"] = space_hardware
-            else:
-                warnings.warn("Ignoring provided space_hardware because repo_type is not 'space'.")
+        function_args = [
+            "space_hardware",
+            "space_storage",
+            "space_sleep_time",
+            "space_secrets",
+            "space_variables",
+        ]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+
+        if repo_type == "space":
+            json.update({k: v for k, v in zip(json_keys, values) if v is not None})
+        else:
+            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
+
+            if provided_space_args:
+                warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
@@ -5416,6 +5445,11 @@ class HfApi:
         private: Optional[bool] = None,
         token: Optional[str] = None,
         exist_ok: bool = False,
+        hardware: Optional[SpaceHardware] = None,
+        storage: Optional[SpaceStorage] = None,
+        sleep_time: Optional[int] = None,
+        secrets: Optional[List[Dict[str, str]]] = None,
+        variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
         """Duplicate a Space.
 
@@ -5434,6 +5468,21 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware. Example: `"t4-medium"`. See [`SpaceHardware`] for a complete list.
+            storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            secrets (`List[Dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            variables (`List[Dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -5473,9 +5522,17 @@ class HfApi:
         # repository must be a valid repo_id (namespace/repo_name).
         payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        # private is optional with this endpoint, with None defaulting to the original space's privacy.
-        if private is not None:
-            payload["private"] = private
+        keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [private, hardware, storage, sleep_time, secrets, variables]
+        payload.update({k: v for k, v in zip(keys, values) if v is not None})
+
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                UserWarning,
+            )
 
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
