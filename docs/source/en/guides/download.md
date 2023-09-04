@@ -162,3 +162,55 @@ Here is a table that summarizes the different options to help you choose the par
 
 **Note:** if you are on a Windows machine, you need to enable developer mode or run `huggingface_hub` as admin to enable
 symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) section for more details.
+
+## Download from the CLI
+
+You can also download files from the Hub directly from your terminal using the `huggingface-cli download` command.
+Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
+returned path to the terminal:
+
+```bash
+>>> huggingface-cli download gpt2 config.json
+/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
+```
+
+By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly,
+use the `--token` option:
+
+```bash
+>>> huggingface-cli download gpt2 config.json --token=hf_****
+/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
+```
+
+You can download multiple files at once which displays a progress bar and return the snapshot path in which the files
+are located:
+
+```bash
+>>> huggingface-cli download gpt2 config.json model.safetensors
+Fetching 2 files: 100%|████████████████████████████████████████████| 2/2 [00:00<00:00, 23831.27it/s]
+/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
+```
+
+If you want to silent the progress bars and potential warnings, use the `--quiet` option. This can prove useful if you
+want to pipe the output to another command in a script.
+
+```bash
+>>> huggingface-cli download gpt2 config.json model.safetensors
+/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
+```
+
+More options exists to download from a different repo type or revision and to include/exclude files to download using
+glob patterns:
+
+```bash
+>>> huggingface-cli download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
+de="*.json" --exclude="*.zip"
+Fetching 206 files:   100%|████████████████████████████████████████████| 206/206 [02:31<2:31, ?it/s]
+/home/wauplin/.cache/huggingface/hub/datasets--bigcode--the-stack/snapshots/9ca8fa6acdbc8ce920a0cb58adcdafc495818ae7
+```
+
+For a full detail of the options, you can run:
+
+```bash
+huggingface-cli download --help
+```
