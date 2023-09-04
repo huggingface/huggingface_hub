@@ -794,7 +794,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
                 local_dir_use_symlinks=False,
             )
             self.assertFalse(config_path.is_symlink())
-            self.assertNotEquals(config_path.read_text(), "this will be overwritten")
+            self.assertNotEqual(config_path.read_text(), "this will be overwritten")
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
