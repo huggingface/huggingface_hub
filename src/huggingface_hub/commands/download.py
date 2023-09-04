@@ -38,8 +38,9 @@ import warnings
 from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
 
-from huggingface_hub import HfApi
+from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 
@@ -92,13 +93,13 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.set_defaults(func=DownloadCommand)
 
     def __init__(self, args: Namespace) -> None:
-        self.api = HfApi(token=args.token)
+        self.token = args.token
         self.repo_id: str = args.repo_id
         self.filenames: List[str] = args.filenames
         self.repo_type: str = args.repo_type
         self.revision: Optional[str] = args.revision
-        self.include: List[str] = args.include
-        self.exclude: List[str] = args.exclude
+        self.include: Optional[List[str]] = args.include
+        self.exclude: Optional[List[str]] = args.exclude
         self.force_download: bool = args.force_download
         self.resume_download: bool = args.resume_download
         self.cache_dir: Optional[str] = args.cache_dir
@@ -124,7 +125,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
 
         # Single file to download: use `hf_hub_download`
         if len(self.filenames) == 1:
-            return self.api.hf_hub_download(
+            return hf_hub_download(
                 repo_id=self.repo_id,
                 repo_type=self.repo_type,
                 revision=self.revision,
@@ -132,17 +133,18 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 cache_dir=self.cache_dir,
                 resume_download=self.resume_download,
                 force_download=self.force_download,
+                token=self.token,
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
-        if len(self.filenames) > 1:
-            allow_patterns = self.filenames
-            ignore_patterns = None
-        else:
+        elif len(self.filenames) == 0:
             allow_patterns = self.include
             ignore_patterns = self.exclude
+        else:
+            allow_patterns = self.filenames
+            ignore_patterns = None
 
-        return self.api.snapshot_download(
+        return snapshot_download(
             repo_id=self.repo_id,
             repo_type=self.repo_type,
             revision=self.revision,
@@ -151,4 +153,5 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             resume_download=self.resume_download,
             force_download=self.force_download,
             cache_dir=self.cache_dir,
+            token=self.token,
         )
