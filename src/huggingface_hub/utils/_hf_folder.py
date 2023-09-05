@@ -65,11 +65,14 @@ class HfFolder:
         # 1. Is it set by environment variable ?
         token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
         if token is not None:
+            token = token.replace("\r", "").replace("\n", "").strip()
             return token
 
         # 2. Is it set in token path ?
         try:
-            return cls.path_token.read_text()
+            token = cls.path_token.read_text()
+            token = token.replace("\r", "").replace("\n", "").strip()
+            return token
         except FileNotFoundError:
             return None
 
