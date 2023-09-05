@@ -66,7 +66,6 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
-    TranslationOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -1252,7 +1251,7 @@ class AsyncInferenceClient:
         """
         return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
-    async def translation(self, text: str, *, model: Optional[str] = None) -> TranslationOutput:
+    async def translation(self, text: str, *, model: Optional[str] = None) -> str:
         """
         Convert text from one language to another.
 
@@ -1265,7 +1264,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `Dict`: A dictionary containing the translated text.
+            `str`: The generated translated text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1280,7 +1279,7 @@ class AsyncInferenceClient:
         >>> client = AsyncInferenceClient()
         >>> output = await client.translation("My name is Wolfgang and I live in Berlin")
         >>> output
-        {'translation_text': 'Mein Name ist Wolfgang und ich lebe in Berlin.'}
+        'Mein Name ist Wolfgang und ich lebe in Berlin.'
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
@@ -1289,7 +1288,7 @@ class AsyncInferenceClient:
             model=model,
             task="translation",
         )
-        return _bytes_to_dict(response)[0]
+        return _bytes_to_dict(response)[0]["translation_text"]
 
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
