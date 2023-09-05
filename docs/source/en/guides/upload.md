@@ -106,6 +106,59 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
+## Upload from the CLI
+
+You can also upload files to the Hub directly from your terminal using the `huggingface-cli upload` command. Internally
+it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
+
+You can either upload a single file or an entire folder:
+
+```bash
+# Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
+>>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
+https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
+
+>>> huggingface-cli upload Wauplin/my-cool-model ./models .
+https://huggingface.co/Wauplin/my-cool-model/tree/main
+```
+
+`local_path` and `path_in_repo` are optional and can be implicitly inferred. By default, `local_path` will be set to
+the current directory and `path_in_repo` will be set to the relative path between the current directory and `local_path`.
+If the implicit paths cannot be inferred, an error is raised.
+
+```bash
+# Upload file (implicit path_in_repo)
+huggingface-cli upload my-cool-model model.safetensors
+
+# Upload directory (implicit path_in_repo)
+huggingface-cli upload my-cool-model ./models
+
+# Upload directory (implicit local_path, implicit path_in_repo)
+huggingface-cli upload my-cool-model
+```
+
+By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly,
+use the `--token` option:
+
+```bash
+huggingface-cli upload my-cool-model --token=hf_****
+```
+
+When uploading a folder, you can use the `--include` and `--exclude` arguments to filter the files to upload. You can
+also use `--delete` to delete existing files on the Hub.
+
+```bash
+# Sync local Space with Hub (upload new files except from logs/, delete removed files)
+huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
+```
+
+Finally, you can also schedule a job that will upload your files regularly (see [scheduled uploads](#scheduled-uploads)).
+
+```bash
+# Upload new logs every 10 minutes
+huggingface-cli upload training-model logs/ --every=10
+```
+
 ## Advanced features
 
 In most cases, you won't need more than [`upload_file`] and [`upload_folder`] to upload your files to the Hub.
