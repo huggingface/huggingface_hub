@@ -765,7 +765,7 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
-    def text_classification(self, text: str, *, model: Optional[str] = None) -> ClassificationOutput:
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
         Perform sentiment-analysis on the given text.
 
@@ -801,7 +801,7 @@ class InferenceClient:
             model=model,
             task="text-classification",
         )
-        return _bytes_to_dict(response)[0][0]
+        return _bytes_to_list(response)
 
     @overload
     def text_generation(  # type: ignore

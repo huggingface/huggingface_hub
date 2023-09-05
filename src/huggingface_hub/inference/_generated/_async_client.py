@@ -772,7 +772,7 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
-    async def text_classification(self, text: str, *, model: Optional[str] = None) -> ClassificationOutput:
+    async def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
         Perform sentiment-analysis on the given text.
 
@@ -809,7 +809,7 @@ class AsyncInferenceClient:
             model=model,
             task="text-classification",
         )
-        return _bytes_to_dict(response)[0][0]
+        return _bytes_to_list(response)
 
     @overload
     async def text_generation(  # type: ignore
