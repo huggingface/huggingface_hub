@@ -420,18 +420,13 @@ class AsyncInferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
-    async def fill_mask(
-        self, text: List[str], *, parameters: Optional[Dict[str, Any]] = None, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
         Fill in a hole with a missing word (token to be precise).
 
         Args:
             text (`str`):
                 a string to be filled from, must contain the [MASK] token (check model card for exact name of the mask).
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the fill mask task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#fill-mask-task)
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
@@ -464,14 +459,12 @@ class AsyncInferenceClient:
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
-        if parameters is not None:
-            payload["parameters"] = parameters
         response = await self.post(
             json=payload,
             model=model,
             task="fill-mask",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     async def image_classification(
         self,
