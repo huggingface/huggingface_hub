@@ -210,7 +210,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
             self._api.delete_repo("repo-that-does-not-exist")
 
     @retry_endpoint
-    def test_delete_repo_missing_ok(self)->None:
+    def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     @retry_endpoint
