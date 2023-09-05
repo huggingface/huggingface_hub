@@ -2408,7 +2408,7 @@ class HfApi:
                 If invalid reference for a branch. You cannot squash history on tags.
 
         Example:
-        ```
+        ```py
         >>> from huggingface_hub import HfApi
         >>> api = HfApi()
 
