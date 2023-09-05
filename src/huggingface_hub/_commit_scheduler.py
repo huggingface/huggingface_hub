@@ -56,6 +56,9 @@ class CommitScheduler:
             If provided, only files matching at least one pattern are uploaded.
         ignore_patterns (`List[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not uploaded.
+        squash_history (`bool`, *optional*):
+            Whether to squash the history of the repo after each commit. Defaults to `False`. Squashing commits is
+            useful to avoid degraded performances on the repo when it grows too large.
         hf_api (`HfApi`, *optional*):
             The [`HfApi`] client to use to commit to the Hub. Can be set with custom settings (user agent, token,...).
 
@@ -90,6 +93,7 @@ class CommitScheduler:
         token: Optional[str] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
+        squash_history: bool = False,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
         self.api = hf_api or HfApi(token=token)
@@ -124,6 +128,7 @@ class CommitScheduler:
             raise ValueError(f"'every' must be a positive integer, not '{every}'.")
         self.lock = Lock()
         self.every = every
+        self.squash_history = squash_history
 
         logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
         self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
@@ -161,7 +166,11 @@ class CommitScheduler:
 
         logger.info("(Background) scheduled commit triggered.")
         try:
-            return self.push_to_hub()
+            value = self.push_to_hub()
+            if self.squash_history:
+                logger.info("(Background) squashing repo history.")
+                self.api.super_squash_history(repo_id=self.repo_id, repo_type=self.repo_type, branch=self.revision)
+            return value
         except Exception as e:
             logger.error(f"Error while pushing to Hub: {e}")  # Depending on the setup, error might be silenced
             raise

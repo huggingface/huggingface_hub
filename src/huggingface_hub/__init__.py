@@ -197,6 +197,7 @@ _SUBMOD_ATTRS = {
         "run_as_future",
         "set_space_sleep_time",
         "space_info",
+        "super_squash_history",
         "unlike",
         "update_repo_visibility",
         "upload_file",
@@ -505,6 +506,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_as_future,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
+        super_squash_history,  # noqa: F401
         unlike,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
