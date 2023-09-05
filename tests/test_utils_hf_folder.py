@@ -89,28 +89,7 @@ class HfFolderTest(unittest.TestCase):
         Test the workflow when the token is mistakenly finishing with new-line or space character.
         """
         token = _generate_token()
-        HfFolder.save_token(token + "\n")
+        HfFolder.save_token(" " + token + "\n")
         self.assertEqual(HfFolder.get_token(), token)
         HfFolder.delete_token()
-        HfFolder.delete_token()
-        # ^^ not an error, we test that the
-        # second call does not fail.
-        self.assertEqual(HfFolder.get_token(), None)
-        # test TOKEN in env
-        self.assertEqual(HfFolder.get_token(), None)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
-            self.assertEqual(HfFolder.get_token(), token)
-
-        token = _generate_token()
-        HfFolder.save_token(token + " ")
-        self.assertEqual(HfFolder.get_token(), token)
-        HfFolder.delete_token()
-        HfFolder.delete_token()
-        # ^^ not an error, we test that the
-        # second call does not fail.
-        self.assertEqual(HfFolder.get_token(), None)
-        # test TOKEN in env
-        self.assertEqual(HfFolder.get_token(), None)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
-            self.assertEqual(HfFolder.get_token(), token)
             
