@@ -66,6 +66,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    TokenClassificationOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -1251,31 +1252,21 @@ class AsyncInferenceClient:
         """
         return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
-    async def token_classification(
-        self, text: List[str], *, parameters: Optional[Dict[str, Any]] = None, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    async def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
 
         Args:
             text (`str`):
-                A list of strings to be classified.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the token classification task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#token-classification-task)
+                A string to be classified.
             model (`str`, *optional*):
                 The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing:
-            - entity_group:	The type for the entity being recognized (model specific).
-            - score:    	How likely the entity was recognized.
-            - word:	        The string that was captured.
-            - start:	    The offset stringwise where the answer is located. Useful to disambiguate if word occurs multiple times.
-            - end:	        The offset stringwise where the answer is located. Useful to disambiguate if word occurs multiple times.
+            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1303,14 +1294,12 @@ class AsyncInferenceClient:
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
-        if parameters is not None:
-            payload["parameters"] = parameters
         response = await self.post(
             json=payload,
             model=model,
             task="token-classification",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
