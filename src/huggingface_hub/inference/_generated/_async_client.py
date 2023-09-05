@@ -66,7 +66,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
-    QuestionAnsweringOutput,
+    TableQuestionAnsweringOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -775,12 +775,10 @@ class AsyncInferenceClient:
 
     async def table_question_answering(
         self,
-        query: List[str],
+        query: str,
         table: Dict[str, Any],
-        model: Optional[str],
-        *,
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> List[QuestionAnsweringOutput]:
+        model: str,
+    ) -> TableQuestionAnsweringOutput:
         """
         Retrieve the answer to a question from information given in a table.
 
@@ -792,16 +790,9 @@ class AsyncInferenceClient:
             model (`str`):
                 The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the table-question-answering task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#table-question-answering-task)
 
         Returns:
-            `Dict`: a dictionary containing:
-            - answer:	    The plaintext answer.
-            - coordinates:	A list of coordinates of the cells referenced in the answer.
-            - cells:	    A list of coordinates of the cells contents.
-            - aggregator:	The aggregator used to get the answer.
+            `Dict`: a dictionary of table question answering output containing the answer, coordinates, cells and the aggregator used.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -833,14 +824,12 @@ class AsyncInferenceClient:
             )
 
         payload: Dict[str, Any] = {"query": query, "table": table}
-        if parameters is not None:
-            payload["parameters"] = parameters
         response = await self.post(
             json=payload,
             model=model,
             task="table-question-answering",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)[0]
 
     @overload
     async def text_generation(  # type: ignore

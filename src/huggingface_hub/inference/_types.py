@@ -100,19 +100,21 @@ class ObjectDetectionOutput(TypedDict):
     score: float
 
 
-class QuestionAnsweringOutput(TypedDict):
-    """Dictionary containing information about a [`~InferenceClient.question_answering`] task.
+class TableQuestionAnsweringOutput(TypedDict):
+    """Dictionary containing information about a [`~InferenceClient.table_question_answering`] task.
+
     Args:
-        label (`str`):
-            The label corresponding to the detected object.
-        box (`dict`):
-            A dict response of bounding box coordinates of
-            the detected object: xmin, ymin, xmax, ymax
-        score (`float`):
-            The score corresponding to the detected object.
+        answer (`str`):
+            The plaintext answer.
+        coordinates (`List[List[int]]`):
+            A list of coordinates of the cells referenced in the answer.
+        cells (`List[int]`):
+            A list of coordinates of the cells contents.
+        aggregator (`str`):
+            The aggregator used to get the answer.
     """
 
-    score: float
-    start: int
-    end: int
     answer: str
+    coordinates: List[List[int]]
+    cells: List[List[int]]
+    aggregator: str
