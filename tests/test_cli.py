@@ -150,10 +150,6 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.local_path, "./path/to/folder")
         self.assertEqual(cmd.path_in_repo, "data/")
 
-    def test_cannot_upload_verbose_and_quiet(self) -> None:
-        with self.assertRaises(ValueError):
-            UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "my-file", "--quiet", "--verbose"]))
-
     def test_every_must_be_positive(self) -> None:
         with self.assertRaises(ValueError):
             UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "--every", "0"]))

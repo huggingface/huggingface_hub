@@ -120,7 +120,6 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             action="store_true",
             help="If True, progress bars are disabled and only the path to the uploaded files is printed.",
         )
-        upload_parser.add_argument("--verbose", action="store_true", help="If True, more logs are printed.")
         upload_parser.set_defaults(func=UploadCommand)
 
     def __init__(self, args: Namespace) -> None:
@@ -137,12 +136,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
         self.token: Optional[str] = args.token
-
-        # Quiet/verbose mode
         self.quiet: bool = args.quiet  # disable warnings and progress bars
-        self.verbose: bool = args.verbose  # set verbosity to INFO
-        if self.quiet and self.verbose:
-            raise ValueError("Cannot set both `--quiet` and `--verbose`.")
 
         # Possibly implicit `path` and `path_in_repo`
         self.local_path: str = args.local_path if args.local_path is not None else "."
@@ -169,8 +163,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 print(self._upload())
             enable_progress_bars()
         else:
-            if self.verbose:
-                logging.set_verbosity_info()
+            logging.set_verbosity_info()
             print(self._upload())
 
     def _upload(self) -> str:
