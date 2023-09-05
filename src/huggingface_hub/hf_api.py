@@ -4050,7 +4050,7 @@ class HfApi:
                 commit hash.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
-            local_dir (`str` or `Path`, *optional*:
+            local_dir (`str` or `Path`, *optional*):
                 If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
                 regular files (see description for more details).
             local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
