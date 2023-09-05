@@ -2485,7 +2485,8 @@ class HfApi:
         *,
         token: Optional[str] = None,
         repo_type: Optional[str] = None,
-    ):
+        missing_ok: bool = False,
+    ) -> None:
         """
         Delete a repo from the HuggingFace Hub. CAUTION: this is irreversible.
 
@@ -2498,16 +2499,12 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model.
+            missing_ok (`bool`, *optional*, defaults to `False`):
+                If `True`, do not raise an error if repo does not exist.
 
-        <Tip>
-
-        Raises the following errors:
-
+        Raises:
             - [`~utils.RepositoryNotFoundError`]
-              If the repository to download from cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-
-        </Tip>
+              If the repository to delete from cannot be found and `missing_ok` is set to False (default).
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
 
@@ -2522,7 +2519,11 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
         r = get_session().delete(path, headers=headers, json=json)
-        hf_raise_for_status(r)
+        try:
+            hf_raise_for_status(r)
+        except RepositoryNotFoundError:
+            if not missing_ok:
+                raise
 
     @validate_hf_hub_args
     def update_repo_visibility(
