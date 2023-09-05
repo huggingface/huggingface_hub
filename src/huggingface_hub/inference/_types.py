@@ -104,13 +104,14 @@ class QuestionAnsweringOutput(TypedDict):
     """Dictionary containing information about a [`~InferenceClient.question_answering`] task.
 
     Args:
-        label (`str`):
-            The label corresponding to the detected object.
-        box (`dict`):
-            A dict response of bounding box coordinates of
-            the detected object: xmin, ymin, xmax, ymax
         score (`float`):
-            The score corresponding to the detected object.
+            A float that represents how likely that the answer is correct.
+        start (`int`):
+            The index (string wise) of the start of the answer within context.
+        end (`int`):
+            The index (string wise) of the end of the answer within context.
+        answer (`str`):
+            A string that is the answer within the text.
     """
 
     score: float

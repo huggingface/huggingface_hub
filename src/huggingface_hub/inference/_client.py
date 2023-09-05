@@ -677,8 +677,8 @@ class InferenceClient:
         return output
 
     def question_answering(
-        self, question: str, context: str, model: str, *, parameters: Optional[Dict[str, Any]] = None
-    ) -> List[QuestionAnsweringOutput]:
+        self, question: str, context: str, *, model: Optional[str] = None
+    ) -> QuestionAnsweringOutput:
         """
         Retrieve the answer to a question from a given text.
 
@@ -690,17 +690,9 @@ class InferenceClient:
             model (`str`):
                 The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the question answering task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#question-answering-task)
-
 
         Returns:
-            `Dict`: a dictionary containing:
-            - answer:	A string that’s the answer within the text.
-            - score:	A float that represents how likely that the answer is correct
-            - start:	The index (string wise) of the start of the answer within context.
-            - stop:	    The index (string wise) of the stop of the answer within context.
+            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -717,18 +709,14 @@ class InferenceClient:
         {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
         ```
         """
-        if model is None:
-            raise ValueError("You must specify a model. Task question-answering has no recommended standard model.")
 
         payload: Dict[str, Any] = {"question": question, "context": context}
-        if parameters is not None:
-            payload["parameters"] = parameters
         response = self.post(
             json=payload,
             model=model,
             task="question-answering",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)  # type: ignore
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
