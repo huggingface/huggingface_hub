@@ -92,4 +92,3 @@ class HfFolderTest(unittest.TestCase):
         HfFolder.save_token(" " + token + "\n")
         self.assertEqual(HfFolder.get_token(), token)
         HfFolder.delete_token()
-
