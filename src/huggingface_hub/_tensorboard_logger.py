@@ -158,7 +158,7 @@ class HFSummaryWriter(SummaryWriter):
         # Exposing some high-level info at root level
         self.repo_id = self.scheduler.repo_id
         self.repo_type = self.scheduler.repo_type
-        self.repo_revision = self.scheduler.repo_revision
+        self.repo_revision = self.scheduler.revision
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""
