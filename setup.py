@@ -81,12 +81,17 @@ extras["typing"] = [
 extras["quality"] = [
     "black==23.7",
     "ruff>=0.0.241",
-    "mypy==0.982",
+    "mypy==1.5.1",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
+
+extras["docs"] = extras["all"] + [
+    "hf-doc-builder",
+    "watchdog",
+]
 
 
 setup(

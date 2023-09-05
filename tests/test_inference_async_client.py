@@ -25,6 +25,7 @@ work as well.
 import inspect
 
 import pytest
+from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
 from huggingface_hub import AsyncInferenceClient, InferenceClient
@@ -198,3 +199,33 @@ def test_sync_vs_async_signatures() -> None:
         async_sig = inspect.signature(async_method)
         assert sync_sig.parameters == async_sig.parameters
         assert sync_sig.return_annotation == async_sig.return_annotation
+
+
+@pytest.mark.asyncio
+async def test_get_status_too_big_model() -> None:
+    model_status = await AsyncInferenceClient().get_model_status("facebook/nllb-moe-54b")
+    assert model_status.loaded is False
+    assert model_status.state == "TooBig"
+    assert model_status.compute_type == "cpu"
+    assert model_status.framework == "transformers"
+
+
+@pytest.mark.asyncio
+async def test_get_status_loaded_model() -> None:
+    model_status = await AsyncInferenceClient().get_model_status("bigcode/starcoder")
+    assert model_status.loaded is True
+    assert model_status.state == "Loaded"
+    assert model_status.compute_type == "gpu"
+    assert model_status.framework == "text-generation-inference"
+
+
+@pytest.mark.asyncio
+async def test_get_status_unknown_model() -> None:
+    with pytest.raises(ClientResponseError):
+        await AsyncInferenceClient().get_model_status("unknown/model")
+
+
+@pytest.mark.asyncio
+async def test_get_status_model_as_url() -> None:
+    with pytest.raises(NotImplementedError):
+        await AsyncInferenceClient().get_model_status("https://unkown/model")
