@@ -384,14 +384,14 @@ getting an upload/push to fail at the end of the process or encountering a degra
 We gathered a list of tips and recommendations for structuring your repo.
 
 
-| Characteristic     | Recommended        | Tips                                     |
-| ----------------   | ------------------ | ---------------------------------------- |
-| Repo size          | -                  | contact us for large repos (TBs of data) |
-| Files per repo     | <100k              | merge data into fewer files              |
-| Entries per folder | <10k               | use subdirectories in repo               |
-| File size          | <5GB               | split data into chunked files            |
-| Commit size        | <100 files*        | upload files in multiple commits         |
-| Commits per repo   | -                  | upload multiple files per commit         |
+| Characteristic     | Recommended        | Tips                                                   |
+| ----------------   | ------------------ | ------------------------------------------------------ |
+| Repo size          | -                  | contact us for large repos (TBs of data)               |
+| Files per repo     | <100k              | merge data into fewer files                            |
+| Entries per folder | <10k               | use subdirectories in repo                             |
+| File size          | <5GB               | split data into chunked files                          |
+| Commit size        | <100 files*        | upload files in multiple commits                       |
+| Commits per repo   | -                  | upload multiple files per commit and/or squash history |
 
 _* Not relevant when using `git` CLI directly_
 
@@ -424,7 +424,7 @@ In all cases no single LFS file will be able to be >50GB. I.e. 50GB is the hard 
 our experience, the user experience on the Hub starts to degrade after a few thousand commits. We are constantly working to
 improve the service, but one must always remember that a git repository is not meant to work as a database with a lot of
 writes. If your repo's history gets very large, it is always possible to squash all the commits to get a
-fresh start.
+fresh start using [`super_squash_history`]. This is a non-revertible operation.
 - **Number of operations per commit**: Once again, there is no hard limit here. When a commit is uploaded on the Hub, each
 git operation (addition or delete) is checked by the server. When a hundred LFS files are committed at once,
 each file is checked individually to ensure it's been correctly uploaded. When pushing data through HTTP with `huggingface_hub`,
