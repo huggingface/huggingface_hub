@@ -62,6 +62,7 @@ from huggingface_hub.inference._common import (
     _b64_to_image,
     _bytes_to_dict,
     _bytes_to_image,
+    _bytes_to_list,
     _get_recommended_model,
     _import_numpy,
     _is_tgi_server,
@@ -284,7 +285,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def automatic_speech_recognition(
         self,
@@ -381,7 +382,7 @@ class InferenceClient:
         if parameters is not None:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="conversational")
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)  # type: ignore
 
     def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
@@ -453,7 +454,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def image_segmentation(
         self,
@@ -719,7 +720,7 @@ class InferenceClient:
             model=model,
             task="sentence-similarity",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def summarization(
         self,
@@ -1323,7 +1324,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
