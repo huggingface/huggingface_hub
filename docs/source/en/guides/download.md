@@ -165,7 +165,7 @@ symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) 
 
 ## Download from the CLI
 
-You can also download files from the Hub directly from your terminal using the `huggingface-cli download` command.
+You can use the `huggingface-cli download` command from the terminal to directly download files from the Hub.
 Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
 returned path to the terminal:
 
@@ -182,7 +182,7 @@ use the `--token` option:
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-You can download multiple files at once which displays a progress bar and return the snapshot path in which the files
+You can download multiple files at once which displays a progress bar and returns the snapshot path in which the files
 are located:
 
 ```bash
@@ -191,15 +191,15 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-If you want to silent the progress bars and potential warnings, use the `--quiet` option. This can prove useful if you
-want to pipe the output to another command in a script.
+If you want to silence the progress bars and potential warnings, use the `--quiet` option. This can prove useful if you
+want to pass the output to another command in a script.
 
 ```bash
 >>> huggingface-cli download gpt2 config.json model.safetensors
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-By default, files will be downloaded to the cache directory defined by `HF_HOME` environment variable (or `~/.cache/huggingface/hub` if unset). You
+By default, files are downloaded to the cache directory defined by `HF_HOME` environment variable (or `~/.cache/huggingface/hub` if not specified). You
 can override this by using the `--cache-dir` option:
 
 ```bash
@@ -208,7 +208,7 @@ can override this by using the `--cache-dir` option:
 ```
 
 If you want to download files to a local folder, without the cache directory structure, you can use `--local-dir`.
-Downloading to a local folder comes with its limitations listed [in this table](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder).
+Downloading to a local folder comes with its limitations which are listed in this [table](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder).
 
 
 ```bash
@@ -217,7 +217,7 @@ Downloading to a local folder comes with its limitations listed [in this table](
 ```
 
 
-More options exists to download from a different repo type or revision and to include/exclude files to download using
+There are more arguments you can specify to download from different repo types or revisions and to include/exclude files to download using
 glob patterns:
 
 ```bash
@@ -227,7 +227,7 @@ Fetching 206 files:   100%|█████████████████�
 /home/wauplin/.cache/huggingface/hub/datasets--bigcode--the-stack/snapshots/9ca8fa6acdbc8ce920a0cb58adcdafc495818ae7
 ```
 
-For a full detail of the options, you can run:
+For a full list of the arguments, you can run:
 
 ```bash
 huggingface-cli download --help
