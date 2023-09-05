@@ -29,7 +29,7 @@ This can prove useful if you want to build up from an existing Space instead of 
 It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
 
 ```py
->>> duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_space("multimodalart/dreambooth-training")
 ```
 
 **2. Upload your code using your preferred solution.**
@@ -43,19 +43,21 @@ Here is an example to upload the local folder `src/` from your machine to your S
 At this step, your app should already be running on the Hub for free !
 However, you might want to configure it further with secrets and upgraded hardware.
 
-**3. Configure secrets**
+**3. Configure secrets and variables**
 
-Your Space might require some secret keys or token to work.
+Your Space might require some secret keys, token or variables to work.
 See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
 For example, an HF token to upload an image dataset to the Hub once generated from your Space.
 
 ```py
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
+>>> api.add_space_variable(repo_id=repo_id, key="MODEL_REPO_ID", value="user/repo")
 ```
 
-Secrets can be deleted as well:
+Secrets and variables can be deleted as well:
 ```py
 >>> api.delete_space_secret(repo_id=repo_id, key="HF_TOKEN")
+>>> api.delete_space_variable(repo_id=repo_id, key="MODEL_REPO_ID")
 ```
 
 <Tip>
@@ -66,6 +68,28 @@ Streamlit Secrets Management if using Streamlit). No need to fetch them via the 
 <Tip warning={true}>
 Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
 </Tip>
+
+**Bonus: set secrets and variables when creating or duplicating the Space!**
+
+Secrets and variables can be set when creating or duplicating a space:
+
+```py
+>>> api.create_repo(
+...     repo_id=repo_id,
+...     repo_type="space",
+...     space_sdk="gradio",
+...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+... )
+```
+
+```py
+>>> api.duplicate_space(
+...     from_id=repo_id,
+...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+... )
+```
 
 **4. Configure the hardware**
 
@@ -99,7 +123,7 @@ has been met.
 You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
 when you are done using it.
 
-**Bonus: request hardware when creating the Space!**
+**Bonus: request hardware when creating or duplicating the Space!**
 
 Upgraded hardware will be automatically assigned to your Space once it's built.
 
@@ -109,6 +133,16 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
+...     space_storage="small",
+...     space_sleep_time="7200", # 2 hours in secs
+... )
+```
+```py
+>>> api.duplicate_space(
+...     from_id=repo_id,
+...     hardware="cpu-upgrade",
+...     storage="small",
+...     sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
@@ -147,7 +181,27 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 >>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
 ```
 
+**Bonus: set a sleep time when creating or duplicating the Space!**
+
+```py
+>>> api.create_repo(
+...     repo_id=repo_id,
+...     repo_type="space",
+...     space_sdk="gradio"
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
+... )
+```
+```py
+>>> api.duplicate_space(
+...     from_id=repo_id,
+...     hardware="t4-medium",
+...     sleep_time="3600",
+... )
+```
+
 **6. Add persistent storage to your Space**
+
 You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
 
 ```py
@@ -162,6 +216,23 @@ You can also delete your storage, losing all the data permanently.
 
 Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
 you must delete the storage first then request the new desired tier.
+
+**Bonus: request storage when creating or duplicating the Space!**
+
+```py
+>>> api.create_repo(
+...     repo_id=repo_id,
+...     repo_type="space",
+...     space_sdk="gradio"
+...     space_storage="large",
+... )
+```
+```py
+>>> api.duplicate_space(
+...     from_id=repo_id,
+...     storage="large",
+... )
+```
 
 ## More advanced: temporarily upgrade your Space !
 

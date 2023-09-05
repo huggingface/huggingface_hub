@@ -33,7 +33,7 @@ REPO_TYPE_T = Literal["model", "dataset", "space"]
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
 
-    cache_dir = Union[str, Path]
+    cache_dir: Union[str, Path]
 
     def __init__(self, msg: str, cache_dir: Union[str, Path], *args, **kwargs):
         super().__init__(msg, *args, **kwargs)
