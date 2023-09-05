@@ -56,7 +56,7 @@ TODO: add "-y" arg for immediate deletion ?
 See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
 """
 import os
-from argparse import _SubParsersAction
+from argparse import Namespace, _SubParsersAction
 from functools import wraps
 from tempfile import mkstemp
 from typing import Any, Callable, Iterable, List, Optional, Union
@@ -121,7 +121,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
 
         delete_cache_parser.set_defaults(func=DeleteCacheCommand)
 
-    def __init__(self, args):
+    def __init__(self, args: Namespace) -> None:
         self.cache_dir: Optional[str] = args.dir
         self.disable_tui: bool = args.disable_tui
 

@@ -13,8 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional
+
+from huggingface_hub.utils import parse_datetime
 
 
 class SpaceStage(str, Enum):
@@ -118,3 +121,31 @@ class SpaceRuntime:
         self.sleep_time = data["gcTimeout"]
         self.storage = data["storage"]
         self.raw = data
+
+
+@dataclass
+class SpaceVariable:
+    """
+    Contains information about the current variables of a Space.
+
+    Args:
+        key (`str`):
+            Variable key. Example: `"MODEL_REPO_ID"`
+        value (`str`):
+            Variable value. Example: `"the_model_repo_id"`.
+        description (`str` or None):
+            Description of the variable. Example: `"Model Repo ID of the implemented model"`.
+        updatedAt (`datetime`):
+            datetime of the last update of the variable.
+    """
+
+    key: str
+    value: str
+    description: Optional[str]
+    updated_at: datetime
+
+    def __init__(self, key: str, values: Dict) -> None:
+        self.key = key
+        self.value = values["value"]
+        self.description = values.get("description")
+        self.updated_at = parse_datetime(values["updatedAt"])

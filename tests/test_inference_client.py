@@ -22,7 +22,7 @@ from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import with_production_testing
 
@@ -206,8 +206,8 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_to_image_default(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
-        self.assertEqual(image.height, 768)
-        self.assertEqual(image.width, 768)
+        self.assertEqual(image.height, 512)
+        self.assertEqual(image.width, 512)
 
     def test_text_to_image_with_parameters(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
@@ -356,3 +356,31 @@ class TestHeadersAndCookies(unittest.TestCase):
 
         headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
         self.assertEqual(headers["Accept"], "image/png")
+
+
+class TestModelStatus(unittest.TestCase):
+    def test_too_big_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("facebook/nllb-moe-54b")
+        self.assertFalse(model_status.loaded)
+        self.assertEqual(model_status.state, "TooBig")
+        self.assertEqual(model_status.compute_type, "cpu")
+        self.assertEqual(model_status.framework, "transformers")
+
+    def test_loaded_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("bigcode/starcoder")
+        self.assertTrue(model_status.loaded)
+        self.assertEqual(model_status.state, "Loaded")
+        self.assertEqual(model_status.compute_type, "gpu")
+        self.assertEqual(model_status.framework, "text-generation-inference")
+
+    def test_unknown_model(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(HfHubHTTPError):
+            client.get_model_status("unknown/model")
+
+    def test_model_as_url(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(NotImplementedError):
+            client.get_model_status("https://unkown/model")
