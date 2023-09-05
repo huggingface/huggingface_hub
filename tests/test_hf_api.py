@@ -210,6 +210,10 @@ class HfApiEndpointsTest(HfApiCommonTest):
             self._api.delete_repo("repo-that-does-not-exist")
 
     @retry_endpoint
+    def test_delete_repo_missing_ok(self) -> None:
+        self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
+
+    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(repo_id=REPO_NAME)
@@ -2414,6 +2418,39 @@ class ActivityApiTest(unittest.TestCase):
         self.assertGreater(len(likes.models), 0)
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
+
+
+class TestSquashHistory(HfApiCommonTest):
+    @use_tmp_repo()
+    def test_super_squash_history(self, repo_url: RepoUrl) -> None:
+        # Upload + update file on main
+        repo_id = repo_url.repo_id
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+        self._api.upload_file(repo_id=repo_id, path_in_repo="lfs.bin", path_or_fileobj=b"content")
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"another_content")
+
+        # Upload file on a new branch
+        self._api.create_branch(repo_id=repo_id, branch="v0.1", exist_ok=True)
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"foo", revision="v0.1")
+
+        # Squash history on main
+        self._api.super_squash_history(repo_id=repo_id)
+
+        # List history
+        squashed_main_commits = self._api.list_repo_commits(repo_id=repo_id, revision="main")
+        branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
+
+        # Main branch has been squashed but initial commits still exists on other branch
+        self.assertEqual(len(squashed_main_commits), 1)
+        self.assertEqual(squashed_main_commits[0].title, "Super-squash branch 'main' using huggingface_hub")
+        self.assertEqual(len(branch_commits), 5)
+        self.assertEqual(branch_commits[-1].title, "initial commit")
+
+        # Squash history on branch
+        self._api.super_squash_history(repo_id=repo_id, branch="v0.1")
+        squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
+        self.assertEqual(len(squashed_branch_commits), 1)
+        self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
 
 
 @pytest.mark.usefixtures("fx_production_space")
