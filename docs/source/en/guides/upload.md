@@ -419,6 +419,7 @@ There are a few reasons for this:
       happen when streaming data and smaller files avoid resuming from the beginning in case of errors.
     - Files are served to the users using CloudFront. From our experience, huge files are not cached by this service
       leading to a slower download speed.
+In all cases no single LFS file will be able to be >50GB. I.e. 50GB is the hard limit for single file size.
 - **Number of commits**: There is no hard limit for the total number of commits on your repo history. However, from
 our experience, the user experience on the Hub starts to degrade after a few thousand commits. We are constantly working to
 improve the service, but one must always remember that a git repository is not meant to work as a database with a lot of

@@ -53,6 +53,7 @@ from huggingface_hub.utils import (
     EntryNotFoundError,
     LocalTokenNotFoundError,
     RepositoryNotFoundError,
+    RevisionNotFoundError,
     experimental,
     get_session,
 )
@@ -81,7 +82,7 @@ from ._multi_commits import (
     multi_commit_parse_pr_description,
     plan_multi_commits,
 )
-from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage
+from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from .community import (
     Discussion,
     DiscussionComment,
@@ -99,6 +100,10 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+)
+from .file_download import (
+    get_hf_file_metadata,
+    hf_hub_url,
 )
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
@@ -1889,6 +1894,110 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def repo_exists(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a repository exists on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import repo_exists
+            >>> repo_exists("huggingface/transformers")
+            True
+            >>> repo_exists("huggingface/not-a-repo")
+            False
+            ```
+
+        </Tip>
+        """
+        try:
+            self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
+            return True
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def file_exists(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a file exists in a repository on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            filename (`str`):
+                The name of the file to check, for example:
+                `"config.json"`
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the file exists, False otherwise.
+
+        <Tip>
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import file_exists
+            >>> file_exists("bigcode/starcoder", "config.json")
+            True
+            >>> file_exists("bigcode/starcoder", "not-a-file")
+            False
+            >>> file_exists("bigcode/not-a-repo", "config.json")
+            False
+            ```
+
+        </Tip>
+        """
+        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        try:
+            if token is None:
+                token = self.token
+            get_hf_file_metadata(url, token=token)
+            return True
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            return False
+
+    @validate_hf_hub_args
     def list_files_info(
         self,
         repo_id: str,
@@ -2256,7 +2365,11 @@ class HfApi:
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         space_sdk: Optional[str] = None,
-        space_hardware: Optional[str] = None,
+        space_hardware: Optional[SpaceHardware] = None,
+        space_storage: Optional[SpaceStorage] = None,
+        space_sleep_time: Optional[int] = None,
+        space_secrets: Optional[List[Dict[str, str]]] = None,
+        space_variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
         """Create an empty repo on the HuggingFace Hub.
 
@@ -2278,6 +2391,19 @@ class HfApi:
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
+            space_storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
+            space_sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            space_secrets (`List[Dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            space_variables (`List[Dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -2290,7 +2416,7 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json = {"name": name, "organization": organization, "private": private}
+        json: Dict[str, Any] = {"name": name, "organization": organization, "private": private}
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -2306,11 +2432,23 @@ class HfApi:
         if space_sdk is not None and repo_type != "space":
             warnings.warn("Ignoring provided space_sdk because repo_type is not 'space'.")
 
-        if space_hardware is not None:
-            if repo_type == "space":
-                json["hardware"] = space_hardware
-            else:
-                warnings.warn("Ignoring provided space_hardware because repo_type is not 'space'.")
+        function_args = [
+            "space_hardware",
+            "space_storage",
+            "space_sleep_time",
+            "space_secrets",
+            "space_variables",
+        ]
+        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+
+        if repo_type == "space":
+            json.update({k: v for k, v in zip(json_keys, values) if v is not None})
+        else:
+            provided_space_args = [key for key, value in zip(function_args, values) if value is not None]
+
+            if provided_space_args:
+                warnings.warn(f"Ignoring provided {', '.join(provided_space_args)} because repo_type is not 'space'.")
 
         if getattr(self, "_lfsmultipartthresh", None):
             # Testing purposes only.
@@ -3912,7 +4050,7 @@ class HfApi:
                 commit hash.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
-            local_dir (`str` or `Path`, *optional*:
+            local_dir (`str` or `Path`, *optional*):
                 If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
                 regular files (see description for more details).
             local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
@@ -5028,6 +5166,83 @@ class HfApi:
         hf_raise_for_status(r)
 
     @validate_hf_hub_args
+    def get_space_variables(self, repo_id: str, *, token: Optional[str] = None) -> Dict[str, SpaceVariable]:
+        """Gets all variables from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to query. Example: `"bigcode/in-the-stack"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def add_space_variable(
+        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Adds or updates a variable in a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            value (`str`):
+                Variable value. Example: `"the_model_repo_id"`.
+            description (`str`):
+                Description of the variable. Example: `"Model Repo ID of the implemented model"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        payload = {"key": key, "value": value}
+        if description is not None:
+            payload["description"] = description
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
+    def delete_space_variable(
+        self, repo_id: str, key: str, *, token: Optional[str] = None
+    ) -> Dict[str, SpaceVariable]:
+        """Deletes a variable from a Space.
+
+        Variables allow to set environment variables to a Space without hardcoding them.
+        For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables
+
+        Args:
+            repo_id (`str`):
+                ID of the repo to update. Example: `"bigcode/in-the-stack"`.
+            key (`str`):
+                Variable key. Example: `"MODEL_REPO_ID"`
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/variables",
+            headers=self._build_hf_headers(token=token),
+            json={"key": key},
+        )
+        hf_raise_for_status(r)
+        return {k: SpaceVariable(k, v) for k, v in r.json().items()}
+
+    @validate_hf_hub_args
     def get_space_runtime(self, repo_id: str, *, token: Optional[str] = None) -> SpaceRuntime:
         """Gets runtime information about a Space.
 
@@ -5230,6 +5445,11 @@ class HfApi:
         private: Optional[bool] = None,
         token: Optional[str] = None,
         exist_ok: bool = False,
+        hardware: Optional[SpaceHardware] = None,
+        storage: Optional[SpaceStorage] = None,
+        sleep_time: Optional[int] = None,
+        secrets: Optional[List[Dict[str, str]]] = None,
+        variables: Optional[List[Dict[str, str]]] = None,
     ) -> RepoUrl:
         """Duplicate a Space.
 
@@ -5248,6 +5468,21 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            hardware (`SpaceHardware` or `str`, *optional*):
+                Choice of Hardware. Example: `"t4-medium"`. See [`SpaceHardware`] for a complete list.
+            storage (`SpaceStorage` or `str`, *optional*):
+                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
+            sleep_time (`int`, *optional*):
+                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
+                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
+                the sleep time (value is fixed to 48 hours of inactivity).
+                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
+            secrets (`List[Dict[str, str]]`, *optional*):
+                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
+            variables (`List[Dict[str, str]]`, *optional*):
+                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
+                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
 
         Returns:
             [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
@@ -5287,9 +5522,17 @@ class HfApi:
         # repository must be a valid repo_id (namespace/repo_name).
         payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        # private is optional with this endpoint, with None defaulting to the original space's privacy.
-        if private is not None:
-            payload["private"] = private
+        keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        values = [private, hardware, storage, sleep_time, secrets, variables]
+        payload.update({k: v for k, v in zip(keys, values) if v is not None})
+
+        if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
+            warnings.warn(
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
+                UserWarning,
+            )
 
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
@@ -5501,6 +5744,8 @@ dataset_info = api.dataset_info
 list_spaces = api.list_spaces
 space_info = api.space_info
 
+repo_exists = api.repo_exists
+file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
@@ -5550,6 +5795,9 @@ merge_pull_request = api.merge_pull_request
 # Space API
 add_space_secret = api.add_space_secret
 delete_space_secret = api.delete_space_secret
+get_space_variables = api.get_space_variables
+add_space_variable = api.add_space_variable
+delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
