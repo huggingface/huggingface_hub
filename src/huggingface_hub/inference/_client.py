@@ -80,6 +80,7 @@ from huggingface_hub.inference._text_generation import (
 from huggingface_hub.inference._types import (
     ClassificationOutput,
     ConversationalOutput,
+    FillMaskOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
 )
@@ -420,7 +421,7 @@ class InferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
-    def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+    def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -433,7 +434,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label, associated probability, token reference, and completed text.
+            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated probability, token reference, and completed text.
 
         Raises:
             [`InferenceTimeoutError`]:
