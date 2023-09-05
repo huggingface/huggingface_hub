@@ -2438,7 +2438,7 @@ class TestSquashHistory(HfApiCommonTest):
 
         # Main branch has been squashed but initial commits still exists on other branch
         self.assertEqual(len(squashed_main_commits), 1)
-        self.assertEqual(squashed_main_commits[0], "Super-squash branch 'main' using huggingface_hub")
+        self.assertEqual(squashed_main_commits[0].title, "Super-squash branch 'main' using huggingface_hub")
         self.assertEqual(len(branch_commits), 5)
         self.assertEqual(branch_commits[-1].title, "initial commit")
 
@@ -2446,7 +2446,7 @@ class TestSquashHistory(HfApiCommonTest):
         self._api.super_squash_history(repo_id=repo_id, branch="v0.1")
         squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
         self.assertEqual(len(squashed_branch_commits), 1)
-        self.assertEqual(squashed_branch_commits[0], "Super-squash branch 'v0.1' using huggingface_hub")
+        self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
 
 
 @pytest.mark.usefixtures("fx_production_space")
