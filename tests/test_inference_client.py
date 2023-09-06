@@ -205,8 +205,8 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output, list)
         self.assertEqual(len(output), 2)
         for item in output:
-            self.assertIsInstance(item[0]["score"], float)
-            self.assertIsInstance(item[0]["label"], str)
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["label"], str)
 
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""

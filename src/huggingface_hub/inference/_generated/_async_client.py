@@ -799,17 +799,11 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> output = await client.text_classification("I like you")
-        >>> output
-        {'label': 'POSITIVE', 'score': 0.9998695850372314}
+        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        response = await self.post(
-            json=payload,
-            model=model,
-            task="text-classification",
-        )
-        return _bytes_to_list(response)
+        response = await self.post(json={"inputs": text}, model=model, task="text-classification")
+        return _bytes_to_list(response)[0]
 
     @overload
     async def text_generation(  # type: ignore

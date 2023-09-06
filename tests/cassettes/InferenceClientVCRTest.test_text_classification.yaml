@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: '{"inputs": ["I like you", "I love you."]}'
+    body: '{"inputs": ["I like you"]}'
     headers:
       Accept:
       - '*/*'
@@ -20,7 +20,7 @@ interactions:
     uri: https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english
   response:
     body:
-      string: '[[{"label":"POSITIVE","score":0.9998695850372314},{"label":"NEGATIVE","score":0.0001304351753788069}],[{"label":"POSITIVE","score":0.9998705387115479},{"label":"NEGATIVE","score":0.00012938841246068478}]]'
+      string: '[[{"label":"POSITIVE","score":0.9998695850372314},{"label":"NEGATIVE","score":0.0001304351753788069}]]'
     headers:
       Connection:
       - keep-alive
