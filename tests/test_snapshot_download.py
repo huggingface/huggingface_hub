@@ -217,4 +217,4 @@ class SnapshotDownloadTests(unittest.TestCase):
                     self.assertTrue(subpath_file.is_symlink())  # bigger than 10b => symlinked
 
                 # Check returns local dir and not cache dir
-                self.assertEqual(returned_path, local_dir)
+                self.assertEqual(Path(returned_path).resolve(), Path(local_dir).resolve())

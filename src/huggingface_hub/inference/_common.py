@@ -88,6 +88,30 @@ class ModelInfo:
         )
 
 
+# Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
+@dataclass
+class ModelStatus:
+    """
+    This Dataclass represents the the model status in the Hugging Face Inference API.
+
+    Args:
+        loaded (`bool`):
+            If the model is currently loaded.
+        state (`str`):
+            The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'
+        compute_type (`str`):
+            The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
+        framework (`str`):
+            The name of the framework that the model was built with, such as 'transformers'
+            or 'text-generation-inference'.
+    """
+
+    loaded: bool
+    state: str
+    compute_type: str
+    framework: str
+
+
 class InferenceTimeoutError(HTTPError, TimeoutError):
     """Error raised when a model is unavailable or the request times out."""
 
@@ -221,10 +245,24 @@ def _b64_to_image(encoded_image: str) -> "Image":
     return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
-def _bytes_to_dict(content: bytes) -> "Image":
+def _bytes_to_list(content: bytes) -> List:
+    """Parse bytes from a Response object into a Python list.
+
+    Expects the response body to be JSON-encoded data.
+
+    NOTE: This is exactly the same implementation as `_bytes_to_dict` and will not complain if the returned data is a
+    dictionary. The only advantage of having both is to help the user (and mypy) understand what kind of data to expect.
+    """
+    return json.loads(content.decode())
+
+
+def _bytes_to_dict(content: bytes) -> Dict:
     """Parse bytes from a Response object into a Python dictionary.
 
-    Expects the response body to be encoded-JSON data.
+    Expects the response body to be JSON-encoded data.
+
+    NOTE: This is exactly the same implementation as `_bytes_to_list` and will not complain if the returned data is a
+    list. The only advantage of having both is to help the user (and mypy) understand what kind of data to expect.
     """
     return json.loads(content.decode())
 

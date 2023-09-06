@@ -139,6 +139,38 @@ def test_repo_id_no_warning():
         assert not len(record)
 
 
+class HfApiRepoFileExistsTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name(), private=True).repo_id
+        self.upload = self._api.upload_file(repo_id=self.repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    @retry_endpoint
+    def test_repo_exists(self):
+        self.assertTrue(self._api.repo_exists(self.repo_id))
+        self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
+        self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
+
+    @retry_endpoint
+    @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
+    @patch(
+        "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
+        "https://hub-ci.huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+    )
+    def test_file_exists(self):
+        self.assertTrue(self._api.file_exists(self.repo_id, "file.txt"))
+        self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
+        self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
+        self.assertFalse(
+            self._api.file_exists(self.repo_id, "file.txt", revision="revision-that-does-not-exist")
+        )  # missing revision
+        self.assertFalse(self._api.file_exists(self.repo_id, "file.txt", token=False))  # private repo
+
+
 class HfApiEndpointsTest(HfApiCommonTest):
     def test_whoami_with_passing_token(self):
         info = self._api.whoami(token=self._token)
@@ -176,6 +208,10 @@ class HfApiEndpointsTest(HfApiCommonTest):
             ),
         ):
             self._api.delete_repo("repo-that-does-not-exist")
+
+    @retry_endpoint
+    def test_delete_repo_missing_ok(self) -> None:
+        self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     @retry_endpoint
     def test_create_update_and_delete_repo(self):
@@ -2351,16 +2387,18 @@ class ActivityApiTest(unittest.TestCase):
         self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_liked_repos_no_auth(self) -> None:
-        # Create a list 1 liked repo
-        liked_repo_name = "repo-that-is-liked-public"
-        repo_url = self.api.create_repo(liked_repo_name, exist_ok=True, token=TOKEN)
-        self.api.like(repo_url.repo_id, token=TOKEN)
+        # Create a repo + like
+        repo_id = self.api.create_repo(repo_name(), exist_ok=True, token=TOKEN).repo_id
+        self.api.like(repo_id, token=TOKEN)
 
         # Fetch liked repos without auth
-        likes = self.api.list_liked_repos(USER)
+        likes = self.api.list_liked_repos(USER, token=False)
         self.assertEqual(likes.user, USER)
         self.assertGreater(len(likes.models) + len(likes.datasets) + len(likes.spaces), 0)
-        self.assertIn(repo_url.repo_id, likes.models)
+        self.assertIn(repo_id, likes.models)
+
+        # Cleanup
+        self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
@@ -2380,6 +2418,39 @@ class ActivityApiTest(unittest.TestCase):
         self.assertGreater(len(likes.models), 0)
         self.assertGreater(len(likes.datasets), 0)
         self.assertGreater(len(likes.spaces), 0)
+
+
+class TestSquashHistory(HfApiCommonTest):
+    @use_tmp_repo()
+    def test_super_squash_history(self, repo_url: RepoUrl) -> None:
+        # Upload + update file on main
+        repo_id = repo_url.repo_id
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"content")
+        self._api.upload_file(repo_id=repo_id, path_in_repo="lfs.bin", path_or_fileobj=b"content")
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"another_content")
+
+        # Upload file on a new branch
+        self._api.create_branch(repo_id=repo_id, branch="v0.1", exist_ok=True)
+        self._api.upload_file(repo_id=repo_id, path_in_repo="file.txt", path_or_fileobj=b"foo", revision="v0.1")
+
+        # Squash history on main
+        self._api.super_squash_history(repo_id=repo_id)
+
+        # List history
+        squashed_main_commits = self._api.list_repo_commits(repo_id=repo_id, revision="main")
+        branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
+
+        # Main branch has been squashed but initial commits still exists on other branch
+        self.assertEqual(len(squashed_main_commits), 1)
+        self.assertEqual(squashed_main_commits[0].title, "Super-squash branch 'main' using huggingface_hub")
+        self.assertEqual(len(branch_commits), 5)
+        self.assertEqual(branch_commits[-1].title, "initial commit")
+
+        # Squash history on branch
+        self._api.super_squash_history(repo_id=repo_id, branch="v0.1")
+        squashed_branch_commits = self._api.list_repo_commits(repo_id=repo_id, revision="v0.1")
+        self.assertEqual(len(squashed_branch_commits), 1)
+        self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
 
 
 @pytest.mark.usefixtures("fx_production_space")
@@ -2414,6 +2485,33 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Doesn't fail on missing key
         self.api.delete_space_secret(self.repo_id, "missing_key")
+
+    def test_manage_variables(self) -> None:
+        # Get variables
+        self.api.get_space_variables(self.repo_id)
+
+        # Add 3 variables
+        self.api.add_space_variable(self.repo_id, "foo", "123")
+        self.api.add_space_variable(self.repo_id, "MODEL_REPO_ID", "user/repo")
+
+        # Add 1 variable with optional description
+        self.api.add_space_variable(self.repo_id, "MODEL_PAPER", "arXiv", description="found it there")
+
+        # Update variable
+        self.api.add_space_variable(self.repo_id, "foo", "456")
+
+        # Update variable with optional description
+        self.api.add_space_variable(self.repo_id, "foo", "456", description="updated description")
+
+        # Delete variable
+        self.api.delete_space_variable(self.repo_id, "gh_api_key")
+
+        # Doesn't fail on missing key
+        self.api.delete_space_variable(self.repo_id, "missing_key")
+
+        # Returning all variables created
+        variables = self.api.get_space_variables(self.repo_id)
+        self.assertEqual(len(variables), 3)
 
     def test_space_runtime(self) -> None:
         runtime = self.api.get_space_runtime(self.repo_id)
@@ -2652,6 +2750,119 @@ class TestSpaceAPIMocked(unittest.TestCase):
             },
         )
 
+    def test_create_space_with_hardware_and_sleep_time(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_hardware=SpaceHardware.T4_MEDIUM,
+            space_sleep_time=123,
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "hardware": "t4-medium",
+                "sleepTimeSeconds": 123,
+            },
+        )
+
+    def test_create_space_with_storage(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_storage=SpaceStorage.LARGE,
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "storageTier": "large",
+            },
+        )
+
+    def test_create_space_with_secrets_and_variables(self) -> None:
+        self.api.create_repo(
+            self.repo_id,
+            repo_type="space",
+            space_sdk="gradio",
+            space_secrets=[
+                {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testsecret2", "value": "Testvalue"},
+            ],
+            space_variables=[
+                {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testvariable2", "value": "Testvalue"},
+            ],
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/repos/create",
+            headers=self.api._build_hf_headers(),
+            json={
+                "name": self.repo_id,
+                "organization": None,
+                "private": False,
+                "type": "space",
+                "sdk": "gradio",
+                "secrets": [
+                    {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testsecret2", "value": "Testvalue"},
+                ],
+                "variables": [
+                    {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testvariable2", "value": "Testvalue"},
+                ],
+            },
+        )
+
+    def test_duplicate_space(self) -> None:
+        self.api.duplicate_space(
+            self.repo_id,
+            to_id=f"{USER}/new_repo_id",
+            private=True,
+            hardware=SpaceHardware.T4_MEDIUM,
+            storage=SpaceStorage.LARGE,
+            sleep_time=123,
+            secrets=[
+                {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testsecret2", "value": "Testvalue"},
+            ],
+            variables=[
+                {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                {"key": "Testvariable2", "value": "Testvalue"},
+            ],
+        )
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/duplicate",
+            headers=self.api._build_hf_headers(),
+            json={
+                "repository": f"{USER}/new_repo_id",
+                "private": True,
+                "hardware": "t4-medium",
+                "storageTier": "large",
+                "sleepTimeSeconds": 123,
+                "secrets": [
+                    {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testsecret2", "value": "Testvalue"},
+                ],
+                "variables": [
+                    {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
+                    {"key": "Testvariable2", "value": "Testvalue"},
+                ],
+            },
+        )
+
     def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
@@ -2766,14 +2977,14 @@ class ListGitCommitsTest(unittest.TestCase):
         commits = self.api.list_repo_commits(self.repo_id)
 
         # "on_pr" commit not returned
-        self.assertEquals(len(commits), 3)
+        self.assertEqual(len(commits), 3)
         self.assertTrue(all("on_pr" not in commit.title for commit in commits))
 
         # USER is always the author
         self.assertTrue(all(commit.authors == [USER] for commit in commits))
 
         # latest commit first
-        self.assertEquals(commits[0].title, "Upload on_main.txt with huggingface_hub")
+        self.assertEqual(commits[0].title, "Upload on_main.txt with huggingface_hub")
 
         # Formatted field not returned by default
         for commit in commits:
@@ -2784,9 +2995,9 @@ class ListGitCommitsTest(unittest.TestCase):
         commits = self.api.list_repo_commits(self.repo_id, revision="refs/pr/1")
 
         # "on_pr" commit returned but not the "on_main" one
-        self.assertEquals(len(commits), 3)
+        self.assertEqual(len(commits), 3)
         self.assertTrue(all("on_main" not in commit.title for commit in commits))
-        self.assertEquals(commits[0].title, "Upload on_pr.txt with huggingface_hub")
+        self.assertEqual(commits[0].title, "Upload on_pr.txt with huggingface_hub")
 
     def test_list_commits_include_formatted(self) -> None:
         for commit in self.api.list_repo_commits(self.repo_id, formatted=True):
