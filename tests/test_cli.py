@@ -158,6 +158,16 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.local_path, "my-cool-model")
         self.assertEqual(cmd.path_in_repo, "my-cool-model")
 
+    def test_upload_implicit_local_path_when_org_repo(self) -> None:
+        with tmp_current_directory() as cache_dir:
+            folder_path = Path(cache_dir) / "my-cool-model"
+            folder_path.mkdir()
+            cmd = UploadCommand(self.parser.parse_args(["upload", "my-cool-org/my-cool-model"]))
+
+        # A folder with the same name as the repo exists => upload it at the root of the repo
+        self.assertEqual(cmd.local_path, "my-cool-model")
+        self.assertEqual(cmd.path_in_repo, ".")
+
     def test_upload_implicit_local_path_otherwise(self) -> None:
         with tmp_current_directory():
             cmd = UploadCommand(self.parser.parse_args(["upload", "my-cool-model"]))

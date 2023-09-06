@@ -144,15 +144,16 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.every: Optional[float] = args.every
 
         # Resolve `local_path` and `path_in_repo`
+        repo_name: str = args.repo_id.split("/")[-1]  # e.g. "Wauplin/my-cool-model" => "my-cool-model"
         self.local_path: str
         self.path_in_repo: str
-        if args.local_path is None and os.path.isfile(args.repo_id):
+        if args.local_path is None and os.path.isfile(repo_name):
             # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
-            self.local_path = args.repo_id
-            self.path_in_repo = args.repo_id
-        elif args.local_path is None and os.path.isdir(args.repo_id):
+            self.local_path = repo_name
+            self.path_in_repo = repo_name
+        elif args.local_path is None and os.path.isdir(repo_name):
             # Implicit case 2: user provided only a repo_id which happen to be a local folder as well => upload it at root
-            self.local_path = args.repo_id
+            self.local_path = repo_name
             self.path_in_repo = "."
         elif args.local_path is None:
             # Implicit case 3: user provided only a repo_id that does not match a local file or folder => upload the current directory at root
