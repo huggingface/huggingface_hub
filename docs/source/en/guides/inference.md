@@ -135,14 +135,15 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
 | | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [Question Answering](https://huggingface.co/tasks/question-answering)             |              |  |
+| | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`]
+>>>>>>> main
 | | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
 | | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | |  |
-| | [Text Classification](https://huggingface.co/tasks/text-classification)            | |  |
+| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
+| | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [Token Classification](https://huggingface.co/tasks/token-classification)           | |  |
-| | [Translation](https://huggingface.co/tasks/translation)       | |  |
+| | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
+| | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
 | | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
 | Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
 | | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
