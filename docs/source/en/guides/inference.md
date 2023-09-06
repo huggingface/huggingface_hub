@@ -141,7 +141,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | |  |
 | | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [Token Classification](https://huggingface.co/tasks/token-classification)           | |  |
+| | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
 | | [Translation](https://huggingface.co/tasks/translation)       | |  |
 | | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
 | Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
