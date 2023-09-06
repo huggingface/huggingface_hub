@@ -46,7 +46,6 @@ import os
 import time
 import warnings
 from argparse import Namespace, _SubParsersAction
-from pathlib import Path
 from typing import List, Optional
 
 from huggingface_hub import logging
@@ -138,22 +137,38 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.token: Optional[str] = args.token
         self.quiet: bool = args.quiet  # disable warnings and progress bars
 
-        # Possibly implicit `path` and `path_in_repo`
-        self.local_path: str = args.local_path if args.local_path is not None else "."
-        self.path_in_repo: str
-        if args.path_in_repo is not None:
-            self.path_in_repo = args.path_in_repo
-        else:  # Implicit path_in_repo => relative to current directory
-            try:
-                self.path_in_repo = Path(self.local_path).relative_to(".").as_posix()
-            except ValueError as e:
-                raise ValueError(
-                    "Cannot determine `path_in_repo` implicitly. Please set `--path-in-repo=...` and retry."
-                ) from e
-
+        # Check `--every` is valid
         if args.every is not None and args.every <= 0:
             raise ValueError(f"`every` must be a positive value (got '{args.every}')")
         self.every: Optional[float] = args.every
+
+        # Resolve `local_path` and `path_in_repo`
+        self.local_path: str
+        self.path_in_repo: str
+        if args.local_path is None and os.path.isfile(args.repo_id):
+            # Implicit case 1: user provided only a repo_id which happen to be a local file as well => upload it with same name
+            self.local_path = args.repo_id
+            self.path_in_repo = args.repo_id
+        elif args.local_path is None and os.path.isdir(args.repo_id):
+            # Implicit case 2: user provided only a repo_id which happen to be a local folder as well => upload it at root
+            self.local_path = args.repo_id
+            self.path_in_repo = "."
+        elif args.local_path is None:
+            # Implicit case 3: user provided only a repo_id that does not match a local file or folder => upload the current directory at root
+            self.local_path = "."
+            self.path_in_repo = "."
+        elif args.path_in_repo is None and os.path.isfile(args.local_path):
+            # Explicit local path to file, no path in repo => upload it at root with same name
+            self.local_path = args.local_path
+            self.path_in_repo = os.path.basename(args.local_path)
+        elif args.path_in_repo is None:
+            # Explicit local path to folder, no path in repo => upload at root
+            self.local_path = args.local_path
+            self.path_in_repo = "."
+        else:
+            # Finally, if both paths are explicit
+            self.local_path = args.local_path
+            self.path_in_repo = args.path_in_repo
 
     def run(self) -> None:
         if self.quiet:
