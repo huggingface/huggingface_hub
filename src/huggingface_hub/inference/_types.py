@@ -64,6 +64,26 @@ class ConversationalOutput(TypedDict):
     warnings: List[str]
 
 
+class FillMaskOutput(TypedDict):
+    """Dictionary containing information about a [`~InferenceClient.fill_mask`] task.
+
+    Args:
+        score (`float`):
+            The probability of the token.
+        token (`int`):
+            The id of the token.
+        token_str (`str`):
+            The string representation of the token.
+        sequence (`str`):
+            The actual sequence of tokens that ran against the model (may contain special tokens).
+    """
+
+    score: float
+    token: int
+    token_str: str
+    sequence: str
+
+
 class ImageSegmentationOutput(TypedDict):
     """Dictionary containing information about a [`~InferenceClient.image_segmentation`] task. In practice, image segmentation returns a
     list of `ImageSegmentationOutput` with 1 item per mask.
