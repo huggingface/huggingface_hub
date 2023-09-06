@@ -1267,8 +1267,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> output = client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        >>> output
+        >>> client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
         [{'entity_group': 'PER',
         'score': 0.9971321225166321,
         'word': 'Sarah Jessica Parker',

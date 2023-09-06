@@ -101,7 +101,7 @@ class ObjectDetectionOutput(TypedDict):
 
 
 class TokenClassificationOutput(TypedDict):
-    """Dictionary containing the output of a [`~InferenceClient.audio_classification`] and  [`~InferenceClient.image_classification`] task.
+    """Dictionary containing the output of a [`~InferenceClient.token_classification`] task.
 
     Args:
         entity_group (`str`):

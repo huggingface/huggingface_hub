@@ -238,8 +238,8 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
-            self.assertIsInstance(item[0]["label"], str)
-            self.assertIsInstance(item[0]["score"], float)
+            self.assertIsInstance(item["label"], str)
+            self.assertIsInstance(item["score"], float)
 
 
 class TestOpenAsBinary(InferenceClientTest):

@@ -1279,8 +1279,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> output = await client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        >>> output
+        >>> await client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
         [{'entity_group': 'PER',
         'score': 0.9971321225166321,
         'word': 'Sarah Jessica Parker',
