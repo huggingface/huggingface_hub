@@ -45,6 +45,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
     "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
     "translation": "t5-small",
+    "visual-question-answering": "dandelin/vilt-b32-finetuned-vqa",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
@@ -279,6 +280,19 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item["word"], str)
             self.assertIsInstance(item["start"], int)
             self.assertIsInstance(item["end"], int)
+
+    def test_visual_question_answering(self) -> None:
+        output = self.client.visual_question_answering(self.image_file, "Who's in the picture?")
+        self.assertEqual(
+            output,
+            [
+                {"score": 0.9386941194534302, "answer": "woman"},
+                {"score": 0.34311845898628235, "answer": "girl"},
+                {"score": 0.08407749235630035, "answer": "lady"},
+                {"score": 0.0507517009973526, "answer": "female"},
+                {"score": 0.01777094043791294, "answer": "man"},
+            ],
+        )
 
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
