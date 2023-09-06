@@ -108,7 +108,7 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 
 ## Upload from the CLI
 
-You can also upload files to the Hub directly from your terminal using the `huggingface-cli upload` command. Internally
+You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally
 it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
 
 You can either upload a single file or an entire folder:
@@ -122,8 +122,8 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-`local_path` and `path_in_repo` are optional and can be implicitly inferred. By default, `local_path` will be set to
-the current directory and `path_in_repo` will be set to the relative path between the current directory and `local_path`.
+`local_path` and `path_in_repo` are optional and can be implicitly inferred. By default, `local_path` is set to
+the current directory, and `path_in_repo` is set to the relative path between the current directory and `local_path`.
 If the implicit paths cannot be inferred, an error is raised.
 
 ```bash
