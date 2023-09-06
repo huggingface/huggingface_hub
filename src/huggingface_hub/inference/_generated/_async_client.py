@@ -387,14 +387,7 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)  # type: ignore
 
-    async def visual_question_answering(
-        self,
-        image: ContentT,
-        question: str,
-        *,
-        parameters: Optional[Dict[str, Any]] = None,
-        model: Optional[str] = None,
-    ) -> List[str]:
+    async def visual_question_answering(self, image: ContentT, question: str, *, model: Optional[str] = None) -> List[str]:
         """
         Answering open-ended questions based on an image.
 
@@ -403,9 +396,6 @@ class AsyncInferenceClient:
                 The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
             question (`str`):
                 Question to be answered.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the visual question answering task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#visual-question-answering-task)
             model (`str`, *optional*):
                 The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
@@ -419,31 +409,22 @@ class AsyncInferenceClient:
                 If the model is unavailable or the request times out.
             `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
-            `ValueError`:
-                If the request output is not a List.
 
         Example:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> output = await client.visual_question_answering(image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg", question="What is the animal doing?")
-        >>> output
+        >>> await client.visual_question_answering(
+        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
+        ...     question="What is the animal doing?"
+        ... )
         [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        if parameters is not None:
-            payload["parameters"] = parameters
-        response = await self.post(
-            json=payload,
-            model=model,
-            task="visual-question-answering",
-        )
-        output = _bytes_to_dict(response)
-        if not isinstance(output, list):
-            raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
-        return output
+        response = await self.post(json=payload, model=model, task="visual-question-answering")
+        return _bytes_to_list(response)
 
     async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
