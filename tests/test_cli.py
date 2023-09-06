@@ -174,7 +174,6 @@ class TestUploadCommand(unittest.TestCase):
             with tmp_current_directory():
                 UploadCommand(self.parser.parse_args(["upload", "my-cool-model"]))
 
-    @xfail_on_windows(reason="No implicit path on Windows")
     def test_upload_explicit_local_path_to_folder_implicit_path_in_repo(self) -> None:
         with tmp_current_directory() as cache_dir:
             folder_path = Path(cache_dir) / "path" / "to" / "folder"
@@ -183,7 +182,6 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.local_path, "./path/to/folder")
         self.assertEqual(cmd.path_in_repo, ".")  # Always upload the folder at the root of the repo
 
-    @xfail_on_windows(reason="No implicit path on Windows")
     def test_upload_explicit_local_path_to_file_implicit_path_in_repo(self) -> None:
         with tmp_current_directory() as cache_dir:
             file_path = Path(cache_dir) / "path" / "to" / "file.txt"
