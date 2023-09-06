@@ -179,7 +179,7 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output["score"], float)
         self.assertIsInstance(output["start"], int)
         self.assertIsInstance(output["end"], int)
-        self.assertEqual(output["answer"], "Clara")
+        self.assertEqual(output["answer"], "42")
 
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(
