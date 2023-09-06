@@ -39,6 +39,7 @@ import warnings
 from argparse import Namespace, _SubParsersAction
 from typing import List, Literal, Optional, Union
 
+from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.file_download import hf_hub_download
@@ -151,7 +152,9 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 print(self._download())  # Print path to downloaded files
             enable_progress_bars()
         else:
+            logging.set_verbosity_info()
             print(self._download())  # Print path to downloaded files
+            logging.set_verbosity_warning()
 
     def _download(self) -> str:
         # Warn user if patterns are ignored
