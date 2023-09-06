@@ -22,7 +22,7 @@ from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import with_production_testing
 
@@ -39,9 +39,12 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "object-detection": "facebook/detr-resnet-50",
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "sshleifer/distilbart-cnn-12-6",
+    "table-question-answering": "google/tapas-base-finetuned-wtq",
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
     "text-to-image": "CompVis/stable-diffusion-v1-4",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
+    "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
+    "translation": "t5-small",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
@@ -125,6 +128,17 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(embedding, np.ndarray)
         self.assertEqual(embedding.shape, (8, 768))
 
+    def test_fill_mask(self) -> None:
+        model = "distilroberta-base"
+        output = self.client.fill_mask("The goal of life is <mask>.", model=model)
+        self.assertIsInstance(output, list)
+        self.assertEqual(len(output[0]), 4)
+        self.assertIsInstance(output[0], dict)
+        self.assertEqual(
+            set(k for el in output for k in el.keys()),
+            {"score", "sequence", "token", "token_str"},
+        )
+
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
         self.assertIsInstance(output, list)
@@ -171,6 +185,16 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIn("xmax", item["box"])
             self.assertIn("ymax", item["box"])
 
+    def test_question_answering(self) -> None:
+        model = "deepset/roberta-base-squad2"
+        output = self.client.question_answering(question="What is the meaning of life?", context="42", model=model)
+        self.assertIsInstance(output, dict)
+        self.assertGreater(len(output), 0)
+        self.assertIsInstance(output["score"], float)
+        self.assertIsInstance(output["start"], int)
+        self.assertIsInstance(output["end"], int)
+        self.assertEqual(output["answer"], "42")
+
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(
             "Machine learning is so easy.",
@@ -200,14 +224,36 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_table_question_answering(self) -> None:
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        query = "How many stars does the transformers repository have?"
+        output = self.client.table_question_answering(query=query, table=table)
+        self.assertEqual(type(output), dict)
+        self.assertEqual(len(output), 4)
+        self.assertEqual(
+            set(output.keys()),
+            {"aggregator", "answer", "cells", "coordinates"},
+        )
+
+    def test_text_classification(self) -> None:
+        output = self.client.text_classification("I like you")
+        self.assertIsInstance(output, list)
+        self.assertEqual(len(output), 2)
+        for item in output:
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["label"], str)
+
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
     def test_text_to_image_default(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.")
         self.assertIsInstance(image, Image.Image)
-        self.assertEqual(image.height, 768)
-        self.assertEqual(image.width, 768)
+        self.assertEqual(image.height, 512)
+        self.assertEqual(image.width, 512)
 
     def test_text_to_image_with_parameters(self) -> None:
         image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
@@ -218,6 +264,21 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")
         self.assertIsInstance(audio, bytes)
+
+    def test_translation(self) -> None:
+        output = self.client.translation("Hello world")
+        self.assertEqual(output, "Hallo Welt")
+
+    def test_token_classification(self) -> None:
+        output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
+        self.assertIsInstance(output, list)
+        self.assertGreater(len(output), 0)
+        for item in output:
+            self.assertIsInstance(item["entity_group"], str)
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["word"], str)
+            self.assertIsInstance(item["start"], int)
+            self.assertIsInstance(item["end"], int)
 
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
@@ -348,3 +409,31 @@ class TestHeadersAndCookies(unittest.TestCase):
 
         headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
         self.assertEqual(headers["Accept"], "image/png")
+
+
+class TestModelStatus(unittest.TestCase):
+    def test_too_big_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("facebook/nllb-moe-54b")
+        self.assertFalse(model_status.loaded)
+        self.assertEqual(model_status.state, "TooBig")
+        self.assertEqual(model_status.compute_type, "cpu")
+        self.assertEqual(model_status.framework, "transformers")
+
+    def test_loaded_model(self) -> None:
+        client = InferenceClient()
+        model_status = client.get_model_status("bigcode/starcoder")
+        self.assertTrue(model_status.loaded)
+        self.assertEqual(model_status.state, "Loaded")
+        self.assertEqual(model_status.compute_type, "gpu")
+        self.assertEqual(model_status.framework, "text-generation-inference")
+
+    def test_unknown_model(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(HfHubHTTPError):
+            client.get_model_status("unknown/model")
+
+    def test_model_as_url(self) -> None:
+        client = InferenceClient()
+        with self.assertRaises(NotImplementedError):
+            client.get_model_status("https://unkown/model")

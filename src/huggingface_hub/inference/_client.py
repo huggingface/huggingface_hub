@@ -57,10 +57,12 @@ from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelStatus,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
     _bytes_to_image,
+    _bytes_to_list,
     _get_recommended_model,
     _import_numpy,
     _is_tgi_server,
@@ -78,8 +80,12 @@ from huggingface_hub.inference._text_generation import (
 from huggingface_hub.inference._types import (
     ClassificationOutput,
     ConversationalOutput,
+    FillMaskOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    QuestionAnsweringOutput,
+    TableQuestionAnsweringOutput,
+    TokenClassificationOutput,
 )
 from huggingface_hub.utils import (
     BadRequestError,
@@ -283,7 +289,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def automatic_speech_recognition(
         self,
@@ -380,7 +386,7 @@ class InferenceClient:
         if parameters is not None:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="conversational")
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)  # type: ignore
 
     def visual_question_answering(
         self,
@@ -475,6 +481,46 @@ class InferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
+    def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
+        """
+        Fill in a hole with a missing word (token to be precise).
+
+        Args:
+            text (`str`):
+                a string to be filled from, must contain the [MASK] token (check model card for exact name of the mask).
+            model (`str`, *optional*):
+                The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            probability, token reference, and completed text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.fill_mask("The goal of life is <mask>.")
+        [{'score': 0.06897063553333282,
+        'token': 11098,
+        'token_str': ' happiness',
+        'sequence': 'The goal of life is happiness.'},
+        {'score': 0.06554922461509705,
+        'token': 45075,
+        'token_str': ' immortality',
+        'sequence': 'The goal of life is immortality.'}]
+        ```
+        """
+        response = self.post(json={"inputs": text}, model=model, task="fill-mask")
+        return _bytes_to_list(response)
+
     def image_classification(
         self,
         image: ContentT,
@@ -509,7 +555,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def image_segmentation(
         self,
@@ -730,6 +776,47 @@ class InferenceClient:
             raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
         return output
 
+    def question_answering(
+        self, question: str, context: str, *, model: Optional[str] = None
+    ) -> QuestionAnsweringOutput:
+        """
+        Retrieve the answer to a question from a given text.
+
+        Args:
+            question (`str`):
+                Question to be answered.
+            context (`str`):
+                The context of the question.
+            model (`str`):
+                The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
+        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        ```
+        """
+
+        payload: Dict[str, Any] = {"question": question, "context": context}
+        response = self.post(
+            json=payload,
+            model=model,
+            task="question-answering",
+        )
+        return _bytes_to_dict(response)  # type: ignore
+
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
@@ -775,7 +862,7 @@ class InferenceClient:
             model=model,
             task="sentence-similarity",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def summarization(
         self,
@@ -819,6 +906,83 @@ class InferenceClient:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
+
+    def table_question_answering(
+        self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
+    ) -> TableQuestionAnsweringOutput:
+        """
+        Retrieve the answer to a question from information given in a table.
+
+        Args:
+            table (`str`):
+                A table of data represented as a dict of lists where entries are headers and the lists are all the
+                values, all lists must have the same size.
+            query (`str`):
+                The query in plain text that you want to ask the table.
+            model (`str`):
+                The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face
+                Hub or a URL to a deployed Inference Endpoint.
+
+        Returns:
+            `Dict`: a dictionary of table question answering output containing the answer, coordinates, cells and the aggregator used.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> query = "How many stars does the transformers repository have?"
+        >>> table = {"Repository": ["Transformers", "Datasets", "Tokenizers"], "Stars": ["36542", "4512", "3934"]}
+        >>> client.table_question_answering(table, query, model="google/tapas-base-finetuned-wtq")
+        {'answer': 'AVERAGE > 36542', 'coordinates': [[0, 1]], 'cells': ['36542'], 'aggregator': 'AVERAGE'}
+        ```
+        """
+        response = self.post(
+            json={
+                "query": query,
+                "table": table,
+            },
+            model=model,
+            task="table-question-answering",
+        )
+        return _bytes_to_dict(response)  # type: ignore
+
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+        """
+        Perform sentiment-analysis on the given text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> output = client.text_classification("I like you")
+        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
+        ```
+        """
+        response = self.post(json={"inputs": text}, model=model, task="text-classification")
+        return _bytes_to_list(response)[0]
 
     @overload
     def text_generation(  # type: ignore
@@ -1295,6 +1459,90 @@ class InferenceClient:
         """
         return self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
+    def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
+        """
+        Perform token classification on the given text.
+        Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
+        [{'entity_group': 'PER',
+        'score': 0.9971321225166321,
+        'word': 'Sarah Jessica Parker',
+        'start': 11,
+        'end': 31},
+        {'entity_group': 'PER',
+        'score': 0.9773476123809814,
+        'word': 'Jessica',
+        'start': 52,
+        'end': 59}]
+        ```
+        """
+        payload: Dict[str, Any] = {"inputs": text}
+        response = self.post(
+            json=payload,
+            model=model,
+            task="token-classification",
+        )
+        return _bytes_to_list(response)
+
+    def translation(self, text: str, *, model: Optional[str] = None) -> str:
+        """
+        Convert text from one language to another.
+
+        Check out https://huggingface.co/tasks/translation for more information on how to choose the best model for
+        your specific use case. Source and target languages usually depends on the model.
+
+        Args:
+            text (`str`):
+                A string to be translated.
+            model (`str`, *optional*):
+                The model to use for the translation task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended translation model will be used.
+                Defaults to None.
+
+        Returns:
+            `str`: The generated translated text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.translation("My name is Wolfgang and I live in Berlin")
+        'Mein Name ist Wolfgang und ich lebe in Berlin.'
+        >>> client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
+        "Je m'appelle Wolfgang et je vis à Berlin."
+        ```
+        """
+        response = self.post(json={"inputs": text}, model=model, task="translation")
+        return _bytes_to_dict(response)[0]["translation_text"]
+
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
     ) -> List[ClassificationOutput]:
@@ -1341,7 +1589,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
@@ -1366,4 +1614,40 @@ class InferenceClient:
             if task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
+
+    def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
+        """
+        A function which returns the status of a specific model, from the Inference API.
+
+        Args:
+            model (`str`, *optional*):
+                Identifier of the model for witch the status gonna be checked. If model is not provided,
+                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                identifier cannot be a URL.
+
+
+        Returns:
+            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
+                         about the state of the model: load, state, compute type and framework.
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith("https://"):
+            raise NotImplementedError("Model status is only available for Inference API endpoints.")
+        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+
+        response = get_session().get(url, headers=self.headers)
+        hf_raise_for_status(response)
+        response_data = response.json()
+
+        if "error" in response_data:
+            raise ValueError(response_data["error"])
+
+        return ModelStatus(
+            loaded=response_data["loaded"],
+            state=response_data["state"],
+            compute_type=response_data["compute_type"],
+            framework=response_data["framework"],
         )

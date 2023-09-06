@@ -73,6 +73,7 @@ _SUBMOD_ATTRS = {
         "SpaceRuntime",
         "SpaceStage",
         "SpaceStorage",
+        "SpaceVariable",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -142,6 +143,7 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "UserLikes",
         "add_space_secret",
+        "add_space_variable",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -158,15 +160,18 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_space_secret",
         "delete_space_storage",
+        "delete_space_variable",
         "delete_tag",
         "duplicate_space",
         "edit_discussion_comment",
+        "file_exists",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
+        "get_space_variables",
         "get_token_permission",
         "like",
         "list_datasets",
@@ -183,6 +188,7 @@ _SUBMOD_ATTRS = {
         "move_repo",
         "pause_space",
         "rename_discussion",
+        "repo_exists",
         "repo_info",
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
@@ -191,6 +197,7 @@ _SUBMOD_ATTRS = {
         "run_as_future",
         "set_space_sleep_time",
         "space_info",
+        "super_squash_history",
         "unlike",
         "update_repo_visibility",
         "upload_file",
@@ -377,6 +384,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceRuntime,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
+        SpaceVariable,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -444,6 +452,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         UserLikes,  # noqa: F401
         add_space_secret,  # noqa: F401
+        add_space_variable,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -460,15 +469,18 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
+        delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        file_exists,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
+        get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
         like,  # noqa: F401
         list_datasets,  # noqa: F401
@@ -485,6 +497,7 @@ if TYPE_CHECKING:  # pragma: no cover
         move_repo,  # noqa: F401
         pause_space,  # noqa: F401
         rename_discussion,  # noqa: F401
+        repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
@@ -493,6 +506,7 @@ if TYPE_CHECKING:  # pragma: no cover
         run_as_future,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
+        super_squash_history,  # noqa: F401
         unlike,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
