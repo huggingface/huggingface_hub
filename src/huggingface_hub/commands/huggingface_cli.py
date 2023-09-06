@@ -16,9 +16,11 @@
 from argparse import ArgumentParser
 
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
+from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
+from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.commands.user import UserCommands
 
 
@@ -29,6 +31,8 @@ def main():
     # Register commands
     EnvironmentCommand.register_subcommand(commands_parser)
     UserCommands.register_subcommand(commands_parser)
+    UploadCommand.register_subcommand(commands_parser)
+    DownloadCommand.register_subcommand(commands_parser)
     LfsCommands.register_subcommand(commands_parser)
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)
