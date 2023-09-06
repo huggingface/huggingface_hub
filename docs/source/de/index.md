@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # 🤗 Hub client bibliothek
 
-Die Bibliothek `huggingface_hub` Bibliothek ermöglicht die Interaktion mit dem [Hugging Face Hub](https://hf.co), einer Plattform für maschinelles Lernen, die für Entwickler und Mitwirkende konzipiert ist. Hier können Sie vorab trainierte Modelle und Datensätze entdecken, mit zahlreichen Apps für maschinelles Lernen experimentieren und eigene Modelle sowie Datensätze mit der Community teilen. Die `huggingface_hub` Bibliothek macht es einfach, all das in Python umzusetzen.
+Die `huggingface_hub` Bibliothek ermöglicht die Interaktion mit dem [Hugging Face Hub](https://hf.co), einer Plattform für maschinelles Lernen, die für Entwickler und Mitwirkende konzipiert ist. Hier können Sie vorab trainierte Modelle und Datensätze entdecken, mit zahlreichen Apps für maschinelles Lernen experimentieren und eigene Modelle sowie Datensätze mit der Community teilen. Die `huggingface_hub` Bibliothek macht es einfach, all das in Python umzusetzen.
 
 In der [Kurzanleitung](quick-start) der `huggingface_hub` Bibliothek erfahren Sie wie Sie Dateien vom Hub herunterladen, Repositories erstellen und Inhalte auf den Hub hochladen können. Weiterführend können Sie sich über Verwaltung von Repositories, die Interaktion in Diskussionen und den Zugriff auf die Inferenz-API auf dem 🤗 Hub informieren.
 
@@ -37,6 +37,6 @@ In der [Kurzanleitung](quick-start) der `huggingface_hub` Bibliothek erfahren Si
 
 ## Beitragen
 
-Alle Beiträge zum `huggingface_hub` sind willkommen und werden gleichermaßen geschätzt! 🤗 Neben dem Hinzufügen neuer Features oder dem Beheben von Problemen können Sie auch zur Verbesserung der Dokumentation beitragen, indem Sie ihre Richtigkeit und Aktualität gewährleisten. Sie können auch bei der Lösung von Fragen mithelfen oder neue Features vorschlagen, um die Bibliothek weiterzuentwickeln. Schauen Sie in the [Beitragsrichtlinien](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md), um mehr zu erfahren über das Melden von Problemen, das Vorschlagen von Features, das Einreichen eines Pull Requests, und das Testen Ihrer Code-Einsendungen, um sicherzustellen dass alles so wie erwartet funktioniert.
+Alle Beiträge zum `huggingface_hub` sind willkommen und werden gleichermaßen geschätzt! 🤗 Neben dem Hinzufügen neuer Features oder dem Beheben von Problemen können Sie auch zur Verbesserung der Dokumentation beitragen, indem Sie ihre Richtigkeit und Aktualität gewährleisten. Sie können auch bei der Lösung von Fragen mithelfen oder neue Features vorschlagen, um die Bibliothek weiterzuentwickeln. Schauen Sie in die [Beitragsrichtlinien](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md), um mehr zu erfahren über das Melden von Problemen, das Vorschlagen von Features, das Einreichen eines Pull Requests, und das Testen Ihrer Code-Einsendungen, um sicherzustellen dass alles so wie erwartet funktioniert.
 
-Mitwirkende halten sich bitte an unseren [Verhaltenskodex](https://github.com/huggingface/huggingface_hub/blob/main/CODE_OF_CONDUCT.md), um einen inklusiven und einladenden Raum der Zusammenarbeit für Alle zu gewährleisten.
+Mitwirkende halten sich bitte an unseren [Verhaltenskodex](https://github.com/huggingface/huggingface_hub/blob/main/CODE_OF_CONDUCT.md), um eine inklusive und einladende Umgebung zur Zusammenarbeit für Alle zu gewährleisten.

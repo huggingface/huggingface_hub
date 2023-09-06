@@ -7,6 +7,7 @@ rendered properly in your Markdown viewer.
 Der [Hugging Face Hub](https://huggingface.co/) ist die erste Anlaufstelle für das Teilen von Maschinenlernmodellen, Demos, Datensätzen und Metriken. Die `huggingface_hub`-Bibliothek hilft Ihnen, mit dem Hub zu interagieren, ohne Ihre Entwicklungs-Umgebung zu verlassen. Sie können Repositories einfach erstellen und verwalten, Dateien herunterladen und hochladen und nützliche Model- und Datensatz-Metadaten vom Hub abrufen.
 
 ## Installation
+
 Um loszulegen, installieren Sie die `huggingface_hub`-Bibliothek:
 
 ```bash
@@ -47,7 +48,7 @@ Für weitere Details und Optionen siehe die API-Referenz für [`hf_hub_download`
 ## Anmeldung
 
 In vielen Fällen müssen Sie mit einem Hugging Face-Konto angemeldet sein, um mit dem Hub zu interagieren: private Repos herunterladen, Dateien hochladen, PRs erstellen,... 
-[Erstellen Sie ein Konto](https://huggingface.co/join), wenn Sie noch keines haben, und melden Sie sich dann an, um Ihr ["User Access Token"]](https://huggingface.co/docs/hub/security-tokens) von Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) zu erhalten. Das "User Access Token" wird verwendet, um Ihre Identität gegenüber dem Hub zu authentifizieren.
+[Erstellen Sie ein Konto](https://huggingface.co/join), wenn Sie noch keines haben, und melden Sie sich dann an, um Ihr ["User Access Token"](https://huggingface.co/docs/hub/security-tokens) von Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) zu erhalten. Das "User Access Token" wird verwendet, um Ihre Identität gegenüber dem Hub zu authentifizieren.
 
 Sobald Sie Ihr "User Access Token" haben, führen Sie den folgenden Befehl in Ihrem Terminal aus:
 
@@ -64,13 +65,13 @@ Alternativ können Sie sich auch programmatisch in einem Notebook oder einem Skr
 >>> login()
 ```
 
-Es ist auch möglich, sich programmatisch anzumelden, ohne aufgefordert zu werden, Ihr Token einzugeben, indem Sie das Token direkt an [`login``] weitergeben, wie z.B. `login(token="hf_xxx")``. Seien Sie vorsichtig, wenn Sie Ihren Quellcode teilen. Es ist eine bewährte Methode, das Token aus einem sicheren Tresor/Vault zu laden, anstatt es explizit in Ihrer Codebasis/Notebook zu speichern.
+Es ist auch möglich, sich programmatisch anzumelden, ohne aufgefordert zu werden, Ihr Token einzugeben, indem Sie das Token direkt an [`login`] weitergeben, wie z.B. `login(token="hf_xxx")`. Seien Sie vorsichtig, wenn Sie Ihren Quellcode teilen. Es ist eine bewährte Methode, das Token aus einem sicheren Tresor/Vault zu laden, anstatt es explizit in Ihrer Codebasis/Notebook zu speichern.
 
 Sie können nur auf 1 Konto gleichzeitig angemeldet sein. Wenn Sie Ihren Computer mit einem neuen Konto anmelden, werden Sie vom vorherigen abgemeldet. Mit dem Befehl `huggingface-cli whoami` stellen Sie sicher, dass Sie immer wissen, welches Konto Sie gerade verwenden. Wenn Sie mehrere Konten im selben Skript verwalten möchten, können Sie Ihr Token bereitstellen, wenn Sie jede Methode aufrufen. Dies ist auch nützlich, wenn Sie kein Token auf Ihrem Computer speichern möchten.
 
 <Tip warning={true}>
 
-Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN`` setzen.
+Sobald Sie angemeldet sind, werden alle Anfragen an den Hub - auch Methoden, die nicht unbedingt eine Authentifizierung erfordern - standardmäßig Ihr Zugriffstoken verwenden. Wenn Sie die implizite Verwendung Ihres Tokens deaktivieren möchten, sollten Sie die Umgebungsvariable `HF_HUB_DISABLE_IMPLICIT_TOKEN` setzen.
 
 </Tip>
 

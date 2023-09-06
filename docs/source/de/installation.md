@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Bevor Sie beginnen, müssen Sie Ihre Umgebung vorbereiten, indem Sie die entsprechenden Pakete installieren.
 
-`huggingface_hub`` wurde für **Python 3.8+** getestet.
+`huggingface_hub` wurde für **Python 3.8+** getestet.
 
 ## Installation mit pip
 
@@ -30,13 +30,13 @@ Aktivieren der virtuellen Umgebung unter Windows:
 .env/Scripts/activate
 ```
 
-Jetzt können Sie`huggingface_hub` aus dem [PyPi-Register](https://pypi.org/project/huggingface-hub/) installieren:
+Jetzt können Sie `huggingface_hub` aus dem [PyPi-Register](https://pypi.org/project/huggingface-hub/) installieren:
 
 ```bash
 pip install --upgrade huggingface_hub
 ```
 
-Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-überprüfen).
+Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-berprfen).
 
 ### Installieren optionaler Abhängigkeiten
 
@@ -75,11 +75,11 @@ Bei der Installation von der Quelle können Sie auch einen bestimmten Zweig ange
 pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch
 ```
 
-Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-überprüfen).
+Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-berprfen).
 
 ### Editierbare Installation
 
-Die Installation von der Quelle ermöglicht Ihnen eine [editierbare Installation]https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Dies ist eine fortgeschrittenere Installation, wenn Sie zur Entwicklung von `huggingface_hub` beitragen und Änderungen im Code testen möchten. Sie müssen eine lokale Kopie von `huggingface_hub` auf Ihrem Computer klonen.
+Die Installation von der Quelle ermöglicht Ihnen eine [editierbare Installation](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Dies ist eine fortgeschrittenere Installation, wenn Sie zur Entwicklung von `huggingface_hub` beitragen und Änderungen im Code testen möchten. Sie müssen eine lokale Kopie von `huggingface_hub` auf Ihrem Computer klonen.
 
 ```bash
 # Zuerst die Repository lokal klonen
@@ -100,7 +100,7 @@ Wenn Sie damit vertrauter sind, können Sie `huggingface_hub` über den [conda-f
 conda install -c conda-forge huggingface_hub
 ```
 
-Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-überprüfen).
+Überprüfen Sie nach Abschluss, ob die [Installation korrekt funktioniert](#installation-berprfen).
 
 ## Installation überprüfen
 
