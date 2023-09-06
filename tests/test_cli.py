@@ -13,7 +13,7 @@ from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
-from .testing_utils import DUMMY_MODEL_ID, xfail_on_windows
+from .testing_utils import DUMMY_MODEL_ID
 
 
 class TestCacheCommand(unittest.TestCase):
