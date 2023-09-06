@@ -15,16 +15,17 @@
 """Contains command to upload a repo or file with the CLI.
 
 Usage:
-    # Upload file (implicit path in repo)
+    # Upload file (implicit)
     huggingface-cli upload my-cool-model ./my-cool-model.safetensors
 
-    # Upload file (explicit path in repo)
+    # Upload file (explicit)
     huggingface-cli upload my-cool-model ./my-cool-model.safetensors  model.safetensors
 
-    # Upload directory (implicit paths)
+    # Upload directory (implicit).
+    # If `my-cool-model` is a directory, it will be uploaded. Otherwise, the current directory is uploaded.
     huggingface-cli upload my-cool-model
 
-    # Upload directory (explicit local path, explicit path in repo)
+    # Upload directory (explicit)
     huggingface-cli upload my-cool-model ./models/my-cool-model .
 
     # Upload filtered directory (example: tensorboard logs except for the last run)
