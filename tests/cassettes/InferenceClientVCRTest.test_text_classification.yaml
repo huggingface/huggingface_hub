@@ -1,0 +1,48 @@
+interactions:
+- request:
+    body: '{"inputs": ["I like you"]}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '41'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - b658f44b-c82c-4a0c-9fc1-c287ea0b66d3
+      user-agent:
+      - unknown/None; hf_hub/0.17.0.dev0; python/3.10.12
+    method: POST
+    uri: https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english
+  response:
+    body:
+      string: '[[{"label":"POSITIVE","score":0.9998695850372314},{"label":"NEGATIVE","score":0.0001304351753788069}]]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '204'
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 20 Aug 2023 11:48:55 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.033'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - MiuTWky1u3OlV7JlitniT
+      x-sha:
+      - 3d65bad49c7ba6f71920504507a8927f4b9db6c0
+    status:
+      code: 200
+      message: OK
+version: 1

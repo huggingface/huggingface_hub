@@ -210,6 +210,14 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_text_classification(self) -> None:
+        output = self.client.text_classification("I like you")
+        self.assertIsInstance(output, list)
+        self.assertEqual(len(output), 2)
+        for item in output:
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["label"], str)
+
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
 
@@ -228,6 +236,24 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")
         self.assertIsInstance(audio, bytes)
+
+    def test_translation(self) -> None:
+        output = self.client.translation("Hello world", model="t5-small")
+        self.assertEqual(output, "Hallo Welt")
+
+    def test_token_classification(self) -> None:
+        model = "dbmdz/bert-large-cased-finetuned-conll03-english"
+        output = self.client.token_classification(
+            "My name is Sarah Jessica Parker but you can call me Jessica", model=model
+        )
+        self.assertIsInstance(output, list)
+        self.assertGreater(len(output), 0)
+        for item in output:
+            self.assertIsInstance(item["entity_group"], str)
+            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item["word"], str)
+            self.assertIsInstance(item["start"], int)
+            self.assertIsInstance(item["end"], int)
 
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
