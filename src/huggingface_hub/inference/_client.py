@@ -437,7 +437,8 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated probability, token reference, and completed text.
+            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            probability, token reference, and completed text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -449,8 +450,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> output = client.fill_mask("The goal of life is <mask>.")
-        >>> output
+        >>> client.fill_mask("The goal of life is <mask>.")
         [{'score': 0.06897063553333282,
         'token': 11098,
         'token_str': ' happiness',
@@ -461,12 +461,7 @@ class InferenceClient:
         'sequence': 'The goal of life is immortality.'}]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        response = self.post(
-            json=payload,
-            model=model,
-            task="fill-mask",
-        )
+        response = self.post(json={"inputs": text}, model=model, task="fill-mask")
         return _bytes_to_list(response)
 
     def image_classification(

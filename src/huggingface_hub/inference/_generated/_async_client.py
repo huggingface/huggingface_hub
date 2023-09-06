@@ -437,7 +437,8 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated probability, token reference, and completed text.
+            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            probability, token reference, and completed text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -450,8 +451,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> output = await client.fill_mask("The goal of life is <mask>.")
-        >>> output
+        >>> await client.fill_mask("The goal of life is <mask>.")
         [{'score': 0.06897063553333282,
         'token': 11098,
         'token_str': ' happiness',
@@ -462,12 +462,7 @@ class AsyncInferenceClient:
         'sequence': 'The goal of life is immortality.'}]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        response = await self.post(
-            json=payload,
-            model=model,
-            task="fill-mask",
-        )
+        response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
         return _bytes_to_list(response)
 
     async def image_classification(
