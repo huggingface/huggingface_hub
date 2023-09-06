@@ -388,7 +388,13 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)  # type: ignore
 
-    def visual_question_answering(self, image: ContentT, question: str, *, model: Optional[str] = None) -> List[str]:
+    def visual_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[str]:
         """
         Answering open-ended questions based on an image.
 
