@@ -21,8 +21,7 @@ Usage:
     # Upload file (explicit)
     huggingface-cli upload my-cool-model ./my-cool-model.safetensors  model.safetensors
 
-    # Upload directory (implicit).
-    # If `my-cool-model` is a directory, it will be uploaded. Otherwise, the current directory is uploaded.
+    # Upload directory (implicit). If `my-cool-model/` is a directory it will be uploaded, otherwise an exception is raised.
     huggingface-cli upload my-cool-model
 
     # Upload directory (explicit)
@@ -156,9 +155,9 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             self.local_path = repo_name
             self.path_in_repo = "."
         elif args.local_path is None:
-            # Implicit case 3: user provided only a repo_id that does not match a local file or folder => upload the current directory at root
-            self.local_path = "."
-            self.path_in_repo = "."
+            # Implicit case 3: user provided only a repo_id that does not match a local file or folder
+            # => the user must explicitly provide a local_path => raise exception
+            raise ValueError(f"'{repo_name}' is not a local file or folder. Please set `local_path` explicitly.")
         elif args.path_in_repo is None and os.path.isfile(args.local_path):
             # Explicit local path to file, no path in repo => upload it at root with same name
             self.local_path = args.local_path

@@ -169,12 +169,10 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.path_in_repo, ".")
 
     def test_upload_implicit_local_path_otherwise(self) -> None:
-        with tmp_current_directory():
-            cmd = UploadCommand(self.parser.parse_args(["upload", "my-cool-model"]))
-
-        # No folder or file has the same name as the repo => upload entire folder ("./") at the root of the repo
-        self.assertEqual(cmd.local_path, ".")
-        self.assertEqual(cmd.path_in_repo, ".")
+        # No folder or file has the same name as the repo => raise exception
+        with self.assertRaises(ValueError):
+            with tmp_current_directory():
+                UploadCommand(self.parser.parse_args(["upload", "my-cool-model"]))
 
     @xfail_on_windows(reason="No implicit path on Windows")
     def test_upload_explicit_local_path_to_folder_implicit_path_in_repo(self) -> None:
@@ -202,17 +200,17 @@ class TestUploadCommand(unittest.TestCase):
 
     def test_every_must_be_positive(self) -> None:
         with self.assertRaises(ValueError):
-            UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "--every", "0"]))
+            UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "0"]))
 
         with self.assertRaises(ValueError):
-            UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "--every", "-10"]))
+            UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "-10"]))
 
     def test_every_as_int(self) -> None:
-        cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "--every", "10"]))
+        cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "10"]))
         self.assertEqual(cmd.every, 10)
 
     def test_every_as_float(self) -> None:
-        cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, "--every", "0.5"]))
+        cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"]))
         self.assertEqual(cmd.every, 0.5)
 
     @patch("huggingface_hub.commands.upload.upload_folder")
@@ -510,5 +508,9 @@ def tmp_current_directory() -> Generator[str, None, None]:
     with SoftTemporaryDirectory() as tmp_dir:
         cwd = os.getcwd()
         os.chdir(tmp_dir)
-        yield tmp_dir
-        os.chdir(cwd)
+        try:
+            yield tmp_dir
+        except:
+            raise
+        finally:
+            os.chdir(cwd)

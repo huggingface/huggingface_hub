@@ -124,8 +124,8 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 `local_path` and `path_in_repo` are optional and can be implicitly inferred. If `local_path` is not set, the tool will
 check if a local folder or file has the same name as the `repo_id`. If that's the case, its content will be uploaded.
-Otherwise, `local_path` will default to the current directory. In any case, if `path_in_repo` is not set, files are
-uploaded at the root of the repo.
+Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
+set, files are uploaded at the root of the repo.
 
 ```bash
 # Upload file at root
@@ -134,7 +134,7 @@ huggingface-cli upload my-cool-model model.safetensors
 # Upload directory at root
 huggingface-cli upload my-cool-model ./models
 
-# Upload `my-cool-model/` directory if it exist, `./` otherwise
+# Upload `my-cool-model/` directory if it exist, raise otherwise
 huggingface-cli upload my-cool-model
 ```
 
