@@ -82,6 +82,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    QuestionAnsweringOutput,
     TableQuestionAnsweringOutput,
     TokenClassificationOutput,
 )
@@ -676,6 +677,47 @@ class InferenceClient:
         if not isinstance(output, list):
             raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
         return output
+
+    def question_answering(
+        self, question: str, context: str, *, model: Optional[str] = None
+    ) -> QuestionAnsweringOutput:
+        """
+        Retrieve the answer to a question from a given text.
+
+        Args:
+            question (`str`):
+                Question to be answered.
+            context (`str`):
+                The context of the question.
+            model (`str`):
+                The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
+        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        ```
+        """
+
+        payload: Dict[str, Any] = {"question": question, "context": context}
+        response = self.post(
+            json=payload,
+            model=model,
+            task="question-answering",
+        )
+        return _bytes_to_dict(response)  # type: ignore
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
