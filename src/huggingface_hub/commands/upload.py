@@ -181,6 +181,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         else:
             logging.set_verbosity_info()
             print(self._upload())
+            logging.set_verbosity_warning()
 
     def _upload(self) -> str:
         if os.path.isfile(self.local_path):
