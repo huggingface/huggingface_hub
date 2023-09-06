@@ -852,7 +852,7 @@ class InferenceClient:
             model=model,
             task="table-question-answering",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)  # type: ignore
 
     def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
