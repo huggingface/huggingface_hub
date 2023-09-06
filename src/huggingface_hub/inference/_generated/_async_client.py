@@ -711,8 +711,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> output = await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
-        >>> output
+        >>> await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
         {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
         ```
         """
