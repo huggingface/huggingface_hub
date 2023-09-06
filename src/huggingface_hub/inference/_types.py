@@ -120,6 +120,26 @@ class QuestionAnsweringOutput(TypedDict):
     answer: str
 
 
+class TableQuestionAnsweringOutput(TypedDict):
+    """Dictionary containing information about a [`~InferenceClient.table_question_answering`] task.
+
+    Args:
+        answer (`str`):
+            The plaintext answer.
+        coordinates (`List[List[int]]`):
+            A list of coordinates of the cells referenced in the answer.
+        cells (`List[int]`):
+            A list of coordinates of the cells contents.
+        aggregator (`str`):
+            The aggregator used to get the answer.
+    """
+
+    answer: str
+    coordinates: List[List[int]]
+    cells: List[List[int]]
+    aggregator: str
+
+
 class TokenClassificationOutput(TypedDict):
     """Dictionary containing the output of a [`~InferenceClient.token_classification`] task.
 

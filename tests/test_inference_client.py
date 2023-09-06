@@ -39,9 +39,12 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "object-detection": "facebook/detr-resnet-50",
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "sshleifer/distilbart-cnn-12-6",
+    "table-question-answering": "google/tapas-base-finetuned-wtq",
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
     "text-to-image": "CompVis/stable-diffusion-v1-4",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
+    "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
+    "translation": "t5-small",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
@@ -210,6 +213,20 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    def test_table_question_answering(self) -> None:
+        table = {
+            "Repository": ["Transformers", "Datasets", "Tokenizers"],
+            "Stars": ["36542", "4512", "3934"],
+        }
+        query = "How many stars does the transformers repository have?"
+        output = self.client.table_question_answering(query=query, table=table)
+        self.assertEqual(type(output), dict)
+        self.assertEqual(len(output), 4)
+        self.assertEqual(
+            set(output.keys()),
+            {"aggregator", "answer", "cells", "coordinates"},
+        )
+
     def test_text_classification(self) -> None:
         output = self.client.text_classification("I like you")
         self.assertIsInstance(output, list)
@@ -238,14 +255,11 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(audio, bytes)
 
     def test_translation(self) -> None:
-        output = self.client.translation("Hello world", model="t5-small")
+        output = self.client.translation("Hello world")
         self.assertEqual(output, "Hallo Welt")
 
     def test_token_classification(self) -> None:
-        model = "dbmdz/bert-large-cased-finetuned-conll03-english"
-        output = self.client.token_classification(
-            "My name is Sarah Jessica Parker but you can call me Jessica", model=model
-        )
+        output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
