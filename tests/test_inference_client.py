@@ -227,6 +227,10 @@ class InferenceClientVCRTest(InferenceClientTest):
         audio = self.client.text_to_speech("Hello world")
         self.assertIsInstance(audio, bytes)
 
+    def test_translation(self) -> None:
+        output = self.client.translation("Hello world", model="t5-small")
+        self.assertEqual(output, "Hallo Welt")
+
     def test_token_classification(self) -> None:
         model = "dbmdz/bert-large-cased-finetuned-conll03-english"
         output = self.client.token_classification(
