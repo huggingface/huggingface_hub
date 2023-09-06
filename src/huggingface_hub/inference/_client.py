@@ -82,6 +82,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    TokenClassificationOutput,
 )
 from huggingface_hub.utils import (
     BadRequestError,
@@ -765,6 +766,38 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+        """
+        Perform sentiment-analysis on the given text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> output = client.text_classification("I like you")
+        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
+        ```
+        """
+        response = self.post(json={"inputs": text}, model=model, task="text-classification")
+        return _bytes_to_list(response)[0]
+
     @overload
     def text_generation(  # type: ignore
         self,
@@ -1240,9 +1273,59 @@ class InferenceClient:
         """
         return self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
+    def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
+        """
+        Perform token classification on the given text.
+        Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
+        [{'entity_group': 'PER',
+        'score': 0.9971321225166321,
+        'word': 'Sarah Jessica Parker',
+        'start': 11,
+        'end': 31},
+        {'entity_group': 'PER',
+        'score': 0.9773476123809814,
+        'word': 'Jessica',
+        'start': 52,
+        'end': 59}]
+        ```
+        """
+        payload: Dict[str, Any] = {"inputs": text}
+        response = self.post(
+            json=payload,
+            model=model,
+            task="token-classification",
+        )
+        return _bytes_to_list(response)
+
     def translation(self, text: str, *, model: Optional[str] = None) -> str:
         """
         Convert text from one language to another.
+
+        Check out https://huggingface.co/tasks/translation for more information on how to choose the best model for
+        your specific use case. Source and target languages usually depends on the model.
 
         Args:
             text (`str`):
@@ -1265,17 +1348,13 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> output = client.translation("My name is Wolfgang and I live in Berlin")
-        >>> output
+        >>> client.translation("My name is Wolfgang and I live in Berlin")
         'Mein Name ist Wolfgang und ich lebe in Berlin.'
+        >>> client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
+        "Je m'appelle Wolfgang et je vis à Berlin."
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        response = self.post(
-            json=payload,
-            model=model,
-            task="translation",
-        )
+        response = self.post(json={"inputs": text}, model=model, task="translation")
         return _bytes_to_dict(response)[0]["translation_text"]
 
     def zero_shot_image_classification(
