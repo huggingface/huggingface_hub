@@ -230,7 +230,7 @@ card.push_to_hub(repo_id, create_pr=True)
 
 A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
 
-## Update Model Card metadata
+## Update metadata
 
 In this section we will see what metadata are in repo cards and how to update them.
 
