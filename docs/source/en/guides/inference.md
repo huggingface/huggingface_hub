@@ -144,7 +144,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
 | | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
 | | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
-| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
+| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
 | | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
 
 
