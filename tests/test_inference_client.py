@@ -21,6 +21,7 @@ import pytest
 from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
@@ -181,45 +182,6 @@ class InferenceClientVCRTest(InferenceClientTest):
     # def test_image_to_text(self) -> None:
     #     caption = self.client.image_to_text(self.image_file)
     #     self.assertEqual(caption, "")
-
-    def test_list_deployed_models(self) -> None:
-        """Test with no filter"""
-        models = self.client.list_deployed_models()
-
-        self.assertIsInstance(models, dict)
-        for key in models.keys():
-            self.assertIsInstance(models[key][0], tuple)
-
-        """Test with one framework"""
-        models = self.client.list_deployed_models(frameworks="transformers")
-
-        self.assertIsInstance(models, dict)
-        for key in models.keys():
-            self.assertIsInstance(models[key][0], tuple)
-
-        """Test with multiple frameworks"""
-        models = self.client.list_deployed_models(frameworks=["transformers", "diffusers"])
-
-        self.assertIsInstance(models, dict)
-        for key in models.keys():
-            self.assertIsInstance(models[key][0], tuple)
-
-        """Test with one task"""
-        models = self.client.list_deployed_models("conversational")
-
-        self.assertIsInstance(models, dict)
-        self.assertIn("conversational", models.keys())
-        for key in models.keys():
-            self.assertIsInstance(models[key][0], tuple)
-
-        """Test with multiple tasks"""
-        models = self.client.list_deployed_models(["conversational", "text-classification"])
-
-        self.assertIsInstance(models, dict)
-        self.assertIn("conversational", models.keys())
-        self.assertIn("text-classification", models.keys())
-        for key in models.keys():
-            self.assertIsInstance(models[key][0], tuple)
 
     def test_object_detection(self) -> None:
         output = self.client.object_detection(self.image_file)
@@ -567,3 +529,33 @@ class TestModelStatus(unittest.TestCase):
         client = InferenceClient()
         with self.assertRaises(NotImplementedError):
             client.get_model_status("https://unkown/model")
+
+
+class TestListDeployedModels(unittest.TestCase):
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
+        InferenceClient().list_deployed_models()
+        self.assertEqual(
+            len(get_session_mock.return_value.get.call_args_list),
+            len(MAIN_INFERENCE_API_FRAMEWORKS),
+        )
+
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
+        InferenceClient().list_deployed_models("all")
+        self.assertEqual(
+            len(get_session_mock.return_value.get.call_args_list),
+            len(ALL_INFERENCE_API_FRAMEWORKS),
+        )
+
+    def test_list_deployed_models_single_frameworks(self) -> None:
+        models_by_task = InferenceClient().list_deployed_models("text-generation-inference")
+        self.assertIsInstance(models_by_task, dict)
+        for task, models in models_by_task.items():
+            self.assertIsInstance(task, str)
+            self.assertIsInstance(models, list)
+            for model in models:
+                self.assertIsInstance(model, str)
+
+        self.assertIn("text-generation", models_by_task)
+        self.assertIn("bigscience/bloom", models_by_task["text-generation"])
