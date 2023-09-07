@@ -54,6 +54,9 @@ class HFSummaryWriter(SummaryWriter):
             underlying `SummaryWriter` object.
         commit_every (`int` or `float`, *optional*):
             The frequency (in minutes) at which the logs will be pushed to the Hub. Defaults to 5 minutes.
+        squash_history (`bool`, *optional*):
+            Whether to squash the history of the repo after each commit. Defaults to `False`. Squashing commits is
+            useful to avoid degraded performances on the repo when it grows too large.
         repo_type (`str`, *optional*):
             The type of the repo to which the logs will be pushed. Defaults to "model".
         repo_revision (`str`, *optional*):
@@ -114,6 +117,7 @@ class HFSummaryWriter(SummaryWriter):
         *,
         logdir: Optional[str] = None,
         commit_every: Union[int, float] = 5,
+        squash_history: bool = False,
         repo_type: Optional[str] = None,
         repo_revision: Optional[str] = None,
         repo_private: bool = False,
@@ -148,7 +152,13 @@ class HFSummaryWriter(SummaryWriter):
             allow_patterns=repo_allow_patterns,
             ignore_patterns=repo_ignore_patterns,
             every=commit_every,
+            squash_history=squash_history,
         )
+
+        # Exposing some high-level info at root level
+        self.repo_id = self.scheduler.repo_id
+        self.repo_type = self.scheduler.repo_type
+        self.repo_revision = self.scheduler.revision
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""

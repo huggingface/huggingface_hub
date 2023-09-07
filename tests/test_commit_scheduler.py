@@ -134,6 +134,32 @@ class TestCommitScheduler(unittest.TestCase):
         self.assertEqual(lfs_push2.read_text(), "binary content")
         self.assertEqual(lfs_push3.read_text(), "binary content updated")
 
+    def test_sync_and_squash_history(self) -> None:
+        """Test squash history when pushing to the Hub."""
+        watched_folder = self.cache_dir / "watched_folder"
+        watched_folder.mkdir(exist_ok=True, parents=True)
+        file_path = watched_folder / "file.txt"
+        with file_path.open("a") as f:
+            f.write("first line\n")
+
+        self.scheduler = CommitScheduler(
+            folder_path=watched_folder,
+            repo_id=self.repo_name,
+            every=1 / 60,  # every 0.1s
+            hf_api=self.api,
+            squash_history=True,
+        )
+
+        # At least 1 push to hub triggered
+        time.sleep(0.5)
+        self.scheduler.stop()
+        self.scheduler.last_future.result()
+
+        # Branch history has been squashed
+        commits = self.api.list_repo_commits(repo_id=self.scheduler.repo_id)
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0].title, "Super-squash branch 'main' using huggingface_hub")
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestPartialFileIO(unittest.TestCase):

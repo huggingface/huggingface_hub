@@ -106,6 +106,60 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
+## Upload from the CLI
+
+You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally
+it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
+
+You can either upload a single file or an entire folder:
+
+```bash
+# Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
+>>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors model.safetensors
+https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
+
+>>> huggingface-cli upload Wauplin/my-cool-model ./models .
+https://huggingface.co/Wauplin/my-cool-model/tree/main
+```
+
+`local_path` and `path_in_repo` are optional and can be implicitly inferred. If `local_path` is not set, the tool will
+check if a local folder or file has the same name as the `repo_id`. If that's the case, its content will be uploaded.
+Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
+set, files are uploaded at the root of the repo.
+
+```bash
+# Upload file at root
+huggingface-cli upload my-cool-model model.safetensors
+
+# Upload directory at root
+huggingface-cli upload my-cool-model ./models
+
+# Upload `my-cool-model/` directory if it exist, raise otherwise
+huggingface-cli upload my-cool-model
+```
+
+By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly,
+use the `--token` option:
+
+```bash
+huggingface-cli upload my-cool-model --token=hf_****
+```
+
+When uploading a folder, you can use the `--include` and `--exclude` arguments to filter the files to upload. You can
+also use `--delete` to delete existing files on the Hub.
+
+```bash
+# Sync local Space with Hub (upload new files except from logs/, delete removed files)
+huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
+```
+
+Finally, you can also schedule a job that will upload your files regularly (see [scheduled uploads](#scheduled-uploads)).
+
+```bash
+# Upload new logs every 10 minutes
+huggingface-cli upload training-model logs/ --every=10
+```
+
 ## Advanced features
 
 In most cases, you won't need more than [`upload_file`] and [`upload_folder`] to upload your files to the Hub.
@@ -384,14 +438,14 @@ getting an upload/push to fail at the end of the process or encountering a degra
 We gathered a list of tips and recommendations for structuring your repo.
 
 
-| Characteristic     | Recommended        | Tips                                     |
-| ----------------   | ------------------ | ---------------------------------------- |
-| Repo size          | -                  | contact us for large repos (TBs of data) |
-| Files per repo     | <100k              | merge data into fewer files              |
-| Entries per folder | <10k               | use subdirectories in repo               |
-| File size          | <5GB               | split data into chunked files            |
-| Commit size        | <100 files*        | upload files in multiple commits         |
-| Commits per repo   | -                  | upload multiple files per commit         |
+| Characteristic     | Recommended        | Tips                                                   |
+| ----------------   | ------------------ | ------------------------------------------------------ |
+| Repo size          | -                  | contact us for large repos (TBs of data)               |
+| Files per repo     | <100k              | merge data into fewer files                            |
+| Entries per folder | <10k               | use subdirectories in repo                             |
+| File size          | <5GB               | split data into chunked files                          |
+| Commit size        | <100 files*        | upload files in multiple commits                       |
+| Commits per repo   | -                  | upload multiple files per commit and/or squash history |
 
 _* Not relevant when using `git` CLI directly_
 
@@ -424,7 +478,7 @@ In all cases no single LFS file will be able to be >50GB. I.e. 50GB is the hard 
 our experience, the user experience on the Hub starts to degrade after a few thousand commits. We are constantly working to
 improve the service, but one must always remember that a git repository is not meant to work as a database with a lot of
 writes. If your repo's history gets very large, it is always possible to squash all the commits to get a
-fresh start.
+fresh start using [`super_squash_history`]. This is a non-revertible operation.
 - **Number of operations per commit**: Once again, there is no hard limit here. When a commit is uploaded on the Hub, each
 git operation (addition or delete) is checked by the server. When a hundred LFS files are committed at once,
 each file is checked individually to ensure it's been correctly uploaded. When pushing data through HTTP with `huggingface_hub`,
