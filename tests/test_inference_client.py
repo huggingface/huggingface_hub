@@ -232,7 +232,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
-    @pytest.mark.skip(reason="This model is not available on the server")
+    @pytest.mark.skip(reason="This model is not available on the free InferenceAPI")
     def test_tabular_classification(self) -> None:
         table = {
             "fixed_acidity": ["7.4", "7.8", "10.3"],
