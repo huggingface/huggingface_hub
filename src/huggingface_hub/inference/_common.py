@@ -69,25 +69,6 @@ TASKS_EXPECTING_IMAGES = {"text-to-image", "image-to-image"}
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ModelInfo:
-    compute_type: str
-    model_id: str
-    sha: str
-    task: str
-    framework: str
-
-    @classmethod
-    def from_item(cls, item, framework):
-        return cls(
-            compute_type=item["compute_type"],
-            model_id=item["model_id"],
-            sha=item["sha"],
-            task=item["task"],
-            framework=framework,
-        )
-
-
 # Add dataclass for ModelStatus. We use this dataclass in get_model_status function.
 @dataclass
 class ModelStatus:

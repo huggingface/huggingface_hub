@@ -119,7 +119,6 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
-        self.token = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
