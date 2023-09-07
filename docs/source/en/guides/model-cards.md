@@ -230,7 +230,42 @@ card.push_to_hub(repo_id, create_pr=True)
 
 A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
 
-### Include Evaluation Results
+## Update Model Card metadata
+
+In this section we will see what metadata are in repo cards and how to update them.
+
+`metadata` refers to a hash map (or key value) context that provides some high-level information about a model, dataset or Space. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. For more detail you can take a look to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
+Now lets see some examples on how to update those metadata.
+
+
+Let's start with a basic update:
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
+```
+
+With this two lines of code you will update the metadata to set a new `pipeline_tag`.
+
+By default, you cannot update a key that is already existing on the card. If you want to do so, you must pass
+`overwrite=True` explicitly:
+
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
+```
+
+Now you know how to update metadata on a card. It often happen that you want to suggest some changes to a repository
+on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owner of
+this repository to review and merge your suggestions.
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("someone/model", {"pipeline_tag": "text-classification"}, create_pr=True)
+```
+
+## Include Evaluation Results
 
 To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 
@@ -323,46 +358,3 @@ model-index:
     - type: f1
       value: 0.65
 ```
-
-### Update modelcard Metadata
-
-Well let's say that you want to update some of `Metadata` of a `Modelcard`. In this section you will read what is a `Metadata` in the `Modelcard` context, and finally you will be able to read and understand some examples of code.
-
-Let's start from what is `Metadata` in this case for `Modelcard` context. The `Metadata` refers to a hash map (or key value) context that provides some high-level information about user's model. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. If you want to read more and with more detail you can give a glance to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
-
-Now lets see some examples on how you can update those `Metadata` of a `Modelcard`.
-
-#### Import the card.data
-
-Before you start you need to import the `card.data` from `huggingface_hub`.
-```python
-from huggingface_hub import card.data
-```
-
-#### Basic update
-First of all lets see how you can make a basic update.
-```python 
-repo_id = "Your repo id"
-metadata_update(repo_id, {"pipeline_tag": "image-classification"})
-```
-
-With this two lines of code you will update (or add, if not existing) the pipeline_tag metadata to the image-classification.
-
-#### Overwrite existing Fields
-You can easily overwrite the existing `Metadata` of your model.
-
-```python
-metadata_update(repo_id, {"pipeline_tag": "text-generation"}, overwrite=True)
-```
-
-Using this line of code you can success the overwrite. With the `overwrite=True` field, even if the `pipeline_tag` field exists, it will be updated to the new value. (It will overwrite the field.)
-
-#### Propose Metadata updates on Repositories the user doesn't own
-
-Last but not least you can propose some changes to a repository witch is not your and belongs to an other user.
-
-```python
-metadata_update(repo_id, {"pipeline_tag": "text-classification"}, create_pr=True)
-```
-
-If you want to suggest a change to a repository that belongs to another user, you can simply use the `create_pr=True` field. This will create a `pull request` on the model repository, which will allow the owner of this repository to review and merge your suggestions if approve them.
