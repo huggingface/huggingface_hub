@@ -1024,6 +1024,45 @@ class InferenceClient:
         response = self.post(json={"table": table}, model=model, task="tabular-classification")
         return _bytes_to_list(response)
 
+    def tabular_regression(self, table: Dict[str, Any], *, model: str) -> List[float]:
+        """
+        Predicting a numerical target value given a set of attributes/features in a table.
+
+        Args:
+            table (`Dict[str, Any]`):
+                Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
+            model (`str`):
+                The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `List`: a list of predicted numerical target values.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> table = {
+        ...     "Height": ["11.52", "12.48", "12.3778"],
+        ...     "Length1": ["23.2", "24", "23.9"],
+        ...     "Length2": ["25.4", "26.3", "26.5"],
+        ...     "Length3": ["30", "31.2", "31.1"],
+        ...     "Species": ["Bream", "Bream", "Bream"],
+        ...     "Width": ["4.02", "4.3056", "4.6961"],
+        ... }
+        >>> client.tabular_regression(table, model="scikit-learn/Fish-Weight")
+        [110, 120, 130]
+        ```
+        """
+        response = self.post(json={"table": table}, model=model, task="tabular-regression")
+        return _bytes_to_list(response)
+
     def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
