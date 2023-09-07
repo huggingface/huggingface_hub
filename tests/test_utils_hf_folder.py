@@ -83,3 +83,12 @@ class HfFolderTest(unittest.TestCase):
             # Un-patch
             new_patcher.stop()
             old_patcher.stop()
+
+    def test_token_strip(self):
+        """
+        Test the workflow when the token is mistakenly finishing with new-line or space character.
+        """
+        token = _generate_token()
+        HfFolder.save_token(" " + token + "\n")
+        self.assertEqual(HfFolder.get_token(), token)
+        HfFolder.delete_token()
