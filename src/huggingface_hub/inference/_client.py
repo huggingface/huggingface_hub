@@ -985,7 +985,7 @@ class InferenceClient:
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
-            data (`Dict[str, Any]`):
+            table (`Dict[str, Any]`):
                 Set of attributes to classify.
             model (`str`):
                 The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
