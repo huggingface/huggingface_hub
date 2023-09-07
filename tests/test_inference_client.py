@@ -136,7 +136,7 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_feature_extraction(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
         self.assertIsInstance(embedding, np.ndarray)
-        self.assertEqual(embedding.shape, (8, 768))
+        self.assertEqual(embedding.shape, (1, 8, 768))
 
     def test_fill_mask(self) -> None:
         model = "distilroberta-base"
