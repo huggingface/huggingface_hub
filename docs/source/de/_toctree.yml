@@ -6,3 +6,7 @@
       title: Kurzanleitung
     - local: installation
       title: Installation
+- title: "How-to guides"
+  sections:
+    - local: guides/inference
+      title: Inferenz
