@@ -238,14 +238,14 @@ In this section we will see what metadata are in repo cards and how to update th
 Now lets see some examples on how to update those metadata.
 
 
-Let's start with a basic update:
+Let's start with a first example:
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
 ```
 
-With this two lines of code you will update the metadata to set a new `pipeline_tag`.
+With these two lines of code you will update the metadata to set a new `pipeline_tag`.
 
 By default, you cannot update a key that is already existing on the card. If you want to do so, you must pass
 `overwrite=True` explicitly:
@@ -256,9 +256,9 @@ By default, you cannot update a key that is already existing on the card. If you
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
 ```
 
-Now you know how to update metadata on a card. It often happen that you want to suggest some changes to a repository
-on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owner of
-this repository to review and merge your suggestions.
+It often happen that you want to suggest some changes to a repository
+on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owners to
+review and merge your suggestions.
 
 ```python
 >>> from huggingface_hub import metadata_update
