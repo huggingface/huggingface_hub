@@ -815,7 +815,7 @@ class AsyncInferenceClient:
         def _unpack_response(framework: str, items: List[Dict]) -> None:
             for model in items:
                 if framework == "sentence-transformers":
-                    # Model depending on the `sentence-transformers` framework can work with both task even if not
+                    # Model running with the `sentence-transformers` framework can work with both tasks even if not
                     # branded as such in the API response
                     models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
                     models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
