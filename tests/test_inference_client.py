@@ -49,6 +49,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
     "translation": "t5-small",
     "visual-question-answering": "dandelin/vilt-b32-finetuned-vqa",
+    "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
@@ -330,6 +331,43 @@ class InferenceClientVCRTest(InferenceClientTest):
                 {"score": 0.08407749235630035, "answer": "lady"},
                 {"score": 0.0507517009973526, "answer": "female"},
                 {"score": 0.01777094043791294, "answer": "man"},
+            ],
+        )
+
+    def test_zero_shot_classification_single_label(self) -> None:
+        output = self.client.zero_shot_classification(
+            "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
+            "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
+            " mysteries when he went for a run up a hill in Nice, France.",
+            labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
+        )
+        self.assertEqual(
+            output,
+            [
+                {"label": "scientific discovery", "score": 0.7961668968200684},
+                {"label": "space & cosmos", "score": 0.18570658564567566},
+                {"label": "microbiology", "score": 0.00730885099619627},
+                {"label": "archeology", "score": 0.006258360575884581},
+                {"label": "robots", "score": 0.004559356719255447},
+            ],
+        )
+
+    def test_zero_shot_classification_multi_label(self) -> None:
+        output = self.client.zero_shot_classification(
+            "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
+            "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
+            " mysteries when he went for a run up a hill in Nice, France.",
+            labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
+            multi_label=True,
+        )
+        self.assertEqual(
+            output,
+            [
+                {"label": "scientific discovery", "score": 0.9829297661781311},
+                {"label": "space & cosmos", "score": 0.755190908908844},
+                {"label": "microbiology", "score": 0.0005462635890580714},
+                {"label": "archeology", "score": 0.00047131875180639327},
+                {"label": "robots", "score": 0.00030448526376858354},
             ],
         )
 
