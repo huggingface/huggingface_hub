@@ -54,6 +54,9 @@ def generate_async_client_code(code: str) -> str:
     # Update some docstrings
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
     code = _update_examples_in_public_methods(code)
+
+    # Adapt get_model_status
+    code = _adapt_get_model_status(code)
     return code
 
 
@@ -339,6 +342,21 @@ def _use_async_streaming_util(code: str) -> str:
         "_stream_text_generation_response",
         "_async_stream_text_generation_response",
     )
+
+
+def _adapt_get_model_status(code: str) -> str:
+    sync_snippet = """
+        response = get_session().get(url, headers=self.headers)
+        hf_raise_for_status(response)
+        response_data = response.json()"""
+
+    async_snippet = """
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_data = await response.json()"""
+
+    return code.replace(sync_snippet, async_snippet)
 
 
 if __name__ == "__main__":

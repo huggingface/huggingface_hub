@@ -1,0 +1,53 @@
+interactions:
+- request:
+    body: '{"inputs": "The goal of life is <mask>."}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '41'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - fcaea546-88d0-47b5-a5a1-ef49198074c8
+      user-agent:
+      - unknown/None; hf_hub/0.17.0.dev0; python/3.10.12; torch/2.0.0.post101
+    method: POST
+    uri: https://api-inference.huggingface.co/models/distilroberta-base
+  response:
+    body:
+      string: '[{"score":0.06897063553333282,"token":11098,"token_str":" happiness","sequence":"The
+        goal of life is happiness."},{"score":0.06554922461509705,"token":45075,"token_str":"
+        immortality","sequence":"The goal of life is immortality."},{"score":0.0323575921356678,"token":14314,"token_str":"
+        yours","sequence":"The goal of life is yours."},{"score":0.02431388944387436,"token":22211,"token_str":"
+        liberation","sequence":"The goal of life is liberation."},{"score":0.023767812177538872,"token":25342,"token_str":"
+        simplicity","sequence":"The goal of life is simplicity."}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '566'
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 21 Aug 2023 15:37:19 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.036'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - luPMOhNSkCeOLo7sbj3GE
+      x-sha:
+      - d5411c3ee9e1793fd9ef58390b40a80a4c10df32
+    status:
+      code: 200
+      message: OK
+version: 1

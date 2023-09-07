@@ -5,7 +5,6 @@ import pytest
 
 from huggingface_hub.utils._deprecation import (
     _deprecate_arguments,
-    _deprecate_list_output,
     _deprecate_method,
     _deprecate_positional_args,
 )
@@ -129,60 +128,3 @@ class TestDeprecationUtils(unittest.TestCase):
             "'dummy_deprecated' (from 'tests.test_utils_deprecation') is deprecated"
             " and will be removed from version 'xxx'. This is a custom message.",
         )
-
-    def test_deprecate_list_output(self) -> None:
-        """Test test_deprecate_list_output throw warnings."""
-
-        @_deprecate_list_output(version="xxx")
-        def dummy_deprecated() -> None:
-            return [1, 2, 3]
-
-        output = dummy_deprecated()
-
-        # Still a list !
-        self.assertIsInstance(output, list)
-
-        # __getitem__
-        with pytest.warns(FutureWarning) as record:
-            self.assertEqual(output[0], 1)
-
-        # (check real message once)
-        self.assertEqual(
-            record[0].message.args[0],
-            "'dummy_deprecated' currently returns a list of objects but is planned to be a generator starting from"
-            " version xxx in order to implement pagination. Please avoid to use"
-            " `dummy_deprecated(...).__getitem__` or explicitly convert the output to a list first with `[item for"
-            " item in dummy_deprecated(...)]`.",
-        )
-
-        # __setitem__
-        with pytest.warns(FutureWarning):
-            output[0] = 10
-
-        # __delitem__
-        with pytest.warns(FutureWarning):
-            del output[1]
-
-        # `.append` deprecated (as .index, .pop, .insert, .remove, .sort,...)
-        with pytest.warns(FutureWarning):
-            output.append(5)
-
-        # Magic __len__ deprecated (as __add__, __mul__, __contains__,...)
-        with pytest.warns(FutureWarning):
-            self.assertEqual(len(output), 3)
-
-        with pytest.warns(FutureWarning):
-            self.assertTrue(3 in output)
-
-        # List has been modified
-        # Iterating over items is NOT deprecated !
-        for item, expected in zip(output, [10, 3, 5]):
-            self.assertEqual(item, expected)
-
-        # If output is converted to list, no warning is raised.
-        output_as_list = list(iter(dummy_deprecated()))
-        self.assertEqual(output_as_list[0], 1)
-        del output_as_list[1]
-        output_as_list.append(5)
-        self.assertEqual(len(output_as_list), 3)
-        self.assertTrue(3 in output_as_list)

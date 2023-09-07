@@ -41,11 +41,13 @@ from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
+    ModelStatus,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
     _bytes_to_image,
+    _bytes_to_list,
     _get_recommended_model,
     _import_numpy,
     _is_tgi_server,
@@ -62,8 +64,12 @@ from huggingface_hub.inference._text_generation import (
 from huggingface_hub.inference._types import (
     ClassificationOutput,
     ConversationalOutput,
+    FillMaskOutput,
     ImageSegmentationOutput,
     ObjectDetectionOutput,
+    QuestionAnsweringOutput,
+    TableQuestionAnsweringOutput,
+    TokenClassificationOutput,
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -280,7 +286,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     async def automatic_speech_recognition(
         self,
@@ -379,7 +385,94 @@ class AsyncInferenceClient:
         if parameters is not None:
             payload["parameters"] = parameters
         response = await self.post(json=payload, model=model, task="conversational")
-        return _bytes_to_dict(response)
+        return _bytes_to_dict(response)  # type: ignore
+
+    async def visual_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Answering open-ended questions based on an image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            question (`str`):
+                Question to be answered.
+            model (`str`, *optional*):
+                The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            `InferenceTimeoutError`:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.visual_question_answering(
+        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
+        ...     question="What is the animal doing?"
+        ... )
+        [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
+        ```
+        """
+        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        response = await self.post(json=payload, model=model, task="visual-question-answering")
+        return _bytes_to_list(response)
+
+    async def document_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[QuestionAnsweringOutput]:
+        """
+        Answer questions on document images.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            question (`str`):
+                Question to be answered.
+            model (`str`, *optional*):
+                The model to use for the document question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended document question answering model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label, associated probability, word ids, and page number.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
+        [{'score': 0.42515629529953003, 'answer': 'us-001', 'start': 16, 'end': 16}]
+        ```
+        """
+        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        response = await self.post(json=payload, model=model, task="document-question-answering")
+        return _bytes_to_list(response)
 
     async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
@@ -418,6 +511,47 @@ class AsyncInferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response)[0], dtype="float32")
 
+    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
+        """
+        Fill in a hole with a missing word (token to be precise).
+
+        Args:
+            text (`str`):
+                a string to be filled from, must contain the [MASK] token (check model card for exact name of the mask).
+            model (`str`, *optional*):
+                The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            probability, token reference, and completed text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.fill_mask("The goal of life is <mask>.")
+        [{'score': 0.06897063553333282,
+        'token': 11098,
+        'token_str': ' happiness',
+        'sequence': 'The goal of life is happiness.'},
+        {'score': 0.06554922461509705,
+        'token': 45075,
+        'token_str': ' immortality',
+        'sequence': 'The goal of life is immortality.'}]
+        ```
+        """
+        response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
+        return _bytes_to_list(response)
+
     async def image_classification(
         self,
         image: ContentT,
@@ -453,7 +587,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=image, model=model, task="image-classification")
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     async def image_segmentation(
         self,
@@ -678,6 +812,48 @@ class AsyncInferenceClient:
             raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
         return output
 
+    async def question_answering(
+        self, question: str, context: str, *, model: Optional[str] = None
+    ) -> QuestionAnsweringOutput:
+        """
+        Retrieve the answer to a question from a given text.
+
+        Args:
+            question (`str`):
+                Question to be answered.
+            context (`str`):
+                The context of the question.
+            model (`str`):
+                The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
+        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        ```
+        """
+
+        payload: Dict[str, Any] = {"question": question, "context": context}
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="question-answering",
+        )
+        return _bytes_to_dict(response)  # type: ignore
+
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
     ) -> List[float]:
@@ -724,7 +900,7 @@ class AsyncInferenceClient:
             model=model,
             task="sentence-similarity",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     async def summarization(
         self,
@@ -770,9 +946,98 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="summarization")
         return _bytes_to_dict(response)[0]["summary_text"]
 
-    async def tabular_regression(
-        self, table: Dict[str, Any], model: str, *, parameters: Optional[Dict[str, Any]] = None
-    ) -> List[float]:
+    async def table_question_answering(
+        self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
+    ) -> TableQuestionAnsweringOutput:
+        """
+        Retrieve the answer to a question from information given in a table.
+
+        Args:
+            table (`str`):
+                A table of data represented as a dict of lists where entries are headers and the lists are all the
+                values, all lists must have the same size.
+            query (`str`):
+                The query in plain text that you want to ask the table.
+            model (`str`):
+                The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face
+                Hub or a URL to a deployed Inference Endpoint.
+
+        Returns:
+            `Dict`: a dictionary of table question answering output containing the answer, coordinates, cells and the aggregator used.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> query = "How many stars does the transformers repository have?"
+        >>> table = {"Repository": ["Transformers", "Datasets", "Tokenizers"], "Stars": ["36542", "4512", "3934"]}
+        >>> await client.table_question_answering(table, query, model="google/tapas-base-finetuned-wtq")
+        {'answer': 'AVERAGE > 36542', 'coordinates': [[0, 1]], 'cells': ['36542'], 'aggregator': 'AVERAGE'}
+        ```
+        """
+        response = await self.post(
+            json={
+                "query": query,
+                "table": table,
+            },
+            model=model,
+            task="table-question-answering",
+        )
+        return _bytes_to_dict(response)  # type: ignore
+
+    async def tabular_classification(self, table: Dict[str, Any], *, model: str) -> List[str]:
+        """
+        Classifying a target category (a group) based on a set of attributes.
+
+        Args:
+            table (`Dict[str, Any]`):
+                Set of attributes to classify.
+            model (`str`):
+                The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `List`: a list of labels, one per row in the initial table.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> table = {
+        ...     "fixed_acidity": ["7.4", "7.8", "10.3"],
+        ...     "volatile_acidity": ["0.7", "0.88", "0.32"],
+        ...     "citric_acid": ["0", "0", "0.45"],
+        ...     "residual_sugar": ["1.9", "2.6", "6.4"],
+        ...     "chlorides": ["0.076", "0.098", "0.073"],
+        ...     "free_sulfur_dioxide": ["11", "25", "5"],
+        ...     "total_sulfur_dioxide": ["34", "67", "13"],
+        ...     "density": ["0.9978", "0.9968", "0.9976"],
+        ...     "pH": ["3.51", "3.2", "3.23"],
+        ...     "sulphates": ["0.56", "0.68", "0.82"],
+        ...     "alcohol": ["9.4", "9.8", "12.6"],
+        ... }
+        >>> await client.tabular_classification(table=table, model="julien-c/wine-quality")
+        ["5", "5", "5"]
+        ```
+        """
+        response = await self.post(json={"table": table}, model=model, task="tabular-classification")
+        return _bytes_to_list(response)
+
+    async def tabular_regression(self, table: Dict[str, Any], *, model: str) -> List[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
@@ -782,9 +1047,6 @@ class AsyncInferenceClient:
             model (`str`):
                 The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the tabular-regression task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#tabular-regression-task)
 
         Returns:
             `List`: a list of predicted numerical target values.
@@ -800,29 +1062,53 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> data = {
-        "Height": ["11.52", "12.48", "12.3778"],
-        "Length1": ["23.2", "24", "23.9"],
-        "Length2": ["25.4", "26.3", "26.5"],
-        "Length3": ["30", "31.2", "31.1"],
-        "Species": ["Bream", "Bream", "Bream"],
-        "Width": ["4.02", "4.3056", "4.6961"],
-        }
-        >>> model = "scikit-learn/Fish-Weight"
-        >>> output = await client.tabular_regression(data=data, model=model, parameters={"wait_for_model":"true"})
-        >>> output
+        >>> table = {
+        ...     "Height": ["11.52", "12.48", "12.3778"],
+        ...     "Length1": ["23.2", "24", "23.9"],
+        ...     "Length2": ["25.4", "26.3", "26.5"],
+        ...     "Length3": ["30", "31.2", "31.1"],
+        ...     "Species": ["Bream", "Bream", "Bream"],
+        ...     "Width": ["4.02", "4.3056", "4.6961"],
+        ... }
+        >>> await client.tabular_regression(table, model="scikit-learn/Fish-Weight")
         [110, 120, 130]
         ```
         """
-        payload: Dict[str, Any] = {"table": table}
-        if parameters is not None:
-            payload["parameters"] = parameters
-        response = await self.post(
-            json=payload,
-            model=model,
-            task="tabular-regression",
-        )
-        return _bytes_to_dict(response)
+        response = await self.post(json={"table": table}, model=model, task="tabular-regression")
+        return _bytes_to_list(response)
+
+    async def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+        """
+        Perform text classification (e.g. sentiment-analysis) on the given text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.text_classification("I like you")
+        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
+        ```
+        """
+        response = await self.post(json={"inputs": text}, model=model, task="text-classification")
+        return _bytes_to_list(response)[0]
 
     @overload
     async def text_generation(  # type: ignore
@@ -1303,6 +1589,92 @@ class AsyncInferenceClient:
         """
         return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
+    async def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
+        """
+        Perform token classification on the given text.
+        Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
+
+        Args:
+            text (`str`):
+                A string to be classified.
+            model (`str`, *optional*):
+                The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
+        [{'entity_group': 'PER',
+        'score': 0.9971321225166321,
+        'word': 'Sarah Jessica Parker',
+        'start': 11,
+        'end': 31},
+        {'entity_group': 'PER',
+        'score': 0.9773476123809814,
+        'word': 'Jessica',
+        'start': 52,
+        'end': 59}]
+        ```
+        """
+        payload: Dict[str, Any] = {"inputs": text}
+        response = await self.post(
+            json=payload,
+            model=model,
+            task="token-classification",
+        )
+        return _bytes_to_list(response)
+
+    async def translation(self, text: str, *, model: Optional[str] = None) -> str:
+        """
+        Convert text from one language to another.
+
+        Check out https://huggingface.co/tasks/translation for more information on how to choose the best model for
+        your specific use case. Source and target languages usually depends on the model.
+
+        Args:
+            text (`str`):
+                A string to be translated.
+            model (`str`, *optional*):
+                The model to use for the translation task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended translation model will be used.
+                Defaults to None.
+
+        Returns:
+            `str`: The generated translated text.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.translation("My name is Wolfgang and I live in Berlin")
+        'Mein Name ist Wolfgang und ich lebe in Berlin.'
+        >>> await client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
+        "Je m'appelle Wolfgang et je vis à Berlin."
+        ```
+        """
+        response = await self.post(json={"inputs": text}, model=model, task="translation")
+        return _bytes_to_dict(response)[0]["translation_text"]
+
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
     ) -> List[ClassificationOutput]:
@@ -1350,7 +1722,7 @@ class AsyncInferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return _bytes_to_dict(response)
+        return _bytes_to_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
@@ -1375,4 +1747,41 @@ class AsyncInferenceClient:
             if task in ("feature-extraction", "sentence-similarity")
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
+        )
+
+    async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
+        """
+        A function which returns the status of a specific model, from the Inference API.
+
+        Args:
+            model (`str`, *optional*):
+                Identifier of the model for witch the status gonna be checked. If model is not provided,
+                the model associated with this instance of [`InferenceClient`] will be used. Only InferenceAPI service can be checked so the
+                identifier cannot be a URL.
+
+
+        Returns:
+            [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
+                         about the state of the model: load, state, compute type and framework.
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith("https://"):
+            raise NotImplementedError("Model status is only available for Inference API endpoints.")
+        url = f"{INFERENCE_ENDPOINT}/status/{model}"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_data = await response.json()
+
+        if "error" in response_data:
+            raise ValueError(response_data["error"])
+
+        return ModelStatus(
+            loaded=response_data["loaded"],
+            state=response_data["state"],
+            compute_type=response_data["compute_type"],
+            framework=response_data["framework"],
         )
