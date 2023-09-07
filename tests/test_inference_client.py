@@ -33,6 +33,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "audio-to-audio": "speechbrain/sepformer-wham",
     "automatic-speech-recognition": "facebook/wav2vec2-base-960h",
     "conversational": "facebook/blenderbot-400M-distill",
+    "document-question-answering": "naver-clova-ix/donut-base-finetuned-docvqa",
     "feature-extraction": "facebook/bart-base",
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
@@ -56,6 +57,7 @@ class InferenceClientTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.image_file = hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
+        cls.document_file = hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
         cls.audio_file = hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
 
 
@@ -123,6 +125,10 @@ class InferenceClientVCRTest(InferenceClientTest):
                 "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
             },
         )
+
+    def test_document_question_answering(self) -> None:
+        output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
+        self.assertEqual(output, [{"answer": "$1,000,000,000"}])
 
     def test_feature_extraction(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
