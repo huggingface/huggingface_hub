@@ -42,6 +42,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "summarization": "sshleifer/distilbart-cnn-12-6",
     "table-question-answering": "google/tapas-base-finetuned-wtq",
     "tabular-classification": "julien-c/wine-quality",
+    "tabular-regression": "scikit-learn/Fish-Weight",
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
     "text-to-image": "CompVis/stable-diffusion-v1-4",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
@@ -232,7 +233,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
-    @pytest.mark.skip(reason="This model is not available on the free InferenceAPI")
+    @pytest.mark.skip(reason="This model is not available on InferenceAPI")
     def test_tabular_classification(self) -> None:
         table = {
             "fixed_acidity": ["7.4", "7.8", "10.3"],
@@ -250,8 +251,9 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.tabular_classification(table=table)
         self.assertEqual(output, ["5", "5", "5"])
 
+    @pytest.mark.skip(reason="This model is not available on InferenceAPI")
     def test_tabular_regression(self) -> None:
-        clf_table = {
+        table = {
             "Height": ["11.52", "12.48", "12.3778"],
             "Length1": ["23.2", "24", "23.9"],
             "Length2": ["25.4", "26.3", "26.5"],
@@ -259,11 +261,8 @@ class InferenceClientVCRTest(InferenceClientTest):
             "Species": ["Bream", "Bream", "Bream"],
             "Width": ["4.02", "4.3056", "4.6961"],
         }
-        model = "scikit-learn/Fish-Weight"
-        parameters = {"wait_for_model": True}
-        output = self.client.tabular_regression(table=clf_table, model=model, parameters=parameters)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
+        output = self.client.tabular_regression(table=table)
+        self.assertEqual(output, [110, 120, 130])
 
     def test_table_question_answering(self) -> None:
         table = {
