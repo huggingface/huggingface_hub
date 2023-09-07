@@ -438,6 +438,48 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="visual-question-answering")
         return _bytes_to_list(response)
 
+    async def document_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[QuestionAnsweringOutput]:
+        """
+        Answer questions on document images.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            question (`str`):
+                Question to be answered.
+            model (`str`, *optional*):
+                The model to use for the document question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended document question answering model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label, associated probability, word ids, and page number.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
+        [{'score': 0.42515629529953003, 'answer': 'us-001', 'start': 16, 'end': 16}]
+        ```
+        """
+        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        response = await self.post(json=payload, model=model, task="document-question-answering")
+        return _bytes_to_list(response)
+
     async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
@@ -1002,9 +1044,94 @@ class AsyncInferenceClient:
         )
         return _bytes_to_dict(response)  # type: ignore
 
+    async def tabular_classification(self, table: Dict[str, Any], *, model: str) -> List[str]:
+        """
+        Classifying a target category (a group) based on a set of attributes.
+
+        Args:
+            table (`Dict[str, Any]`):
+                Set of attributes to classify.
+            model (`str`):
+                The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `List`: a list of labels, one per row in the initial table.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> table = {
+        ...     "fixed_acidity": ["7.4", "7.8", "10.3"],
+        ...     "volatile_acidity": ["0.7", "0.88", "0.32"],
+        ...     "citric_acid": ["0", "0", "0.45"],
+        ...     "residual_sugar": ["1.9", "2.6", "6.4"],
+        ...     "chlorides": ["0.076", "0.098", "0.073"],
+        ...     "free_sulfur_dioxide": ["11", "25", "5"],
+        ...     "total_sulfur_dioxide": ["34", "67", "13"],
+        ...     "density": ["0.9978", "0.9968", "0.9976"],
+        ...     "pH": ["3.51", "3.2", "3.23"],
+        ...     "sulphates": ["0.56", "0.68", "0.82"],
+        ...     "alcohol": ["9.4", "9.8", "12.6"],
+        ... }
+        >>> await client.tabular_classification(table=table, model="julien-c/wine-quality")
+        ["5", "5", "5"]
+        ```
+        """
+        response = await self.post(json={"table": table}, model=model, task="tabular-classification")
+        return _bytes_to_list(response)
+
+    async def tabular_regression(self, table: Dict[str, Any], *, model: str) -> List[float]:
+        """
+        Predicting a numerical target value given a set of attributes/features in a table.
+
+        Args:
+            table (`Dict[str, Any]`):
+                Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
+            model (`str`):
+                The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint.
+
+        Returns:
+            `List`: a list of predicted numerical target values.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> table = {
+        ...     "Height": ["11.52", "12.48", "12.3778"],
+        ...     "Length1": ["23.2", "24", "23.9"],
+        ...     "Length2": ["25.4", "26.3", "26.5"],
+        ...     "Length3": ["30", "31.2", "31.1"],
+        ...     "Species": ["Bream", "Bream", "Bream"],
+        ...     "Width": ["4.02", "4.3056", "4.6961"],
+        ... }
+        >>> await client.tabular_regression(table, model="scikit-learn/Fish-Weight")
+        [110, 120, 130]
+        ```
+        """
+        response = await self.post(json={"table": table}, model=model, task="tabular-regression")
+        return _bytes_to_list(response)
+
     async def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
         """
-        Perform sentiment-analysis on the given text.
+        Perform text classification (e.g. sentiment-analysis) on the given text.
 
         Args:
             text (`str`):
@@ -1028,7 +1155,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> output = await client.text_classification("I like you")
+        >>> await client.text_classification("I like you")
         [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
         ```
         """
@@ -1600,6 +1727,79 @@ class AsyncInferenceClient:
         response = await self.post(json={"inputs": text}, model=model, task="translation")
         return _bytes_to_dict(response)[0]["translation_text"]
 
+    async def zero_shot_classification(
+        self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
+    ) -> List[ClassificationOutput]:
+        """
+        Provide as input a text and a set of candidate labels to classify the input text.
+
+        Args:
+            text (`str`):
+                The input text to classify.
+            labels (`List[str]`):
+                List of string possible labels. There must be at least 2 labels.
+            multi_label (`bool`):
+                Boolean that is set to True if classes can overlap.
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> text = (
+        ...     "A new model offers an explanation async for how the Galilean satellites formed around the solar system's"
+        ...     "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
+        ...     " mysteries when he went async for a run up a hill in Nice, France."
+        ... )
+        >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
+        >>> await client.zero_shot_classification(text, labels)
+        [
+            {"label": "scientific discovery", "score": 0.7961668968200684},
+            {"label": "space & cosmos", "score": 0.18570658564567566},
+            {"label": "microbiology", "score": 0.00730885099619627},
+            {"label": "archeology", "score": 0.006258360575884581},
+            {"label": "robots", "score": 0.004559356719255447},
+        ]
+        >>> await client.zero_shot_classification(text, labels, multi_label=True)
+        [
+            {"label": "scientific discovery", "score": 0.9829297661781311},
+            {"label": "space & cosmos", "score": 0.755190908908844},
+            {"label": "microbiology", "score": 0.0005462635890580714},
+            {"label": "archeology", "score": 0.00047131875180639327},
+            {"label": "robots", "score": 0.00030448526376858354},
+        ]
+        ```
+        """
+        # Raise ValueError if input is less than 2 labels
+        if len(labels) < 2:
+            raise ValueError("You must specify at least 2 classes to compare.")
+
+        response = await self.post(
+            json={
+                "inputs": text,
+                "parameters": {
+                    "candidate_labels": ",".join(labels),
+                    "multi_label": multi_label,
+                },
+            },
+            model=model,
+            task="zero-shot-classification",
+        )
+        output = _bytes_to_dict(response)
+        return [{"label": label, "score": score} for label, score in zip(output["labels"], output["scores"])]
+
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
     ) -> List[ClassificationOutput]:
@@ -1610,7 +1810,7 @@ class AsyncInferenceClient:
             image (`Union[str, Path, bytes, BinaryIO]`):
                 The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
             labels (`List[str]`):
-                List of string possible labels. The `len(labels)` must be greater than 1.
+                List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -1637,10 +1837,9 @@ class AsyncInferenceClient:
         [{"label": "dog", "score": 0.956}, ...]
         ```
         """
-
-        # Raise valueerror if input is less than 2 labels
+        # Raise ValueError if input is less than 2 labels
         if len(labels) < 2:
-            raise ValueError("You must specify at least 2 classes to compare. Please specify more than 1 class.")
+            raise ValueError("You must specify at least 2 classes to compare.")
 
         response = await self.post(
             json={"image": _b64_encode(image), "parameters": {"candidate_labels": ",".join(labels)}},

@@ -130,7 +130,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
 | | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
 | | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) |              |  |
+| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] 
 | | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
@@ -143,13 +143,9 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
 | | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
 | | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | |  |
-| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | |  |
-| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | |  |
-
-
-This table is meant to be completed to support all tasks. If you are particularly interested in a task not yet supported,
-please let us know on [huggingface_hub's repo](https://github.com/huggingface/huggingface_hub).
+| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
+| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
+| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
 <Tip>
 

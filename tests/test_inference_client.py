@@ -33,6 +33,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "audio-to-audio": "speechbrain/sepformer-wham",
     "automatic-speech-recognition": "facebook/wav2vec2-base-960h",
     "conversational": "facebook/blenderbot-400M-distill",
+    "document-question-answering": "naver-clova-ix/donut-base-finetuned-docvqa",
     "feature-extraction": "facebook/bart-base",
     "image-classification": "google/vit-base-patch16-224",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
@@ -40,12 +41,15 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
     "summarization": "sshleifer/distilbart-cnn-12-6",
     "table-question-answering": "google/tapas-base-finetuned-wtq",
+    "tabular-classification": "julien-c/wine-quality",
+    "tabular-regression": "scikit-learn/Fish-Weight",
     "text-classification": "distilbert-base-uncased-finetuned-sst-2-english",
     "text-to-image": "CompVis/stable-diffusion-v1-4",
     "text-to-speech": "espnet/kan-bayashi_ljspeech_vits",
     "token-classification": "dbmdz/bert-large-cased-finetuned-conll03-english",
     "translation": "t5-small",
     "visual-question-answering": "dandelin/vilt-b32-finetuned-vqa",
+    "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
 
@@ -56,6 +60,7 @@ class InferenceClientTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.image_file = hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
+        cls.document_file = hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
         cls.audio_file = hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
 
 
@@ -123,6 +128,10 @@ class InferenceClientVCRTest(InferenceClientTest):
                 "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
             },
         )
+
+    def test_document_question_answering(self) -> None:
+        output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
+        self.assertEqual(output, [{"answer": "$1,000,000,000"}])
 
     def test_feature_extraction(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
@@ -264,6 +273,37 @@ class InferenceClientVCRTest(InferenceClientTest):
             " surpassed the Washington Monument to become the tallest man-made structure in the world.",
         )
 
+    @pytest.mark.skip(reason="This model is not available on InferenceAPI")
+    def test_tabular_classification(self) -> None:
+        table = {
+            "fixed_acidity": ["7.4", "7.8", "10.3"],
+            "volatile_acidity": ["0.7", "0.88", "0.32"],
+            "citric_acid": ["0", "0", "0.45"],
+            "residual_sugar": ["1.9", "2.6", "6.4"],
+            "chlorides": ["0.076", "0.098", "0.073"],
+            "free_sulfur_dioxide": ["11", "25", "5"],
+            "total_sulfur_dioxide": ["34", "67", "13"],
+            "density": ["0.9978", "0.9968", "0.9976"],
+            "pH": ["3.51", "3.2", "3.23"],
+            "sulphates": ["0.56", "0.68", "0.82"],
+            "alcohol": ["9.4", "9.8", "12.6"],
+        }
+        output = self.client.tabular_classification(table=table)
+        self.assertEqual(output, ["5", "5", "5"])
+
+    @pytest.mark.skip(reason="This model is not available on InferenceAPI")
+    def test_tabular_regression(self) -> None:
+        table = {
+            "Height": ["11.52", "12.48", "12.3778"],
+            "Length1": ["23.2", "24", "23.9"],
+            "Length2": ["25.4", "26.3", "26.5"],
+            "Length3": ["30", "31.2", "31.1"],
+            "Species": ["Bream", "Bream", "Bream"],
+            "Width": ["4.02", "4.3056", "4.6961"],
+        }
+        output = self.client.tabular_regression(table=table)
+        self.assertEqual(output, [110, 120, 130])
+
     def test_table_question_answering(self) -> None:
         table = {
             "Repository": ["Transformers", "Datasets", "Tokenizers"],
@@ -330,6 +370,43 @@ class InferenceClientVCRTest(InferenceClientTest):
                 {"score": 0.08407749235630035, "answer": "lady"},
                 {"score": 0.0507517009973526, "answer": "female"},
                 {"score": 0.01777094043791294, "answer": "man"},
+            ],
+        )
+
+    def test_zero_shot_classification_single_label(self) -> None:
+        output = self.client.zero_shot_classification(
+            "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
+            "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
+            " mysteries when he went for a run up a hill in Nice, France.",
+            labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
+        )
+        self.assertEqual(
+            output,
+            [
+                {"label": "scientific discovery", "score": 0.7961668968200684},
+                {"label": "space & cosmos", "score": 0.18570658564567566},
+                {"label": "microbiology", "score": 0.00730885099619627},
+                {"label": "archeology", "score": 0.006258360575884581},
+                {"label": "robots", "score": 0.004559356719255447},
+            ],
+        )
+
+    def test_zero_shot_classification_multi_label(self) -> None:
+        output = self.client.zero_shot_classification(
+            "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
+            "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
+            " mysteries when he went for a run up a hill in Nice, France.",
+            labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
+            multi_label=True,
+        )
+        self.assertEqual(
+            output,
+            [
+                {"label": "scientific discovery", "score": 0.9829297661781311},
+                {"label": "space & cosmos", "score": 0.755190908908844},
+                {"label": "microbiology", "score": 0.0005462635890580714},
+                {"label": "archeology", "score": 0.00047131875180639327},
+                {"label": "robots", "score": 0.00030448526376858354},
             ],
         )
 

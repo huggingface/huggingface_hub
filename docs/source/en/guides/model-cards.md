@@ -230,7 +230,42 @@ card.push_to_hub(repo_id, create_pr=True)
 
 A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
 
-### Include Evaluation Results
+## Update metadata
+
+In this section we will see what metadata are in repo cards and how to update them.
+
+`metadata` refers to a hash map (or key value) context that provides some high-level information about a model, dataset or Space. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. For more detail you can take a look to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
+Now lets see some examples on how to update those metadata.
+
+
+Let's start with a first example:
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
+```
+
+With these two lines of code you will update the metadata to set a new `pipeline_tag`.
+
+By default, you cannot update a key that is already existing on the card. If you want to do so, you must pass
+`overwrite=True` explicitly:
+
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
+```
+
+It often happen that you want to suggest some changes to a repository
+on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owners to
+review and merge your suggestions.
+
+```python
+>>> from huggingface_hub import metadata_update
+>>> metadata_update("someone/model", {"pipeline_tag": "text-classification"}, create_pr=True)
+```
+
+## Include Evaluation Results
 
 To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 
