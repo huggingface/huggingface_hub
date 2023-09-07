@@ -36,15 +36,11 @@ from typing import (
 
 from requests.structures import CaseInsensitiveDict
 
-from huggingface_hub.constants import (
-    FRAMEWORKS,
-    INFERENCE_ENDPOINT,
-)
+from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     InferenceTimeoutError,
-    ModelInfo,
     ModelStatus,
     _async_stream_text_generation_response,
     _b64_encode,
@@ -77,7 +73,6 @@ from huggingface_hub.inference._types import (
 )
 from huggingface_hub.utils import (
     build_hf_headers,
-    paginate,
 )
 
 from .._common import _async_yield_from, _import_aiohttp
@@ -770,50 +765,78 @@ class AsyncInferenceClient:
         return _bytes_to_dict(response)[0]["generated_text"]
 
     async def list_deployed_models(
-        self,
-        tasks: Optional[Union[str, List[str]]] = None,
-        *,
-        frameworks: Optional[Union[str, List[str]]] = None,
-        token: Optional[Union[str, bool, None]] = None,
-    ) -> Dict[str, List[tuple[str, str]]]:
+        self, frameworks: Union[None, str, Literal["all"], List[str]] = None
+    ) -> Dict[str, List[str]]:
         """
-        List models hosted on the Huggingface Hub, given some filters.
+        List models currently deployed on the Inference API service.
+
+        This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
+        are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
+        specify `frameworks="all"` as input. Alternatively if you know before-hand which framework you are interested
+        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The most
+        frameworks are checked, the more time it will take.
 
         Args:
-            frameworks (`str`, *optional*):
-                The frameworks to filter on. Defaults to all frameworks.
-            tasks (`str`, *optional*):
-                The tasks to filter on. Defaults to all tasks.
-            token (`bool` or `str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
-                If `None` or `True` and machine is logged in (through `huggingface-cli login`
-                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
-                If `False`, token is not sent in the request header.
+            frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
+                The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
+                "all", all available frameworks will be tested. It is also possible to provide a single framework or a
+                custom set of frameworks to check.
+
+        Returns:
+            `Dict[str, List[str]]`: A dictionary mapping task names to a sorted list of model IDs.
+
+        Example:
+        ```py
+        # Must be run in an async contextthon
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+
+        # Discover zero-shot-classification models currently deployed
+        >>> models = await client.list_deployed_models()
+        >>> models["zero-shot-classification"]
+        ['Narsil/deberta-large-mnli-zero-cls', 'facebook/bart-large-mnli', ...]
+
+        # List from only 1 framework
+        >>> await client.list_deployed_models("text-generation-inference")
+        {'text-generation': ['bigcode/starcoder', 'meta-llama/Llama-2-70b-chat-hf', ...], ...}
+        ```
         """
-        if token is None:
-            token = self.token
-        headers = build_hf_headers(token=token)
-        params: Dict[str, str] = {}
+        # Resolve which frameworks to check
+        if frameworks is None:
+            frameworks = MAIN_INFERENCE_API_FRAMEWORKS
+        elif frameworks == "all":
+            frameworks = ALL_INFERENCE_API_FRAMEWORKS
+        elif isinstance(frameworks, str):
+            frameworks = [frameworks]
+        frameworks = list(set(frameworks))
 
-        frameworks = [frameworks] if isinstance(frameworks, str) else (frameworks or FRAMEWORKS)
+        # Fetch them iteratively
+        models_by_task: Dict[str, List[str]] = {}
 
-        all_model_info = [
-            ModelInfo.from_item(item, framework)
-            for framework in frameworks
-            for item in paginate(f"{INFERENCE_ENDPOINT}/framework/{framework}", params=params, headers=headers)
-        ]
+        def _unpack_response(framework: str, items: List[Dict]) -> None:
+            for model in items:
+                if framework == "sentence-transformers":
+                    # Model depending on the `sentence-transformers` framework can work with both task even if not
+                    # branded as such in the API response
+                    models_by_task.setdefault("feature-extraction", []).append(model["model_id"])
+                    models_by_task.setdefault("sentence-similarity", []).append(model["model_id"])
+                else:
+                    models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
-        tasks = tasks or list(set(info.task for info in all_model_info))
-        tasks = tasks if isinstance(tasks, (list, tuple)) else [tasks]
+        async def _fetch_framework(framework: str) -> None:
+            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+                response.raise_for_status()
+                _unpack_response(framework, await response.json())
 
-        filtered_model_info = [info for info in all_model_info if info.task in tasks]
+        import asyncio
 
-        tasks_models = {
-            task: [(info.model_id, info.framework) for info in filtered_model_info if info.task == task]
-            for task in tasks
-        }
+        await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])
 
-        return tasks_models
+        # Sort alphabetically for discoverability and return
+        for task, models in models_by_task.items():
+            models_by_task[task] = sorted(set(models), key=lambda x: x.lower())
+        return models_by_task
 
     async def object_detection(
         self,
