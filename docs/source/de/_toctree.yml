@@ -10,3 +10,5 @@
   sections:
     - local: guides/inference
       title: Inferenz
+    - local: guides/webhooks_server
+      title: Webhooks server
