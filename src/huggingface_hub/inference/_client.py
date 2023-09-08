@@ -1894,6 +1894,14 @@ class InferenceClient:
         Returns:
             [`ModelStatus`]: An instance of ModelStatus dataclass, containing information,
                          about the state of the model: load, state, compute type and framework.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.get_model_status("bigcode/starcoder")
+        ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
+        ```
         """
         model = model or self.model
         if model is None:
