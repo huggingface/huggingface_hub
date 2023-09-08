@@ -775,6 +775,13 @@ class AsyncInferenceClient:
         in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
         frameworks are checked, the more time it will take.
 
+        <Tip>
+
+        This endpoint is mostly useful for discoverability. If you already know which model you want to use and want to
+        check its availability, you can directly use [`~InferenceClient.get_model_status`].
+
+        </Tip>
+
         Args:
             frameworks (`Literal["all"]` or `List[str]` or `str`, *optional*):
                 The frameworks to filter on. By default only a subset of the available frameworks are tested. If set to
@@ -1897,7 +1904,14 @@ class AsyncInferenceClient:
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
-        A function which returns the status of a specific model, from the Inference API.
+        Get the status of a model hosted on the Inference API.
+
+        <Tip>
+
+        This endpoint is mostly useful when you already know which model you want to use and want to check its
+        availability. If you want to discover already deployed models, you should rather use [`~InferenceClient.list_deployed_models`].
+
+        </Tip>
 
         Args:
             model (`str`, *optional*):
