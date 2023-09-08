@@ -229,3 +229,17 @@ async def test_get_status_unknown_model() -> None:
 async def test_get_status_model_as_url() -> None:
     with pytest.raises(NotImplementedError):
         await AsyncInferenceClient().get_model_status("https://unkown/model")
+
+
+@pytest.mark.asyncio
+async def test_list_deployed_models_single_frameworks() -> None:
+    models_by_task = await AsyncInferenceClient().list_deployed_models("text-generation-inference")
+    assert isinstance(models_by_task, dict)
+    for task, models in models_by_task.items():
+        assert isinstance(task, str)
+        assert isinstance(models, list)
+        for model in models:
+            assert isinstance(model, str)
+
+    assert "text-generation" in models_by_task
+    assert "bigscience/bloom" in models_by_task["text-generation"]

@@ -12,8 +12,10 @@ interactions:
       - '30'
       Content-Type:
       - application/json
+      X-Amzn-Trace-Id:
+      - 1927a5b2-a186-43c2-ac64-274f65e8eaf7
       user-agent:
-      - unknown/None; hf_hub/0.15.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+      - unknown/None; hf_hub/0.17.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
         fastcore/1.5.23
     method: POST
     uri: https://api-inference.huggingface.co/pipeline/feature-extraction/facebook/bart-base
@@ -28,17 +30,17 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Fri, 26 May 2023 08:01:22 GMT
+      - Fri, 08 Sep 2023 07:20:47 GMT
       access-control-allow-credentials:
       - 'true'
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
       x-compute-time:
-      - '0.032'
+      - '0.037'
       x-compute-type:
       - cache
       x-request-id:
-      - Np8cBNsJriWfE_pCIFaiT
+      - VqJ_6NWGSg8mBsg_jugBF
       x-sha:
       - aadd2ab0ae0c8268c7c9693540e9904811f36177
     status:
