@@ -507,7 +507,7 @@ class InferenceClient:
         """
         response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
         np = _import_numpy()
-        return np.array(_bytes_to_dict(response)[0], dtype="float32")
+        return np.array(_bytes_to_dict(response), dtype="float32")
 
     def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
         """
