@@ -133,10 +133,15 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
         self.assertEqual(output, [{"answer": "$1,000,000,000"}])
 
-    def test_feature_extraction(self) -> None:
+    def test_feature_extraction_with_transformers(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
         self.assertIsInstance(embedding, np.ndarray)
         self.assertEqual(embedding.shape, (1, 8, 768))
+
+    def test_feature_extraction_with_sentence_transformers(self) -> None:
+        embedding = self.client.feature_extraction("Hi, who are you?", model="sentence-transformers/all-MiniLM-L6-v2")
+        self.assertIsInstance(embedding, np.ndarray)
+        self.assertEqual(embedding.shape, (384,))
 
     def test_fill_mask(self) -> None:
         model = "distilroberta-base"
