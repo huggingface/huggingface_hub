@@ -771,8 +771,8 @@ class AsyncInferenceClient:
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
-        specify `frameworks="all"` as input. Alternatively if you know before-hand which framework you are interested
-        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The most
+        specify `frameworks="all"` as input. Alternatively, if you know before-hand which framework you are interested
+        in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
         frameworks are checked, the more time it will take.
 
         Args:
