@@ -129,3 +129,41 @@ HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRAN
 HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
     _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
 )
+
+# List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
+# deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by
+# default. We still keep the full list of supported frameworks in case we want to scan all of them.
+MAIN_INFERENCE_API_FRAMEWORKS = [
+    "diffusers",
+    "sentence-transformers",
+    "text-generation-inference",
+    "transformers",
+]
+
+ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
+    "adapter-transformers",
+    "allennlp",
+    "asteroid",
+    "bertopic",
+    "doctr",
+    "espnet",
+    "fairseq",
+    "fastai",
+    "fasttext",
+    "flair",
+    "generic",
+    "k2",
+    "keras",
+    "mindspore",
+    "nemo",
+    "open_clip",
+    "paddlenlp",
+    "peft",
+    "pyannote-audio",
+    "sklearn",
+    "spacy",
+    "span-marker",
+    "speechbrain",
+    "stanza",
+    "timm",
+]
