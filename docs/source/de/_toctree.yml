@@ -1,4 +1,4 @@
-- title: "Get started"
+- title: "Starten"
   sections:
     - local: index
       title: Home
@@ -6,9 +6,17 @@
       title: Kurzanleitung
     - local: installation
       title: Installation
-- title: "How-to guides"
+- title: "Anleitungen"
   sections:
+    - local: guides/overview
+      title: Übersicht
+    - local: guides/download
+      title: Dateien herunterladen
+    - local: guides/upload
+      title: Dateien hochladen
     - local: guides/inference
       title: Inferenz
+    - local: guides/community
+      title: Community-Tab
     - local: guides/webhooks_server
       title: Webhooks server
