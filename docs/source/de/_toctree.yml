@@ -22,5 +22,7 @@
       title: Inferenz
     - local: guides/community
       title: Community-Tab
+    - local: guides/model-cards
+      title: Model Cards
     - local: guides/webhooks_server
       title: Webhooks server
