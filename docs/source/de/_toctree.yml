@@ -26,5 +26,7 @@
       title: Community-Tab
     - local: guides/model-cards
       title: Model Cards
+    - local: guides/integrations
+      title: Integrieren einer Bibliothek
     - local: guides/webhooks_server
       title: Webhooks server
