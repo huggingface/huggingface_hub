@@ -16,6 +16,8 @@
       title: Dateien hochladen
     - local: guides/hf_file_system
       title: HfFileSystem
+    - local: guides/search
+      title: Suche
     - local: guides/inference
       title: Inferenz
     - local: guides/community
