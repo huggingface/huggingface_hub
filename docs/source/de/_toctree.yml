@@ -26,6 +26,8 @@
       title: Community-Tab
     - local: guides/model-cards
       title: Model Cards
+    - local: guides/manage-spaces
+      title: Verwalten Ihres Spaces
     - local: guides/integrations
       title: Integrieren einer Bibliothek
     - local: guides/webhooks_server
