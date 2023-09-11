@@ -914,7 +914,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     if _support_symlinks:
         src_rel_or_abs = relative_src or abs_src
-        logger.info(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
+        logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
             os.symlink(src_rel_or_abs, abs_dst)
         except FileExistsError:
@@ -1436,7 +1436,7 @@ def hf_hub_download(
             )
 
         if local_dir is None:
-            logger.info(f"Storing {url} in cache at {blob_path}")
+            logger.debug(f"Storing {url} in cache at {blob_path}")
             _chmod_and_replace(temp_file.name, blob_path)
             _create_symlink(blob_path, pointer_path, new_blob=True)
         else:
@@ -1447,17 +1447,17 @@ def hf_hub_download(
             # In both cases, blob file is cached.
             is_big_file = os.stat(temp_file.name).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
             if local_dir_use_symlinks is True or (local_dir_use_symlinks == "auto" and is_big_file):
-                logger.info(f"Storing {url} in cache at {blob_path}")
+                logger.debug(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
-                logger.info("Create symlink to local dir")
+                logger.debug("Create symlink to local dir")
                 _create_symlink(blob_path, local_dir_filepath, new_blob=False)
             elif local_dir_use_symlinks == "auto" and not is_big_file:
-                logger.info(f"Storing {url} in cache at {blob_path}")
+                logger.debug(f"Storing {url} in cache at {blob_path}")
                 _chmod_and_replace(temp_file.name, blob_path)
-                logger.info("Duplicate in local dir (small file and use_symlink set to 'auto')")
+                logger.debug("Duplicate in local dir (small file and use_symlink set to 'auto')")
                 shutil.copyfile(blob_path, local_dir_filepath)
             else:
-                logger.info(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
+                logger.debug(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
                 _chmod_and_replace(temp_file.name, local_dir_filepath)
             pointer_path = local_dir_filepath  # for return value
 
