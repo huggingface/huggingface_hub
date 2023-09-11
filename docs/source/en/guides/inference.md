@@ -10,7 +10,7 @@ service that runs inference for hosted models. There are several services you ca
 - [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
 on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and
 prototype AI products.
-- [Inference Endpoints](https://huggingface.co/inference-endpoints): a product to easily deploy models to production.
+- [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production.
 Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
 These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
@@ -81,7 +81,7 @@ Visit the [Models](https://huggingface.co/models) page on the Hub to explore you
 
 The examples we saw above use the free-hosted Inference API. This proves to be very useful for prototyping
 and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
-That's where [Inference Endpoints](https://huggingface.co/inference-endpoints) comes into play. It allows you to deploy
+That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
 any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
 code as before, changing only the `model` parameter:
 
@@ -143,7 +143,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
 | | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
 | | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-image-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
+| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
 | Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
 | | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
