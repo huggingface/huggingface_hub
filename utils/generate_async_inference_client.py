@@ -57,6 +57,10 @@ def generate_async_client_code(code: str) -> str:
 
     # Adapt get_model_status
     code = _adapt_get_model_status(code)
+
+    # Adapt list_deployed_models
+    code = _adapt_list_deployed_models(code)
+
     return code
 
 
@@ -355,6 +359,27 @@ def _adapt_get_model_status(code: str) -> str:
             response = await client.get(url)
             response.raise_for_status()
             response_data = await response.json()"""
+
+    return code.replace(sync_snippet, async_snippet)
+
+
+def _adapt_list_deployed_models(code: str) -> str:
+    sync_snippet = """
+        for framework in frameworks:
+            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
+            hf_raise_for_status(response)
+            _unpack_response(framework, response.json())""".strip()
+
+    async_snippet = """
+        async def _fetch_framework(framework: str) -> None:
+            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+                response.raise_for_status()
+                _unpack_response(framework, await response.json())
+
+        import asyncio
+
+        await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])""".strip()
 
     return code.replace(sync_snippet, async_snippet)
 
