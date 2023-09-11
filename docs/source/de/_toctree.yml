@@ -24,6 +24,8 @@
       title: Inferenz
     - local: guides/community
       title: Community-Tab
+    - local: guides/manage-cache
+      title: Cache
     - local: guides/model-cards
       title: Model Cards
     - local: guides/manage-spaces
