@@ -436,7 +436,7 @@ For more detailed information, take a look at the [`HfApi`] reference.
 There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data,
 getting an upload/push to fail at the end of the process or encountering a degraded experience, be it on hf.co or when working locally, can be very annoying.
 
-Check out our [recommendations](https://huggingface.co/docs/hub/repositories-recommendations) to learn more about the best practices on how to structure your repositories on the Hub. Once you have in mind the technical aspects you must consider, let's move one with some practical tips to make your upload process as smooth as possible.
+Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Next, let's move on with some practical tips to make your upload process as smooth as possible.
 
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate
 on a script when failing takes only a little time.
