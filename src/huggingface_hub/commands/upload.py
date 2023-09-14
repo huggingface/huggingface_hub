@@ -51,7 +51,7 @@ from typing import List, Optional
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.hf_api import create_repo, upload_file, upload_folder
+from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 
@@ -134,7 +134,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
-        self.token: Optional[str] = args.token
+        self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
         self.quiet: bool = args.quiet  # disable warnings and progress bars
 
         # Check `--every` is valid
@@ -222,7 +222,7 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 path_in_repo=path_in_repo,
                 private=self.private,
                 every=self.every,
-                token=self.token,
+                hf_api=self.api,
             )
             print(f"Scheduling commits every {self.every} minutes to {scheduler.repo_id}.")
             try:  # Block main thread until KeyboardInterrupt
@@ -235,19 +235,18 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         # Otherwise, create repo and proceed with the upload
         if not os.path.isfile(self.local_path) and not os.path.isdir(self.local_path):
             raise FileNotFoundError(f"No such file or directory: '{self.local_path}'.")
-        repo_id = create_repo(
-            repo_id=self.repo_id, repo_type=self.repo_type, exist_ok=True, private=self.private, token=self.token
+        repo_id = self.api.create_repo(
+            repo_id=self.repo_id, repo_type=self.repo_type, exist_ok=True, private=self.private
         ).repo_id
 
         # File-based upload
         if os.path.isfile(self.local_path):
-            return upload_file(
+            return self.api.upload_file(
                 path_or_fileobj=self.local_path,
                 path_in_repo=self.path_in_repo,
                 repo_id=repo_id,
                 repo_type=self.repo_type,
                 revision=self.revision,
-                token=self.token,
                 commit_message=self.commit_message,
                 commit_description=self.commit_description,
                 create_pr=self.create_pr,
@@ -255,13 +254,12 @@ class UploadCommand(BaseHuggingfaceCLICommand):
 
         # Folder-based upload
         else:
-            return upload_folder(
+            return self.api.upload_folder(
                 folder_path=self.local_path,
                 path_in_repo=self.path_in_repo,
                 repo_id=repo_id,
                 repo_type=self.repo_type,
                 revision=self.revision,
-                token=self.token,
                 commit_message=self.commit_message,
                 commit_description=self.commit_description,
                 create_pr=self.create_pr,
