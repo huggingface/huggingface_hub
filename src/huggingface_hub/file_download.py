@@ -1246,7 +1246,11 @@ def hf_hub_download(
             # Commit hash must exist
             commit_hash = metadata.commit_hash
             if commit_hash is None:
-                raise OSError("Distant resource does not seem to be on huggingface.co (missing commit header).")
+                raise OSError(
+                    "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
+                    " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
+                    " and proxy settings and make sure your SSL certificates are updated."
+                )
 
             # Etag must exist
             etag = metadata.etag
