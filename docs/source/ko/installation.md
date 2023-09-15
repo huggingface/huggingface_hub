@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 설치 [[installation]]
+# 설치 방법 [[installation]]
 
 시작하기 전에 적절한 패키지를 설치하여 환경을 설정해야 합니다.
 

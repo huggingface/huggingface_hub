@@ -1,11 +1,11 @@
-- title: "(번역 중) 시작하기"
+- title: "시작하기"
   sections:
     - local: index
       title: 홈
-    - local: in_translation
-      title: (번역 중) 둘러보기
-    - local: in_translation
-      title: (번역 중) 설치방법
+    - local: quick-start
+      title: 둘러보기
+    - local: installation
+      title: 설치 방법
 - title: "(번역 중) How-to 가이드"
   sections:
     - local: in_translation

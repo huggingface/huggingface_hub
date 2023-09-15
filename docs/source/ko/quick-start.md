@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 빠른 시작 [[quickstart]]
+# 둘러보기 [[quickstart]]
 
 [Hugging Face Hub](https://huggingface.co/)는 머신러닝 모델, 데모, 데이터 세트 및 메트릭을 공유할 수 있는 곳입니다. `huggingface_hub` 라이브러리는 개발 환경을 벗어나지 않고도 Hub와 상호작용할 수 있도록 도와줍니다. 리포지토리를 쉽게 만들고 관리하거나, 파일을 다운로드 및 업로드하고, 유용한 모델과 데이터 세트의 메타데이터도 구할 수 있습니다.
 
