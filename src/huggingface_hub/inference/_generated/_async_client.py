@@ -227,7 +227,7 @@ class AsyncInferenceClient:
                         content = await response.read()
                         await client.close()
                         return content
-                except TimeoutError as error:
+                except asyncio.TimeoutError as error:
                     await client.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
