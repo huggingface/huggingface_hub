@@ -236,7 +236,13 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         if not os.path.isfile(self.local_path) and not os.path.isdir(self.local_path):
             raise FileNotFoundError(f"No such file or directory: '{self.local_path}'.")
         repo_id = self.api.create_repo(
-            repo_id=self.repo_id, repo_type=self.repo_type, exist_ok=True, private=self.private
+            repo_id=self.repo_id,
+            repo_type=self.repo_type,
+            exist_ok=True,
+            private=self.private,
+            space_sdk="gradio" if self.repo_type == "space" else None,
+            # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `huggingface-cli repo create` for that.
         ).repo_id
 
         # File-based upload
