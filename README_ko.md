@@ -5,62 +5,64 @@
 </p>
 
 <p align="center">
-    <i>The official Python client for the Huggingface Hub.</i>
+    <i>공식 Huggingface Hub 파이썬 클라이언트</i>
 </p>
 
 <p align="center">
-    <a href="https://huggingface.co/docs/huggingface_hub/index"><img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
+    <a href="https://huggingface.co/docs/huggingface_hub/ko/index"><img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
     <a href="https://github.com/huggingface/huggingface_hub/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/huggingface_hub.svg"></a>
     <a href="https://github.com/huggingface/huggingface_hub"><img alt="PyPi version" src="https://img.shields.io/pypi/pyversions/huggingface_hub.svg"></a>
     <a href="https://pypi.org/project/huggingface-hub"><img alt="downloads" src="https://static.pepy.tech/badge/huggingface_hub/month"></a>
     <a href="https://codecov.io/gh/huggingface/huggingface_hub"><img alt="Code coverage" src="https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL"></a>
 </p>
 
----
-
-**Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
-
-**Source Code**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
+<h4 align="center"> <p> <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a> | <b>한국어</b> <p> </h4>
 
 ---
 
-## Welcome to the huggingface_hub library
+**기술 문서**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
 
-The `huggingface_hub` library allows you to interact with the [Hugging Face Hub](https://huggingface.co/), a platform democratizing open-source Machine Learning for creators and collaborators. Discover pre-trained models and datasets for your projects or play with the thousands of machine learning apps hosted on the Hub. You can also create and share your own models, datasets and demos with the community. The `huggingface_hub` library provides a simple way to do all these things with Python.
+**소스 코드**: <a href="https://github.com/huggingface/huggingface_hub" target="_blank">https://github.com/huggingface/huggingface_hub</a>
 
-## Key features
+---
 
-- [Download files](https://huggingface.co/docs/huggingface_hub/guides/download) from the Hub.
-- [Upload files](https://huggingface.co/docs/huggingface_hub/guides/upload) to the Hub.
-- [Manage your repositories](https://huggingface.co/docs/huggingface_hub/guides/repository).
-- [Run Inference](https://huggingface.co/docs/huggingface_hub/guides/inference) on deployed models.
-- [Search](https://huggingface.co/docs/huggingface_hub/guides/search) for models, datasets and Spaces.
-- [Share Model Cards](https://huggingface.co/docs/huggingface_hub/main/en/guides/model-cards) to document your models.
-- [Engage with the community](https://huggingface.co/docs/huggingface_hub/guides/community) through PRs and comments.
+## huggingface_hub 라이브러리 개요
 
-## Installation
+`huggingface_hub` 라이브러리는 [Hugging Face Hub](https://huggingface.co/)와 상호작용할 수 있게 해줍니다. Hugging Face Hub는 창작자와 협업자를 위한 오픈소스 머신러닝 플랫폼입니다. 여러분의 프로젝트에 적합한 사전 훈련된 모델과 데이터셋을 발견하거나, Hub에 호스팅된 수천 개의 머신러닝 앱들을 사용해보세요. 또한, 여러분이 만든 모델, 데이터셋, 데모를 커뮤니티와 공유할 수도 있습니다. `huggingface_hub` 라이브러리는 파이썬으로 이 모든 것을 간단하게 할 수 있는 방법을 제공합니다.
 
-Install the `huggingface_hub` package with [pip](https://pypi.org/project/huggingface-hub/):
+## 주요 기능
+
+- Hub에서 [파일을 다운로드](https://huggingface.co/docs/huggingface_hub/ko/guides/download)
+- Hub에 [파일을 업로드](https://huggingface.co/docs/huggingface_hub/ko/guides/upload)
+- [레포지토리를 관리](https://huggingface.co/docs/huggingface_hub/ko/guides/repository)
+- 배포된 모델에 [추론을 실행](https://huggingface.co/docs/huggingface_hub/ko/guides/inference)
+- 모델, 데이터셋, 스페이스를 [검색](https://huggingface.co/docs/huggingface_hub/ko/guides/search)
+- [모델 카드를 공유](https://huggingface.co/docs/huggingface_hub/ko/main/en/guides/model-cards)하여 모델을 문서화
+- PR과 댓글을 통해 [커뮤니티와 소통](https://huggingface.co/docs/huggingface_hub/ko/guides/community)
+
+## 설치
+
+[pip](https://pypi.org/project/huggingface-hub/)로 `huggingface_hub` 패키지를 설치하세요:
 
 ```bash
 pip install huggingface_hub
 ```
 
-If you prefer, you can also install it with [conda](https://huggingface.co/docs/huggingface_hub/installation#install-with-conda).
+원한다면 [conda](https://huggingface.co/docs/huggingface_hub/ko/installation#install-with-conda)를 이용하여 설치할 수도 있습니다.
 
-In order to keep the package minimal by default, `huggingface_hub` comes with optional dependencies useful for some use cases. For example, if you want have a complete experience for Inference, run:
+기본 패키지를 작게 유지하기 위해 `huggingface_hub`는 유용한 의존성을 추가적으로 제공합니다. 추론과 관련된 기능을 원한다면, 아래를 실행하세요:
 
 ```bash
 pip install huggingface_hub[inference]
 ```
 
-To learn more installation and optional dependencies, check out the [installation guide](https://huggingface.co/docs/huggingface_hub/installation).
+설치와 선택적 의존성에 대해 더 알아보려면, [설치 가이드](https://huggingface.co/docs/huggingface_hub/ko/installation)를 참고하세요.
 
-## Quick start
+## 맛보기
 
-### Download files
+### 파일 다운로드
 
-Download a single file
+파일 하나의 경우:
 
 ```py
 from huggingface_hub import hf_hub_download
@@ -68,7 +70,7 @@ from huggingface_hub import hf_hub_download
 hf_hub_download(repo_id="tiiuae/falcon-7b-instruct", filename="config.json")
 ```
 
-Or an entire repository
+레포지토리 전체의 경우:
 
 ```py
 from huggingface_hub import snapshot_download
@@ -76,11 +78,11 @@ from huggingface_hub import snapshot_download
 snapshot_download("stabilityai/stable-diffusion-2-1")
 ```
 
-Files will be downloaded in a local cache folder. More details in [this guide](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+파일은 로컬 캐시 폴더에 다운로드됩니다. 자세한 내용은 [이 가이드](https://huggingface.co/docs/huggingface_hub/ko/guides/manage-cache)를 참조하세요.
 
-### Login
+### 로그인
 
-The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To login your machine, run the following CLI:
+Hugging Face Hub는 토큰을 사용하여 애플리케이션을 인증합니다([문서](https://huggingface.co/docs/hub/security-tokens) 참조). 컴퓨터에서 로그인하려면 CLI를 사용하세요:
 
 ```bash
 huggingface-cli login
@@ -88,7 +90,7 @@ huggingface-cli login
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
-### Create a repository
+### 레포지토리 생성
 
 ```py
 from huggingface_hub import create_repo
@@ -96,9 +98,9 @@ from huggingface_hub import create_repo
 create_repo(repo_id="super-cool-model")
 ```
 
-### Upload files
+### 파일 업로드
 
-Upload a single file
+파일 하나의 경우:
 
 ```py
 from huggingface_hub import upload_file
@@ -110,7 +112,7 @@ upload_file(
 )
 ```
 
-Or an entire folder
+레포지토리 전체의 경우:
 
 ```py
 from huggingface_hub import upload_folder
@@ -122,27 +124,26 @@ upload_folder(
 )
 ```
 
-For details in the [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload).
+자세한 내용은 [업로드 가이드](https://huggingface.co/docs/huggingface_hub/ko/guides/upload)를 참조하세요.
 
-## Integrating to the Hub.
+## Hugging Face Hub와 함께 성장하기
 
-We're partnering with cool open source ML libraries to provide free model hosting and versioning. You can find the existing integrations [here](https://huggingface.co/docs/hub/libraries).
+저희는 멋진 오픈소스 ML 라이브러리들과 협력하여, 모델 호스팅과 버전 관리를 무료로 제공하고 있습니다. 이미 통합된 라이브러리들은 [여기](https://huggingface.co/docs/hub/libraries)서 확인할 수 있습니다.
 
-The advantages are:
+이렇게 하면 다음과 같은 장점이 있습니다:
 
-- Free model or dataset hosting for libraries and their users.
-- Built-in file versioning, even with very large files, thanks to a git-based approach.
-- Hosted inference API for all models publicly available.
-- In-browser widgets to play with the uploaded models.
-- Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
-- Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.
-- Usage stats and more features to come.
+- 라이브러리 사용자들의 모델이나 데이터셋을 무료로 호스팅해줍니다.
+- git을 기반으로 한 방식으로, 아주 큰 파일들도 버전을 관리할 수 있습니다.
+- 공개된 모든 모델에 대해 추론 API를 호스팅해줍니다.
+- 업로드된 모델들을 브라우저에서 쉽게 사용할 수 있는 위젯을 제공합니다.
+- 누구나 여러분의 라이브러리에 새로운 모델을 업로드할 수 있습니다. 모델이 검색될 수 있도록 해당 태그만 추가하면 됩니다.
+- 다운로드 속도가 매우 빠릅니다! 왜냐하면 Cloudfront (CDN)를 이용하여 전 세계 어디에서나 빠르게 다운로드할 수 있도록 지역적으로 복제해뒀기 때문입니다.
+- 사용 통계와 더 많은 기능들을 제공합니다.
 
-If you would like to integrate your library, feel free to open an issue to begin the discussion. We wrote a [step-by-step guide](https://huggingface.co/docs/hub/adding-a-library) with ❤️ showing how to do this integration.
+여러분의 라이브러리를 통합하고 싶다면, 이슈를 열어서 의견을 나눠주세요. 통합 과정을 안내하기 위해 ❤️을 담아 [단계별 가이드](https://huggingface.co/docs/hub/adding-a-library)를 작성했습니다.
 
-## Contributions (feature requests, bugs, etc.) are super welcome 💙💚💛💜🧡❤️
+## (기능 요청, 버그 패치 등의) 기여는 대환영입니다 💙💚💛💜🧡❤️
 
-Everyone is welcome to contribute, and we value everybody's contribution. Code is not the only way to help the community.
-Answering questions, helping others, reaching out and improving the documentations are immensely valuable to the community.
-We wrote a [contribution guide](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md) to summarize
-how to get started to contribute to this repository.
+모든 분들의 기여를 환영하며, 소중히 생각합니다. 코드 작성만이 커뮤니티에 도움을 주는 유일한 방법이 아니에요.
+질문에 답하거나, 다른 분들을 돕거나, 컨택하거나, 문서를 개선하는 것도 커뮤니티에 큰 도움이 됩니다.
+지금 시작하려면 간단한 [기여 가이드](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md)를 참조해주세요.

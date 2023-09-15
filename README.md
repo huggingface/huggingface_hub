@@ -19,7 +19,8 @@
 <h4 align="center">
     <p>
         <b>English</b> |
-        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_de.md">Deutsch</a>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_de.md">Deutsch</a> |
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_ko.md">한국어</a>
     <p>
 </h4>
 ---
