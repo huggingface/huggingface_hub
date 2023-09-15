@@ -18,6 +18,7 @@
 # Any change in InferenceClient will be automatically reflected in AsyncInferenceClient.
 # To re-generate the code, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
 # WARNING
+import asyncio
 import logging
 import time
 import warnings
