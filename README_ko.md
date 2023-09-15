@@ -36,7 +36,7 @@
 - Hub에 [파일을 업로드](https://huggingface.co/docs/huggingface_hub/ko/guides/upload)
 - [레포지토리를 관리](https://huggingface.co/docs/huggingface_hub/ko/guides/repository)
 - 배포된 모델에 [추론을 실행](https://huggingface.co/docs/huggingface_hub/ko/guides/inference)
-- 모델, 데이터셋, 스페이스를 [검색](https://huggingface.co/docs/huggingface_hub/ko/guides/search)
+- 모델, 데이터셋, Space를 [검색](https://huggingface.co/docs/huggingface_hub/ko/guides/search)
 - [모델 카드를 공유](https://huggingface.co/docs/huggingface_hub/ko/main/en/guides/model-cards)하여 모델을 문서화
 - PR과 댓글을 통해 [커뮤니티와 소통](https://huggingface.co/docs/huggingface_hub/ko/guides/community)
 
@@ -86,7 +86,7 @@ Hugging Face Hub는 토큰을 사용하여 애플리케이션을 인증합니다
 
 ```bash
 huggingface-cli login
-# or using an environment variable
+# 또는 환경 변수로 지정해주세요
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
