@@ -1,7 +1,7 @@
 - title: "(번역 중) 시작하기"
   sections:
-    - local: in_translation
-      title: (번역 중) 홈
+    - local: index
+      title: 홈
     - local: in_translation
       title: (번역 중) 둘러보기
     - local: in_translation
@@ -38,7 +38,7 @@
   sections:
     - local: in_translation
       title: (번역 중) Git vs HTTP paradigm
-- title: "(번역 중) 패키지 참고자료"
+- title: "(번역 중) 라이브러리 레퍼런스"
   sections:
     - local: in_translation
       title: (번역 중) Overview
