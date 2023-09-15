@@ -9,13 +9,19 @@
 </p>
 
 <p align="center">
-    <a href="https://huggingface.co/docs/huggingface_hub/index"><img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
+    <a href="https://huggingface.co/docs/huggingface_hub/de/index"><img alt="Dokumentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
     <a href="https://github.com/huggingface/huggingface_hub/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/huggingface_hub.svg"></a>
     <a href="https://github.com/huggingface/huggingface_hub"><img alt="PyPi version" src="https://img.shields.io/pypi/pyversions/huggingface_hub.svg"></a>
     <a href="https://pypi.org/project/huggingface-hub"><img alt="downloads" src="https://static.pepy.tech/badge/huggingface_hub/month"></a>
     <a href="https://codecov.io/gh/huggingface/huggingface_hub"><img alt="Code coverage" src="https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL"></a>
 </p>
 
+<h4 align="center">
+    <p>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a>  |
+        <b>Deutsch</b>
+    <p>
+</h4>
 ---
 
 **Dokumentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
@@ -30,13 +36,13 @@ Die `huggingface_hub` Bibliothek ermöglicht Ihnen die Interaktion mit dem [Hugg
 
 ## Hauptmerkmale
 
-- Dateien vom Hub [herunterladen](https://huggingface.co/docs/huggingface_hub/guides/download).
-- Dateien auf den Hub [hochladen](https://huggingface.co/docs/huggingface_hub/guides/upload).
-- [Verwalten Ihrer Repositories](https://huggingface.co/docs/huggingface_hub/guides/repository).
-- [Ausführen von Inferenz](https://huggingface.co/docs/huggingface_hub/guides/inference) auf bereitgestellten Modellen.
-- [Suche](https://huggingface.co/docs/huggingface_hub/guides/search) nach Modellen, Datensätzen und Spaces.
-- [Model Cards teilen](https://huggingface.co/docs/huggingface_hub/main/en/guides/model-cards), um Ihre Modelle zu dokumentieren.
-- [Mit der Community interagieren](https://huggingface.co/docs/huggingface_hub/guides/community), durch PRs und Kommentare.
+- Dateien vom Hub [herunterladen](https://huggingface.co/docs/huggingface_hub/de/guides/download).
+- Dateien auf den Hub [hochladen](https://huggingface.co/docs/huggingface_hub/de/guides/upload).
+- [Verwalten Ihrer Repositories](https://huggingface.co/docs/huggingface_hub/de/guides/repository).
+- [Ausführen von Inferenz](https://huggingface.co/docs/huggingface_hub/de/guides/inference) auf bereitgestellten Modellen.
+- [Suche](https://huggingface.co/docs/huggingface_hub/de/guides/search) nach Modellen, Datensätzen und Spaces.
+- [Model Cards teilen](https://huggingface.co/docs/huggingface_hub/de/guides/model-cards), um Ihre Modelle zu dokumentieren.
+- [Mit der Community interagieren](https://huggingface.co/docs/huggingface_hub/de/guides/community), durch PRs und Kommentare.
 
 ## Installation
 
@@ -46,7 +52,7 @@ Installieren Sie das `huggingface_hub` Paket mit [pip](https://pypi.org/project/
 pip install huggingface_hub
 ```
 
-Wenn Sie möchten, können Sie es auch mit [conda](https://huggingface.co/docs/huggingface_hub/installation#install-with-conda) installieren.
+Wenn Sie möchten, können Sie es auch mit [conda](https://huggingface.co/docs/huggingface_hub/de/installation#installieren-mit-conda) installieren.
 
 Um das Paket standardmäßig minimal zu halten, kommt `huggingface_hub` mit optionalen Abhängigkeiten, die für einige Anwendungsfälle nützlich sind. Zum Beispiel, wenn Sie ein vollständiges Erlebnis für Inferenz möchten, führen Sie den folgenden Befehl aus:
 
@@ -54,7 +60,7 @@ Um das Paket standardmäßig minimal zu halten, kommt `huggingface_hub` mit opti
 pip install huggingface_hub[inference]
 ```
 
-Um mehr über die Installation und optionale Abhängigkeiten zu erfahren, sehen Sie sich bitte den [Installationsleitfaden](https://huggingface.co/docs/huggingface_hub/installation) an.
+Um mehr über die Installation und optionale Abhängigkeiten zu erfahren, sehen Sie sich bitte den [Installationsleitfaden](https://huggingface.co/docs/huggingface_hub/de/installation) an.
 
 ## Schnellstart
 
@@ -76,7 +82,7 @@ from huggingface_hub import snapshot_download
 snapshot_download("stabilityai/stable-diffusion-2-1")
 ```
 
-Dateien werden in einen lokalen Cache-Ordner heruntergeladen. Weitere Details finden Sie in diesem [Leitfaden](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+Dateien werden in einen lokalen Cache-Ordner heruntergeladen. Weitere Details finden Sie in diesem [Leitfaden](https://huggingface.co/docs/huggingface_hub/de/guides/manage-cache).
 
 ### Anmeldung
 
@@ -122,7 +128,7 @@ upload_folder(
 )
 ```
 
-Weitere Informationen finden Sie im [Upload-Leitfaden](https://huggingface.co/docs/huggingface_hub/guides/upload).
+Weitere Informationen finden Sie im [Upload-Leitfaden](https://huggingface.co/docs/huggingface_hub/de/guides/upload).
 
 ## Integration in den Hub
 
