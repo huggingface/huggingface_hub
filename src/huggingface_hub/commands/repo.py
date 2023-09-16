@@ -103,13 +103,13 @@ class RepoCommands(BaseHuggingfaceCLICommand):
         repo_delete_parser.add_argument(
             "name",
             type=str,
-            help="Name for your repo.",
+            help="Name of your repo to delete.",
         )
         repo_delete_parser.add_argument(
             "--type",
             choices=["model", "dataset", "space"],
             default="model",
-            help="Type of repos to list, default is model.",
+            help="Type of repos to delete, default is model.",
         )
         repo_delete_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
         repo_delete_parser.add_argument(
@@ -125,19 +125,19 @@ class RepoCommands(BaseHuggingfaceCLICommand):
         repo_toggle_parser.add_argument(
             "name",
             type=str,
-            help="Name for your repo.",
+            help="Name of your repo to toggle.",
         )
         repo_toggle_parser.add_argument(
             "visibility",
             choices=["public", "private"],
             default="public",
-            help="Name for your repo.",
+            help="Visibility to change repo to, default is public.",
         )
         repo_toggle_parser.add_argument(
             "--type",
             choices=["model", "dataset", "space"],
             default="model",
-            help="Type of repos to list, default is model.",
+            help="Type of repo to toggle, default is model.",
         )
         repo_toggle_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
         repo_toggle_parser.add_argument(
