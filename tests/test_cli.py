@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
+from huggingface_hub.commands.repo import RepoCommands
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
@@ -498,6 +499,49 @@ class TestDownloadCommand(unittest.TestCase):
             # Taken from https://docs.pytest.org/en/latest/how-to/capture-warnings.html#additional-use-cases-of-warnings-in-tests
             warnings.simplefilter("error")
             DownloadCommand(args).run()
+
+
+class TestRepoCommands(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
+        """
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        commands_parser = self.parser.add_subparsers()
+        RepoCommands.register_subcommand(commands_parser)
+
+    def test_repo_create_basic(self) -> None:
+        """Test `huggingface-cli create dummy-repo`."""
+        args = self.parser.parse_args(["repo", "create", DUMMY_MODEL_ID])
+        self.assertEqual(args.name, DUMMY_MODEL_ID)
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+        self.assertIsNone(args.space_sdk)
+        self.assertFalse(args.yes)
+
+    def test_repo_list_basic(self) -> None:
+        """Test `huggingface-cli download dummy-repo`."""
+        args = self.parser.parse_args(["repo", "list"])
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.author)
+        self.assertIsNone(args.search)
+
+    def test_repo_delete_basic(self) -> None:
+        """Test `huggingface-cli download dummy-repo`."""
+        args = self.parser.parse_args(["repo", "delete", DUMMY_MODEL_ID])
+        self.assertEqual(args.name, DUMMY_MODEL_ID)
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+        self.assertFalse(args.yes)
+
+    def test_repo_toggle_basic(self) -> None:
+        """Test `huggingface-cli download dummy-repo`."""
+        args = self.parser.parse_args(["repo", "toggle", DUMMY_MODEL_ID, "public"])
+        self.assertEqual(args.name, DUMMY_MODEL_ID)
+        self.assertEqual(args.visibility, "public")
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+        self.assertFalse(args.yes)
 
 
 @contextmanager
