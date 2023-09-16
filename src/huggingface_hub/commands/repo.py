@@ -128,7 +128,7 @@ class RepoCommands(BaseHuggingfaceCLICommand):
             help="Name for your repo.",
         )
         repo_toggle_parser.add_argument(
-            "private",
+            "visibility",
             choices=["public", "private"],
             default="public",
             help="Name for your repo.",
