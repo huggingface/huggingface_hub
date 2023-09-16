@@ -43,12 +43,16 @@ from huggingface_hub.hf_api import HfApi
 from ..utils import HfFolder
 from ._cli_utils import ANSI
 
+
 class RepoCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
         repo_parser = parser.add_parser(
             "repo",
-            help="{create, ls-files, list, delete, toggle visibility} commands to interact with your huggingface.co repos.",
+            help=(
+                "{create, ls-files, list, delete, toggle visibility} commands to interact with your huggingface.co"
+                " repos."
+            ),
         )
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
         repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
@@ -115,7 +119,9 @@ class RepoCommands(BaseHuggingfaceCLICommand):
             help="Optional: answer Yes to the prompt",
         )
         repo_delete_parser.set_defaults(func=lambda args: RepoDeleteCommand(args))
-        repo_toggle_parser = repo_subparsers.add_parser("toggle", help="Toggle a repo on huggingface.co private or public")
+        repo_toggle_parser = repo_subparsers.add_parser(
+            "toggle", help="Toggle a repo on huggingface.co private or public"
+        )
         repo_toggle_parser.add_argument(
             "name",
             type=str,
@@ -141,6 +147,7 @@ class RepoCommands(BaseHuggingfaceCLICommand):
             help="Optional: answer Yes to the prompt",
         )
         repo_toggle_parser.set_defaults(func=lambda args: RepoToggleCommand(args))
+
 
 class BaseRepoCommand:
     def __init__(self, args: Namespace):
@@ -209,6 +216,7 @@ class RepoCreateCommand(BaseRepoCommand):
         print("\nYou can clone it locally with the command below, and commit/push as usual.")
         print(f"\n  git clone {url}")
         print("")
+
 
 class RepoListCommand(BaseRepoCommand):
     def run(self):
@@ -291,7 +299,9 @@ class RepoToggleCommand(BaseRepoCommand):
                 exit()
             self.privateBool = False if self.private == "public" else True
         try:
-            self._api.update_repo_visibility(repo_id=repo_id, private=self.privateBool, token=self.token, repo_type=self.args.type)
+            self._api.update_repo_visibility(
+                repo_id=repo_id, private=self.privateBool, token=self.token, repo_type=self.args.type
+            )
         except HTTPError as e:
             print(e)
             print(ANSI.red(e.response.text))

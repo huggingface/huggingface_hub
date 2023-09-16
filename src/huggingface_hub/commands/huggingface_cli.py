@@ -19,10 +19,10 @@ from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
 from huggingface_hub.commands.lfs import LfsCommands
+from huggingface_hub.commands.repo import RepoCommands
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.commands.user import UserCommands
-from huggingface_hub.commands.repo import RepoCommands
 
 
 def main():

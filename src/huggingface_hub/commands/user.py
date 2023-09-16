@@ -53,6 +53,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
         logout_parser = parser.add_parser("logout", help="Log out")
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
+
 class BaseUserCommand:
     def __init__(self, args):
         self.args = args
@@ -88,5 +89,3 @@ class WhoamiCommand(BaseUserCommand):
             print(e)
             print(ANSI.red(e.response.text))
             exit(1)
-
-
