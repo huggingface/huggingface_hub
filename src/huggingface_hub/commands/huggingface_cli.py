@@ -15,6 +15,7 @@
 
 from argparse import ArgumentParser
 
+from huggingface_hub.commands.branch import BranchCommands
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
@@ -29,6 +30,7 @@ def main():
     commands_parser = parser.add_subparsers(help="huggingface-cli command helpers")
 
     # Register commands
+    BranchCommands.register_subcommand(commands_parser)
     EnvironmentCommand.register_subcommand(commands_parser)
     UserCommands.register_subcommand(commands_parser)
     UploadCommand.register_subcommand(commands_parser)
