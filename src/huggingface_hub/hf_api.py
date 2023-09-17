@@ -1153,7 +1153,7 @@ class HfApi:
         Unpacks a [`ModelFilter`] into something readable for `list_models`
         """
         model_str = ""
-        tags = []
+        tags: List[str] = []
 
         # Handling author
         if model_filter.author is not None:
@@ -1186,7 +1186,7 @@ class HfApi:
 
         # Handling tags
         if model_filter.tags:
-            tags.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
+            filter_list.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
 
         query_dict: Dict[str, Any] = {}
         if model_str is not None:
