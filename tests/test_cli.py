@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Generator
 from unittest.mock import Mock, patch
 
+from huggingface_hub.commands.branch import BranchCommands
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
@@ -14,6 +15,42 @@ from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
 from .testing_utils import DUMMY_MODEL_ID
+
+
+class TestBranchCommands(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
+        """
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        commands_parser = self.parser.add_subparsers()
+        BranchCommands.register_subcommand(commands_parser)
+
+    def test_repo_create_basic(self) -> None:
+        """Test `huggingface-cli create branch in dummy-repo`."""
+        args = self.parser.parse_args(["branch", "create", DUMMY_MODEL_ID, "my-great-branch"])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.branch, "my-great-branch")
+        self.assertEqual(args.revision, None)
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+        self.assertFalse(args.yes)
+
+    def test_repo_list_basic(self) -> None:
+        """Test `huggingface-cli list branches in dummy-repo`."""
+        args = self.parser.parse_args(["branch", "list", DUMMY_MODEL_ID])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+
+    def test_repo_delete_basic(self) -> None:
+        """Test `huggingface-cli delete branch in dummy-repo`."""
+        args = self.parser.parse_args(["branch", "delete", DUMMY_MODEL_ID, "my-great-branch"])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.branch, "my-great-branch")
+        self.assertEqual(args.type, "model")
+        self.assertIsNone(args.organization)
+        self.assertFalse(args.yes)
 
 
 class TestCacheCommand(unittest.TestCase):
