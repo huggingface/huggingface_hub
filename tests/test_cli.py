@@ -520,14 +520,14 @@ class TestRepoCommands(unittest.TestCase):
         self.assertFalse(args.yes)
 
     def test_repo_list_basic(self) -> None:
-        """Test `huggingface-cli download dummy-repo`."""
+        """Test `huggingface-cli list repos`."""
         args = self.parser.parse_args(["repo", "list"])
         self.assertEqual(args.type, "model")
         self.assertIsNone(args.author)
         self.assertIsNone(args.search)
 
     def test_repo_delete_basic(self) -> None:
-        """Test `huggingface-cli download dummy-repo`."""
+        """Test `huggingface-cli delete dummy-repo`."""
         args = self.parser.parse_args(["repo", "delete", DUMMY_MODEL_ID])
         self.assertEqual(args.name, DUMMY_MODEL_ID)
         self.assertEqual(args.type, "model")
@@ -535,10 +535,10 @@ class TestRepoCommands(unittest.TestCase):
         self.assertFalse(args.yes)
 
     def test_repo_toggle_basic(self) -> None:
-        """Test `huggingface-cli download dummy-repo`."""
-        args = self.parser.parse_args(["repo", "toggle", DUMMY_MODEL_ID, "public"])
+        """Test `huggingface-cli toggle dummy-repo visibility to private`."""
+        args = self.parser.parse_args(["repo", "toggle", DUMMY_MODEL_ID, "private"])
         self.assertEqual(args.name, DUMMY_MODEL_ID)
-        self.assertEqual(args.visibility, "public")
+        self.assertEqual(args.visibility, "private")
         self.assertEqual(args.type, "model")
         self.assertIsNone(args.organization)
         self.assertFalse(args.yes)
