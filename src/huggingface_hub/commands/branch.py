@@ -181,6 +181,7 @@ class BranchCreateCommand(BaseBranchCommand):
             self._api.create_branch(
                 repo_id=repo_id,
                 branch=self.args.branch,
+                revision=self.args.revision,
                 token=self.token,
                 repo_type=self.args.type,
             )
