@@ -21,6 +21,7 @@ import pytest
 from PIL import Image
 
 from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
@@ -133,10 +134,15 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
         self.assertEqual(output, [{"answer": "$1,000,000,000"}])
 
-    def test_feature_extraction(self) -> None:
+    def test_feature_extraction_with_transformers(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
         self.assertIsInstance(embedding, np.ndarray)
-        self.assertEqual(embedding.shape, (8, 768))
+        self.assertEqual(embedding.shape, (1, 8, 768))
+
+    def test_feature_extraction_with_sentence_transformers(self) -> None:
+        embedding = self.client.feature_extraction("Hi, who are you?", model="sentence-transformers/all-MiniLM-L6-v2")
+        self.assertIsInstance(embedding, np.ndarray)
+        self.assertEqual(embedding.shape, (384,))
 
     def test_fill_mask(self) -> None:
         model = "distilroberta-base"
@@ -513,7 +519,7 @@ class TestModelStatus(unittest.TestCase):
 
     def test_loaded_model(self) -> None:
         client = InferenceClient()
-        model_status = client.get_model_status("bigcode/starcoder")
+        model_status = client.get_model_status("bigscience/bloom")
         self.assertTrue(model_status.loaded)
         self.assertEqual(model_status.state, "Loaded")
         self.assertEqual(model_status.compute_type, "gpu")
@@ -528,3 +534,33 @@ class TestModelStatus(unittest.TestCase):
         client = InferenceClient()
         with self.assertRaises(NotImplementedError):
             client.get_model_status("https://unkown/model")
+
+
+class TestListDeployedModels(unittest.TestCase):
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_list_deployed_models_main_frameworks_mock(self, get_session_mock: MagicMock) -> None:
+        InferenceClient().list_deployed_models()
+        self.assertEqual(
+            len(get_session_mock.return_value.get.call_args_list),
+            len(MAIN_INFERENCE_API_FRAMEWORKS),
+        )
+
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_list_deployed_models_all_frameworks_mock(self, get_session_mock: MagicMock) -> None:
+        InferenceClient().list_deployed_models("all")
+        self.assertEqual(
+            len(get_session_mock.return_value.get.call_args_list),
+            len(ALL_INFERENCE_API_FRAMEWORKS),
+        )
+
+    def test_list_deployed_models_single_frameworks(self) -> None:
+        models_by_task = InferenceClient().list_deployed_models("text-generation-inference")
+        self.assertIsInstance(models_by_task, dict)
+        for task, models in models_by_task.items():
+            self.assertIsInstance(task, str)
+            self.assertIsInstance(models, list)
+            for model in models:
+                self.assertIsInstance(model, str)
+
+        self.assertIn("text-generation", models_by_task)
+        self.assertIn("bigscience/bloom", models_by_task["text-generation"])

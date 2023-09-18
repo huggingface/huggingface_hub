@@ -86,7 +86,7 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.commit_description, None)
         self.assertEqual(cmd.create_pr, False)
         self.assertEqual(cmd.every, None)
-        self.assertEqual(cmd.token, None)
+        self.assertEqual(cmd.api.token, None)
         self.assertEqual(cmd.quiet, False)
 
     def test_upload_with_all_options(self) -> None:
@@ -136,7 +136,7 @@ class TestUploadCommand(unittest.TestCase):
         self.assertEqual(cmd.commit_description, "My commit description")
         self.assertEqual(cmd.create_pr, True)
         self.assertEqual(cmd.every, 5)
-        self.assertEqual(cmd.token, "my-token")
+        self.assertEqual(cmd.api.token, "my-token")
         self.assertEqual(cmd.quiet, True)
 
     def test_upload_implicit_local_path_when_folder_exists(self) -> None:
@@ -212,8 +212,8 @@ class TestUploadCommand(unittest.TestCase):
         cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"]))
         self.assertEqual(cmd.every, 0.5)
 
-    @patch("huggingface_hub.commands.upload.upload_folder")
-    @patch("huggingface_hub.commands.upload.create_repo")
+    @patch("huggingface_hub.commands.upload.HfApi.upload_folder")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
     def test_upload_folder_mock(self, create_mock: Mock, upload_mock: Mock) -> None:
         with SoftTemporaryDirectory() as cache_dir:
             cmd = UploadCommand(
@@ -224,7 +224,7 @@ class TestUploadCommand(unittest.TestCase):
             cmd.run()
 
             create_mock.assert_called_once_with(
-                repo_id="my-model", repo_type="model", exist_ok=True, private=True, token=None
+                repo_id="my-model", repo_type="model", exist_ok=True, private=True, space_sdk=None
             )
             upload_mock.assert_called_once_with(
                 folder_path=cache_dir,
@@ -232,7 +232,6 @@ class TestUploadCommand(unittest.TestCase):
                 repo_id=create_mock.return_value.repo_id,
                 repo_type="model",
                 revision=None,
-                token=None,
                 commit_message=None,
                 commit_description=None,
                 create_pr=False,
@@ -241,8 +240,8 @@ class TestUploadCommand(unittest.TestCase):
                 delete_patterns=["*.json"],
             )
 
-    @patch("huggingface_hub.commands.upload.upload_file")
-    @patch("huggingface_hub.commands.upload.create_repo")
+    @patch("huggingface_hub.commands.upload.HfApi.upload_file")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
     def test_upload_file_mock(self, create_mock: Mock, upload_mock: Mock) -> None:
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
@@ -255,7 +254,7 @@ class TestUploadCommand(unittest.TestCase):
             cmd.run()
 
             create_mock.assert_called_once_with(
-                repo_id="my-dataset", repo_type="dataset", exist_ok=True, private=False, token=None
+                repo_id="my-dataset", repo_type="dataset", exist_ok=True, private=False, space_sdk=None
             )
             upload_mock.assert_called_once_with(
                 path_or_fileobj=str(file_path),
@@ -263,13 +262,12 @@ class TestUploadCommand(unittest.TestCase):
                 repo_id=create_mock.return_value.repo_id,
                 repo_type="dataset",
                 revision=None,
-                token=None,
                 commit_message=None,
                 commit_description=None,
                 create_pr=True,
             )
 
-    @patch("huggingface_hub.commands.upload.create_repo")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
     def test_upload_missing_path(self, create_mock: Mock) -> None:
         cmd = UploadCommand(self.parser.parse_args(["upload", "my-model", "/path/to/missing_file", "logs/file.txt"]))
         with self.assertRaises(FileNotFoundError):

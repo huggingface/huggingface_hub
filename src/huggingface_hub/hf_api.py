@@ -2540,7 +2540,19 @@ class HfApi:
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = get_session().post(path, headers=headers, json=json)
+
+        while True:
+            r = get_session().post(path, headers=headers, json=json)
+            if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
+                # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
+                # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
+                # tests. To avoid any inconvenience, we retry to create the repo for this specific error.
+                # NOTE: This could have being fixed directly in the tests but adding it here should fixed CIs for all
+                # dependent libraries.
+                # NOTE: If a fix is implemented server-side, we should be able to remove this retry mechanism.
+                logger.debug("Create repo failed due to a concurrency issue. Retrying...")
+                continue
+            break
 
         try:
             hf_raise_for_status(r)
