@@ -40,6 +40,7 @@ from .constants import (
 )
 from .utils import (
     EntryNotFoundError,
+    FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
     RepositoryNotFoundError,
@@ -700,7 +701,7 @@ def cached_download(
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
             if etag is None:
-                raise OSError(
+                raise FileMetadataError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
             # We get the expected size of the file, to check the download went well.
@@ -1246,7 +1247,11 @@ def hf_hub_download(
             # Commit hash must exist
             commit_hash = metadata.commit_hash
             if commit_hash is None:
-                raise OSError("Distant resource does not seem to be on huggingface.co (missing commit header).")
+                raise FileMetadataError(
+                    "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
+                    " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
+                    " and proxy settings and make sure your SSL certificates are updated."
+                )
 
             # Etag must exist
             etag = metadata.etag
@@ -1254,7 +1259,7 @@ def hf_hub_download(
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
             if etag is None:
-                raise OSError(
+                raise FileMetadataError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
 
@@ -1293,12 +1298,21 @@ def hf_hub_download(
             #    (if it's not the case, the error will be re-raised)
             head_call_error = error
             pass
+        except FileMetadataError as error:
+            # Multiple reasons for a FileMetadataError:
+            # - Wrong network configuration (proxy, firewall, SSL certificates)
+            # - Inconsistency on the Hub
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
+            head_call_error = error
+            pass
 
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
     # 2. we don't have a connection
     # 3. Hub is down (HTTP 500 or 504)
     # 4. repo is not found -for example private or gated- and invalid/missing token sent
+    # 5. Hub is blocked by a firewall or proxy is not set correctly.
     # => Try to get the last downloaded one from the specified revision.
     #
     # If the specified revision is a commit hash, look inside "snapshots".
