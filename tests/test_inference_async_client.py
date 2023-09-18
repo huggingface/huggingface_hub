@@ -22,13 +22,14 @@ return types + uses streaming requests on demand). Tests are mostly duplicates f
 For completeness we also run a test on a simple task (`test_async_sentence_similarity`) and assume all other tasks
 work as well.
 """
+import asyncio
 import inspect
 
 import pytest
 from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
-from huggingface_hub import AsyncInferenceClient, InferenceClient
+from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError
 from huggingface_hub.inference._common import _is_tgi_server
 from huggingface_hub.inference._text_generation import FinishReason, InputToken
 from huggingface_hub.inference._text_generation import ValidationError as TextGenerationValidationError
@@ -243,3 +244,14 @@ async def test_list_deployed_models_single_frameworks() -> None:
 
     assert "text-generation" in models_by_task
     assert "bigscience/bloom" in models_by_task["text-generation"]
+
+
+def _mock_aiohttp_client_timeout(*args, **kwargs):
+    raise asyncio.TimeoutError
+
+
+@pytest.mark.asyncio
+async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
+    with pytest.raises(InferenceTimeoutError):
+        await AsyncInferenceClient(timeout=1).text_generation("test")
