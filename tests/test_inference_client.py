@@ -519,7 +519,7 @@ class TestModelStatus(unittest.TestCase):
 
     def test_loaded_model(self) -> None:
         client = InferenceClient()
-        model_status = client.get_model_status("bigcode/starcoder")
+        model_status = client.get_model_status("bigscience/bloom")
         self.assertTrue(model_status.loaded)
         self.assertEqual(model_status.state, "Loaded")
         self.assertEqual(model_status.compute_type, "gpu")

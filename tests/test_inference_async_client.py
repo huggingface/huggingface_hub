@@ -213,7 +213,7 @@ async def test_get_status_too_big_model() -> None:
 
 @pytest.mark.asyncio
 async def test_get_status_loaded_model() -> None:
-    model_status = await AsyncInferenceClient().get_model_status("bigcode/starcoder")
+    model_status = await AsyncInferenceClient().get_model_status("bigscience/bloom")
     assert model_status.loaded is True
     assert model_status.state == "Loaded"
     assert model_status.compute_type == "gpu"
