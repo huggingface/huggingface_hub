@@ -5775,6 +5775,33 @@ class HfApi:
             for relpath in filter_repo_objects(relpath_to_abspath.keys(), allow_patterns=delete_patterns)
             if relpath_to_abspath[relpath] != ".gitattributes"
         ]
+    
+    def get_space_logs(self, repo_id:str, target: Literal["build", "container"] = "container", *, token: Optional[str] = None) -> str:
+        """User is able to retrieve their logs from the huggingface_hub. 
+            In this function user is able to retrieve logs either form build logs or container logs.
+        
+            Args:
+                repo_id (`str`):
+                    The repo ID from witch the user wants to retrieve the space logs.
+                    Example: `"HuggingFaceH4/<name_of_the_repo>"`.
+                target (`Literal["build", "container"]`, *optional*):
+                    This variable is the type of the logs the user wants to retrieve.
+                    By default container is chosen
+                token (`str` *optional*):
+                    This variable is the Hugging Face token. Witch by default will retrieve the token form the current machine if no token is provided.
+            Returns:
+                `str`: Returns the content of the log in text format.
+            Raises:
+                [`BadRequestError`]
+                    Raise hf_raise_for_status if there is an issue with the request or retrieving logs.
+        """
+        
+        response = get_session().get( # Use get_session
+            url=f"{self.endpoint}/api/spaces/{repo_id}/logs/{target}", 
+            headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+        return response.text 
 
 
 def _prepare_upload_folder_additions(
