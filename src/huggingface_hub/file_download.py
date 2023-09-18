@@ -538,15 +538,15 @@ def http_get(
             displayed_name = match.groupdict()["filename"]
 
     # Truncate filename if too long to display
-    if len(displayed_name) > 22:
-        displayed_name = f"(…){displayed_name[-20:]}"
+    if len(displayed_name) > 40:
+        displayed_name = f"(…){displayed_name[-40:]}"
 
     progress = tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc=f"Downloading {displayed_name}",
+        desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
     for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
