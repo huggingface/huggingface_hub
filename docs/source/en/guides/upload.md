@@ -382,7 +382,7 @@ The [`upload_file`] and [`upload_folder`] functions are high-level APIs that are
 trying these functions first if you don't need to work at a lower level. However, if you want to work at a commit-level,
 you can use the [`create_commit`] function directly.
 
-There are two types of operations supported by [`create_commit`]:
+There are three types of operations supported by [`create_commit`]:
 
 - [`CommitOperationAdd`] uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
 
