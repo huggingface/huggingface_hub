@@ -222,7 +222,9 @@ class TestUploadCommand(unittest.TestCase):
             )
             cmd.run()
 
-            create_mock.assert_called_once_with(repo_id="my-model", repo_type="model", exist_ok=True, private=True)
+            create_mock.assert_called_once_with(
+                repo_id="my-model", repo_type="model", exist_ok=True, private=True, space_sdk=None
+            )
             upload_mock.assert_called_once_with(
                 folder_path=cache_dir,
                 path_in_repo=".",
@@ -251,7 +253,7 @@ class TestUploadCommand(unittest.TestCase):
             cmd.run()
 
             create_mock.assert_called_once_with(
-                repo_id="my-dataset", repo_type="dataset", exist_ok=True, private=False
+                repo_id="my-dataset", repo_type="dataset", exist_ok=True, private=False, space_sdk=None
             )
             upload_mock.assert_called_once_with(
                 path_or_fileobj=str(file_path),
