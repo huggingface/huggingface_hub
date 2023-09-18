@@ -246,12 +246,11 @@ async def test_list_deployed_models_single_frameworks() -> None:
     assert "bigscience/bloom" in models_by_task["text-generation"]
 
 
-def _mock_aiohttp_client_timeout(*args, **kwargs):
-    raise asyncio.TimeoutError
-
-
 @pytest.mark.asyncio
 async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _mock_aiohttp_client_timeout(*args, **kwargs):
+        raise asyncio.TimeoutError
+
     monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
     with pytest.raises(InferenceTimeoutError):
         await AsyncInferenceClient(timeout=1).text_generation("test")
