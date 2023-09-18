@@ -5,6 +5,13 @@ from requests import HTTPError, Response
 from ._fixes import JSONDecodeError
 
 
+class FileMetadataError(OSError):
+    """Error triggered when the metadata of a file on the Hub cannot be retrieved (missing ETag or commit_hash).
+
+    Inherits from `OSError` for backward compatibility.
+    """
+
+
 class HfHubHTTPError(HTTPError):
     """
     HTTPError to inherit from for any custom HTTP Error raised in HF Hub.
