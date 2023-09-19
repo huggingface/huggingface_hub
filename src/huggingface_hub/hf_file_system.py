@@ -377,8 +377,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return super().info(path, **kwargs)
 
     if version.parse(fsspec.__version__) < version.parse("2023.5.0"):
-        # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propagate the `revision`)
-        # until version 2023.5.0
+        # The default implementation in fsspec<2023.5.0 does not allow passing custom kwargs (e.g., we use these kwargs to propagate the `revision`)
         def expand_path(
             self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
         ) -> List[str]:
