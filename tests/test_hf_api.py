@@ -1751,6 +1751,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
         self.assertGreater(len(res_en), len(res_fr))
 
+    def test_filter_models_with_tag(self):
+        models = list(self._api.list_models(filter=ModelFilter(author="HuggingFaceBR4", tags=["tensorboard"])))
+        self.assertTrue("HuggingFaceBR4" == models[0].author)
+        self.assertTrue("tensorboard" in models[0].tags)
+
+        models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
+        self.assertEqual(len(models), 0)
+
     def test_filter_models_with_complex_query(self):
         args = ModelSearchArguments(api=self._api)
         f = ModelFilter(
