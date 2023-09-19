@@ -13,7 +13,7 @@ jobs:
     with:
       commit_sha: ${{ github.sha }}
       package: huggingface_hub
-      languages: en
+      languages: de en
     secrets:
       token: ${{ secrets.HUGGINGFACE_PUSH }}
       hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}
