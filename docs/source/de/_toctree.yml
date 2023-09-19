@@ -1,0 +1,36 @@
+- title: "Starten"
+  sections:
+    - local: index
+      title: Home
+    - local: quick-start
+      title: Kurzanleitung
+    - local: installation
+      title: Installation
+- title: "Anleitungen"
+  sections:
+    - local: guides/overview
+      title: Übersicht
+    - local: guides/download
+      title: Dateien herunterladen
+    - local: guides/upload
+      title: Dateien hochladen
+    - local: guides/hf_file_system
+      title: HfFileSystem
+    - local: guides/repository
+      title: Repository
+    - local: guides/search
+      title: Suche
+    - local: guides/inference
+      title: Inferenz
+    - local: guides/community
+      title: Community-Tab
+    - local: guides/manage-cache
+      title: Cache
+    - local: guides/model-cards
+      title: Model Cards
+    - local: guides/manage-spaces
+      title: Verwalten Ihres Spaces
+    - local: guides/integrations
+      title: Integrieren einer Bibliothek
+    - local: guides/webhooks_server
+      title: Webhooks server
