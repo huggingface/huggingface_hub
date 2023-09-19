@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+from packaging import version
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
@@ -375,34 +376,36 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             return {"name": name, "size": 0, "type": "directory"}
         return super().info(path, **kwargs)
 
-    def expand_path(
-        self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
-    ) -> List[str]:
+    if version.parse(fsspec.__version__) < version.parse("2023.5.0"):
         # The default implementation does not allow passing custom kwargs (e.g., we use these kwargs to propagate the `revision`)
-        if maxdepth is not None and maxdepth < 1:
-            raise ValueError("maxdepth must be at least 1")
+        # until version 2023.5.0
+        def expand_path(
+            self, path: Union[str, List[str]], recursive: bool = False, maxdepth: Optional[int] = None, **kwargs
+        ) -> List[str]:
+            if maxdepth is not None and maxdepth < 1:
+                raise ValueError("maxdepth must be at least 1")
 
-        if isinstance(path, str):
-            return self.expand_path([path], recursive, maxdepth)
+            if isinstance(path, str):
+                return self.expand_path([path], recursive, maxdepth)
 
-        out = set()
-        path = [self._strip_protocol(p) for p in path]
-        for p in path:
-            if has_magic(p):
-                bit = set(self.glob(p, **kwargs))
-                out |= bit
-                if recursive:
-                    out |= set(self.expand_path(list(bit), recursive=recursive, maxdepth=maxdepth, **kwargs))
-                continue
-            elif recursive:
-                rec = set(self.find(p, maxdepth=maxdepth, withdirs=True, detail=False, **kwargs))
-                out |= rec
-            if p not in out and (recursive is False or self.exists(p)):
-                # should only check once, for the root
-                out.add(p)
-        if not out:
-            raise FileNotFoundError(path)
-        return list(sorted(out))
+            out = set()
+            path = [self._strip_protocol(p) for p in path]
+            for p in path:
+                if has_magic(p):
+                    bit = set(self.glob(p, **kwargs))
+                    out |= bit
+                    if recursive:
+                        out |= set(self.expand_path(list(bit), recursive=recursive, maxdepth=maxdepth, **kwargs))
+                    continue
+                elif recursive:
+                    rec = set(self.find(p, maxdepth=maxdepth, withdirs=True, detail=False, **kwargs))
+                    out |= rec
+                if p not in out and (recursive is False or self.exists(p)):
+                    # should only check once, for the root
+                    out.add(p)
+            if not out:
+                raise FileNotFoundError(path)
+            return list(sorted(out))
 
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
