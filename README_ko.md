@@ -38,13 +38,13 @@
 
 ## 주요 기능
 
-- Hub에서 [파일을 다운로드](https://huggingface.co/docs/huggingface_hub/ko/guides/download)
-- Hub에 [파일을 업로드](https://huggingface.co/docs/huggingface_hub/ko/guides/upload)
-- [레포지토리를 관리](https://huggingface.co/docs/huggingface_hub/ko/guides/repository)
-- 배포된 모델에 [추론을 실행](https://huggingface.co/docs/huggingface_hub/ko/guides/inference)
-- 모델, 데이터셋, Space를 [검색](https://huggingface.co/docs/huggingface_hub/ko/guides/search)
-- [모델 카드를 공유](https://huggingface.co/docs/huggingface_hub/ko/main/en/guides/model-cards)하여 모델을 문서화
-- PR과 댓글을 통해 [커뮤니티와 소통](https://huggingface.co/docs/huggingface_hub/ko/guides/community)
+- Hub에서 [파일을 다운로드](https://huggingface.co/docs/huggingface_hub/main/ko/guides/download)
+- Hub에 [파일을 업로드](https://huggingface.co/docs/huggingface_hub/main/en/guides/upload) (영어)
+- [레포지토리를 관리](https://huggingface.co/docs/huggingface_hub/main/en/guides/repository) (영어)
+- 배포된 모델에 [추론을 실행](https://huggingface.co/docs/huggingface_hub/main/en/guides/inference) (영어)
+- 모델, 데이터셋, Space를 [검색](https://huggingface.co/docs/huggingface_hub/main/en/guides/search) (영어)
+- [모델 카드를 공유](https://huggingface.co/docs/huggingface_hub/main/en/guides/model-cards)하여 모델을 문서화 (영어)
+- PR과 댓글을 통해 [커뮤니티와 소통](https://huggingface.co/docs/huggingface_hub/main/en/guides/community) (영어)
 
 ## 설치
 
