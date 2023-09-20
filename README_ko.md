@@ -16,7 +16,13 @@
     <a href="https://codecov.io/gh/huggingface/huggingface_hub"><img alt="Code coverage" src="https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL"></a>
 </p>
 
-<h4 align="center"> <p> <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a> | <b>한국어</b> <p> </h4>
+<h4 align="center">
+    <p>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a> |
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_de.md">Deutsch</a> |
+        <b>한국어</b>
+    <p>
+</h4>
 
 ---
 
