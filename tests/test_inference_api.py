@@ -81,6 +81,7 @@ class InferenceApiTest(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertTrue("text" in result, f"We received {result} instead")
 
+    @unittest.skip("Model often not loaded")
     @expect_deprecation("huggingface_hub.inference_api")
     def test_inference_with_image(self):
         api = InferenceApi("google/vit-base-patch16-224")
