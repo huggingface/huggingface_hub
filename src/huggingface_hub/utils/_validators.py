@@ -156,8 +156,8 @@ def validate_repo_id(repo_id: str) -> None:
 
     if repo_id.count("/") > 1:
         raise HFValidationError(
-            "Repo id must be in the form 'repo_name' or 'namespace/repo_name':"
-            f" '{repo_id}'. Use `repo_type` argument if needed."
+            "Repo id must be in the form 'repo_name', 'namespace/repo_name' or '/path/to/repo' :"
+            f" '{repo_id}'."
         )
 
     if not REPO_ID_REGEX.match(repo_id):
