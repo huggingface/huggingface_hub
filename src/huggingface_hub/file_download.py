@@ -994,6 +994,7 @@ def hf_hub_download(
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
+    download_endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -1070,6 +1071,8 @@ def hf_hub_download(
         endpoint (`str`, *optional*):
             Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
             environment variable.
+        download_endpoint (`str`, *optional*):
+            Hugging Face Hub download cdn url. Will default to https://cdn-lfs.huggingface.co/.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -1272,6 +1275,9 @@ def hf_hub_download(
             # Useful for lfs blobs that are stored on a CDN.
             if metadata.location != url:
                 url_to_download = metadata.location
+                if download_endpoint is not None:
+                    parsed_url = urlparse(metadata.location)
+                    url_to_download = url_to_download.replace(parsed_url.netloc, download_endpoint)
                 # Remove authorization header when downloading a LFS blob
                 headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
