@@ -13,7 +13,7 @@ def get_version() -> str:
 
 install_requires = [
     "filelock",
-    "fsspec",
+    "fsspec>=2023.5.0",
     "requests",
     "tqdm>=4.42.1",
     "pyyaml>=5.1",
