@@ -19,6 +19,7 @@ import tempfile
 import time
 import types
 import unittest
+import uuid
 import warnings
 from concurrent.futures import Future
 from functools import partial
@@ -49,6 +50,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
+    Collection,
     CommitInfo,
     DatasetInfo,
     HfApi,
@@ -3199,3 +3201,145 @@ class ReprMixinTest(unittest.TestCase):
             repr(MyClass(foo="foo", bar="bar")),
             "MyClass: {'bar': 'bar', 'foo': 'foo'}",  # keys are sorted
         )
+
+
+class CollectionAPITest(HfApiCommonTest):
+    def setUp(self) -> None:
+        id = uuid.uuid4()
+        self.title = f"My cool stuff {id}"
+        self.slug_prefix = f"my-cool-stuff-{id}"
+        return super().setUp()
+
+    def test_create_collection_with_description(self) -> None:
+        collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")
+
+        self.assertIsInstance(collection, Collection)
+        self.assertEqual(collection.title, self.title)
+        self.assertEqual(collection.description, "Contains a lot of cool stuff")
+        self.assertEqual(collection.items, [])
+        self.assertEqual(collection.slug.startswith(self.slug_prefix))
+
+        self._api.delete_collection(collection.slug)
+
+    def test_create_collection_exists_ok(self) -> None:
+        # Create collection once without description
+        collection_1 = self._api.create_collection(self.title)
+
+        # Cannot create twice with same title
+        with self.assertRaises(HTTPError):  # already exists
+            self._api.create_collection(self.title)
+
+        # Can ignore error
+        collection_2 = self._api.create_collection(self.title, description="description", exists_ok=True)
+
+        self.assertEqual(collection_1.slug, collection_2.slug)
+        self.assertIsNone(collection_1.description)
+        self.assertIsNone(collection_2.description)  # Did not got updated!
+
+        self._api.delete_collection(collection_1.slug)
+
+    def test_create_private_collection(self) -> None:
+        collection = self._api.create_collection(self.title, private=True)
+
+        # Get private collection
+        self._api.get_collection(collection.slug)  # no error
+        with self.assertRaises(HTTPError):
+            self._api.get_collection(collection.slug, token=False)  # not authorized
+
+        # Get public collection
+        self._api.update_collection_metadata(collection.slug, private=False)
+        self._api.get_collection(collection.slug)  # no error
+        self._api.get_collection(collection.slug, token=False)  # no error
+
+        self._api.delete_collection(collection.slug)
+
+    def test_update_collection(self) -> None:
+        collection_1 = self._api.create_collection(self.title)
+        collection_2 = self._api.update_collection_metadata(
+            collection_slug=collection_1.slug,
+            title="New title",
+            description="New description",
+            private=True,
+            theme="pink",
+        )
+
+        self.assertEqual(collection_2.title, "New title")
+        self.assertEqual(collection_2.description, "New description")
+        self.assertEqual(collection_2.private, True)
+        self.assertEqual(collection_2.theme, "pink")
+        self.assertNotEqual(collection_1.slug, collection_2.slug)
+
+        # Different slug, same id
+        self.assertEqual(collection_1.slug.split("-")[-1], collection_2.slug.split("-")[-1])
+
+        # Works with both slugs, same collection returned
+        self.assertEqual(self._api.get_collection(collection_1.slug).slug, collection_2.slug)
+        self.assertEqual(self._api.get_collection(collection_2.slug).slug, collection_2.slug)
+
+        self._api.delete_collection(collection_2.slug)
+
+    def test_delete_collection(self) -> None:
+        collection = self._api.create_collection(self.title)
+
+        self._api.delete_collection(collection.slug)
+
+        # Cannot delete twice the same collection
+        with self.assertRaises(HTTPError):  # already exists
+            self._api.delete_collection(collection.slug)
+
+        # Possible to ignore error
+        self._api.delete_collection(collection.slug, missing_ok=True)
+
+    def test_collection_items(self) -> None:
+        # Create some repos
+        model_id = self._api.create_repo(repo_name()).repo_id
+        dataset_id = self._api.create_repo(repo_name(), repo_type="dataset").repo_id
+        space_id = self._api.create_repo(repo_name(), repo_type="Space", space_sdk="gradio").repo_id
+
+        # Create collection + add items to it
+        collection = self._api.create_collection(self.title)
+        self._api.add_collection_item(collection.slug, model_id, "model", note="This is my model")
+        self._api.add_collection_item(collection.slug, dataset_id, "dataset")  # note is optional
+        self._api.add_collection_item(collection.slug, space_id, "space")  # note is optional
+
+        # Check consistency
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 3)
+        self.assertEqual(collection.items[0].id, model_id)
+        self.assertEqual(collection.items[0].item_type, "model")
+        self.assertEqual(collection.items[0].note, "This is my model")
+
+        self.assertEqual(collection.items[1].id, dataset_id)
+        self.assertEqual(collection.items[1].item_type, "dataset")
+        self.assertIsNone(collection.items[1].note)
+
+        self.assertEqual(collection.items[2].id, space_id)
+        self.assertEqual(collection.items[2].item_type, "space")
+        self.assertIsNone(collection.items[2].note)
+
+        # Add existing item fails (except if ignore error)
+        with self.assertRaises(HTTPError):
+            self._api.add_collection_item(collection.slug, model_id, "model")
+        self._api.add_collection_item(collection.slug, model_id, "model", exists_ok=True)
+
+        # Add inexistent item fails
+        with self.assertRaises(HTTPError):
+            self._api.add_collection_item(collection.slug, model_id, "dataset")
+
+        # Update first item + delete last item
+        self._api.update_collection_item(collection.slug, collection.items[0].id, note="New note", position=1)
+        self._api.delete_collection_item(collection.slug, collection.items[2].id)
+        self._api.delete_collection_item(collection.slug, collection.items[2].id, missing_ok=True)
+
+        # Check consistency
+        collection = self._api.get_collection(collection.slug)
+        self.assertEqual(len(collection.items), 2)  # item got removed
+        self.assertEqual(collection.items[0].id, dataset_id)  # position got updated
+        self.assertEqual(collection.items[1].id, model_id)
+        self.assertEqual(collection.items[1].note, "New note")  # note got updated
+
+        # Delete everything
+        self._api.delete_repo(model_id)
+        self._api.delete_repo(dataset_id, repo_type="dataset")
+        self._api.delete_repo(space_id, repo_type="space")
+        self._api.delete_collection(collection.slug)
