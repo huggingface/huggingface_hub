@@ -129,6 +129,8 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "Collection",
+        "CollectionItem",
         "CommitInfo",
         "CommitOperation",
         "CommitOperationAdd",
@@ -445,6 +447,8 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
+        Collection,  # noqa: F401
+        CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
         CommitOperation,  # noqa: F401
         CommitOperationAdd,  # noqa: F401
