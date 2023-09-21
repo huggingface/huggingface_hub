@@ -15,7 +15,7 @@ from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urlunparse
 
 import requests
 from filelock import FileLock
@@ -1277,7 +1277,17 @@ def hf_hub_download(
                 url_to_download = metadata.location
                 if download_endpoint is not None:
                     parsed_url = urlparse(metadata.location)
-                    url_to_download = url_to_download.replace(parsed_url.netloc, download_endpoint)
+                    parsed_download_endpoint = urlparse(download_endpoint)
+                    url_to_download = urlunparse(
+                        (
+                            parsed_download_endpoint.scheme,
+                            parsed_download_endpoint.netloc,
+                            parsed_url.path,
+                            parsed_url.params,
+                            parsed_url.query,
+                            parsed_url.fragment,
+                        )
+                    )
                 # Remove authorization header when downloading a LFS blob
                 headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):

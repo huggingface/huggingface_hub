@@ -6,6 +6,7 @@ from unittest.mock import patch
 import requests
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
+from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
@@ -190,7 +191,7 @@ class SnapshotDownloadTests(unittest.TestCase):
         self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
 
     @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 10)  # >10b => "big file"
-    def test_download_to_local_dir(self) -> None:
+    def test_download_to_local_dir(self, endpoint=None, download_endpoint=None) -> None:
         """Download a repository to local dir.
 
         Cache dir is used and symlinks are adding to local dir. This test is here to check once the normal behavior
@@ -199,7 +200,13 @@ class SnapshotDownloadTests(unittest.TestCase):
         """
         with SoftTemporaryDirectory() as cache_dir:
             with SoftTemporaryDirectory() as local_dir:
-                returned_path = snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)
+                returned_path = snapshot_download(
+                    self.repo_id,
+                    cache_dir=cache_dir,
+                    local_dir=local_dir,
+                    endpoint=endpoint,
+                    download_endpoint=download_endpoint,
+                )
 
                 # Files have been downloaded
                 self.assertTrue((Path(local_dir) / "dummy_file.txt").is_file())
@@ -218,3 +225,7 @@ class SnapshotDownloadTests(unittest.TestCase):
 
                 # Check returns local dir and not cache dir
                 self.assertEqual(Path(returned_path).resolve(), Path(local_dir).resolve())
+
+    def test_download_to_local_dir_with_endpoint_and_download_endpoint(self) -> None:
+        """add proxy to get redirect and replace download url"""
+        self.test_download_to_local_dir(endpoint=ENDPOINT, download_endpoint="https://cdn-lfs.huggingface.co")
