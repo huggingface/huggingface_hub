@@ -5815,6 +5815,7 @@ class HfApi:
         Returns: [`Collection`]
 
         Example:
+
         ```py
         >>> from huggingface_hub import get_collection
         >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
@@ -5868,6 +5869,7 @@ class HfApi:
         Returns: [`Collection`]
 
         Example:
+
         ```py
         >>> from huggingface_hub import create_collection
         >>> collection = create_collection(
@@ -5937,6 +5939,7 @@ class HfApi:
         Returns: [`Collection`]
 
         Example:
+
         ```py
         >>> from huggingface_hub import update_collection_metadata
         >>> collection = update_collection_metadata(
@@ -5981,6 +5984,7 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
 
         Example:
+
         ```py
         >>> from huggingface_hub import delete_collection
         >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
@@ -6032,6 +6036,8 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
 
         Returns: [`Collection`]
+
+        Example:
 
         ```py
         >>> from huggingface_hub import add_collection_item
@@ -6096,6 +6102,8 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
 
+        Example:
+
         ```py
         >>> from huggingface_hub import get_collection, update_collection_item
 
@@ -6140,6 +6148,8 @@ class HfApi:
                 If `True`, do not raise an error if item doesn't exists.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
+
+        Example:
 
         ```py
         >>> from huggingface_hub import get_collection, delete_collection_item
