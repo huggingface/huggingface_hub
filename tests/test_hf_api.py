@@ -3311,7 +3311,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(len(collection.items), 2)
         self.assertEqual(collection.items[0].item_id, model_id)
         self.assertEqual(collection.items[0].item_type, "model")
-        # self.assertEqual(collection.items[0].note, "This is my model")
+        self.assertEqual(collection.items[0].note, "This is my model")
 
         self.assertEqual(collection.items[1].item_id, dataset_id)
         self.assertEqual(collection.items[1].item_type, "dataset")
