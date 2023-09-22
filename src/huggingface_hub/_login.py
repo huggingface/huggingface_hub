@@ -54,15 +54,19 @@ def login(
     a cli command that wraps [`login`].
 
     <Tip>
+
     [`login`] is a drop-in replacement method for [`notebook_login`] as it wraps and
     extends its capabilities.
+
     </Tip>
 
     <Tip>
+
     When the token is not passed, [`login`] will automatically detect if the script runs
     in a notebook or not. However, this detection might not be accurate due to the
     variety of notebooks that exists nowadays. If that is the case, you can always force
     the UI by using [`notebook_login`] or [`interpreter_login`].
+
     </Tip>
 
     Args:
