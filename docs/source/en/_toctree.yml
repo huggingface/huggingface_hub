@@ -24,14 +24,14 @@
       title: Inference
     - local: guides/community
       title: Community Tab
+    - local: guides/collections
+      title: Collections
     - local: guides/manage-cache
       title: Cache
     - local: guides/model-cards
       title: Model Cards
     - local: guides/manage-spaces
       title: Manage your Space
-    - local: guides/collections
-      title: Manage your Collections
     - local: guides/integrations
       title: Integrate a library
     - local: guides/webhooks_server

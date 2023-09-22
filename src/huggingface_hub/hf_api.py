@@ -611,11 +611,13 @@ class CollectionItem(ReprMixin):
     """Contains information about an item of a Collection (model, dataset, Space or paper).
 
     Args:
-        item_type (`str`):
-            Type of the item. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
-        id (`str`):
-            ID of the item. Can be either the repo_id on the Hub or the paper Arxiv id
+        item_object_id (`str`):
+            Unique ID of the item in the collection.
+        item_id (`str`):
+            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
             e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+        item_type (`str`):
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
         position (`int`):
             Position of the item in the collection.
         note (`str`, *optional*):
@@ -623,15 +625,14 @@ class CollectionItem(ReprMixin):
         kwargs (`Dict`, *optional*):
             Any other attribute returned by the server. Those attributes depend on the `item_type`: "author", "private",
             "lastModified", "gated", "title", "likes", "upvotes", etc.
-
-
     """
 
     def __init__(
-        self, type: CollectionItemType_T, id: str, position: int, note: Optional[str] = None, **kwargs
+        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[str] = None, **kwargs
     ) -> None:
+        self.item_object_id = _id  # id in database
+        self.item_id = id  # repo_id or paper id
         self.item_type = type
-        self.id = id
         self.position = position
         self.note = note
 
@@ -5824,8 +5825,8 @@ class HfApi:
         37
         >>> collection.items[0]
         CollectionItem: {
-            {'_id': '6507f6d5423b46492ee1413e',
-            'id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
+            {'item_object_id': '6507f6d5423b46492ee1413e',
+            'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
             'author': 'TheBloke',
             'item_type': 'model',
             'lastModified': '2023-09-19T12:55:21.000Z',
@@ -5987,6 +5988,12 @@ class HfApi:
         >>> from huggingface_hub import delete_collection
         >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
         ```
+
+        <Tip warning={true}>
+
+        This is a non-revertible action. A deleted collection cannot be restored.
+
+        </Tip>
         """
         r = get_session().delete(
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
@@ -6037,7 +6044,7 @@ class HfApi:
         ...     item_id="pierre-loic/climate-news-articles",
         ...     item_type="dataset"
         ... )
-        >>> collection.items[-1].id
+        >>> collection.items[-1].item_id
         "pierre-loic/climate-news-articles"
         # ^item got added to the collection on last position
 
@@ -6102,8 +6109,8 @@ class HfApi:
         # Update item based on its ID (add note + update position)
         >>> update_collection_item(
         ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
-        ...     item_object_id=collection.items[-1],
-        ...     note="Newly update model!"
+        ...     item_object_id=collection.items[-1].item_object_id,
+        ...     note="Newly updated model!"
         ...     position=0,
         ... )
         ```
@@ -6147,7 +6154,7 @@ class HfApi:
         # Delete item based on its ID
         >>> delete_collection_item(
         ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
-        ...     item_object_id=collection.items[-1],
+        ...     item_object_id=collection.items[-1].item_object_id,
         ... )
         ```
         """
