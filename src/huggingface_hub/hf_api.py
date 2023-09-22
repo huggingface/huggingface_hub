@@ -5812,8 +5812,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
 
-        Returns:
-            [`Collection`]: the collection content.
+        Returns: [`Collection`]
 
         Example:
         ```py
@@ -5866,8 +5865,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
 
-        Returns:
-            [`Collection`]: the newly created collection.
+        Returns: [`Collection`]
 
         Example:
         ```py
@@ -5936,8 +5934,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
 
-        Returns:
-            [`Collection`]: the updated collection.
+        Returns: [`Collection`]
 
         Example:
         ```py
@@ -6034,8 +6031,7 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
 
-        Returns:
-            [`Collection`]: the updated collection.
+        Returns: [`Collection`]
 
         ```py
         >>> from huggingface_hub import add_collection_item
