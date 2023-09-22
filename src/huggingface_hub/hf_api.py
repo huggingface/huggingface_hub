@@ -6028,7 +6028,7 @@ class HfApi:
             item_type (`str`):
                 Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
             note (`str`, *optional*):
-                A note to attach to the item in the collection.
+                A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             exists_ok (`bool`, *optional*):
                 If `True`, do not raise an error if item already exists.
             token (`str`, *optional*):
@@ -6094,7 +6094,7 @@ class HfApi:
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
                 It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
             note (`str`, *optional*):
-                A note to attach to the item in the collection.
+                A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             position (`int`, *optional*):
                 New position of the item in the collection.
             token (`str`, *optional*):

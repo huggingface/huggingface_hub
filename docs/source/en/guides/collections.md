@@ -94,7 +94,7 @@ Now that we have a [`Collection`], we want to add items to it and organize them.
 
 ### Add items
 
-Items have to be added one by one using [`add_collection_item`]. You only need to know the `collection_slug`, `item_id` and `item_type`. Optionally, you can also add a `note` to the item.
+Items have to be added one by one using [`add_collection_item`]. You only need to know the `collection_slug`, `item_id` and `item_type`. Optionally, you can also add a `note` to the item (500 characters maximum).
 
 ```py
 >>> from huggingface_hub import create_collection, add_collection_item
