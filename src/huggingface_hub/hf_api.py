@@ -628,13 +628,13 @@ class CollectionItem(ReprMixin):
     """
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[str] = None, **kwargs
+        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
     ) -> None:
-        self.item_object_id = _id  # id in database
-        self.item_id = id  # repo_id or paper id
-        self.item_type = type
-        self.position = position
-        self.note = note
+        self.item_object_id: str = _id  # id in database
+        self.item_id: str = id  # repo_id or paper id
+        self.item_type: CollectionItemType_T = type
+        self.position: int = position
+        self.note: str = note["text"] if note is not None else None
 
         # Store all the other fields returned by the API
         super().__init__(**kwargs)
@@ -5968,7 +5968,7 @@ class HfApi:
             json={key: value for key, value in payload.items() if value is not None},
         )
         hf_raise_for_status(r)
-        return Collection(r.json())
+        return Collection(r.json()["data"])
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
@@ -6062,7 +6062,7 @@ class HfApi:
         if note is not None:
             payload["note"] = note
         r = get_session().post(
-            f"{self.endpoint}/api/collections/{collection_slug}",
+            f"{self.endpoint}/api/collections/{collection_slug}/items",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -6117,7 +6117,7 @@ class HfApi:
         """
         payload = {"position": position, "note": note}
         r = get_session().patch(
-            f"{self.endpoint}/api/collections/{collection_slug}/{item_object_id}",
+            f"{self.endpoint}/api/collections/{collection_slug}/items/{item_object_id}",
             headers=self._build_hf_headers(token=token),
             # Only send not-none values to the API
             json={key: value for key, value in payload.items() if value is not None},
@@ -6159,13 +6159,13 @@ class HfApi:
         ```
         """
         r = get_session().delete(
-            f"{self.endpoint}/api/collections/{collection_slug}/{item_object_id}",
+            f"{self.endpoint}/api/collections/{collection_slug}/items/{item_object_id}",
             headers=self._build_hf_headers(token=token),
         )
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if missing_ok and err.response.status_code == 409:
+            if missing_ok and err.response.status_code == 404:
                 # Item already deleted and `missing_ok=True`
                 return
             else:
@@ -6371,4 +6371,5 @@ update_collection_metadata = api.update_collection_metadata
 delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item
+delete_collection_item = api.delete_collection_item
 delete_collection_item = api.delete_collection_item
