@@ -973,7 +973,8 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
     """
 
     target_dir = str(target_dir)
-    target_dir_free = shutil.disk_usage(target_dir).free
+
+    target_dir_free = shutil.disk_usage(os.path.realpath(target_dir)).free
 
     has_enough_space = target_dir_free >= expected_size
 
