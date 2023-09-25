@@ -79,11 +79,13 @@ It will return a [`Collection`] object with the high-level metadata (title, desc
 
 ```py
 >>> collection.slug
-'iccv-2023-15e23b46cb98efca45'
+'owner/iccv-2023-15e23b46cb98efca45'
 >>> collection.title
 "ICCV 2023"
 >>> collection.owner
 "username"
+>>> collection.url
+'https://huggingface.co/collections/owner/iccv-2023-15e23b46cb98efca45'
 ```
 
 ## Manage items in a collection

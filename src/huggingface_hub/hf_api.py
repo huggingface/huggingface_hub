@@ -663,6 +663,8 @@ class Collection(ReprMixin):
             Whether the collection is private or not.
         theme (`str`):
             Theme of the collection. E.g. `"green"`.
+        url (`str`):
+            URL of the collection on the Hub.
     """
 
     slug: str
@@ -676,7 +678,7 @@ class Collection(ReprMixin):
     private: bool
     theme: str
 
-    def __init__(self, data: Dict) -> None:
+    def __init__(self, data: Dict, endpoint: Optional[str] = None) -> None:
         # Collection info
         self.slug = data["slug"]
         self.title = data["title"]
@@ -689,6 +691,11 @@ class Collection(ReprMixin):
         self.private = data["private"]
         self.position = data["position"]
         self.theme = data["theme"]
+
+        # (internal)
+        if endpoint is None:
+            endpoint = ENDPOINT
+        self.url = f"{ENDPOINT}/collections/{self.slug}"
 
 
 class ModelSearchArguments(AttributeDictionary):
@@ -5840,7 +5847,7 @@ class HfApi:
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
-        return Collection(r.json())
+        return Collection(r.json(), endpoint=self.endpoint)
 
     def create_collection(
         self,
@@ -5905,7 +5912,7 @@ class HfApi:
                 return self.get_collection(slug, token=token)
             else:
                 raise
-        return Collection(r.json())
+        return Collection(r.json(), endpoint=self.endpoint)
 
     def update_collection_metadata(
         self,
@@ -5970,7 +5977,7 @@ class HfApi:
             json={key: value for key, value in payload.items() if value is not None},
         )
         hf_raise_for_status(r)
-        return Collection(r.json()["data"])
+        return Collection(r.json()["data"], endpoint=self.endpoint)
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
@@ -6078,7 +6085,7 @@ class HfApi:
                 return self.get_collection(collection_slug, token=token)
             else:
                 raise
-        return Collection(r.json())
+        return Collection(r.json(), endpoint=self.endpoint)
 
     def update_collection_item(
         self,
