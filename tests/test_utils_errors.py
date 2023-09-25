@@ -1,6 +1,6 @@
 import unittest
 
-from requests.models import Response
+from requests.models import PreparedRequest, Response
 
 from huggingface_hub.utils._errors import (
     BadRequestError,
@@ -27,6 +27,7 @@ class TestErrorUtils(unittest.TestCase):
         response = Response()
         response.headers = {"X-Request-Id": 123}
         response.status_code = 401
+        response.request = PreparedRequest()
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
             hf_raise_for_status(response)
 

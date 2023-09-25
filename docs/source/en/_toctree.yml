@@ -24,6 +24,8 @@
       title: Inference
     - local: guides/community
       title: Community Tab
+    - local: guides/collections
+      title: Collections
     - local: guides/manage-cache
       title: Cache
     - local: guides/model-cards
@@ -68,6 +70,8 @@
       title: Repo Cards and Repo Card Data
     - local: package_reference/space_runtime
       title: Space runtime
+    - local: package_reference/collections
+      title: Collections
     - local: package_reference/tensorboard
       title: TensorBoard logger
     - local: package_reference/webhooks_server
