@@ -64,7 +64,7 @@ In addition to these base attributes, returned items can have additional attribu
 
 ## Create a new collection
 
-Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and description.
+Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and description. To create a collection on an organization page, pass `namespace="my-cool-org"` when creating the collection. Finally, you can also create private collections by passing `private=True`.
 
 ```py
 >>> from huggingface_hub import create_collection
@@ -85,8 +85,6 @@ It will return a [`Collection`] object with the high-level metadata (title, desc
 >>> collection.owner
 "username"
 ```
-
-To create a collection on an organization page, pass `namespace="my-cool-org"` when creating the collection. Finally, you can also create private collections by passing `private=True`.
 
 ## Manage items in a collection
 
