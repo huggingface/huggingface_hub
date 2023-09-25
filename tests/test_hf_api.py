@@ -3225,6 +3225,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(collection.description, "Contains a lot of cool stuff")
         self.assertEqual(collection.items, [])
         self.assertTrue(collection.slug.startswith(self.slug_prefix))
+        self.assertEqual(collection.url, f"{ENDPOINT_STAGING}/collections/{collection.slug}")
 
     def test_create_collection_exists_ok(self) -> None:
         # Create collection once without description
