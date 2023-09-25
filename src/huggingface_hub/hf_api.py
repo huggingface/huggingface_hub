@@ -956,7 +956,9 @@ class HfApi:
             raise HTTPError(
                 "Invalid user token. If you didn't pass a user token, make sure you "
                 "are properly logged in by executing `huggingface-cli login`, and "
-                "if you did pass a user token, double-check it's correct."
+                "if you did pass a user token, double-check it's correct.",
+                request=e.request,
+                response=e.response,
             ) from e
         return r.json()
 

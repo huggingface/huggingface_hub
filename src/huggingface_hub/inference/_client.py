@@ -232,7 +232,7 @@ class InferenceClient:
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error  # type: ignore
 
             try:
                 hf_raise_for_status(response)
@@ -243,7 +243,9 @@ class InferenceClient:
                     if timeout is not None and time.time() - t0 > timeout:
                         raise InferenceTimeoutError(
                             f"Model not loaded on the server: {url}. Please retry with a higher timeout (current:"
-                            f" {self.timeout})."
+                            f" {self.timeout}).",
+                            request=error.request,
+                            response=error.response,
                         ) from error
                     # ...or wait 1s and retry
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
