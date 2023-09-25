@@ -468,15 +468,13 @@ def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
     # If error_type => more information than `hf_raise_for_status`
     if error_type is not None:
         if error_type == "generation":
-            raise GenerationError(message, request=http_error.request, response=http_error.response) from http_error
+            raise GenerationError(message) from http_error  # type: ignore
         if error_type == "incomplete_generation":
-            raise IncompleteGenerationError(
-                message, request=http_error.request, response=http_error.response
-            ) from http_error
+            raise IncompleteGenerationError(message) from http_error  # type: ignore
         if error_type == "overloaded":
-            raise OverloadedError(message, request=http_error.request, response=http_error.response) from http_error
+            raise OverloadedError(message) from http_error  # type: ignore
         if error_type == "validation":
-            raise ValidationError(message, request=http_error.request, response=http_error.response) from http_error
+            raise ValidationError(message) from http_error  # type: ignore
 
     # Otherwise, fallback to default error
     raise http_error
