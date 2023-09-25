@@ -85,7 +85,8 @@ class HfHubHTTPError(HTTPError):
                 request_id=self.request_id,
                 server_message=self.server_message,
             ),
-            response=response,
+            response=response,  # type: ignore
+            request=response.request if response is not None else None,  # type: ignore
         )
 
     def append_to_message(self, additional_message: str) -> None:
