@@ -664,7 +664,7 @@ class Collection(ReprMixin):
         theme (`str`):
             Theme of the collection. E.g. `"green"`.
         url (`str`):
-            URL of the collection on the Hub.
+            URL for the collection on the Hub.
     """
 
     slug: str
