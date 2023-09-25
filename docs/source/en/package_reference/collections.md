@@ -14,7 +14,6 @@ Check out the [`HfApi`] documentation page for the reference of methods to manag
 - Update an item in a collection: [`update_collection_item`]
 - Remove an item from a collection: [`delete_collection_item`]
 
-## Data structures
 
 ### Collection
 

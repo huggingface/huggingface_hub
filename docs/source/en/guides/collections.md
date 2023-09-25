@@ -2,21 +2,21 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Manage your collections
+# Collections
 
-A collection is a group of related items on the Hub (models, datasets, Spaces, papers) that are organized together on a same page. Collections can be useful in many use cases such as creating your own portfolio, bookmarking content in categories or presenting a curated list of items your want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more details what are Collections and how they look like on the Hub,
+A collection is a group of related items on the Hub (models, datasets, Spaces, papers) that are organized together on the same page. Collections are useful for creating your own portfolio, bookmarking content in categories, or presenting a curated list of items you want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more detail what collections are and how they look on the Hub.
 
-Managing collections can be done in the browser directly. In this guide, we will focus on how to do it programmatically using `huggingface_hub`.
+You can directly manage collections in the browser, but in this guide, we will focus on how to manage it programmatically.
 
 ## Fetch a collection
 
-To fetch a collection, use [`get_collection`]. You can use it either on your own collections or any public one. To retrieve a collection, you must have its collection's `slug`. A slug is an identifier for a collection based on the title and a unique ID. You can find it in the URL of the collection page.
+Use [`get_collection`] to fetch your collections or any public ones. You must have the collection's *slug* to retrieve a collection. A slug is an identifier for a collection based on the title and a unique ID. You can find the slug in the URL of the collection page.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hfh_collection_slug.png"/>
 </div>
 
-Here the slug is `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`. Let's fetch the collection:
+Let's fetch the collection with, `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`:
 
 ```py
 >>> from huggingface_hub import get_collection
@@ -50,21 +50,21 @@ CollectionItem: {
 
 The [`Collection`] object returned by [`get_collection`] contains:
 - high-level metadata: `slug`, `owner`, `title`, `description`, etc.
-- a list of [`CollectionItem`] objects. Each item represents a model, a dataset, a Space or a paper.
+- a list of [`CollectionItem`] objects; each item represents a model, a dataset, a Space, or a paper.
 
-All items of a collection are guaranteed to have:
+All collection items are guaranteed to have:
 - a unique `item_object_id`: this is the id of the collection item in the database
-- an `item_id`: this is the id on the Hub of the underlying item (model, dataset, Space, paper). It is not necessarily unique! only the `item_id`/`item_type` pair is unique.
-- an `item_type`: model, dataset, Space, paper.
-- the `position` of the item in the collection. Position can be updated to re-organize your collection (see [`update_collection_item`] below)
+- an `item_id`: this is the id on the Hub of the underlying item (model, dataset, Space, paper); it is not necessarily unique, and only the `item_id`/`item_type` pair is unique
+- an `item_type`: model, dataset, Space, paper
+- the `position` of the item in the collection, which can be updated to reorganize your collection (see [`update_collection_item`] below)
 
-A `note` can also be attached to the item. This is useful to add additional information about the item (e.g. a comment, a link to a blog post, etc.). If an item doesn't have a note, the attribute still exists with a `None` value.
+A `note` can also be attached to the item. This is useful to add additional information about the item (a comment, a link to a blog post, etc.). The attribute still has a `None` value if an item doesn't have a note.
 
 In addition to these base attributes, returned items can have additional attributes depending on their type: `author`, `private`, `lastModified`, `gated`, `title`, `likes`, `upvotes`, etc. None of these attributes are guaranteed to be returned.
 
 ## Create a new collection
 
-Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and optionally a description.
+Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and description.
 
 ```py
 >>> from huggingface_hub import create_collection
@@ -114,7 +114,7 @@ Items have to be added one by one using [`add_collection_item`]. You only need t
 >>> add_collection_item(collection.slug, item_id="warp-ai/wuerstchen", item_type="space") # same item_id, different item_type
 ```
 
-If an item already exists in a collection (i.e. same `item_id`/`item_type` pair), an HTTP 409 error will be raised. You can choose to ignore this error by setting `exists_ok=True`.
+If an item already exists in a collection (same `item_id`/`item_type` pair), an HTTP 409 error will be raised. You can choose to ignore this error by setting `exists_ok=True`.
 
 ### Add a note to an existing item
 
@@ -135,9 +135,9 @@ You can modify an existing item to add or modify the note attached to it using [
 ... )
 ```
 
-### Re-order items
+### Reorder items
 
-Items in a collection are ordered. The order is determined by the `position` attribute of each item. By default, items are ordered by appending new items at the end of the collection. You can update the ordering using [`update_collection_item`] the same way you would add a note.
+Items in a collection are ordered. The order is determined by the `position` attribute of each item. By default, items are ordered by appending new items at the end of the collection. You can update the order using [`update_collection_item`] the same way you would add a note.
 
 Let's reuse our example above:
 
@@ -158,7 +158,7 @@ Let's reuse our example above:
 
 ### Remove items
 
-Finally you can also remove an item using [`delete_collection_item`].
+Finally, you can also remove an item using [`delete_collection_item`].
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
