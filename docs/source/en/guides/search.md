@@ -147,9 +147,9 @@ It is! The `PyTorch` name is there, so you'll need to use `model_args.library.Py
 
 Below is an animation repeating the process for finding both the `Text Classification` and `glue` requirements:
 
-![Animation exploring `model_args.pipeline_tag`](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_text_classification.gif)
+![Animation exploring model_args.pipeline_tag](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_text_classification.gif)
 
-![Animation exploring `model_args.dataset`](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_glue.gif)
+![Animation exploring model_args.dataset](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_glue.gif)
 
 Now that all the pieces are there, the last step is to combine them all for something the
 API can use through the [`ModelFilter`] and [`DatasetFilter`] classes (i.e. strings).

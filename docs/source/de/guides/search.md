@@ -149,9 +149,9 @@ Es ist da! Der Name PyTorch ist vorhanden, daher müssen Sie `model_args.library
 
 Im Folgenden finden Sie eine Animation, die den Vorgang zur Suche nach den Anforderungen Textklassifizierung (`Text Classification`) and `glue` wiederholt:
 
-![Animation exploring `model_args.pipeline_tag`](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_text_classification.gif)
+![Animation exploring model_args.pipeline_tag](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_text_classification.gif)
 
-![Animation exploring `model_args.dataset`](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_glue.gif)
+![Animation exploring model_args.dataset](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/search_glue.gif)
 
 Jetzt, da alle Teile vorhanden sind, besteht der letzte Schritt darin, sie alle für etwas zu kombinieren, 
 das die API über die Klassen [`ModelFilter`] und [`DatasetFilter`] verwenden kann (d.h. Zeichenketten / strings).
