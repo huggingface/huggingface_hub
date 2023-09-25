@@ -284,6 +284,15 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise GatedRepoError(message, response) from e
 
+        elif (
+            response.status_code == 401
+            and response.request.url is not None
+            and "/api/collections" in response.request.url
+        ):
+            # Collection not found. We don't raise a custom error for this.
+            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
+            pass
+
         elif error_code == "RepoNotFound" or response.status_code == 401:
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated

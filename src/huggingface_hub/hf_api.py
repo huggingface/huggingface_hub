@@ -132,6 +132,7 @@ from .utils.endpoint_helpers import (
 
 
 R = TypeVar("R")  # Return type
+CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
@@ -142,6 +143,13 @@ logger = logging.get_logger(__name__)
 
 class ReprMixin:
     """Mixin to create the __repr__ for a class"""
+
+    def __init__(self, **kwargs) -> None:
+        # Store all the other fields returned by the API
+        # Hack to ensure backward compatibility with future versions of the API.
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def __repr__(self):
         formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
@@ -392,10 +400,8 @@ class RepoFile(ReprMixin):
         self.blob_id = blobId
         self.lfs = lfs
 
-        # Hack to ensure backward compatibility with future versions of the API.
-        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        # Store all the other fields returned by the API
+        super().__init__(**kwargs)
 
 
 class ModelInfo(ReprMixin):
@@ -453,8 +459,9 @@ class ModelInfo(ReprMixin):
         self.author = author
         self.config = config
         self.securityStatus = securityStatus
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+
+        # Store all the other fields returned by the API
+        super().__init__(**kwargs)
 
     def __str__(self):
         r = f"Model Name: {self.modelId}, Tags: {self.tags}"
@@ -521,8 +528,7 @@ class DatasetInfo(ReprMixin):
         # because of old versions of the datasets lib that need this field
         kwargs.pop("key", None)
         # Store all the other fields returned by the API
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        super().__init__(**kwargs)
 
     def __str__(self):
         r = f"Dataset Name: {self.id}, Tags: {self.tags}"
@@ -570,8 +576,8 @@ class SpaceInfo(ReprMixin):
         self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
         self.author = author
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        # Store all the other fields returned by the API
+        super().__init__(**kwargs)
 
 
 class MetricInfo(ReprMixin):
@@ -594,12 +600,95 @@ class MetricInfo(ReprMixin):
         # because of old versions of the datasets lib that need this field
         kwargs.pop("key", None)
         # Store all the other fields returned by the API
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        super().__init__(**kwargs)
 
     def __str__(self):
         r = f"Metric Name: {self.id}"
         return r
+
+
+class CollectionItem(ReprMixin):
+    """Contains information about an item of a Collection (model, dataset, Space or paper).
+
+    Args:
+        item_object_id (`str`):
+            Unique ID of the item in the collection.
+        item_id (`str`):
+            ID of the underlying object on the Hub. Can be either a repo_id or a paper id
+            e.g. `"jbilcke-hf/ai-comic-factory"`, `"2307.09288"`.
+        item_type (`str`):
+            Type of the underlying object. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+        position (`int`):
+            Position of the item in the collection.
+        note (`str`, *optional*):
+            Note associated with the item, as plain text.
+        kwargs (`Dict`, *optional*):
+            Any other attribute returned by the server. Those attributes depend on the `item_type`: "author", "private",
+            "lastModified", "gated", "title", "likes", "upvotes", etc.
+    """
+
+    def __init__(
+        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+    ) -> None:
+        self.item_object_id: str = _id  # id in database
+        self.item_id: str = id  # repo_id or paper id
+        self.item_type: CollectionItemType_T = type
+        self.position: int = position
+        self.note: str = note["text"] if note is not None else None
+
+        # Store all the other fields returned by the API
+        super().__init__(**kwargs)
+
+
+class Collection(ReprMixin):
+    """
+    Contains information about a Collection on the Hub.
+
+    Args:
+        slug (`str`):
+            Slug of the collection. E.g. `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+        title (`str`):
+            Title of the collection. E.g. `"Recent models"`.
+        owner (`str`):
+            Owner of the collection. E.g. `"TheBloke"`.
+        description (`str`, *optional*):
+            Description of the collection, as plain text.
+        items (`List[CollectionItem]`):
+            List of items in the collection.
+        last_updated (`datetime`):
+            Date of the last update of the collection.
+        position (`int`):
+            Position of the collection in the list of collections of the owner.
+        private (`bool`):
+            Whether the collection is private or not.
+        theme (`str`):
+            Theme of the collection. E.g. `"green"`.
+    """
+
+    slug: str
+    title: str
+    owner: str
+    description: Optional[str]
+    items: List[CollectionItem]
+
+    last_updated: datetime
+    position: int
+    private: bool
+    theme: str
+
+    def __init__(self, data: Dict) -> None:
+        # Collection info
+        self.slug = data["slug"]
+        self.title = data["title"]
+        self.owner = data["owner"]["name"]
+        self.description = data.get("description")
+        self.items = [CollectionItem(**item) for item in data["items"]]
+
+        # Metadata
+        self.last_updated = parse_datetime(data["lastUpdated"])
+        self.private = data["private"]
+        self.position = data["position"]
+        self.theme = data["theme"]
 
 
 class ModelSearchArguments(AttributeDictionary):
@@ -5712,6 +5801,384 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    ########################
+    # Collection Endpoints #
+    ########################
+
+    def get_collection(self, collection_slug: str, *, token: Optional[str] = None) -> Collection:
+        """Gets information about a Collection on the Hub.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection of the Hub. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns: [`Collection`]
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import get_collection
+        >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
+        >>> collection.title
+        'Recent models'
+        >>> len(collection.items)
+        37
+        >>> collection.items[0]
+        CollectionItem: {
+            {'item_object_id': '6507f6d5423b46492ee1413e',
+            'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
+            'author': 'TheBloke',
+            'item_type': 'model',
+            'lastModified': '2023-09-19T12:55:21.000Z',
+            (...)
+        }}
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(r)
+        return Collection(r.json())
+
+    def create_collection(
+        self,
+        title: str,
+        *,
+        namespace: Optional[str] = None,
+        description: Optional[str] = None,
+        private: bool = False,
+        exists_ok: bool = False,
+        token: Optional[str] = None,
+    ) -> Collection:
+        """Create a new Collection on the Hub.
+
+        Args:
+            title (`str`):
+                Title of the collection to create. Example: `"Recent models"`.
+            namespace (`str`, *optional*):
+                Namespace of the collection to create (username or org). Will default to the owner name.
+            description (`str`, *optional*):
+                Description of the collection to create.
+            private (`bool`, *optional*):
+                Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
+            exists_ok (`bool`, *optional*):
+                If `True`, do not raise an error if collection already exists.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns: [`Collection`]
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import create_collection
+        >>> collection = create_collection(
+        ...     title="ICCV 2023",
+        ...     description="Portfolio of models, papers and demos I presented at ICCV 2023",
+        ... )
+        >>> collection.slug
+        "username/iccv-2023-64f9a55bb3115b4f513ec026"
+        ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token)["name"]
+
+        payload = {
+            "title": title,
+            "namespace": namespace,
+            "private": private,
+        }
+        if description is not None:
+            payload["description"] = description
+
+        r = get_session().post(
+            f"{self.endpoint}/api/collections", headers=self._build_hf_headers(token=token), json=payload
+        )
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if exists_ok and err.response.status_code == 409:
+                # Collection already exists and `exists_ok=True`
+                slug = r.json()["slug"]
+                return self.get_collection(slug, token=token)
+            else:
+                raise
+        return Collection(r.json())
+
+    def update_collection_metadata(
+        self,
+        collection_slug: str,
+        *,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        position: Optional[int] = None,
+        private: Optional[bool] = None,
+        theme: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> Collection:
+        """Update metadata of a collection on the Hub.
+
+        All arguments are optional. Only provided metadata will be updated.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            title (`str`):
+                Title of the collection to update.
+            description (`str`, *optional*):
+                Description of the collection to update.
+            position (`int`, *optional*):
+                New position of the collection in the list of collections of the user.
+            private (`bool`, *optional*):
+                Whether the collection should be private or not.
+            theme (`str`, *optional*):
+                Theme of the collection on the Hub.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns: [`Collection`]
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_collection_metadata
+        >>> collection = update_collection_metadata(
+        ...     collection_slug="username/iccv-2023-64f9a55bb3115b4f513ec026",
+        ...     title="ICCV Oct. 2023"
+        ...     description="Portfolio of models, datasets, papers and demos I presented at ICCV Oct. 2023",
+        ...     private=False,
+        ...     theme="pink",
+        ... )
+        >>> collection.slug
+        "username/iccv-oct-2023-64f9a55bb3115b4f513ec026"
+        # ^collection slug got updated but not the trailing ID
+        ```
+        """
+        payload = {
+            "position": position,
+            "private": private,
+            "theme": theme,
+            "title": title,
+            "description": description,
+        }
+        r = get_session().patch(
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
+            # Only send not-none values to the API
+            json={key: value for key, value in payload.items() if value is not None},
+        )
+        hf_raise_for_status(r)
+        return Collection(r.json()["data"])
+
+    def delete_collection(
+        self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
+    ) -> None:
+        """Delete a collection on the Hub.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to delete. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            missing_ok (`bool`, *optional*):
+                If `True`, do not raise an error if collection doesn't exists.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import delete_collection
+        >>> collection = delete_collection("username/useless-collection-64f9a55bb3115b4f513ec026", missing_ok=True)
+        ```
+
+        <Tip warning={true}>
+
+        This is a non-revertible action. A deleted collection cannot be restored.
+
+        </Tip>
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+        )
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if missing_ok and err.response.status_code == 404:
+                # Collection doesn't exists and `missing_ok=True`
+                return
+            else:
+                raise
+
+    def add_collection_item(
+        self,
+        collection_slug: str,
+        item_id: str,
+        item_type: CollectionItemType_T,
+        *,
+        note: Optional[str] = None,
+        exists_ok: bool = False,
+        token: Optional[str] = None,
+    ) -> Collection:
+        """Add an item to a collection on the Hub.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            item_id (`str`):
+                ID of the item to add to the collection. It can be the ID of a repo on the Hub (e.g. `"facebook/bart-large-mnli"`)
+                or a paper id (e.g. `"2307.09288"`).
+            item_type (`str`):
+                Type of the item to add. Can be one of `"model"`, `"dataset"`, `"space"` or `"paper"`.
+            note (`str`, *optional*):
+                A note to attach to the item in the collection. The maximum size for a note is 500 characters.
+            exists_ok (`bool`, *optional*):
+                If `True`, do not raise an error if item already exists.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Returns: [`Collection`]
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import add_collection_item
+        >>> collection = add_collection_item(
+        ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
+        ...     item_id="pierre-loic/climate-news-articles",
+        ...     item_type="dataset"
+        ... )
+        >>> collection.items[-1].item_id
+        "pierre-loic/climate-news-articles"
+        # ^item got added to the collection on last position
+
+        # Add collection with a note
+        >>> add_collection_item(
+        ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
+        ...     item_id="datasets/climate_fever",
+        ...     item_type="dataset"
+        ...     note="This dataset adopts the FEVER methodology that consists of 1,535 real-world claims regarding climate-change collected on the internet."
+        ... )
+        (...)
+        ```
+        """
+        payload: Dict[str, Any] = {"item": {"id": item_id, "type": item_type}}
+        if note is not None:
+            payload["note"] = note
+        r = get_session().post(
+            f"{self.endpoint}/api/collections/{collection_slug}/items",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if exists_ok and err.response.status_code == 409:
+                # Item already exists and `exists_ok=True`
+                return self.get_collection(collection_slug, token=token)
+            else:
+                raise
+        return Collection(r.json())
+
+    def update_collection_item(
+        self,
+        collection_slug: str,
+        item_object_id: str,
+        *,
+        note: Optional[str] = None,
+        position: Optional[int] = None,
+        token: Optional[str] = None,
+    ) -> None:
+        """Update an item in a collection.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            item_object_id (`str`):
+                ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
+                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
+            note (`str`, *optional*):
+                A note to attach to the item in the collection. The maximum size for a note is 500 characters.
+            position (`int`, *optional*):
+                New position of the item in the collection.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import get_collection, update_collection_item
+
+        # Get collection first
+        >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
+
+        # Update item based on its ID (add note + update position)
+        >>> update_collection_item(
+        ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
+        ...     item_object_id=collection.items[-1].item_object_id,
+        ...     note="Newly updated model!"
+        ...     position=0,
+        ... )
+        ```
+        """
+        payload = {"position": position, "note": note}
+        r = get_session().patch(
+            f"{self.endpoint}/api/collections/{collection_slug}/items/{item_object_id}",
+            headers=self._build_hf_headers(token=token),
+            # Only send not-none values to the API
+            json={key: value for key, value in payload.items() if value is not None},
+        )
+        hf_raise_for_status(r)
+
+    def delete_collection_item(
+        self,
+        collection_slug: str,
+        item_object_id: str,
+        *,
+        missing_ok: bool = False,
+        token: Optional[str] = None,
+    ) -> None:
+        """Delete an item from a collection.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            item_object_id (`str`):
+                ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
+                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
+            missing_ok (`bool`, *optional*):
+                If `True`, do not raise an error if item doesn't exists.
+            token (`str`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import get_collection, delete_collection_item
+
+        # Get collection first
+        >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
+
+        # Delete item based on its ID
+        >>> delete_collection_item(
+        ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
+        ...     item_object_id=collection.items[-1].item_object_id,
+        ... )
+        ```
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/collections/{collection_slug}/items/{item_object_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        try:
+            hf_raise_for_status(r)
+        except HTTPError as err:
+            if missing_ok and err.response.status_code == 404:
+                # Item already deleted and `missing_ok=True`
+                return
+            else:
+                raise
+
     def _build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
@@ -5904,3 +6371,13 @@ restart_space = api.restart_space
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+
+# Collections API
+get_collection = api.get_collection
+create_collection = api.create_collection
+update_collection_metadata = api.update_collection_metadata
+delete_collection = api.delete_collection
+add_collection_item = api.add_collection_item
+update_collection_item = api.update_collection_item
+delete_collection_item = api.delete_collection_item
+delete_collection_item = api.delete_collection_item

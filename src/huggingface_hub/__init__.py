@@ -129,6 +129,8 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "Collection",
+        "CollectionItem",
         "CommitInfo",
         "CommitOperation",
         "CommitOperationAdd",
@@ -142,11 +144,13 @@ _SUBMOD_ATTRS = {
         "ModelSearchArguments",
         "RepoUrl",
         "UserLikes",
+        "add_collection_item",
         "add_space_secret",
         "add_space_variable",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
+        "create_collection",
         "create_commit",
         "create_commits_on_pr",
         "create_discussion",
@@ -155,6 +159,8 @@ _SUBMOD_ATTRS = {
         "create_tag",
         "dataset_info",
         "delete_branch",
+        "delete_collection",
+        "delete_collection_item",
         "delete_file",
         "delete_folder",
         "delete_repo",
@@ -165,6 +171,7 @@ _SUBMOD_ATTRS = {
         "duplicate_space",
         "edit_discussion_comment",
         "file_exists",
+        "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -199,6 +206,8 @@ _SUBMOD_ATTRS = {
         "space_info",
         "super_squash_history",
         "unlike",
+        "update_collection_item",
+        "update_collection_metadata",
         "update_repo_visibility",
         "upload_file",
         "upload_folder",
@@ -438,6 +447,8 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
+        Collection,  # noqa: F401
+        CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
         CommitOperation,  # noqa: F401
         CommitOperationAdd,  # noqa: F401
@@ -451,11 +462,13 @@ if TYPE_CHECKING:  # pragma: no cover
         ModelSearchArguments,  # noqa: F401
         RepoUrl,  # noqa: F401
         UserLikes,  # noqa: F401
+        add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
+        create_collection,  # noqa: F401
         create_commit,  # noqa: F401
         create_commits_on_pr,  # noqa: F401
         create_discussion,  # noqa: F401
@@ -464,6 +477,8 @@ if TYPE_CHECKING:  # pragma: no cover
         create_tag,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
+        delete_collection,  # noqa: F401
+        delete_collection_item,  # noqa: F401
         delete_file,  # noqa: F401
         delete_folder,  # noqa: F401
         delete_repo,  # noqa: F401
@@ -474,6 +489,7 @@ if TYPE_CHECKING:  # pragma: no cover
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
+        get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
@@ -508,6 +524,8 @@ if TYPE_CHECKING:  # pragma: no cover
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         unlike,  # noqa: F401
+        update_collection_item,  # noqa: F401
+        update_collection_metadata,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
