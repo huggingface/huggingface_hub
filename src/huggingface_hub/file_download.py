@@ -971,17 +971,19 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
             The directory where the file will be stored after downloading.
     """
 
-    target_dir = str(target_dir)
-    target_dir_free = shutil.disk_usage(target_dir).free
-
-    has_enough_space = target_dir_free >= expected_size
-
-    if not has_enough_space:
-        warnings.warn(
-            "Not enough free disk space to download the file. "
-            f"The expected file size is: {expected_size / 1e6:.2f} MB. "
-            f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
-        )
+    target_dir = Path(target_dir)  # format as `Path`
+    for path in [target_dir] + list(target_dir.parents):  # first check target_dir, then each parents one by one
+        try:
+            target_dir_free = shutil.disk_usage(path).free
+            if target_dir_free < expected_size:
+                warnings.warn(
+                    "Not enough free disk space to download the file. "
+                    f"The expected file size is: {expected_size / 1e6:.2f} MB. "
+                    f"The target location {target_dir} only has {target_dir_free / 1e6:.2f} MB free disk space."
+                )
+            return
+        except OSError:  # raise on anything: file does not exist or space disk cannot be checked
+            pass
 
 
 @validate_hf_hub_args
