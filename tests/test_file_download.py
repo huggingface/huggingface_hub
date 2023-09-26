@@ -113,18 +113,18 @@ class TestDiskUsageWarning(unittest.TestCase):
             assert len(w) == 0
 
     def test_disk_usage_warning_with_non_existent_path(self) -> None:
-        # Test for not existent path
+        # Test for not existent (absolute) path
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
-            _check_disk_space(expected_size=self.expected_size, target_dir="not_existent_path")
+            _check_disk_space(expected_size=self.expected_size, target_dir="path/to/not_existent_path")
             assert len(w) == 0
 
-        # Test for relative path
+        # Test for not existent (relative) path
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
-            _check_disk_space(expected_size=self.expected_size, target_dir="./not_existent_path")
+            _check_disk_space(expected_size=self.expected_size, target_dir="/path/to/not_existent_path")
             assert len(w) == 0
 
 
