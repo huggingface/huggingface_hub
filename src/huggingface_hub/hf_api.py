@@ -137,6 +137,10 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
+_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
+    "\nNote: Creating a commit assumes that the repo already exists on the"
+    " Huggingface Hub. Please use `create_repo` if it's not the case."
+)
 
 logger = logging.get_logger(__name__)
 
@@ -2907,6 +2911,9 @@ class HfApi:
                     - [`~hf_api.CommitOperationDelete`] to delete a file
                     - [`~hf_api.CommitOperationCopy`] to copy a file
 
+                Operation objects will be mutated to include information relative to the upload. Do not reuse the
+                same objects for multiple commits.
+
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
 
@@ -2982,11 +2989,6 @@ class HfApi:
 
         </Tip>
         """
-        _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
-            "\nNote: Creating a commit assumes that the repo already exists on the"
-            " Huggingface Hub. Please use `create_repo` if it's not the case."
-        )
-
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 f"`parent_commit` is not a valid commit OID. It must match the following regex: {REGEX_COMMIT_OID}"
@@ -3009,6 +3011,13 @@ class HfApi:
         nb_copies = len(copies)
         nb_deletions = len(operations) - nb_additions - nb_copies
 
+        for addition in additions:
+            if addition._is_committed:
+                raise ValueError(
+                    f"CommitOperationAdd {addition} has already being committed and cannot be reused. Please create a"
+                    " new CommitOperationAdd object if you want to create a new commit."
+                )
+
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
@@ -3017,19 +3026,15 @@ class HfApi:
         # If updating twice the same file or update then delete a file in a single commit
         warn_on_overwriting_operations(operations)
 
-        try:
-            upload_modes = fetch_upload_modes(
-                additions=additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                token=token or self.token,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
+        self.preupload_lfs_files(
+            repo_id=repo_id,
+            additions=additions,
+            token=token,
+            repo_type=repo_type,
+            revision=revision,
+            create_pr=create_pr,
+            num_threads=num_threads,
+        )
         files_to_copy = fetch_lfs_files_to_copy(
             copies=copies,
             repo_type=repo_type,
@@ -3038,17 +3043,8 @@ class HfApi:
             revision=revision,
             endpoint=self.endpoint,
         )
-        upload_lfs_files(
-            additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
-            repo_type=repo_type,
-            repo_id=repo_id,
-            token=token or self.token,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
-        )
         commit_payload = prepare_commit_payload(
             operations=operations,
-            upload_modes=upload_modes,
             files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
@@ -3082,6 +3078,10 @@ class HfApi:
                     " operations with a trailing '/' or using `is_folder=True/False`."
                 )
             raise
+
+        # Mark additions as committed (cannot be reused in another commit)
+        for addition in additions:
+            addition._is_committed = True
 
         commit_data = commit_resp.json()
         return CommitInfo(
@@ -3391,6 +3391,96 @@ class HfApi:
                     ) from error
 
         return pr.url
+
+    def preupload_lfs_files(
+        self,
+        repo_id: str,
+        additions: Iterable[CommitOperationAdd],
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+    ):
+        """Pre-upload LFS files to S3 in preparation on a future commit.
+
+        This method is useful if you are generating the files to upload on-the-fly and you don't want to store them
+        in memory before uploading them all at once.
+
+        <Tip warning={true}>
+
+        This is a power-user method. You shouldn't need to call it directly to make a normal commit.
+        Use [`~hf_api.create_commit`] directly instead.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository in which you will commit the files, for example: `"username/custom_transformers"`.
+
+            operations (`Iterable` of [`~hf_api.CommitOperationAdd`]):
+                The list of files to upload. Warning: the objects in this list will be mutated to include information
+                relative to the upload. Do not reuse the same objects for multiple commits.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+
+            create_pr (`boolean`, *optional*):
+                Whether or not you plan to create a Pull Request with that commit. Defaults to `False`.
+
+            num_threads (`int`, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+                Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+        Example:
+        ```py
+        ```
+        """
+        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        create_pr = create_pr if create_pr is not None else False
+
+        # Filter out already uploaded files
+        new_additions = [addition for addition in additions if not addition._is_uploaded]
+
+        # Check which new files are LFS
+        try:
+            fetch_upload_modes(
+                additions=new_additions,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                token=token or self.token,
+                revision=revision,
+                endpoint=self.endpoint,
+                create_pr=create_pr or False,
+            )
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+            raise
+
+        # Filter out regular files
+        new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
+
+        # Upload new LFS files
+        upload_lfs_files(
+            additions=new_lfs_additions,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token or self.token,
+            endpoint=self.endpoint,
+            num_threads=num_threads,
+        )
+        for addition in new_lfs_additions:
+            addition._is_uploaded = True
 
     @overload
     def upload_file(  # type: ignore
@@ -6339,6 +6429,7 @@ upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
 create_commits_on_pr = api.create_commits_on_pr
+preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch
 create_tag = api.create_tag

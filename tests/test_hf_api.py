@@ -907,7 +907,8 @@ class CommitApiTest(HfApiCommonTest):
             self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_commit_preflight_on_lots_of_lfs_files(self):
+    @use_tmp_repo()
+    def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
         """Test committing 1300 LFS files at once.
 
         This was not possible when `fetch_upload_modes` was not fetching metadata by
@@ -919,34 +920,27 @@ class CommitApiTest(HfApiCommonTest):
 
         See https://github.com/huggingface/huggingface_hub/pull/1117.
         """
-        REPO_NAME = repo_name("commit_preflight_lots_of_lfs_files")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        try:
-            operations = []
-            for num in range(1300):
-                operations.append(
-                    CommitOperationAdd(
-                        path_in_repo=f"file-{num}.bin",  # considered as LFS
-                        path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
-                    )
-                )
-
-            # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
-            res = fetch_upload_modes(
-                additions=operations,
-                repo_type="model",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=TOKEN,
-                revision="main",
-                endpoint=ENDPOINT_STAGING,
+        operations = [
+            CommitOperationAdd(
+                path_in_repo=f"file-{num}.bin",  # considered as LFS
+                path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
             )
-            self.assertEqual(len(res), 1300)
-            for _, mode in res.items():
-                self.assertEqual(mode, "lfs")
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+            for num in range(1300)
+        ]
+
+        # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
+        fetch_upload_modes(
+            additions=operations,
+            repo_type="model",
+            repo_id=repo_url.repo_id,
+            token=TOKEN,
+            revision="main",
+            endpoint=ENDPOINT_STAGING,
+        )
+        for operation in operations:
+            self.assertEqual(operation._upload_mode, "lfs")
+            self.assertFalse(operation._is_committed)
+            self.assertFalse(operation._is_uploaded)
 
     @retry_endpoint
     def test_create_commit_repo_id_case_insensitive(self):
