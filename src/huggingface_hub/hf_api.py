@@ -2899,6 +2899,28 @@ class HfApi:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
+        <Tip warning={true}>
+
+        The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
+        for multiple commits.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~hf_api.create_repo`].
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
+
+        </Tip>
+
         Args:
             repo_id (`str`):
                 The repository in which the commit will be created, for example:
@@ -2973,21 +2995,6 @@ class HfApi:
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
-
-        <Tip warning={true}>
-
-        `create_commit` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
-
-        </Tip>
         """
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
@@ -3034,6 +3041,7 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             num_threads=num_threads,
+            free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
         files_to_copy = fetch_lfs_files_to_copy(
             copies=copies,
@@ -3124,6 +3132,14 @@ class HfApi:
 
         </Tip>
 
+        <Tip warning={true}>
+
+        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
+        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        create it first using [`~hf_api.create_repo`].
+
+        </Tip>
+
         Args:
             repo_id (`str`):
                 The repository in which the commits will be pushed. Example: `"username/my-cool-model"`.
@@ -3187,14 +3203,6 @@ class HfApi:
             [`MultiCommitException`]:
                 If an unexpected issue occur in the process: empty commits, unexpected commits in a PR, unexpected PR
                 description, etc.
-
-        <Tip warning={true}>
-
-        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
-        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
-        create it first using [`~hf_api.create_repo`].
-
-        </Tip>
         """
         logger = logging.get_logger(__name__ + ".create_commits_on_pr")
         if verbose:
@@ -3402,6 +3410,7 @@ class HfApi:
         revision: Optional[str] = None,
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
+        free_memory: bool = True,
     ):
         """Pre-upload LFS files to S3 in preparation on a future commit.
 
@@ -3411,7 +3420,16 @@ class HfApi:
         <Tip warning={true}>
 
         This is a power-user method. You shouldn't need to call it directly to make a normal commit.
-        Use [`~hf_api.create_commit`] directly instead.
+        Use [`create_commit`] directly instead.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
+        removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
+        objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
+        commit operation object, pass `free_memory=False`.
 
         </Tip>
 
@@ -3419,7 +3437,7 @@ class HfApi:
             repo_id (`str`):
                 The repository in which you will commit the files, for example: `"username/custom_transformers"`.
 
-            operations (`Iterable` of [`~hf_api.CommitOperationAdd`]):
+            operations (`Iterable` of [`CommitOperationAdd`]):
                 The list of files to upload. Warning: the objects in this list will be mutated to include information
                 relative to the upload. Do not reuse the same objects for multiple commits.
 
@@ -3481,6 +3499,8 @@ class HfApi:
         )
         for addition in new_lfs_additions:
             addition._is_uploaded = True
+            if free_memory:
+                addition.path_or_fileobj = b""
 
     @overload
     def upload_file(  # type: ignore
