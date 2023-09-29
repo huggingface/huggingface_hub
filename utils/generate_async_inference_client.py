@@ -207,7 +207,7 @@ ASYNC_POST_CODE = """
                 except asyncio.TimeoutError as error:
                     await client.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
-                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error
+                    raise InferenceTimeoutError(f"Inference call timed out: {url}") from error  # type: ignore
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await client.close()
@@ -216,7 +216,9 @@ ASYNC_POST_CODE = """
                         if timeout is not None and time.time() - t0 > timeout:
                             raise InferenceTimeoutError(
                                 f"Model not loaded on the server: {url}. Please retry with a higher timeout"
-                                f" (current: {self.timeout})."
+                                f" (current: {self.timeout}).",
+                                request=error.request,
+                                response=error.response,
                             ) from error
                         # ...or wait 1s and retry
                         logger.info(f"Waiting for model to be loaded on the server: {error}")

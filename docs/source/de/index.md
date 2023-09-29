@@ -16,11 +16,6 @@ In der [Kurzanleitung](quick-start) der `huggingface_hub` Bibliothek erfahren Si
       <p class="text-gray-700">Praktische Leitfäden, um ein bestimmtes Ziel zu erreichen. Durchstöbern Sie diese Anleitungen, um zu erfahren, wie Sie mit huggingface_hub echte Herausforderungen meistern können.</p>
     </a>
 
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">
-      <div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Referenz</div>
-      <p class="text-gray-700">Umfassende und technische Beschreibung der Klassen und Methoden von huggingface_hub.</p>
-    </a>
-
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">
       <div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Konzeptionelle Leitfäden</div>
       <p class="text-gray-700">Methodische Erklärungen zum Aufbau eines besseren Verständnisses der Huggingface_hub-Philosophie.</p>
@@ -28,6 +23,11 @@ In der [Kurzanleitung](quick-start) der `huggingface_hub` Bibliothek erfahren Si
 
   </div>
 </div>
+
+<!-- <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">
+  <div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Referenz</div>
+  <p class="text-gray-700">Umfassende und technische Beschreibung der Klassen und Methoden von huggingface_hub.</p>
+</a> -->
 
 <!-- 
 <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./tutorials/overview"
