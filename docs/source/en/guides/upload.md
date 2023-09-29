@@ -443,8 +443,9 @@ is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
 <Tip warning={true}>
 
 This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
-the low-level logic of pre-uploading files is the way to go in the vast majority of cases. If you have a question,
-feel free to ping us on our Discord or in a Github issue.
+the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
+[`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
+the Hub. If you have a question, feel free to ping us on our Discord or in a Github issue.
 
 </Tip>
 
@@ -462,7 +463,7 @@ Here is a simple example illustrating how to pre-upload files:
 ...     preupload_lfs_files(repo_id, additions=[addition])
 ...     operations.append(addition)
 
-# Create commit 
+# Create commit
 >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
 ```
 
