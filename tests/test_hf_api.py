@@ -1019,6 +1019,58 @@ class CommitApiTest(HfApiCommonTest):
         repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        operations = [
+            CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+        ]
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="Copy LFS file.",
+            operations=operations,
+        )
+
+        self.assertTrue(operations[0]._is_committed)
+        self.assertTrue(operations[0]._is_uploaded)  # LFS file
+        self.assertEqual(operations[0].path_or_fileobj, b"content")  # not removed by default
+        self.assertTrue(operations[1]._is_committed)
+        self.assertEqual(operations[1].path_or_fileobj, b"content")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_pre_upload_before_commit(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        operations = [
+            CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content1"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="lfs2.bin", path_or_fileobj=b"content2"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+        ]
+
+        # First: preupload 1 by 1
+        for operation in operations:
+            self._api.preupload_lfs_files(repo_id, [operation])
+        self.assertTrue(operations[0]._is_uploaded)
+        self.assertEqual(operations[0].path_or_fileobj, b"")  # Freed memory
+        self.assertTrue(operations[2]._is_uploaded)
+        self.assertEqual(operations[2].path_or_fileobj, b"")  # Freed memory
+
+        # create commit and capture debug logs
+        with self.assertLogs("huggingface_hub", level="DEBUG") as debug_logs:
+            self._api.create_commit(
+                repo_id=repo_id,
+                commit_message="Copy LFS file.",
+                operations=operations,
+            )
+
+        # No LFS files uploaded during commit
+        self.assertTrue(any("No LFS files to upload." in log for log in debug_logs.output))
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
     @classmethod
