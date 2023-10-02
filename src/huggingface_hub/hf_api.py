@@ -3459,6 +3459,20 @@ class HfApi:
 
         Example:
         ```py
+        >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
+
+        >>> repo_id = create_repo("test_preupload").repo_id
+
+        # Generate and preupload LFS files one by one
+        >>> operations = [] # List of all `CommitOperationAdd` objects that will be generated
+        >>> for i in range(5):
+        ...     content = ... # generate binary content
+        ...     addition = CommitOperationAdd(path_in_repo=f"shard_{i}_of_5.bin", path_or_fileobj=content)
+        ...     preupload_lfs_files(repo_id, additions=[addition]) # upload + free memory
+        ...     operations.append(addition)
+
+        # Create commit
+        >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
         ```
         """
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
