@@ -436,7 +436,7 @@ For more detailed information, take a look at the [`HfApi`] reference.
 In some cases, you might want to upload huge files to S3 **before** making the commit call. For example, if you are
 committing a dataset in several shards that are generated in-memory, you would need to upload the shards one by one
 to avoid a out-of-memory issue. A solution is to upload each shard as a separate commit on the repo. While being
-perfectly valid, this solution has the drawback of potentially messing the git history by generating a tens of commits.
+perfectly valid, this solution has the drawback of potentially messing the git history by generating tens of commits.
 To overcome this issue, you can upload your files one by one to S3 and then create a single commit at the end. This
 is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
 

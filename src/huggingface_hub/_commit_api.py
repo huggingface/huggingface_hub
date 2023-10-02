@@ -263,7 +263,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
 CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
-def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
+def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
     """
     Warn user when a list of operations is expected to overwrite itself in a single
     commit.
@@ -310,7 +310,7 @@ def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
 
 
 @validate_hf_hub_args
-def upload_lfs_files(
+def _upload_lfs_files(
     *,
     additions: List[CommitOperationAdd],
     repo_type: str,
@@ -432,7 +432,7 @@ def _validate_preupload_info(preupload_info: dict):
 
 
 @validate_hf_hub_args
-def fetch_upload_modes(
+def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
@@ -505,7 +505,7 @@ def fetch_upload_modes(
 
 
 @validate_hf_hub_args
-def fetch_lfs_files_to_copy(
+def _fetch_lfs_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
@@ -566,7 +566,7 @@ def fetch_lfs_files_to_copy(
     return files_to_copy
 
 
-def prepare_commit_payload(
+def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
     files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
     commit_message: str,

@@ -39,7 +39,7 @@ from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    fetch_upload_modes,
+    _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
@@ -911,7 +911,7 @@ class CommitApiTest(HfApiCommonTest):
     def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
         """Test committing 1300 LFS files at once.
 
-        This was not possible when `fetch_upload_modes` was not fetching metadata by
+        This was not possible when `_fetch_upload_modes` was not fetching metadata by
         chunks. We are not testing the full upload as it would require to upload 1300
         files which is unnecessary for the test. Having an overall large payload (for
         `/create-commit` endpoint) is tested in `test_create_commit_huge_regular_files`.
@@ -928,8 +928,8 @@ class CommitApiTest(HfApiCommonTest):
             for num in range(1300)
         ]
 
-        # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
-        fetch_upload_modes(
+        # Test `_fetch_upload_modes` preflight ("are they regular or LFS files?")
+        _fetch_upload_modes(
             additions=operations,
             repo_type="model",
             repo_id=repo_url.repo_id,

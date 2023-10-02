@@ -63,11 +63,11 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    fetch_lfs_files_to_copy,
-    fetch_upload_modes,
-    prepare_commit_payload,
-    upload_lfs_files,
-    warn_on_overwriting_operations,
+    _fetch_lfs_files_to_copy,
+    _fetch_upload_modes,
+    _prepare_commit_payload,
+    _upload_lfs_files,
+    _warn_on_overwriting_operations,
 )
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
@@ -3031,7 +3031,7 @@ class HfApi:
         )
 
         # If updating twice the same file or update then delete a file in a single commit
-        warn_on_overwriting_operations(operations)
+        _warn_on_overwriting_operations(operations)
 
         self.preupload_lfs_files(
             repo_id=repo_id,
@@ -3043,7 +3043,7 @@ class HfApi:
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
-        files_to_copy = fetch_lfs_files_to_copy(
+        files_to_copy = _fetch_lfs_files_to_copy(
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,
@@ -3051,7 +3051,7 @@ class HfApi:
             revision=revision,
             endpoint=self.endpoint,
         )
-        commit_payload = prepare_commit_payload(
+        commit_payload = _prepare_commit_payload(
             operations=operations,
             files_to_copy=files_to_copy,
             commit_message=commit_message,
@@ -3472,7 +3472,7 @@ class HfApi:
 
         # Check which new files are LFS
         try:
-            fetch_upload_modes(
+            _fetch_upload_modes(
                 additions=new_additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
@@ -3489,7 +3489,7 @@ class HfApi:
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
         # Upload new LFS files
-        upload_lfs_files(
+        _upload_lfs_files(
             additions=new_lfs_additions,
             repo_type=repo_type,
             repo_id=repo_id,
