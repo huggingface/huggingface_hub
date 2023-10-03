@@ -891,10 +891,8 @@ class DatasetCardTest(TestCaseWithCapLog):
         # Here we pass the card data as kwargs as well so template picks up pretty_name.
         card = DatasetCard.from_template(
             card_data,
-            homepage_url="https://huggingface.co",
-            repo_url="https://github.com/huggingface/huggingface_hub",
-            paper_url="https://arxiv.org/pdf/1910.03771.pdf",
-            point_of_contact="https://huggingface.co/nateraw",
+            repo="https://github.com/huggingface/huggingface_hub",
+            paper="https://arxiv.org/pdf/1910.03771.pdf",
             dataset_summary=(
                 "This is a test dataset card to check if the template variables "
                 "in the dataset card template are working."
@@ -903,8 +901,8 @@ class DatasetCardTest(TestCaseWithCapLog):
         self.assertTrue(card.text.strip().startswith("# Dataset Card for My Cool Dataset"))
         self.assertIsInstance(card, DatasetCard)
 
-        matches = re.findall(r"Homepage:\*\* https:\/\/huggingface\.co", str(card))
-        self.assertEqual(matches[0], "Homepage:** https://huggingface.co")
+        matches = re.findall(r"Repository:\*\* https://github\.com/huggingface/huggingface_hub", str(card))
+        self.assertEqual(matches[0], "Repository:** https://github.com/huggingface/huggingface_hub")
 
     @require_jinja
     def test_dataset_card_from_custom_template(self):
