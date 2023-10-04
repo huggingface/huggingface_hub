@@ -435,7 +435,7 @@ For more detailed information, take a look at the [`HfApi`] reference.
 
 In some cases, you might want to upload huge files to S3 **before** making the commit call. For example, if you are
 committing a dataset in several shards that are generated in-memory, you would need to upload the shards one by one
-to avoid a out-of-memory issue. A solution is to upload each shard as a separate commit on the repo. While being
+to avoid an out-of-memory issue. A solution is to upload each shard as a separate commit on the repo. While being
 perfectly valid, this solution has the drawback of potentially messing the git history by generating tens of commits.
 To overcome this issue, you can upload your files one by one to S3 and then create a single commit at the end. This
 is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
@@ -445,7 +445,7 @@ is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
 This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
 the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
 [`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
-the Hub. If you have a question, feel free to ping us on our Discord or in a Github issue.
+the Hub. If you have a question, feel free to ping us on our Discord or in a GitHub issue.
 
 </Tip>
 
@@ -463,17 +463,17 @@ Here is a simple example illustrating how to pre-upload files:
 ...     preupload_lfs_files(repo_id, additions=[addition])
 ...     operations.append(addition)
 
-# Create commit
+>>> # Create commit
 >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
 ```
 
 First, we create the [`CommitOperationAdd`] objects one by one. In a real-world example, those would contain the
 generated shards. Each file is uploaded before generating the next one. During the [`preupload_lfs_files`] step, **the
-`CommitOperationAdd` object is mutated**. You should only use it to pass it to directly to [`create_commit`]. The main
+`CommitOperationAdd` object is mutated**. You should only use it to pass it directly to [`create_commit`]. The main
 update of the object is that **the binary content is removed** from it, meaning that it will be garbage-collected if
 you don't store another reference to it. This is expected as we don't want to keep in memory the content that is
 already uploaded. Finally we create the commit by passing all the operations to [`create_commit`]. You can pass
-additional operations (add, delete or copy) that have not being processed yet and they will be handled correctly.
+additional operations (add, delete or copy) that have not been processed yet and they will be handled correctly.
 
 ## Tips and tricks for large uploads
 
