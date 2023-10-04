@@ -194,6 +194,7 @@ _SUBMOD_ATTRS = {
         "model_info",
         "move_repo",
         "pause_space",
+        "preupload_lfs_files",
         "rename_discussion",
         "repo_exists",
         "repo_info",
@@ -512,6 +513,7 @@ if TYPE_CHECKING:  # pragma: no cover
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
         pause_space,  # noqa: F401
+        preupload_lfs_files,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
