@@ -19,6 +19,7 @@
 {{ dataset_description | default("", true) }}
 
 - **Curated by:** {{ curators | default("[More Information Needed]", true)}}
+- **Funded by [optional]:** {{ funded_by | default("[More Information Needed]", true)}}
 - **Shared by [optional]:** {{ shared_by | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
@@ -34,6 +35,12 @@
 ## Uses
 
 <!-- Address questions around how the dataset is intended to be used. -->
+
+### Direct Use
+
+<!-- This section describes suitable use cases for the dataset. -->
+
+{{ direct_use | default("[More Information Needed]", true)}}
 
 ### Out-of-Scope Use
 
@@ -59,11 +66,11 @@
 
 <!-- This section describes the source data (e.g. news text and headlines, social media posts, translated sentences, ...). -->
 
-#### Initial Data Collection and Normalization
+#### Data Collection and Processing
 
-<!-- This section describes the data collection process such as data selection criteria, filtering methods, runtime information (tools and libraries), etc. -->
+<!-- This section describes the data collection and processing process such as data selection criteria, filtering and normalization methods, tools and libraries used, etc. -->
 
-{{ data_collection_section | default("[More Information Needed]", true)}}
+{{ data_collection_and_processing_section | default("[More Information Needed]", true)}}
 
 #### Who are the source data producers?
 
@@ -87,17 +94,17 @@
 
 {{ who_are_annotators_section | default("[More Information Needed]", true)}}
 
+#### Personal and Sensitive Information
+
+<!-- State whether the dataset contains data that might be considered sensitive (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions, financial or health data, etc.). If efforts were made to anonymize the data, describe the anonymization process. -->
+
+{{ personal_and_sensitive_information | default("[More Information Needed]", true)}}
+
 ## Bias, Risks, and Limitations
 
 <!-- This section is meant to convey both technical and sociotechnical limitations. -->
 
 {{ bias_risks_limitations | default("[More Information Needed]", true)}}
-
-### Privacy Considerations
-
-<!-- State whether the dataset contains data that might be considered sensitive (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions, financial or health data, etc.). If efforts were made to anonymize the data, describe the anonymization process. -->
-
-{{ privacy_considerations | default("[More Information Needed]", true)}}
 
 ### Recommendations
 
