@@ -50,7 +50,7 @@
 
 ## Dataset Structure
 
-<!-- This section provides description of the dataset fields, and additional information about the dataset structure such as criteria used to create the splits, relationships between data points, etc. -->
+<!-- This section provides a description of the dataset fields, and additional information about the dataset structure such as criteria used to create the splits, relationships between data points, etc. -->
 
 {{ dataset_structure | default("[More Information Needed]", true)}}
 
@@ -80,7 +80,7 @@
 
 ### Annotations [optional]
 
-<!-- If the dataset contains annotations which are not part of the initial data collection, use this section to desribe them. -->
+<!-- If the dataset contains annotations which are not part of the initial data collection, use this section to describe them. -->
 
 #### Annotation process
 
@@ -96,7 +96,7 @@
 
 #### Personal and Sensitive Information
 
-<!-- State whether the dataset contains data that might be considered sensitive (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions, financial or health data, etc.). If efforts were made to anonymize the data, describe the anonymization process. -->
+<!-- State whether the dataset contains data that might be considered personal, sensitive, or private (e.g., data that reveals addresses, uniquely identifiable names or aliases, racial or ethnic origins, sexual orientations, religious beliefs, political opinions, financial or health data, etc.). If efforts were made to anonymize the data, describe the anonymization process. -->
 
 {{ personal_and_sensitive_information | default("[More Information Needed]", true)}}
 
