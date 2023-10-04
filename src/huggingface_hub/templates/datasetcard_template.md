@@ -93,6 +93,12 @@
 
 {{ bias_risks_limitations | default("[More Information Needed]", true)}}
 
+### Privacy Considerations
+
+<!-- State whether the dataset contains data that might be considered sensitive (e.g., data that reveals racial or ethnic origins, sexual orientations, religious beliefs, political opinions, financial or health data, etc.). If efforts were made to anonymize the data, describe the anonymization process. -->
+
+{{ privacy_considerations | default("[More Information Needed]", true)}}
+
 ### Recommendations
 
 <!-- This section is meant to convey recommendations with respect to the bias, risk, and technical limitations. -->
