@@ -1798,9 +1798,7 @@ class HfApi:
 
         # Parse the results into User objects
         likers_data = response.json()
-        likers = [User(**user_data) for user_data in likers_data]
-
-        return likers
+        return [User(**user_data) for user_data in likers_data]
 
     @validate_hf_hub_args
     def model_info(
