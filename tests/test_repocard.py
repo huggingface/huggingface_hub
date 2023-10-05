@@ -23,7 +23,6 @@ import yaml
 from huggingface_hub import (
     DatasetCard,
     DatasetCardData,
-    EntryNotFoundError,
     EvalResult,
     ModelCard,
     ModelCardData,
@@ -42,7 +41,7 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
-from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
+from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_jinja_available, logging
 
 from .testing_constants import (
     ENDPOINT_STAGING,
