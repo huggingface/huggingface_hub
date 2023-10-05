@@ -213,7 +213,7 @@ class HfFileSystemTests(unittest.TestCase):
                 self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
 
 
-@pytest.mark.parametrize("path_in_repo", ["", "foo"])
+@pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
 @pytest.mark.parametrize(
     "root_path,revision,repo_type,repo_id,resolved_revision",
     [
@@ -238,6 +238,18 @@ class HfFileSystemTests(unittest.TestCase):
         ("hf://datasets/squad", None, "dataset", "squad", "main"),
         ("hf://datasets/squad", "dev", "dataset", "squad", "dev"),
         ("hf://datasets/squad@dev", None, "dataset", "squad", "dev"),
+        # Parse with `refs/convert/parquet` and `refs/pr/(\d)+` revisions.
+        # Regression tests for https://github.com/huggingface/huggingface_hub/issues/1710.
+        ("datasets/squad@refs/convert/parquet", None, "dataset", "squad", "refs/convert/parquet"),
+        (
+            "hf://datasets/username/my_dataset@refs/convert/parquet",
+            None,
+            "dataset",
+            "username/my_dataset",
+            "refs/convert/parquet",
+        ),
+        ("gpt2@refs/pr/2", None, "model", "gpt2", "refs/pr/2"),
+        ("hf://username/my_model@refs/pr/10", None, "model", "username/my_model", "refs/pr/10"),
     ],
 )
 def test_resolve_path(
@@ -254,7 +266,7 @@ def test_resolve_path(
     def mock_repo_info(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
             raise RepositoryNotFoundError(repo_id)
-        if revision is not None and revision not in ["main", "dev"]:
+        if revision is not None and revision not in ["main", "dev"] and not revision.startswith("refs/"):
             raise RevisionNotFoundError(revision)
 
     with patch.object(fs._api, "repo_info", mock_repo_info):

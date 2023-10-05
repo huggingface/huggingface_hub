@@ -1,5 +1,6 @@
 import itertools
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,6 +21,17 @@ from .utils import (
     http_backoff,
     paginate,
     parse_datetime,
+)
+
+
+# Regex used to match special revisions with "/" in them (see #1710)
+SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+(^refs\/convert\/parquet) # `refs/convert/parquet` revisions
+|
+(^refs\/pr\/\d+)          # PR revisions
+""",
+    re.VERBOSE,
 )
 
 
@@ -156,7 +168,13 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if "@" in path:
                 repo_id, revision_in_path = path.split("@", 1)
                 if "/" in revision_in_path:
-                    revision_in_path, path_in_repo = revision_in_path.split("/", 1)
+                    match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
+                    if revision is None and match is not None:
+                        # Handle `refs/convert/parquet` and PR revisions separately
+                        path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
+                        revision_in_path = match.group()
+                    else:
+                        revision_in_path, path_in_repo = revision_in_path.split("/", 1)
                 else:
                     path_in_repo = ""
                 revision_in_path = unquote(revision_in_path)
