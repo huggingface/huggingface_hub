@@ -18,7 +18,6 @@ import unittest
 from pathlib import Path
 
 import pytest
-import requests
 import yaml
 
 from huggingface_hub import (
@@ -30,6 +29,8 @@ from huggingface_hub import (
     RepoCard,
     SpaceCard,
     SpaceCardData,
+    get_hf_file_metadata,
+    hf_hub_url,
     metadata_eval_result,
     metadata_load,
     metadata_save,
@@ -40,11 +41,10 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
-from huggingface_hub.utils import SoftTemporaryDirectory, is_jinja_available, logging
+from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_jinja_available, logging
 
 from .testing_constants import (
     ENDPOINT_STAGING,
-    ENDPOINT_STAGING_BASIC_AUTH,
     TOKEN,
     USER,
 )
@@ -653,19 +653,16 @@ class RepoCardTest(TestCaseWithCapLog):
         content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
-        url = f"{ENDPOINT_STAGING_BASIC_AUTH}/{repo_id}/resolve/main/README.md"
-
         # Check this file doesn't exist (sanity check)
-        with pytest.raises(requests.exceptions.HTTPError):
-            r = requests.get(url)
-            r.raise_for_status()
+        readme_url = hf_hub_url(repo_id, "README.md")
+        with self.assertRaises(EntryNotFoundError):
+            get_hf_file_metadata(readme_url)
 
         # Push the card up to README.md in the repo
         card.push_to_hub(repo_id, token=TOKEN)
 
         # No error should occur now, as README.md should exist
-        r = requests.get(url)
-        r.raise_for_status()
+        get_hf_file_metadata(readme_url)
 
         self._api.delete_repo(repo_id=repo_id)
 
@@ -684,14 +681,12 @@ class RepoCardTest(TestCaseWithCapLog):
         content = f"---\n{card_data.to_yaml()}\n---\n\n# MyModel\n\nHello, world!"
         card = RepoCard(content)
 
-        url = f"{ENDPOINT_STAGING_BASIC_AUTH}/api/models/{repo_id}/discussions"
-        r = requests.get(url)
-        data = r.json()
-        self.assertEqual(data["count"], 0)
+        discussions = list(self._api.get_repo_discussions(repo_id))
+        self.assertEqual(len(discussions), 0)
+
         card.push_to_hub(repo_id, token=TOKEN, create_pr=True)
-        r = requests.get(url)
-        data = r.json()
-        self.assertEqual(data["count"], 1)
+        discussions = list(self._api.get_repo_discussions(repo_id))
+        self.assertEqual(len(discussions), 1)
 
         self._api.delete_repo(repo_id=repo_id)
 

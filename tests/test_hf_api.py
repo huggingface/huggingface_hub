@@ -27,7 +27,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import Mock, patch
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import pytest
 import requests
@@ -39,7 +39,7 @@ from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    fetch_upload_modes,
+    _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.constants import (
@@ -81,7 +81,6 @@ from huggingface_hub.utils.endpoint_helpers import (
 
 from .testing_constants import (
     ENDPOINT_STAGING,
-    ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     OTHER_TOKEN,
     OTHER_USER,
@@ -907,10 +906,11 @@ class CommitApiTest(HfApiCommonTest):
             self._api.delete_repo(repo_id=REPO_NAME)
 
     @retry_endpoint
-    def test_commit_preflight_on_lots_of_lfs_files(self):
+    @use_tmp_repo()
+    def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
         """Test committing 1300 LFS files at once.
 
-        This was not possible when `fetch_upload_modes` was not fetching metadata by
+        This was not possible when `_fetch_upload_modes` was not fetching metadata by
         chunks. We are not testing the full upload as it would require to upload 1300
         files which is unnecessary for the test. Having an overall large payload (for
         `/create-commit` endpoint) is tested in `test_create_commit_huge_regular_files`.
@@ -919,34 +919,27 @@ class CommitApiTest(HfApiCommonTest):
 
         See https://github.com/huggingface/huggingface_hub/pull/1117.
         """
-        REPO_NAME = repo_name("commit_preflight_lots_of_lfs_files")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        try:
-            operations = []
-            for num in range(1300):
-                operations.append(
-                    CommitOperationAdd(
-                        path_in_repo=f"file-{num}.bin",  # considered as LFS
-                        path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
-                    )
-                )
-
-            # Test `fetch_upload_modes` preflight ("are they regular or LFS files?")
-            res = fetch_upload_modes(
-                additions=operations,
-                repo_type="model",
-                repo_id=f"{USER}/{REPO_NAME}",
-                token=TOKEN,
-                revision="main",
-                endpoint=ENDPOINT_STAGING,
+        operations = [
+            CommitOperationAdd(
+                path_in_repo=f"file-{num}.bin",  # considered as LFS
+                path_or_fileobj=b"Hello LFS" + b"a" * 2048,  # big enough sample
             )
-            self.assertEqual(len(res), 1300)
-            for _, mode in res.items():
-                self.assertEqual(mode, "lfs")
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+            for num in range(1300)
+        ]
+
+        # Test `_fetch_upload_modes` preflight ("are they regular or LFS files?")
+        _fetch_upload_modes(
+            additions=operations,
+            repo_type="model",
+            repo_id=repo_url.repo_id,
+            token=TOKEN,
+            revision="main",
+            endpoint=ENDPOINT_STAGING,
+        )
+        for operation in operations:
+            self.assertEqual(operation._upload_mode, "lfs")
+            self.assertFalse(operation._is_committed)
+            self.assertFalse(operation._is_uploaded)
 
     @retry_endpoint
     def test_create_commit_repo_id_case_insensitive(self):
@@ -1024,6 +1017,58 @@ class CommitApiTest(HfApiCommonTest):
         # Check same LFS file
         repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        operations = [
+            CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+        ]
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="Copy LFS file.",
+            operations=operations,
+        )
+
+        self.assertTrue(operations[0]._is_committed)
+        self.assertTrue(operations[0]._is_uploaded)  # LFS file
+        self.assertEqual(operations[0].path_or_fileobj, b"content")  # not removed by default
+        self.assertTrue(operations[1]._is_committed)
+        self.assertEqual(operations[1].path_or_fileobj, b"content")
+
+    @retry_endpoint
+    @use_tmp_repo()
+    def test_pre_upload_before_commit(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        operations = [
+            CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content1"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="lfs2.bin", path_or_fileobj=b"content2"),
+            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+        ]
+
+        # First: preupload 1 by 1
+        for operation in operations:
+            self._api.preupload_lfs_files(repo_id, [operation])
+        self.assertTrue(operations[0]._is_uploaded)
+        self.assertEqual(operations[0].path_or_fileobj, b"")  # Freed memory
+        self.assertTrue(operations[2]._is_uploaded)
+        self.assertEqual(operations[2].path_or_fileobj, b"")  # Freed memory
+
+        # create commit and capture debug logs
+        with self.assertLogs("huggingface_hub", level="DEBUG") as debug_logs:
+            self._api.create_commit(
+                repo_id=repo_id,
+                commit_message="Copy LFS file.",
+                operations=operations,
+            )
+
+        # No LFS files uploaded during commit
+        self.assertTrue(any("No LFS files to upload." in log for log in debug_logs.output))
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
@@ -2086,9 +2131,11 @@ class HfLargefilesTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.repo_id)
 
     def setup_local_clone(self) -> None:
-        REMOTE_URL_AUTH = self.repo_url.replace(ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH)
+        scheme = urlparse(self.repo_url).scheme
+        repo_url_auth = self.repo_url.replace(f"{scheme}://", f"{scheme}://user:{TOKEN}@")
+
         subprocess.run(
-            ["git", "clone", REMOTE_URL_AUTH, str(self.cache_dir)],
+            ["git", "clone", repo_url_auth, str(self.cache_dir)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -3,7 +3,7 @@ import unittest
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationDelete,
-    warn_on_overwriting_operations,
+    _warn_on_overwriting_operations,
 )
 
 
@@ -104,7 +104,7 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
     delete_folder_e = CommitOperationDelete(path_in_repo="e/")
 
     def test_no_overwrite(self) -> None:
-        warn_on_overwriting_operations(
+        _warn_on_overwriting_operations(
             [
                 self.add_file_ab,
                 self.add_file_abc,
@@ -115,21 +115,21 @@ class TestWarnOnOverwritingOperations(unittest.TestCase):
 
     def test_add_then_update_file(self) -> None:
         with self.assertWarns(UserWarning):
-            warn_on_overwriting_operations([self.add_file_abc, self.update_file_abc])
+            _warn_on_overwriting_operations([self.add_file_abc, self.update_file_abc])
 
     def test_add_then_delete_file(self) -> None:
         with self.assertWarns(UserWarning):
-            warn_on_overwriting_operations([self.add_file_abc, self.delete_file_abc])
+            _warn_on_overwriting_operations([self.add_file_abc, self.delete_file_abc])
 
     def test_add_then_delete_folder(self) -> None:
         with self.assertWarns(UserWarning):
-            warn_on_overwriting_operations([self.add_file_abc, self.delete_folder_a])
+            _warn_on_overwriting_operations([self.add_file_abc, self.delete_folder_a])
 
         with self.assertWarns(UserWarning):
-            warn_on_overwriting_operations([self.add_file_ab, self.delete_folder_a])
+            _warn_on_overwriting_operations([self.add_file_ab, self.delete_folder_a])
 
     def test_delete_file_then_add(self) -> None:
-        warn_on_overwriting_operations([self.delete_file_abc, self.add_file_abc])
+        _warn_on_overwriting_operations([self.delete_file_abc, self.add_file_abc])
 
     def test_delete_folder_then_add(self) -> None:
-        warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
+        _warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
