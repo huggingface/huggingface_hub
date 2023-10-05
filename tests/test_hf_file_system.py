@@ -250,6 +250,7 @@ class HfFileSystemTests(unittest.TestCase):
         ),
         ("gpt2@refs/pr/2", None, "model", "gpt2", "refs/pr/2"),
         ("hf://username/my_model@refs/pr/10", None, "model", "username/my_model", "refs/pr/10"),
+        ("hf://username/my_model@refs/pr/10", "refs/pr/10", "model", "username/my_model", "refs/pr/10"),
     ],
 )
 def test_resolve_path(
@@ -263,13 +264,7 @@ def test_resolve_path(
     fs = HfFileSystem()
     path = root_path + "/" + path_in_repo if path_in_repo else root_path
 
-    def mock_repo_info(repo_id: str, *, revision: str, repo_type: str, **kwargs):
-        if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
-            raise RepositoryNotFoundError(repo_id)
-        if revision is not None and revision not in ["main", "dev"] and not revision.startswith("refs/"):
-            raise RevisionNotFoundError(revision)
-
-    with patch.object(fs._api, "repo_info", mock_repo_info):
+    with mock_repo_info(fs):
         resolved_path = fs.resolve_path(path, revision=revision)
         assert (
             resolved_path.repo_type,
@@ -277,6 +272,35 @@ def test_resolve_path(
             resolved_path.revision,
             resolved_path.path_in_repo,
         ) == (repo_type, repo_id, resolved_revision, path_in_repo)
+
+
+@pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
+@pytest.mark.parametrize(
+    "path,revision,expected_path",
+    [
+        ("hf://datasets/squad@dev", None, "datasets/squad@dev"),
+        ("datasets/squad@refs/convert/parquet", None, "datasets/squad@refs/convert/parquet"),
+        ("hf://username/my_model@refs/pr/10", None, "username/my_model@refs/pr/10"),
+        ("username/my_model", "refs/weirdo", "username/my_model@refs%2Fweirdo"),  # not a "special revision" -> encode
+    ],
+)
+def test_unresolve_path(path: str, revision: Optional[str], expected_path: str, path_in_repo: str) -> None:
+    fs = HfFileSystem()
+    path = path + "/" + path_in_repo if path_in_repo else path
+    expected_path = expected_path + "/" + path_in_repo if path_in_repo else expected_path
+
+    with mock_repo_info(fs):
+        assert fs.resolve_path(path, revision=revision).unresolve() == expected_path
+
+
+def mock_repo_info(fs: HfFileSystem):
+    def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
+        if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
+            raise RepositoryNotFoundError(repo_id)
+        if revision is not None and revision not in ["main", "dev"] and not revision.startswith("refs/"):
+            raise RevisionNotFoundError(revision)
+
+    return patch.object(fs._api, "repo_info", _inner)
 
 
 def test_resolve_path_with_non_matching_revisions():
