@@ -27,10 +27,10 @@ from .utils import (
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
     r"""
-(^refs\/convert\/parquet) # `refs/convert/parquet` revisions
-|
-(^refs\/pr\/\d+)          # PR revisions
-""",
+    (^refs\/convert\/parquet) # `refs/convert/parquet` revisions
+    |
+    (^refs\/pr\/\d+)          # PR revisions
+    """,
     re.VERBOSE,
 )
 
