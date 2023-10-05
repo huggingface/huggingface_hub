@@ -1766,7 +1766,7 @@ class HfApi:
         token: Optional[str] = None,
     ) -> List[User]:
         """
-        List all users who liked a given repo on huggingface.co.
+        List all users who liked a given repo on the hugging Face Hub.
 
         See also [`like`] and [`list_liked_repos`].
 
