@@ -293,11 +293,25 @@ def test_unresolve_path(path: str, revision: Optional[str], expected_path: str, 
         assert fs.resolve_path(path, revision=revision).unresolve() == expected_path
 
 
+def test_resolve_path_with_refs_revision() -> None:
+    """
+    Testing a very specific edge case where a user has a repo with a revisions named "refs" and a file/directory
+    named "pr/10". We can still process them but the user has to use the `revision` argument to disambiguate between
+    the two.
+    """
+    fs = HfFileSystem()
+    with mock_repo_info(fs):
+        resolved = fs.resolve_path("hf://username/my_model@refs/pr/10", revision="refs")
+        assert resolved.revision == "refs"
+        assert resolved.path_in_repo == "pr/10"
+        assert resolved.unresolve() == "username/my_model@refs/pr/10"
+
+
 def mock_repo_info(fs: HfFileSystem):
     def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["gpt2", "squad", "username/my_dataset", "username/my_model"]:
             raise RepositoryNotFoundError(repo_id)
-        if revision is not None and revision not in ["main", "dev"] and not revision.startswith("refs/"):
+        if revision is not None and revision not in ["main", "dev", "refs"] and not revision.startswith("refs/"):
             raise RevisionNotFoundError(revision)
 
     return patch.object(fs._api, "repo_info", _inner)
