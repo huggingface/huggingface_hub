@@ -134,7 +134,7 @@ Each library defines its own policy (i.e. which usage to monitor) but the core i
 
 You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
 
-### HF_HUB_ENABLE_HF_TRANSFER [[hf-transfer]]
+### HF_HUB_ENABLE_HF_TRANSFER
 
 Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 
