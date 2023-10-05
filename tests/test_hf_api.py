@@ -27,7 +27,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import Mock, patch
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import pytest
 import requests
@@ -81,7 +81,6 @@ from huggingface_hub.utils.endpoint_helpers import (
 
 from .testing_constants import (
     ENDPOINT_STAGING,
-    ENDPOINT_STAGING_BASIC_AUTH,
     FULL_NAME,
     OTHER_TOKEN,
     OTHER_USER,
@@ -2132,9 +2131,11 @@ class HfLargefilesTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.repo_id)
 
     def setup_local_clone(self) -> None:
-        REMOTE_URL_AUTH = self.repo_url.replace(ENDPOINT_STAGING, ENDPOINT_STAGING_BASIC_AUTH)
+        scheme = urlparse(self.repo_url).scheme
+        repo_url_auth = self.repo_url.replace(f"{scheme}://", f"{scheme}://user:{TOKEN}@")
+
         subprocess.run(
-            ["git", "clone", REMOTE_URL_AUTH, str(self.cache_dir)],
+            ["git", "clone", repo_url_auth, str(self.cache_dir)],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
