@@ -48,9 +48,7 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ._text_generation import (
-    TextGenerationStreamResponse,
-)
+from ._text_generation import TextGenerationStreamResponse, _parse_text_generation_error
 
 
 if TYPE_CHECKING:
@@ -275,7 +273,10 @@ def _stream_text_generation_response(
         if payload.startswith("data:"):
             # Decode payload
             json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Parse payload
+            # Either an error as being returned
+            if json_payload.get("error") is not None:
+                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
+            # Or parse token payload
             output = TextGenerationStreamResponse(**json_payload)
             yield output.token.text if not details else output
 
@@ -295,7 +296,10 @@ async def _async_stream_text_generation_response(
         if payload.startswith("data:"):
             # Decode payload
             json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Parse payload
+            # Either an error as being returned
+            if json_payload.get("error") is not None:
+                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
+            # Or parse token payload
             output = TextGenerationStreamResponse(**json_payload)
             yield output.token.text if not details else output
 

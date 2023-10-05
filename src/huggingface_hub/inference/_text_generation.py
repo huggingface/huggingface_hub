@@ -447,6 +447,10 @@ class IncompleteGenerationError(TextGenerationError):
     pass
 
 
+class UnknownError(TextGenerationError):
+    pass
+
+
 def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
     """
     Try to parse text-generation-inference error message and raise HTTPError in any case.
@@ -460,21 +464,27 @@ def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
     try:
         # Hacky way to retrieve payload in case of aiohttp error
         payload = getattr(http_error, "response_error_payload", None) or http_error.response.json()
-        message = payload.get("error")
+        error = payload.get("error")
         error_type = payload.get("error_type")
     except Exception:  # no payload
         raise http_error
 
     # If error_type => more information than `hf_raise_for_status`
     if error_type is not None:
-        if error_type == "generation":
-            raise GenerationError(message) from http_error  # type: ignore
-        if error_type == "incomplete_generation":
-            raise IncompleteGenerationError(message) from http_error  # type: ignore
-        if error_type == "overloaded":
-            raise OverloadedError(message) from http_error  # type: ignore
-        if error_type == "validation":
-            raise ValidationError(message) from http_error  # type: ignore
+        exception = _parse_text_generation_error(error, error_type)
+        raise exception from http_error  # type: ignore
 
     # Otherwise, fallback to default error
     raise http_error
+
+
+def _parse_text_generation_error(error: Optional[str], error_type: Optional[str]) -> TextGenerationError:
+    if error_type == "generation":
+        return GenerationError(error)
+    if error_type == "incomplete_generation":
+        return IncompleteGenerationError(error)
+    if error_type == "overloaded":
+        return OverloadedError(error)
+    if error_type == "validation":
+        return ValidationError(error)
+    return UnknownError(error)
