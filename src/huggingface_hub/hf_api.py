@@ -919,6 +919,26 @@ class UserLikes:
     spaces: List[str]
 
 
+@dataclass
+class User:
+    """
+    Contains information about a user on the Hub.
+
+    Args:
+        avatar_url (`str`):
+            URL of the user's avatar.
+        username (`str`):
+            Name of the user on the Hub (unique).
+        fullname (`str`):
+            User's full name.
+    """
+
+    # Metadata
+    avatar_url: str
+    username: str
+    fullname: str
+
+
 def future_compatible(fn: CallableT) -> CallableT:
     """Wrap a method of `HfApi` to handle `run_as_future=True`.
 
@@ -1729,6 +1749,56 @@ class HfApi:
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
         )
+
+    @validate_hf_hub_args
+    def list_repo_likers(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> List[User]:
+        """
+        List all users who liked a given repo on the hugging Face Hub.
+
+        See also [`like`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to retrieve . Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns:
+            `List[User]`: a list of [`User`] objects.
+        """
+
+        # Construct the API endpoint
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
+        headers = self._build_hf_headers(token=token)
+
+        # Make the request
+        response = get_session().get(path, headers=headers)
+        hf_raise_for_status(response)
+
+        # Parse the results into User objects
+        likers_data = response.json()
+        return [
+            User(
+                username=user_data["user"],
+                fullname=user_data["fullname"],
+                avatar_url=user_data["avatarUrl"],
+            )
+            for user_data in likers_data
+        ]
 
     @validate_hf_hub_args
     def model_info(
@@ -6475,6 +6545,7 @@ run_as_future = api.run_as_future
 
 # Activity API
 list_liked_repos = api.list_liked_repos
+list_repo_likers = api.list_repo_likers
 like = api.like
 unlike = api.unlike
 

@@ -71,6 +71,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
 
+### User
+
+[[autodoc]] huggingface_hub.hf_api.User
+
 ### UserLikes
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
