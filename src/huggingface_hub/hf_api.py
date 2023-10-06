@@ -925,23 +925,18 @@ class User:
     Contains information about a user on the Hub.
 
     Args:
-        name (`str`):
-            Name of the user.
-        avatarUrl (`str`):
+        avatar_url (`str`):
             URL of the user's avatar.
-        fullName (`str`):
+        username (`str`):
+            Name of the user on the Hub (unique).
+        fullname (`str`):
             User's full name.
     """
 
     # Metadata
-    name: str
-    avatarUrl: str
-    fullName: str
-
-    def __init__(self, data: Dict) -> None:
-        self.name = data["name"]
-        self.avatarUrl = data["avatarUrl"]
-        self.fullName = data["fullName"]
+    avatar_url: str
+    username: str
+    fullname: str
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -1079,11 +1074,9 @@ class HfApi:
             hf_raise_for_status(r)
         except HTTPError as e:
             raise HTTPError(
-                (
-                    "Invalid user token. If you didn't pass a user token, make sure you "
-                    "are properly logged in by executing `huggingface-cli login`, and "
-                    "if you did pass a user token, double-check it's correct."
-                ),
+                "Invalid user token. If you didn't pass a user token, make sure you "
+                "are properly logged in by executing `huggingface-cli login`, and "
+                "if you did pass a user token, double-check it's correct.",
                 request=e.request,
                 response=e.response,
             ) from e
@@ -1787,9 +1780,9 @@ class HfApi:
         """
 
         # Construct the API endpoint
-        path = f"{self.endpoint}/api/models/{repo_id}/likers"
-        if repo_type:
-            path = f"{self.endpoint}/api/{repo_type}/{repo_id}/likers"
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
         headers = self._build_hf_headers(token=token)
 
         # Make the request
@@ -1798,7 +1791,14 @@ class HfApi:
 
         # Parse the results into User objects
         likers_data = response.json()
-        return [User(**user_data) for user_data in likers_data]
+        return [
+            User(
+                username=user_data["user"],
+                fullname=user_data["fullname"],
+                avatar_url=user_data["avatarUrl"],
+            )
+            for user_data in likers_data
+        ]
 
     @validate_hf_hub_args
     def model_info(
@@ -5682,11 +5682,9 @@ class HfApi:
         """
         if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
-                (
-                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
-                ),
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
         payload: Dict[str, Any] = {"flavor": hardware}
@@ -5739,11 +5737,9 @@ class HfApi:
         hardware = runtime.requested_hardware or runtime.hardware
         if hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
-                (
-                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
-                ),
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
         return runtime
@@ -5919,11 +5915,9 @@ class HfApi:
 
         if sleep_time is not None and hardware == SpaceHardware.CPU_BASIC:
             warnings.warn(
-                (
-                    "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
-                    " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
-                    " you want to set a custom sleep time, you need to upgrade to a paid Hardware."
-                ),
+                "If your Space runs on the default 'cpu-basic' hardware, it will go to sleep if inactive for more"
+                " than 48 hours. This value is not configurable. If you don't want your Space to deactivate or if"
+                " you want to set a custom sleep time, you need to upgrade to a paid Hardware.",
                 UserWarning,
             )
 
@@ -6551,6 +6545,7 @@ run_as_future = api.run_as_future
 
 # Activity API
 list_liked_repos = api.list_liked_repos
+list_repo_likers = api.list_repo_likers
 like = api.like
 unlike = api.unlike
 

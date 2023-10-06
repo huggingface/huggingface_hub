@@ -2476,7 +2476,7 @@ class ActivityApiTest(unittest.TestCase):
         likers = self.api.list_repo_likers(repo_id, token=TOKEN)
 
         # Check if the test user is in the list of likers
-        liker_usernames = [user.name for user in likers]
+        liker_usernames = [user.username for user in likers]
         self.assertGreater(len(likers), 0)
         self.assertIn(USER, liker_usernames)
 
@@ -3150,10 +3150,8 @@ class RepoUrlTest(unittest.TestCase):
         # __repr__ is modified for debugging purposes
         self.assertEqual(
             repr(url),
-            (
-                "RepoUrl('https://huggingface.co/gpt2',"
-                " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')"
-            ),
+            "RepoUrl('https://huggingface.co/gpt2',"
+            " endpoint='https://huggingface.co', repo_type='model', repo_id='gpt2')",
         )
 
     def test_repo_url_endpoint(self):
