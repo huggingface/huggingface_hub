@@ -6253,7 +6253,7 @@ class HfApi:
         "pierre-loic/climate-news-articles"
         # ^item got added to the collection on last position
 
-        # Add collection with a note
+        # Add item with a note
         >>> add_collection_item(
         ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
         ...     item_id="datasets/climate_fever",
