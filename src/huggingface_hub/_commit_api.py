@@ -137,21 +137,17 @@ class CommitOperationAdd:
     upload_info: UploadInfo = field(init=False, repr=False)
 
     # Internal attributes
-    _upload_mode: Optional[UploadMode] = None  # set to "lfs" or "regular" once known
-    _is_uploaded: bool = False  # set to True once the file has been upload as LFS
-    _is_committed: bool = False  # set to True once the file has been committed
+    _upload_mode: Optional[UploadMode] = field(
+        init=False, repr=False, default=None
+    )  # set to "lfs" or "regular" once known
+    _is_uploaded: bool = field(
+        init=False, repr=False, default=False
+    )  # set to True once the file has been uploaded as LFS
+    _is_committed: bool = field(init=False, repr=False, default=False)  # set to True once the file has been committed
 
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
-
-        # Validate `_is_uploaded` and `_upload_mode` cannot be set by user
-        if self._is_uploaded is not False:
-            raise ValueError("Attribute `_is_uploaded` cannot be set manually.")
-        if self._upload_mode is not None:
-            raise ValueError("Attribute `_upload_mode` cannot be set manually.")
-        if self._is_committed is not False:
-            raise ValueError("Attribute `_is_committed` cannot be set manually.")
 
         # Validate `path_or_fileobj` value
         if isinstance(self.path_or_fileobj, Path):
