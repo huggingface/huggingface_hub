@@ -136,17 +136,15 @@ You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally dis
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
-Set to `True` to download files from the Hub using `hf_transfer`. It's a Rust-based package
-that enables faster download (up to x2 speed-up). Be aware that this is still experimental
-so it might cause issues in your workflow. In particular, it does not support features such
-as progress bars, resume download, proxies or error handling.
+Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 
-**Note:** `hf_transfer` has to be installed separately [from Pypi](https://pypi.org/project/hf-transfer/).
+By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions. Although these are reliable and versatile, they may not be the most efficient choice for machines with high bandwidth. [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to maximize the bandwidth used by dividing large files into smaller parts and transferring them simultaneously using multiple threads. This approach can potentially double the transfer speed. To use `hf_transfer`, you need to install it separately [from PyPI](https://pypi.org/project/hf-transfer/) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+
+Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as progress bars, resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
 
 ## From external tools
 
-Some environment variables are not specific to `huggingface_hub` but still taken into account
-when they are set.
+Some environment variables are not specific to `huggingface_hub` but are still taken into account when they are set.
 
 ### NO_COLOR
 
