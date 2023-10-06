@@ -493,7 +493,7 @@ be re-uploaded twice but checking it client-side can still save some time.
 uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
 by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
 Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like progress
-bars or advanced error handling.
+bars or advanced error handling. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 ## (legacy) Upload files with Git LFS
 

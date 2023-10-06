@@ -42,8 +42,12 @@ from typing import List, Literal, Optional, Union
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+
+
+logger = logging.get_logger(__name__)
 
 
 class DownloadCommand(BaseHuggingfaceCLICommand):
@@ -163,6 +167,12 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
             if self.exclude is not None and len(self.exclude) > 0:
                 warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
+
+        if not HF_HUB_ENABLE_HF_TRANSFER:
+            logger.info(
+                "Consider using `hf_transfer` for faster downloads. This solution comes with some limitations. See"
+                " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
+            )
 
         # Single file to download: use `hf_hub_download`
         if len(self.filenames) == 1:
