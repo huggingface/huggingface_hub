@@ -137,7 +137,7 @@ class CommitOperationAdd:
     upload_info: UploadInfo = field(init=False, repr=False)
 
     # Internal attributes
-    _upload_mode: UploadMode = field(init=False, repr=False)  # set to "lfs" or "regular" once known
+    _upload_mode: Optional[UploadMode] = field(init=False, repr=False, default=None)  # set to "lfs" or "regular" once known
     _is_uploaded: bool = field(
         init=False, repr=False, default=False
     )  # set to True once the file has been uploaded as LFS
