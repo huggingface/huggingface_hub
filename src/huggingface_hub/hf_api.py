@@ -4237,6 +4237,7 @@ class HfApi:
         proxies: Optional[Dict] = None,
         etag_timeout: float = 10,
         resume_download: bool = False,
+        token: Optional[str] = None,
         local_files_only: bool = False,
         legacy_cache_layout: bool = False,
     ) -> str:
@@ -4322,6 +4323,11 @@ class HfApi:
                 data before giving up which is passed to `requests.request`.
             resume_download (`bool`, *optional*, defaults to `False`):
                 If `True`, resume a previously interrupted download.
+            token (`str`, *optional*):
+                A token to be used for the download.
+                - If `True`, the token is read from the HuggingFace config
+                  folder.
+                - If a string, it's used as the authentication token.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4376,7 +4382,7 @@ class HfApi:
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            token=self.token,
+            token=token or self.token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -4395,6 +4401,7 @@ class HfApi:
         etag_timeout: float = 10,
         resume_download: bool = False,
         force_download: bool = False,
+        token: Optional[str] = None,
         local_files_only: bool = False,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
@@ -4455,6 +4462,11 @@ class HfApi:
                 If `True`, resume a previously interrupted download.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
+            token (`str`, *optional*):
+                A token to be used for the download.
+                    - If `True`, the token is read from the HuggingFace config
+                    folder.
+                    - If a string, it's used as the authentication token.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4505,7 +4517,7 @@ class HfApi:
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             force_download=force_download,
-            token=self.token,
+            token=token or self.token,
             local_files_only=local_files_only,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
