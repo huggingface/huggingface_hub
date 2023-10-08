@@ -29,6 +29,9 @@ TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"
 CONFIG_NAME = "config.json"
 REPOCARD_NAME = "README.md"
+DEFAULT_ETAG_TIMEOUT = 10
+DEFAULT_DOWNLOAD_TIMEOUT = 10
+DEFAULT_REQUEST_TIMEOUT = 10
 
 # Git-related constants
 
@@ -129,6 +132,12 @@ HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRAN
 HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
     _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
 )
+
+# Used to override the etag timeout on a system level
+HF_HUB_ETAG_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_ETAG_TIMEOUT")) or DEFAULT_ETAG_TIMEOUT
+
+# Used to override the get request timeout on a system level
+HF_HUB_DOWNLOAD_TIMEOUT: int = _as_int(os.environ.get("HF_HUB_DOWNLOAD_TIMEOUT")) or DEFAULT_DOWNLOAD_TIMEOUT
 
 # List frameworks that are handled by the InferenceAPI service. Useful to scan endpoints and check which models are
 # deployed and running. Since 95% of the models are using the top 4 frameworks listed below, we scan only those by

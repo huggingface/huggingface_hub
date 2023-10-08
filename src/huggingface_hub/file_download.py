@@ -33,10 +33,15 @@ from .constants import (
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
+    HF_HUB_ETAG_TIMEOUT,
+    HF_HUB_DOWNLOAD_TIMEOUT,
     HUGGINGFACE_HUB_CACHE,
     REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    DEFAULT_ETAG_TIMEOUT,
+    DEFAULT_REQUEST_TIMEOUT,
 )
 from .utils import (
     EntryNotFoundError,
@@ -373,7 +378,7 @@ def _request_wrapper(
     max_retries: int = 0,
     base_wait_time: float = 0.5,
     max_wait_time: float = 2,
-    timeout: Optional[float] = 10.0,
+    timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
     follow_relative_redirects: bool = False,
     **params,
 ) -> requests.Response:
@@ -478,13 +483,16 @@ def http_get(
     proxies=None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout: Optional[float] = 10.0,
+    timeout: Optional[float] = DEFAULT_DOWNLOAD_TIMEOUT,
     max_retries: int = 0,
     expected_size: Optional[int] = None,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
+    if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
+        timeout = HF_HUB_DOWNLOAD_TIMEOUT
+
     if not resume_size:
         if HF_HUB_ENABLE_HF_TRANSFER:
             try:
@@ -576,7 +584,7 @@ def cached_download(
     force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = 10,
+    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
@@ -656,6 +664,9 @@ def cached_download(
 
     </Tip>
     """
+    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+        etag_timeout = HF_HUB_ETAG_TIMEOUT
+
     if not legacy_cache_layout:
         warnings.warn(
             "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
@@ -1005,7 +1016,7 @@ def hf_hub_download(
     force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = 10,
+    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
@@ -1138,6 +1149,9 @@ def hf_hub_download(
 
     </Tip>
     """
+    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+        etag_timeout = HF_HUB_ETAG_TIMEOUT
+
     if force_filename is not None:
         warnings.warn(
             "The `force_filename` parameter is deprecated as a new caching system, "

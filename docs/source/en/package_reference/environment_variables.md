@@ -74,6 +74,14 @@ small files will be duplicated to ease user experience while bigger files are sy
 
 For more details, see the [download guide](../guides/download#download-files-to-local-folder).
 
+### HF_HUB_ETAG_TIMEOUT
+
+Integer value to define etag timeout when fetching ETag on the system level.
+
+### HF_HUB_DOWNLOAD_TIMEOUT
+
+Integer value to define get request timeout when fetching a file on the system level.
+
 ## Boolean values
 
 The following environment variables expect a boolean value. The variable will be considered

@@ -93,6 +93,8 @@ from .community import (
 )
 from .constants import (
     DEFAULT_REVISION,
+    HF_HUB_ETAG_TIMEOUT,
+    DEFAULT_ETAG_TIMEOUT,
     ENDPOINT,
     REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,
@@ -4041,7 +4043,7 @@ class HfApi:
         force_download: bool = False,
         force_filename: Optional[str] = None,
         proxies: Optional[Dict] = None,
-        etag_timeout: float = 10,
+        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
         local_files_only: bool = False,
         legacy_cache_layout: bool = False,
@@ -4164,6 +4166,9 @@ class HfApi:
         """
         from .file_download import hf_hub_download
 
+        if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+            etag_timeout = HF_HUB_ETAG_TIMEOUT
+
         return hf_hub_download(
             repo_id=repo_id,
             filename=filename,
@@ -4198,7 +4203,7 @@ class HfApi:
         local_dir: Union[str, Path, None] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         proxies: Optional[Dict] = None,
-        etag_timeout: float = 10,
+        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
         force_download: bool = False,
         local_files_only: bool = False,
@@ -4295,6 +4300,9 @@ class HfApi:
         </Tip>
         """
         from ._snapshot_download import snapshot_download
+
+        if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+            etag_timeout = HF_HUB_ETAG_TIMEOUT
 
         return snapshot_download(
             repo_id=repo_id,
