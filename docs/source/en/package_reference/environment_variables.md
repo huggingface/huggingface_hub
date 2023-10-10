@@ -76,7 +76,7 @@ For more details, see the [download guide](../guides/download#download-files-to-
 
 ### HF_HUB_ETAG_TIMEOUT
 
-Integer value to define etag timeout when fetching ETag on the system level.
+Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
 
 ### HF_HUB_DOWNLOAD_TIMEOUT
 
