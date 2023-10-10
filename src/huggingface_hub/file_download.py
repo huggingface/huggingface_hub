@@ -491,6 +491,7 @@ def http_get(
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
+        # Respect environment variable above user value
         timeout = HF_HUB_DOWNLOAD_TIMEOUT
 
     if not resume_size:
