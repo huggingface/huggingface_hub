@@ -147,8 +147,6 @@ def snapshot_download(
 
     </Tip>
     """
-    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
-        etag_timeout = HF_HUB_ETAG_TIMEOUT
 
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
