@@ -80,7 +80,7 @@ Integer value to define the number of seconds to wait for server response when f
 
 ### HF_HUB_DOWNLOAD_TIMEOUT
 
-Integer value to define get request timeout when fetching a file on the system level.
+Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
 
 ## Boolean values
 
