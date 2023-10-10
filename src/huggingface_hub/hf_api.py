@@ -4237,7 +4237,7 @@ class HfApi:
         proxies: Optional[Dict] = None,
         etag_timeout: float = 10,
         resume_download: bool = False,
-        token: Optional[str] = None,
+        token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
         legacy_cache_layout: bool = False,
     ) -> str:
@@ -4323,11 +4323,11 @@ class HfApi:
                 data before giving up which is passed to `requests.request`.
             resume_download (`bool`, *optional*, defaults to `False`):
                 If `True`, resume a previously interrupted download.
-            token (`str`, *optional*):
-                A token to be used for the download.
-                - If `True`, the token is read from the HuggingFace config
-                  folder.
-                - If a string, it's used as the authentication token.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4364,6 +4364,10 @@ class HfApi:
         """
         from .file_download import hf_hub_download
 
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
         return hf_hub_download(
             repo_id=repo_id,
             filename=filename,
@@ -4382,7 +4386,7 @@ class HfApi:
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            token=token or self.token,
+            token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -4401,7 +4405,7 @@ class HfApi:
         etag_timeout: float = 10,
         resume_download: bool = False,
         force_download: bool = False,
-        token: Optional[str] = None,
+        token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
@@ -4462,11 +4466,11 @@ class HfApi:
                 If `True`, resume a previously interrupted download.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
-            token (`str`, *optional*):
-                A token to be used for the download.
-                    - If `True`, the token is read from the HuggingFace config
-                    folder.
-                    - If a string, it's used as the authentication token.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4502,6 +4506,10 @@ class HfApi:
         """
         from ._snapshot_download import snapshot_download
 
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
         return snapshot_download(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -4517,7 +4525,7 @@ class HfApi:
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             force_download=force_download,
-            token=token or self.token,
+            token=token,
             local_files_only=local_files_only,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
