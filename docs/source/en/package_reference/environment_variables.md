@@ -74,6 +74,14 @@ small files will be duplicated to ease user experience while bigger files are sy
 
 For more details, see the [download guide](../guides/download#download-files-to-local-folder).
 
+### HF_HUB_ETAG_TIMEOUT
+
+Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
+
+### HF_HUB_DOWNLOAD_TIMEOUT
+
+Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
+
 ## Boolean values
 
 The following environment variables expect a boolean value. The variable will be considered
