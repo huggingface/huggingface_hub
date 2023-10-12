@@ -14,7 +14,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from requests.exceptions import HTTPError
 
 from huggingface_hub.utils import is_gradio_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
@@ -218,44 +217,6 @@ def with_production_testing(func):
     )
 
     return hf_api(file_download(func))
-
-
-def retry_endpoint(function, number_of_tries: int = 3, wait_time: int = 5):
-    """
-    Retries test if failure, waiting `wait_time`.
-    Should be added to any test hitting the `moon-staging` endpoint that is
-    downloading Repositories or uploading data
-
-    Args:
-        number_of_tries: Number of tries to attempt a passing test
-        wait_time: Time to wait in-between attempts in seconds
-    """
-
-    @wraps(function)
-    def decorator(*args, **kwargs):
-        retry_count = 1
-        while retry_count < number_of_tries:
-            try:
-                return function(*args, **kwargs)
-            except HTTPError as e:
-                if e.response.status_code == 504:
-                    logger.info(
-                        f"Attempt {retry_count} failed with a 504 error. Retrying new"
-                        f" execution in {wait_time} second(s)..."
-                    )
-                    time.sleep(5)
-                    retry_count += 1
-            except OSError:
-                logger.info(
-                    "Race condition met where we tried to `clone` before fully"
-                    " deleting a repository. Retrying new execution in"
-                    f" {wait_time} second(s)..."
-                )
-                retry_count += 1
-            # Preserve original traceback
-            return function(*args, **kwargs)
-
-    return decorator
 
 
 def expect_deprecation(function_name: str):
