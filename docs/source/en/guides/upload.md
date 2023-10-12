@@ -431,6 +431,50 @@ In addition to [`upload_file`] and [`upload_folder`], the following functions al
 
 For more detailed information, take a look at the [`HfApi`] reference.
 
+### Preupload LFS files before commit
+
+In some cases, you might want to upload huge files to S3 **before** making the commit call. For example, if you are
+committing a dataset in several shards that are generated in-memory, you would need to upload the shards one by one
+to avoid an out-of-memory issue. A solution is to upload each shard as a separate commit on the repo. While being
+perfectly valid, this solution has the drawback of potentially messing the git history by generating tens of commits.
+To overcome this issue, you can upload your files one by one to S3 and then create a single commit at the end. This
+is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
+
+<Tip warning={true}>
+
+This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
+the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
+[`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
+the Hub. If you have a question, feel free to ping us on our Discord or in a GitHub issue.
+
+</Tip>
+
+Here is a simple example illustrating how to pre-upload files:
+
+```py
+>>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
+
+>>> repo_id = create_repo("test_preupload").repo_id
+
+>>> operations = [] # List of all `CommitOperationAdd` objects that will be generated
+>>> for i in range(5):
+...     content = ... # generate binary content
+...     addition = CommitOperationAdd(path_in_repo=f"shard_{i}_of_5.bin", path_or_fileobj=content)
+...     preupload_lfs_files(repo_id, additions=[addition])
+...     operations.append(addition)
+
+>>> # Create commit
+>>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
+```
+
+First, we create the [`CommitOperationAdd`] objects one by one. In a real-world example, those would contain the
+generated shards. Each file is uploaded before generating the next one. During the [`preupload_lfs_files`] step, **the
+`CommitOperationAdd` object is mutated**. You should only use it to pass it directly to [`create_commit`]. The main
+update of the object is that **the binary content is removed** from it, meaning that it will be garbage-collected if
+you don't store another reference to it. This is expected as we don't want to keep in memory the content that is
+already uploaded. Finally we create the commit by passing all the operations to [`create_commit`]. You can pass
+additional operations (add, delete or copy) that have not been processed yet and they will be handled correctly.
+
 ## Tips and tricks for large uploads
 
 There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data,
@@ -449,7 +493,7 @@ be re-uploaded twice but checking it client-side can still save some time.
 uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
 by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
 Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like progress
-bars or advanced error handling.
+bars or advanced error handling. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 ## (legacy) Upload files with Git LFS
 

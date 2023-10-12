@@ -136,6 +136,15 @@ class CommitOperationAdd:
     path_or_fileobj: Union[str, Path, bytes, BinaryIO]
     upload_info: UploadInfo = field(init=False, repr=False)
 
+    # Internal attributes
+    _upload_mode: Optional[UploadMode] = field(
+        init=False, repr=False, default=None
+    )  # set to "lfs" or "regular" once known
+    _is_uploaded: bool = field(
+        init=False, repr=False, default=False
+    )  # set to True once the file has been uploaded as LFS
+    _is_committed: bool = field(init=False, repr=False, default=False)  # set to True once the file has been committed
+
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
         self.path_in_repo = _validate_path_in_repo(self.path_in_repo)
@@ -250,7 +259,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
 CommitOperation = Union[CommitOperationAdd, CommitOperationCopy, CommitOperationDelete]
 
 
-def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
+def _warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
     """
     Warn user when a list of operations is expected to overwrite itself in a single
     commit.
@@ -297,7 +306,7 @@ def warn_on_overwriting_operations(operations: List[CommitOperation]) -> None:
 
 
 @validate_hf_hub_args
-def upload_lfs_files(
+def _upload_lfs_files(
     *,
     additions: List[CommitOperationAdd],
     repo_type: str,
@@ -419,7 +428,7 @@ def _validate_preupload_info(preupload_info: dict):
 
 
 @validate_hf_hub_args
-def fetch_upload_modes(
+def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
@@ -427,10 +436,10 @@ def fetch_upload_modes(
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
-) -> Dict[str, UploadMode]:
+) -> None:
     """
-    Requests the Hub "preupload" endpoint to determine whether each input file
-    should be uploaded as a regular git blob or as git LFS blob.
+    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob
+    or as git LFS blob. Input `additions` are mutated in-place with the upload mode.
 
     Args:
         additions (`Iterable` of :class:`CommitOperationAdd`):
@@ -445,9 +454,6 @@ def fetch_upload_modes(
             An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
-
-    Returns: `Dict[str, UploadMode]`
-        Key is the file path, value is the upload mode ("regular" or "lfs").
 
     Raises:
         [`~utils.HfHubHTTPError`]
@@ -483,18 +489,19 @@ def fetch_upload_modes(
         preupload_info = _validate_preupload_info(resp.json())
         upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
 
+    # Set upload mode for each addition operation
+    for addition in additions:
+        addition._upload_mode = upload_modes[addition.path_in_repo]
+
     # Empty files cannot be uploaded as LFS (S3 would fail with a 501 Not Implemented)
     # => empty files are uploaded as "regular" to still allow users to commit them.
     for addition in additions:
         if addition.upload_info.size == 0:
-            path = addition.path_in_repo
-            upload_modes[path] = "regular"
-
-    return upload_modes
+            addition._upload_mode = "regular"
 
 
 @validate_hf_hub_args
-def fetch_lfs_files_to_copy(
+def _fetch_lfs_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
@@ -555,9 +562,8 @@ def fetch_lfs_files_to_copy(
     return files_to_copy
 
 
-def prepare_commit_payload(
+def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    upload_modes: Dict[str, UploadMode],
     files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
     commit_message: str,
     commit_description: Optional[str] = None,
@@ -584,7 +590,7 @@ def prepare_commit_payload(
     # 2. Send operations, one per line
     for operation in operations:
         # 2.a. Case adding a regular file
-        if isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "regular":
+        if isinstance(operation, CommitOperationAdd) and operation._upload_mode == "regular":
             yield {
                 "key": "file",
                 "value": {
@@ -594,7 +600,7 @@ def prepare_commit_payload(
                 },
             }
         # 2.b. Case adding an LFS file
-        elif isinstance(operation, CommitOperationAdd) and upload_modes.get(operation.path_in_repo) == "lfs":
+        elif isinstance(operation, CommitOperationAdd) and operation._upload_mode == "lfs":
             yield {
                 "key": "lfsFile",
                 "value": {
@@ -627,5 +633,5 @@ def prepare_commit_payload(
         else:
             raise ValueError(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"
-                f" {upload_modes.get(operation.path_in_repo)}"
+                f" {getattr(operation, '_upload_mode', None)}"
             )

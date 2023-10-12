@@ -63,11 +63,11 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    fetch_lfs_files_to_copy,
-    fetch_upload_modes,
-    prepare_commit_payload,
-    upload_lfs_files,
-    warn_on_overwriting_operations,
+    _fetch_lfs_files_to_copy,
+    _fetch_upload_modes,
+    _prepare_commit_payload,
+    _upload_lfs_files,
+    _warn_on_overwriting_operations,
 )
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
@@ -139,6 +139,10 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
+_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
+    "\nNote: Creating a commit assumes that the repo already exists on the"
+    " Huggingface Hub. Please use `create_repo` if it's not the case."
+)
 
 logger = logging.get_logger(__name__)
 
@@ -915,6 +919,26 @@ class UserLikes:
     datasets: List[str]
     models: List[str]
     spaces: List[str]
+
+
+@dataclass
+class User:
+    """
+    Contains information about a user on the Hub.
+
+    Args:
+        avatar_url (`str`):
+            URL of the user's avatar.
+        username (`str`):
+            Name of the user on the Hub (unique).
+        fullname (`str`):
+            User's full name.
+    """
+
+    # Metadata
+    avatar_url: str
+    username: str
+    fullname: str
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -1727,6 +1751,56 @@ class HfApi:
             datasets=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "dataset"],
             spaces=[like["repo"]["name"] for like in likes if like["repo"]["type"] == "space"],
         )
+
+    @validate_hf_hub_args
+    def list_repo_likers(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> List[User]:
+        """
+        List all users who liked a given repo on the hugging Face Hub.
+
+        See also [`like`] and [`list_liked_repos`].
+
+        Args:
+            repo_id (`str`):
+                The repository to retrieve . Example: `"user/my-cool-model"`.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if uploading to a dataset or
+                space, `None` or `"model"` if uploading to a model. Default is
+                `None`.
+
+        Returns:
+            `List[User]`: a list of [`User`] objects.
+        """
+
+        # Construct the API endpoint
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
+        headers = self._build_hf_headers(token=token)
+
+        # Make the request
+        response = get_session().get(path, headers=headers)
+        hf_raise_for_status(response)
+
+        # Parse the results into User objects
+        likers_data = response.json()
+        return [
+            User(
+                username=user_data["user"],
+                fullname=user_data["fullname"],
+                avatar_url=user_data["avatarUrl"],
+            )
+            for user_data in likers_data
+        ]
 
     @validate_hf_hub_args
     def model_info(
@@ -2897,6 +2971,28 @@ class HfApi:
         """
         Creates a commit in the given repo, deleting & uploading files as needed.
 
+        <Tip warning={true}>
+
+        The input list of `CommitOperation` will be mutated during the commit process. Do not reuse the same objects
+        for multiple commits.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` assumes that the repo already exists on the Hub. If you get a
+        Client error 404, please make sure you are authenticated and that `repo_id` and
+        `repo_type` are set correctly. If repo does not exist, create it first using
+        [`~hf_api.create_repo`].
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
+
+        </Tip>
+
         Args:
             repo_id (`str`):
                 The repository in which the commit will be created, for example:
@@ -2908,6 +3004,9 @@ class HfApi:
                     - [`~hf_api.CommitOperationAdd`] to upload a file
                     - [`~hf_api.CommitOperationDelete`] to delete a file
                     - [`~hf_api.CommitOperationCopy`] to copy a file
+
+                Operation objects will be mutated to include information relative to the upload. Do not reuse the
+                same objects for multiple commits.
 
             commit_message (`str`):
                 The summary (first line) of the commit that will be created.
@@ -2968,27 +3067,7 @@ class HfApi:
             [`~utils.RepositoryNotFoundError`]:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
-
-        <Tip warning={true}>
-
-        `create_commit` assumes that the repo already exists on the Hub. If you get a
-        Client error 404, please make sure you are authenticated and that `repo_id` and
-        `repo_type` are set correctly. If repo does not exist, create it first using
-        [`~hf_api.create_repo`].
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commit` is limited to 25k LFS files and a 1GB payload for regular files.
-
-        </Tip>
         """
-        _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
-            "\nNote: Creating a commit assumes that the repo already exists on the"
-            " Huggingface Hub. Please use `create_repo` if it's not the case."
-        )
-
         if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 f"`parent_commit` is not a valid commit OID. It must match the following regex: {REGEX_COMMIT_OID}"
@@ -3011,28 +3090,32 @@ class HfApi:
         nb_copies = len(copies)
         nb_deletions = len(operations) - nb_additions - nb_copies
 
+        for addition in additions:
+            if addition._is_committed:
+                raise ValueError(
+                    f"CommitOperationAdd {addition} has already being committed and cannot be reused. Please create a"
+                    " new CommitOperationAdd object if you want to create a new commit."
+                )
+
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
         )
 
         # If updating twice the same file or update then delete a file in a single commit
-        warn_on_overwriting_operations(operations)
+        _warn_on_overwriting_operations(operations)
 
-        try:
-            upload_modes = fetch_upload_modes(
-                additions=additions,
-                repo_type=repo_type,
-                repo_id=repo_id,
-                token=token or self.token,
-                revision=revision,
-                endpoint=self.endpoint,
-                create_pr=create_pr,
-            )
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-            raise
-        files_to_copy = fetch_lfs_files_to_copy(
+        self.preupload_lfs_files(
+            repo_id=repo_id,
+            additions=additions,
+            token=token,
+            repo_type=repo_type,
+            revision=revision,
+            create_pr=create_pr,
+            num_threads=num_threads,
+            free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
+        )
+        files_to_copy = _fetch_lfs_files_to_copy(
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,
@@ -3040,17 +3123,8 @@ class HfApi:
             revision=revision,
             endpoint=self.endpoint,
         )
-        upload_lfs_files(
-            additions=[addition for addition in additions if upload_modes[addition.path_in_repo] == "lfs"],
-            repo_type=repo_type,
-            repo_id=repo_id,
-            token=token or self.token,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
-        )
-        commit_payload = prepare_commit_payload(
+        commit_payload = _prepare_commit_payload(
             operations=operations,
-            upload_modes=upload_modes,
             files_to_copy=files_to_copy,
             commit_message=commit_message,
             commit_description=commit_description,
@@ -3084,6 +3158,10 @@ class HfApi:
                     " operations with a trailing '/' or using `is_folder=True/False`."
                 )
             raise
+
+        # Mark additions as committed (cannot be reused in another commit)
+        for addition in additions:
+            addition._is_committed = True
 
         commit_data = commit_resp.json()
         return CommitInfo(
@@ -3123,6 +3201,14 @@ class HfApi:
         <Tip warning={true}>
 
         `create_commits_on_pr` is experimental.  Its API and behavior is subject to change in the future without prior notice.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
+        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
+        create it first using [`~hf_api.create_repo`].
 
         </Tip>
 
@@ -3189,14 +3275,6 @@ class HfApi:
             [`MultiCommitException`]:
                 If an unexpected issue occur in the process: empty commits, unexpected commits in a PR, unexpected PR
                 description, etc.
-
-        <Tip warning={true}>
-
-        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
-        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
-        create it first using [`~hf_api.create_repo`].
-
-        </Tip>
         """
         logger = logging.get_logger(__name__ + ".create_commits_on_pr")
         if verbose:
@@ -3393,6 +3471,122 @@ class HfApi:
                     ) from error
 
         return pr.url
+
+    def preupload_lfs_files(
+        self,
+        repo_id: str,
+        additions: Iterable[CommitOperationAdd],
+        *,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        num_threads: int = 5,
+        free_memory: bool = True,
+    ):
+        """Pre-upload LFS files to S3 in preparation on a future commit.
+
+        This method is useful if you are generating the files to upload on-the-fly and you don't want to store them
+        in memory before uploading them all at once.
+
+        <Tip warning={true}>
+
+        This is a power-user method. You shouldn't need to call it directly to make a normal commit.
+        Use [`create_commit`] directly instead.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        Commit operations will be mutated during the process. In particular, the attached `path_or_fileobj` will be
+        removed after the upload to save memory (and replaced by an empty `bytes` object). Do not reuse the same
+        objects except to pass them to [`create_commit`]. If you don't want to remove the attached content from the
+        commit operation object, pass `free_memory=False`.
+
+        </Tip>
+
+        Args:
+            repo_id (`str`):
+                The repository in which you will commit the files, for example: `"username/custom_transformers"`.
+
+            operations (`Iterable` of [`CommitOperationAdd`]):
+                The list of files to upload. Warning: the objects in this list will be mutated to include information
+                relative to the upload. Do not reuse the same objects for multiple commits.
+
+            token (`str`, *optional*):
+                Authentication token. Will default to the stored token.
+
+            repo_type (`str`, *optional*):
+                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+
+            create_pr (`boolean`, *optional*):
+                Whether or not you plan to create a Pull Request with that commit. Defaults to `False`.
+
+            num_threads (`int`, *optional*):
+                Number of concurrent threads for uploading files. Defaults to 5.
+                Setting it to 2 means at most 2 files will be uploaded concurrently.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
+
+        >>> repo_id = create_repo("test_preupload").repo_id
+
+        # Generate and preupload LFS files one by one
+        >>> operations = [] # List of all `CommitOperationAdd` objects that will be generated
+        >>> for i in range(5):
+        ...     content = ... # generate binary content
+        ...     addition = CommitOperationAdd(path_in_repo=f"shard_{i}_of_5.bin", path_or_fileobj=content)
+        ...     preupload_lfs_files(repo_id, additions=[addition]) # upload + free memory
+        ...     operations.append(addition)
+
+        # Create commit
+        >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
+        ```
+        """
+        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        create_pr = create_pr if create_pr is not None else False
+
+        # Filter out already uploaded files
+        new_additions = [addition for addition in additions if not addition._is_uploaded]
+
+        # Check which new files are LFS
+        try:
+            _fetch_upload_modes(
+                additions=new_additions,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                token=token or self.token,
+                revision=revision,
+                endpoint=self.endpoint,
+                create_pr=create_pr or False,
+            )
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+            raise
+
+        # Filter out regular files
+        new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
+
+        # Upload new LFS files
+        _upload_lfs_files(
+            additions=new_lfs_additions,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            token=token or self.token,
+            endpoint=self.endpoint,
+            num_threads=num_threads,
+        )
+        for addition in new_lfs_additions:
+            addition._is_uploaded = True
+            if free_memory:
+                addition.path_or_fileobj = b""
 
     @overload
     def upload_file(  # type: ignore
@@ -4045,6 +4239,7 @@ class HfApi:
         proxies: Optional[Dict] = None,
         etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
+        token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
         legacy_cache_layout: bool = False,
     ) -> str:
@@ -4130,6 +4325,11 @@ class HfApi:
                 data before giving up which is passed to `requests.request`.
             resume_download (`bool`, *optional*, defaults to `False`):
                 If `True`, resume a previously interrupted download.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4166,6 +4366,10 @@ class HfApi:
         """
         from .file_download import hf_hub_download
 
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
         return hf_hub_download(
             repo_id=repo_id,
             filename=filename,
@@ -4184,7 +4388,7 @@ class HfApi:
             proxies=proxies,
             etag_timeout=etag_timeout,
             resume_download=resume_download,
-            token=self.token,
+            token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -4203,6 +4407,7 @@ class HfApi:
         etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
         force_download: bool = False,
+        token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
@@ -4263,6 +4468,11 @@ class HfApi:
                 If `True`, resume a previously interrupted download.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
@@ -4298,6 +4508,10 @@ class HfApi:
         """
         from ._snapshot_download import snapshot_download
 
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
         return snapshot_download(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -4313,7 +4527,7 @@ class HfApi:
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             force_download=force_download,
-            token=self.token,
+            token=token,
             local_files_only=local_files_only,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
@@ -6061,7 +6275,7 @@ class HfApi:
         "pierre-loic/climate-news-articles"
         # ^item got added to the collection on last position
 
-        # Add collection with a note
+        # Add item with a note
         >>> add_collection_item(
         ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
         ...     item_id="datasets/climate_fever",
@@ -6341,6 +6555,7 @@ upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
 create_commits_on_pr = api.create_commits_on_pr
+preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch
 create_tag = api.create_tag
@@ -6352,6 +6567,7 @@ run_as_future = api.run_as_future
 
 # Activity API
 list_liked_repos = api.list_liked_repos
+list_repo_likers = api.list_repo_likers
 like = api.like
 unlike = api.unlike
 

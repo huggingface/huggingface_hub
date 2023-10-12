@@ -143,6 +143,7 @@ _SUBMOD_ATTRS = {
         "HfApi",
         "ModelSearchArguments",
         "RepoUrl",
+        "User",
         "UserLikes",
         "add_collection_item",
         "add_space_secret",
@@ -188,12 +189,14 @@ _SUBMOD_ATTRS = {
         "list_models",
         "list_repo_commits",
         "list_repo_files",
+        "list_repo_likers",
         "list_repo_refs",
         "list_spaces",
         "merge_pull_request",
         "model_info",
         "move_repo",
         "pause_space",
+        "preupload_lfs_files",
         "rename_discussion",
         "repo_exists",
         "repo_info",
@@ -461,6 +464,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfApi,  # noqa: F401
         ModelSearchArguments,  # noqa: F401
         RepoUrl,  # noqa: F401
+        User,  # noqa: F401
         UserLikes,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
@@ -506,12 +510,14 @@ if TYPE_CHECKING:  # pragma: no cover
         list_models,  # noqa: F401
         list_repo_commits,  # noqa: F401
         list_repo_files,  # noqa: F401
+        list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_spaces,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
         pause_space,  # noqa: F401
+        preupload_lfs_files,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401

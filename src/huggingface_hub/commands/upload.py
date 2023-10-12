@@ -51,8 +51,12 @@ from typing import List, Optional
 from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
+from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+
+
+logger = logging.get_logger(__name__)
 
 
 class UploadCommand(BaseHuggingfaceCLICommand):
@@ -191,6 +195,12 @@ class UploadCommand(BaseHuggingfaceCLICommand):
                 warnings.warn("Ignoring `--exclude` since a single file is uploaded.")
             if self.delete is not None and len(self.delete) > 0:
                 warnings.warn("Ignoring `--delete` since a single file is uploaded.")
+
+        if not HF_HUB_ENABLE_HF_TRANSFER:
+            logger.info(
+                "Consider using `hf_transfer` for faster uploads. This solution comes with some limitations. See"
+                " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
+            )
 
         # Schedule commits if `every` is set
         if self.every is not None:

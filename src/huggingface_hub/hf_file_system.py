@@ -1,5 +1,6 @@
 import itertools
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -23,6 +24,17 @@ from .utils import (
 )
 
 
+# Regex used to match special revisions with "/" in them (see #1710)
+SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+    (^refs\/convert\/parquet) # `refs/convert/parquet` revisions
+    |
+    (^refs\/pr\/\d+)          # PR revisions
+    """,
+    re.VERBOSE,
+)
+
+
 @dataclass
 class HfFileSystemResolvedPath:
     """Data structure containing information about a resolved Hugging Face file system path."""
@@ -34,7 +46,7 @@ class HfFileSystemResolvedPath:
 
     def unresolve(self) -> str:
         return (
-            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{safe_quote(self.revision)}/{self.path_in_repo}"
+            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{safe_revision(self.revision)}/{self.path_in_repo}"
             .rstrip("/")
         )
 
@@ -156,7 +168,13 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if "@" in path:
                 repo_id, revision_in_path = path.split("@", 1)
                 if "/" in revision_in_path:
-                    revision_in_path, path_in_repo = revision_in_path.split("/", 1)
+                    match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
+                    if match is not None and revision in (None, match.group()):
+                        # Handle `refs/convert/parquet` and PR revisions separately
+                        path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
+                        revision_in_path = match.group()
+                    else:
+                        revision_in_path, path_in_repo = revision_in_path.split("/", 1)
                 else:
                     path_in_repo = ""
                 revision_in_path = unquote(revision_in_path)
@@ -262,7 +280,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> List[Union[str, Dict[str, Any]]]:
         """List the contents of a directory."""
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + safe_quote(resolved_path.revision)
+        revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         if path not in self.dircache or refresh:
@@ -367,7 +385,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def info(self, path: str, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path)
         if not resolved_path.path_in_repo:
-            revision_in_path = "@" + safe_quote(resolved_path.revision)
+            revision_in_path = "@" + safe_revision(resolved_path.revision)
             has_revision_in_path = revision_in_path in path
             name = resolved_path.unresolve()
             name = name.replace(revision_in_path, "", 1) if not has_revision_in_path else name
@@ -416,6 +434,10 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
+
+
+def safe_revision(revision: str) -> str:
+    return revision if SPECIAL_REFS_REVISION_REGEX.match(revision) else safe_quote(revision)
 
 
 def safe_quote(s: str) -> str:

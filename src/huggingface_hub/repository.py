@@ -1367,9 +1367,7 @@ class Repository:
         files_to_stage = files_to_be_staged(".", folder=self.local_dir)
 
         if len(files_to_stage):
-            if len(files_to_stage) > 5:
-                files_in_msg = str(files_to_stage[:5])[:-1] + ", ...]"
-
+            files_in_msg = str(files_to_stage[:5])[:-1] + ", ...]" if len(files_to_stage) > 5 else str(files_to_stage)
             logger.error(
                 "There exists some updated files in the local repository that are not"
                 f" committed: {files_in_msg}. This may lead to errors if checking out"
