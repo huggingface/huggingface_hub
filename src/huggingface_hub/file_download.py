@@ -667,7 +667,7 @@ def cached_download(
     """
     if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
         # Respect environment variable above user value
-        timeout = HF_HUB_DOWNLOAD_TIMEOUT
+       etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
 
     if not legacy_cache_layout:
         warnings.warn(
@@ -1153,7 +1153,7 @@ def hf_hub_download(
     """
     if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
         # Respect environment variable above user value
-        timeout = HF_HUB_DOWNLOAD_TIMEOUT
+        etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
 
     if force_filename is not None:
         warnings.warn(

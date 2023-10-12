@@ -147,7 +147,6 @@ def snapshot_download(
 
     </Tip>
     """
-
     if cache_dir is None:
         cache_dir = HUGGINGFACE_HUB_CACHE
     if revision is None:
