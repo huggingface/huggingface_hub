@@ -50,7 +50,6 @@ from .testing_constants import (
 )
 from .testing_utils import (
     repo_name,
-    retry_endpoint,
     with_production_testing,
 )
 
@@ -263,7 +262,6 @@ class RepocardMetadataTest(unittest.TestCase):
 
 
 class RepocardMetadataUpdateTest(unittest.TestCase):
-    @retry_endpoint
     def setUp(self) -> None:
         self.token = TOKEN
         self.api = HfApi(token=TOKEN)
