@@ -902,6 +902,7 @@ class TestRepositoryDataset(RepositoryTestAbstract):
         self.assertTrue((self.repo_path / "file.txt").exists())
 
     @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_no_ci_user_and_email(self):
         Repository(self.repo_path, clone_from=self.repo_id, repo_type="dataset")
         self.assertTrue((self.repo_path / "file.txt").exists())
