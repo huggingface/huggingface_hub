@@ -55,7 +55,7 @@ class ObjectId(BaseModel):
 
 class WebhookPayloadUrl(BaseModel):
     web: str
-    api: Optional[str]
+    api: Optional[str] = None
 
 
 class WebhookPayloadMovedTo(BaseModel):
@@ -74,7 +74,7 @@ class WebhookPayloadEvent(BaseModel):
 
 class WebhookPayloadDiscussionChanges(BaseModel):
     base: str
-    mergeCommitId: Optional[str]
+    mergeCommitId: Optional[str] = None
 
 
 class WebhookPayloadComment(ObjectId):
@@ -92,16 +92,16 @@ class WebhookPayloadDiscussion(ObjectId):
     isPullRequest: bool
     status: DiscussionStatus_T
     changes: Optional[WebhookPayloadDiscussionChanges]
-    pinned: Optional[bool]
+    pinned: Optional[bool] = None
 
 
 class WebhookPayloadRepo(ObjectId):
     owner: ObjectId
-    head_sha: Optional[str]
+    head_sha: Optional[str] = None
     name: str
     private: bool
-    subdomain: Optional[str]
-    tags: Optional[List[str]]
+    subdomain: Optional[str] = None
+    tags: Optional[List[str]] = None
     type: Literal["dataset", "model", "space"]
     url: WebhookPayloadUrl
 
@@ -112,4 +112,4 @@ class WebhookPayload(BaseModel):
     discussion: Optional[WebhookPayloadDiscussion]
     comment: Optional[WebhookPayloadComment]
     webhook: WebhookPayloadWebhook
-    movedTo: Optional[WebhookPayloadMovedTo]
+    movedTo: Optional[WebhookPayloadMovedTo] = None
