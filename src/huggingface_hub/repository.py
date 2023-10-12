@@ -22,6 +22,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_method
 
 
 logger = logging.get_logger(__name__)
@@ -421,6 +422,14 @@ def _lfs_log_progress():
             os.environ["GIT_LFS_PROGRESS"] = current_lfs_progress_value
 
 
+@_deprecate_method(
+    version="1.0",
+    message=(
+        "Please prefer the http-based alternatives instead. Given its large adoption in legacy code, the complete"
+        " removal is only planned on next major release.\nFor more details, please read"
+        " https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http."
+    ),
+)
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -428,6 +437,15 @@ class Repository:
     The aim is to facilitate interacting with huggingface.co hosted model or
     dataset repos, though not a lot here (if any) is actually specific to
     huggingface.co.
+
+    <Tip warning={true}>
+
+    [`Repository`] is deprecated in favor of the http-based alternatives implemented in
+    [`HfApi`]. Given its large adoption in legacy code, the complete removal of
+    [`Repository`] will only happen in release `v1.0`. For more details, please read
+    https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http.
+
+    </Tip>
     """
 
     command_queue: List[CommandInProgress]
