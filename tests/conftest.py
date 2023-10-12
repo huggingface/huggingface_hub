@@ -95,10 +95,12 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
     @wraps(fn)
     def _inner(*args, **kwargs):
         retry_count = 0
-        while retry_count < NUMBER_OF_TRIES:
+        while True:
             try:
                 return fn(*args, **kwargs)
             except HTTPError as e:
+                if retry_count >= NUMBER_OF_TRIES:
+                    raise
                 if e.response.status_code == 504:
                     logger.info(
                         f"Attempt {retry_count} failed with a 504 error. Retrying new  execution in"
@@ -107,6 +109,8 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
                 else:
                     raise
             except OSError:
+                if retry_count >= NUMBER_OF_TRIES:
+                    raise
                 logger.info(
                     "Race condition met where we tried to `clone` before fully deleting a repository. Retrying new"
                     f" execution in {WAIT_TIME} second(s)..."
