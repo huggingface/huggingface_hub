@@ -4298,9 +4298,6 @@ class HfApi:
         """
         from ._snapshot_download import snapshot_download
 
-        if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
-            etag_timeout = HF_HUB_ETAG_TIMEOUT
-
         return snapshot_download(
             repo_id=repo_id,
             repo_type=repo_type,
