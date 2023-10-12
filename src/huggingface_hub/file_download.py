@@ -25,23 +25,22 @@ from huggingface_hub import constants
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
+    DEFAULT_DOWNLOAD_TIMEOUT,
+    DEFAULT_ETAG_TIMEOUT,
+    DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
     ENDPOINT,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
+    HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
-    HF_HUB_ETAG_TIMEOUT,
-    HF_HUB_DOWNLOAD_TIMEOUT,
     HUGGINGFACE_HUB_CACHE,
     REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
-    DEFAULT_DOWNLOAD_TIMEOUT,
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REQUEST_TIMEOUT,
 )
 from .utils import (
     EntryNotFoundError,
@@ -667,7 +666,7 @@ def cached_download(
     """
     if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
         # Respect environment variable above user value
-       etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
+        etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
 
     if not legacy_cache_layout:
         warnings.warn(

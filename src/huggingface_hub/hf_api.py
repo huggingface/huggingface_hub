@@ -92,9 +92,8 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
-    DEFAULT_REVISION,
-    HF_HUB_ETAG_TIMEOUT,
     DEFAULT_ETAG_TIMEOUT,
+    DEFAULT_REVISION,
     ENDPOINT,
     REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,

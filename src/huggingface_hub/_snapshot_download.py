@@ -6,12 +6,11 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from .constants import (
+    DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
     HF_HUB_ENABLE_HF_TRANSFER,
-    HF_HUB_ETAG_TIMEOUT,
     HUGGINGFACE_HUB_CACHE,
     REPO_TYPES,
-    DEFAULT_ETAG_TIMEOUT,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import HfApi
