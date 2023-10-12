@@ -4166,9 +4166,6 @@ class HfApi:
         """
         from .file_download import hf_hub_download
 
-        if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
-            etag_timeout = HF_HUB_ETAG_TIMEOUT
-
         return hf_hub_download(
             repo_id=repo_id,
             filename=filename,
