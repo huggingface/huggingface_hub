@@ -392,6 +392,23 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             return {"name": name, "size": 0, "type": "directory"}
         return super().info(path, **kwargs)
 
+    @property
+    def transaction(self):
+        """A context within which files are committed together upon exit
+
+        Requires the file class to implement `.commit()` and `.discard()`
+        for the normal and exception cases.
+        """
+        # Taken from https://github.com/fsspec/filesystem_spec/blob/3fbb6fee33b46cccb015607630843dea049d3243/fsspec/spec.py#L231
+        # See https://github.com/huggingface/huggingface_hub/issues/1733
+        raise NotImplementedError("Transactional commits are not supported.")
+
+    def start_transaction(self):
+        """Begin write transaction for deferring files, non-context version"""
+        # Taken from https://github.com/fsspec/filesystem_spec/blob/3fbb6fee33b46cccb015607630843dea049d3243/fsspec/spec.py#L241
+        # See https://github.com/huggingface/huggingface_hub/issues/1733
+        raise NotImplementedError("Transactional commits are not supported.")
+
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
