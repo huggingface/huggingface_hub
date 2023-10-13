@@ -85,12 +85,13 @@ def disable_experimental_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def retry_on_transient_error(fn: CallableT) -> CallableT:
     """
-    Retry test if failure because of unavailable service or race condition.
+    Retry test if failure because of unavailable service, bad gateway or race condition.
 
     Tests are retried up to 3 times, waiting 5s between each try.
     """
     NUMBER_OF_TRIES = 3
     WAIT_TIME = 5
+    HTTP_ERRORS = (502, 504)  # 502 Bad gateway (repo creation) or 504 Gateway timeout
 
     @wraps(fn)
     def _inner(*args, **kwargs):
@@ -101,10 +102,10 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
             except HTTPError as e:
                 if retry_count >= NUMBER_OF_TRIES:
                     raise
-                if e.response.status_code == 504:
+                if e.response.status_code in HTTP_ERRORS:
                     logger.info(
-                        f"Attempt {retry_count} failed with a 504 error. Retrying new  execution in"
-                        f" {WAIT_TIME} second(s)..."
+                        f"Attempt {retry_count} failed with a {e.response.status_code} error. Retrying new execution"
+                        f" in {WAIT_TIME} second(s)..."
                     )
                 else:
                     raise
