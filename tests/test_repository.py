@@ -104,6 +104,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
     def test_clone_from_repo_id(self):
         Repository(self.repo_path, clone_from=self.repo_id)
 
+    @expect_deprecation("Repository")
     def test_clone_from_repo_name_no_namespace_fails(self):
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from=self.repo_id.split("/")[1], token=TOKEN)
