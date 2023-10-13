@@ -31,8 +31,8 @@ from huggingface_hub.utils import SoftTemporaryDirectory, logging, run_subproces
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import (
+    expect_deprecation,
     repo_name,
-    retry_endpoint,
     use_tmp_repo,
     with_production_testing,
 )
@@ -96,38 +96,41 @@ class TestRepositoryShared(RepositoryTestAbstract):
     def tearDownClass(cls):
         cls._api.delete_repo(repo_id=cls.repo_id)
 
+    @expect_deprecation("Repository")
     def test_clone_from_repo_url(self):
         Repository(self.repo_path, clone_from=self.repo_url)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_from_repo_id(self):
         Repository(self.repo_path, clone_from=self.repo_id)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_from_repo_name_no_namespace_fails(self):
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from=self.repo_id.split("/")[1], token=TOKEN)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_from_not_hf_url(self):
         # Should not error out
         Repository(self.repo_path, clone_from="https://hf.co/hf-internal-testing/huggingface-hub-dummy-repository")
 
+    @expect_deprecation("Repository")
     def test_clone_from_missing_repo(self):
         """If the repo does not exist an EnvironmentError is raised."""
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from="missing_repo")
 
+    @expect_deprecation("Repository")
     @with_production_testing
-    @retry_endpoint
     def test_clone_from_prod_canonical_repo_id(self):
         Repository(self.repo_path, clone_from="bert-base-cased", skip_lfs_files=True)
 
+    @expect_deprecation("Repository")
     @with_production_testing
-    @retry_endpoint
     def test_clone_from_prod_canonical_repo_url(self):
         Repository(self.repo_path, clone_from="https://huggingface.co/bert-base-cased", skip_lfs_files=True)
 
+    @expect_deprecation("Repository")
     def test_init_from_existing_local_clone(self):
         run_subprocess(["git", "clone", self.repo_url, str(self.repo_path)])
 
@@ -136,11 +139,12 @@ class TestRepositoryShared(RepositoryTestAbstract):
         repo.lfs_enable_largefiles()
         repo.git_pull()
 
+    @expect_deprecation("Repository")
     def test_init_failure(self):
         with self.assertRaises(ValueError):
             Repository(self.repo_path)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_init_clone_in_empty_folder(self):
         repo = Repository(self.repo_path, clone_from=self.repo_url)
         repo.lfs_track(["*.pdf"])
@@ -148,6 +152,7 @@ class TestRepositoryShared(RepositoryTestAbstract):
         repo.git_pull()
         self.assertIn("random_file.txt", os.listdir(self.repo_path))
 
+    @expect_deprecation("Repository")
     def test_git_lfs_filename(self):
         run_subprocess("git init", folder=self.repo_path)
 
@@ -163,22 +168,23 @@ class TestRepositoryShared(RepositoryTestAbstract):
         repo.lfs_track([large_file.name], filename=True)
         self.assertTrue(is_tracked_with_lfs(large_file))
 
+    @expect_deprecation("Repository")
     def test_init_clone_in_nonempty_folder(self):
         self._create_dummy_files()
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from=self.repo_url)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_init_clone_in_nonempty_linked_git_repo_with_token(self):
         Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
         Repository(self.repo_path, clone_from=self.repo_url, token=TOKEN)
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_is_tracked_upstream(self):
         Repository(self.repo_path, clone_from=self.repo_id)
         self.assertTrue(is_tracked_upstream(self.repo_path))
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_push_errors_on_wrong_checkout(self):
         repo = Repository(self.repo_path, clone_from=self.repo_id)
 
@@ -198,7 +204,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     These tests can push data to it.
     """
 
-    @retry_endpoint
     def setUp(self):
         super().setUp()
         self.repo_url = self._api.create_repo(repo_id=repo_name())
@@ -210,6 +215,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
     def tearDown(self):
         self._api.delete_repo(repo_id=self.repo_id)
 
+    @expect_deprecation("Repository")
     def clone_repo(self, **kwargs) -> Repository:
         if "local_dir" not in kwargs:
             kwargs["local_dir"] = self.repo_path
@@ -223,8 +229,8 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             kwargs["git_email"] = "ci@dummy.com"
         return Repository(**kwargs)
 
-    @retry_endpoint
     @use_tmp_repo()
+    @expect_deprecation("Repository")
     def test_init_clone_in_nonempty_non_linked_git_repo(self, repo_url: RepoUrl):
         self.clone_repo()
 
@@ -233,7 +239,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         with self.assertRaises(EnvironmentError):
             Repository(self.repo_path, clone_from=repo_url)
 
-    @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo(self):
         # Clone the repository to disk
         self.clone_repo()
@@ -247,7 +252,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.clone_repo(clone_from=self.repo_url)
         self.assertNotIn("random_file_3.txt", os.listdir(self.repo_path))
 
-    @retry_endpoint
     def test_init_clone_in_nonempty_linked_git_repo_unrelated_histories(self):
         # Clone the repository to disk
         repo = self.clone_repo()
@@ -267,7 +271,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         # The repo should initialize correctly as the remote is the same, even with unrelated historied
         self.clone_repo()
 
-    @retry_endpoint
     def test_add_commit_push(self):
         repo = self.clone_repo()
         self._create_dummy_files()
@@ -280,7 +283,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         r = requests.head(url)
         r.raise_for_status()
 
-    @retry_endpoint
     def test_add_commit_push_non_blocking(self):
         repo = self.clone_repo()
         self._create_dummy_files()
@@ -303,7 +305,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         r = requests.head(url)
         r.raise_for_status()
 
-    @retry_endpoint
     def test_context_manager_non_blocking(self):
         repo = self.clone_repo()
 
@@ -337,7 +338,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.assertTrue(result.is_done)
         self.assertEqual(result.status, -9)
 
-    @retry_endpoint
     def test_commit_context_manager(self):
         # Clone and commit from a first folder
         folder_1 = self.repo_path / "folder_1"
@@ -355,7 +355,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.assertTrue("dummy.txt" in files)
         self.assertTrue("model.bin" in files)
 
-    @retry_endpoint
     def test_clone_skip_lfs_files(self):
         # Upload LFS file
         self._api.upload_file(path_or_fileobj=b"Bin file", path_in_repo="file.bin", repo_id=self.repo_id)
@@ -369,7 +368,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
 
         self.assertEqual(file_bin.read_text(), "Bin file")
 
-    @retry_endpoint
     def test_commits_on_correct_branch(self):
         repo = self.clone_repo()
         branch = repo.current_branch
@@ -397,7 +395,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file.txt" in files)
 
-    @retry_endpoint
     def test_repo_checkout_push(self):
         repo = self.clone_repo()
 
@@ -424,7 +421,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             self.assertFalse("file.txt" in files)
             self.assertTrue("new_file.txt" in files)
 
-    @retry_endpoint
     def test_repo_checkout_commit_context_manager(self):
         repo = self.clone_repo()
 
@@ -454,13 +450,11 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
             self.assertFalse("new_file.txt" in files)
             self.assertFalse("new_file-2.txt" in files)
 
-    @retry_endpoint
     def test_add_tag(self):
         repo = self.clone_repo()
         repo.add_tag("v4.6.0", remote="origin")
         self.assertTrue(repo.tag_exists("v4.6.0", remote="origin"))
 
-    @retry_endpoint
     def test_add_annotated_tag(self):
         repo = self.clone_repo()
         repo.add_tag("v4.5.0", message="This is an annotated tag", remote="origin")
@@ -484,7 +478,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         result = run_subprocess("git tag -n9", folder=self.repo_path).stdout.strip()
         self.assertIn("This is an annotated tag", result)
 
-    @retry_endpoint
     def test_delete_tag(self):
         repo = self.clone_repo()
 
@@ -498,7 +491,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         repo.delete_tag("v4.6.0", remote="origin")
         self.assertFalse(repo.tag_exists("v4.6.0", remote="origin"))
 
-    @retry_endpoint
     def test_lfs_prune(self):
         repo = self.clone_repo()
 
@@ -518,7 +510,6 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         # Size of the directory holding LFS files was reduced
         self.assertLess(post_prune_git_lfs_files_size, git_lfs_files_size)
 
-    @retry_endpoint
     def test_lfs_prune_git_push(self):
         repo = self.clone_repo()
         with repo.commit("Committing LFS file"):
@@ -547,6 +538,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
     repo: Repository
 
     @classmethod
+    @expect_deprecation("Repository")
     def setUp(self) -> None:
         super().setUp()
 
@@ -771,6 +763,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.repo.git_checkout(head_commit_ref)
         self.assertRaises(OSError, is_tracked_upstream, self.repo.local_dir)
 
+    @expect_deprecation("Repository")
     def test_repo_init_checkout_default_revision(self):
         # Instantiate repository on a given revision
         repo = Repository(self.repo_path, revision="new-branch")
@@ -780,6 +773,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         repo_2 = Repository(self.repo_path)
         self.assertEqual(repo_2.current_branch, "new-branch")
 
+    @expect_deprecation("Repository")
     def test_repo_init_checkout_revision(self):
         current_head_hash = self.repo.git_head_hash()
 
@@ -800,6 +794,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         files = os.listdir(current_head_repo.local_dir)
         self.assertIn("file.txt", files)
 
+    @expect_deprecation("Repository")
     def test_repo_user(self):
         _ = Repository(self.repo_path, token=TOKEN)
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
@@ -809,6 +804,7 @@ class TestRepositoryOffline(RepositoryTestAbstract):
         self.assertEqual(username.strip(), "Dummy User")
         self.assertEqual(email.strip(), "julien@huggingface.co")
 
+    @expect_deprecation("Repository")
     def test_repo_passed_user(self):
         _ = Repository(self.repo_path, token=TOKEN, git_user="RANDOM_USER", git_email="EMAIL@EMAIL.EMAIL")
         username = run_subprocess("git config user.name", folder=self.repo_path).stdout
@@ -861,32 +857,32 @@ class TestRepositoryDataset(RepositoryTestAbstract):
         super().tearDownClass()
         cls._api.delete_repo(repo_id=cls.repo_id, repo_type="dataset")
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_with_endpoint_explicit_repo_type(self):
         Repository(
             self.repo_path, clone_from=self.repo_url, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_with_endpoint_implicit_repo_type(self):
         self.assertIn("dataset", self.repo_url)  # Implicit
         Repository(self.repo_path, clone_from=self.repo_url, git_user="ci", git_email="ci@dummy.com")
         self.assertTrue((self.repo_path / "file.txt").exists())
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_with_repo_id_and_repo_type(self):
         Repository(
             self.repo_path, clone_from=self.repo_id, repo_type="dataset", git_user="ci", git_email="ci@dummy.com"
         )
         self.assertTrue((self.repo_path / "file.txt").exists())
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_no_ci_user_and_email(self):
         Repository(self.repo_path, clone_from=self.repo_id, repo_type="dataset")
         self.assertTrue((self.repo_path / "file.txt").exists())
 
-    @retry_endpoint
+    @expect_deprecation("Repository")
     def test_clone_dataset_with_repo_name_and_repo_type_fails(self):
         with self.assertRaises(EnvironmentError):
             Repository(

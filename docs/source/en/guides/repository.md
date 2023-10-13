@@ -165,9 +165,13 @@ that you should be aware of. For example, you can't transfer your repo to anothe
 All the actions described above can be done using HTTP requests. However, in some cases you might be interested in having
 a local copy of your repository and interact with it using the Git commands you are familiar with.
 
-The [`Repository`] class allows you to interact with files and repositories on the Hub with functions similar to Git commands.
-It is a wrapper over Git and Git-LFS methods to use the Git commands you already know and love. Before starting, please make
-sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions).
+The [`Repository`] class allows you to interact with files and repositories on the Hub with functions similar to Git commands. It is a wrapper over Git and Git-LFS methods to use the Git commands you already know and love. Before starting, please make sure you have Git-LFS installed (see [here](https://git-lfs.github.com/) for installation instructions).
+
+<Tip warning={true}>
+
+[`Repository`] is deprecated in favor of the http-based alternatives implemented in [`HfApi`]. Given its large adoption in legacy code, the complete removal of [`Repository`] will only happen in release `v1.0`. For more details, please read [this explanation page](./concepts/git_vs_http).
+
+</Tip>
 
 ### Use a local repository
 

@@ -11,7 +11,7 @@ from huggingface_hub.hf_file_system import HfFileSystem
 from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name, retry_endpoint
+from .testing_utils import repo_name
 
 
 class HfFileSystemTests(unittest.TestCase):
@@ -53,7 +53,6 @@ class HfFileSystemTests(unittest.TestCase):
     def tearDown(self):
         self.api.delete_repo(self.repo_id, repo_type=self.repo_type)
 
-    @retry_endpoint
     def test_glob(self):
         self.assertEqual(
             sorted(self.hffs.glob(self.hf_path + "/*")),
@@ -69,7 +68,6 @@ class HfFileSystemTests(unittest.TestCase):
             sorted([self.hf_path + "@main" + "/.gitattributes", self.hf_path + "@main" + "/data"]),
         )
 
-    @retry_endpoint
     def test_file_type(self):
         self.assertTrue(
             self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")
@@ -78,22 +76,18 @@ class HfFileSystemTests(unittest.TestCase):
             self.hffs.isfile(self.hf_path + "/data/text_data.txt") and not self.hffs.isfile(self.hf_path + "/data")
         )
 
-    @retry_endpoint
     def test_remove_file(self):
         self.hffs.rm_file(self.hf_path + "/data/text_data.txt")
         self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
 
-    @retry_endpoint
     def test_remove_directory(self):
         self.hffs.rm(self.hf_path + "/data", recursive=True)
         self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
 
-    @retry_endpoint
     def test_read_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
             self.assertEqual(f.read(), "dummy text data")
 
-    @retry_endpoint
     def test_write_file(self):
         data = "new text data"
         with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
@@ -102,7 +96,6 @@ class HfFileSystemTests(unittest.TestCase):
         with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
             self.assertEqual(f.read(), data)
 
-    @retry_endpoint
     def test_write_file_multiple_chunks(self):
         # TODO: try with files between 10 and 50MB (as of 16 March 2023 I was getting 504 errors on hub-ci)
         data = "a" * (4 << 20)  # 4MB
@@ -116,7 +109,6 @@ class HfFileSystemTests(unittest.TestCase):
                 self.assertEqual(f.read(len(data)), data)
 
     @unittest.skip("Not implemented yet")
-    @retry_endpoint
     def test_append_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "a") as f:
             f.write(" appended text")
@@ -124,7 +116,6 @@ class HfFileSystemTests(unittest.TestCase):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
             self.assertEqual(f.read(), "dummy text data appended text")
 
-    @retry_endpoint
     def test_copy_file(self):
         # Non-LFS file
         self.assertIsNone(self.hffs.info(self.hf_path + "/data/text_data.txt")["lfs"])
@@ -139,7 +130,6 @@ class HfFileSystemTests(unittest.TestCase):
             self.assertEqual(f.read(), b"dummy binary data")
         self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin")["lfs"])
 
-    @retry_endpoint
     def test_modified_time(self):
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data/text_data.txt"), datetime.datetime)
         # should fail on a non-existing file
@@ -149,7 +139,6 @@ class HfFileSystemTests(unittest.TestCase):
         with self.assertRaises(IsADirectoryError):
             self.hffs.modified(self.hf_path + "/data")
 
-    @retry_endpoint
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
             f"hf://{self.repo_type}s/{self.repo_id}/data/text_data.txt",
@@ -167,7 +156,6 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIsInstance(fs, HfFileSystem)
         self.assertEqual(paths, [f"{self.repo_id}/data/text_data.txt"])
 
-    @retry_endpoint
     def test_list_root_directory_no_revision(self):
         files = self.hffs.ls(self.hf_path)
         self.assertEqual(len(files), 2)
@@ -180,7 +168,6 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
 
-    @retry_endpoint
     def test_list_data_directory_no_revision(self):
         files = self.hffs.ls(self.hf_path + "/data")
         self.assertEqual(len(files), 2)
@@ -198,7 +185,6 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
         self.assertIsNone(files[1]["lfs"])
 
-    @retry_endpoint
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
 

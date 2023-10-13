@@ -95,7 +95,6 @@ from .testing_utils import (
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     require_git_lfs,
-    retry_endpoint,
     rmtree_with_retry,
     use_tmp_repo,
     with_production_testing,
@@ -121,7 +120,6 @@ class HfApiCommonTest(unittest.TestCase):
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
 
-@retry_endpoint
 def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
     # for {create, delete}_repo and update_repo_visibility
@@ -150,13 +148,11 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
         self._api.delete_repo(self.repo_id)
         return super().tearDown()
 
-    @retry_endpoint
     def test_repo_exists(self):
         self.assertTrue(self._api.repo_exists(self.repo_id))
         self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
         self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
 
-    @retry_endpoint
     @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
     @patch(
         "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
@@ -197,7 +193,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertEqual(info["name"], USER)
         mock_HfFolder().get_token.assert_not_called()
 
-    @retry_endpoint
     def test_delete_repo_error_message(self):
         # test for #751
         # See https://github.com/huggingface/huggingface_hub/issues/751
@@ -210,11 +205,9 @@ class HfApiEndpointsTest(HfApiCommonTest):
         ):
             self._api.delete_repo("repo-that-does-not-exist")
 
-    @retry_endpoint
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
-    @retry_endpoint
     def test_create_update_and_delete_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(repo_id=REPO_NAME)
@@ -224,7 +217,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertFalse(res["private"])
         self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_create_update_and_delete_model_repo(self):
         REPO_NAME = repo_name("crud")
         self._api.create_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
@@ -234,7 +226,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertFalse(res["private"])
         self._api.delete_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
 
-    @retry_endpoint
     def test_create_update_and_delete_dataset_repo(self):
         DATASET_REPO_NAME = dataset_repo_name("crud")
         self._api.create_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
@@ -249,7 +240,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
         " https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419"
         " (internal link)."
     )
-    @retry_endpoint
     def test_create_update_and_delete_space_repo(self):
         SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
@@ -266,7 +256,6 @@ class HfApiEndpointsTest(HfApiCommonTest):
             self.assertFalse(res["private"])
             self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
 
-    @retry_endpoint
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
@@ -314,7 +303,6 @@ class CommitApiTest(HfApiCommonTest):
 
         self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
-    @retry_endpoint
     def test_upload_file_validation(self) -> None:
         with self.assertRaises(ValueError, msg="Wrong repo type"):
             self._api.upload_file(
@@ -338,7 +326,6 @@ class CommitApiTest(HfApiCommonTest):
                 path_in_repo="README.md",
             )
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_file_str_path(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -353,14 +340,12 @@ class CommitApiTest(HfApiCommonTest):
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
                 self.assertEqual(f.read(), self.tmp_file_content)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
         self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="README.md", repo_id=repo_url.repo_id)
         self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_url.repo_id))
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -376,7 +361,6 @@ class CommitApiTest(HfApiCommonTest):
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
                 self.assertEqual(f.read(), self.tmp_file_content)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_file_bytesio(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -392,7 +376,6 @@ class CommitApiTest(HfApiCommonTest):
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
                 self.assertEqual(f.read(), content.getvalue().decode())
 
-    @retry_endpoint
     def test_create_repo_return_value(self) -> None:
         REPO_NAME = repo_name("org")
         url = self._api.create_repo(repo_id=REPO_NAME)
@@ -401,13 +384,11 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
         self._api.delete_repo(repo_id=url.repo_id)
 
-    @retry_endpoint
     def test_create_repo_org_token_fail(self):
         REPO_NAME = repo_name("org")
         with pytest.raises(ValueError, match="You must use your personal account token."):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
-    @retry_endpoint
     def test_create_repo_org_token_none_fail(self):
         HfFolder.save_token("api_org_dummy_token")
         with pytest.raises(ValueError, match="You must use your personal account token."):
@@ -424,7 +405,6 @@ class CommitApiTest(HfApiCommonTest):
         # Clean up
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -444,7 +424,6 @@ class CommitApiTest(HfApiCommonTest):
             ) as f:
                 self.assertEqual(f.read(), self.tmp_file_content)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_delete_file(self, repo_url: RepoUrl) -> None:
         self._api.upload_file(
@@ -465,7 +444,6 @@ class CommitApiTest(HfApiCommonTest):
         repo_name_with_no_org = self._api.get_full_repo_name("model", organization="org")
         self.assertEqual(repo_name_with_no_org, "org/model")
 
-    @retry_endpoint
     def test_upload_folder(self):
         for private in (False, True):
             visibility = "private" if private else "public"
@@ -509,7 +487,6 @@ class CommitApiTest(HfApiCommonTest):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_upload_folder_create_pr(self):
         pr_revision = quote("refs/pr/1", safe="")
         for private in (False, True):
@@ -548,7 +525,6 @@ class CommitApiTest(HfApiCommonTest):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_upload_folder_default_path_in_repo(self):
         REPO_NAME = repo_name("upload_folder_to_root")
         self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
@@ -556,7 +532,6 @@ class CommitApiTest(HfApiCommonTest):
         # URL to root of repository
         self.assertEqual(url, f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_upload_folder_git_folder_excluded(self, repo_url: RepoUrl) -> None:
         # Simulate a folder with a .git folder
@@ -579,7 +554,6 @@ class CommitApiTest(HfApiCommonTest):
             {".gitattributes", ".git_something/file.txt", "file.git", "temp", "nested/file.bin"},
         )
 
-    @retry_endpoint
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
         self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
@@ -638,7 +612,6 @@ class CommitApiTest(HfApiCommonTest):
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_create_commit_create_pr_against_branch(self):
         repo_id = f"{USER}/{repo_name()}"
 
@@ -680,7 +653,6 @@ class CommitApiTest(HfApiCommonTest):
         # Cleanup
         self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
     def test_create_commit_create_pr_on_foreign_repo(self):
         # Create a repo with another user. The normal CI user don't have rights on it.
         # We must be able to create a PR on it
@@ -699,7 +671,6 @@ class CommitApiTest(HfApiCommonTest):
 
         foreign_api.delete_repo(repo_id=foreign_repo_url.repo_id)
 
-    @retry_endpoint
     def test_create_commit(self):
         for private in (False, True):
             visibility = "private" if private else "public"
@@ -765,7 +736,6 @@ class CommitApiTest(HfApiCommonTest):
                 finally:
                     self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_create_commit_conflict(self):
         REPO_NAME = repo_name("create_commit_conflict")
         self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
@@ -797,7 +767,6 @@ class CommitApiTest(HfApiCommonTest):
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
         # Test once with empty commit and once with an addition commit.
@@ -827,7 +796,6 @@ class CommitApiTest(HfApiCommonTest):
 
                 self.assertEqual(str(context.exception), expected_message)
 
-    @retry_endpoint
     def test_create_commit_lfs_file_implicit_token(self):
         """Test that uploading a file as LFS works with implicit token (from cache).
 
@@ -875,7 +843,6 @@ class CommitApiTest(HfApiCommonTest):
             with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
                 _inner(mock)  # just to avoid indenting twice the code code
 
-    @retry_endpoint
     def test_create_commit_huge_regular_files(self):
         """Test committing 12 text files (>100MB in total) at once.
 
@@ -905,7 +872,6 @@ class CommitApiTest(HfApiCommonTest):
         finally:
             self._api.delete_repo(repo_id=REPO_NAME)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
         """Test committing 1300 LFS files at once.
@@ -941,7 +907,6 @@ class CommitApiTest(HfApiCommonTest):
             self.assertFalse(operation._is_committed)
             self.assertFalse(operation._is_uploaded)
 
-    @retry_endpoint
     def test_create_commit_repo_id_case_insensitive(self):
         """Test create commit but repo_id is lowercased.
 
@@ -972,7 +937,6 @@ class CommitApiTest(HfApiCommonTest):
         finally:
             self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_commit_copy_file(self, repo_url: RepoUrl) -> None:
         """Test CommitOperationCopy.
@@ -1018,7 +982,6 @@ class CommitApiTest(HfApiCommonTest):
         repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_commit_mutates_operations(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -1039,7 +1002,6 @@ class CommitApiTest(HfApiCommonTest):
         self.assertTrue(operations[1]._is_committed)
         self.assertEqual(operations[1].path_or_fileobj, b"content")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_pre_upload_before_commit(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
@@ -1112,7 +1074,6 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
     def tearDown(self):
         self._api.delete_repo(repo_id=self.repo_id)
 
-    @retry_endpoint
     def test_create_commit_delete_folder_implicit(self):
         self._api.create_commit(
             operations=[CommitOperationDelete(path_in_repo="1/")],
@@ -1129,13 +1090,11 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         # Still exists
         hf_hub_download(self.repo_id, "2/file_3.md", use_auth_token=self._token)
 
-    @retry_endpoint
     def test_create_commit_delete_folder_explicit(self):
         self._api.delete_folder(path_in_repo="1", repo_id=self.repo_id)
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
-    @retry_endpoint
     def test_create_commit_failing_implicit_delete_folder(self):
         with self.assertRaisesRegex(
             EntryNotFoundError,
@@ -1294,7 +1253,6 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_on_main(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on default main branch works."""
@@ -1305,7 +1263,6 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         main_info = self._api.model_info(repo_url.repo_id, revision="main")
         self.assertEqual(tag_info.sha, main_info.sha)
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_on_pr(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on a PR ref works."""
@@ -1328,7 +1285,6 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         self.assertEqual(tag_info.sha, pr_info.sha)
         self.assertNotEqual(tag_info.sha, main_info.sha)
 
-    @retry_endpoint
     @use_tmp_repo("dataset")
     def test_create_tag_on_commit_oid(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on specific commit oid works (both long and shorthands).
@@ -1370,21 +1326,18 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         self.assertEqual(tag_1_info.sha, commit_info_1.oid)
         self.assertEqual(tag_2_info.sha, commit_info_2.oid)
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_invalid_tag_name(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` with an invalid tag name."""
         with self.assertRaises(HTTPError):
             self._api.create_tag(repo_url.repo_id, tag="invalid tag")
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_on_missing_revision(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` on a missing revision."""
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_tag(repo_url.repo_id, tag="invalid tag", revision="foobar")
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_create_tag_twice(self, repo_url: RepoUrl) -> None:
         """Check `create_tag` called twice on same tag should fail with HTTP 409."""
@@ -1396,7 +1349,6 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         # exist_ok=True => doesn't fail
         self._api.create_tag(repo_url.repo_id, tag="tag_1", exist_ok=True)
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_create_and_delete_tag(self, repo_url: RepoUrl) -> None:
         """Check `delete_tag` deletes the tag."""
@@ -1407,14 +1359,12 @@ class HfApiTagEndpointTest(HfApiCommonTest):
         with self.assertRaises(RevisionNotFoundError):
             self._api.model_info(repo_url.repo_id, revision="v0")
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_delete_tag_missing_tag(self, repo_url: RepoUrl) -> None:
         """Check cannot `delete_tag` if tag doesn't exist."""
         with self.assertRaises(RevisionNotFoundError):
             self._api.delete_tag(repo_url.repo_id, tag="v0")
 
-    @retry_endpoint
     @use_tmp_repo("model")
     def test_delete_tag_with_branch_name(self, repo_url: RepoUrl) -> None:
         """Try to `delete_tag` if tag is a branch name.
@@ -1427,7 +1377,6 @@ class HfApiTagEndpointTest(HfApiCommonTest):
 
 
 class HfApiBranchEndpointTest(HfApiCommonTest):
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_and_delete_branch(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` from main branch."""
@@ -1443,7 +1392,6 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         with self.assertRaises(RevisionNotFoundError):
             self._api.model_info(repo_url.repo_id, revision="cool-branch")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_existing_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on existing branch."""
@@ -1459,7 +1407,6 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         self._api.create_branch(repo_url.repo_id, branch="cool-branch", exist_ok=True)
         self._api.create_branch(repo_url.repo_id, branch="main", exist_ok=True)
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_existing_tag_does_not_fail(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on existing tag."""
@@ -1470,7 +1417,6 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         "Test user is flagged as isHF which gives permissions to create invalid references."
         "Not relevant to test it anyway (i.e. it's more a server-side test)."
     )
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_forbidden_ref_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` on forbidden ref branch."""
@@ -1480,14 +1426,12 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         with self.assertRaisesRegex(BadRequestError, "Invalid reference for a branch"):
             self._api.create_branch(repo_url.repo_id, branch="refs/something/random")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_delete_branch_on_protected_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `delete_branch` fails on protected branch."""
         with self.assertRaisesRegex(HfHubHTTPError, "Cannot delete refs/heads/main"):
             self._api.delete_branch(repo_url.repo_id, branch="main")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_delete_branch_on_missing_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `delete_branch` fails on missing branch."""
@@ -1499,7 +1443,6 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
             self._api.delete_branch(repo_url.repo_id, branch="cool-tag")
 
-    @retry_endpoint
     @use_tmp_repo()
     def test_create_branch_from_revision(self, repo_url: RepoUrl) -> None:
         """Test `create_branch` from a different revision than main HEAD."""
@@ -1932,7 +1875,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
 
 class HfApiPrivateTest(HfApiCommonTest):
-    @retry_endpoint
     def setUp(self) -> None:
         super().setUp()
         self.REPO_NAME = repo_name("private")
@@ -2143,7 +2085,6 @@ class HfLargefilesTest(HfApiCommonTest):
         subprocess.run(["git", "lfs", "track", "*.pdf"], check=True, cwd=self.cache_dir)
         subprocess.run(["git", "lfs", "track", "*.epub"], check=True, cwd=self.cache_dir)
 
-    @retry_endpoint
     @require_git_lfs
     def test_end_to_end_thresh_6M(self):
         # Little-hack: create repo with defined `_lfsmultipartthresh`. Only for tests purposes
@@ -2188,7 +2129,6 @@ class HfLargefilesTest(HfApiCommonTest):
         dest_filesize = (self.cache_dir / DEST_FILENAME).stat().st_size
         self.assertEqual(dest_filesize, 18685041)
 
-    @retry_endpoint
     @require_git_lfs
     def test_end_to_end_thresh_16M(self):
         # Here we'll push one multipart and one non-multipart file in the same commit, and see what happens
@@ -3213,7 +3153,6 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
-    @retry_endpoint
     @unittest.skip("HTTP 500 currently on staging")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
