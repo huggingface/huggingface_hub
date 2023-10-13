@@ -176,7 +176,8 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
             task (`str`, *optional*):
-                The task to perform on the inference. Used only to default to a recommended model if `model` is not
+                The task to perform on the inference. All available tasks can be found
+                [here](https://huggingface.co/tasks). Used only to default to a recommended model if `model` is not
                 provided. At least `model` or `task` must be provided. Defaults to None.
             stream (`bool`, *optional*):
                 Whether to iterate over streaming APIs.
