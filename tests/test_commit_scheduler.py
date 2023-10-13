@@ -145,7 +145,7 @@ class TestCommitScheduler(unittest.TestCase):
         self.scheduler = CommitScheduler(
             folder_path=watched_folder,
             repo_id=self.repo_name,
-            every=1 / 60,  # every 0.1s
+            every=1 / 60 / 10,  # every 0.1s
             hf_api=self.api,
             squash_history=True,
         )
