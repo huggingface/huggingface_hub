@@ -33,6 +33,7 @@ from .constants import (
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
+    HF_HUB_ETAG_TIMEOUT,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
@@ -664,9 +665,9 @@ def cached_download(
 
     </Tip>
     """
-    if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
+    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
-        etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
+        etag_timeout = HF_HUB_ETAG_TIMEOUT
 
     if not legacy_cache_layout:
         warnings.warn(
@@ -1150,9 +1151,9 @@ def hf_hub_download(
 
     </Tip>
     """
-    if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
+    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
-        etag_timeout = HF_HUB_DOWNLOAD_TIMEOUT
+        etag_timeout = HF_HUB_ETAG_TIMEOUT
 
     if force_filename is not None:
         warnings.warn(
