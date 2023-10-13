@@ -92,7 +92,7 @@ class InferenceApi:
 
     @validate_hf_hub_args
     @_deprecate_method(
-        version="0.19.0",
+        version="1.0",
         message=(
             "`InferenceApi` client is deprecated in favor of the more feature-complete `InferenceClient`. Check out"
             " this guide to learn how to convert your script to use it:"
