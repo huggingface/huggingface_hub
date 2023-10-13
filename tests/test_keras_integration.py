@@ -23,7 +23,6 @@ from huggingface_hub.utils import (
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import (
     repo_name,
-    retry_endpoint,
 )
 
 
@@ -121,7 +120,6 @@ class HubMixingTestKeras(CommonKerasTest):
         model = DummyModel.from_pretrained(self.cache_dir)
         self.assertTrue(model.config == {"num": 10, "act": "gelu_fast"})
 
-    @retry_endpoint
     def test_push_to_hub_keras_mixin_via_http_basic(self):
         repo_id = f"{USER}/{repo_name()}"
 
@@ -253,7 +251,6 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertTrue(tf.reduce_all(tf.equal(new_model.weights[0], model.weights[0])))
         self.assertTrue(new_model.config == {"num": 10, "act": "gelu_fast"})
 
-    @retry_endpoint
     def test_push_to_hub_keras_sequential_via_http_basic(self):
         repo_id = f"{USER}/{repo_name()}"
         model = self.model_init()
@@ -266,7 +263,6 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
     def test_push_to_hub_keras_sequential_via_http_plot_false(self):
         repo_id = f"{USER}/{repo_name()}"
         model = self.model_init()
@@ -277,7 +273,6 @@ class HubKerasSequentialTest(CommonKerasTest):
         self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
         self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
     def test_push_to_hub_keras_via_http_override_tensorboard(self):
         """Test log directory is overwritten when pushing a keras model a 2nd time."""
         repo_id = f"{USER}/{repo_name()}"
@@ -301,7 +296,6 @@ class HubKerasSequentialTest(CommonKerasTest):
 
         self._api.delete_repo(repo_id=repo_id)
 
-    @retry_endpoint
     def test_push_to_hub_keras_via_http_with_model_kwargs(self):
         repo_id = f"{USER}/{repo_name()}"
 

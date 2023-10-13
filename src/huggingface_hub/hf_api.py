@@ -92,6 +92,7 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
+    DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
     ENDPOINT,
     REGEX_COMMIT_OID,
@@ -4235,7 +4236,7 @@ class HfApi:
         force_download: bool = False,
         force_filename: Optional[str] = None,
         proxies: Optional[Dict] = None,
-        etag_timeout: float = 10,
+        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
         token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
@@ -4402,7 +4403,7 @@ class HfApi:
         local_dir: Union[str, Path, None] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         proxies: Optional[Dict] = None,
-        etag_timeout: float = 10,
+        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
         resume_download: bool = False,
         force_download: bool = False,
         token: Optional[Union[str, bool]] = None,

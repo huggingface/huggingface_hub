@@ -6,6 +6,7 @@ from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
 from .constants import (
+    DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
     HF_HUB_ENABLE_HF_TRANSFER,
     HUGGINGFACE_HUB_CACHE,
@@ -34,7 +35,7 @@ def snapshot_download(
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = 10,
+    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
     resume_download: bool = False,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
