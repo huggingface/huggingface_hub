@@ -75,9 +75,20 @@ class ModelStatus:
 
     Args:
         loaded (`bool`):
-            If the model is currently loaded.
+            If the model is currently loaded into Hugging Face's InferenceAPI. Models
+            are loaded on-demand, leading to the user's first request taking longer.
+            If a model is loaded, you can be assured that it is in a healthy state.
         state (`str`):
-            The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'
+            The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'.
+            If a model's state is 'Loadable' (meaning it's not too big and has a
+            supported backend) and it's desired to be 'Loaded', the procedure is:
+            1. Make a request to a Hugging Face endpoint can be made to load the model.
+            2. Wait for the server to load the model (cold start). You can request to
+               load any "loadable" model.
+            If a model's state is 'Loadable', it's not too big and has a supported
+            backend. Loadable models are automatically loaded when the user first
+            requests inference on the endpoint. This means it is transparent for the
+            user to load a model, except that the first call takes longer to complete.
         compute_type (`str`):
             The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
         framework (`str`):
