@@ -51,6 +51,12 @@ WEBHOOK_PAYLOAD_EXAMPLE = {
 }
 
 
+def test_deserialize_payload_example() -> None:
+    """Confirm that the test stub can actually be deserialized."""
+    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_EXAMPLE)
+    assert payload.event.scope == WEBHOOK_PAYLOAD_EXAMPLE["event"]["scope"]
+
+
 @require_webhooks
 class TestWebhooksServerDontRun(unittest.TestCase):
     def test_add_webhook_implicit_path(self):
