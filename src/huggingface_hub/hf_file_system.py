@@ -409,6 +409,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         # See https://github.com/huggingface/huggingface_hub/issues/1733
         raise NotImplementedError("Transactional commits are not supported.")
 
+
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
         super().__init__(fs, path, **kwargs)
