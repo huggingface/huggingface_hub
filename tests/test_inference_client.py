@@ -139,9 +139,10 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(embedding, np.ndarray)
         self.assertEqual(embedding.shape, (1, 8, 768))
 
-        embeddings = self.client.feature_extraction(["Hi, who are you?", "How are you?"])
+    def test_feature_extraction_with_transformers_multiple_texts(self) -> None:
+        embeddings = self.client.feature_extraction(["Hi", "Hey"])
         self.assertIsInstance(embeddings, np.ndarray)
-        self.assertEqual(embeddings.shape, (2, 1, 8, 768))
+        self.assertEqual(embeddings.shape, (2, 1, 3, 768))
 
     def test_feature_extraction_with_sentence_transformers(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?", model="sentence-transformers/all-MiniLM-L6-v2")
