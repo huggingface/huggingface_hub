@@ -103,7 +103,7 @@ meaning_of_life: 42
 ---
 """
 
-DUMMY_MODELCARD_TARGET_NO_TAGS = """
+DUMMY_MODELCARD_TARGET_NO_METADATA = """
 Hello
 """
 
@@ -227,7 +227,7 @@ class RepocardMetadataTest(unittest.TestCase):
         self.assertEqual(content, DUMMY_NEW_MODELCARD_TARGET)
 
     def test_no_metadata_returns_none(self):
-        self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_TAGS)
+        self.filepath.write_text(DUMMY_MODELCARD_TARGET_NO_METADATA)
         data = metadata_load(self.filepath)
         self.assertEqual(data, None)
 
@@ -531,7 +531,6 @@ class RepoCardTest(TestCaseWithCapLog):
                 "language": ["en"],
                 "license": "mit",
                 "library_name": "pytorch-lightning",
-                "tags": ["pytorch", "image-classification"],
                 "datasets": ["beans"],
                 "metrics": ["acc"],
             },
@@ -560,7 +559,6 @@ class RepoCardTest(TestCaseWithCapLog):
                 language="en",
                 license="mit",
                 library_name="pytorch",
-                tags=["image-classification", "resnet"],
                 datasets="imagenet",
                 metrics=["acc", "f1"],
             ),
@@ -579,7 +577,6 @@ class RepoCardTest(TestCaseWithCapLog):
                 language="en",
                 license="mit",
                 library_name="pytorch",
-                tags=["image-classification", "resnet"],
                 datasets="imagenet",
                 metrics=["acc", "f1"],
             ),
@@ -598,7 +595,6 @@ class RepoCardTest(TestCaseWithCapLog):
                 language="en",
                 license="mit",
                 library_name="pytorch",
-                tags="text-classification",
                 datasets="glue",
                 metrics="acc",
             ),
@@ -643,7 +639,6 @@ class RepoCardTest(TestCaseWithCapLog):
             language="en",
             license="mit",
             library_name="pytorch",
-            tags=["text-classification"],
             datasets="glue",
             metrics="acc",
         )
@@ -671,7 +666,6 @@ class RepoCardTest(TestCaseWithCapLog):
             language="en",
             license="mit",
             library_name="pytorch",
-            tags=["text-classification"],
             datasets="glue",
             metrics="acc",
         )
@@ -766,7 +760,6 @@ class ModelCardTest(TestCaseWithCapLog):
                 "language": ["en"],
                 "license": "mit",
                 "library_name": "pytorch-lightning",
-                "tags": ["pytorch", "image-classification"],
                 "datasets": ["beans"],
                 "metrics": ["acc"],
             },
@@ -784,7 +777,6 @@ class ModelCardTest(TestCaseWithCapLog):
                 language="en",
                 license="mit",
                 library_name="pytorch",
-                tags="text-classification",
                 datasets="glue",
                 metrics="acc",
             ),

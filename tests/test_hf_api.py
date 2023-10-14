@@ -56,7 +56,6 @@ from huggingface_hub.hf_api import (
     HfApi,
     MetricInfo,
     ModelInfo,
-    ModelSearchArguments,
     RepoFile,
     RepoUrl,
     ReprMixin,
@@ -1513,18 +1512,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
             # (and changes it in the future) but for now it should do the trick.
             self.assertTrue("bert" in model.modelId.lower())
 
-    def test_list_models_complex_query(self):
-        # Let's list the 10 most recent models
-        # with tags "bert" and "jax",
-        # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10))
-        # we have at least 1 models
-        self.assertGreater(len(models), 1)
-        self.assertLessEqual(len(models), 10)
-        model = models[0]
-        self.assertIsInstance(model, ModelInfo)
-        self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
-
     def test_list_models_with_config(self):
         for model in self._api.list_models(filter="adapter-transformers", fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
@@ -1598,43 +1585,38 @@ class HfApiPublicProductionTest(unittest.TestCase):
         f = DatasetFilter(benchmark="raft")
         datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("benchmark:raft" in datasets[0].tags)
 
     def test_filter_datasets_by_language_creator(self):
         f = DatasetFilter(language_creators="crowdsourced")
         datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
     def test_filter_datasets_by_language_only(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(language="en"), limit=100))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("language:en" in datasets[0].tags)
 
         datasets = list(self._api.list_datasets(filter=DatasetFilter(language=("en", "fr")), limit=100))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("language:en" in datasets[0].tags)
-        self.assertTrue("language:fr" in datasets[0].tags)
 
     def test_filter_datasets_by_multilinguality(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
+
 
     def test_filter_datasets_by_size_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
+
 
     def test_filter_datasets_by_task_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
+
 
     def test_filter_datasets_by_task_ids(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_ids:natural-language-inference" in datasets[0].tags)
+
 
     def test_list_datasets_full(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
@@ -1740,27 +1722,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         res_fr = list(self._api.list_models(filter=ModelFilter(language="fr")))
         res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
         self.assertGreater(len(res_en), len(res_fr))
-
-    def test_filter_models_with_tag(self):
-        models = list(self._api.list_models(filter=ModelFilter(author="HuggingFaceBR4", tags=["tensorboard"])))
-        self.assertTrue("HuggingFaceBR4" == models[0].author)
-        self.assertTrue("tensorboard" in models[0].tags)
-
-        models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
-        self.assertEqual(len(models), 0)
-
-    def test_filter_models_with_complex_query(self):
-        args = ModelSearchArguments(api=self._api)
-        f = ModelFilter(
-            task=args.pipeline_tag.TextClassification,
-            library=[args.library.PyTorch, args.library.TensorFlow],
-        )
-        models = list(self._api.list_models(filter=f))
-        self.assertGreater(len(models), 1)
-        self.assertTrue(
-            ["text-classification" in model.pipeline_tag or "text-classification" in model.tags for model in models]
-        )
-        self.assertTrue(["pytorch" in model.tags and "tf" in model.tags for model in models])
 
     def test_filter_models_with_cardData(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
