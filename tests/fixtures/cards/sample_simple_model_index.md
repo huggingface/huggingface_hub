@@ -2,9 +2,6 @@
 language: en
 license: mit
 library_name: timm
-tags:
-- pytorch
-- image-classification
 datasets:
 - beans
 metrics:
