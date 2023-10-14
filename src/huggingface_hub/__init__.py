@@ -453,12 +453,10 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
-        DatasetSearchArguments,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
-        ModelSearchArguments,  # noqa: F401
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
@@ -490,10 +488,8 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
-        get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
-        get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401

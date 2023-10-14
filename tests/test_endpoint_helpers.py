@@ -18,10 +18,7 @@ import requests
 
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils.endpoint_helpers import (
-    AttributeDictionary,
-    DatasetTags,
-    GeneralTags,
-    ModelTags,
+    AttributeDictionary
 )
 
 from .testing_utils import with_production_testing
