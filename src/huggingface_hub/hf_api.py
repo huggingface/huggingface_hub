@@ -123,7 +123,6 @@ from .utils._deprecation import (
 )
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
-    AttributeDictionary,
     DatasetFilter,
     ModelFilter,
     _filter_emissions,
@@ -991,7 +990,6 @@ class HfApi:
             return self.whoami(token=token)["auth"]["accessToken"]["role"]
         except (LocalTokenNotFoundError, HTTPError):
             return None
-
 
     @validate_hf_hub_args
     def list_models(

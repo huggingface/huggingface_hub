@@ -1602,21 +1602,17 @@ class HfApiPublicProductionTest(unittest.TestCase):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
         self.assertGreater(len(datasets), 0)
 
-
     def test_filter_datasets_by_size_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
         self.assertGreater(len(datasets), 0)
-
 
     def test_filter_datasets_by_task_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
         self.assertGreater(len(datasets), 0)
 
-
     def test_filter_datasets_by_task_ids(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
-
 
     def test_list_datasets_full(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))

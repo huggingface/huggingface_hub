@@ -14,14 +14,7 @@
 
 import unittest
 
-import requests
-
-from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils.endpoint_helpers import (
-    AttributeDictionary
-)
-
-from .testing_utils import with_production_testing
+from huggingface_hub.utils.endpoint_helpers import AttributeDictionary
 
 
 class AttributeDictionaryCommonTest(unittest.TestCase):
@@ -91,5 +84,3 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self._attrdict["itemA?"] = 4
         repr_string = "Available Attributes or Keys:\n * 1a (Key only)\n * itemA\n * itemA? (Key only)\n * itemB\n"
         self.assertEqual(repr_string, repr(self._attrdict))
-
-
