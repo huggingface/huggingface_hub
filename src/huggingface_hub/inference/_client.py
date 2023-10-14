@@ -475,13 +475,13 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="document-question-answering")
         return _bytes_to_list(response)
 
-    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    def feature_extraction(self, text: Union[str, List[str]], *, model: Optional[str] = None) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
         Args:
-            text (`str`):
-                The text to embed.
+            text (`Union[str, List[str]]`):
+                The text or list of texts to embed.
             model (`str`, *optional*):
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
@@ -489,6 +489,8 @@ class InferenceClient:
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
+                If text is a `str`, the array has no batch dimension up front.
+                If text is a `List[str]`, the array has a batch dimension up front.
 
         Raises:
             [`InferenceTimeoutError`]:
