@@ -231,9 +231,6 @@ class ModelCardData(CardData):
             Name of library used by this model. Example: keras or any library from
             https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Libraries.ts.
             Defaults to None.
-        tags (`List[str]`, *optional*):
-            List of tags to add to your model that can be used when filtering on the Hugging
-            Face Hub. Defaults to None.
         datasets (`List[str]`, *optional*):
             List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
@@ -260,11 +257,10 @@ class ModelCardData(CardData):
         >>> card_data = ModelCardData(
         ...     language="en",
         ...     license="mit",
-        ...     library_name="timm",
-        ...     tags=['image-classification', 'resnet'],
+        ...     library_name="timm"
         ... )
         >>> card_data.to_dict()
-        {'language': 'en', 'license': 'mit', 'library_name': 'timm', 'tags': ['image-classification', 'resnet']}
+        {'language': 'en', 'license': 'mit', 'library_name': 'timm'}
 
         ```
     """
@@ -275,7 +271,6 @@ class ModelCardData(CardData):
         language: Optional[Union[str, List[str]]] = None,
         license: Optional[str] = None,
         library_name: Optional[str] = None,
-        tags: Optional[List[str]] = None,
         datasets: Optional[List[str]] = None,
         metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
@@ -286,7 +281,6 @@ class ModelCardData(CardData):
         self.language = language
         self.license = license
         self.library_name = library_name
-        self.tags = tags
         self.datasets = datasets
         self.metrics = metrics
         self.eval_results = eval_results
@@ -431,8 +425,6 @@ class SpaceCardData(CardData):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
         datasets (`List[str]`, *optional*)
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`List[str]`, *optional*)
-            List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
             the process. Use it at your own risk.
@@ -466,7 +458,6 @@ class SpaceCardData(CardData):
         duplicated_from: Optional[str] = None,
         models: Optional[List[str]] = None,
         datasets: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -480,7 +471,6 @@ class SpaceCardData(CardData):
         self.duplicated_from = duplicated_from
         self.models = models
         self.datasets = datasets
-        self.tags = tags
         super().__init__(**kwargs)
 
 

@@ -164,7 +164,6 @@ class RepoCard:
             ```python
             >>> from huggingface_hub.repocard import RepoCard
             >>> card = RepoCard.load("nateraw/food")
-            >>> assert card.data.tags == ["generated_from_trainer", "image-classification", "pytorch"]
 
             ```
         """
