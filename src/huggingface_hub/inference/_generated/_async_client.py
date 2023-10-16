@@ -130,7 +130,7 @@ class AsyncInferenceClient:
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
     @overload
-    async def post(  # type: ignore
+    async def post(  # type: ignore[misc]
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -142,7 +142,7 @@ class AsyncInferenceClient:
         pass
 
     @overload
-    async def post(  # type: ignore
+    async def post(
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,

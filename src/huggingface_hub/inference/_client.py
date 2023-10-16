@@ -146,7 +146,7 @@ class InferenceClient:
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
     @overload
-    def post(  # type: ignore
+    def post(  # type: ignore[misc]
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
@@ -158,7 +158,7 @@ class InferenceClient:
         pass
 
     @overload
-    def post(  # type: ignore
+    def post(
         self,
         *,
         json: Optional[Union[str, Dict, List]] = None,
