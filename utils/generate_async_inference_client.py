@@ -263,7 +263,7 @@ def _make_tasks_methods_async(code: str) -> str:
             def[ ] # def
             [a-z]\w*? # method name (not starting by _)
             \( # parenthesis
-            (\s*\#[ ]type:[ ]ignore)? # optionally type: ignore
+            (\s*\#[ ]type:[ ]ignore(\[misc\])?)? # optionally 'type: ignore' or 'type: ignore[misc]'
             \s*self, # expect self, as first arg
         )""",
         repl=r"\1async \2",  # insert "async" keyword
