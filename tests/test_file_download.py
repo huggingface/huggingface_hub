@@ -653,6 +653,20 @@ class CachedDownloadTests(unittest.TestCase):
                     cache_dir=tmpdir,
                 )
 
+    @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
+    def test_keep_lock_file(self):
+        """Lock files should not be deleted on Linux."""
+        with SoftTemporaryDirectory() as tmpdir:
+            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+            lock_file_exist = False
+            locks_dir = os.path.join(tmpdir, ".locks")
+            for subdir, dirs, files in os.walk(locks_dir):
+                for file in files:
+                    if file.endswith(".lock"):
+                        lock_file_exist = True
+                        break
+            self.assertTrue(lock_file_exist, "no lock file can be found")
+
 
 @with_production_testing
 @pytest.mark.usefixtures("fx_cache_dir")

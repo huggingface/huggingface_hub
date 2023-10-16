@@ -1197,6 +1197,7 @@ def hf_hub_download(
         cache_dir = str(cache_dir)
     if isinstance(local_dir, Path):
         local_dir = str(local_dir)
+    locks_dir = os.path.join(cache_dir, ".locks")
 
     if subfolder == "":
         subfolder = None
@@ -1410,7 +1411,8 @@ def hf_hub_download(
             return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
-    lock_path = blob_path + ".lock"
+    # etag could be duplicated across repos,
+    lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it is an extended path by using the "\\?\" prefix.
@@ -1420,6 +1422,7 @@ def hf_hub_download(
     if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
+    Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with FileLock(lock_path):
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
@@ -1493,11 +1496,6 @@ def hf_hub_download(
                 logger.debug(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
                 _chmod_and_replace(temp_file.name, local_dir_filepath)
             pointer_path = local_dir_filepath  # for return value
-
-    try:
-        os.remove(lock_path)
-    except OSError:
-        pass
 
     return pointer_path
 
