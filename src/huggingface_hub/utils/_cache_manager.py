@@ -600,6 +600,8 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     repos: Set[CachedRepoInfo] = set()
     warnings: List[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
+        if repo_path.name == ".locks":  # skip './.locks/' folder
+            continue
         try:
             repos.add(_scan_cached_repo(repo_path))
         except CorruptedCacheException as e:
