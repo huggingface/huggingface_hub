@@ -1411,7 +1411,7 @@ def hf_hub_download(
             return pointer_path
 
     # Prevent parallel downloads of the same file with a lock.
-    # etag could be duplicated across repos, 
+    # etag could be duplicated across repos,
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
     # Some Windows versions do not allow for paths longer than 255 characters.
