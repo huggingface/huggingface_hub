@@ -80,11 +80,6 @@ class ModelStatus:
             If a model is loaded, you can be assured that it is in a healthy state.
         state (`str`):
             The current state of the model. This can be 'Loaded', 'Loadable', 'TooBig'.
-            If a model's state is 'Loadable' (meaning it's not too big and has a
-            supported backend) and it's desired to be 'Loaded', the procedure is:
-            1. Make a request to a Hugging Face endpoint can be made to load the model.
-            2. Wait for the server to load the model (cold start). You can request to
-               load any "loadable" model.
             If a model's state is 'Loadable', it's not too big and has a supported
             backend. Loadable models are automatically loaded when the user first
             requests inference on the endpoint. This means it is transparent for the
