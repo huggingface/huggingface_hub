@@ -211,6 +211,8 @@ ASYNC_POST_CODE = """
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
                     await client.close()
+                    if response.status == 422 and task is not None:
+                        error.message += f" Make sure '{task}' task is supported by the model."
                     if response.status == 503:
                         # If Model is unavailable, either raise a TimeoutError...
                         if timeout is not None and time.time() - t0 > timeout:

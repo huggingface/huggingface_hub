@@ -240,6 +240,10 @@ class InferenceClient:
                 hf_raise_for_status(response)
                 return response.iter_lines() if stream else response.content
             except HTTPError as error:
+                if error.response.status_code == 422 and task is not None:
+                    error.args = (
+                        error.args[0] + f"\nMake sure '{task}' task is supported by the model.",
+                    ) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
