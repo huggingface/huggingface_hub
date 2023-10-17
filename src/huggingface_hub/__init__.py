@@ -488,10 +488,8 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
-        get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
-        get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
