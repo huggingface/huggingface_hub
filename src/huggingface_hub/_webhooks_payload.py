@@ -101,6 +101,7 @@ class WebhookPayloadRepo(ObjectId):
     name: str
     private: bool
     subdomain: Optional[str] = None
+    tags: Optional[List[str]] = None
     type: Literal["dataset", "model", "space"]
     url: WebhookPayloadUrl
 
