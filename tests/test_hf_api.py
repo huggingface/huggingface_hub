@@ -2497,6 +2497,14 @@ class TestSpaceAPIProduction(unittest.TestCase):
         # Raw response from Hub
         self.assertIsInstance(runtime.raw, dict)
 
+    def test_static_space_runtime(self) -> None:
+        """
+        Regression test for static Spaces.
+        See https://github.com/huggingface/huggingface_hub/pull/1754.
+        """
+        runtime = self.api.get_space_runtime("victor/static-space")
+        self.assertIsInstance(runtime.raw, dict)
+
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
