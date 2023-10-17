@@ -203,16 +203,11 @@ class ModelFilter:
     >>> # For the task
     >>> new_filter = ModelFilter(task="text-classification")
 
-    >>> # Retrieving tags using the `HfApi.get_model_tags` method
     >>> from huggingface_hub import HfApi
 
     >>> api = HfApi()
     # To list model tags
 
-    >>> api.get_model_tags()
-    # To list dataset tags
-
-    >>> api.get_dataset_tags()
     >>> new_filter = ModelFilter(tags="benchmark:raft")
 
     >>> # Related to the dataset
