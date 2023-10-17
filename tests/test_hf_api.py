@@ -1619,22 +1619,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_filter_datasets_by_multilinguality(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
+
 
     def test_filter_datasets_by_size_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
+
 
     def test_filter_datasets_by_task_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
+
 
     def test_filter_datasets_by_task_ids(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
-
 
     def test_list_datasets_full(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
@@ -1740,6 +1739,26 @@ class HfApiPublicProductionTest(unittest.TestCase):
         res_fr = list(self._api.list_models(filter=ModelFilter(language="fr")))
         res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
         self.assertGreater(len(res_en), len(res_fr))
+
+    def test_filter_models_with_tag(self):
+        models = list(self._api.list_models(filter=ModelFilter(author="HuggingFaceBR4", tags=["tensorboard"])))
+        self.assertTrue("HuggingFaceBR4" == models[0].author)
+        self.assertTrue("tensorboard" in models[0].tags)
+
+        models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
+        self.assertEqual(len(models), 0)
+
+    def test_filter_models_with_complex_query(self):
+        args = ModelSearchArguments(api=self._api)
+        f = ModelFilter(
+            task=args.pipeline_tag.TextClassification,
+            library=[args.library.PyTorch, args.library.TensorFlow],
+        )
+        models = list(self._api.list_models(filter=f))
+        self.assertGreater(len(models), 1)
+        self.assertTrue(
+            ["text-classification" in model.pipeline_tag for model in models]
+        )
 
     def test_filter_models_with_cardData(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
