@@ -122,12 +122,7 @@ from .utils._deprecation import (
     _deprecate_arguments,
 )
 from .utils._typing import CallableT
-from .utils.endpoint_helpers import (
-    AttributeDictionary,
-    DatasetFilter,
-    ModelFilter,
-    _filter_emissions
-)
+from .utils.endpoint_helpers import DatasetFilter, ModelFilter, _filter_emissions
 
 
 R = TypeVar("R")  # Return type
@@ -701,7 +696,6 @@ class Collection(ReprMixin):
         self.url = f"{ENDPOINT}/collections/{self.slug}"
 
 
-
 @dataclass
 class GitRefInfo:
     """
@@ -1001,7 +995,6 @@ class HfApi:
         except (LocalTokenNotFoundError, HTTPError):
             return None
 
-
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1077,7 +1070,7 @@ class HfApi:
         >>> # Using the `ModelFilter`
         >>> filt = ModelFilter(task="text-classification")
 
-        
+
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
 

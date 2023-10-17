@@ -1748,7 +1748,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
         self.assertEqual(len(models), 0)
 
-
     def test_filter_models_with_cardData(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
         self.assertTrue([hasattr(model, "cardData") for model in models])
