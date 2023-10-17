@@ -2542,7 +2542,8 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
     def test_static_space_runtime(self) -> None:
         """
-        Regression test.
+        Regression test for static Spaces.
+        See https://github.com/huggingface/huggingface_hub/pull/1754.
         """
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
