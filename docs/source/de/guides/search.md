@@ -66,24 +66,6 @@ Jetzt wissen Sie, wie Sie Ihre Liste von Modellen/Datensätzen/Räumen filtern k
 Das Problem könnte sein, dass Sie nicht genau wissen, wonach Sie suchen. Keine Sorge! 
 Wir bieten auch einige Hilfsprogramme an, mit denen Sie entdecken können, welche Argumente Sie in Ihrer Abfrage übergeben können.
 
-[`ModelSearchArguments`] und [`DatasetSearchArguments`] sind geschachtelte Namespace-Objekte, 
-die **jede einzelne Option** auf dem Hub haben und die zurückgeben, was an `filter` übergeben werden sollte. 
-Das Beste von allem ist: Es hat Tab-Vervollständigung 🎊.
-
-```python
->>> from huggingface_hub import ModelSearchArguments, DatasetSearchArguments
-
->>> model_args = ModelSearchArguments()
->>> dataset_args = DatasetSearchArguments()
-```
-
-<Tip warning={true}>
-
-Bevor Sie weitermachen, beachten Sie bitte, dass [`ModelSearchArguments`] und [`DatasetSearchArguments`] 
-veraltete Hilfsprogramme sind, die nur zu Erkundungszwecken gedacht sind. 
-Ihre Initialisierung erfordert das Auflisten aller Modelle und Datensätze auf dem Hub, was sie zunehmend langsamer macht, 
-je mehr Repos auf dem Hub vorhanden sind. Für produktionsbereiten Code sollten Sie in Erwägung ziehen, 
-rohe Zeichenketten (raw strings) zu übergeben, wenn Sie eine gefilterte Suche auf dem Hub durchführen.
 
 </Tip>
 
@@ -217,7 +199,6 @@ Diese Abfrage entspricht streng:
 ... )
 ```
 
-Hier war  [`ModelSearchArguments`] ein Helfer, um die auf dem Hub verfügbaren Optionen zu erkunden. 
-Es ist jedoch keine Voraussetzung für eine Suche. Eine andere Möglichkeit, dies zu tun, 
+Eine andere Möglichkeit, dies zu tun, 
 besteht darin, die [Modelle](https://huggingface.co/models) und [Datensätze](https://huggingface.co/datasets) Seiten 
 in Ihrem Browser zu besuchen, nach einigen Parametern zu suchen und die Werte in der URL anzusehen.

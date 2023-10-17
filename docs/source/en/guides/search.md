@@ -66,25 +66,6 @@ Now you know how to filter your list of models/datasets/spaces. The problem you 
 have is that you don't know exactly what you are looking for. No worries! We also provide
 some helpers that allows you to discover what arguments can be passed in your query.
 
-[`ModelSearchArguments`] and [`DatasetSearchArguments`] are nested namespace objects that
-have **every single option** available on the Hub and that will return what should be passed
-to `filter`. The best of all is: it has tab completion 🎊 .
-
-```python
->>> from huggingface_hub import ModelSearchArguments, DatasetSearchArguments
-
->>> model_args = ModelSearchArguments()
->>> dataset_args = DatasetSearchArguments()
-```
-
-<Tip warning={true}>
-
-Before continuing, please we aware that [`ModelSearchArguments`] and [`DatasetSearchArguments`]
-are legacy helpers meant for exploratory purposes only. Their initialization require listing
-all models and datasets on the Hub which makes them increasingly slower as the number of repos
-on the Hub increases. For some production-ready code, consider passing raw strings when making
-a filtered search on the Hub.
-
 </Tip>
 
 Now, let's check what is available in `model_args` by checking it's output, you will find:
@@ -216,8 +197,7 @@ This query is strictly equivalent to:
 ... )
 ```
 
-Here, the [`ModelSearchArguments`] has been a helper to explore the options available on the Hub.
-However, it is not a requirement to make a search. Another way to do that is to visit the
+Another way to do that is to visit the
 [models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
 in your browser, search for some parameters and look at the values in the URL.
 
