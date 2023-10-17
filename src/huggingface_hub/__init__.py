@@ -470,6 +470,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_discussion,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
+        create_tag,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_collection,  # noqa: F401
@@ -480,6 +481,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
+        delete_tag,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
