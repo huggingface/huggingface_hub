@@ -33,25 +33,37 @@ pip install --upgrade huggingface_hub[inference]
 
 [[autodoc]] AsyncInferenceClient
 
-### InferenceTimeoutError
+## InferenceTimeoutError
 
 [[autodoc]] InferenceTimeoutError
 
-### Return types
+## Return types
 
 For most tasks, the return value has a built-in type (string, list, image...). Here is a list for the more complex types.
 
+### ClassificationOutput
+
 [[autodoc]] huggingface_hub.inference._types.ClassificationOutput
+
+### ConversationalOutputConversation
 
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutputConversation
 
+### ConversationalOutput
+
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutput
+
+### ImageSegmentationOutput
 
 [[autodoc]] huggingface_hub.inference._types.ImageSegmentationOutput
 
-[[autodoc]] huggingface_hub.inference._types.TokenClassificationOutput
+### ModelStatus
 
 [[autodoc]] huggingface_hub.inference._common.ModelStatus
+
+### TokenClassificationOutput
+
+[[autodoc]] huggingface_hub.inference._types.TokenClassificationOutput
 
 ### Text generation types
 
