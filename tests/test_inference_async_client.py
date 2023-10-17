@@ -254,3 +254,11 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
     with pytest.raises(InferenceTimeoutError):
         await AsyncInferenceClient(timeout=1).text_generation("test")
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_unprocessable_entity_error() -> None:
+    with pytest.raises(ClientResponseError) as error:
+        await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
+    assert "Make sure 'conversational' task is supported by the model." in error.value.message
