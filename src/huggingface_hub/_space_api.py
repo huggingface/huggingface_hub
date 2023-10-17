@@ -116,10 +116,10 @@ class SpaceRuntime:
 
     def __init__(self, data: Dict) -> None:
         self.stage = data["stage"]
-        self.hardware = data["hardware"]["current"]
-        self.requested_hardware = data["hardware"]["requested"]
-        self.sleep_time = data["gcTimeout"]
-        self.storage = data["storage"]
+        self.hardware = data.get("hardware", {}).get("current")
+        self.requested_hardware = data.get("hardware", {}).get("requested")
+        self.sleep_time = data.get("gcTimeout")
+        self.storage = data.get("storage")
         self.raw = data
 
 

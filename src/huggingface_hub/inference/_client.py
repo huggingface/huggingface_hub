@@ -183,16 +183,18 @@ class InferenceClient:
 
         Args:
             json (`Union[str, Dict, List]`, *optional*):
-                The JSON data to send in the request body. Defaults to None.
+                The JSON data to send in the request body, specific to each task. Defaults to None.
             data (`Union[str, Path, bytes, BinaryIO]`, *optional*):
-                The content to send in the request body. It can be raw bytes, a pointer to an opened file, a local file
-                path, or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
+                The content to send in the request body, specific to each task.
+                It can be raw bytes, a pointer to an opened file, a local file path,
+                or a URL to an online resource (image, audio file,...). If both `json` and `data` are passed,
                 `data` will take precedence. At least `json` or `data` must be provided. Defaults to None.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
             task (`str`, *optional*):
-                The task to perform on the inference. Used only to default to a recommended model if `model` is not
+                The task to perform on the inference. All available tasks can be found
+                [here](https://huggingface.co/tasks). Used only to default to a recommended model if `model` is not
                 provided. At least `model` or `task` must be provided. Defaults to None.
             stream (`bool`, *optional*):
                 Whether to iterate over streaming APIs.
@@ -238,6 +240,10 @@ class InferenceClient:
                 hf_raise_for_status(response)
                 return response.iter_lines() if stream else response.content
             except HTTPError as error:
+                if error.response.status_code == 422 and task is not None:
+                    error.args = (
+                        f"{error.args[0]}\nMake sure '{task}' task is supported by the model.",
+                    ) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
