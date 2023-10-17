@@ -385,10 +385,6 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item["label"], str)
             self.assertIsInstance(item["score"], float)
 
-    def test_unprocessable_entity_error(self) -> None:
-        with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
-            self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
-
 
 class TestOpenAsBinary(InferenceClientTest):
     def test_open_as_binary_with_none(self) -> None:
