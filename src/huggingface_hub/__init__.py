@@ -136,12 +136,10 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationCopy",
         "CommitOperationDelete",
-        "DatasetSearchArguments",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
-        "ModelSearchArguments",
         "RepoUrl",
         "User",
         "UserLikes",
@@ -173,10 +171,8 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "file_exists",
         "get_collection",
-        "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
-        "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
         "get_space_variables",
@@ -457,12 +453,10 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
-        DatasetSearchArguments,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
-        ModelSearchArguments,  # noqa: F401
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
