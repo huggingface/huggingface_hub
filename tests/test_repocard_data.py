@@ -18,6 +18,9 @@ DUMMY_METADATA_WITH_MODEL_INDEX = """
 language: en
 license: mit
 library_name: timm
+tags:
+- pytorch
+- image-classification
 datasets:
 - beans
 metrics:
@@ -240,3 +243,4 @@ class SpaceCardDataTest(unittest.TestCase):
                 "duplicated_from": "multimodalart/dreambooth-training",
             },
         )
+        self.assertIsNone(card_data.tags)  # SpaceCardData has some default attributes
