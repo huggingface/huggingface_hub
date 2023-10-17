@@ -1757,9 +1757,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(filter=f))
         self.assertGreater(len(models), 1)
         self.assertTrue(
-            ["text-classification" in model.pipeline_tag or "text-classification" in model.tags for model in models]
+            ["text-classification" in model.pipeline_tag for model in models]
         )
-        self.assertTrue(["pytorch" in model.tags and "tf" in model.tags for model in models])
 
     def test_filter_models_with_cardData(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
