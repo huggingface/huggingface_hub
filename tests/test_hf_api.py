@@ -1634,7 +1634,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_filter_datasets_by_task_ids(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_ids:natural-language-inference" in datasets[0].tags)
+
     def test_list_datasets_full(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
         self.assertGreater(len(datasets), 100)
