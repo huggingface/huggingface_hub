@@ -170,6 +170,7 @@ ModelInfo: {
 	modelId: Jiva/xlm-roberta-large-it-mnli
 	sha: c6e64469ec4aa17fedbd1b2522256f90a90b5b86
 	lastModified: 2021-12-10T14:56:38.000Z
+	tags: ['pytorch', 'xlm-roberta', 'text-classification', 'it', 'dataset:multi_nli', 'dataset:glue', 'arxiv:1911.02116', 'transformers', 'tensorflow', 'license:mit', 'zero-shot-classification']
 	pipeline_tag: zero-shot-classification
 	siblings: [ModelFile(rfilename='.gitattributes'), ModelFile(rfilename='README.md'), ModelFile(rfilename='config.json'), ModelFile(rfilename='pytorch_model.bin'), ModelFile(rfilename='sentencepiece.bpe.model'), ModelFile(rfilename='special_tokens_map.json'), ModelFile(rfilename='tokenizer.json'), ModelFile(rfilename='tokenizer_config.json')]
 	config: None
@@ -195,6 +196,7 @@ ModelInfo: {
 	modelId: distilbert-base-uncased-finetuned-sst-2-english
 	sha: ada5cc01a40ea664f0a490d0b5f88c97ab460470
 	lastModified: 2022-03-22T19:47:08.000Z
+	tags: ['pytorch', 'tf', 'rust', 'distilbert', 'text-classification', 'en', 'dataset:sst-2', 'transformers', 'license:apache-2.0', 'infinity_compatible']
 	pipeline_tag: text-classification
 	siblings: [ModelFile(rfilename='.gitattributes'), ModelFile(rfilename='README.md'), ModelFile(rfilename='config.json'), ModelFile(rfilename='map.jpeg'), ModelFile(rfilename='pytorch_model.bin'), ModelFile(rfilename='rust_model.ot'), ModelFile(rfilename='tf_model.h5'), ModelFile(rfilename='tokenizer_config.json'), ModelFile(rfilename='vocab.txt')]
 	config: None

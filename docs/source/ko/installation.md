@@ -120,6 +120,7 @@ python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
 
 ```text
 Model Name: gpt2
+Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
 Task: text-generation
 ```
 

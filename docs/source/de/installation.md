@@ -114,6 +114,7 @@ Dieser Befehl ruft Informationen vom Hub über das [gpt2](https://huggingface.co
 
 ```text
 Model Name: gpt2
+Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
 Task: text-generation
 ```
 

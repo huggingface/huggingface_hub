@@ -365,6 +365,7 @@ class ModelCard(RepoCard):
             ...     language='en',
             ...     license='mit',
             ...     library_name='timm',
+            ...     tags=['image-classification', 'resnet'],
             ...     datasets=['beans'],
             ...     metrics=['accuracy'],
             ... )
@@ -376,6 +377,7 @@ class ModelCard(RepoCard):
             >>> # Including Evaluation Results
             >>> card_data = ModelCardData(
             ...     language='en',
+            ...     tags=['image-classification', 'resnet'],
             ...     eval_results=[
             ...         EvalResult(
             ...             task_type='image-classification',
@@ -391,7 +393,8 @@ class ModelCard(RepoCard):
 
             >>> # Using a Custom Template
             >>> card_data = ModelCardData(
-            ...     language='en'
+            ...     language='en',
+            ...     tags=['image-classification', 'resnet']
             ... )
             >>> card = ModelCard.from_template(
             ...     card_data=card_data,

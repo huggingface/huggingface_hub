@@ -14,7 +14,14 @@
 
 import unittest
 
-from huggingface_hub.utils.endpoint_helpers import AttributeDictionary
+import requests
+
+from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils.endpoint_helpers import (
+    AttributeDictionary
+)
+
+from .testing_utils import with_production_testing
 
 
 class AttributeDictionaryCommonTest(unittest.TestCase):
