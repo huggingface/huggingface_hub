@@ -242,7 +242,7 @@ class InferenceClient:
             except HTTPError as error:
                 if error.response.status_code == 422 and task is not None:
                     error.args = (
-                        error.args[0] + f"\nMake sure '{task}' task is supported by the model.",
+                        f"{error.args[0]}\nMake sure '{task}' task is supported by the model.",
                     ) + error.args[1:]
                 if error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
