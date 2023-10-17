@@ -1072,29 +1072,15 @@ class HfApi:
         >>> # List all models
         >>> api.list_models()
 
-        >>> # Get all valid search arguments
-        >>> args = ModelSearchArguments()
-
         >>> # List only the text classification models
         >>> api.list_models(filter="text-classification")
         >>> # Using the `ModelFilter`
         >>> filt = ModelFilter(task="text-classification")
-        >>> # With `ModelSearchArguments`
-        >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
-        >>> api.list_models(filter=filt)
 
-        >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-        >>> filt = ModelFilter(
-        ...     task=args.pipeline_tags.TextClassification,
-        ...     library=[args.library.PyTorch, args.library.TensorFlow],
-        ... )
-        >>> api.list_models(filter=filt)
-
+        
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
-        >>> # Using `ModelFilter` and `ModelSearchArguments`
-        >>> filt = ModelFilter(library=args.library.allennlp)
-        ```
+
 
         Example usage with the `search` argument:
 
@@ -1256,16 +1242,12 @@ class HfApi:
         >>> # List all datasets
         >>> api.list_datasets()
 
-        >>> # Get all valid search arguments
-        >>> args = DatasetSearchArguments()
 
         >>> # List only the text classification datasets
         >>> api.list_datasets(filter="task_categories:text-classification")
         >>> # Using the `DatasetFilter`
         >>> filt = DatasetFilter(task_categories="text-classification")
-        >>> # With `DatasetSearchArguments`
-        >>> filt = DatasetFilter(task=args.task_categories.text_classification)
-        >>> api.list_models(filter=filt)
+
 
         >>> # List only the datasets in russian for language modeling
         >>> api.list_datasets(
@@ -1273,11 +1255,7 @@ class HfApi:
         ... )
         >>> # Using the `DatasetFilter`
         >>> filt = DatasetFilter(language="ru", task_ids="language-modeling")
-        >>> # With `DatasetSearchArguments`
-        >>> filt = DatasetFilter(
-        ...     language=args.language.ru,
-        ...     task_ids=args.task_ids.language_modeling,
-        ... )
+
         >>> api.list_datasets(filter=filt)
         ```
 
