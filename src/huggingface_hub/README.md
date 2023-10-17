@@ -102,9 +102,11 @@ With the `HfApi` class there are methods to query models, datasets, and metrics 
 - **Models**:
   - `list_models()`
   - `model_info()`
+  - `get_model_tags()`
 - **Datasets**:
   - `list_datasets()`
   - `dataset_info()`
+  - `get_dataset_tags()`
 - **Spaces**:
   - `list_spaces()`
   - `space_info()`

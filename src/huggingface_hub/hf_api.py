@@ -124,7 +124,9 @@ from .utils._deprecation import (
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
+    DatasetTags,
     ModelFilter,
+    ModelTags,
     _filter_emissions,
 )
 
@@ -417,6 +419,8 @@ class ModelInfo(ReprMixin):
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
+        tags (`List[str]`, *optional*):
+            List of tags.
         pipeline_tag (`str`, *optional*):
             Pipeline tag to identify the correct widget.
         siblings (`List[RepoFile]`, *optional*):
@@ -440,6 +444,7 @@ class ModelInfo(ReprMixin):
         modelId: Optional[str] = None,
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         pipeline_tag: Optional[str] = None,
         siblings: Optional[List[Dict]] = None,
         private: bool = False,
@@ -451,6 +456,7 @@ class ModelInfo(ReprMixin):
         self.modelId = modelId
         self.sha = sha
         self.lastModified = lastModified
+        self.tags = tags
         self.pipeline_tag = pipeline_tag
         self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
         self.private = private
@@ -462,7 +468,7 @@ class ModelInfo(ReprMixin):
         super().__init__(**kwargs)
 
     def __str__(self):
-        r = f"Model Name: {self.modelId}"
+        r = f"Model Name: {self.modelId}, Tags: {self.tags}"
         if self.pipeline_tag:
             r += f", Task: {self.pipeline_tag}"
         return r
@@ -479,6 +485,8 @@ class DatasetInfo(ReprMixin):
             repo sha at this particular revision
         lastModified (`str`, *optional*):
             date of last commit to repo
+        tags (`List[str]`, *optional*):
+            List of tags.
         siblings (`List[RepoFile]`, *optional*):
             list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
         private (`bool`, *optional*, defaults to `False`):
@@ -501,6 +509,7 @@ class DatasetInfo(ReprMixin):
         id: Optional[str] = None,
         sha: Optional[str] = None,
         lastModified: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         siblings: Optional[List[Dict]] = None,
         private: bool = False,
         author: Optional[str] = None,
@@ -512,6 +521,7 @@ class DatasetInfo(ReprMixin):
         self.id = id
         self.sha = sha
         self.lastModified = lastModified
+        self.tags = tags
         self.private = private
         self.author = author
         self.description = description
@@ -525,7 +535,7 @@ class DatasetInfo(ReprMixin):
         super().__init__(**kwargs)
 
     def __str__(self):
-        r = f"Dataset Name: {self.id}"
+        r = f"Dataset Name: {self.id}, Tags: {self.tags}"
         return r
 
 
@@ -690,6 +700,106 @@ class Collection(ReprMixin):
         if endpoint is None:
             endpoint = ENDPOINT
         self.url = f"{ENDPOINT}/collections/{self.slug}"
+
+
+class ModelSearchArguments(AttributeDictionary):
+    """
+    A nested namespace object holding all possible values for properties of
+    models currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
+
+    Example:
+
+    ```python
+    >>> args = ModelSearchArguments()
+
+    >>> args.author.huggingface
+    'huggingface'
+
+    >>> args.language.en
+    'en'
+    ```
+
+    <Tip warning={true}>
+
+    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all models on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
+    """
+
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
+        tags = self._api.get_model_tags()
+        super().__init__(tags)
+        self._process_models()
+
+    def _process_models(self):
+        def clean(s: str) -> str:
+            return s.replace(" ", "").replace("-", "_").replace(".", "_")
+
+        models = self._api.list_models()
+        author_dict, model_name_dict = AttributeDictionary(), AttributeDictionary()
+        for model in models:
+            if "/" in model.modelId:
+                author, name = model.modelId.split("/")
+                author_dict[author] = clean(author)
+            else:
+                name = model.modelId
+            model_name_dict[name] = clean(name)
+        self["model_name"] = model_name_dict
+        self["author"] = author_dict
+
+
+class DatasetSearchArguments(AttributeDictionary):
+    """
+    A nested namespace object holding all possible values for properties of
+    datasets currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
+
+    Example:
+
+    ```python
+    >>> args = DatasetSearchArguments()
+
+    >>> args.author.huggingface
+    'huggingface'
+
+    >>> args.language.en
+    'language:en'
+    ```
+
+    <Tip warning={true}>
+
+    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all datasets on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
+    """
+
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
+        tags = self._api.get_dataset_tags()
+        super().__init__(tags)
+        self._process_models()
+
+    def _process_models(self):
+        def clean(s: str):
+            return s.replace(" ", "").replace("-", "_").replace(".", "_")
+
+        datasets = self._api.list_datasets()
+        author_dict, dataset_name_dict = AttributeDictionary(), AttributeDictionary()
+        for dataset in datasets:
+            if "/" in dataset.id:
+                author, name = dataset.id.split("/")
+                author_dict[author] = clean(author)
+            else:
+                name = dataset.id
+            dataset_name_dict[name] = clean(name)
+        self["dataset_name"] = dataset_name_dict
+        self["author"] = author_dict
 
 
 @dataclass
@@ -991,6 +1101,25 @@ class HfApi:
         except (LocalTokenNotFoundError, HTTPError):
             return None
 
+    def get_model_tags(self) -> ModelTags:
+        """
+        List all valid model tags as a nested namespace object
+        """
+        path = f"{self.endpoint}/api/models-tags-by-type"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        d = r.json()
+        return ModelTags(d)
+
+    def get_dataset_tags(self) -> DatasetTags:
+        """
+        List all valid dataset tags as a nested namespace object.
+        """
+        path = f"{self.endpoint}/api/datasets-tags-by-type"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        d = r.json()
+        return DatasetTags(d)
     @validate_hf_hub_args
     def list_models(
         self,
@@ -1174,6 +1303,10 @@ class HfApi:
             filter_list.extend(
                 [model_filter.library] if isinstance(model_filter.library, str) else model_filter.library
             )
+
+        # Handling tags
+        if model_filter.tags:
+            filter_list.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
 
         query_dict: Dict[str, Any] = {}
         if model_str is not None:
@@ -6405,6 +6538,8 @@ list_files_info = api.list_files_info
 
 list_metrics = api.list_metrics
 
+get_model_tags = api.get_model_tags
+get_dataset_tags = api.get_dataset_tags
 
 create_commit = api.create_commit
 create_repo = api.create_repo
@@ -6420,6 +6555,8 @@ create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch
+create_tag = api.create_tag
+delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
 
 # Background jobs
