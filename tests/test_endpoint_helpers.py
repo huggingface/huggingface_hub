@@ -18,10 +18,7 @@ import requests
 
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils.endpoint_helpers import (
-    AttributeDictionary,
-    DatasetTags,
-    GeneralTags,
-    ModelTags,
+    AttributeDictionary
 )
 
 from .testing_utils import with_production_testing
@@ -96,86 +93,3 @@ class AttributeDictionaryTest(AttributeDictionaryCommonTest):
         self.assertEqual(repr_string, repr(self._attrdict))
 
 
-class GeneralTagsCommonTest(unittest.TestCase):
-    # Similar to the output from /api/***-tags-by-type
-    # id = how we can search hfapi, such as `'id': 'language:en'`
-    # label = A human readable version assigned to everything, such as `"label":"en"`
-    _tag_dictionary = {
-        "language": [
-            {"id": "itemA", "label": "Item A"},
-            {"id": "itemB", "label": "1Item-B"},
-        ],
-        "license": [
-            {"id": "itemC", "label": "Item C"},
-            {"id": "itemD", "label": "Item.D"},
-        ],
-    }
-
-
-class GeneralTagsTest(GeneralTagsCommonTest):
-    def test_init(self):
-        _tags = GeneralTags(self._tag_dictionary)
-        languages = _tags.language
-        licenses = _tags.license
-        # Ensure they have the right bits
-
-        self.assertEqual(
-            languages,
-            AttributeDictionary({"ItemA": "itemA", "1Item_B": "itemB"}),
-        )
-
-        self.assertTrue("1Item_B" not in dir(languages))
-
-        self.assertEqual(licenses, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"}))
-
-    def test_filter(self):
-        _tags = GeneralTags(self._tag_dictionary, keys=["license"])
-        self.assertTrue(hasattr(_tags, "license"))
-        self.assertFalse(hasattr(_tags, "languages"))
-        self.assertEqual(_tags.license, AttributeDictionary({"ItemC": "itemC", "Item_D": "itemD"}))
-
-
-class ModelTagsTest(unittest.TestCase):
-    @with_production_testing
-    def test_tags(self):
-        # ModelTags instantiation must not fail!
-        res = requests.get(f"{HfApi().endpoint}/api/models-tags-by-type")
-        res.raise_for_status()
-        tags = ModelTags(res.json())
-
-        # Check existing keys to get notified about server-side changes
-        for existing_key in [
-            "dataset",
-            "language",
-            "library",
-            "license",
-            "pipeline_tag",
-        ]:
-            self.assertGreater(len(getattr(tags, existing_key).keys()), 0)
-
-
-class DatasetTagsTest(unittest.TestCase):
-    @with_production_testing
-    def test_tags(self):
-        # DatasetTags instantiation must not fail!
-        res = requests.get(f"{HfApi().endpoint}/api/datasets-tags-by-type")
-        res.raise_for_status()
-        tags = DatasetTags(res.json())
-
-        # Some keys existed before but have been removed server-side
-        for missing_key in (
-            "language_creators",
-            "multilinguality",
-        ):
-            self.assertEqual(len(getattr(tags, missing_key).keys()), 0)
-
-        # Check existing keys to get notified about server-side changes
-        for existing_key in [
-            "benchmark",
-            "language",
-            "license",
-            "size_categories",
-            "task_categories",
-            "task_ids",
-        ]:
-            self.assertGreater(len(getattr(tags, existing_key).keys()), 0)
