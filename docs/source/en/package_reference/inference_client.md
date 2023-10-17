@@ -51,6 +51,8 @@ For most tasks, the return value has a built-in type (string, list, image...). H
 
 [[autodoc]] huggingface_hub.inference._types.TokenClassificationOutput
 
+[[autodoc]] huggingface_hub.inference._common.ModelStatus
+
 ### Text generation types
 
 [`~InferenceClient.text_generation`] task has a greater support than other tasks in `InferenceClient`. In
