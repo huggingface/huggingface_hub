@@ -1870,12 +1870,12 @@ class InferenceClient:
                     "You must specify at least a model (repo_id or URL) or a task, either when instantiating"
                     " `InferenceClient` or when making a request."
                 )
+            model = _get_recommended_model(task)
             logger.info(
                 f"Using recommended model {model} for task {task}. Note that it is"
                 f" encouraged to explicitly set `model='{model}'` as the recommended"
                 " models list might get updated without prior notice."
             )
-            model = _get_recommended_model(task)
 
         # Compute InferenceAPI url
         return (
