@@ -113,7 +113,7 @@ def configure_http_backend(backend_factory: BACKEND_FACTORY_T = _default_backend
     """
     global _GLOBAL_BACKEND_FACTORY
     _GLOBAL_BACKEND_FACTORY = backend_factory
-    _get_session_from_cache.cache_clear()
+    reset_sessions()
 
 
 def get_session() -> requests.Session:
@@ -146,6 +146,15 @@ def get_session() -> requests.Session:
     ```
     """
     return _get_session_from_cache(process_id=os.getpid(), thread_id=threading.get_ident())
+
+
+def reset_sessions() -> None:
+    """Reset the cache of sessions.
+
+    Mostly used internally when sessions are reconfigured or an SSLError is raised.
+    See [`configure_http_backend`] for more details.
+    """
+    _get_session_from_cache.cache_clear()
 
 
 @lru_cache
