@@ -1905,8 +1905,8 @@ class InferenceClient:
         model = _fetch_recommended_models().get(task)
         if model is None:
             raise ValueError(
-                f"Task {task} has no recommended task. Please specify a model explicitly. Visit"
-                " https://huggingface.co/tasks for more info."
+                f"Task {task} has no recommended model. Please specify a model"
+                " explicitly. Visit https://huggingface.co/tasks for more info."
             )
         return model
 
