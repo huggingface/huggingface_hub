@@ -155,6 +155,14 @@ class InferenceClientVCRTest(InferenceClientTest):
             {"score", "sequence", "token", "token_str"},
         )
 
+    def test_get_recommended_model_has_recommendation(self) -> None:
+        assert self.client.get_recommended_model("feature-extraction") == "facebook/bart-base"
+        assert self.client.get_recommended_model("translation") == "t5-small"
+
+    def test_get_recommended_model_no_recommendation(self) -> None:
+        with pytest.raises(ValueError):
+            self.client.get_recommended_model("text-generation")
+
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
         self.assertIsInstance(output, list)
