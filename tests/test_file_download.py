@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import io
 import os
 import re
 import shutil
@@ -18,6 +19,7 @@ import stat
 import unittest
 import warnings
 from pathlib import Path
+from typing import Iterable
 from unittest.mock import Mock, patch
 
 import pytest
@@ -45,6 +47,7 @@ from huggingface_hub.file_download import (
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
+    http_get,
     try_to_load_from_cache,
 )
 from huggingface_hub.utils import (
@@ -945,6 +948,58 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
             _to_local_dir(
                 "path/to/file_to_copy", "path/to/local/dir", relative_filename=relative_filename, use_symlinks=False
             )
+
+
+class TestHttpGet(unittest.TestCase):
+    def test_http_get_with_ssl_and_timeout_error(self):
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.exceptions.SSLError("Fake SSLError")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"0" * 10
+            raise requests.ReadTimeout("Fake ReadTimeout")
+
+        def _iter_content_3() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            raise requests.ConnectionError("Fake ConnectionError")
+
+        def _iter_content_4() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download._request_wrapper") as mock:
+            mock.return_value.headers = {"Content-Length": 100}
+            mock.return_value.iter_content.side_effect = [
+                _iter_content_1(),
+                _iter_content_2(),
+                _iter_content_3(),
+                _iter_content_4(),
+            ]
+
+            temp_file = io.BytesIO()
+
+            with self.assertLogs("huggingface_hub.file_download", level="WARNING") as records:
+                http_get("fake_url", temp_file=temp_file)
+
+        # Check 3 warnings
+        self.assertEqual(len(records.records), 3)
+
+        # Check final value
+        self.assertEqual(temp_file.tell(), 100)
+        self.assertEqual(temp_file.getvalue(), b"0" * 100)
+
+        # Check number of calls + correct range headers
+        self.assertEqual(len(mock.call_args_list), 4)
+        self.assertEqual(mock.call_args_list[0].kwargs["headers"], {})
+        self.assertEqual(mock.call_args_list[1].kwargs["headers"], {"Range": "bytes=20-"})
+        self.assertEqual(mock.call_args_list[2].kwargs["headers"], {"Range": "bytes=30-"})
+        self.assertEqual(mock.call_args_list[3].kwargs["headers"], {"Range": "bytes=60-"})
 
 
 class CreateSymlinkTest(unittest.TestCase):

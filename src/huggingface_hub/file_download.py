@@ -7,6 +7,7 @@ import re
 import shutil
 import stat
 import tempfile
+import time
 import uuid
 import warnings
 from contextlib import contextmanager
@@ -19,13 +20,11 @@ from urllib.parse import quote, urlparse
 
 import requests
 from filelock import FileLock
-from requests.exceptions import ProxyError, Timeout
 
 from huggingface_hub import constants
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from .constants import (
-    DEFAULT_DOWNLOAD_TIMEOUT,
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
@@ -57,10 +56,10 @@ from .utils import (
     get_graphviz_version,  # noqa: F401 # for backward compatibility
     get_jinja_version,  # noqa: F401 # for backward compatibility
     get_pydot_version,  # noqa: F401 # for backward compatibility
+    get_session,
     get_tf_version,  # noqa: F401 # for backward compatibility
     get_torch_version,  # noqa: F401 # for backward compatibility
     hf_raise_for_status,
-    http_backoff,
     is_fastai_available,  # noqa: F401 # for backward compatibility
     is_fastcore_available,  # noqa: F401 # for backward compatibility
     is_graphviz_available,  # noqa: F401 # for backward compatibility
@@ -69,6 +68,7 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
+    reset_sessions,
     tqdm,
     validate_hf_hub_args,
 )
@@ -372,46 +372,24 @@ def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
 
 
 def _request_wrapper(
-    method: HTTP_METHOD_T,
-    url: str,
-    *,
-    max_retries: int = 0,
-    base_wait_time: float = 0.5,
-    max_wait_time: float = 2,
-    timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
-    follow_relative_redirects: bool = False,
-    **params,
+    method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
 ) -> requests.Response:
     """Wrapper around requests methods to add several features.
 
     What it does:
-    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1).
-       If enabled, a `OfflineModeIsEnabled` exception is raised.
-    2. Follow relative redirections if `follow_relative_redirects=True` even when
-       `allow_redirection` kwarg is set to False.
-    3. Retry in case request fails with a `Timeout` or `ProxyError`, with exponential backoff.
+    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1). If enabled, a
+       `OfflineModeIsEnabled` exception is raised.
+    2. Follow relative redirects if `follow_relative_redirects=True` even when `allow_redirection=False`.
 
     Args:
         method (`str`):
             HTTP method, such as 'GET' or 'HEAD'.
         url (`str`):
             The URL of the resource to fetch.
-        max_retries (`int`, *optional*, defaults to `0`):
-            Maximum number of retries, defaults to 0 (no retries).
-        base_wait_time (`float`, *optional*, defaults to `0.5`):
-            Duration (in seconds) to wait before retrying the first time.
-            Wait time between retries then grows exponentially, capped by
-            `max_wait_time`.
-        max_wait_time (`float`, *optional*, defaults to `2`):
-            Maximum amount of time between two retries, in seconds.
-        timeout (`float`, *optional*, defaults to `10`):
-            How many seconds to wait for the server to send data before
-            giving up which is passed to `requests.request`.
         follow_relative_redirects (`bool`, *optional*, defaults to `False`)
-            If True, relative redirection (redirection to the same site) will be
-            resolved even when `allow_redirection` kwarg is set to False. Useful when we
-            want to follow a redirection to a renamed repository without following
-            redirection to a CDN.
+            If True, relative redirection (redirection to the same site) will be resolved even when `allow_redirection`
+            kwarg is set to False. Useful when we want to follow a redirection to a renamed repository without
+            following redirection to a CDN.
         **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
@@ -423,10 +401,6 @@ def _request_wrapper(
         response = _request_wrapper(
             method=method,
             url=url,
-            max_retries=max_retries,
-            base_wait_time=base_wait_time,
-            max_wait_time=max_wait_time,
-            timeout=timeout,
             follow_relative_redirects=False,
             **params,
         )
@@ -442,38 +416,14 @@ def _request_wrapper(
                 #
                 # Highly inspired by `resolve_redirects` from requests library.
                 # See https://github.com/psf/requests/blob/main/requests/sessions.py#L159
-                return _request_wrapper(
-                    method=method,
-                    url=urlparse(url)._replace(path=parsed_target.path).geturl(),
-                    max_retries=max_retries,
-                    base_wait_time=base_wait_time,
-                    max_wait_time=max_wait_time,
-                    timeout=timeout,
-                    follow_relative_redirects=True,  # resolve recursively
-                    **params,
-                )
+                next_url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                return _request_wrapper(method=method, url=next_url, follow_relative_redirects=True, **params)
         return response
 
-    # 3. Exponential backoff
-    return http_backoff(
-        method=method,
-        url=url,
-        max_retries=max_retries,
-        base_wait_time=base_wait_time,
-        max_wait_time=max_wait_time,
-        retry_on_exceptions=(Timeout, ProxyError),
-        retry_on_status_codes=(),
-        timeout=timeout,
-        **params,
-    )
-
-
-def _request_with_retry(*args, **kwargs) -> requests.Response:
-    """Deprecated method. Please use `_request_wrapper` instead.
-
-    Alias to keep backward compatibility (used in Transformers).
-    """
-    return _request_wrapper(*args, **kwargs)
+    # Perform request and return if status_code is not in the retry list.
+    response = get_session().request(method=method, url=url, **params)
+    hf_raise_for_status(response)
+    return response
 
 
 def http_get(
@@ -483,17 +433,16 @@ def http_get(
     proxies=None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
-    timeout: Optional[float] = DEFAULT_DOWNLOAD_TIMEOUT,
-    max_retries: int = 0,
     expected_size: Optional[int] = None,
+    _nb_retries: int = 5,
 ):
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
-    """
-    if HF_HUB_DOWNLOAD_TIMEOUT != DEFAULT_DOWNLOAD_TIMEOUT:
-        # Respect environment variable above user value
-        timeout = HF_HUB_DOWNLOAD_TIMEOUT
 
+    If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
+    transient error (network outage?). We log a warning message and try to resume the download a few times before
+    giving up.
+    """
     if not resume_size:
         if HF_HUB_ENABLE_HF_TRANSFER:
             try:
@@ -518,18 +467,13 @@ def http_get(
                     " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
                 ) from e
 
+    initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
 
     r = _request_wrapper(
-        method="GET",
-        url=url,
-        stream=True,
-        proxies=proxies,
-        headers=headers,
-        timeout=timeout,
-        max_retries=max_retries,
+        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=HF_HUB_DOWNLOAD_TIMEOUT
     )
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
@@ -550,6 +494,7 @@ def http_get(
     if len(displayed_name) > 40:
         displayed_name = f"(…){displayed_name[-40:]}"
 
+    # Stream file to buffer
     progress = tqdm(
         unit="B",
         unit_scale=True,
@@ -558,10 +503,32 @@ def http_get(
         desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     )
-    for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
-        if chunk:  # filter out keep-alive new chunks
-            progress.update(len(chunk))
-            temp_file.write(chunk)
+    try:
+        new_resume_size = resume_size
+        for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
+            if chunk:  # filter out keep-alive new chunks
+                progress.update(len(chunk))
+                temp_file.write(chunk)
+                new_resume_size += len(chunk)
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
+        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+        # a transient error (network outage?). We log a warning message and try to resume the download a few times
+        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+        if _nb_retries <= 0:
+            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+            raise
+        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+        time.sleep(1)
+        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+        return http_get(
+            url=url,
+            temp_file=temp_file,
+            proxies=proxies,
+            resume_size=new_resume_size,
+            headers=initial_headers,
+            expected_size=expected_size,
+            _nb_retries=_nb_retries - 1,
+        )
 
     if expected_size is not None and expected_size != temp_file.tell():
         raise EnvironmentError(
@@ -1598,7 +1565,7 @@ def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = 10.0,
+    timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
