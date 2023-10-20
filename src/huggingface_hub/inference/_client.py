@@ -1886,6 +1886,24 @@ class InferenceClient:
             else f"{INFERENCE_ENDPOINT}/models/{model}"
         )
 
+    @staticmethod
+    def get_recommended_model(task) -> str:
+        """
+        Get the model Hugging Face recommends for the input task.
+
+        Args:
+            task (`str`):
+                The Hugging Face task to get which model Hugging Face recommends.
+                All available tasks can be found [here](https://huggingface.co/tasks).
+
+        Returns:
+            `str`: Name of the model recommended for the input task.
+
+        Raises:
+            `ValueError`: If Hugging Face has no recommendation for the input task.
+        """
+        return _get_recommended_model(task)
+
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the Inference API.
