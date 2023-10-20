@@ -140,16 +140,6 @@ def _import_pil_image():
 _RECOMMENDED_MODELS: Optional[Dict[str, Optional[str]]] = None
 
 
-def _get_recommended_model(task: str) -> str:
-    model = _fetch_recommended_models().get(task)
-    if model is None:
-        raise ValueError(
-            f"Task {task} has no recommended task. Please specify a model explicitly. Visit"
-            " https://huggingface.co/tasks for more info."
-        )
-    return model
-
-
 def _fetch_recommended_models() -> Dict[str, Optional[str]]:
     global _RECOMMENDED_MODELS
     if _RECOMMENDED_MODELS is None:

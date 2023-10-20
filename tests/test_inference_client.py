@@ -67,7 +67,7 @@ class InferenceClientTest(unittest.TestCase):
 
 @pytest.mark.vcr
 @with_production_testing
-@patch("huggingface_hub.inference._common._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
+@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
 class InferenceClientVCRTest(InferenceClientTest):
     """
     Test for the main tasks implemented in InferenceClient. Since Inference API can be flaky, we use VCR.py and
