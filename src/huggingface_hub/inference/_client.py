@@ -1887,7 +1887,7 @@ class InferenceClient:
         )
 
     @staticmethod
-    def get_recommended_model(task) -> str:
+    def get_recommended_model(task: str) -> str:
         """
         Get the model Hugging Face recommends for the input task.
 
