@@ -147,10 +147,6 @@ def _get_recommended_model(task: str) -> str:
             f"Task {task} has no recommended task. Please specify a model explicitly. Visit"
             " https://huggingface.co/tasks for more info."
         )
-    logger.info(
-        f"Using recommended model {model} for task {task}. Note that it is encouraged to explicitly set"
-        f" `model='{model}'` as the recommended models list might get updated without prior notice."
-    )
     return model
 
 
