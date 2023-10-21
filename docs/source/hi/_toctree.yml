@@ -1,0 +1,79 @@
+- title: "शुरू हो जाओ"
+  sections:
+    - local: index
+      title: (होम) Home
+
+    - local: quick-start
+      title: (जल्दी शुरू) Quickstart 
+    - local: installation
+      title: (इंस्टालेशन) Installation
+- title: "कैसे करें मार्गदर्शन"
+  sections:
+    - local: guides/overview
+      title: (निरीक्षण) Overview
+    - local: guides/download
+      title: (फ़ाइलें डाउनलोड करें) Download files
+    - local: guides/upload
+      title: (फाइलें अपलोड करें) Upload files
+    - local: guides/hf_file_system
+      title: (एचएफफ़ाइलसिस्टम) HfFileSystem
+    - local: guides/repository
+      title: (कोष) Repository
+    - local: guides/search
+      title: (तलाश) Search
+    - local: guides/inference
+      title: (अनुमान) Inference
+    - local: guides/community
+      title: (समुदाय टैब) Community Tab
+    - local: guides/collections
+      title: (संग्रह) Collections
+    - local: guides/manage-cache
+      title: (द्रुतिका) Cache
+    - local: guides/model-cards
+      title: (मॉडल कार्ड) Model Cards
+    - local: guides/manage-spaces
+      title: (अपना स्पेस प्रबंधित करें) Manage your Space
+    - local: guides/integrations
+      title: (एक library एकीकृत करें) Integrate a library
+    - local: guides/webhooks_server
+      title: (वेबहुक सर्वर) Webhooks server
+- title: "वैचारिक मार्गदर्शक"
+  sections:
+    - local: concepts/git_vs_http
+      title: Git बनाम HTTP प्रतिमान
+- title: "संदर्भ"
+  sections:
+    - local: package_reference/overview
+      title: (अवलोकन) Overview
+    - local: package_reference/login
+      title: (लॉगइन करें और लॉगआउट करें) Login and logout
+    - local: package_reference/environment_variables
+      title: (पर्यावरण चर) Environment variables
+    - local: package_reference/repository
+      title: (स्थानीय और ऑनलाइन रिपॉजिटरी का प्रबंधन करना) Managing local and online repositories
+    - local: package_reference/hf_api
+      title: (हगिंग फेस हब एपीआई) Hugging Face Hub API
+    - local: package_reference/file_download
+      title: (फ़ाइलें डाउनलोड हो रही हैं) Downloading files
+    - local: package_reference/mixins
+      title: (मिश्रण और क्रमांकन विधियाँ) Mixins & serialization methods
+    - local: package_reference/inference_client
+      title: (अनुमान ग्राहक) Inference Client
+    - local: package_reference/hf_file_system
+      title: (एचएफफ़ाइलसिस्टम) HfFileSystem
+    - local: package_reference/utilities
+      title: (उपयोगिताओं) Utilities
+    - local: package_reference/community
+      title: (चर्चाएँ और अनुरोध खींचें) Discussions and Pull Requests
+    - local: package_reference/cache
+      title: (कैश-सिस्टम संदर्भ) Cache-system reference
+    - local: package_reference/cards
+      title: (रेपो कार्ड और रेपो कार्ड डेटा) Repo Cards and Repo Card Data
+    - local: package_reference/space_runtime
+      title: (स्पेस रनटाइम) Space runtime
+    - local: package_reference/collections
+      title: (संग्रह) Collections
+    - local: package_reference/tensorboard
+      title: (टेंसरबोर्ड logger) TensorBoard logger
+    - local: package_reference/webhooks_server
+      title: (वेबहुक सर्वर) Webhooks server
