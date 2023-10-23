@@ -49,7 +49,7 @@ from huggingface_hub.inference._common import (
     _bytes_to_dict,
     _bytes_to_image,
     _bytes_to_list,
-    _get_recommended_model,
+    _fetch_recommended_models,
     _import_numpy,
     _is_tgi_server,
     _open_as_binary,
@@ -1898,7 +1898,12 @@ class AsyncInferenceClient:
                     "You must specify at least a model (repo_id or URL) or a task, either when instantiating"
                     " `InferenceClient` or when making a request."
                 )
-            model = _get_recommended_model(task)
+            model = self.get_recommended_model(task)
+            logger.info(
+                f"Using recommended model {model} for task {task}. Note that it is"
+                f" encouraged to explicitly set `model='{model}'` as the recommended"
+                " models list might get updated without prior notice."
+            )
 
         # Compute InferenceAPI url
         return (
@@ -1908,6 +1913,30 @@ class AsyncInferenceClient:
             # Otherwise, we use the default endpoint
             else f"{INFERENCE_ENDPOINT}/models/{model}"
         )
+
+    @staticmethod
+    def get_recommended_model(task: str) -> str:
+        """
+        Get the model Hugging Face recommends for the input task.
+
+        Args:
+            task (`str`):
+                The Hugging Face task to get which model Hugging Face recommends.
+                All available tasks can be found [here](https://huggingface.co/tasks).
+
+        Returns:
+            `str`: Name of the model recommended for the input task.
+
+        Raises:
+            `ValueError`: If Hugging Face has no recommendation for the input task.
+        """
+        model = _fetch_recommended_models().get(task)
+        if model is None:
+            raise ValueError(
+                f"Task {task} has no recommended model. Please specify a model"
+                " explicitly. Visit https://huggingface.co/tasks for more info."
+            )
+        return model
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
