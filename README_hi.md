@@ -93,7 +93,7 @@ Hugging Face Hub एप्लिकेशन को प्रमाणित क
 
 ```bash
 huggingface-cli login
-# 또는 환경 변수로 지정해주세요
+# या कृपया इसे एक पर्यावरण चर के रूप में निर्दिष्ट करें।
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
@@ -130,8 +130,6 @@ upload_folder(
     repo_type="space",
 )
 ```
-
-자세한 내용은 [업로드 가이드](https://huggingface.co/docs/huggingface_hub/ko/guides/upload)를 참조하세요.
 
 [अपलोड गाइड](https://huggingface.co/docs/huggingface_hub/en/guides/upload) में विवरण के लिए।
 
