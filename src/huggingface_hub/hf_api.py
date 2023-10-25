@@ -1004,25 +1004,25 @@ class HfApi:
         except (LocalTokenNotFoundError, HTTPError):
             return None
 
-    def get_model_tags(self) -> ModelTags:
+    def get_model_tags(self) -> Dict:
         """
         List all valid model tags as a nested namespace object
         """
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
-        d = r.json()
-        return ModelTags(d)
+        return r.json()
+        
 
-    def get_dataset_tags(self) -> DatasetTags:
+    def get_dataset_tags(self) -> Dict:
         """
         List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
-        d = r.json()
-        return DatasetTags(d)
+        return r.json()
+        
 
     @validate_hf_hub_args
     def list_models(
