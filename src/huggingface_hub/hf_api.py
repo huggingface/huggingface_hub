@@ -124,7 +124,6 @@ from .utils._deprecation import (
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
-    DatasetTags,
     ModelFilter,
     ModelTags,
     _filter_emissions,
