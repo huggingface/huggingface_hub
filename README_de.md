@@ -20,7 +20,7 @@
     <p>
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a>  |
         <b>Deutsch</b> |
-        <b>Hindi</b> |
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_hi.md">हिंदी</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_ko.md">한국인</a> 
     <p>
 </h4>
