@@ -6127,20 +6127,20 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> endpoint = api.create_inference_endpoint(
-            ...     name="my-endpoint",
+            >>> create_inference_endpoint(
+            ...     "my-endpoint-name",
             ...     repository="gpt2",
-            ...     framework="transformers",
+            ...     framework="pytorch",
+            ...     task="text-generation",
             ...     accelerator="cpu",
-            ...     instance_size="large",
-            ...     instance_type="c6i",
-            ...     region="us-east-1",
             ...     vendor="aws",
-            ...     min_replica=1,
-            ...     max_replica=2,
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="c6i"
             ... )
             >>> endpoint
-            InferenceEndpoint(name='my-endpoint', status="pending",...)
+            InferenceEndpoint(name='my-endpoint-name', status="pending",...)
 
             # Run inference on the endpoint
             >>> endpoint.client.text_generation(...)
