@@ -122,6 +122,14 @@ from .utils._deprecation import (
     _deprecate_arguments,
 )
 from .utils._typing import CallableT
+from .utils.endpoint_helpers import (
+    AttributeDictionary,
+    DatasetFilter,
+    DatasetTags,
+    ModelFilter,
+    ModelTags,
+    _filter_emissions,
+)
 from .utils.endpoint_helpers import DatasetFilter, ModelFilter, _filter_emissions
 
 
