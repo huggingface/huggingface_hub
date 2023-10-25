@@ -125,7 +125,6 @@ from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    ModelTags,
     _filter_emissions,
 )
 from .utils.endpoint_helpers import DatasetFilter, ModelFilter, _filter_emissions
