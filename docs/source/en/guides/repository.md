@@ -119,7 +119,7 @@ You can also list the existing git refs from a repository using [`list_repo_refs
 
 ```py
 >>> from huggingface_hub import list_repo_refs
->>> api.list_repo_refs("bigcode/the-stack", repo_type="dataset")
+>>> list_repo_refs("bigcode/the-stack", repo_type="dataset")
 GitRefs(
    branches=[
          GitRefInfo(name='main', ref='refs/heads/main', target_commit='18edc1591d9ce72aa82f56c4431b3c969b210ae3'),
