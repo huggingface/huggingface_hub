@@ -51,6 +51,10 @@ HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
+# See https://huggingface.co/docs/inference-endpoints/index
+INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
+
+
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
 # and is the canonical one we use for serialization of repo ids elsewhere.
