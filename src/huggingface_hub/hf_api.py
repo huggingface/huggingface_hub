@@ -704,6 +704,106 @@ class Collection(ReprMixin):
         self.url = f"{ENDPOINT}/collections/{self.slug}"
 
 
+class ModelSearchArguments(AttributeDictionary):
+    """
+    A nested namespace object holding all possible values for properties of
+    models currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
+
+    Example:
+
+    ```python
+    >>> args = ModelSearchArguments()
+
+    >>> args.author.huggingface
+    'huggingface'
+
+    >>> args.language.en
+    'en'
+    ```
+
+    <Tip warning={true}>
+
+    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all models on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
+    """
+
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
+        tags = self._api.get_model_tags()
+        super().__init__(tags)
+        self._process_models()
+
+    def _process_models(self):
+        def clean(s: str) -> str:
+            return s.replace(" ", "").replace("-", "_").replace(".", "_")
+
+        models = self._api.list_models()
+        author_dict, model_name_dict = AttributeDictionary(), AttributeDictionary()
+        for model in models:
+            if "/" in model.modelId:
+                author, name = model.modelId.split("/")
+                author_dict[author] = clean(author)
+            else:
+                name = model.modelId
+            model_name_dict[name] = clean(name)
+        self["model_name"] = model_name_dict
+        self["author"] = author_dict
+
+
+class DatasetSearchArguments(AttributeDictionary):
+    """
+    A nested namespace object holding all possible values for properties of
+    datasets currently hosted in the Hub with tab-completion. If a value starts
+    with a number, it will only exist in the dictionary
+
+    Example:
+
+    ```python
+    >>> args = DatasetSearchArguments()
+
+    >>> args.author.huggingface
+    'huggingface'
+
+    >>> args.language.en
+    'language:en'
+    ```
+
+    <Tip warning={true}>
+
+    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
+    initialization requires listing all datasets on the Hub which makes it increasingly
+    slower as the number of repos on the Hub increases.
+
+    </Tip>
+    """
+
+    def __init__(self, api: Optional["HfApi"] = None):
+        self._api = api if api is not None else HfApi()
+        tags = self._api.get_dataset_tags()
+        super().__init__(tags)
+        self._process_models()
+
+    def _process_models(self):
+        def clean(s: str):
+            return s.replace(" ", "").replace("-", "_").replace(".", "_")
+
+        datasets = self._api.list_datasets()
+        author_dict, dataset_name_dict = AttributeDictionary(), AttributeDictionary()
+        for dataset in datasets:
+            if "/" in dataset.id:
+                author, name = dataset.id.split("/")
+                author_dict[author] = clean(author)
+            else:
+                name = dataset.id
+            dataset_name_dict[name] = clean(name)
+        self["dataset_name"] = dataset_name_dict
+        self["author"] = author_dict
+
+
 @dataclass
 class GitRefInfo:
     """
@@ -1002,6 +1102,26 @@ class HfApi:
             return self.whoami(token=token)["auth"]["accessToken"]["role"]
         except (LocalTokenNotFoundError, HTTPError):
             return None
+
+    def get_model_tags(self) -> ModelTags:
+        """
+        List all valid model tags as a nested namespace object
+        """
+        path = f"{self.endpoint}/api/models-tags-by-type"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        d = r.json()
+        return ModelTags(d)
+
+    def get_dataset_tags(self) -> DatasetTags:
+        """
+        List all valid dataset tags as a nested namespace object.
+        """
+        path = f"{self.endpoint}/api/datasets-tags-by-type"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        d = r.json()
+        return DatasetTags(d)
 
     @validate_hf_hub_args
     def list_models(
@@ -6399,6 +6519,8 @@ list_files_info = api.list_files_info
 
 list_metrics = api.list_metrics
 
+get_model_tags = api.get_model_tags
+get_dataset_tags = api.get_dataset_tags
 
 create_commit = api.create_commit
 create_repo = api.create_repo
