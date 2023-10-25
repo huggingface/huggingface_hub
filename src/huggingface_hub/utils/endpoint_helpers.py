@@ -222,5 +222,3 @@ class ModelFilter:
     task: Optional[Union[str, List[str]]] = None
     trained_dataset: Optional[Union[str, List[str]]] = None
     tags: Optional[Union[str, List[str]]] = None
-
-

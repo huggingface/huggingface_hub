@@ -127,7 +127,6 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     _filter_emissions,
 )
-from .utils.endpoint_helpers import DatasetFilter, ModelFilter, _filter_emissions
 
 
 R = TypeVar("R")  # Return type
@@ -701,8 +700,6 @@ class Collection(ReprMixin):
         self.url = f"{ENDPOINT}/collections/{self.slug}"
 
 
-
-
 @dataclass
 class GitRefInfo:
     """
@@ -1010,7 +1007,6 @@ class HfApi:
         r = get_session().get(path)
         hf_raise_for_status(r)
         return r.json()
-        
 
     def get_dataset_tags(self) -> Dict:
         """
@@ -1020,7 +1016,6 @@ class HfApi:
         r = get_session().get(path)
         hf_raise_for_status(r)
         return r.json()
-        
 
     @validate_hf_hub_args
     def list_models(
