@@ -148,7 +148,7 @@ class InferenceEndpoint:
         if self.url is None:
             raise InferenceEndpointException(
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
-                "Please wait for the Inference Endpoint to be deployed and try again."
+                "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
         return InferenceClient(model=self.url, token=self._token)
 
@@ -162,7 +162,7 @@ class InferenceEndpoint:
         if self.url is None:
             raise InferenceEndpointException(
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
-                "Please wait for the Inference Endpoint to be deployed and try again."
+                "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
         return AsyncInferenceClient(model=self.url, token=self._token)
 
