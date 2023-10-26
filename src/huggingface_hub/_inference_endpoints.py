@@ -46,7 +46,7 @@ class InferenceEndpoint:
         url (`str`, *optional*):
             The URL of the Inference Endpoint, if available. Only a deployed endpoint will have a URL.
         framework (`str`):
-            The framework used for the model.
+            The machine learning framework used for the model.
         revision (`str`):
             The specific model revision deployed on the Inference Endpoint.
         task (`str`):
@@ -56,7 +56,7 @@ class InferenceEndpoint:
         updated_at (`datetime.datetime`):
             The timestamp of the last update of the endpoint.
         type ([`InferenceEndpointType`]):
-            The type of the Inference Endpoint (public, protected, private)
+            The type of the Inference Endpoint (public, protected, private).
         raw (`Dict`):
             The raw dictionary data returned from the API.
         token (`str`, *optional*):

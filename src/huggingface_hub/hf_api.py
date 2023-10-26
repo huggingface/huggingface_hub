@@ -6102,7 +6102,7 @@ class HfApi:
             region (`str`):
                 The cloud region in which the Inference Endpoint will be created (e.g. `"us-east-1"`).
             vendor (`str`):
-                The cloud provider or vendor where the endpoint will be hosted (e.g. `"aws"`).
+                The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
             account_id (`str`, *optional*):
                 The account ID used to link a VPC to a private endpoint (if applicable).
             min_replica (`int`, *optional*):
@@ -6249,7 +6249,7 @@ class HfApi:
     ) -> InferenceEndpoint:
         """Update an Inference Endpoint.
 
-        This method allows to update either the compute configuration, the deployed model, or both. All arguments are
+        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
         optional but at least one must be provided.
 
         Args:
