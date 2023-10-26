@@ -16,8 +16,12 @@ if TYPE_CHECKING:
 logger = logging.get_logger(__name__)
 
 
-class InferenceEndpointException(Exception):
+class InferenceEndpointError(Exception):
     """Generic exception when dealing with Inference Endpoints."""
+
+
+class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
+    """Exception for timeouts while waiting for Inference Endpoint."""
 
 
 class InferenceEndpointStatus(str, Enum):
@@ -143,10 +147,10 @@ class InferenceEndpoint:
         """Returns a client to make predictions on this Inference Endpoint.
 
         Raises:
-            [`InferenceEndpointException`]: If the Inference Endpoint is not yet deployed.
+            [`InferenceEndpointError`]: If the Inference Endpoint is not yet deployed.
         """
         if self.url is None:
-            raise InferenceEndpointException(
+            raise InferenceEndpointError(
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
@@ -157,10 +161,10 @@ class InferenceEndpoint:
         """Returns a client to make predictions on this Inference Endpoint.
 
         Raises:
-            [`InferenceEndpointException`]: If the Inference Endpoint is not yet deployed.
+            [`InferenceEndpointError`]: If the Inference Endpoint is not yet deployed.
         """
         if self.url is None:
-            raise InferenceEndpointException(
+            raise InferenceEndpointError(
                 "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
                 "Please wait for the Inference Endpoint to be deployed using `endpoint.wait()` and try again."
             )
@@ -170,7 +174,7 @@ class InferenceEndpoint:
         """Wait for the Inference Endpoint to be deployed.
 
         Information from the server will be fetched every 1s. If the Inference Endpoint is not deployed after `timeout`
-        seconds, a `TimeoutError` will be raised. The [`InferenceEndpoint`] will be mutated in place with the latest
+        seconds, a [`InferenceEndpointTimeoutError`] will be raised. The [`InferenceEndpoint`] will be mutated in place with the latest
         data.
 
         Args:
@@ -197,7 +201,7 @@ class InferenceEndpoint:
                 return
             if timeout is not None:
                 if time.time() - start > timeout:
-                    raise TimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
+                    raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
             logger.info(f"Inference Endpoint is not deployed yet ({self.status}). Waiting {refresh_every}s...")
             time.sleep(refresh_every)
 

@@ -43,6 +43,6 @@ The main dataclass is [`InferenceEndpoint`]. It contains information about a dep
 
 [[autodoc]] InferenceEndpointType
 
-## InferenceEndpointException
+## InferenceEndpointError
 
-[[autodoc]] InferenceEndpointException
+[[autodoc]] InferenceEndpointError

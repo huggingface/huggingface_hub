@@ -57,8 +57,9 @@ _SUBMOD_ATTRS = {
     ],
     "_inference_endpoints": [
         "InferenceEndpoint",
-        "InferenceEndpointException",
+        "InferenceEndpointError",
         "InferenceEndpointStatus",
+        "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
     ],
     "_login": [
@@ -394,8 +395,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
-        InferenceEndpointException,  # noqa: F401
+        InferenceEndpointError,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
+        InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
     )
     from ._login import (
