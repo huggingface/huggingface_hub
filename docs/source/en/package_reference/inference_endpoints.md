@@ -14,11 +14,9 @@ This page is only a reference for `huggingface_hub`'s integration with Inference
 
 </Tip>
 
-## API
-
 Inference Endpoints can be fully managed via API. The endpoints are documented with [Swagger](https://api.endpoints.huggingface.cloud/).
 
-### Methods
+## Methods
 
 A subset of the Inference Endpoint features are implemented in [`HfApi`]:
 
@@ -27,20 +25,20 @@ A subset of the Inference Endpoint features are implemented in [`HfApi`]:
 - [`pause_inference_endpoint`] and [`resume_inference_endpoint`] to pause and resume an Inference Endpoint
 - [`scale_to_zero_inference_endpoint`] to scale an Endpoint to 0 replicas
 
-### InferenceEndpoint
+## InferenceEndpoint
 
 The main dataclass is [`InferenceEndpoint`]. It contains information about a deployed `InferenceEndpoint`, including its configuration and current state. Once deployed, you can run inference on the Endpoint using the  [`InferenceEndpoint.client`] and [`InferenceEndpoint.async_client`] properties that respectively return an [`InferenceClient`] and an [`AsyncInferenceClient`] object.
 
 [[autodoc]] InferenceEndpoint
 
-### InferenceEndpointStatus
+## InferenceEndpointStatus
 
 [[autodoc]] InferenceEndpointStatus
 
-### InferenceEndpointType
+## InferenceEndpointType
 
 [[autodoc]] InferenceEndpointType
 
-### InferenceEndpointException
+## InferenceEndpointException
 
 [[autodoc]] InferenceEndpointException

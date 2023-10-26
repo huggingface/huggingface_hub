@@ -6076,7 +6076,7 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: Optional[str] = None,
-        min_replica: int = 1,
+        min_replica: int = 0,
         max_replica: int = 1,
         revision: Optional[str] = None,
         task: Optional[str] = None,
@@ -6090,7 +6090,7 @@ class HfApi:
             name (`str`):
                 The unique name for the new Inference Endpoint.
             repository (`str`):
-                The name of the model repository associated with the endpoint (e.g. `"gpt2"`).
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
             framework (`str`):
                 The machine learning framework used for the model (e.g. `"custom"`).
             accelerator (`str`):
@@ -6104,11 +6104,11 @@ class HfApi:
             vendor (`str`):
                 The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
             account_id (`str`, *optional*):
-                The account ID used to link a VPC to a private endpoint (if applicable).
+                The account ID used to link a VPC to a private Inference Endpoint (if applicable).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the endpoint. Defaults to 1.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
             max_replica (`int`, *optional*):
-                The maximum number of replicas (instances) to scale to for the endpoint. Defaults to 1.
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -6116,7 +6116,7 @@ class HfApi:
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             namespace (`str`, *optional*):
-                The namespace where the endpoint will be created. Defaults to the current user's namespace.
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token).
 
@@ -6254,7 +6254,7 @@ class HfApi:
 
         Args:
             name (`str`):
-                The name of the inference endpoint to update.
+                The name of the Inference Endpoint to update.
 
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference (e.g. `"cpu"`).
@@ -6263,12 +6263,12 @@ class HfApi:
             instance_type (`str`, *optional*):
                 The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
             min_replica (`int`, *optional*):
-                The minimum number of replicas (instances) to keep running for the endpoint. Defaults to 1.
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):
-                The maximum number of replicas (instances) to scale to for the endpoint. Defaults to 1.
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint.
 
             repository (`str`, *optional*):
-                The name of the model repository associated with the endpoint (e.g. `"gpt2"`).
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
             framework (`str`, *optional*):
                 The machine learning framework used for the model (e.g. `"custom"`).
             revision (`str`, *optional*):
@@ -6277,7 +6277,7 @@ class HfApi:
                 The task on which to deploy the model (e.g. `"text-classification"`).
 
             namespace (`str`, *optional*):
-                The namespace where the endpoint will be updated. Defaults to the current user's namespace.
+                The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token).
 

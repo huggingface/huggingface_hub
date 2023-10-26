@@ -38,13 +38,13 @@ class InferenceEndpoint:
         name (`str`):
             The unique name of the Inference Endpoint.
         namespace (`str`):
-            The namespace where the endpoint is located.
+            The namespace where the Inference Endpoint is located.
         repository (`str`):
-            The name of the model repository deployed on this endpoint.
+            The name of the model repository deployed on this Inference Endpoint.
         status ([`InferenceEndpointStatus`]):
             The current status of the Inference Endpoint.
         url (`str`, *optional*):
-            The URL of the Inference Endpoint, if available. Only a deployed endpoint will have a URL.
+            The URL of the Inference Endpoint, if available. Only a deployed Inference Endpoint will have a URL.
         framework (`str`):
             The machine learning framework used for the model.
         revision (`str`):
@@ -52,15 +52,15 @@ class InferenceEndpoint:
         task (`str`):
             The task associated with the deployed model.
         created_at (`datetime.datetime`):
-            The timestamp when the endpoint was created.
+            The timestamp when the Inference Endpoint was created.
         updated_at (`datetime.datetime`):
-            The timestamp of the last update of the endpoint.
+            The timestamp of the last update of the Inference Endpoint.
         type ([`InferenceEndpointType`]):
             The type of the Inference Endpoint (public, protected, private).
         raw (`Dict`):
             The raw dictionary data returned from the API.
         token (`str`, *optional*):
-            Authentication token for the endpoint, if set when requesting the API.
+            Authentication token for the Inference Endpoint, if set when requesting the API.
 
     Example:
     ```python
@@ -99,7 +99,7 @@ class InferenceEndpoint:
     # Raw dict from the API
     raw: Dict = field(repr=False)
 
-    # Token to authenticate with the endpoint
+    # Token to authenticate with the Inference Endpoint
     token: Optional[str] = field(repr=False, default=None, compare=False)
 
     @classmethod
@@ -127,28 +127,28 @@ class InferenceEndpoint:
 
     @property
     def client(self) -> InferenceClient:
-        """Returns a client to make predictions on this endpoint.
+        """Returns a client to make predictions on this Inference Endpoint.
 
         Raises:
-            [`InferenceEndpointException`]: If the endpoint is not yet deployed.
+            [`InferenceEndpointException`]: If the Inference Endpoint is not yet deployed.
         """
         if self.url is None:
             raise InferenceEndpointException(
-                "Cannot create a client for this endpoint as it is not yet deployed. "
-                "Please wait for the endpoint to be deployed and try again."
+                "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
+                "Please wait for the Inference Endpoint to be deployed and try again."
             )
         return InferenceClient(model=self.url, token=self.token)
 
     @property
     def async_client(self) -> AsyncInferenceClient:
-        """Returns a client to make predictions on this endpoint.
+        """Returns a client to make predictions on this Inference Endpoint.
 
         Raises:
-            [`InferenceEndpointException`]: If the endpoint is not yet deployed.
+            [`InferenceEndpointException`]: If the Inference Endpoint is not yet deployed.
         """
         if self.url is None:
             raise InferenceEndpointException(
-                "Cannot create a client for this endpoint as it is not yet deployed. "
-                "Please wait for the endpoint to be deployed and try again."
+                "Cannot create a client for this Inference Endpoint as it is not yet deployed. "
+                "Please wait for the Inference Endpoint to be deployed and try again."
             )
         return AsyncInferenceClient(model=self.url, token=self.token)
