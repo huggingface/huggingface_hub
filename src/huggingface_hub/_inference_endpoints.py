@@ -6,11 +6,14 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 from .inference._client import InferenceClient
 from .inference._generated._async_client import AsyncInferenceClient
-from .utils import parse_datetime
+from .utils import logging, parse_datetime
 
 
 if TYPE_CHECKING:
     from .hf_api import HfApi
+
+
+logger = logging.get_logger(__name__)
 
 
 class InferenceEndpointException(Exception):
@@ -163,7 +166,7 @@ class InferenceEndpoint:
             )
         return AsyncInferenceClient(model=self.url, token=self._token)
 
-    def wait(self, timeout: Optional[int] = None, refresh_every: int = 1) -> None:
+    def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> None:
         """Wait for the Inference Endpoint to be deployed.
 
         Information from the server will be fetched every 1s. If the Inference Endpoint is not deployed after `timeout`
@@ -175,9 +178,10 @@ class InferenceEndpoint:
                 The maximum time to wait for the Inference Endpoint to be deployed, in seconds. If `None`, will wait
                 indefinitely.
             refresh_every (`int`, *optional*):
-                The time to wait between each fetch of the Inference Endpoint status, in seconds. Defaults to 1s.
+                The time to wait between each fetch of the Inference Endpoint status, in seconds. Defaults to 5s.
         """
         if self.url is not None:  # Means the endpoint is deployed
+            logger.info("Inference Endpoint is ready to be used.")
             return
 
         if timeout is not None and timeout < 0:
@@ -189,10 +193,12 @@ class InferenceEndpoint:
         while True:
             self.fetch_latest_status()
             if self.url is not None:  # Means the endpoint is deployed
+                logger.info("Inference Endpoint is ready to be used.")
                 return
             if timeout is not None:
                 if time.time() - start > timeout:
                     raise TimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
+            logger.info(f"Inference Endpoint is not deployed yet ({self.status}). Waiting {refresh_every}s...")
             time.sleep(refresh_every)
 
     def fetch_latest_status(self) -> None:
