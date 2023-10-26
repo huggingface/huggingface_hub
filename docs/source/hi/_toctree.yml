@@ -2,7 +2,6 @@
   sections:
     - local: index
       title: होम
-
     - local: quick-start
       title: जल्दी शुरू
     - local: installation
