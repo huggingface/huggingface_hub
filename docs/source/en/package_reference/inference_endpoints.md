@@ -6,7 +6,7 @@ An Inference Endpoint is built from a model from the [Hub](https://huggingface.c
 
 Inference Endpoints support all of the `transformers`, `sentence-transformers` and `diffusers` tasks as well as custom tasks not supported by `transformers` yet like speaker diarization.
 
-In addition, 🤗 Inference Endpoints gives you the option to use a custom container image managed on an external service, for instance, [Docker Hub](https://hub.docker.com/), [AWS ECR](https://aws.amazon.com/fr/ecr/?nc1=h_ls), [Azure ACR](https://azure.microsoft.com/de-de/products/container-registry/), or [Google GCR](https://cloud.google.com/artifact-registry?hl=de).
+In addition, Inference Endpoints gives you the option to use a custom container image managed on an external service, for instance, [Docker Hub](https://hub.docker.com/), [AWS ECR](https://aws.amazon.com/fr/ecr/?nc1=h_ls), [Azure ACR](https://azure.microsoft.com/de-de/products/container-registry/), or [Google GCR](https://cloud.google.com/artifact-registry?hl=de).
 
 <Tip>
 
