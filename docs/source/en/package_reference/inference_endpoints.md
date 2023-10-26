@@ -30,6 +30,10 @@ A subset of the Inference Endpoint features are implemented in [`HfApi`]:
 The main dataclass is [`InferenceEndpoint`]. It contains information about a deployed `InferenceEndpoint`, including its configuration and current state. Once deployed, you can run inference on the Endpoint using the  [`InferenceEndpoint.client`] and [`InferenceEndpoint.async_client`] properties that respectively return an [`InferenceClient`] and an [`AsyncInferenceClient`] object.
 
 [[autodoc]] InferenceEndpoint
+  - from_raw
+  - client
+  - async_client
+  - all
 
 ## InferenceEndpointStatus
 

@@ -6252,6 +6252,8 @@ class HfApi:
         This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
         optional but at least one must be provided.
 
+        For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
+
         Args:
             name (`str`):
                 The name of the Inference Endpoint to update.
@@ -6323,6 +6325,8 @@ class HfApi:
         This operation is not reversible. If you don't want to be charged for an Inference Endpoint, it is preferable
         to pause it with [`pause_inference_endpoint`] or scale it to zero with [`scale_to_zero_inference_endpoint`].
 
+        For convenience, you can also delete an Inference Endpoint using [`InferenceEndpoint.delete`].
+
         Args:
             name (`str`):
                 The name of the Inference Endpoint to delete.
@@ -6342,6 +6346,8 @@ class HfApi:
         self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
     ) -> InferenceEndpoint:
         """Pause an Inference Endpoint.
+
+        For convenience, you can also pause an Inference Endpoint using [`InferenceEndpoint.pause`].
 
         Args:
             name (`str`):
@@ -6369,6 +6375,8 @@ class HfApi:
     ) -> InferenceEndpoint:
         """Resume an Inference Endpoint.
 
+        For convenience, you can also resume an Inference Endpoint using [`InferenceEndpoint.resume`].
+
         Args:
             name (`str`):
                 The name of the Inference Endpoint to resume.
@@ -6394,6 +6402,8 @@ class HfApi:
         self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
     ) -> InferenceEndpoint:
         """Scale Inference Endpoint to zero.
+
+        For convenience, you can also scale an Inference Endpoint to zero using [`InferenceEndpoint.scale_to_zero`].
 
         Args:
             name (`str`):
