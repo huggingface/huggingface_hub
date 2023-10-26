@@ -195,7 +195,7 @@ class InferenceEndpoint:
 
         start = time.time()
         while True:
-            self.fetch_latest_status()
+            self.fetch()
             if self.url is not None:  # Means the endpoint is deployed
                 logger.info("Inference Endpoint is ready to be used.")
                 return
@@ -205,11 +205,12 @@ class InferenceEndpoint:
             logger.info(f"Inference Endpoint is not deployed yet ({self.status}). Waiting {refresh_every}s...")
             time.sleep(refresh_every)
 
-    def fetch_latest_status(self) -> None:
+    def fetch(self) -> "InferenceEndpoint":
         """Fetch latest information about the Inference Endpoint."""
         obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
         self._populate_from_raw()
+        return self
 
     def update(
         self,
@@ -225,7 +226,7 @@ class InferenceEndpoint:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
-    ) -> None:
+    ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 
         This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
@@ -274,8 +275,9 @@ class InferenceEndpoint:
         # Mutate current object
         self.raw = obj.raw
         self._populate_from_raw()
+        return self
 
-    def pause(self) -> None:
+    def pause(self) -> "InferenceEndpoint":
         """Pause the Inference Endpoint.
 
         This is an alias for [`HfApi.pause_inference_endpoint`]. The current object is mutated in place with the
@@ -284,8 +286,9 @@ class InferenceEndpoint:
         obj = self._api.pause_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
         self._populate_from_raw()
+        return self
 
-    def resume(self) -> None:
+    def resume(self) -> "InferenceEndpoint":
         """Resume the Inference Endpoint.
 
         This is an alias for [`HfApi.resume_inference_endpoint`]. The current object is mutated in place with the
@@ -294,8 +297,9 @@ class InferenceEndpoint:
         obj = self._api.resume_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
         self._populate_from_raw()
+        return self
 
-    def scale_to_zero(self) -> None:
+    def scale_to_zero(self) -> "InferenceEndpoint":
         """Scale Inference Endpoint to zero.
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the
@@ -304,6 +308,7 @@ class InferenceEndpoint:
         obj = self._api.scale_to_zero_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
         self._populate_from_raw()
+        return self
 
     def delete(self) -> None:
         """Delete the Inference Endpoint.

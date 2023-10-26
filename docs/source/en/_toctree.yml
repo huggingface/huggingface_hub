@@ -22,6 +22,8 @@
       title: Search
     - local: guides/inference
       title: Inference
+    - local: guides/inference_endpoints
+      title: Inference Endpoints
     - local: guides/community
       title: Community Tab
     - local: guides/collections

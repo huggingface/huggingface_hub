@@ -142,11 +142,11 @@ def test_get_client_ready():
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
-def test_fetch_latest_status(mock_get: Mock):
+def test_fetch(mock_get: Mock):
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
 
     mock_get.return_value = InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo")
-    endpoint.fetch_latest_status()
+    endpoint.fetch()
 
     assert endpoint.status == "running"
     assert endpoint.url == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud"
