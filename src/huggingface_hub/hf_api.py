@@ -6220,7 +6220,11 @@ class HfApi:
     ) -> InferenceEndpoint:
         """Pause an Inference Endpoint.
 
-        For convenience, you can also pause an Inference Endpoint using [`InferenceEndpoint.pause`].
+        A paused Inference Endpoint will not be charged. It can be resumed at any time using [`resume_inference_endpoint`].
+        This is different than scaling the Inference Endpoint to zero with [`scale_to_zero_inference_endpoint`], which
+        would be automatically restarted when a request is made to it.
+
+        For convenience, you can also pause an Inference Endpoint using [`pause_inference_endpoint`].
 
         Args:
             name (`str`):
@@ -6275,6 +6279,10 @@ class HfApi:
         self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
     ) -> InferenceEndpoint:
         """Scale Inference Endpoint to zero.
+
+        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
+        cold start delay. This is different than pausing the Inference Endpoint with [`pause_inference_endpoint`], which
+        would require a manual resume with [`resume_inference_endpoint`].
 
         For convenience, you can also scale an Inference Endpoint to zero using [`InferenceEndpoint.scale_to_zero`].
 
