@@ -15,13 +15,13 @@
 """Contains utilities to multi-commits (i.e. push changes iteratively on a PR)."""
 import re
 from dataclasses import dataclass, field
-from hashlib import sha256
 from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple, Union
 
 from ._commit_api import CommitOperationAdd, CommitOperationDelete
 from .community import DiscussionWithDetails
 from .utils import experimental
 from .utils._cache_manager import _format_size
+from .utils.insecure_hashlib import sha256
 
 
 if TYPE_CHECKING:
