@@ -1,9 +1,9 @@
 # Inference Endpoints
 
 Inference Endpoints provides a secure production solution to easily deploy any `transformers`, `sentence-transformers`, and `diffusers` models on a dedicated and autoscaling infrastructure managed by Hugging Face. An Inference Endpoint is built from a model from the [Hub](https://huggingface.co/models). 
-In this guide we will see how to manage Inference Endpoints programmatically using `huggingface_hub`. For more information about the Inference Endpoints product itself, check out its [official documentation](https://huggingface.co/docs/inference-endpoints/index).
+In this guide, we will learn how to programmatically manage Inference Endpoints with `huggingface_hub`. For more information about the Inference Endpoints product itself, check out its [official documentation](https://huggingface.co/docs/inference-endpoints/index).
 
-In the rest of this guide, we will assume that `huggingface_hub` is correctly installed and that your machine is logged in. Check out the [Quick Start guide](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart) if that's not the case yet.
+This guide assumes `huggingface_hub` is correctly installed and that your machine is logged in. Check out the [Quick Start guide](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart) if that's not the case yet.
 
 
 ## Create an Inference Endpoint
@@ -27,7 +27,7 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ... )
 ```
 
-In this example, we created a `protected` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for`text-generation`. Protected means that your token is required to access the API. Further information is needed to configure hardware requirements, such as vendor, region, accelerator, instance type, and size. This step requires knowledge of the available computing resources. Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
+In this example, we created a `protected` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. A `protected` Inference Endpoint means your token is required to access the API, and more information is needed to configure hardware requirements, such as vendor, region, accelerator, instance type, and size. This step requires knowing what computing resources are available to you. Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
 
 The value returned by [`create_inference_endpoint`] is an [`InferenceEndpoint`] object:
 
@@ -67,14 +67,14 @@ In the rest of this guide, we will assume that we have a [`InferenceEndpoint`] o
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-Before reaching a `"running"` state, the Inference Endpoint typically goes through an `"initializing"` or `"pending"` phase. You can fetch the new state of the endpoint by running [`~InferenceEndpoint.fetch`]. Like every other methods from [`InferenceEndpoint`] that makes a request to the server, the internal attributes of `endpoint` will be mutated in place:
+Before reaching a `"running"` state, the Inference Endpoint typically goes through an `"initializing"` or `"pending"` phase. You can fetch the new state of the endpoint by running [`~InferenceEndpoint.fetch`]. Like every other method from [`InferenceEndpoint`] that makes a request to the server, the internal attributes of `endpoint` are mutated in place:
 
 ```py
 >>> endpoint.fetch()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-Instead of fetching the Inference Endpoint status while waiting for it to be running, you can directly call [`~InferenceEndpoint.wait`]. This helper takes as input a `timeout` and a `fetch_every` parameters (in seconds) and will block the thread until the Inference Endpoint is deployed. Default values are respectively `None` (no timeout) and `5` seconds.
+Instead of fetching the Inference Endpoint status while waiting for it to run, you can directly call [`~InferenceEndpoint.wait`]. This helper takes as input a `timeout` and a `fetch_every` parameter (in seconds) and will block the thread until the Inference Endpoint is deployed. Default values are respectively `None` (no timeout) and `5` seconds.
 
 ```py
 # Pending endpoint
@@ -181,7 +181,7 @@ This is a non-revertible action that will completely remove the endpoint, includ
 </Tip>
 
 
-## An end-to-end example: batched processing
+## An end-to-end example
 
 A typical use case of Inference Endpoints is to process a batch of jobs at once to limit the infrastructure costs. You can automate this process using what we saw in this guide:
 
