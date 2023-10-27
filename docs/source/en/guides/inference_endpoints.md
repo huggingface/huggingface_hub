@@ -154,7 +154,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ## Update model or hardware requirements
 
-In some cases, you might also want to update your Inference Endpoint without creating a new one. You can either update the hosted model or the hardware requirements to run the model. You can do this using [`~InferenceClient.update`]:
+In some cases, you might also want to update your Inference Endpoint without creating a new one. You can either update the hosted model or the hardware requirements to run the model. You can do this using [`~InferenceEndpoint.update`]:
 
 ```py
 # Change target model
