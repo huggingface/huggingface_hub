@@ -133,7 +133,7 @@ To reduce costs when your Inference Endpoint is not in use, you can choose to ei
 
 <Tip>
 
-An Inference Endpoint that is *paused* or *scaled to zero* don't cost anything. The difference between those two is that a *paused* endpoint needs to be explicitly *resumed* using `endpoint.resume()`. On the contrary, a *scaled to zero* endpoint will automatically start if an inference call is made to it, with an additional cold start delay.
+An Inference Endpoint that is *paused* or *scaled to zero* don't cost anything. The difference between those two is that a *paused* endpoint needs to be explicitly *resumed* using [`~InferenceEndpoint.resume`]. On the contrary, a *scaled to zero* endpoint will automatically start if an inference call is made to it, with an additional cold start delay. An Inference Endpoint can also be configured to scale to zero automatically after a certain period of inactivity.
 
 </Tip>
 
