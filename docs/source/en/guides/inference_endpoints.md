@@ -172,7 +172,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ## Delete the endpoint
 
-Finally if you won't use the Inference Endpoint anymore, you can simply call [`~InferenceClient.delete()`]. 
+Finally if you won't use the Inference Endpoint anymore, you can simply call [`~InferenceEndpoint.delete()`].
 
 <Tip warning={true}>
 
