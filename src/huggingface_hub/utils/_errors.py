@@ -2,6 +2,7 @@ from typing import Optional
 
 from requests import HTTPError, Response
 
+from ..constants import INFERENCE_ENDPOINTS_ENDPOINT
 from ._fixes import JSONDecodeError
 
 
@@ -290,6 +291,15 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             and "/api/collections" in response.request.url
         ):
             # Collection not found. We don't raise a custom error for this.
+            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
+            pass
+
+        elif (
+            response.status_code == 401
+            and response.request.url is not None
+            and INFERENCE_ENDPOINTS_ENDPOINT in response.request.url
+        ):
+            # Not enough permission to list Inference Endpoints from this org. We don't raise a custom error for this.
             # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
             pass
 

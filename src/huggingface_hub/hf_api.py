@@ -5909,7 +5909,8 @@ class HfApi:
 
         Args:
             namespace (`str`, *optional*):
-                The namespace to list endpoints for. Defaults to the current user.
+                The namespace to list endpoints for. Defaults to the current user. Set to `"*"` to list all endpoints
+                from all namespaces (i.e. personal namespace and all orgs the user belongs to).
             token (`str`, *optional*):
                 An authentication token (See https://huggingface.co/settings/token).
 
@@ -5924,6 +5925,25 @@ class HfApi:
         [InferenceEndpoint(name='my-endpoint', ...), ...]
         ```
         """
+        # Special case: list all endpoints for all namespaces the user has access to
+        if namespace == "*":
+            user = self.whoami(token=token)
+
+            # List personal endpoints first
+            endpoints: List[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+
+            # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
+            for org in user.get("orgs", []):
+                try:
+                    endpoints += list_inference_endpoints(namespace=org["name"], token=token)
+                except HfHubHTTPError as error:
+                    if error.response.status_code == 401:  # Either no billing or user don't have access)
+                        logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
+                    pass
+
+            return endpoints
+
+        # Normal case: list endpoints for a specific namespace
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().get(

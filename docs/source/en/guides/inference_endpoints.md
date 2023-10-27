@@ -55,7 +55,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 # List all endpoints from an organization
 >>> list_inference_endpoints(namespace="huggingface")
-[InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None),
+[InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
+
+# List all endpoints from all organizations the user belongs to
+>>> list_inference_endpoints(namespace="*")
+[InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
 ```
 
 ## Check deployment status
