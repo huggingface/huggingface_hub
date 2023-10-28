@@ -1,0 +1,74 @@
+- title: "Get started"  #"入门指南"
+  sections:
+    - local: index
+      title: 主页
+    - local: quick-start
+      title: 快速开始
+    - local: installation
+      title: 安装
+- title: "How-to guides"  #"操作指南"
+  sections:
+    - local: guides/overview
+      title: 概述
+    - local: guides/download
+      title: 下载文件
+    - local: guides/upload
+      title: 上传文件
+    - local: guides/hf_file_system
+      title: HfFileSystem
+    - local: guides/repository
+      title: 仓库
+    - local: guides/search
+      title: 搜索
+    - local: guides/inference
+      title: 推理
+    - local: guides/community
+      title: 社区贡献
+    - local: guides/manage-cache
+      title: 管理缓存
+    - local: guides/model-cards
+      title: 模型卡片
+    - local: guides/manage-spaces
+      title: 管理空间
+    - local: guides/integrations
+      title: 集成库
+    - local: guides/webhooks_server
+      title: 服务器端
+- title: "Conceptual guides"   #概念指南
+  sections:
+    - local: concepts/git_vs_http
+      title: Git vs HTTP 范式
+- title: "Reference"    #参考资料
+  sections:
+    - local: package_reference/overview
+      title: 概述
+    - local: package_reference/login
+      title: 登录和注销
+    - local: package_reference/environment_variables
+      title: 环境变量
+    - local: package_reference/repository
+      title: 管理本地和在线仓库
+    - local: package_reference/hf_api
+      title: 管理Hugging Face Hub的API
+    - local: package_reference/file_download
+      title: 下载文件
+    - local: package_reference/mixins
+      title: 混合类与序列化方法
+    - local: package_reference/inference_client
+      title: 推理客户端
+    - local: package_reference/hf_file_system
+      title: Hugging Face 文件管理器
+    - local: package_reference/utilities
+      title: 实用程序
+    - local: package_reference/community
+      title: 讨论和拉取请求
+    - local: package_reference/cache
+      title: 缓存系统指南
+    - local: package_reference/cards
+      title: 代码仓库卡片和代码仓库卡片数据
+    - local: package_reference/space_runtime
+      title: Space 运行环境
+    - local: package_reference/tensorboard
+      title: TensorBoard 日志记录器
+    - local: package_reference/webhooks_server
+      title: Webhooks服务器
