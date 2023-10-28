@@ -1,0 +1,475 @@
+<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+rendered properly in your Markdown viewer.
+-->
+
+# Upload files to the Hub
+
+Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to push files:
+
+- without using Git.
+- that are very large with [Git LFS](https://git-lfs.github.com/).
+- with the `commit` context manager.
+- with the [`~Repository.push_to_hub`] function.
+
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
+
+- Log in to your Hugging Face account with the following command:
+
+  ```bash
+  huggingface-cli login
+  # or using an environment variable
+  huggingface-cli login --token $HUGGINGFACE_TOKEN
+  ```
+
+- Alternatively, you can programmatically login using [`login`] in a notebook or a script:
+
+  ```python
+  >>> from huggingface_hub import login
+  >>> login()
+  ```
+
+  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
+  which you can enter your Hugging Face access token. Otherwise, a message will be
+  prompted in the terminal.
+
+  It is also possible to login programmatically without the widget by directly passing
+  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
+  best practice to load the token from a secure vault instead of saving it in plain in
+  your Colaboratory notebook.
+
+## Upload a file
+
+Once you've created a repository with [`create_repo`], you can upload a file to your repository using [`upload_file`].
+
+Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_file(
+...     path_or_fileobj="/path/to/local/folder/README.md",
+...     path_in_repo="README.md",
+...     repo_id="username/test-dataset",
+...     repo_type="dataset",
+... )
+```
+
+## Upload a folder
+
+Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder
+to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the
+folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Upload all the content from the local folder to your remote Space.
+# By default, files are uploaded at the root of the repo
+>>> api.upload_folder(
+...     folder_path="/path/to/local/space",
+...     repo_id="username/my-cool-space",
+...     repo_type="space",
+... )
+```
+
+Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
+Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
+If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+
+Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore` file is not taken into account.
+This means you must use `allow_patterns` and `ignore_patterns` to specify which files to upload instead.
+
+```py
+>>> api.upload_folder(
+...     folder_path="/path/to/local/folder",
+...     path_in_repo="my-dataset/train", # Upload to a specific folder
+...     repo_id="username/test-dataset",
+...     repo_type="dataset",
+...     ignore_patterns="**/logs/*.txt", # Ignore all text logs
+... )
+```
+
+You can also use the `delete_patterns` argument to specify files you want to delete from the repo in the same commit.
+This can prove useful if you want to clean a remote folder before pushing files in it and you don't know which files
+already exists.
+
+The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
+but before that, all previous logs on the repo on deleted. All of this in a single commit.
+```py
+>>> api.upload_folder(
+...     folder_path="/path/to/local/folder/logs",
+...     repo_id="username/trained-model",
+...     path_in_repo="experiment/logs/",
+...     allow_patterns="*.txt", # Upload all local text files
+...     delete_patterns="*.txt", # Delete all remote text files before
+... )
+```
+
+## Non-blocking upload
+
+In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
+artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
+[`upload_folder`]. This will return a [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+object that you can use to check the status of the upload.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> future = api.upload_folder( # Upload in the background (non-blocking action)
+...     repo_id="username/my-model",
+...     folder_path="checkpoints-001",
+...     run_as_future=True,
+... )
+>>> future
+Future(...)
+>>> future.done()
+False
+>>> future.result() # Wait for the upload to complete (blocking action)
+...
+```
+
+<Tip>
+
+Background jobs are queued when using `run_as_future=True`. This means that you are guaranteed that the jobs will be
+executed in the correct order.
+
+</Tip>
+
+Even though background jobs are mostly useful to upload data/create commits, you can queue any method you like using
+[`run_as_future`]. For instance, you can use it to create a repo and then upload data to it in the background. The
+built-in `run_as_future` argument in upload methods is just an alias around it.
+
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+Future(...)
+>>> api.upload_file(
+...     repo_id="username/my-model",
+...     path_in_repo="file.txt",
+...     path_or_fileobj=b"file content",
+...     run_as_future=True,
+... )
+Future(...)
+```
+
+## Upload a folder by chunks
+
+[`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
+hundreds of GB), it can still be challenging. If you have a folder with a lot of files, you might want to upload
+it in several commits. If you experience an error or a connection issue during the upload, you would not have to resume
+the process from the beginning.
+
+To upload a folder in multiple commits, just pass `multi_commits=True` as argument. Under the hood, `huggingface_hub`
+will list the files to upload/delete and split them in several commits. The "strategy" (i.e. how to split the commits)
+is based on the number and size of the files to upload. A PR is open on the Hub to push all the commits. Once the PR is
+ready, the commits are squashed into a single commit. If the process is interrupted before completing, you can rerun
+your script to resume the upload. The created PR will be automatically detected and the upload will resume from where
+it stopped. It is recommended to pass `multi_commits_verbose=True` to get a better understanding of the upload and its
+progress.
+
+The example below will upload the checkpoints folder to a dataset in multiple commits. A PR will be created on the Hub
+and merged automatically once the upload is complete. If you prefer the PR to stay open and review it manually, you can
+pass `create_pr=True`. 
+
+```py
+>>> upload_folder(
+...     folder_path="local/checkpoints",
+...     repo_id="username/my-dataset",
+...     repo_type="dataset",
+...     multi_commits=True,
+...     multi_commits_verbose=True,
+... )
+```
+
+If you want a better control on the upload strategy (i.e. the commits that are created), you can have a look at the
+low-level [`plan_multi_commits`] and [`create_commits_on_pr`] methods.
+
+<Tip warning={true}>
+
+`multi_commits` is still an experimental feature. Its API and behavior is subject to change in the future without prior
+notice.
+
+</Tip>
+
+## Scheduled uploads
+
+The Hugging Face Hub makes it easy to save and version data. However, there are some limitations when updating the same file thousands of times. For instance, you might want to save logs of a training process or user
+feedback on a deployed Space. In these cases, uploading the data as a dataset on the Hub makes sense, but it can be hard to do properly. The main reason is that you don't want to version every update of your data because it'll make the git repository unusable. The [`CommitScheduler`] class offers a solution to this problem.
+
+The idea is to run a background job that regularly pushes a local folder to the Hub. Let's assume you have a
+Gradio Space that takes as input some text and generates two translations of it. Then, the user can select their preferred translation. For each run, you want to save the input, output, and user preference to analyze the results. This is a
+perfect use case for [`CommitScheduler`]; you want to save data to the Hub (potentially millions of user feedback), but
+you don't _need_ to save in real-time each user's input. Instead, you can save the data locally in a JSON file and
+upload it every 10 minutes. For example:
+
+```py
+>>> import json
+>>> import uuid
+>>> from pathlib import Path
+>>> import gradio as gr
+>>> from huggingface_hub import CommitScheduler
+
+# Define the file where to save the data. Use UUID to make sure not to overwrite existing data from a previous run.
+>>> feedback_file = Path("user_feedback/") / f"data_{uuid.uuid4()}.json"
+>>> feedback_folder = feedback_file.parent
+
+# Schedule regular uploads. Remote repo and local folder are created if they don't already exist.
+>>> scheduler = CommitScheduler(
+...     repo_id="report-translation-feedback",
+...     repo_type="dataset",
+...     folder_path=feedback_folder,
+...     path_in_repo="data",
+...     every=10,
+... )
+
+# Define the function that will be called when the user submits its feedback (to be called in Gradio)
+>>> def save_feedback(input_text:str, output_1: str, output_2:str, user_choice: int) -> None:
+...     """
+...     Append input/outputs and user feedback to a JSON Lines file using a thread lock to avoid concurrent writes from different users.
+...     """
+...     with scheduler.lock:
+...         with feedback_file.open("a") as f:
+...             f.write(json.dumps({"input": input_text, "output_1": output_1, "output_2": output_2, "user_choice": user_choice}))
+...             f.write("\n")
+
+# Start Gradio
+>>> with gr.Blocks() as demo:
+>>>     ... # define Gradio demo + use `save_feedback`
+>>> demo.launch()
+```
+
+And that's it! User input/outputs and feedback will be available as a dataset on the Hub. By using a unique JSON file name, you are guaranteed you won't overwrite data from a previous run or data from another
+Spaces/replicas pushing concurrently to the same repository.
+
+For more details about the [`CommitScheduler`], here is what you need to know:
+- **append-only:**
+    It is assumed that you will only add content to the folder. You must only append data to existing files or create
+    new files. Deleting or overwriting a file might corrupt your repository.
+- **git history**:
+    The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
+    recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
+    new content is detected in the folder, the scheduled commit is dropped.
+- **errors:**
+    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
+    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
+    at the next scheduled commit.
+- **thread-safety:**
+    In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
+    scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
+    _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
+    `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
+    changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
+
+### Space persistence demo
+
+Persisting data from a Space to a Dataset on the Hub is the main use case for [`CommitScheduler`]. Depending on the use
+case, you might want to structure your data differently. The structure has to be robust to concurrent users and
+restarts which often implies generating UUIDs. Besides robustness, you should upload data in a format readable by the 🤗 Datasets library for later reuse. We created a [Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+that demonstrates how to save several different data formats (you may need to adapt it for your own specific needs).
+
+### Custom uploads
+
+[`CommitScheduler`] assumes your data is append-only and should be uploading "as is". However, you
+might want to customize the way data is uploaded. You can do that by creating a class inheriting from [`CommitScheduler`]
+and overwrite the `push_to_hub` method (feel free to overwrite it any way you want). You are guaranteed it will
+be called every `every` minutes in a background thread. You don't have to worry about concurrency and errors but you
+must be careful about other aspects, such as pushing empty commits or duplicated data.
+
+In the (simplified) example below, we overwrite `push_to_hub` to zip all PNG files in a single archive to avoid
+overloading the repo on the Hub:
+
+```py
+class ZipScheduler(CommitScheduler):
+    def push_to_hub(self):
+        # 1. List PNG files
+          png_files = list(self.folder_path.glob("*.png"))
+          if len(png_files) == 0:
+              return None  # return early if nothing to commit
+
+        # 2. Zip png files in a single archive
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / "train.zip"
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
+                for png_file in png_files:
+                    zip.write(filename=png_file, arcname=png_file.name)
+
+            # 3. Upload archive
+            self.api.upload_file(..., path_or_fileobj=archive_path)
+
+        # 4. Delete local png files to avoid re-uploading them later
+        for png_file in png_files:
+            png_file.unlink()
+```
+
+When you overwrite `push_to_hub`, you have access to the attributes of [`CommitScheduler`] and especially:
+- [`HfApi`] client: `api`
+- Folder parameters: `folder_path` and `path_in_repo`
+- Repo parameters: `repo_id`, `repo_type`, `revision`
+- The thread lock: `lock`
+
+<Tip>
+
+For more examples of custom schedulers, check out our [demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+containing different implementations depending on your use cases.
+
+</Tip>
+
+## create_commit
+
+The [`upload_file`] and [`upload_folder`] functions are high-level APIs that are generally convenient to use. We recommend
+trying these functions first if you don't need to work at a lower level. However, if you want to work at a commit-level,
+you can use the [`create_commit`] function directly.
+
+There are two types of operations supported by [`create_commit`]:
+
+- [`CommitOperationAdd`] uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
+
+  - `path_in_repo`: the repository path to upload a file to.
+  - `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
+
+- [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
+
+- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+
+  - `src_path_in_repo`: the repository path of the file to copy.
+  - `path_in_repo`: the repository path where the file should be copied.
+  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a differnt branch/revision.
+
+For example, if you want to upload two files and delete a file in a Hub repository:
+
+1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
+
+```py
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
+>>> api = HfApi()
+>>> operations = [
+...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),
+...     CommitOperationAdd(path_in_repo="weights.h5", path_or_fileobj="~/repo/weights-final.h5"),
+...     CommitOperationDelete(path_in_repo="old-weights.h5"),
+...     CommitOperationDelete(path_in_repo="logs/"),
+...     CommitOperationCopy(src_path_in_repo="image.png", path_in_repo="duplicate_image.png"),
+... ]
+```
+
+2. Pass your operations to [`create_commit`]:
+
+```py
+>>> api.create_commit(
+...     repo_id="lysandre/test-model",
+...     operations=operations,
+...     commit_message="Upload my model weights and license",
+... )
+```
+
+In addition to [`upload_file`] and [`upload_folder`], the following functions also use [`create_commit`] under the hood:
+
+- [`delete_file`] deletes a single file from a repository on the Hub.
+- [`delete_folder`] deletes an entire folder from a repository on the Hub.
+- [`metadata_update`] updates a repository's metadata.
+
+For more detailed information, take a look at the [`HfApi`] reference.
+
+## Push files with Git LFS
+
+All the methods described above use the Hub's API to upload files. This is the recommended way to upload files to the Hub.
+However we also provide [`Repository`], a wrapper around the git tool to manage a local repository.
+
+Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
+
+```bash
+huggingface-cli lfs-enable-largefiles
+```
+
+You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.
+
+### commit context manager
+
+The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
+
+1. Pulls from the `text-files` repository.
+2. Adds a change made to `file.txt`.
+3. Commits the change.
+4. Pushes the change to the `text-files` repository.
+
+```python
+>>> from huggingface_hub import Repository
+>>> with Repository(local_dir="text-files", clone_from="<user>/text-files").commit(commit_message="My first file :)"):
+...     with open("file.txt", "w+") as f:
+...         f.write(json.dumps({"hey": 8}))
+```
+
+Here is another example of how to use the `commit` context manager to save and upload a file to a repository:
+
+```python
+>>> import torch
+>>> model = torch.nn.Transformer()
+>>> with Repository("torch-model", clone_from="<user>/torch-model", token=True).commit(commit_message="My cool model :)"):
+...     torch.save(model.state_dict(), "model.pt")
+```
+
+Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while your commits are being pushed.
+
+```python
+>>> with repo.commit(commit_message="My cool model :)", blocking=False)
+```
+
+You can check the status of your push with the `command_queue` method:
+
+```python
+>>> last_command = repo.command_queue[-1]
+>>> last_command.status
+```
+
+Refer to the table below for the possible statuses:
+
+| Status   | Description                          |
+| -------- | ------------------------------------ |
+| -1       | The push is ongoing.                 |
+| 0        | The push has completed successfully. |
+| Non-zero | An error has occurred.               |
+
+When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+
+```python
+# Inspect an error.
+>>> last_command.stderr
+
+# Check whether a push is completed or ongoing.
+>>> last_command.is_done
+
+# Check whether a push command has errored.
+>>> last_command.failed
+```
+
+### push_to_hub
+
+The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
+
+For example, if you've already cloned a repository from the Hub, then you can initialize the `repo` from the local directory:
+
+```python
+>>> from huggingface_hub import Repository
+>>> repo = Repository(local_dir="path/to/local/repo")
+```
+
+Update your local clone with [`~Repository.git_pull`] and then push your file to the Hub:
+
+```py
+>>> repo.git_pull()
+>>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
+```
+
+However, if you aren't ready to push a file yet, you can use [`~Repository.git_add`] and [`~Repository.git_commit`] to only add and commit your file:
+
+```py
+>>> repo.git_add("path/to/file")
+>>> repo.git_commit(commit_message="add my first model config file :)")
+```
+
+When you're ready, push the file to your repository with [`~Repository.git_push`]:
+
+```py
+>>> repo.git_push()
+```
