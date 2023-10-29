@@ -125,20 +125,22 @@ Once done, [check installation](#check-installation) is working correctly.
 
 完成安装后，请[检查安装](#check-installation)是否正常工作。
 
-### Editable install  
+### Editable install  可编辑安装
 
 Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
 This is a more advanced installation if you plan to contribute to `huggingface_hub`
 and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
 on your machine.
 
+如果您计划为 huggingface_hub 做出贡献并需要测试代码更改，这是一个更高级的安装方式。您需要在本机上克隆一个 huggingface_hub 的本地副本。
+
 ```bash
-# First, clone repo locally
+# First, clone repo locally  第一，使用以下命令克隆代码库
 git clone https://github.com/huggingface/huggingface_hub.git
 
-# Then, install with -e flag
-cd huggingface_hub
-pip install -e .
+# Then, install with -e flag  然后，使用以下命令启动虚拟环境
+cd huggingface_hub  #导航到当前目录
+pip install -e .   #启用虚拟环境
 ```
 
 These commands will link the folder you cloned the repository to and your Python library paths.
@@ -146,20 +148,27 @@ Python will now look inside the folder you cloned to in addition to the normal l
 For example, if your Python packages are typically installed in `./.venv/lib/python3.11/site-packages/`,
 Python will also search the folder you cloned `./huggingface_hub/`.
 
-## Install with conda
+这些命令将你克隆存储库的文件夹与你的 Python 库路径链接起来。Python 现在将除了正常的库路径之外，还会在你克隆到的文件夹中查找。例如，如果你的 Python 包通常安装在 ./.venv/lib/python3.11/site-packages/ 中，Python 还会搜索你克隆的文件夹 ./huggingface_hub/。
+
+## Install with conda  通过 conda 安装
 
 If you are more familiar with it, you can install `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
 
+如果你更熟悉它，你可以使用 conda-forge 渠道: https://anaconda.org/conda-forge/huggingface_hub 来安装 huggingface_hub。
 
 ```bash
-conda install -c conda-forge huggingface_hub
+conda install -c conda-forge huggingface_hub  #这个代码用于在 conda 环境中安装 huggingface_hub 软件包
 ```
 
 Once done, [check installation](#check-installation) is working correctly.
 
-## Check installation
+完成后，请检查安装是否正常工作。
+
+## Check installation   验证安装
 
 Once installed, check that `huggingface_hub` works properly by running the following command:
+
+将这段话翻译成中文
 
 ```bash
 python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
