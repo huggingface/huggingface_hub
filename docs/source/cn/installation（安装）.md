@@ -168,28 +168,32 @@ Once done, [check installation](#check-installation) is working correctly.
 
 Once installed, check that `huggingface_hub` works properly by running the following command:
 
-将这段话翻译成中文
+安装完成后，通过运行以下命令检查 huggingface_hub 是否正常工作
+
 
 ```bash
-python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
+python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"  #从 huggingface_hub 软件包中导入 model_info 模块，并打印 gpt2 模型的信息
 ```
 
-This command will fetch information from the Hub about the [gpt2](https://huggingface.co/gpt2) model.
-Output should look like this:
+这个命令将从 Hub 获取有关 [gpt2](https://huggingface.co/gpt2) 模型的信息。
+
+输出应如下所示：
 
 ```text
-Model Name: gpt2
-Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
-Task: text-generation
+Model Name: gpt2  模型名称
+Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']  标签
+Task: text-generation  任务：文本生成
 ```
 
-## Windows limitations
+## Windows limitations   Windows 局限性
 
 With our goal of democratizing good ML everywhere, we built `huggingface_hub` to be a
 cross-platform library and in particular to work correctly on both Unix-based and Windows
 systems. However, there are a few cases where `huggingface_hub` has some limitations when
 run on Windows. Here is an exhaustive list of known issues. Please let us know if you
 encounter any undocumented problem by opening [an issue on Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
+
+为了实现让每个人都能使用机器学习的目标，我们构建了 huggingface_hub 库，使其成为一个跨平台的库，尤其可以在 Unix 和 Windows 系统上正常工作。但是，在某些情况下，huggingface_hub 在 Windows 上运行时会有一些限制。以下是一些已知问题的完整列表。如果您遇到任何未记录的问题，请打开 Github 上的 issue 让我们知道。
 
 - `huggingface_hub`'s cache system relies on symlinks to efficiently cache files downloaded
 from the Hub. On Windows, you must activate developer mode or run your script as admin to
@@ -201,8 +205,14 @@ which makes it impossible to download those files on Windows. Hopefully this is 
 Please reach out to the repo owner if you think this is a mistake or to us to figure out
 a solution.
 
+huggingface_hub的缓存系统依赖于符号链接来高效地缓存从Hub下载的文件。在Windows上，您必须激活开发者模式或以管理员身份运行您的脚本才能启用符号链接。如果它们没有被激活，缓存系统仍然可以工作，但效率较低。有关更多详细信息，请阅读缓存限制: ./guides/manage-cache#limitations部分。
 
-## Next steps
+Hub上的文件路径可能包含特殊字符（例如“path/to?/my/file”）。Windows对特殊字符: https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names更加严格，这使得在Windows上下载这些文件变得不可能。希望这是罕见的情况。如果您认为这是一个错误，请联系存储库所有者或我们，以找出解决方案。
+
+
+## Next steps   后记
 
 Once `huggingface_hub` is properly installed on your machine, you might want
 [configure environment variables](package_reference/environment_variables) or [check one of our guides](guides/overview) to get started.
+
+一旦您在机器上正确安装了huggingface_hub，您可能需要配置环境变量: package_reference/environment_variables或查看我们的指南之一: guides/overview以开始使用。
