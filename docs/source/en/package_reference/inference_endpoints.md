@@ -8,7 +8,7 @@ Check out the [related guide](../guides/inference_endpoints) to learn how to use
 
 </Tip>
 
-Inference Endpoints can be fully managed via API. The endpoints are documented with [Swagger](https://api.endpoints.huggingface.cloud/). [`InferenceEndpoint`] is a simple wrapper built on top on this API.
+Inference Endpoints can be fully managed via API. The endpoints are documented with [Swagger](https://api.endpoints.huggingface.cloud/). The [`InferenceEndpoint`] class is a simple wrapper built on top on this API.
 
 ## Methods
 
