@@ -22,10 +22,11 @@ import unittest
 import uuid
 import warnings
 from concurrent.futures import Future
+from dataclasses import fields
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -57,12 +58,12 @@ from huggingface_hub.hf_api import (
     MetricInfo,
     ModelInfo,
     ModelSearchArguments,
-    RepoFile,
+    RepoSibling,
     RepoUrl,
-    ReprMixin,
     SpaceInfo,
     repo_type_and_id_from_hf_id,
 )
+from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
 from huggingface_hub.utils import (
     BadRequestError,
     EntryNotFoundError,
@@ -76,7 +77,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    _filter_emissions,
+    _is_emission_within_treshold,
 )
 
 from .testing_constants import (
@@ -1142,7 +1143,7 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertEqual(len(files), 1)
         file = files[0]
 
-        self.assertEqual(file.rfilename, "file.md")
+        self.assertEqual(file.path, "file.md")
         self.assertIsNone(file.lfs)
         self.assertEqual(file.size, 4)
         self.assertEqual(file.blob_id, "6320cd248dd8aeaab759d5871f8781b5c0505172")
@@ -1152,7 +1153,7 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertEqual(len(files), 1)
         file = files[0]
 
-        self.assertEqual(file.rfilename, "lfs.bin")
+        self.assertEqual(file.path, "lfs.bin")
         self.assertEqual(
             file.lfs,
             {
@@ -1167,12 +1168,12 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
     def test_list_files(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2/file_2.md"]))
         self.assertEqual(len(files), 3)
-        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
     def test_list_files_and_folder(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2"]))
         self.assertEqual(len(files), 3)
-        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
     def test_list_unknown_path_among_other(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "unknown"]))
@@ -1185,18 +1186,18 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
     def test_list_folder_flat(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["2"]))
         self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].rfilename, "2/file_2.md")
+        self.assertEqual(files[0].path, "2/file_2.md")
 
     def test_list_folder_recursively(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["1"]))
         self.assertEqual(len(files), 2)
-        self.assertEqual({f.rfilename for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
+        self.assertEqual({f.path for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
 
     def test_list_repo_files_manually(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id))
         self.assertEqual(len(files), 7)
         self.assertEqual(
-            {f.rfilename for f in files},
+            {f.path for f in files},
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
@@ -1227,13 +1228,13 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         )
         self.assertEqual(len(files), 22)
 
-        # check lastCommit and security are present
-        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
-        self.assertIsNotNone(vae_model.lastCommit)
-        self.assertEqual(vae_model.lastCommit["id"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+        # check last_commit and security are present
+        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
+        self.assertIsNotNone(vae_model.last_commit)
+        self.assertEqual(vae_model.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
         self.assertIsNotNone(vae_model.security)
         self.assertTrue(vae_model.security["safe"])
-        self.assertTrue(isinstance(vae_model.security["avScan"], dict))  # all details in here
+        self.assertTrue(isinstance(vae_model.security["av_scan"], dict))  # all details in here
 
     @with_production_testing
     def test_list_files_without_expand(self):
@@ -1246,10 +1247,10 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         )
         self.assertEqual(len(files), 22)
 
-        # check lastCommit and security are missing
-        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
-        self.assertFalse(hasattr(vae_model, "lastCommit"))
-        self.assertFalse(hasattr(vae_model, "security"))
+        # check last_commit and security are missing
+        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
+        self.assertIsNone(vae_model.last_commit)
+        self.assertIsNone(vae_model.security)
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
@@ -1517,7 +1518,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10))
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
         # we have at least 1 models
         self.assertGreater(len(models), 1)
         self.assertLessEqual(len(models), 10)
@@ -1641,7 +1642,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
-        self.assertTrue(any(dataset.cardData for dataset in datasets))
+        self.assertTrue(any(dataset.card_data for dataset in datasets))
 
     def test_list_datasets_author(self):
         datasets = list(self._api.list_datasets(author="huggingface"))
@@ -1653,18 +1654,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 10)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    def test_filter_datasets_with_cardData(self):
+    def test_filter_datasets_with_card_data(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
         self.assertGreater(
-            sum([getattr(dataset, "cardData", None) is not None for dataset in datasets]),
+            sum([getattr(dataset, "card_data", None) is not None for dataset in datasets]),
             0,
         )
         datasets = list(self._api.list_datasets(limit=500))
-        self.assertTrue(all([getattr(dataset, "cardData", None) is None for dataset in datasets]))
+        self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
 
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
-        self.assertTrue(isinstance(dataset.cardData, dict) and len(dataset.cardData) > 0)
+        self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
         self.assertTrue(isinstance(dataset.siblings, list) and len(dataset.siblings) > 0)
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
@@ -1684,7 +1685,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert files is not None
         self._check_siblings_metadata(files)
 
-    def _check_siblings_metadata(self, files: List[RepoFile]):
+    def _check_siblings_metadata(self, files: List[RepoSibling]):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
@@ -1762,28 +1763,32 @@ class HfApiPublicProductionTest(unittest.TestCase):
         )
         self.assertTrue(["pytorch" in model.tags and "tf" in model.tags for model in models])
 
-    def test_filter_models_with_cardData(self):
+    def test_filter_models_with_card_data(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
-        self.assertTrue([hasattr(model, "cardData") for model in models])
+        self.assertGreater(
+            sum([getattr(model, "card_data", None) is not None for model in models]),
+            0,
+        )
         models = self._api.list_models(filter="co2_eq_emissions")
-        self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
+        self.assertTrue(all([getattr(model, "card_data", None) is None for model in models]))
 
-    def test_filter_emissions_dict(self):
+    def test_is_emission_within_treshold(self):
         # tests that dictionary is handled correctly as "emissions" and that
         # 17g is accepted and parsed correctly as a value
         # regression test for #753
-        model = ModelInfo(cardData={"co2_eq_emissions": {"emissions": "17g"}})
-        res = list(_filter_emissions([model], -1, 100))
-        assert len(res) == 1
+        kwargs = {field.name: None for field in fields(ModelInfo) if field.init}
+        kwargs = {**kwargs, "card_data": ModelCardData(co2_eq_emissions={"emissions": "17g"})}
+        model = ModelInfo(**kwargs)
+        self.assertTrue(_is_emission_within_treshold(model, -1, 100))
 
     def test_filter_emissions_with_max(self):
         models = self._api.list_models(emissions_thresholds=(None, 100), cardData=True, limit=1000)
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] <= 100
+                    model.card_data["co2_eq_emissions"] <= 100
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1793,9 +1798,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] >= 5
+                    model.card_data["co2_eq_emissions"] >= 5
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1805,18 +1810,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] >= 5
+                    model.card_data["co2_eq_emissions"] >= 5
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] <= 100
+                    model.card_data["co2_eq_emissions"] <= 100
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1826,7 +1831,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(spaces), 100)
         space = spaces[0]
         self.assertIsInstance(space, SpaceInfo)
-        self.assertTrue(any(space.cardData for space in spaces))
+        self.assertTrue(any(space.card_data for space in spaces))
 
     def test_list_spaces_author(self):
         spaces = list(self._api.list_spaces(author="evaluate-metric"))
@@ -3199,18 +3204,6 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
 
         with self.assertRaises(RepositoryNotFoundError):
             self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
-
-
-class ReprMixinTest(unittest.TestCase):
-    def test_repr_mixin(self) -> None:
-        class MyClass(ReprMixin):
-            def __init__(self, **kwargs: Dict[str, Any]) -> None:
-                self.__dict__.update(kwargs)
-
-        self.assertEqual(
-            repr(MyClass(foo="foo", bar="bar")),
-            "MyClass: {'bar': 'bar', 'foo': 'foo'}",  # keys are sorted
-        )
 
 
 class CollectionAPITest(HfApiCommonTest):
