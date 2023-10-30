@@ -19,7 +19,7 @@ import json
 import re
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -871,7 +871,6 @@ class Collection:
     theme: str
     upvotes: int
     description: Optional[str] = None
-    endpoint: InitVar[Optional[str]] = None
 
     def __init__(self, **kwargs) -> None:
         self.slug = kwargs.pop("slug")
