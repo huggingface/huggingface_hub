@@ -59,6 +59,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.ModelInfo
 
+### RepoSibling
+
+[[autodoc]] huggingface_hub.hf_api.RepoSibling
+
 ### RepoFile
 
 [[autodoc]] huggingface_hub.hf_api.RepoFile

@@ -52,11 +52,14 @@ While filtering, you can also sort the models and take only the top results. For
 the following example fetches the top 5 most downloaded datasets on the Hub:
 
 ```py
->>> list_datasets(sort="downloads", direction=-1, limit=5)
-[DatasetInfo: {
-        id: glue
-		downloads: 897789
-		(...)
+>>> list(list_datasets(sort="downloads", direction=-1, limit=5))
+[DatasetInfo(
+	id='argilla/databricks-dolly-15k-curated-en',
+	author='argilla',
+	sha='4dcd1dedbe148307a833c931b21ca456a1fc4281', 
+	last_modified=datetime.datetime(2023, 10, 2, 12, 32, 53, tzinfo=datetime.timezone.utc), 
+	private=False,
+	(...)
 ```
 
 
@@ -163,21 +166,22 @@ API can use through the [`ModelFilter`] and [`DatasetFilter`] classes (i.e. stri
 ...     trained_dataset=dataset_args.dataset_name.glue, 
 ...     library=model_args.library.PyTorch
 ... )
->>> api.list_models(filter=filt)[0]
-ModelInfo: {
-	modelId: Jiva/xlm-roberta-large-it-mnli
-	sha: c6e64469ec4aa17fedbd1b2522256f90a90b5b86
-	lastModified: 2021-12-10T14:56:38.000Z
-	tags: ['pytorch', 'xlm-roberta', 'text-classification', 'it', 'dataset:multi_nli', 'dataset:glue', 'arxiv:1911.02116', 'transformers', 'tensorflow', 'license:mit', 'zero-shot-classification']
-	pipeline_tag: zero-shot-classification
-	siblings: [ModelFile(rfilename='.gitattributes'), ModelFile(rfilename='README.md'), ModelFile(rfilename='config.json'), ModelFile(rfilename='pytorch_model.bin'), ModelFile(rfilename='sentencepiece.bpe.model'), ModelFile(rfilename='special_tokens_map.json'), ModelFile(rfilename='tokenizer.json'), ModelFile(rfilename='tokenizer_config.json')]
-	config: None
-	id: Jiva/xlm-roberta-large-it-mnli
-	private: False
-	downloads: 11061
-	library_name: transformers
-	likes: 1
-}
+>>> list(api.list_models(filter=filt))[0]
+ModelInfo(
+	id='Graphcore/gptj-mnli',
+	author='Graphcore',
+	sha='567b3e0fb7353bb6c7de3613d2e2c650e9b3e559',
+	last_modified=datetime.datetime(2022, 8, 25, 11, 39, 23, tzinfo=datetime.timezone.utc),
+	private=False,
+	gated=None, 
+	disabled=None,
+	downloads=0,
+	likes=1,
+	library_name='transformers',
+	tags=['transformers', 'pytorch', 'gptj', 'text-generation', 'causal-lm', 'text-classification', 'en', 'dataset:glue', 'arxiv:1910.10683', 'arxiv:2104.09864', 'license:apache-2.0', 'model-index', 'endpoints_compatible', 'region:us'], 
+	pipeline_tag='text-generation',
+	(...)
+)
 ```
 
 As you can see, it found the models that fit all the criteria. You can even take it further
@@ -190,21 +194,22 @@ for the same configuration, but also include `TensorFlow` in the filter:
 ...     task=model_args.pipeline_tag.TextClassification, 
 ...     library=[model_args.library.PyTorch, model_args.library.TensorFlow]
 ... )
->>> api.list_models(filter=filt)[0]
-ModelInfo: {
-	modelId: distilbert-base-uncased-finetuned-sst-2-english
-	sha: ada5cc01a40ea664f0a490d0b5f88c97ab460470
-	lastModified: 2022-03-22T19:47:08.000Z
-	tags: ['pytorch', 'tf', 'rust', 'distilbert', 'text-classification', 'en', 'dataset:sst-2', 'transformers', 'license:apache-2.0', 'infinity_compatible']
-	pipeline_tag: text-classification
-	siblings: [ModelFile(rfilename='.gitattributes'), ModelFile(rfilename='README.md'), ModelFile(rfilename='config.json'), ModelFile(rfilename='map.jpeg'), ModelFile(rfilename='pytorch_model.bin'), ModelFile(rfilename='rust_model.ot'), ModelFile(rfilename='tf_model.h5'), ModelFile(rfilename='tokenizer_config.json'), ModelFile(rfilename='vocab.txt')]
-	config: None
-	id: distilbert-base-uncased-finetuned-sst-2-english
-	private: False
-	downloads: 3917525
-	library_name: transformers
-	likes: 49
-}
+>>> list(list_models(filter=filt))[0]
+ModelInfo(
+	id='Jiva/xlm-roberta-large-it-mnli',
+	author='Jiva',
+	sha='b4491a90367f80cc6a2b225a7fe16a501ad301df',
+	last_modified=datetime.datetime(2023, 5, 22, 9, 22, 29, tzinfo=datetime.timezone.utc),
+	private=False,
+	gated=None,
+	disabled=None,
+	downloads=954,
+	likes=6,
+	library_name='transformers',
+	tags=['transformers', 'pytorch', 'safetensors', 'xlm-roberta', 'text-classification', 'tensorflow', 'zero-shot-classification', 'it', 'dataset:multi_nli', 'dataset:glue', 'arxiv:1911.02116', 'license:mit', 'model-index', 'endpoints_compatible', 'has_space', 'region:us'],
+	pipeline_tag='zero-shot-classification', 
+	(...)
+)
 ```
 
 This query is strictly equivalent to:

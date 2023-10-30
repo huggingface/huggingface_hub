@@ -22,30 +22,26 @@ Let's fetch the collection with, `"TheBloke/recent-models-64f9a55bb3115b4f513ec0
 >>> from huggingface_hub import get_collection
 >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
 >>> collection
-Collection: { 
-  {'description': "Models I've recently quantized.',
-   'items': [...],
-   'last_updated': datetime.datetime(2023, 9, 21, 7, 26, 28, 57000, tzinfo=datetime.timezone.utc),
-   'owner': 'TheBloke',
-   'position': 1,
-   'private': False,
-   'slug': 'TheBloke/recent-models-64f9a55bb3115b4f513ec026',
-   'theme': 'green',
-   'title': 'Recent models'}
-}
+Collection(
+  slug='TheBloke/recent-models-64f9a55bb3115b4f513ec026',
+  title='Recent models',
+  owner='TheBloke',
+  items=[...],
+  last_updated=datetime.datetime(2023, 10, 2, 22, 56, 48, 632000, tzinfo=datetime.timezone.utc),
+  position=1,
+  private=False,
+  theme='green',
+  upvotes=90,
+  description="Models I've recently quantized. Please note that currently this list has to be updated manually, and therefore is not guaranteed to be up-to-date."
+)
 >>> collection.items[0]
-CollectionItem: { 
-  {'item_object_id': '6507f6d5423b46492ee1413e',
-   'author': 'TheBloke',
-   'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
-   'item_type': 'model',
-   'lastModified': '2023-09-19T12:55:21.000Z',
-   'position': 0,
-   'private': False,
-   'repoType': 'model'
-   (...)
-  }
-}
+CollectionItem(
+  item_object_id='651446103cd773a050bf64c2',
+  item_id='TheBloke/U-Amethyst-20B-AWQ',
+  item_type='model',
+  position=88, 
+  note=None
+)
 ```
 
 The [`Collection`] object returned by [`get_collection`] contains:
