@@ -118,10 +118,3 @@ Some helpers to filter repositories on the Hub are available in the `huggingface
 
 [[autodoc]] ModelFilter
 
-### DatasetSearchArguments
-
-[[autodoc]] DatasetSearchArguments
-
-### ModelSearchArguments
-
-[[autodoc]] ModelSearchArguments

@@ -13,7 +13,6 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
@@ -75,6 +74,7 @@ from .utils import (
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
+from .utils.insecure_hashlib import sha256
 
 
 logger = logging.get_logger(__name__)
@@ -1606,12 +1606,9 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        etag=_normalize_etag(
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
-            or r.headers.get("ETag")
-        ),
+        # We favor a custom header indicating the etag of the linked resource, and
+        # we fallback to the regular etag header.
+        etag=_normalize_etag(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.

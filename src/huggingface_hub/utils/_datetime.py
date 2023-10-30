@@ -55,7 +55,9 @@ def parse_datetime(date_string: str) -> datetime:
         # timezone and then move it to the appropriate UTC timezone.
         # See https://en.wikipedia.org/wiki/ISO_8601#Coordinated_Universal_Time_(UTC)
         # Taken from https://stackoverflow.com/a/3168394.
-
+        if len(date_string) == 30:
+            # Means timezoned-timestamp with nanoseconds precision. We need to truncate the last 3 digits.
+            date_string = date_string[:-4] + "Z"
         dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
         dt += UTC_OFFSET  # By default, datetime is not timezoned -> move to UTC time
         return dt.astimezone(timezone.utc)  # Set explicit timezone

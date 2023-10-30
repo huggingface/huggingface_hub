@@ -35,7 +35,6 @@ import tempfile
 from pathlib import Path
 from typing import Callable, NoReturn
 
-import black
 from ruff.__main__ import find_ruff_bin
 
 from huggingface_hub.hf_api import HfApi
@@ -173,17 +172,14 @@ def generate_hf_api_module() -> str:
     # Generate code with stubs
     generated_code = STUBS_SECTION_TEMPLATE_REGEX.sub(STUBS_SECTION_TEMPLATE.format(stubs=all_stubs_source), raw_code)
 
-    # Format (black+ruff)
+    # Format (ruff)
     return format_generated_code(generated_code)
 
 
 def format_generated_code(code: str) -> str:
     """
-    Format some code with black+ruff. Cannot be done "on the fly" so we first save the code in a temporary file.
+    Format some code with ruff. Cannot be done "on the fly" so we first save the code in a temporary file.
     """
-    # Format with black
-    code = black.format_file_contents(code, fast=False, mode=black.FileMode(line_length=119))
-
     # Format with ruff
     with tempfile.TemporaryDirectory() as tmpdir:
         filepath = Path(tmpdir) / "__init__.py"
