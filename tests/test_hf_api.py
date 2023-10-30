@@ -57,7 +57,6 @@ from huggingface_hub.hf_api import (
     HfApi,
     MetricInfo,
     ModelInfo,
-    ModelSearchArguments,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -1750,18 +1749,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
         self.assertEqual(len(models), 0)
 
-    def test_filter_models_with_complex_query(self):
-        args = ModelSearchArguments(api=self._api)
-        f = ModelFilter(
-            task=args.pipeline_tag.TextClassification,
-            library=[args.library.PyTorch, args.library.TensorFlow],
-        )
-        models = list(self._api.list_models(filter=f))
-        self.assertGreater(len(models), 1)
-        self.assertTrue(
-            ["text-classification" in model.pipeline_tag or "text-classification" in model.tags for model in models]
-        )
-        self.assertTrue(["pytorch" in model.tags and "tf" in model.tags for model in models])
 
     def test_filter_models_with_card_data(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)

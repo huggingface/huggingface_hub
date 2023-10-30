@@ -126,7 +126,6 @@ from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    ModelTags,
     _is_emission_within_treshold,
 )
 
@@ -760,7 +759,7 @@ class SpaceInfo:
             else None
         )
         runtime = kwargs.pop("runtime", None)
-        self.runtime = (SpaceRuntime(**runtime) if runtime else None,)
+        self.runtime = SpaceRuntime(**runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
 
@@ -890,105 +889,10 @@ class Collection:
             endpoint = ENDPOINT
         self._url = f"{endpoint}/collections/{self.slug}"
 
-
-class ModelSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    models currently hosted in the Hub with tab-completion. If a value starts
-    with a number, it will only exist in the dictionary
-
-    Example:
-
-    ```python
-    >>> args = ModelSearchArguments()
-
-    >>> args.author.huggingface
-    'huggingface'
-
-    >>> args.language.en
-    'en'
-    ```
-
-    <Tip warning={true}>
-
-    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
-    initialization requires listing all models on the Hub which makes it increasingly
-    slower as the number of repos on the Hub increases.
-
-    </Tip>
-    """
-
-    def __init__(self, api: Optional["HfApi"] = None):
-        self._api = api if api is not None else HfApi()
-        tags = self._api.get_model_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str) -> str:
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        models = self._api.list_models()
-        author_dict, model_name_dict = AttributeDictionary(), AttributeDictionary()
-        for model in models:
-            if "/" in model.modelId:
-                author, name = model.modelId.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = model.modelId
-            model_name_dict[name] = clean(name)
-        self["model_name"] = model_name_dict
-        self["author"] = author_dict
-
-
-class DatasetSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    datasets currently hosted in the Hub with tab-completion. If a value starts
-    with a number, it will only exist in the dictionary
-
-    Example:
-
-    ```python
-    >>> args = DatasetSearchArguments()
-
-    >>> args.author.huggingface
-    'huggingface'
-
-    >>> args.language.en
-    'language:en'
-    ```
-
-    <Tip warning={true}>
-
-    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
-    initialization requires listing all datasets on the Hub which makes it increasingly
-    slower as the number of repos on the Hub increases.
-
-    </Tip>
-    """
-
-    def __init__(self, api: Optional["HfApi"] = None):
-        self._api = api if api is not None else HfApi()
-        tags = self._api.get_dataset_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str):
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        datasets = self._api.list_datasets()
-        author_dict, dataset_name_dict = AttributeDictionary(), AttributeDictionary()
-        for dataset in datasets:
-            if "/" in dataset.id:
-                author, name = dataset.id.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = dataset.id
-            dataset_name_dict[name] = clean(name)
-        self["dataset_name"] = dataset_name_dict
-        self["author"] = author_dict
+    @property
+    def url(self) -> str:
+        """Returns the URL of the collection on the Hub."""
+        return self._url
 
 
 @dataclass

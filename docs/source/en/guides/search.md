@@ -59,6 +59,7 @@ the following example fetches the top 5 most downloaded datasets on the Hub:
 	sha='4dcd1dedbe148307a833c931b21ca456a1fc4281', 
 	last_modified=datetime.datetime(2023, 10, 2, 12, 32, 53, tzinfo=datetime.timezone.utc), 
 	private=False,
+	downloads=8889377,
 	(...)
 ```
 
