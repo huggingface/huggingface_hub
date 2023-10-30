@@ -36,14 +36,14 @@ and the cache will be stored in this folder.
 
 Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
 
-### HUGGINGFACE_HUB_CACHE
+### HF_CACHE
 
 To configure where repositories from the Hub will be cached locally (models, datasets and
 spaces).
 
 Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
-### HUGGINGFACE_ASSETS_CACHE
+### HF_ASSETS_CACHE
 
 To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries
 will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
@@ -51,14 +51,14 @@ logs,...
 
 Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default).
 
-### HUGGING_FACE_HUB_TOKEN
+### HF_TOKEN
 
 To configure the User Access Token to authenticate to the Hub. If set, this value will
 overwrite the token stored on the machine (in `"$HF_HOME/token"`).
 
 See [login reference](../package_reference/login) for more details.
 
-### HUGGINGFACE_HUB_VERBOSITY
+### HF_HUB_VERBOSITY
 
 Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
 `{"debug", "info", "warning", "error", "critical"}`.
@@ -149,6 +149,18 @@ Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions. Although these are reliable and versatile, they may not be the most efficient choice for machines with high bandwidth. [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to maximize the bandwidth used by dividing large files into smaller parts and transferring them simultaneously using multiple threads. This approach can potentially double the transfer speed. To use `hf_transfer`, you need to install it separately [from PyPI](https://pypi.org/project/hf-transfer/) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as progress bars, resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
+
+## Deprecated environment variables
+
+In order to standardize all environment variables within the Hugging Face ecosystem, some variables have been marked as deprecated. Although they remain functional, they no longer take precedence over their replacements. The following table outlines the deprecated variables and their corresponding alternatives:
+
+
+| Deprecated Variable | Replacement |
+| --- | --- |
+| `HUGGINGFACE_HUB_CACHE` | `HF_CACHE` |
+| `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
+| `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
+| `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
 ## From external tools
 

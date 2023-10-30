@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from huggingface_hub import hf_hub_download, scan_cache_dir
-from huggingface_hub.constants import CONFIG_NAME, HUGGINGFACE_HUB_CACHE
+from huggingface_hub.constants import CONFIG_NAME, HF_CACHE
 from huggingface_hub.file_download import are_symlinks_supported
 
 from .testing_constants import TOKEN
@@ -20,7 +20,7 @@ class TestCacheLayoutIfSymlinksNotSupported(unittest.TestCase):
 
     @patch(
         "huggingface_hub.file_download._are_symlinks_supported_in_dir",
-        {HUGGINGFACE_HUB_CACHE: True},
+        {HF_CACHE: True},
     )
     def test_are_symlinks_supported_default(self) -> None:
         self.assertTrue(are_symlinks_supported())

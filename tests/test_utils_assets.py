@@ -55,9 +55,9 @@ class CacheAssetsTest(unittest.TestCase):
 
     def test_cached_assets_path_default_assets_dir(self) -> None:
         with patch(
-            "huggingface_hub.utils._cache_assets.HUGGINGFACE_ASSETS_CACHE",
+            "huggingface_hub.utils._cache_assets.HF_ASSETS_CACHE",
             self.cache_dir,
-        ):  # Uses environment variable from HUGGINGFACE_ASSETS_CACHE
+        ):  # Uses environment variable from HF_ASSETS_CACHE
             self.assertEqual(
                 cached_assets_path(library_name="datasets"),
                 self.cache_dir / "datasets" / "default" / "default",

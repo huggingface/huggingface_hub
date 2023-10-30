@@ -15,7 +15,7 @@
 from pathlib import Path
 from typing import Union
 
-from ..constants import HUGGINGFACE_ASSETS_CACHE
+from ..constants import HF_ASSETS_CACHE
 
 
 def cached_assets_path(
@@ -91,7 +91,7 @@ def cached_assets_path(
         assets_dir (`str`, `Path`, *optional*):
             Path to the folder where assets are cached. This must not be the same folder
             where Hub files are cached. Defaults to `HF_HOME / "assets"` if not provided.
-            Can also be set with `HUGGINGFACE_ASSETS_CACHE` environment variable.
+            Can also be set with `HF_ASSETS_CACHE` environment variable.
 
     Returns:
         Path to the cache folder (`Path`).
@@ -115,7 +115,7 @@ def cached_assets_path(
     """
     # Resolve assets_dir
     if assets_dir is None:
-        assets_dir = HUGGINGFACE_ASSETS_CACHE
+        assets_dir = HF_ASSETS_CACHE
     assets_dir = Path(assets_dir).expanduser().resolve()
 
     # Avoid names that could create path issues
