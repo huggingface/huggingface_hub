@@ -441,7 +441,7 @@ def http_get(
 
     If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
     transient error (network outage?). We log a warning message and try to resume the download a few times before
-    giving up.
+    giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
     if not resume_size:
         if HF_HUB_ENABLE_HF_TRANSFER:
@@ -510,6 +510,8 @@ def http_get(
                 progress.update(len(chunk))
                 temp_file.write(chunk)
                 new_resume_size += len(chunk)
+                # Some data has been downloaded from the server so we reset the number of retries.
+                _nb_retries = 5
     except (requests.ConnectionError, requests.ReadTimeout) as e:
         # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
         # a transient error (network outage?). We log a warning message and try to resume the download a few times
