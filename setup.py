@@ -80,8 +80,7 @@ extras["typing"] = [
 ]
 
 extras["quality"] = [
-    "black==23.7",
-    "ruff>=0.0.241",
+    "ruff>=0.1.3",
     "mypy==1.5.1",
 ]
 

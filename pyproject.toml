@@ -1,8 +1,3 @@
-[tool.black]
-line-length = 119
-target_version = ['py37', 'py38', 'py39', 'py310']
-preview = true
-
 [tool.mypy]
 ignore_missing_imports = true
 no_implicit_optional = true
@@ -14,11 +9,31 @@ plugins = [
 [tool.ruff]
 # Ignored rules:
 #   "E501" -> line length violation
-#   "F821" -> undefined named in type annotation (e.g. Literal["something"])
-ignore = ["E501", "F821"]
+ignore = ["E501"]
 select = ["E", "F", "I", "W"]
 line-length = 119
+exclude = [
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".venv*",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "venv",
+]
 
 [tool.ruff.isort]
 lines-after-imports = 2
 known-first-party = ["huggingface_hub"]
+

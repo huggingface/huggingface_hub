@@ -1606,12 +1606,9 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        etag=_normalize_etag(
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
-            or r.headers.get("ETag")
-        ),
+        # We favor a custom header indicating the etag of the linked resource, and
+        # we fallback to the regular etag header.
+        etag=_normalize_etag(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.

@@ -5,7 +5,6 @@ check_dirs := contrib src tests utils setup.py
 
 
 quality:
-	black --check $(check_dirs)
 	ruff $(check_dirs)
 	mypy src
 	python utils/check_contrib_list.py
@@ -13,8 +12,7 @@ quality:
 	python utils/generate_async_inference_client.py
 
 style:
-	black $(check_dirs)
-	ruff $(check_dirs) --fix
+	ruff --fix $(check_dirs)
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
 	python utils/generate_async_inference_client.py --update
