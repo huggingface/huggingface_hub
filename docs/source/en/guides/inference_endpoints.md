@@ -131,7 +131,7 @@ In this section, we will see methods like [`~InferenceEndpoint.pause`], [`~Infer
 
 </Tip>
 
-## Pause or scale to zero
+### Pause or scale to zero
 
 To reduce costs when your Inference Endpoint is not in use, you can choose to either pause it using [`~InferenceEndpoint.pause`] or scale it to zero using [`~InferenceEndpoint.scale_to_zero`].
 
@@ -156,7 +156,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Endpoint is not 'running' but still has a URL and will restart on first call.
 ```
 
-## Update model or hardware requirements
+### Update model or hardware requirements
 
 In some cases, you might also want to update your Inference Endpoint without creating a new one. You can either update the hosted model or the hardware requirements to run the model. You can do this using [`~InferenceEndpoint.update`]:
 
@@ -174,7 +174,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
 
-## Delete the endpoint
+### Delete the endpoint
 
 Finally if you won't use the Inference Endpoint anymore, you can simply call [`~InferenceEndpoint.delete()`].
 
