@@ -55,6 +55,13 @@ _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
     ],
+    "_inference_endpoints": [
+        "InferenceEndpoint",
+        "InferenceEndpointError",
+        "InferenceEndpointStatus",
+        "InferenceEndpointTimeoutError",
+        "InferenceEndpointType",
+    ],
     "_login": [
         "interpreter_login",
         "login",
@@ -153,6 +160,7 @@ _SUBMOD_ATTRS = {
         "create_commit",
         "create_commits_on_pr",
         "create_discussion",
+        "create_inference_endpoint",
         "create_pull_request",
         "create_repo",
         "create_tag",
@@ -162,6 +170,7 @@ _SUBMOD_ATTRS = {
         "delete_collection_item",
         "delete_file",
         "delete_folder",
+        "delete_inference_endpoint",
         "delete_repo",
         "delete_space_secret",
         "delete_space_storage",
@@ -174,6 +183,7 @@ _SUBMOD_ATTRS = {
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
+        "get_inference_endpoint",
         "get_model_tags",
         "get_repo_discussions",
         "get_space_runtime",
@@ -182,6 +192,7 @@ _SUBMOD_ATTRS = {
         "like",
         "list_datasets",
         "list_files_info",
+        "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
         "list_models",
@@ -193,6 +204,7 @@ _SUBMOD_ATTRS = {
         "merge_pull_request",
         "model_info",
         "move_repo",
+        "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
         "rename_discussion",
@@ -202,13 +214,16 @@ _SUBMOD_ATTRS = {
         "request_space_hardware",
         "request_space_storage",
         "restart_space",
+        "resume_inference_endpoint",
         "run_as_future",
+        "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
         "space_info",
         "super_squash_history",
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
+        "update_inference_endpoint",
         "update_repo_visibility",
         "upload_file",
         "upload_folder",
@@ -378,6 +393,13 @@ __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_S
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
+    from ._inference_endpoints import (
+        InferenceEndpoint,  # noqa: F401
+        InferenceEndpointError,  # noqa: F401
+        InferenceEndpointStatus,  # noqa: F401
+        InferenceEndpointTimeoutError,  # noqa: F401
+        InferenceEndpointType,  # noqa: F401
+    )
     from ._login import (
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
@@ -472,6 +494,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_commit,  # noqa: F401
         create_commits_on_pr,  # noqa: F401
         create_discussion,  # noqa: F401
+        create_inference_endpoint,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
@@ -481,6 +504,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_collection_item,  # noqa: F401
         delete_file,  # noqa: F401
         delete_folder,  # noqa: F401
+        delete_inference_endpoint,  # noqa: F401
         delete_repo,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_storage,  # noqa: F401
@@ -493,6 +517,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
+        get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
@@ -501,6 +526,7 @@ if TYPE_CHECKING:  # pragma: no cover
         like,  # noqa: F401
         list_datasets,  # noqa: F401
         list_files_info,  # noqa: F401
+        list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
@@ -512,6 +538,7 @@ if TYPE_CHECKING:  # pragma: no cover
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
+        pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
         rename_discussion,  # noqa: F401
@@ -521,13 +548,16 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_hardware,  # noqa: F401
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
+        resume_inference_endpoint,  # noqa: F401
         run_as_future,  # noqa: F401
+        scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
+        update_inference_endpoint,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
