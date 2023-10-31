@@ -522,7 +522,7 @@ def http_get(
             return
         new_resume_size = resume_size
         try:
-            for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
+            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                 if chunk:  # filter out keep-alive new chunks
                     progress.update(len(chunk))
                     temp_file.write(chunk)
