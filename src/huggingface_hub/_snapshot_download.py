@@ -8,7 +8,7 @@ from tqdm.contrib.concurrent import thread_map
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
-    HF_CACHE,
+    HF_HUB_CACHE,
     HF_HUB_ENABLE_HF_TRANSFER,
     REPO_TYPES,
 )
@@ -147,7 +147,7 @@ def snapshot_download(
     </Tip>
     """
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
     if revision is None:
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):

@@ -21,7 +21,7 @@ Das Cache-System ist wie folgt aufgebaut:
 
 Der `<CACHE_DIR>` ist normalerweise das Home-Verzeichnis Ihres Benutzers. Es kann jedoch mit dem 
 `cache_dir`-Argument in allen Methoden oder durch Angabe der Umgebungsvariablen 
-`HF_HOME` oder `HF_CACHE` angepasst werden.
+`HF_HOME` oder `HF_HUB_CACHE` angepasst werden.
 
 Modelle, Datensätze und Räume teilen eine gemeinsame Wurzel. 
 Jedes dieser Repositories enthält den Repository-Typ, den Namensraum (Organisation oder Benutzername), 

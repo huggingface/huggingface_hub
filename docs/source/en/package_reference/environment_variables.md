@@ -36,7 +36,7 @@ and the cache will be stored in this folder.
 
 Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
 
-### HF_CACHE
+### HF_HUB_CACHE
 
 To configure where repositories from the Hub will be cached locally (models, datasets and
 spaces).
@@ -157,7 +157,7 @@ In order to standardize all environment variables within the Hugging Face ecosys
 
 | Deprecated Variable | Replacement |
 | --- | --- |
-| `HUGGINGFACE_HUB_CACHE` | `HF_CACHE` |
+| `HUGGINGFACE_HUB_CACHE` | `HF_HUB_CACHE` |
 | `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
 | `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
 | `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |

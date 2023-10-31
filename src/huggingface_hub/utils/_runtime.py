@@ -305,7 +305,7 @@ def dump_environment_info() -> Dict[str, Any]:
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
-    info["HF_CACHE"] = constants.HF_CACHE
+    info["HF_HUB_CACHE"] = constants.HF_HUB_CACHE
     info["HF_ASSETS_CACHE"] = constants.HF_ASSETS_CACHE
     info["HF_TOKEN_PATH"] = constants.HF_TOKEN_PATH
     info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE

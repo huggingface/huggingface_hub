@@ -28,7 +28,7 @@ from .constants import (
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
     ENDPOINT,
-    HF_CACHE,
+    HF_HUB_CACHE,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
@@ -101,7 +101,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     """
     # Defaults to HF cache
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
     # Check symlink compatibility only once (per cache directory) at first time use
@@ -325,7 +325,7 @@ def filename_to_url(
         )
 
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -645,7 +645,7 @@ def cached_download(
         )
 
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -1158,7 +1158,7 @@ def hf_hub_download(
         )
 
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
     if revision is None:
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
@@ -1525,7 +1525,7 @@ def try_to_load_from_cache(
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
     if cache_dir is None:
-        cache_dir = HF_CACHE
+        cache_dir = HF_HUB_CACHE
 
     object_id = repo_id.replace("/", "--")
     repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
