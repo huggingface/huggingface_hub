@@ -447,22 +447,24 @@ def http_get(
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
-    hf_transfer = None
     if HF_HUB_ENABLE_HF_TRANSFER:
-        try:
-            import hf_transfer
-        except ImportError:
-            raise ValueError(
-                "Fast download using 'hf_transfer' is enabled"
-                " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                " available in your environment. Try `pip install hf_transfer`."
-            )
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size` : falling back to regular download method")
             hf_transfer = None
         elif proxies is not None:
             warnings.warn("'hf_transfer' does not support `proxies` : falling back to regular download method")
             hf_transfer = None
+        else:
+            try:
+                import hf_transfer
+            except ImportError:
+                raise ValueError(
+                    "Fast download using 'hf_transfer' is enabled"
+                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
+                    " available in your environment. Try `pip install hf_transfer`."
+                )
+    else:
+        hf_transfer = None
 
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
