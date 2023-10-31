@@ -458,16 +458,10 @@ def http_get(
                 " available in your environment. Try `pip install hf_transfer`."
             )
         if resume_size != 0:
-            warnings.warn(
-                "'hf_transfer' does not support `resume_size`. "
-                "Falling back to regular download method"
-            )
+            warnings.warn("'hf_transfer' does not support `resume_size` : falling back to regular download method")
             hf_transfer = None
         elif proxies is not None:
-            warnings.warn(
-                "'hf_transfer' does not support `proxies`. "
-                "Falling back to regular download method"
-            )
+            warnings.warn("'hf_transfer' does not support `proxies` : falling back to regular download method")
             hf_transfer = None
 
     initial_headers = headers
