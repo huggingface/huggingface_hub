@@ -477,31 +477,6 @@ def http_get(
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
     """
     if not resume_size:
-<<<<<<< HEAD
-        if HF_HUB_ENABLE_HF_TRANSFER:
-            try:
-                # Download file using an external Rust-based package. Download is faster
-                # (~2x speed-up) but support less features (no error handling, no retries,
-                # no progress bars).
-                from hf_transfer import download
-
-                logger.debug(f"Download {url} using HF_TRANSFER.")
-                max_files = 100
-                chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size)
-                return
-            except ImportError:
-                raise ValueError(
-                    "Fast download using 'hf_transfer' is enabled"
-                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                    " available in your environment. Try `pip install hf_transfer`."
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
-=======
         if os.getenv("HF_TRANSFER") == "1":
             if download is None:
                 raise ValueError(
@@ -516,7 +491,6 @@ def http_get(
             download(url, temp_file.name, max_files, chunk_size)
             print(f"Using HF_TRANSFER took {datetime.datetime.now() - start}")
             return
->>>>>>> 0646cd9 (Optional rust_dl_py)
 
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
