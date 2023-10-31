@@ -3,12 +3,10 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
-import requests
-
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
-from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
 if is_torch_available():
@@ -148,8 +146,8 @@ class ModelHubMixin:
                     token=token,
                     local_files_only=local_files_only,
                 )
-            except requests.exceptions.RequestException:
-                logger.warning(f"{CONFIG_NAME} not found in HuggingFace Hub.")
+            except HfHubHTTPError:
+                logger.info(f"{CONFIG_NAME} not found in HuggingFace Hub.")
 
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:

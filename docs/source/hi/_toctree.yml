@@ -1,0 +1,9 @@
+- title: "शुरू हो जाओ"
+  sections:
+    - local: index
+      title: होम
+    - local: quick-start
+      title: जल्दी शुरू
+    - local: installation
+      title: इंस्टालेशन
+

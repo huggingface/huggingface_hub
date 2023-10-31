@@ -22,6 +22,8 @@
       title: Search
     - local: guides/inference
       title: Inference
+    - local: guides/inference_endpoints
+      title: Inference Endpoints
     - local: guides/community
       title: Community Tab
     - local: guides/collections
@@ -58,6 +60,8 @@
       title: Mixins & serialization methods
     - local: package_reference/inference_client
       title: Inference Client
+    - local: package_reference/inference_endpoints
+      title: Inference Endpoints
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities

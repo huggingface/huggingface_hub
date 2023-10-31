@@ -69,6 +69,7 @@ from ._commit_api import (
     _upload_lfs_files,
     _warn_on_overwriting_operations,
 )
+from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
@@ -95,6 +96,7 @@ from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
     ENDPOINT,
+    INFERENCE_ENDPOINTS_ENDPOINT,
     REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,
     REPO_TYPES,
@@ -123,11 +125,8 @@ from .utils._deprecation import (
 )
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
-    AttributeDictionary,
     DatasetFilter,
-    DatasetTags,
     ModelFilter,
-    ModelTags,
     _filter_emissions,
 )
 
@@ -703,106 +702,6 @@ class Collection(ReprMixin):
         self.url = f"{ENDPOINT}/collections/{self.slug}"
 
 
-class ModelSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    models currently hosted in the Hub with tab-completion. If a value starts
-    with a number, it will only exist in the dictionary
-
-    Example:
-
-    ```python
-    >>> args = ModelSearchArguments()
-
-    >>> args.author.huggingface
-    'huggingface'
-
-    >>> args.language.en
-    'en'
-    ```
-
-    <Tip warning={true}>
-
-    `ModelSearchArguments` is a legacy class meant for exploratory purposes only. Its
-    initialization requires listing all models on the Hub which makes it increasingly
-    slower as the number of repos on the Hub increases.
-
-    </Tip>
-    """
-
-    def __init__(self, api: Optional["HfApi"] = None):
-        self._api = api if api is not None else HfApi()
-        tags = self._api.get_model_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str) -> str:
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        models = self._api.list_models()
-        author_dict, model_name_dict = AttributeDictionary(), AttributeDictionary()
-        for model in models:
-            if "/" in model.modelId:
-                author, name = model.modelId.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = model.modelId
-            model_name_dict[name] = clean(name)
-        self["model_name"] = model_name_dict
-        self["author"] = author_dict
-
-
-class DatasetSearchArguments(AttributeDictionary):
-    """
-    A nested namespace object holding all possible values for properties of
-    datasets currently hosted in the Hub with tab-completion. If a value starts
-    with a number, it will only exist in the dictionary
-
-    Example:
-
-    ```python
-    >>> args = DatasetSearchArguments()
-
-    >>> args.author.huggingface
-    'huggingface'
-
-    >>> args.language.en
-    'language:en'
-    ```
-
-    <Tip warning={true}>
-
-    `DatasetSearchArguments` is a legacy class meant for exploratory purposes only. Its
-    initialization requires listing all datasets on the Hub which makes it increasingly
-    slower as the number of repos on the Hub increases.
-
-    </Tip>
-    """
-
-    def __init__(self, api: Optional["HfApi"] = None):
-        self._api = api if api is not None else HfApi()
-        tags = self._api.get_dataset_tags()
-        super().__init__(tags)
-        self._process_models()
-
-    def _process_models(self):
-        def clean(s: str):
-            return s.replace(" ", "").replace("-", "_").replace(".", "_")
-
-        datasets = self._api.list_datasets()
-        author_dict, dataset_name_dict = AttributeDictionary(), AttributeDictionary()
-        for dataset in datasets:
-            if "/" in dataset.id:
-                author, name = dataset.id.split("/")
-                author_dict[author] = clean(author)
-            else:
-                name = dataset.id
-            dataset_name_dict[name] = clean(name)
-        self["dataset_name"] = dataset_name_dict
-        self["author"] = author_dict
-
-
 @dataclass
 class GitRefInfo:
     """
@@ -1102,25 +1001,23 @@ class HfApi:
         except (LocalTokenNotFoundError, HTTPError):
             return None
 
-    def get_model_tags(self) -> ModelTags:
+    def get_model_tags(self) -> Dict:
         """
         List all valid model tags as a nested namespace object
         """
         path = f"{self.endpoint}/api/models-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
-        d = r.json()
-        return ModelTags(d)
+        return r.json()
 
-    def get_dataset_tags(self) -> DatasetTags:
+    def get_dataset_tags(self) -> Dict:
         """
         List all valid dataset tags as a nested namespace object.
         """
         path = f"{self.endpoint}/api/datasets-tags-by-type"
         r = get_session().get(path)
         hf_raise_for_status(r)
-        d = r.json()
-        return DatasetTags(d)
+        return r.json()
 
     @validate_hf_hub_args
     def list_models(
@@ -1192,29 +1089,15 @@ class HfApi:
         >>> # List all models
         >>> api.list_models()
 
-        >>> # Get all valid search arguments
-        >>> args = ModelSearchArguments()
-
         >>> # List only the text classification models
         >>> api.list_models(filter="text-classification")
         >>> # Using the `ModelFilter`
         >>> filt = ModelFilter(task="text-classification")
-        >>> # With `ModelSearchArguments`
-        >>> filt = ModelFilter(task=args.pipeline_tags.TextClassification)
-        >>> api.list_models(filter=filt)
 
-        >>> # Using `ModelFilter` and `ModelSearchArguments` to find text classification in both PyTorch and TensorFlow
-        >>> filt = ModelFilter(
-        ...     task=args.pipeline_tags.TextClassification,
-        ...     library=[args.library.PyTorch, args.library.TensorFlow],
-        ... )
-        >>> api.list_models(filter=filt)
 
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
-        >>> # Using `ModelFilter` and `ModelSearchArguments`
-        >>> filt = ModelFilter(library=args.library.allennlp)
-        ```
+
 
         Example usage with the `search` argument:
 
@@ -1376,16 +1259,12 @@ class HfApi:
         >>> # List all datasets
         >>> api.list_datasets()
 
-        >>> # Get all valid search arguments
-        >>> args = DatasetSearchArguments()
 
         >>> # List only the text classification datasets
         >>> api.list_datasets(filter="task_categories:text-classification")
         >>> # Using the `DatasetFilter`
         >>> filt = DatasetFilter(task_categories="text-classification")
-        >>> # With `DatasetSearchArguments`
-        >>> filt = DatasetFilter(task=args.task_categories.text_classification)
-        >>> api.list_models(filter=filt)
+
 
         >>> # List only the datasets in russian for language modeling
         >>> api.list_datasets(
@@ -1393,11 +1272,7 @@ class HfApi:
         ... )
         >>> # Using the `DatasetFilter`
         >>> filt = DatasetFilter(language="ru", task_ids="language-modeling")
-        >>> # With `DatasetSearchArguments`
-        >>> filt = DatasetFilter(
-        ...     language=args.language.ru,
-        ...     task_ids=args.task_ids.language_modeling,
-        ... )
+
         >>> api.list_datasets(filter=filt)
         ```
 
@@ -6023,6 +5898,446 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    #######################
+    # Inference Endpoints #
+    #######################
+
+    def list_inference_endpoints(
+        self, namespace: Optional[str] = None, *, token: Optional[str] = None
+    ) -> List[InferenceEndpoint]:
+        """Lists all inference endpoints for the given namespace.
+
+        Args:
+            namespace (`str`, *optional*):
+                The namespace to list endpoints for. Defaults to the current user. Set to `"*"` to list all endpoints
+                from all namespaces (i.e. personal namespace and all orgs the user belongs to).
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            List[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.list_inference_endpoints()
+        [InferenceEndpoint(name='my-endpoint', ...), ...]
+        ```
+        """
+        # Special case: list all endpoints for all namespaces the user has access to
+        if namespace == "*":
+            user = self.whoami(token=token)
+
+            # List personal endpoints first
+            endpoints: List[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+
+            # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
+            for org in user.get("orgs", []):
+                try:
+                    endpoints += list_inference_endpoints(namespace=org["name"], token=token)
+                except HfHubHTTPError as error:
+                    if error.response.status_code == 401:  # Either no billing or user don't have access)
+                        logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
+                    pass
+
+            return endpoints
+
+        # Normal case: list endpoints for a specific namespace
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return [
+            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token)
+            for endpoint in response.json()["items"]
+        ]
+
+    def create_inference_endpoint(
+        self,
+        name: str,
+        *,
+        repository: str,
+        framework: str,
+        accelerator: str,
+        instance_size: str,
+        instance_type: str,
+        region: str,
+        vendor: str,
+        account_id: Optional[str] = None,
+        min_replica: int = 0,
+        max_replica: int = 1,
+        revision: Optional[str] = None,
+        task: Optional[str] = None,
+        type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        namespace: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Create a new Inference Endpoint.
+
+        Args:
+            name (`str`):
+                The unique name for the new Inference Endpoint.
+            repository (`str`):
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
+            framework (`str`):
+                The machine learning framework used for the model (e.g. `"custom"`).
+            accelerator (`str`):
+                The hardware accelerator to be used for inference (e.g. `"cpu"`).
+            instance_size (`str`):
+                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+            instance_type (`str`):
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+            region (`str`):
+                The cloud region in which the Inference Endpoint will be created (e.g. `"us-east-1"`).
+            vendor (`str`):
+                The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
+            account_id (`str`, *optional*):
+                The account ID used to link a VPC to a private Inference Endpoint (if applicable).
+            min_replica (`int`, *optional*):
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+            max_replica (`int`, *optional*):
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
+            revision (`str`, *optional*):
+                The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
+            task (`str`, *optional*):
+                The task on which to deploy the model (e.g. `"text-classification"`).
+            type ([`InferenceEndpointType]`, *optional*):
+                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+            Returns:
+                [`InferenceEndpoint`]: information about the updated Inference Endpoint.
+
+            Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> create_inference_endpoint(
+            ...     "my-endpoint-name",
+            ...     repository="gpt2",
+            ...     framework="pytorch",
+            ...     task="text-generation",
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="c6i"
+            ... )
+            >>> endpoint
+            InferenceEndpoint(name='my-endpoint-name', status="pending",...)
+
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            "..."
+            ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        payload: Dict = {
+            "accountId": account_id,
+            "compute": {
+                "accelerator": accelerator,
+                "instanceSize": instance_size,
+                "instanceType": instance_type,
+                "scaling": {
+                    "maxReplica": max_replica,
+                    "minReplica": min_replica,
+                },
+            },
+            "model": {
+                "framework": framework,
+                "repository": repository,
+                "revision": revision,
+                "task": task,
+                "image": {"huggingface": {}},
+            },
+            "name": name,
+            "provider": {
+                "region": region,
+                "vendor": vendor,
+            },
+            "type": type,
+        }
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def get_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Get information about an Inference Endpoint.
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to retrieve information about.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the requested Inference Endpoint.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> endpoint = api.get_inference_endpoint("my-text-to-image")
+        >>> endpoint
+        InferenceEndpoint(name='my-text-to-image', ...)
+
+        # Get status
+        >>> endpoint.status
+        'running'
+        >>> endpoint.url
+        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+
+        # Run inference
+        >>> endpoint.client.text_to_image(...)
+        ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def update_inference_endpoint(
+        self,
+        name: str,
+        *,
+        # Compute update
+        accelerator: Optional[str] = None,
+        instance_size: Optional[str] = None,
+        instance_type: Optional[str] = None,
+        min_replica: Optional[int] = None,
+        max_replica: Optional[int] = None,
+        # Model update
+        repository: Optional[str] = None,
+        framework: Optional[str] = None,
+        revision: Optional[str] = None,
+        task: Optional[str] = None,
+        # Other
+        namespace: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Update an Inference Endpoint.
+
+        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
+        optional but at least one must be provided.
+
+        For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to update.
+
+            accelerator (`str`, *optional*):
+                The hardware accelerator to be used for inference (e.g. `"cpu"`).
+            instance_size (`str`, *optional*):
+                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+            instance_type (`str`, *optional*):
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+            min_replica (`int`, *optional*):
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint.
+            max_replica (`int`, *optional*):
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+
+            repository (`str`, *optional*):
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
+            framework (`str`, *optional*):
+                The machine learning framework used for the model (e.g. `"custom"`).
+            revision (`str`, *optional*):
+                The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
+            task (`str`, *optional*):
+                The task on which to deploy the model (e.g. `"text-classification"`).
+
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the updated Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        payload: Dict = {}
+        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica)):
+            payload["compute"] = {
+                "accelerator": accelerator,
+                "instanceSize": instance_size,
+                "instanceType": instance_type,
+                "scaling": {
+                    "maxReplica": max_replica,
+                    "minReplica": min_replica,
+                },
+            }
+        if any(value is not None for value in (repository, framework, revision, task)):
+            payload["model"] = {
+                "framework": framework,
+                "repository": repository,
+                "revision": revision,
+                "task": task,
+                "image": {"huggingface": {}},
+            }
+
+        response = get_session().put(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def delete_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """Delete an Inference Endpoint.
+
+        This operation is not reversible. If you don't want to be charged for an Inference Endpoint, it is preferable
+        to pause it with [`pause_inference_endpoint`] or scale it to zero with [`scale_to_zero_inference_endpoint`].
+
+        For convenience, you can also delete an Inference Endpoint using [`InferenceEndpoint.delete`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to delete.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+        """
+        namespace = namespace or self._get_namespace(token=token)
+        response = get_session().delete(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    def pause_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Pause an Inference Endpoint.
+
+        A paused Inference Endpoint will not be charged. It can be resumed at any time using [`resume_inference_endpoint`].
+        This is different than scaling the Inference Endpoint to zero with [`scale_to_zero_inference_endpoint`], which
+        would be automatically restarted when a request is made to it.
+
+        For convenience, you can also pause an Inference Endpoint using [`pause_inference_endpoint`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to pause.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the paused Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/pause",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def resume_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Resume an Inference Endpoint.
+
+        For convenience, you can also resume an Inference Endpoint using [`InferenceEndpoint.resume`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to resume.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the resumed Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def scale_to_zero_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Scale Inference Endpoint to zero.
+
+        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
+        cold start delay. This is different than pausing the Inference Endpoint with [`pause_inference_endpoint`], which
+        would require a manual resume with [`resume_inference_endpoint`].
+
+        For convenience, you can also scale an Inference Endpoint to zero using [`InferenceEndpoint.scale_to_zero`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to scale to zero.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the scaled-to-zero Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/scale-to-zero",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def _get_namespace(self, token: Optional[str] = None) -> str:
+        """Get the default namespace for the current user."""
+        me = self.whoami(token=token)
+        if me["type"] == "user":
+            return me["name"]
+        else:
+            raise ValueError(
+                "Cannot determine default namespace. You must provide a 'namespace' as input or be logged in as a"
+                " user."
+            )
+
     ########################
     # Collection Endpoints #
     ########################
@@ -6318,7 +6633,7 @@ class HfApi:
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_object_id (`str`):
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
-                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
+                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             note (`str`, *optional*):
                 A note to attach to the item in the collection. The maximum size for a note is 500 characters.
             position (`int`, *optional*):
@@ -6595,6 +6910,16 @@ restart_space = api.restart_space
 duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
+
+# Inference Endpoint API
+list_inference_endpoints = api.list_inference_endpoints
+create_inference_endpoint = api.create_inference_endpoint
+get_inference_endpoint = api.get_inference_endpoint
+update_inference_endpoint = api.update_inference_endpoint
+delete_inference_endpoint = api.delete_inference_endpoint
+pause_inference_endpoint = api.pause_inference_endpoint
+resume_inference_endpoint = api.resume_inference_endpoint
+scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 
 # Collections API
 get_collection = api.get_collection

@@ -14,7 +14,6 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
@@ -31,6 +30,7 @@ from .constants import (
     DEFAULT_REVISION,
     DOWNLOAD_CHUNK_SIZE,
     ENDPOINT,
+    HF_HUB_CACHE,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
@@ -40,7 +40,7 @@ from .constants import (
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
-    HUGGINGFACE_HUB_CACHE,
+    HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
     REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
@@ -78,6 +78,7 @@ from .utils import (
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
+from .utils.insecure_hashlib import sha256
 
 
 logger = logging.get_logger(__name__)
@@ -103,7 +104,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     """
     # Defaults to HF cache
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
     # Check symlink compatibility only once (per cache directory) at first time use
@@ -327,7 +328,7 @@ def filename_to_url(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -444,7 +445,7 @@ def http_get(
 
     If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
     transient error (network outage?). We log a warning message and try to resume the download a few times before
-    giving up.
+    giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
     hf_transfer = None
     if HF_HUB_ENABLE_HF_TRANSFER:
@@ -526,11 +527,13 @@ def http_get(
             return
         new_resume_size = resume_size
         try:
-            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+            for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
                 if chunk:  # filter out keep-alive new chunks
                     progress.update(len(chunk))
                     temp_file.write(chunk)
                     new_resume_size += len(chunk)
+                    # Some data has been downloaded from the server so we reset the number of retries.
+                    _nb_retries = 5
         except (requests.ConnectionError, requests.ReadTimeout) as e:
             # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
             # a transient error (network outage?). We log a warning message and try to resume the download a few times
@@ -663,7 +666,7 @@ def cached_download(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -1176,7 +1179,7 @@ def hf_hub_download(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if revision is None:
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
@@ -1543,7 +1546,7 @@ def try_to_load_from_cache(
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
 
     object_id = repo_id.replace("/", "--")
     repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
@@ -1625,12 +1628,9 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        etag=_normalize_etag(
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
-            or r.headers.get("ETag")
-        ),
+        # We favor a custom header indicating the etag of the linked resource, and
+        # we fallback to the regular etag header.
+        etag=_normalize_etag(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.

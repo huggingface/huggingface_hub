@@ -11,6 +11,7 @@ import fsspec
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
+from .file_download import hf_hub_url
 from .hf_api import HfApi
 from .utils import (
     EntryNotFoundError,
@@ -45,10 +46,8 @@ class HfFileSystemResolvedPath:
     path_in_repo: str
 
     def unresolve(self) -> str:
-        return (
-            f"{REPO_TYPES_URL_PREFIXES.get(self.repo_type, '') + self.repo_id}@{safe_revision(self.revision)}/{self.path_in_repo}"
-            .rstrip("/")
-        )
+        repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
+        return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
 
 
 class HfFileSystem(fsspec.AbstractFileSystem):
@@ -421,8 +420,12 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
         }
-        url = (
-            f"{self.fs.endpoint}/{REPO_TYPES_URL_PREFIXES.get(self.resolved_path.repo_type, '') + self.resolved_path.repo_id}/resolve/{safe_quote(self.resolved_path.revision)}/{safe_quote(self.resolved_path.path_in_repo)}"
+        url = hf_hub_url(
+            repo_id=self.resolved_path.repo_id,
+            revision=self.resolved_path.revision,
+            filename=self.resolved_path.path_in_repo,
+            repo_type=self.resolved_path.repo_type,
+            endpoint=self.fs.endpoint,
         )
         r = http_backoff("GET", url, headers=headers)
         hf_raise_for_status(r)

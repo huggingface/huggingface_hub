@@ -67,7 +67,7 @@ class InferenceClientTest(unittest.TestCase):
 
 @pytest.mark.vcr
 @with_production_testing
-@patch("huggingface_hub.inference._common._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
+@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
 class InferenceClientVCRTest(InferenceClientTest):
     """
     Test for the main tasks implemented in InferenceClient. Since Inference API can be flaky, we use VCR.py and
@@ -154,6 +154,14 @@ class InferenceClientVCRTest(InferenceClientTest):
             set(k for el in output for k in el.keys()),
             {"score", "sequence", "token", "token_str"},
         )
+
+    def test_get_recommended_model_has_recommendation(self) -> None:
+        assert self.client.get_recommended_model("feature-extraction") == "facebook/bart-base"
+        assert self.client.get_recommended_model("translation") == "t5-small"
+
+    def test_get_recommended_model_no_recommendation(self) -> None:
+        with pytest.raises(ValueError):
+            self.client.get_recommended_model("text-generation")
 
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
