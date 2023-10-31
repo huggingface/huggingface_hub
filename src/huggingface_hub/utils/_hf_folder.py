@@ -46,7 +46,7 @@ class HfFolder:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN` environment variable.
+        Note that a token can be also provided using the `HF_TOKEN` environment variable.
 
         Token is saved in the huggingface home folder. You can configure it by setting
         the `HF_HOME` environment variable. Previous location was `~/.huggingface/token`.
@@ -63,7 +63,7 @@ class HfFolder:
             pass
 
         # 1. Is it set by environment variable ?
-        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        token: Optional[str] = os.environ.get("HF_TOKEN")
         if token is not None:
             token = token.replace("\r", "").replace("\n", "").strip()
             return token
