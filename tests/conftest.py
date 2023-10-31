@@ -11,7 +11,7 @@ from _pytest.python import Function as PytestFunction
 from requests.exceptions import HTTPError
 
 import huggingface_hub
-from huggingface_hub import HfApi, HfFolder
+from huggingface_hub import HfApi
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._typing import CallableT
 
@@ -42,23 +42,6 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
         # TemporaryDirectory is not super robust on Windows when a git repository is
         # cloned in it. See https://www.scivision.dev/python-tempfile-permission-error-windows/.
         shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
-
-
-@pytest.fixture(autouse=True, scope="session")
-def clean_hf_folder_token_for_tests() -> Generator:
-    """Clean token stored on machine before all tests and reset it back at the end.
-
-    Useful to avoid token deletion when running tests locally.
-    """
-    # Remove registered token
-    token = HfFolder().get_token()
-    HfFolder().delete_token()
-
-    yield  # Run all tests
-
-    # Set back token once all tests have passed
-    if token is not None:
-        HfFolder().save_token(token)
 
 
 @pytest.fixture(autouse=True)

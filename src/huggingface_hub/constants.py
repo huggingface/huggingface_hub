@@ -104,6 +104,12 @@ _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
 HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
 
 
+if _staging_mode:
+    # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
+    HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    HF_TOKEN_PATH = os.path.join(_staging_home, "token")
+
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.
 # If environment variable is not set (None), then the user is free to enable/disable
