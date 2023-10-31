@@ -448,7 +448,7 @@ def http_get(
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
-    hf_transfer: ModuleType | None = None
+    hf_transfer: Union[ModuleType, None] = None
     if HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size` : falling back to regular download method")
