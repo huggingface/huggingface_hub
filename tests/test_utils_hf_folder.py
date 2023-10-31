@@ -41,7 +41,7 @@ class HfFolderTest(unittest.TestCase):
         self.assertEqual(HfFolder.get_token(), None)
         # test TOKEN in env
         self.assertEqual(HfFolder.get_token(), None)
-        with unittest.mock.patch.dict(os.environ, {"HUGGING_FACE_HUB_TOKEN": token}):
+        with unittest.mock.patch.dict(os.environ, {"HF_TOKEN": token}):
             self.assertEqual(HfFolder.get_token(), token)
 
     def test_token_in_old_path(self):
