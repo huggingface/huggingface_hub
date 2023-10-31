@@ -1,5 +1,6 @@
 import copy
 import fnmatch
+import inspect
 import io
 import json
 import os
@@ -28,11 +29,13 @@ from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
+    DOWNLOAD_CHUNK_SIZE,
     ENDPOINT,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HF_HUB_ETAG_TIMEOUT,
+    HF_TRANSFER_CONCURRENCY,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
@@ -443,29 +446,28 @@ def http_get(
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up.
     """
-    if not resume_size:
-        if HF_HUB_ENABLE_HF_TRANSFER:
-            try:
-                # Download file using an external Rust-based package. Download is faster
-                # (~2x speed-up) but support less features (no progress bars).
-                from hf_transfer import download
-
-                logger.debug(f"Download {url} using HF_TRANSFER.")
-                max_files = 100
-                chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size, headers=headers)
-                return
-            except ImportError:
-                raise ValueError(
-                    "Fast download using 'hf_transfer' is enabled"
-                    " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
-                    " available in your environment. Try `pip install hf_transfer`."
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
+    hf_transfer = None
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        try:
+            import hf_transfer
+        except ImportError:
+            raise ValueError(
+                "Fast download using 'hf_transfer' is enabled"
+                " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
+                " available in your environment. Try `pip install hf_transfer`."
+            )
+        if resume_size != 0:
+            warnings.warn(
+                "'hf_transfer' does not support `resume_size`. "
+                "Falling back to regular download method"
+            )
+            hf_transfer = None
+        elif proxies is not None:
+            warnings.warn(
+                "'hf_transfer' does not support `proxies`. "
+                "Falling back to regular download method"
+            )
+            hf_transfer = None
 
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
@@ -495,50 +497,67 @@ def http_get(
         displayed_name = f"(…){displayed_name[-40:]}"
 
     # Stream file to buffer
-    progress = tqdm(
+    with tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
         desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
-    )
-    try:
+    ) as progress:
+        if hf_transfer:
+            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+            try:
+                hf_transfer.download(
+                    url=url,
+                    filename=temp_file.name,
+                    max_files=HF_TRANSFER_CONCURRENCY,
+                    chunk_size=DOWNLOAD_CHUNK_SIZE,
+                    headers=headers,
+                    parallel_failures=3,
+                    max_retries=5,
+                    **({"callback": progress.update} if supports_callback else {}),
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+            return
         new_resume_size = resume_size
-        for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
-            if chunk:  # filter out keep-alive new chunks
-                progress.update(len(chunk))
-                temp_file.write(chunk)
-                new_resume_size += len(chunk)
-    except (requests.ConnectionError, requests.ReadTimeout) as e:
-        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-        # a transient error (network outage?). We log a warning message and try to resume the download a few times
-        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-        if _nb_retries <= 0:
-            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-            raise
-        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-        time.sleep(1)
-        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-        return http_get(
-            url=url,
-            temp_file=temp_file,
-            proxies=proxies,
-            resume_size=new_resume_size,
-            headers=initial_headers,
-            expected_size=expected_size,
-            _nb_retries=_nb_retries - 1,
-        )
+        try:
+            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                if chunk:  # filter out keep-alive new chunks
+                    progress.update(len(chunk))
+                    temp_file.write(chunk)
+                    new_resume_size += len(chunk)
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+            # a transient error (network outage?). We log a warning message and try to resume the download a few times
+            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                proxies=proxies,
+                resume_size=new_resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                _nb_retries=_nb_retries - 1,
+            )
 
-    if expected_size is not None and expected_size != temp_file.tell():
-        raise EnvironmentError(
-            f"Consistency check failed: file should be of size {expected_size} but has size"
-            f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
-            " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
-            " know by opening an issue on https://github.com/huggingface/huggingface_hub."
-        )
-
-    progress.close()
+        if expected_size is not None and expected_size != temp_file.tell():
+            raise EnvironmentError(
+                f"Consistency check failed: file should be of size {expected_size} but has size"
+                f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+                " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+                " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+            )
 
 
 @validate_hf_hub_args
