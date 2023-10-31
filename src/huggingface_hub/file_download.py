@@ -524,6 +524,8 @@ def http_get(
                     "An error occurred while downloading using `hf_transfer`. Consider"
                     " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
                 ) from e
+            if not supports_callback:
+                progress.update(total)
             return
         new_resume_size = resume_size
         try:
