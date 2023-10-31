@@ -24,6 +24,7 @@ if is_tensorboard_available():
     from tensorboardX import SummaryWriter
 
     # TODO: clarify: should we import from torch.utils.tensorboard ?
+
 else:
     SummaryWriter = object  # Dummy class to avoid failing at import. Will raise on instance creation.
 
