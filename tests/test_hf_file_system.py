@@ -6,11 +6,10 @@ from unittest.mock import patch
 import fsspec
 import pytest
 
-from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES
 from huggingface_hub.hf_file_system import HfFileSystem
 from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
 
 
@@ -22,36 +21,37 @@ class HfFileSystemTests(unittest.TestCase):
             fsspec.register_implementation(HfFileSystem.protocol, HfFileSystem)
 
     def setUp(self):
-        self.repo_id = f"{USER}/{repo_name()}"
-        self.repo_type = "dataset"
-        self.hf_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN)
         self.api = self.hffs._api
 
         # Create dummy repo
-        self.api.create_repo(self.repo_id, repo_type=self.repo_type)
+        repo_url = self.api.create_repo(repo_name(), repo_type="dataset")
+        self.repo_id = repo_url.repo_id
+        self.hf_path = f"datasets/{self.repo_id}"
+
+        # Upload files
         self.api.upload_file(
             path_or_fileobj=b"dummy binary data on pr",
             path_in_repo="data/binary_data_for_pr.bin",
             repo_id=self.repo_id,
-            repo_type=self.repo_type,
+            repo_type="dataset",
             create_pr=True,
         )
         self.api.upload_file(
             path_or_fileobj="dummy text data".encode("utf-8"),
             path_in_repo="data/text_data.txt",
             repo_id=self.repo_id,
-            repo_type=self.repo_type,
+            repo_type="dataset",
         )
         self.api.upload_file(
             path_or_fileobj=b"dummy binary data",
             path_in_repo="data/binary_data.bin",
             repo_id=self.repo_id,
-            repo_type=self.repo_type,
+            repo_type="dataset",
         )
 
     def tearDown(self):
-        self.api.delete_repo(self.repo_id, repo_type=self.repo_type)
+        self.api.delete_repo(self.repo_id, repo_type="dataset")
 
     def test_glob(self):
         self.assertEqual(
@@ -141,7 +141,7 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
-            f"hf://{self.repo_type}s/{self.repo_id}/data/text_data.txt",
+            f"hf://datasets/{self.repo_id}/data/text_data.txt",
             storage_options={
                 "endpoint": ENDPOINT_STAGING,
                 "token": TOKEN,

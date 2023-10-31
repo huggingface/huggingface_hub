@@ -424,6 +424,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_id=self.resolved_path.repo_id,
             revision=self.resolved_path.revision,
             filename=self.resolved_path.path_in_repo,
+            repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
         r = http_backoff("GET", url, headers=headers)

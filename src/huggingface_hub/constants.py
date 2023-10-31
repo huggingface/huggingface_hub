@@ -89,8 +89,13 @@ hf_cache_home = os.path.expanduser(
 default_cache_path = os.path.join(hf_cache_home, "hub")
 default_assets_cache_path = os.path.join(hf_cache_home, "assets")
 
+# Legacy env variables
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
+
+# New env variables
+HF_HUB_CACHE = os.getenv("HF_HUB_CACHE", HUGGINGFACE_HUB_CACHE)
+HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
@@ -103,6 +108,12 @@ HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") o
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
 HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
 
+
+if _staging_mode:
+    # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
+    HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.
