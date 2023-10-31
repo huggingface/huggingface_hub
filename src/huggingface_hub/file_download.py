@@ -455,7 +455,7 @@ def http_get(
             warnings.warn("'hf_transfer' does not support `proxies` : falling back to regular download method")
         else:
             try:
-                import hf_transfer # type: ignore[no-redef]
+                import hf_transfer  # type: ignore[no-redef]
             except ImportError:
                 raise ValueError(
                     "Fast download using 'hf_transfer' is enabled"
