@@ -66,11 +66,6 @@ from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 
-if is_hf_transfer_available():
-    from hf_transfer import download
-else:
-    download = None
-
 logger = logging.get_logger(__name__)
 
 # Regex to get filename from a "Content-Disposition" header for CDN-served files
@@ -478,6 +473,7 @@ def http_get(
     """
     if not resume_size:
         if os.getenv("HF_TRANSFER") == "1":
+            from hf_transfer import download
             if download is None:
                 raise ValueError(
                     "You have set HF_TRANSFER=1 but hf_transfer is not available in"
