@@ -498,7 +498,6 @@ def http_get(
         initial=resume_size,
         desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
-        ascii=True,
     ) as progress:
         if hf_transfer and total is not None and total > 10 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
