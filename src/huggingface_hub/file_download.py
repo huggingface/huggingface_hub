@@ -501,6 +501,12 @@ def http_get(
     ) as progress:
         if hf_transfer and total is not None and total > 10 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+            if not supports_callback:
+                warnings.warn(
+                    "You are using an outdated version of `hf_transfer`. "
+                    "Consider upgrading to latest version to enable progress bars "
+                    "using `pip install -U hf_transfer`."
+                )
             try:
                 hf_transfer.download(
                     url=url,
