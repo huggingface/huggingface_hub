@@ -239,6 +239,12 @@ If you are running on a machine with high bandwidth, you can increase your downl
 
 <Tip>
 
-`hf_transfer` now support progress bars since version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster downloads. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+Progress bars are supported when downloading with `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster downloads.
+
+</Tip>
+
+<Tip warning={true}>
+
+`hf_transfer` is a power user tool! It is tested and production-ready, but it lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 </Tip>
