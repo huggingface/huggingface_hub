@@ -16,9 +16,7 @@ from __future__ import annotations
 
 import inspect
 import json
-import pprint
 import re
-import textwrap
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -108,6 +106,7 @@ from .file_download import (
     get_hf_file_metadata,
     hf_hub_url,
 )
+from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
     HfFolder,
@@ -127,7 +126,7 @@ from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    _filter_emissions,
+    _is_emission_within_treshold,
 )
 
 
@@ -143,24 +142,6 @@ _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
 )
 
 logger = logging.get_logger(__name__)
-
-
-class ReprMixin:
-    """Mixin to create the __repr__ for a class"""
-
-    def __init__(self, **kwargs) -> None:
-        # Store all the other fields returned by the API
-        # Hack to ensure backward compatibility with future versions of the API.
-        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
-        if "\n" in formatted_value:
-            return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
-        else:
-            return f"{self.__class__.__name__}: {formatted_value}"
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
@@ -254,13 +235,38 @@ class BlobLfsInfo(TypedDict, total=False):
     pointer_size: int
 
 
+class BlobLastCommitInfo(TypedDict, total=False):
+    oid: str
+    title: str
+    date: datetime
+
+
+class BlobSecurityInfo(TypedDict, total=False):
+    safe: bool
+    av_scan: Optional[Dict]
+    pickle_import_scan: Optional[Dict]
+
+
+class TransformersInfo(TypedDict, total=False):
+    auto_model: str
+    custom_class: Optional[str]
+    # possible `pipeline_tag` values: https://github.com/huggingface/hub-docs/blob/f2003d2fca9d4c971629e858e314e0a5c05abf9d/js/src/lib/interfaces/Types.ts#L79
+    pipeline_tag: Optional[str]
+    processor: Optional[str]
+
+
+class SafeTensorsInfo(TypedDict, total=False):
+    parameters: List[Dict[str, int]]
+    total: int
+
+
 @dataclass
 class CommitInfo:
     """Data structure containing information about a newly created commit.
 
     Returned by [`create_commit`].
 
-    Args:
+    Attributes:
         commit_url (`str`):
             Url where to find the commit.
 
@@ -370,251 +376,431 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-class RepoFile(ReprMixin):
+@dataclass
+class RepoSibling:
     """
-    Data structure that represents a public file inside a repo, accessible from huggingface.co
+    Contains basic information about a repo file inside a repo on the Hub.
 
-    Args:
+    Attributes:
         rfilename (str):
-            file name, relative to the repo root. This is the only attribute that's guaranteed to be here, but under
-            certain conditions there can certain other stuff.
+            file name, relative to the repo root.
         size (`int`, *optional*):
-            The file's size, in bytes. This attribute is present when `files_metadata` argument of [`repo_info`] is set
+            The file's size, in bytes. This attribute is defined when `files_metadata` argument of [`repo_info`] is set
             to `True`. It's `None` otherwise.
         blob_id (`str`, *optional*):
-            The file's git OID. This attribute is present when `files_metadata` argument of [`repo_info`] is set to
+            The file's git OID. This attribute is defined when `files_metadata` argument of [`repo_info`] is set to
             `True`. It's `None` otherwise.
         lfs (`BlobLfsInfo`, *optional*):
-            The file's LFS metadata. This attribute is present when`files_metadata` argument of [`repo_info`] is set to
+            The file's LFS metadata. This attribute is defined when`files_metadata` argument of [`repo_info`] is set to
             `True` and the file is stored with Git LFS. It's `None` otherwise.
     """
 
-    def __init__(
-        self,
-        rfilename: str,
-        size: Optional[int] = None,
-        blobId: Optional[str] = None,
-        lfs: Optional[BlobLfsInfo] = None,
-        **kwargs,
-    ):
-        self.rfilename = rfilename  # filename relative to the repo root
-
-        # Optional file metadata
-        self.size = size
-        self.blob_id = blobId
-        self.lfs = lfs
-
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    rfilename: str
+    size: Optional[int] = None
+    blob_id: Optional[str] = None
+    lfs: Optional[BlobLfsInfo] = None
 
 
-class ModelInfo(ReprMixin):
+@dataclass
+class RepoFile:
     """
-    Info about a model accessible from huggingface.co
+    Contains information about a model on the Hub.
 
     Attributes:
-        modelId (`str`, *optional*):
-            ID of model repository.
+        path (str):
+            file path relative to the repo root.
+        size (`int`):
+            The file's size, in bytes.
+        blob_id (`str`):
+            The file's git OID.
+        lfs (`BlobLfsInfo`):
+            The file's LFS metadata.
+        last_commit (`BlobLastCommitInfo`, *optional*):
+            The file's last commit metadata. Only defined if [`list_files_info`] is called with `expand=True`
+        security (`BlobSecurityInfo`, *optional*):
+            The file's security scan metadata. Only defined if [`list_files_info`] is called with `expand=True`.
+    """
+
+    path: str
+    size: int
+    blob_id: str
+    lfs: Optional[BlobLfsInfo] = None
+    last_commit: Optional[BlobLastCommitInfo] = None
+    security: Optional[BlobSecurityInfo] = None
+
+    def __post_init__(self):
+        # backwards compatibility
+        self.rfilename = self.path
+        self.lastCommit = self.last_commit
+
+
+@dataclass
+class ModelInfo:
+    """
+    Contains information about a model on the Hub.
+
+    Attributes:
+        id (`str`):
+            ID of dataset.
+        author (`str`, *optional*):
+            Author of the dataset.
         sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        tags (`List[str]`, *optional*):
-            List of tags.
+            Repo SHA at this particular revision.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        disabled (`bool`, *optional*):
+            Is the repo disabled.
+        gated (`bool`, *optional*):
+            Is the repo gated.
+        downloads (`int`):
+            Number of downloads of the dataset.
+        likes (`int`):
+            Number of likes of the dataset.
+        library_name (`str`, *optional*):
+            Library associated with the model.
+        tags (`List[str]`):
+            List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
+            (e.g. supported libraries, model's arXiv).
         pipeline_tag (`str`, *optional*):
-            Pipeline tag to identify the correct widget.
-        siblings (`List[RepoFile]`, *optional*):
-            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
-        author (`str`, *optional*):
-            repo author
+            Pipeline tag associated with the model.
+        mask_token (`str`, *optional*):
+            Mask token used by the model.
+        widget_data (`Any`, *optional*):
+            Widget data associated with the model.
+        model_index (`Dict`, *optional*):
+            Model index for evaluation.
         config (`Dict`, *optional*):
-            Model configuration information
-        securityStatus (`Dict`, *optional*):
-            Security status of the model.
-            Example: `{"containsInfected": False}`
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+            Model configuration.
+        transformers_info (`TransformersInfo`, *optional*):
+            Transformers-specific info (auto class, processor, etc.) associated with the model.
+        card_data (`ModelCardData`, *optional*):
+            Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
+        spaces (`List[str]`, *optional*):
+            List of spaces using the model.
+        safetensors (`SafeTensorsInfo`, *optional*):
+            Model's safetensors information.
     """
 
-    def __init__(
-        self,
-        *,
-        modelId: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        pipeline_tag: Optional[str] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        config: Optional[Dict] = None,
-        securityStatus: Optional[Dict] = None,
-        **kwargs,
-    ):
-        self.modelId = modelId
-        self.sha = sha
-        self.lastModified = lastModified
-        self.tags = tags
-        self.pipeline_tag = pipeline_tag
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        self.private = private
-        self.author = author
-        self.config = config
-        self.securityStatus = securityStatus
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[bool]
+    disabled: Optional[bool]
+    downloads: int
+    likes: int
+    library_name: Optional[str]
+    tags: List[str]
+    pipeline_tag: Optional[str]
+    mask_token: Optional[str]
+    card_data: Optional[ModelCardData]
+    widget_data: Optional[Any]
+    model_index: Optional[Dict]
+    config: Optional[Dict]
+    transformers_info: Optional[TransformersInfo]
+    siblings: Optional[List[RepoSibling]]
+    spaces: Optional[List[str]]
+    safetensors: Optional[SafeTensorsInfo]
 
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.downloads = kwargs.pop("downloads")
+        self.likes = kwargs.pop("likes")
+        self.library_name = kwargs.pop("library_name", None)
+        self.tags = kwargs.pop("tags")
+        self.pipeline_tag = kwargs.pop("pipeline_tag", None)
+        self.mask_token = kwargs.pop("mask_token", None)
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
 
-    def __str__(self):
-        r = f"Model Name: {self.modelId}, Tags: {self.tags}"
-        if self.pipeline_tag:
-            r += f", Task: {self.pipeline_tag}"
-        return r
+        self.widget_data = kwargs.pop("widget_data", None)
+        self.model_index = kwargs.pop("model-index", None) or kwargs.pop("model_index", None)
+        self.config = kwargs.pop("config", None)
+        transformers_info = kwargs.pop("transformersInfo", None) or kwargs.pop("transformers_info", None)
+        self.transformers_info = TransformersInfo(**transformers_info) if transformers_info else None
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+        self.spaces = kwargs.pop("spaces", None)
+        safetensors = kwargs.pop("safetensors", None)
+        self.safetensors = SafeTensorsInfo(**safetensors) if safetensors else None
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.transformersInfo = self.transformers_info
+        self.__dict__.update(**kwargs)
 
 
-class DatasetInfo(ReprMixin):
+@dataclass
+class DatasetInfo:
     """
-    Info about a dataset accessible from huggingface.co
+    Contains information about a dataset on the Hub.
 
     Attributes:
-        id (`str`, *optional*):
-            ID of dataset repository.
-        sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        tags (`List[str]`, *optional*):
-            List of tags.
-        siblings (`List[RepoFile]`, *optional*):
-            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
-        author (`str`, *optional*):
-            repo author
-        description (`str`, *optional*):
-            Description of the dataset
-        citation (`str`, *optional*):
-            Dataset citation
-        cardData (`Dict`, *optional*):
-            Metadata of the model card as a dictionary.
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+        id (`str`):
+            ID of dataset.
+        author (`str`):
+            Author of the dataset.
+        sha (`str`):
+            Repo SHA at this particular revision.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        disabled (`bool`, *optional*):
+            Is the repo disabled.
+        gated (`bool`, *optional*):
+            Is the repo gated.
+        downloads (`int`):
+            Number of downloads of the dataset.
+        likes (`int`):
+            Number of likes of the dataset.
+        tags (`List[str]`):
+            List of tags of the dataset.
+        card_data (`DatasetCardData`, *optional*):
+            Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        description: Optional[str] = None,
-        citation: Optional[str] = None,
-        cardData: Optional[dict] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.sha = sha
-        self.lastModified = lastModified
-        self.tags = tags
-        self.private = private
-        self.author = author
-        self.description = description
-        self.citation = citation
-        self.cardData = cardData
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        # Legacy stuff, "key" is always returned with an empty string
-        # because of old versions of the datasets lib that need this field
-        kwargs.pop("key", None)
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[bool]
+    disabled: Optional[bool]
+    downloads: int
+    likes: int
+    paperswithcode_id: Optional[str]
+    tags: List[str]
+    card_data: Optional[DatasetCardData]
+    siblings: Optional[List[RepoSibling]]
 
-    def __str__(self):
-        r = f"Dataset Name: {self.id}, Tags: {self.tags}"
-        return r
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.downloads = kwargs.pop("downloads")
+        self.likes = kwargs.pop("likes")
+        self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
+        self.tags = kwargs.pop("tags")
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.__dict__.update(**kwargs)
 
 
-class SpaceInfo(ReprMixin):
+@dataclass
+class SpaceInfo:
     """
-    Info about a Space accessible from huggingface.co
-
-    This is a "dataclass" like container that just sets on itself any attribute
-    passed by the server.
+    Contains information about a Space on the Hub.
 
     Attributes:
-        id (`str`, *optional*):
-            id of space
-        sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        siblings (`List[RepoFile]`, *optional*):
-            list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
+        id (`str`):
+            ID of the Space.
         author (`str`, *optional*):
-            repo author
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+            Author of the Space.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        gated (`bool`, *optional*):
+            Is the repo gated.
+        disabled (`bool`, *optional*):
+            Is the Space disabled.
+        host (`str`, *optional*):
+            Host URL of the Space.
+        subdomain (`str`, *optional*):
+            Subdomain of the Space.
+        likes (`int`):
+            Number of likes of the Space.
+        tags (`List[str]`):
+            List of tags of the Space.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
+        card_data (`SpaceCardData`, *optional*):
+            Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
+        runtime (`SpaceRuntime`, *optional*):
+            Space runtime information as a [`huggingface_hub.hf_api.SpaceRuntime`] object.
+        sdk (`str`, *optional*):
+            SDK used by the Space.
+        models (`List[str]`, *optional*):
+            List of models used by the Space.
+        datasets (`List[str]`, *optional*):
+            List of datasets used by the Space.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.sha = sha
-        self.lastModified = lastModified
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        self.private = private
-        self.author = author
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[bool]
+    disabled: Optional[bool]
+    host: Optional[str]
+    subdomain: Optional[str]
+    likes: int
+    sdk: Optional[str]
+    tags: List[str]
+    siblings: Optional[List[RepoSibling]]
+    card_data: Optional[SpaceCardData]
+    runtime: Optional[SpaceRuntime]
+    models: Optional[List[str]]
+    datasets: Optional[List[str]]
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.host = kwargs.pop("host", None)
+        self.subdomain = kwargs.pop("subdomain", None)
+        self.likes = kwargs.pop("likes")
+        self.sdk = kwargs.pop("sdk", None)
+        self.tags = kwargs.pop("tags")
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+        runtime = kwargs.pop("runtime", None)
+        self.runtime = SpaceRuntime(**runtime) if runtime else None
+        self.models = kwargs.pop("models", None)
+        self.datasets = kwargs.pop("datasets", None)
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.__dict__.update(**kwargs)
 
 
-class MetricInfo(ReprMixin):
+@dataclass
+class MetricInfo:
     """
-    Info about a public metric accessible from huggingface.co
+    Contains information about a metric on the Hub.
+
+    Attributes:
+        id (`str`):
+            ID of the metric. E.g. `"accuracy"`.
+        space_id (`str`):
+            ID of the space associated with the metric. E.g. `"Accuracy"`.
+        description (`str`):
+            Description of the metric.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,  # id of metric
-        description: Optional[str] = None,
-        citation: Optional[str] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.description = description
-        self.citation = citation
-        # Legacy stuff, "key" is always returned with an empty string
-        # because of old versions of the datasets lib that need this field
-        kwargs.pop("key", None)
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    space_id: str
+    description: Optional[str]
 
-    def __str__(self):
-        r = f"Metric Name: {self.id}"
-        return r
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.space_id = kwargs.pop("spaceId")
+        self.description = kwargs.pop("description", None)
+        # backwards compatibility
+        self.spaceId = self.space_id
+        self.__dict__.update(**kwargs)
 
 
-class CollectionItem(ReprMixin):
-    """Contains information about an item of a Collection (model, dataset, Space or paper).
+@dataclass
+class CollectionItem:
+    """
+    Contains information about an item of a Collection (model, dataset, Space or paper).
 
-    Args:
+    Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
@@ -626,10 +812,13 @@ class CollectionItem(ReprMixin):
             Position of the item in the collection.
         note (`str`, *optional*):
             Note associated with the item, as plain text.
-        kwargs (`Dict`, *optional*):
-            Any other attribute returned by the server. Those attributes depend on the `item_type`: "author", "private",
-            "lastModified", "gated", "title", "likes", "upvotes", etc.
     """
+
+    item_object_id: str  # id in database
+    item_id: str  # repo_id or paper id
+    item_type: str
+    position: int
+    note: Optional[str] = None
 
     def __init__(
         self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
@@ -640,23 +829,19 @@ class CollectionItem(ReprMixin):
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
 
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
 
-
-class Collection(ReprMixin):
+@dataclass
+class Collection:
     """
     Contains information about a Collection on the Hub.
 
-    Args:
+    Attributes:
         slug (`str`):
             Slug of the collection. E.g. `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
         title (`str`):
             Title of the collection. E.g. `"Recent models"`.
         owner (`str`):
             Owner of the collection. E.g. `"TheBloke"`.
-        description (`str`, *optional*):
-            Description of the collection, as plain text.
         items (`List[CollectionItem]`):
             List of items in the collection.
         last_updated (`datetime`):
@@ -667,39 +852,45 @@ class Collection(ReprMixin):
             Whether the collection is private or not.
         theme (`str`):
             Theme of the collection. E.g. `"green"`.
+        upvotes (`int`):
+            Number of upvotes of the collection.
+        description (`str`, *optional*):
+            Description of the collection, as plain text.
         url (`str`):
-            URL for the collection on the Hub.
+            (property) URL of the collection on the Hub.
     """
 
     slug: str
     title: str
     owner: str
-    description: Optional[str]
     items: List[CollectionItem]
-
     last_updated: datetime
     position: int
     private: bool
     theme: str
+    upvotes: int
+    description: Optional[str] = None
 
-    def __init__(self, data: Dict, endpoint: Optional[str] = None) -> None:
-        # Collection info
-        self.slug = data["slug"]
-        self.title = data["title"]
-        self.owner = data["owner"]["name"]
-        self.description = data.get("description")
-        self.items = [CollectionItem(**item) for item in data["items"]]
-
-        # Metadata
-        self.last_updated = parse_datetime(data["lastUpdated"])
-        self.private = data["private"]
-        self.position = data["position"]
-        self.theme = data["theme"]
-
-        # (internal)
+    def __init__(self, **kwargs) -> None:
+        self.slug = kwargs.pop("slug")
+        self.title = kwargs.pop("title")
+        self.owner = kwargs.pop("owner")
+        self.items = [CollectionItem(**item) for item in kwargs.pop("items")]
+        self.last_updated = parse_datetime(kwargs.pop("lastUpdated"))
+        self.position = kwargs.pop("position")
+        self.private = kwargs.pop("private")
+        self.theme = kwargs.pop("theme")
+        self.upvotes = kwargs.pop("upvotes")
+        self.description = kwargs.pop("description", None)
+        endpoint = kwargs.pop("endpoint", None)
         if endpoint is None:
             endpoint = ENDPOINT
-        self.url = f"{ENDPOINT}/collections/{self.slug}"
+        self._url = f"{endpoint}/collections/{self.slug}"
+
+    @property
+    def url(self) -> str:
+        """Returns the URL of the collection on the Hub."""
+        return self._url
 
 
 @dataclass
@@ -707,7 +898,7 @@ class GitRefInfo:
     """
     Contains information about a git reference for a repo on the Hub.
 
-    Args:
+    Attributes:
         name (`str`):
             Name of the reference (e.g. tag name or branch name).
         ref (`str`):
@@ -720,11 +911,6 @@ class GitRefInfo:
     ref: str
     target_commit: str
 
-    def __init__(self, data: Dict) -> None:
-        self.name = data["name"]
-        self.ref = data["ref"]
-        self.target_commit = data["targetCommit"]
-
 
 @dataclass
 class GitRefs:
@@ -733,7 +919,7 @@ class GitRefs:
 
     Object is returned by [`list_repo_refs`].
 
-    Args:
+    Attributes:
         branches (`List[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about branches on the repo.
         converts (`List[GitRefInfo]`):
@@ -753,7 +939,7 @@ class GitCommitInfo:
     """
     Contains information about a git commit for a repo on the Hub. Check out [`list_repo_commits`] for more details.
 
-    Args:
+    Attributes:
         commit_id (`str`):
             OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
         authors (`List[str]`):
@@ -780,23 +966,13 @@ class GitCommitInfo:
     formatted_title: Optional[str]
     formatted_message: Optional[str]
 
-    def __init__(self, data: Dict) -> None:
-        self.commit_id = data["id"]
-        self.authors = [author["user"] for author in data["authors"]]
-        self.created_at = parse_datetime(data["date"])
-        self.title = data["title"]
-        self.message = data["message"]
-
-        self.formatted_title = data.get("formatted", {}).get("title")
-        self.formatted_message = data.get("formatted", {}).get("message")
-
 
 @dataclass
 class UserLikes:
     """
     Contains information about a user likes on the Hub.
 
-    Args:
+    Attributes:
         user (`str`):
             Name of the user for which we fetched the likes.
         total (`int`):
@@ -824,7 +1000,7 @@ class User:
     """
     Contains information about a user on the Hub.
 
-    Args:
+    Attributes:
         avatar_url (`str`):
             URL of the user's avatar.
         username (`str`):
@@ -1027,7 +1203,7 @@ class HfApi:
         author: Optional[str] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
@@ -1050,7 +1226,7 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
                 are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1060,7 +1236,7 @@ class HfApi:
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
             full (`bool`, *optional*):
-                Whether to fetch all model data, including the `lastModified`,
+                Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
                 default when using a filter.
             cardData (`bool`, *optional*):
@@ -1130,7 +1306,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1149,10 +1325,12 @@ class HfApi:
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
-        if emissions_thresholds is not None:
-            items = _filter_emissions(items, *emissions_thresholds)
         for item in items:
-            yield ModelInfo(**item)
+            if "siblings" not in item:
+                item["siblings"] = None
+            model_info = ModelInfo(**item)
+            if emissions_thresholds is None or _is_emission_within_treshold(model_info, *emissions_thresholds):
+                yield model_info
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -1210,7 +1388,7 @@ class HfApi:
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
@@ -1227,7 +1405,7 @@ class HfApi:
                 A string which identify the author of the returned datasets.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
                 values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1237,8 +1415,8 @@ class HfApi:
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
             full (`bool`, *optional*):
-                Whether to fetch all dataset data, including the `lastModified`
-                and the `cardData`. Can contain useful information such as the
+                Whether to fetch all dataset data, including the `last_modified`,
+                the `card_data` and  the files. Can contain useful information such as the
                 PapersWithCode ID.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
@@ -1303,7 +1481,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1315,6 +1493,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
+            if "siblings" not in item:
+                item["siblings"] = None
             yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1378,7 +1558,7 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
@@ -1397,7 +1577,7 @@ class HfApi:
                 A string which identify the author of the returned Spaces.
             search (`str`, *optional*):
                 A string that will be contained in the returned Spaces.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
                 values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1415,8 +1595,8 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             full (`bool`, *optional*):
-                Whether to fetch all Spaces data, including the `lastModified`
-                and the `cardData`.
+                Whether to fetch all Spaces data, including the `last_modified`, `siblings`
+                and `card_data` fields.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -1436,7 +1616,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1454,6 +1634,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
+            if "siblings" not in item:
+                item["siblings"] = None
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
@@ -1741,8 +1923,8 @@ class HfApi:
             params["blobs"] = True
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return ModelInfo(**d)
+        data = r.json()
+        return ModelInfo(**data)
 
     @validate_hf_hub_args
     def dataset_info(
@@ -1804,8 +1986,8 @@ class HfApi:
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return DatasetInfo(**d)
+        data = r.json()
+        return DatasetInfo(**data)
 
     @validate_hf_hub_args
     def space_info(
@@ -1867,8 +2049,8 @@ class HfApi:
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return SpaceInfo(**d)
+        data = r.json()
+        return SpaceInfo(**data)
 
     @validate_hf_hub_args
     def repo_info(
@@ -2107,8 +2289,8 @@ class HfApi:
             <generator object HfApi.list_files_info at 0x7f93b848e730>
             >>> list(files_info)
             [
-                RepoFile: {"blob_id": "43bd404b159de6fba7c2f4d3264347668d43af25", "lfs": None, "rfilename": "README.md", "size": 391},
-                RepoFile: {"blob_id": "2f9618c3a19b9a61add74f70bfb121335aeef666", "lfs": None, "rfilename": "config.json", "size": 554},
+                RepoFile(path='README.md', size=391, blob_id='43bd404b159de6fba7c2f4d3264347668d43af25', lfs=None, last_commit=None, security=None),
+                RepoFile(path='config.json', size=554, blob_id='2f9618c3a19b9a61add74f70bfb121335aeef666', lfs=None, last_commit=None, security=None)
             ]
             ```
 
@@ -2118,44 +2300,56 @@ class HfApi:
             >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
             >>> list(files_info)
             [
-                RepoFile: {
-                {'blob_id': '815004af1a321eaed1d93f850b2e94b0c0678e42',
-                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
-                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                                'title': 'Upload diffusers weights (#48)'},
-                'lfs': None,
-                'rfilename': 'model_index.json',
-                'security': {'avScan': {'virusFound': False, 'virusNames': None},
-                                'blobId': '815004af1a321eaed1d93f850b2e94b0c0678e42',
-                                'name': 'model_index.json',
-                                'pickleImportScan': None,
-                                'repositoryId': 'models/prompthero/openjourney-v4',
-                                'safe': True},
-                'size': 584}
-                },
-                RepoFile: {
-                {'blob_id': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
-                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
-                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                                'title': 'Upload diffusers weights (#48)'},
-                'lfs': {'pointer_size': 134,
-                        'sha256': 'dcf4507d99b88db73f3916e2a20169fe74ada6b5582e9af56cfa80f5f3141765',
-                        'size': 334711857},
-                'rfilename': 'vae/diffusion_pytorch_model.bin',
-                'security': {'avScan': {'virusFound': False, 'virusNames': None},
-                                'blobId': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
-                                'name': 'vae/diffusion_pytorch_model.bin',
-                                'pickleImportScan': {'highestSafetyLevel': 'innocuous',
-                                                    'imports': [{'module': 'torch._utils',
-                                                                'name': '_rebuild_tensor_v2',
-                                                                'safety': 'innocuous'},
-                                                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
-                                                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'}]},
-                                'repositoryId': 'models/prompthero/openjourney-v4',
-                                'safe': True},
-                'size': 334711857}
-                },
-                (...)
+                RepoFile(
+                    path='safety_checker/pytorch_model.bin',
+                    size=1216064769,
+                    blob_id='c8835557a0d3af583cb06c7c154b7e54a069c41d',
+                    lfs={
+                        'size': 1216064769,
+                        'sha256': '16d28f2b37109f222cdc33620fdd262102ac32112be0352a7f77e9614b35a394',
+                        'pointer_size': 135
+                    },
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)
+                    },
+                    security={
+                        'safe': True,
+                        'av_scan': {
+                            'virusFound': False,
+                            'virusNames': None
+                        },
+                        'pickle_import_scan': {
+                            'highestSafetyLevel': 'innocuous',
+                            'imports': [
+                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'},
+                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
+                                {'module': 'torch', 'name': 'LongStorage', 'safety': 'innocuous'},
+                                {'module': 'torch._utils', 'name': '_rebuild_tensor_v2', 'safety': 'innocuous'}
+                            ]
+                        }
+                    }
+                ),
+                RepoFile(
+                    path='scheduler/scheduler_config.json',
+                    size=465,
+                    blob_id='70d55e3e9679f41cbc66222831b38d5abce683dd',
+                    lfs=None,
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)},
+                        security={
+                            'safe': True,
+                            'av_scan': {
+                                'virusFound': False,
+                                'virusNames': None
+                            },
+                            'pickle_import_scan': None
+                        }
+                ),
+                ...
             ]
             ```
 
@@ -2163,14 +2357,14 @@ class HfApi:
 
             ```py
             >>> from huggingface_hub import list_files_info
-            >>> [info.rfilename for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
+            >>> [info.path for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
             ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
             ```
 
             List all files on a repo.
             ```py
             >>> from huggingface_hub import list_files_info
-            >>> [info.rfilename for info in list_files_info("glue", repo_type="dataset")]
+            >>> [info.path for info in list_files_info("glue", repo_type="dataset")]
             ['.gitattributes', 'README.md', 'dataset_infos.json', 'glue.py']
             ```
         """
@@ -2181,14 +2375,24 @@ class HfApi:
         def _format_as_repo_file(info: Dict) -> RepoFile:
             # Quick alias very specific to the server return type of /paths-info and /tree endpoints. Let's keep this
             # logic here.
-            rfilename = info.pop("path")
+            path = info.pop("path")
             size = info.pop("size")
-            blobId = info.pop("oid")
+            blob_id = info.pop("oid")
             lfs = info.pop("lfs", None)
+            last_commit = info.pop("lastCommit", None)
+            security = info.pop("security", None)
             info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
+            if last_commit is not None:
+                last_commit = BlobLastCommitInfo(
+                    oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
+                )
+            if security is not None:
+                security = BlobSecurityInfo(
+                    safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
+                )
             if lfs is not None:
                 lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
-            return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
+            return RepoFile(path=path, size=size, blob_id=blob_id, lfs=lfs, last_commit=last_commit, security=security)
 
         folder_paths = []
         if paths is None:
@@ -2203,7 +2407,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
                 data={
                     "paths": paths if isinstance(paths, list) else [paths],
-                    "expand": True,
+                    "expand": expand,
                 },
                 headers=headers,
             )
@@ -2316,10 +2520,14 @@ class HfApi:
         )
         hf_raise_for_status(response)
         data = response.json()
+
+        def _format_as_git_ref_info(item: Dict) -> GitRefInfo:
+            return GitRefInfo(name=item["name"], ref=item["ref"], target_commit=item["targetCommit"])
+
         return GitRefs(
-            branches=[GitRefInfo(item) for item in data["branches"]],
-            converts=[GitRefInfo(item) for item in data["converts"]],
-            tags=[GitRefInfo(item) for item in data["tags"]],
+            branches=[_format_as_git_ref_info(item) for item in data["branches"]],
+            converts=[_format_as_git_ref_info(item) for item in data["converts"]],
+            tags=[_format_as_git_ref_info(item) for item in data["tags"]],
         )
 
     @validate_hf_hub_args
@@ -2392,7 +2600,15 @@ class HfApi:
 
         # Paginate over results and return the list of commits.
         return [
-            GitCommitInfo(item)
+            GitCommitInfo(
+                commit_id=item["id"],
+                authors=[author["user"] for author in item["authors"]],
+                created_at=parse_datetime(item["date"]),
+                title=item["title"],
+                message=item["message"],
+                formatted_title=item.get("formatted", {}).get("title"),
+                formatted_message=item.get("formatted", {}).get("message"),
+            )
             for item in paginate(
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
                 headers=self._build_hf_headers(token=token),
@@ -6363,21 +6579,20 @@ class HfApi:
         >>> len(collection.items)
         37
         >>> collection.items[0]
-        CollectionItem: {
-            {'item_object_id': '6507f6d5423b46492ee1413e',
-            'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
-            'author': 'TheBloke',
-            'item_type': 'model',
-            'lastModified': '2023-09-19T12:55:21.000Z',
-            (...)
-        }}
+        CollectionItem(
+            item_object_id='651446103cd773a050bf64c2',
+            item_id='TheBloke/U-Amethyst-20B-AWQ',
+            item_type='model',
+            position=88,
+            note=None
+        )
         ```
         """
         r = get_session().get(
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def create_collection(
         self,
@@ -6442,7 +6657,7 @@ class HfApi:
                 return self.get_collection(slug, token=token)
             else:
                 raise
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def update_collection_metadata(
         self,
@@ -6507,7 +6722,7 @@ class HfApi:
             json={key: value for key, value in payload.items() if value is not None},
         )
         hf_raise_for_status(r)
-        return Collection(r.json()["data"], endpoint=self.endpoint)
+        return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
@@ -6615,7 +6830,7 @@ class HfApi:
                 return self.get_collection(collection_slug, token=token)
             else:
                 raise
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def update_collection_item(
         self,

@@ -194,6 +194,9 @@ class CardData:
         return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):
+        return repr(self.__dict__)
+
+    def __str__(self):
         return self.to_yaml()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -215,6 +218,10 @@ class CardData:
     def __contains__(self, key: str) -> bool:
         """Check if a given metadata key is set."""
         return key in self.__dict__
+
+    def __len__(self) -> int:
+        """Return the number of metadata keys set."""
+        return len(self.__dict__)
 
 
 class ModelCardData(CardData):

@@ -189,6 +189,7 @@ def snapshot_download(
     api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint)
     repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+    assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
 
     filtered_repo_files = list(
         filter_repo_objects(
