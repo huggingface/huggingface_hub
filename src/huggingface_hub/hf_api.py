@@ -250,9 +250,8 @@ class BlobSecurityInfo(TypedDict, total=False):
 class TransformersInfo(TypedDict, total=False):
     auto_model: str
     custom_class: Optional[str]
-    pipeline_tag: Optional[
-        str
-    ]  # possible values: https://github.com/huggingface/hub-docs/blob/f2003d2fca9d4c971629e858e314e0a5c05abf9d/js/src/lib/interfaces/Types.ts#L79
+    # possible `pipeline_tag` values: https://github.com/huggingface/hub-docs/blob/f2003d2fca9d4c971629e858e314e0a5c05abf9d/js/src/lib/interfaces/Types.ts#L79
+    pipeline_tag: Optional[str]
     processor: Optional[str]
 
 
@@ -1327,7 +1326,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
-            item = item if full else {**item, "siblings": None}
+            if "siblings" not in item:
+                item["siblings"] = None
             model_info = ModelInfo(**item)
             if emissions_thresholds is None or _is_emission_within_treshold(model_info, *emissions_thresholds):
                 yield model_info
@@ -1493,7 +1493,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
-            item = item if full else {**item, "siblings": None}
+            if "siblings" not in item:
+                item["siblings"] = None
             yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1633,7 +1634,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
-            item = item if full else {**item, "siblings": None}
+            if "siblings" not in item:
+                item["siblings"] = None
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
@@ -6590,8 +6592,7 @@ class HfApi:
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
-        info = r.json()
-        return Collection(**{**info, "endpoint": self.endpoint})
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def create_collection(
         self,
