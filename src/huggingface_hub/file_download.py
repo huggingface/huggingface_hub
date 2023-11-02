@@ -490,6 +490,13 @@ def http_get(
     if len(displayed_name) > 40:
         displayed_name = f"(…){displayed_name[-40:]}"
 
+    consistency_error_message = (
+        f"Consistency check failed: file should be of size {expected_size} but has size"
+        f" {{actual_size}} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+        " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+        " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+    )
+
     # Stream file to buffer
     with tqdm(
         unit="B",
@@ -525,6 +532,12 @@ def http_get(
                 ) from e
             if not supports_callback:
                 progress.update(total)
+            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
+                raise EnvironmentError(
+                    consistency_error_message.format(
+                        actual_size=os.path.getsize(temp_file.name),
+                    )
+                )
             return
         new_resume_size = resume_size
         try:
@@ -557,10 +570,9 @@ def http_get(
 
         if expected_size is not None and expected_size != temp_file.tell():
             raise EnvironmentError(
-                f"Consistency check failed: file should be of size {expected_size} but has size"
-                f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
-                " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
-                " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+                consistency_error_message.format(
+                    actual_size=temp_file.tell(),
+                )
             )
 
 
