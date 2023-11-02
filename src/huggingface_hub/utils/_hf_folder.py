@@ -64,6 +64,8 @@ class HfFolder:
 
         # 1. Is it set by environment variable ?
         token: Optional[str] = os.environ.get("HF_TOKEN")
+        if token is None:  # Ensure backward compatibility but doesn't have priority
+            token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
         if token is not None:
             token = token.replace("\r", "").replace("\n", "").strip()
             return token
