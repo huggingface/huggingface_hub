@@ -60,7 +60,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
         # new system: git-based repo system
         repo_parser = parser.add_parser(
             "repo",
-            help="{create, ls-files} Commands to interact with your huggingface.co repos.",
+            help="{create} Commands to interact with your huggingface.co repos.",
         )
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
         repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")

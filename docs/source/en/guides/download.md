@@ -167,18 +167,10 @@ symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) 
 
 You can use the `huggingface-cli download` command from the terminal to directly download files from the Hub.
 Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
-returned path to the terminal:
+returned path to the terminal.
 
 ```bash
 >>> huggingface-cli download gpt2 config.json
-/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
-```
-
-By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly,
-use the `--token` option:
-
-```bash
->>> huggingface-cli download gpt2 config.json --token=hf_****
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
@@ -191,47 +183,7 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-If you want to silence the progress bars and potential warnings, use the `--quiet` option. This can prove useful if you
-want to pass the output to another command in a script.
-
-```bash
->>> huggingface-cli download gpt2 config.json model.safetensors
-/home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
-```
-
-By default, files are downloaded to the cache directory defined by `HF_HOME` environment variable (or `~/.cache/huggingface/hub` if not specified). You
-can override this by using the `--cache-dir` option:
-
-```bash
->>> huggingface-cli download gpt2 config.json --cache-dir=./cache
-./cache/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
-```
-
-If you want to download files to a local folder, without the cache directory structure, you can use `--local-dir`.
-Downloading to a local folder comes with its limitations which are listed in this [table](https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder).
-
-
-```bash
->>> huggingface-cli download gpt2 config.json --local-dir=./models/gpt2
-./models/gpt2/config.json
-```
-
-
-There are more arguments you can specify to download from different repo types or revisions and to include/exclude files to download using
-glob patterns:
-
-```bash
->>> huggingface-cli download bigcode/the-stack --repo-type=dataset --revision=v1.2 --include="data/python/*" --exclu
-de="*.json" --exclude="*.zip"
-Fetching 206 files:   100%|████████████████████████████████████████████| 206/206 [02:31<2:31, ?it/s]
-/home/wauplin/.cache/huggingface/hub/datasets--bigcode--the-stack/snapshots/9ca8fa6acdbc8ce920a0cb58adcdafc495818ae7
-```
-
-For a full list of the arguments, you can run:
-
-```bash
-huggingface-cli download --help
-```
+For more details about the CLI download command, please refer to the [CLI guide](./cli#huggingface-cli-download).
 
 ## Faster downloads
 
