@@ -206,9 +206,6 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
 
     Example:
 
@@ -1052,9 +1049,6 @@ def hf_hub_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
