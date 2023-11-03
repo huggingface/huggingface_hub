@@ -1252,6 +1252,119 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertIsNone(vae_model.security)
 
 
+class HfApiListRepoTreeTest(HfApiCommonTest):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.repo_id = cls._api.create_repo(repo_id=repo_name()).repo_id
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="A first repo",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/2/file_1_2.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_2.md"),
+            ],
+        )
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="Another commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data2", path_in_repo="3/file_3.md"),
+            ],
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._api.delete_repo(repo_id=cls.repo_id)
+
+    def test_list_tree(self):
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
+        self.assertEqual(len(tree), 6)
+        self.assertEqual({tree_obj.path for tree_obj in tree}, {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"})
+
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
+        self.assertEqual(len(tree), 2)
+        self.assertEqual({tree_obj.path for tree_obj in tree}, {"1/file_1.md", "1/2"})
+
+    def test_list_tree_recursively(self):
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id, recursive=True))
+        self.assertEqual(len(tree), 11)
+        self.assertEqual(
+            {tree_obj.path for tree_obj in tree},
+            {
+                "file.md",
+                "lfs.bin",
+                "1/file_1.md",
+                "1/2/file_1_2.md",
+                "2/file_2.md",
+                "3/file_3.md",
+                "1",
+                "2",
+                "1/2",
+                "3",
+                ".gitattributes",
+            },
+        )
+
+    def test_list_unknown_tree(self):
+        with self.assertRaises(EntryNotFoundError):
+            list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="unknown"))
+
+    def test_list_with_empty_path(self):
+        self.assertEqual(
+            set(tree_obj.path for tree_obj in self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="")),
+            set(tree_obj.path for tree_obj in self._api.list_repo_tree(repo_id=self.repo_id)),
+        )
+
+    @with_production_testing
+    def test_list_tree_with_expand(self):
+        tree = list(
+            HfApi().list_repo_tree(
+                repo_id="prompthero/openjourney-v4",
+                expand=True,
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(tree), 11)
+
+        # check last_commit and security are present for a file
+        model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
+        self.assertIsNotNone(model_ckpt.last_commit)
+        self.assertEqual(model_ckpt.last_commit["oid"], "bda967fdb79a50844e4a02cccae3217a8ecc86cd")
+        self.assertIsNotNone(model_ckpt.security)
+        self.assertTrue(model_ckpt.security["safe"])
+        self.assertTrue(isinstance(model_ckpt.security["av_scan"], dict))  # all details in here
+
+        # check last_commit is present for a folder
+        feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
+        self.assertIsNotNone(feature_extractor.last_commit)
+        self.assertEqual(feature_extractor.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+
+    @with_production_testing
+    def test_list_files_without_expand(self):
+        tree = list(
+            HfApi().list_repo_tree(
+                repo_id="prompthero/openjourney-v4",
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(tree), 11)
+
+        # check last_commit and security are missing for a file
+        model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
+        self.assertIsNone(model_ckpt.last_commit)
+        self.assertIsNone(model_ckpt.security)
+
+        # check last_commit is missing for a folder
+        feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
+        self.assertIsNone(feature_extractor.last_commit)
+
+
 class HfApiTagEndpointTest(HfApiCommonTest):
     @use_tmp_repo("model")
     def test_create_tag_on_main(self, repo_url: RepoUrl) -> None:

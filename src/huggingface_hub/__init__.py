@@ -200,6 +200,7 @@ _SUBMOD_ATTRS = {
         "list_repo_files",
         "list_repo_likers",
         "list_repo_refs",
+        "list_repo_tree",
         "list_spaces",
         "merge_pull_request",
         "model_info",
@@ -534,6 +535,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_files,  # noqa: F401
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
+        list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
