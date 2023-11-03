@@ -214,6 +214,12 @@ class TextGenerationRequest:
             raise ValueError("`best_of` != 1 is not supported when `stream` == True")
         return field_value
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if self.parameters is not None and isinstance(self.parameters, dict):
+                self.parameters = TextGenerationParameters(**self.parameters)
+
 
 # Decoder input tokens
 @dataclass
@@ -312,6 +318,15 @@ class BestOfSequence:
     # Generated tokens
     tokens: List[Token] = field(default_factory=lambda: [])
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            self.prefill = [
+                InputToken(**input_token) if isinstance(input_token, dict) else input_token
+                for input_token in self.prefill
+            ]
+            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+
 
 # `generate` details
 @dataclass
@@ -347,6 +362,20 @@ class Details:
     # Additional sequences when using the `best_of` parameter
     best_of_sequences: Optional[List[BestOfSequence]] = None
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            self.prefill = [
+                InputToken(**input_token) if isinstance(input_token, dict) else input_token
+                for input_token in self.prefill
+            ]
+            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+            if self.best_of_sequences is not None:
+                self.best_of_sequences = [
+                    BestOfSequence(**best_of_sequence) if isinstance(best_of_sequence, dict) else best_of_sequence
+                    for best_of_sequence in self.best_of_sequences
+                ]
+
 
 # `generate` return value
 @dataclass
@@ -367,6 +396,12 @@ class TextGenerationResponse:
     generated_text: str
     # Generation details
     details: Optional[Details] = None
+
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if self.details is not None and isinstance(self.details, dict):
+                self.details = Details(**self.details)
 
 
 # `generate_stream` details
@@ -417,6 +452,14 @@ class TextGenerationStreamResponse:
     # Generation details
     # Only available when the generation is finished
     details: Optional[StreamDetails] = None
+
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if isinstance(self.token, dict):
+                self.token = Token(**self.token)
+            if self.details is not None and isinstance(self.details, dict):
+                self.details = StreamDetails(**self.details)
 
 
 # TEXT GENERATION ERRORS
