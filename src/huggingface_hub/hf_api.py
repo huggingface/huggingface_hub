@@ -229,16 +229,19 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     return repo_type, namespace, repo_id
 
 
+class LastCommitInfo(TypedDict, total=False):
+    oid: str
+    title: str
+    date: datetime
+
+
+BlobLastCommitInfo = LastCommitInfo  # for backward compatibility
+
+
 class BlobLfsInfo(TypedDict, total=False):
     size: int
     sha256: str
     pointer_size: int
-
-
-class BlobLastCommitInfo(TypedDict, total=False):
-    oid: str
-    title: str
-    date: datetime
 
 
 class BlobSecurityInfo(TypedDict, total=False):
@@ -415,7 +418,7 @@ class RepoFile:
             The file's git OID.
         lfs (`BlobLfsInfo`):
             The file's LFS metadata.
-        last_commit (`BlobLastCommitInfo`, *optional*):
+        last_commit (`LastCommitInfo`, *optional*):
             The file's last commit metadata. Only defined if [`list_files_info`] and [`list_repo_tree`] are called with `expand=True`
         security (`BlobSecurityInfo`, *optional*):
             The file's security scan metadata. Only defined if [`list_files_info`] and [`list_repo_tree`] are called with `expand=True`.
@@ -425,7 +428,7 @@ class RepoFile:
     size: int
     blob_id: str
     lfs: Optional[BlobLfsInfo] = None
-    last_commit: Optional[BlobLastCommitInfo] = None
+    last_commit: Optional[LastCommitInfo] = None
     security: Optional[BlobSecurityInfo] = None
 
     def __init__(self, **kwargs):
@@ -438,7 +441,7 @@ class RepoFile:
         self.lfs = lfs
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
-            last_commit = BlobLastCommitInfo(
+            last_commit = LastCommitInfo(
                 oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
@@ -464,20 +467,20 @@ class RepoFolder:
             folder path relative to the repo root.
         tree_id (`str`):
             The folder's git OID.
-        last_commit (`BlobLastCommitInfo`, *optional*):
+        last_commit (`LastCommitInfo`, *optional*):
             The folder's last commit metadata. Only defined if [`list_repo_tree`] is called with `expand=True`
     """
 
     path: str
     tree_id: str
-    last_commit: Optional[BlobLastCommitInfo] = None
+    last_commit: Optional[LastCommitInfo] = None
 
     def __init__(self, **kwargs):
         self.path = kwargs.pop("path")
         self.tree_id = kwargs.pop("oid")
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
-            last_commit = BlobLastCommitInfo(
+            last_commit = LastCommitInfo(
                 oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
