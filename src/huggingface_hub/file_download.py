@@ -975,7 +975,6 @@ def hf_hub_download(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -990,6 +989,7 @@ def hf_hub_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 

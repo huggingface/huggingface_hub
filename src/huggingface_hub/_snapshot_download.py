@@ -27,7 +27,6 @@ def snapshot_download(
     *,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -44,6 +43,7 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[base_tqdm] = None,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Download repo files.
 
