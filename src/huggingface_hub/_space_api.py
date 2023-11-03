@@ -61,8 +61,11 @@ class SpaceHardware(str, Enum):
     CPU_UPGRADE = "cpu-upgrade"
     T4_SMALL = "t4-small"
     T4_MEDIUM = "t4-medium"
+    ZERO_A10G = "zero-a10g"
     A10G_SMALL = "a10g-small"
     A10G_LARGE = "a10g-large"
+    A10G_LARGEX2 = "a10g-largex2"
+    A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
 
 
