@@ -119,24 +119,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = True, None
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
-    def exists(self, path, **kwargs):
-        """Is there a file at the given path
-
-        Exact same implementation as in fsspec except that instead of catching all exceptions, we only catch when it's
-        not a `NotImplementedError` (which we do want to raise). Catching a `NotImplementedError` can lead to undesired
-        behavior.
-
-        Adapted from https://github.com/fsspec/filesystem_spec/blob/f5d24b80a0768bf07a113647d7b4e74a3a2999e0/fsspec/spec.py#L649C1-L656C25
-        """
-        try:
-            self.info(path, **kwargs)
-            return True
-        except Exception as e:  # noqa: E722
-            if isinstance(e, NotImplementedError):
-                raise
-            # any exception allowed bar FileNotFoundError?
-            return False
-
     def resolve_path(self, path: str, revision: Optional[str] = None) -> HfFileSystemResolvedPath:
         def _align_revision_in_path_with_revision(
             revision_in_path: Optional[str], revision: Optional[str]
@@ -341,7 +323,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
 
-        # TODO: Wait for https://github.com/huggingface/huggingface_hub/issues/1083 to be resolved to simplify this logic
         if same_repo and self.info(path1, revision=resolved_path1.revision)["lfs"] is not None:
             commit_message = f"Copy {path1} to {path2}"
             self._api.create_commit(

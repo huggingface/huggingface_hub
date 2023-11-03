@@ -317,6 +317,4 @@ def test_access_repositories_lists(not_supported_path):
     with pytest.raises(NotImplementedError):
         fs.ls(not_supported_path)
     with pytest.raises(NotImplementedError):
-        fs.glob(not_supported_path + "/")
-    with pytest.raises(NotImplementedError):
         fs.open(not_supported_path)
