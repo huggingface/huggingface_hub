@@ -175,7 +175,12 @@ Fetching 8 files: 100%|███████████████████
 The examples above show how to download from a model repository. To download a dataset or a Space, use the `--repo-type` option:
 
 ```bash
+# https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k
 >>> huggingface-cli download HuggingFaceH4/ultrachat_200k --repo-type dataset
+
+# https://huggingface.co/spaces/HuggingFaceH4/zephyr-chat
+>>> huggingface-cli download HuggingFaceH4/zephyr-chat --repo-type space
+
 ...
 ```
 
