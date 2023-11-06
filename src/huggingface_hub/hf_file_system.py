@@ -423,6 +423,12 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
 
+    def __del__(self):
+        if not hasattr(self, "resolved_path"):
+            # Means that the constructor failed. Nothing to do.
+            return
+        return super().__del__()
+
     def _fetch_range(self, start: int, end: int) -> bytes:
         headers = {
             "range": f"bytes={start}-{end - 1}",
