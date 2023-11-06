@@ -413,15 +413,14 @@ def _upload_parts_hf_transfer(
                 max_retries=5,
                 **({"callback": progress.update} if supports_callback else {}),
             )
-            if not supports_callback:
-                progress.update(total)
-            return output
         except Exception as e:
             raise RuntimeError(
                 "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
                 " better error handling."
             ) from e
-
+        if not supports_callback:
+            progress.update(total)
+        return output
 
 class SliceFileObj(AbstractContextManager):
     """
