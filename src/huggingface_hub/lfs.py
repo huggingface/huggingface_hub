@@ -422,6 +422,7 @@ def _upload_parts_hf_transfer(
             progress.update(total)
         return output
 
+
 class SliceFileObj(AbstractContextManager):
     """
     Utility context manager to read a *slice* of a seekable file-like object as a seekable, file-like object.
