@@ -15,13 +15,6 @@ and their meaning.
 
 ## Generic
 
-### HF_ENDPOINT
-
-To configure the Hub base url. You might want to set this variable if your organization
-is using a [Private Hub](https://huggingface.co/platform).
-
-Defaults to `"https://huggingface.co"`.
-
 ### HF_INFERENCE_ENDPOINT
 
 To configure the inference api base url. You might want to set this variable if your organization

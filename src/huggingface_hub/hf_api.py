@@ -1065,9 +1065,6 @@ class HfApi:
         directly at the root of `huggingface_hub`.
 
         Args:
-            endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise,
-                one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
@@ -4391,9 +4388,6 @@ class HfApi:
             revision (`str`, *optional*):
                 An optional Git revision id which can be a branch name, a tag, or a
                 commit hash.
-            endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-                environment variable.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
