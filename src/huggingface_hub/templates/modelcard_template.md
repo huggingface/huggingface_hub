@@ -24,7 +24,7 @@
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
+- **Finetuned from model [optional]:** {{ base_model | default("[More Information Needed]", true)}}
 
 ### Model Sources [optional]
 
