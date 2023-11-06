@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
+import inspect
 import io
 import os
 import re
@@ -29,7 +30,7 @@ from requests.auth import HTTPBasicAuth
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
 from huggingface_hub.utils import get_session
 
-from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, validate_hf_hub_args
+from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, tqdm, validate_hf_hub_args
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -389,20 +390,37 @@ def _upload_parts_hf_transfer(
             " not available in your environment. Try `pip install hf_transfer`."
         )
 
-    try:
-        return multipart_upload(
-            file_path=operation.path_or_fileobj,
-            parts_urls=sorted_parts_urls,
-            chunk_size=chunk_size,
-            max_files=128,
-            parallel_failures=127,  # could be removed
-            max_retries=5,
+    supports_callback = "callback" in inspect.signature(multipart_upload).parameters
+    if not supports_callback:
+        warnings.warn(
+            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
         )
-    except Exception as e:
-        raise RuntimeError(
-            "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
-            " better error handling."
-        ) from e
+
+    total = operation.upload_info.size
+    desc = operation.path_in_repo
+    if len(desc) > 40:
+        desc = f"(…){desc[-40:]}"
+    disable = bool(logger.getEffectiveLevel() == logging.NOTSET)
+
+    with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
+        try:
+            output = multipart_upload(
+                file_path=operation.path_or_fileobj,
+                parts_urls=sorted_parts_urls,
+                chunk_size=chunk_size,
+                max_files=128,
+                parallel_failures=127,  # could be removed
+                max_retries=5,
+                **({"callback": progress.update} if supports_callback else {}),
+            )
+            if not supports_callback:
+                progress.update(total)
+            return output
+        except Exception as e:
+            raise RuntimeError(
+                "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
+                " better error handling."
+            ) from e
 
 
 class SliceFileObj(AbstractContextManager):
