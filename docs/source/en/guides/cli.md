@@ -16,7 +16,7 @@ First of all, let's install the CLI:
 
 <Tip>
 
-In the snippet above, we also installed the `[cli]` extra dependencies. These are not mandatory to use the CLI but will make the user experience better, especially when using the `delete-cache` command.
+In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `delete-cache` command.
 
 </Tip>
 
@@ -51,13 +51,13 @@ If the CLI is correctly installed, you should see a list of all the options avai
 
 <Tip>
 
-The option `--help` we used above is very convenient to get more details about a command. You can use it at any time if you want to list all options available and get their details. For example, `huggingface-cli upload --help` provides more information on how to upload files using the CLI.
+The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `huggingface-cli upload --help` provides more information on how to upload files using the CLI.
 
 </Tip>
 
 ## huggingface-cli login
 
-In a lot of cases, you must be logged in to a Hugging Face account to interact with the Hub: download private repos, upload files, create PRs,... To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub.
+In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub.
 
 Once you have your token, run the following command in your terminal:
 
@@ -65,7 +65,7 @@ Once you have your token, run the following command in your terminal:
 >>> huggingface-cli login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. Then you'll be ask if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+This command will prompt you for a token. Copy-paste yours and press *Enter*. Then you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -83,7 +83,7 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-Alternatively if you want to login without being prompt, you can pass the token from the command line. It is recommended to use an environment variable when doing so to avoid having your token pasted in your command history.
+Alternatively, if you want to log-in without being prompted, you can pass the token directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
 
 ```bash
 # Or using an environment variable
@@ -96,7 +96,7 @@ Login successful
 
 ## huggingface-cli whoami
 
-If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any option and will simply print your username and the organizations you are part of on the Hub:
+If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
 
 ```bash
 huggingface-cli whoami                                                                     
@@ -119,7 +119,7 @@ This command will not log you out if you are logged in using the `HF_TOKEN` envi
 ## huggingface-cli download
 
 
-Use the `huggingface-cli download` command from the terminal to directly download files from the Hub. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
+Use the `huggingface-cli download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
 
 ```bash
 huggingface-cli download --help
@@ -140,7 +140,7 @@ The command will always print on the last line the path to the file on your loca
 
 ### Download an entire repository
 
-In some cases, you just want to download all the files from a repository. This can be done by not specifying any filename:
+In some cases, you just want to download all the files from a repository. This can be done by just specifying the repo id:
 
 ```bash
 >>> huggingface-cli download HuggingFaceH4/zephyr-7b-beta
@@ -152,7 +152,7 @@ Fetching 23 files:   0%|                                                | 0/23 [
 
 ### Download multiple files
 
-You can also download a subset of the files from a repository in a single command. This can be done in two ways. If you already have a precise list of the files you want to download, you can simply provide them as a sequence:
+You can also download a subset of the files from a repository with a single command. This can be done in two ways. If you already have a precise list of the files you want to download, you can simply provide them sequentially:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json model.safetensors
@@ -163,7 +163,7 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-The other approach is to provide patterns to filter which files you want to download using `--include` and `--exclude`. For example if you want to download all safetensors files from [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), except the files in FP16 precision, you can do it like this:
+The other approach is to provide patterns to filter which files you want to download using `--include` and `--exclude`. For example, if you want to download all safetensors files from [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), except the files in FP16 precision:
 
 ```bash
 >>> huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 --include "*.safetensors" --exclude "*.fp16.*"*
@@ -238,7 +238,7 @@ By default, the `huggingface-cli download` command will be verbose. It will prin
 
 ## huggingface-cli upload
 
-Use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described in the [Upload](./upload) guide. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
+Use the `huggingface-cli upload` command to upload files to the Hub directly. Internally, it uses the same [`upload_file`] and [`upload_folder`] helpers described in the [Upload](./upload) guide. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
 
 ```bash
 >>> huggingface-cli upload --help
@@ -281,7 +281,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main/data/train
 
 ### Upload a single file
 
-We saw above how to upload an entire folder. You can also upload a single file by setting `local_path` to point to a file on your machine. If that's the case, `path_in_repo` is optional and will default to the name of your local file:
+You can also upload a single file by setting `local_path` to point to a file on your machine. If that's the case, `path_in_repo` is optional and will default to the name of your local file:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors
@@ -297,7 +297,7 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 
 ### Upload multiple files
 
-To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files, except the ones in `/logs` and 
+To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`: 
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)
@@ -316,7 +316,7 @@ To upload to a dataset or a Space, use the `--repo-type` option:
 
 ### Upload to a specific revision
 
-The examples above show how to upload to the `main` branch. If you want to upload files to another branch or reference, use the `--revision` option:
+By default, files are uploaded to the `main` branch. If you want to upload files to another branch or reference, use the `--revision` option:
 
 ```bash
 # Upload files to a PR
@@ -336,7 +336,7 @@ https://huggingface.co/datasets/bigcode/the-stack/blob/refs%2Fpr%2F104/
 
 ### Upload at regular intervals
 
-In some cases, you might want to push regular updates to a repo. For example, this is useful when training a model if you want to upload the logs folder every 10 minutes. You can do this using the `--every` option:
+In some cases, you might want to push regular updates to a repo. For example, this is useful if you're training a model and you want to upload the logs folder every 10 minutes. You can do this using the `--every` option:
 
 ```bash
 # Upload new logs every 10 minutes
@@ -348,7 +348,7 @@ huggingface-cli upload training-model logs/ --every=10
 Use the `--commit-message` and `--commit-description` to set a custom message and description for your commit instead of the default one
 
 ```bash
->>> huggingface-cli upload Wauplin/my-cool-model ./models . --commit-message "Epoch 34/50" --commit-description "Val accuracy: 68%. Check tensorboard for more details."
+>>> huggingface-cli upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%. Check tensorboard for more details."
 ...
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
@@ -374,7 +374,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## huggingface-cli scan-cache
 
-Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that from the terminal by running `huggingface-cli scan-cache`:
+Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `huggingface-cli scan-cache`:
 
 ```bash
 >>> huggingface-cli scan-cache
@@ -395,11 +395,11 @@ For more details about how to scan your cache directory, please refer to the [Ma
 
 ## huggingface-cli delete-cache
 
-`huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful to save disk space. To learn more on how to use this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+`huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
 
 ## huggingface-cli env
 
-The `huggingface-cli env` command is a command to print details about your machine setup. This is useful when you open an issue on [GitHub](https://github.com/huggingface/huggingface_hub) to help the maintainers investigate your problem.
+The `huggingface-cli env` command prints details about your machine setup. This is useful when you open an issue on [GitHub](https://github.com/huggingface/huggingface_hub) to help the maintainers investigate your problem.
 
 ```bash
 >>> huggingface-cli env
