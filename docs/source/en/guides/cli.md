@@ -110,11 +110,7 @@ If you are not logged in, an error message will be printed.
 
 This commands logs you out. In practice, it will delete the token saved on your machine.
 
-<Tip warning={true}>
-
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
-
-</Tip>
 
 ## huggingface-cli download
 
