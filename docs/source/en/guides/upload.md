@@ -460,8 +460,13 @@ be re-uploaded twice but checking it client-side can still save some time.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up
 uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
 by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
-Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like progress
-bars or advanced error handling. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like advanced error handling or proxies. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+
+<Tip>
+
+Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster uploads.
+
+</Tip>
 
 ## (legacy) Upload files with Git LFS
 
