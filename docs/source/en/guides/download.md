@@ -189,8 +189,14 @@ For more details about the CLI download command, please refer to the [CLI guide]
 
 If you are running on a machine with high bandwidth, you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer), a Rust-based library developed to speed up file transfers with the Hub. To enable it, install the package (`pip install hf_transfer`) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
+<Tip>
+
+Progress bars are supported when downloading with `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster downloads.
+
+</Tip>
+
 <Tip warning={true}>
 
-`hf_transfer` is a power user tool! It is tested and production-ready, but it lacks user-friendly features like progress bars or advanced error handling. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+`hf_transfer` is a power user tool! It is tested and production-ready, but it lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 </Tip>
