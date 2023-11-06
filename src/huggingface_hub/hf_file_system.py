@@ -4,7 +4,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -180,7 +180,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 revision = _align_revision_in_path_with_revision(revision_in_path, revision)
                 repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
                 if not repo_and_revision_exist:
-                    raise FileNotFoundError(path) from err
+                    _raise_file_not_found(path, err)
             else:
                 repo_id_with_namespace = "/".join(path.split("/")[:2])
                 path_in_repo_with_namespace = "/".join(path.split("/")[2:])
@@ -195,9 +195,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         path_in_repo = path_in_repo_without_namespace
                         repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
                         if not repo_and_revision_exist:
-                            raise FileNotFoundError(path) from err
+                            _raise_file_not_found(path, err)
                     else:
-                        raise FileNotFoundError(path) from err
+                        _raise_file_not_found(path, err)
         else:
             repo_id = path
             path_in_repo = ""
@@ -229,7 +229,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision: Optional[str] = None,
         **kwargs,
     ) -> "HfFileSystemFile":
-        if mode == "ab":
+        if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
         return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
@@ -413,7 +413,15 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
         super().__init__(fs, path, **kwargs)
         self.fs: HfFileSystem
-        self.resolved_path = fs.resolve_path(path, revision=revision)
+
+        mode = kwargs.get("mode", "r")
+        try:
+            self.resolved_path = fs.resolve_path(path, revision=revision)
+        except FileNotFoundError as e:
+            if "w" in mode:
+                raise FileNotFoundError(
+                    f"{e}.\nMake sure the repository and revision exist before writing data."
+                ) from e
 
     def _fetch_range(self, start: int, end: int) -> bytes:
         headers = {
@@ -462,3 +470,14 @@ def safe_revision(revision: str) -> str:
 
 def safe_quote(s: str) -> str:
     return quote(s, safe="")
+
+
+def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
+    msg = path
+    if isinstance(err, RepositoryNotFoundError):
+        msg = f"{path} (repository not found)"
+    elif isinstance(err, RevisionNotFoundError):
+        msg = f"{path} (revision not found)"
+    elif isinstance(err, HFValidationError):
+        msg = f"{path} (invalid repository id)"
+    raise FileNotFoundError(msg) from err
