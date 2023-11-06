@@ -38,8 +38,6 @@ positional arguments:
     download            Download files from the Hub
     lfs-enable-largefiles
                         Configure your repository to enable upload of files > 5GB.
-    lfs-multipart-upload
-                        Command will get called by git-lfs, do not call it directly.
     scan-cache          Scan cache directory.
     delete-cache        Delete revisions from the cache directory.
 
