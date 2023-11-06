@@ -758,7 +758,7 @@ class SpaceInfo:
             else None
         )
         runtime = kwargs.pop("runtime", None)
-        self.runtime = SpaceRuntime(**runtime) if runtime else None
+        self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
 
