@@ -256,7 +256,7 @@ The default usage for this command is:
 To upload the current directory at the root of the repo, use:
 
 ```bash
->>> huggingface-cli my-cool-model . .
+>>> huggingface-cli upload my-cool-model . .
 https://huggingface.co/Wauplin/my-cool-model/tree/main/
 ```
 
@@ -269,14 +269,14 @@ If the repo doesn't exist yet, it will be created automatically.
 You can also upload a specific folder:
 
 ```bash
->>> huggingface-cli my-cool-model ./models .
+>>> huggingface-cli upload my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main/
 ```
 
 Finally, you can upload a folder to a specific destination on the repo:
 
 ```bash
->>> huggingface-cli my-cool-model ./path/to/curated/data /data/train
+>>> huggingface-cli upload my-cool-model ./path/to/curated/data /data/train
 https://huggingface.co/Wauplin/my-cool-model/tree/main/data/train
 ```
 
@@ -313,6 +313,15 @@ To upload to a dataset or a Space, use the `--repo-type` option:
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
 ...
+```
+
+### Upload to an organization
+
+To upload content to a repo owned by an organization instead of a personal repo, you must explicitly specify it in the `repo_id`:
+
+```bash
+>>> huggingface-cli upload MyCoolOrganization/my-cool-model . .
+https://huggingface.co/MyCoolOrganization/my-cool-model/tree/main/
 ```
 
 ### Upload to a specific revision
