@@ -1977,6 +1977,27 @@ class HfApiPublicProductionTest(unittest.TestCase):
             for space in spaces
         )
 
+    def test_get_paths_info(self):
+        paths_info = self._api.get_paths_info(
+            "allenai/c4",
+            ["en", "en/c4-train.00001-of-01024.json.gz", "non_existing_path"],
+            expand=True,
+            revision="607bd4c8450a42878aa9ddc051a65a055450ef87",
+            repo_type="dataset",
+        )
+        self.assertTrue(len(paths_info), 2)
+
+        self.assertEqual(paths_info[0].path, "en")
+        self.assertIsNotNone(paths_info[0].tree_id)
+        self.assertIsNotNone(paths_info[0].last_commit)
+
+        self.assertEqual(paths_info[1].path, "en/c4-train.00001-of-01024.json.gz")
+        self.assertIsNotNone(paths_info[1].blob_id)
+        self.assertIsNotNone(paths_info[1].last_commit)
+        self.assertIsNotNone(paths_info[1].lfs)
+        self.assertIsNotNone(paths_info[1].security)
+        self.assertGreater(paths_info[1].size, 0)
+
 
 class HfApiPrivateTest(HfApiCommonTest):
     def setUp(self) -> None:

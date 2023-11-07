@@ -185,6 +185,7 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
+        "get_paths_info",
         "get_repo_discussions",
         "get_space_runtime",
         "get_space_variables",
@@ -520,6 +521,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401

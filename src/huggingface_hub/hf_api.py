@@ -419,9 +419,11 @@ class RepoFile:
         lfs (`BlobLfsInfo`):
             The file's LFS metadata.
         last_commit (`LastCommitInfo`, *optional*):
-            The file's last commit metadata. Only defined if [`list_files_info`] and [`list_repo_tree`] are called with `expand=True`
+            The file's last commit metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
         security (`BlobSecurityInfo`, *optional*):
-            The file's security scan metadata. Only defined if [`list_files_info`] and [`list_repo_tree`] are called with `expand=True`.
+            The file's security scan metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
     """
 
     path: str
@@ -468,7 +470,8 @@ class RepoFolder:
         tree_id (`str`):
             The folder's git OID.
         last_commit (`LastCommitInfo`, *optional*):
-            The folder's last commit metadata. Only defined if [`list_repo_tree`] is called with `expand=True`
+            The folder's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
     """
 
     path: str
@@ -2775,6 +2778,82 @@ class HfApi:
                 headers=self._build_hf_headers(token=token),
                 params={"expand[]": "formatted"} if formatted else {},
             )
+        ]
+
+    @validate_hf_hub_args
+    def get_paths_info(
+        self,
+        repo_id: str,
+        paths: Union[List[str], str],
+        *,
+        expand: bool = False,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> List[Union[RepoFile, RepoFolder]]:
+        """
+        Get information about a repo's paths.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            paths (`Union[List[str], str]`, *optional*):
+                The paths to get information about. If a path do not exist, it is ignored without raising
+                an exception.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the paths (e.g. last commit and files' security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            repo_type (`str`, *optional*):
+                The type of the repository from which to get the information (`"model"`, `"dataset"` or `"space"`.
+                Defaults to `"model"`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            `List[Union[RepoFile, RepoFolder]]`:
+                The information about the paths, as a list of [`RepoFile`] and [`RepoFolder`] objects.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import get_paths_info
+        >>> paths_info = get_paths_info("allenai/c4", ["README.md", "en"], repo_type="dataset")
+        >>> paths_info
+        [
+            RepoFile(path='README.md', size=2379, blob_id='f84cb4c97182890fc1dbdeaf1a6a468fd27b4fff', lfs=None, last_commit=None, security=None),
+            RepoFolder(path='en', tree_id='dc943c4c40f53d02b31ced1defa7e5f438d5862e', last_commit=None)
+        ]
+        ```
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        headers = self._build_hf_headers(token=token)
+
+        response = get_session().post(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
+            data={
+                "paths": paths if isinstance(paths, list) else [paths],
+                "expand": expand,
+            },
+            headers=headers,
+        )
+        hf_raise_for_status(response)
+        paths_info = response.json()
+        return [
+            RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
+            for path_info in paths_info
         ]
 
     @validate_hf_hub_args
@@ -7229,6 +7308,7 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_files_info = api.list_files_info
 list_repo_tree = api.list_repo_tree
+get_paths_info = api.get_paths_info
 
 list_metrics = api.list_metrics
 
