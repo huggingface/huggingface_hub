@@ -132,12 +132,10 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_modified_time(self):
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data/text_data.txt"), datetime.datetime)
+        self.assertIsInstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
         # should fail on a non-existing file
         with self.assertRaises(FileNotFoundError):
             self.hffs.modified(self.hf_path + "/data/not_existing_file.txt")
-        # should fail on a directory
-        with self.assertRaises(IsADirectoryError):
-            self.hffs.modified(self.hf_path + "/data")
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
@@ -163,10 +161,15 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(files[0]["type"], "directory")
         self.assertEqual(files[0]["size"], 0)
         self.assertTrue(files[0]["name"].endswith("/data"))
+        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNotNone(files[0]["tree_id"])
 
         self.assertEqual(files[1]["type"], "file")
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
+        self.assertIsNotNone(files[1]["last_commit"])
+        self.assertIsNotNone(files[1]["blob_id"])
+        self.assertIsNotNone(files[1]["security"])
 
     def test_list_data_directory_no_revision(self):
         files = self.hffs.ls(self.hf_path + "/data")
@@ -176,9 +179,9 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(files[0]["size"], 0)  # not empty
         self.assertTrue(files[0]["name"].endswith("/data/binary_data.bin"))
         self.assertIsNotNone(files[0]["lfs"])
-        self.assertIn("oid", files[0]["lfs"])
+        self.assertIn("sha256", files[0]["lfs"])
         self.assertIn("size", files[0]["lfs"])
-        self.assertIn("pointerSize", files[0]["lfs"])
+        self.assertIn("pointer_size", files[0]["lfs"])
 
         self.assertEqual(files[1]["type"], "file")
         self.assertGreater(files[1]["size"], 0)  # not empty
@@ -197,6 +200,14 @@ class HfFileSystemTests(unittest.TestCase):
                 self.assertEqual(len(files), 1)  # only one file in PR
                 self.assertEqual(files[0]["type"], "file")
                 self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
+
+    def test_list_data_file(self):
+        files = self.hffs.ls(self.hf_path + "/data/text_data.txt")
+        self.assertEqual(len(files), 1)
+
+        self.assertEqual(files[0]["type"], "file")
+        self.assertGreater(files[0]["size"], 0)  # not empty
+        self.assertTrue(files[0]["name"].endswith("/data/text_data.txt"))
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
