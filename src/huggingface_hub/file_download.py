@@ -1,5 +1,6 @@
 import copy
 import fnmatch
+import inspect
 import io
 import json
 import os
@@ -27,12 +28,14 @@ from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
+    DOWNLOAD_CHUNK_SIZE,
     ENDPOINT,
     HF_HUB_CACHE,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HF_HUB_ETAG_TIMEOUT,
+    HF_TRANSFER_CONCURRENCY,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
@@ -206,9 +209,6 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
 
     Example:
 
@@ -444,29 +444,21 @@ def http_get(
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
-    if not resume_size:
-        if HF_HUB_ENABLE_HF_TRANSFER:
+    hf_transfer = None
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        if resume_size != 0:
+            warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
+        elif proxies is not None:
+            warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+        else:
             try:
-                # Download file using an external Rust-based package. Download is faster
-                # (~2x speed-up) but support less features (no progress bars).
-                from hf_transfer import download
-
-                logger.debug(f"Download {url} using HF_TRANSFER.")
-                max_files = 100
-                chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size, headers=headers)
-                return
+                import hf_transfer  # type: ignore[no-redef]
             except ImportError:
                 raise ValueError(
                     "Fast download using 'hf_transfer' is enabled"
                     " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
                     " available in your environment. Try `pip install hf_transfer`."
                 )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
 
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
@@ -495,53 +487,90 @@ def http_get(
     if len(displayed_name) > 40:
         displayed_name = f"(…){displayed_name[-40:]}"
 
+    consistency_error_message = (
+        f"Consistency check failed: file should be of size {expected_size} but has size"
+        f" {{actual_size}} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+        " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+        " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+    )
+
     # Stream file to buffer
-    progress = tqdm(
+    with tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
         desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
-    )
-    try:
+    ) as progress:
+        if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
+            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+            if not supports_callback:
+                warnings.warn(
+                    "You are using an outdated version of `hf_transfer`. "
+                    "Consider upgrading to latest version to enable progress bars "
+                    "using `pip install -U hf_transfer`."
+                )
+            try:
+                hf_transfer.download(
+                    url=url,
+                    filename=temp_file.name,
+                    max_files=HF_TRANSFER_CONCURRENCY,
+                    chunk_size=DOWNLOAD_CHUNK_SIZE,
+                    headers=headers,
+                    parallel_failures=3,
+                    max_retries=5,
+                    **({"callback": progress.update} if supports_callback else {}),
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+            if not supports_callback:
+                progress.update(total)
+            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
+                raise EnvironmentError(
+                    consistency_error_message.format(
+                        actual_size=os.path.getsize(temp_file.name),
+                    )
+                )
+            return
         new_resume_size = resume_size
-        for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
-            if chunk:  # filter out keep-alive new chunks
-                progress.update(len(chunk))
-                temp_file.write(chunk)
-                new_resume_size += len(chunk)
-                # Some data has been downloaded from the server so we reset the number of retries.
-                _nb_retries = 5
-    except (requests.ConnectionError, requests.ReadTimeout) as e:
-        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-        # a transient error (network outage?). We log a warning message and try to resume the download a few times
-        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-        if _nb_retries <= 0:
-            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-            raise
-        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-        time.sleep(1)
-        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-        return http_get(
-            url=url,
-            temp_file=temp_file,
-            proxies=proxies,
-            resume_size=new_resume_size,
-            headers=initial_headers,
-            expected_size=expected_size,
-            _nb_retries=_nb_retries - 1,
-        )
+        try:
+            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                if chunk:  # filter out keep-alive new chunks
+                    progress.update(len(chunk))
+                    temp_file.write(chunk)
+                    new_resume_size += len(chunk)
+                    # Some data has been downloaded from the server so we reset the number of retries.
+                    _nb_retries = 5
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+            # a transient error (network outage?). We log a warning message and try to resume the download a few times
+            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                proxies=proxies,
+                resume_size=new_resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                _nb_retries=_nb_retries - 1,
+            )
 
-    if expected_size is not None and expected_size != temp_file.tell():
-        raise EnvironmentError(
-            f"Consistency check failed: file should be of size {expected_size} but has size"
-            f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
-            " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
-            " know by opening an issue on https://github.com/huggingface/huggingface_hub."
-        )
-
-    progress.close()
+        if expected_size is not None and expected_size != temp_file.tell():
+            raise EnvironmentError(
+                consistency_error_message.format(
+                    actual_size=temp_file.tell(),
+                )
+            )
 
 
 @validate_hf_hub_args
@@ -978,7 +1007,6 @@ def hf_hub_download(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -993,6 +1021,7 @@ def hf_hub_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 
@@ -1052,9 +1081,6 @@ def hf_hub_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):

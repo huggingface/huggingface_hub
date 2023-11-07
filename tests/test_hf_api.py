@@ -60,6 +60,7 @@ from huggingface_hub.hf_api import (
     RepoSibling,
     RepoUrl,
     SpaceInfo,
+    SpaceRuntime,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -1808,6 +1809,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 self.assertTrue(isinstance(file.lfs, dict))
                 self.assertTrue("sha256" in file.lfs)
         self.assertTrue(at_least_one_lfs)
+
+    def test_space_info(self) -> None:
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
+        assert space.id == "HuggingFaceH4/zephyr-chat"
+        assert space.author == "HuggingFaceH4"
+        assert isinstance(space.runtime, SpaceRuntime)
 
     def test_list_metrics(self):
         metrics = self._api.list_metrics()
