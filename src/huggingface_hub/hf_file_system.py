@@ -1,7 +1,7 @@
-import itertools
 import os
 import re
 import tempfile
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
@@ -12,7 +12,7 @@ import fsspec
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
 from .file_download import hf_hub_url
-from .hf_api import HfApi
+from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
     EntryNotFoundError,
     HFValidationError,
@@ -20,8 +20,6 @@ from .utils import (
     RevisionNotFoundError,
     hf_raise_for_status,
     http_backoff,
-    paginate,
-    parse_datetime,
 )
 
 
@@ -55,8 +53,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Access a remote Hugging Face Hub repository as if were a local file system.
 
     Args:
-        endpoint (`str`, *optional*):
-            The endpoint to use. If not provided, the default one (https://huggingface.co) is used.
         token (`str`, *optional*):
             Authentication token, obtained with [`HfApi.login`] method. Will default to the stored token.
 
@@ -264,56 +260,149 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        if path not in self.dircache or refresh:
-            path_prefix = (
-                HfFileSystemResolvedPath(
-                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
-                ).unresolve()
-                + "/"
-            )
-            tree_path = path
-            tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
-            try:
-                tree_item = next(tree_iter)
-            except EntryNotFoundError:
-                if "/" in resolved_path.path_in_repo:
-                    tree_path = self._parent(path)
-                    tree_iter = self._iter_tree(tree_path, revision=resolved_path.revision)
-                else:
-                    raise
-            else:
-                tree_iter = itertools.chain([tree_item], tree_iter)
-            child_infos = []
-            for tree_item in tree_iter:
-                child_info = {
-                    "name": path_prefix + tree_item["path"],
-                    "size": tree_item["size"],
-                    "type": tree_item["type"],
-                }
-                if tree_item["type"] == "file":
-                    child_info.update(
-                        {
-                            "blob_id": tree_item["oid"],
-                            "lfs": tree_item.get("lfs"),
-                            "last_modified": parse_datetime(tree_item["lastCommit"]["date"]),
-                        },
-                    )
-                child_infos.append(child_info)
-            self.dircache[tree_path] = child_infos
-        out = self._ls_from_cache(path)
+        try:
+            out = self._ls_tree(path, refresh=refresh, detail=detail, revision=resolved_path.revision)
+        except EntryNotFoundError:
+            # Path could be a file
+            if not resolved_path.path_in_repo:
+                _raise_file_not_found(path, None)
+            out = self._ls_tree(self._parent(path), refresh=refresh, detail=detail, revision=resolved_path.revision)
+            out = [o for o in out if o["name"] == path]
+            if len(out) == 0:
+                _raise_file_not_found(path, None)
         if not has_revision_in_path:
             out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
         return out if detail else [o["name"] for o in out]
 
-    def _iter_tree(self, path: str, revision: Optional[str] = None):
-        # TODO: use HfApi.list_files_info instead when it supports "lastCommit" and "expand=True"
-        # See https://github.com/huggingface/moon-landing/issues/5993
+    def _ls_tree(
+        self,
+        path: str,
+        recursive: bool = False,
+        detail: bool = False,
+        refresh: bool = False,
+        revision: Optional[str] = None,
+    ):
         resolved_path = self.resolve_path(path, revision=revision)
-        path = f"{self._api.endpoint}/api/{resolved_path.repo_type}s/{resolved_path.repo_id}/tree/{safe_quote(resolved_path.revision)}/{resolved_path.path_in_repo}".rstrip(
-            "/"
-        )
-        headers = self._api._build_hf_headers()
-        yield from paginate(path, params={"expand": True}, headers=headers)
+        path = resolved_path.unresolve()
+        root_path = HfFileSystemResolvedPath(
+            resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+        ).unresolve()
+
+        out = []
+        if path in self.dircache and not refresh:
+            cached_path_infos = self.dircache[path]
+            out.extend(cached_path_infos)
+            dirs_not_in_dircache = []
+            if recursive:
+                # Use BFS to traverse the cache and build the "recursive "output
+                # (The Hub uses a so-called "tree first" strategy for the tree endpoint but we sort the output to follow the spec so the result is (eventually) the same)
+                dirs_to_visit = deque(
+                    [path_info for path_info in cached_path_infos if path_info["type"] == "directory"]
+                )
+                while dirs_to_visit:
+                    dir_info = dirs_to_visit.popleft()
+                    if dir_info["name"] not in self.dircache:
+                        dirs_not_in_dircache.append(dir_info["name"])
+                    else:
+                        cached_path_infos = self.dircache[dir_info["name"]]
+                        out.extend(cached_path_infos)
+                        dirs_to_visit.extend(
+                            [path_info for path_info in cached_path_infos if path_info["type"] == "directory"]
+                        )
+
+            dirs_not_expanded = []
+            if detail:
+                # Check if there are directories with non-expanded entries
+                dirs_not_expanded = [self._parent(o["name"]) for o in out if o["last_commit"] is None]
+
+            if (recursive and dirs_not_in_dircache) or (detail and dirs_not_expanded):
+                # If the dircache is incomplete, find the common path of the missing and non-expanded entries
+                # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
+                common_path = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded).rstrip("/")
+                out = [o for o in out if not o["name"].startswith(common_path)]
+                for cached_path in self.dircache:
+                    if cached_path.startswith(common_path):
+                        self.dircache.pop(cached_path, None)
+                out.extend(
+                    self._ls_tree(
+                        common_path, recursive=recursive, detail=detail, refresh=True, revision=resolved_path.revision
+                    )
+                )
+        else:
+            tree = self._api.list_repo_tree(
+                resolved_path.repo_id,
+                resolved_path.path_in_repo,
+                recursive=recursive,
+                expand=detail,
+                revision=resolved_path.revision,
+                repo_type=resolved_path.repo_type,
+            )
+            for path_info in tree:
+                if isinstance(path_info, RepoFile):
+                    cache_path_info = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": path_info.size,
+                        "type": "file",
+                        "blob_id": path_info.blob_id,
+                        "lfs": path_info.lfs,
+                        "last_commit": path_info.last_commit,
+                        "security": path_info.security,
+                    }
+                else:
+                    cache_path_info = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": 0,
+                        "type": "directory",
+                        "tree_id": path_info.tree_id,
+                        "last_commit": path_info.last_commit,
+                    }
+                parent_path = self._parent(cache_path_info["name"])
+                self.dircache.setdefault(parent_path, []).append(cache_path_info)
+                out.append(cache_path_info)
+        return out
+
+    def find(
+        self,
+        path: str,
+        maxdepth: Optional[int] = None,
+        withdirs: bool = False,
+        detail: bool = False,
+        refresh: bool = False,
+        revision: Optional[str] = None,
+        **kwargs,
+    ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
+        if maxdepth:
+            return super().find(
+                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
+            )
+        resolved_path = self.resolve_path(path, revision=revision)
+        revision_in_path = "@" + safe_quote(resolved_path.revision)
+        has_revision_in_path = revision_in_path in path
+        path = resolved_path.unresolve()
+        try:
+            out = self._ls_tree(path, recursive=True, detail=detail, refresh=refresh, revision=resolved_path.revision)
+        except EntryNotFoundError:
+            # Path could be a file
+            if self.info(path, revision=resolved_path.revision)["type"] == "file":
+                path = path.replace(revision_in_path, "", 1) if not has_revision_in_path else path
+                out = {path: {}}
+            else:
+                out = {}
+        else:
+            if not withdirs:
+                out = [o for o in out if o["type"] != "directory"]
+            else:
+                # If `withdirs=True`, include the directory itself to be consistent with the spec
+                path_info = self.info(path, revision=resolved_path.revision)
+                out = [path_info] + out if path_info["type"] == "directory" else out
+            if not has_revision_in_path:
+                out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
+            out = {o["name"]: o for o in out}
+        names = sorted(out)
+        if not detail:
+            return names
+        else:
+            return {name: out[name] for name in names}
 
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
@@ -358,19 +447,72 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def modified(self, path: str, **kwargs) -> datetime:
         info = self.info(path, **kwargs)
-        if "last_modified" not in info:
-            raise IsADirectoryError(path)
-        return info["last_modified"]
+        return info["last_commit"]["date"]
 
-    def info(self, path: str, **kwargs) -> Dict[str, Any]:
-        resolved_path = self.resolve_path(path)
+    def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        resolved_path = self.resolve_path(path, revision=revision)
+        revision_in_path = "@" + safe_revision(resolved_path.revision)
+        has_revision_in_path = revision_in_path in path
+        path = resolved_path.unresolve()
         if not resolved_path.path_in_repo:
-            revision_in_path = "@" + safe_revision(resolved_path.revision)
-            has_revision_in_path = revision_in_path in path
-            name = resolved_path.unresolve()
-            name = name.replace(revision_in_path, "", 1) if not has_revision_in_path else name
-            return {"name": name, "size": 0, "type": "directory"}
-        return super().info(path, **kwargs)
+            # Path is the root directory
+            last_commit = self._api.list_repo_commits(
+                resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
+            )[-1]
+            out = {
+                "name": path,
+                "size": 0,
+                "type": "directory",
+                "tree_id": None,  # TODO: tree_id of the root directory?
+                "last_commit": LastCommitInfo(
+                    oid=last_commit.commit_id, title=last_commit.title, date=last_commit.created_at
+                ),
+            }
+        else:
+            out = None
+            parent_path = self._parent(path)
+            if parent_path in self.dircache:
+                # Check if the path is in the cache
+                out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+                if not out1:
+                    _raise_file_not_found(path, None)
+                out = out1[0]
+            if refresh or out is None or (out and out["last_commit"] is None):
+                paths_info = self._api.get_paths_info(
+                    resolved_path.repo_id,
+                    resolved_path.path_in_repo,
+                    expand=True,
+                    revision=resolved_path.revision,
+                    repo_type=resolved_path.repo_type,
+                )
+                if not paths_info:
+                    _raise_file_not_found(path, None)
+                path_info = paths_info[0]
+                root_path = HfFileSystemResolvedPath(
+                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+                ).unresolve()
+                if isinstance(path_info, RepoFile):
+                    out = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": path_info.size,
+                        "type": "file",
+                        "blob_id": path_info.blob_id,
+                        "lfs": path_info.lfs,
+                        "last_commit": path_info.last_commit,
+                        "security": path_info.security,
+                    }
+                else:
+                    out = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": 0,
+                        "type": "directory",
+                        "tree_id": path_info.tree_id,
+                        "last_commit": path_info.last_commit,
+                    }
+        assert out is not None
+        if not has_revision_in_path:
+            out["name"] = out["name"].replace(revision_in_path, "", 1)  # type: ignore
+        return out
 
     @property
     def transaction(self):
