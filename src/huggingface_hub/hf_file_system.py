@@ -414,11 +414,10 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(fs, path, **kwargs)
         self.fs: HfFileSystem
 
-        mode = kwargs.get("mode", "r")
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
-            if "w" in mode:
+            if "w" in kwargs.get("mode", ""):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
