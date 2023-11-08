@@ -119,9 +119,6 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     parse_datetime,
     validate_hf_hub_args,
 )
-from .utils._deprecation import (
-    _deprecate_arguments,
-)
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -2459,7 +2456,6 @@ class HfApi:
                 if subpath_info["type"] == "file":
                     yield RepoFile(**subpath_info)
 
-    @_deprecate_arguments(version="0.17", deprecated_args=["timeout"], custom_message="timeout is not used anymore.")
     @validate_hf_hub_args
     def list_repo_files(
         self,
@@ -2467,7 +2463,6 @@ class HfApi:
         *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
-        timeout: Optional[float] = None,
         token: Optional[Union[bool, str]] = None,
     ) -> List[str]:
         """
