@@ -232,9 +232,6 @@ class LastCommitInfo(TypedDict, total=False):
     date: datetime
 
 
-BlobLastCommitInfo = LastCommitInfo  # for backward compatibility
-
-
 class BlobLfsInfo(TypedDict, total=False):
     size: int
     sha256: str
