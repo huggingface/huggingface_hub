@@ -461,7 +461,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        detail = kwargs.get("detail", True)  # don't expose it as a parameter  is not exposed in the spec, so
+        detail = kwargs.get("detail", True)  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
             out = {
