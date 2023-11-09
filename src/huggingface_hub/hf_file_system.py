@@ -318,11 +318,18 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if (recursive and dirs_not_in_dircache) or (detail and dirs_not_expanded):
                 # If the dircache is incomplete, find the common path of the missing and non-expanded entries
                 # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
-                common_path = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded).rstrip("/")
-                out = [o for o in out if not o["name"].startswith(common_path)]
+                common_prefix = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded)
+                # Get the parent directory if the common prefix itself is not a directory
+                common_path = (
+                    common_prefix.rstrip("/")
+                    if common_prefix.endswith("/") or common_prefix == root_path
+                    else self._parent(common_prefix)
+                )
+                out = [o for o in out if not o["name"].startswith(common_path + "/")]
                 for cached_path in self.dircache:
-                    if cached_path.startswith(common_path):
+                    if cached_path.startswith(common_path + "/"):
                         self.dircache.pop(cached_path, None)
+                self.dircache.pop(common_path, None)
                 out.extend(
                     self._ls_tree(
                         common_path, recursive=recursive, detail=detail, refresh=True, revision=resolved_path.revision
@@ -454,20 +461,25 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
+        detail = kwargs.get("detail", True)  # don't expose it as a parameter  is not exposed in the spec, so
         if not resolved_path.path_in_repo:
             # Path is the root directory
-            last_commit = self._api.list_repo_commits(
-                resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
-            )[-1]
             out = {
                 "name": path,
                 "size": 0,
                 "type": "directory",
-                "tree_id": None,  # TODO: tree_id of the root directory?
-                "last_commit": LastCommitInfo(
-                    oid=last_commit.commit_id, title=last_commit.title, date=last_commit.created_at
-                ),
             }
+            if detail:
+                last_commit = self._api.list_repo_commits(
+                    resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
+                )[-1]
+                out = {
+                    **out,
+                    "tree_id": None,  # TODO: tree_id of the root directory?
+                    "last_commit": LastCommitInfo(
+                        oid=last_commit.commit_id, title=last_commit.title, date=last_commit.created_at
+                    ),
+                }
         else:
             out = None
             parent_path = self._parent(path)
@@ -477,11 +489,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not out1:
                     _raise_file_not_found(path, None)
                 out = out1[0]
-            if refresh or out is None or (out and out["last_commit"] is None):
+            if refresh or out is None or (detail and out and out["last_commit"] is None):
                 paths_info = self._api.get_paths_info(
                     resolved_path.repo_id,
                     resolved_path.path_in_repo,
-                    expand=True,
+                    expand=detail,
                     revision=resolved_path.revision,
                     repo_type=resolved_path.repo_type,
                 )
@@ -509,10 +521,35 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
+                if not detail:
+                    out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
         if not has_revision_in_path:
             out["name"] = out["name"].replace(revision_in_path, "", 1)  # type: ignore
         return out
+
+    def exists(self, path, **kwargs):
+        """Is there a file at the given path"""
+        try:
+            self.info(path, detail=False, **kwargs)
+            return True
+        except:  # noqa: E722
+            # any exception allowed bar FileNotFoundError?
+            return False
+
+    def isdir(self, path):
+        """Is this entry directory-like?"""
+        try:
+            return self.info(path, detail=False)["type"] == "directory"
+        except OSError:
+            return False
+
+    def isfile(self, path):
+        """Is this entry file-like?"""
+        try:
+            return self.info(path, detail=False)["type"] == "file"
+        except:  # noqa: E722
+            return False
 
     @property
     def transaction(self):

@@ -291,6 +291,13 @@ class HfFileSystemTests(unittest.TestCase):
             repo_type="dataset",
         )
 
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data 2",
+            path_in_repo="data1/binary_data2.bin",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
         files = self.hffs.find(self.hf_path, detail=True)
 
         # some directories not in cache
