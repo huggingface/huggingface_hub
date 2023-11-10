@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import os
 import re
 import shutil
@@ -1651,6 +1652,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
         self.assertNotEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        self.assertEqual(model.created_at, datetime.datetime(2022, 3, 2, 23, 29, 5, tzinfo=datetime.timezone.utc))
+
         # One particular commit (not the top of `main`)
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         self.assertIsInstance(model, ModelInfo)
