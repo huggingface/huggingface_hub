@@ -468,7 +468,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        detail = kwargs.get("detail", True)  # don't expose it as a parameter in the public API to follow the spec
+        expand_info = kwargs.get("expand_info", True)  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
             out = {
@@ -476,7 +476,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "size": 0,
                 "type": "directory",
             }
-            if detail:
+            if expand_info:
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
                 )[-1]
@@ -496,11 +496,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not out1:
                     _raise_file_not_found(path, None)
                 out = out1[0]
-            if refresh or out is None or (detail and out and out["last_commit"] is None):
+            if refresh or out is None or (expand_info and out and out["last_commit"] is None):
                 paths_info = self._api.get_paths_info(
                     resolved_path.repo_id,
                     resolved_path.path_in_repo,
-                    expand=detail,
+                    expand=expand_info,
                     revision=resolved_path.revision,
                     repo_type=resolved_path.repo_type,
                 )
@@ -528,7 +528,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
-                if not detail:
+                if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
         if not has_revision_in_path:
@@ -538,7 +538,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
-            self.info(path, detail=False, **kwargs)
+            self.info(path, expand_info=False, **kwargs)
             return True
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
@@ -547,14 +547,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def isdir(self, path):
         """Is this entry directory-like?"""
         try:
-            return self.info(path, detail=False)["type"] == "directory"
+            return self.info(path, expand_info=False)["type"] == "directory"
         except OSError:
             return False
 
     def isfile(self, path):
         """Is this entry file-like?"""
         try:
-            return self.info(path, detail=False)["type"] == "file"
+            return self.info(path, expand_info=False)["type"] == "file"
         except:  # noqa: E722
             return False
 
