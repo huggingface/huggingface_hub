@@ -443,6 +443,9 @@ class ModelInfo:
             Author of the dataset.
         sha (`str`, *optional*):
             Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
         last_modified (`datetime`, *optional*):
             Date of last commit to the repo.
         private (`bool`):
@@ -485,6 +488,7 @@ class ModelInfo:
     id: str
     author: Optional[str]
     sha: Optional[str]
+    created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
     gated: Optional[bool]
@@ -510,6 +514,8 @@ class ModelInfo:
         self.sha = kwargs.pop("sha", None)
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
         self.private = kwargs.pop("private")
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
@@ -574,6 +580,9 @@ class DatasetInfo:
             Author of the dataset.
         sha (`str`):
             Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
         last_modified (`datetime`, *optional*):
             Date of last commit to the repo.
         private (`bool`):
@@ -597,6 +606,7 @@ class DatasetInfo:
     id: str
     author: Optional[str]
     sha: Optional[str]
+    created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
     gated: Optional[bool]
@@ -612,6 +622,8 @@ class DatasetInfo:
         self.id = kwargs.pop("id")
         self.author = kwargs.pop("author", None)
         self.sha = kwargs.pop("sha", None)
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         self.private = kwargs.pop("private")
@@ -666,6 +678,9 @@ class SpaceInfo:
             Author of the Space.
         sha (`str`, *optional*):
             Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
         last_modified (`datetime`, *optional*):
             Date of last commit to the repo.
         private (`bool`):
@@ -699,6 +714,7 @@ class SpaceInfo:
     id: str
     author: Optional[str]
     sha: Optional[str]
+    created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
     gated: Optional[bool]
@@ -718,6 +734,8 @@ class SpaceInfo:
         self.id = kwargs.pop("id")
         self.author = kwargs.pop("author", None)
         self.sha = kwargs.pop("sha", None)
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         self.private = kwargs.pop("private")
