@@ -33,8 +33,6 @@ SPECIAL_REFS_REVISION_REGEX = re.compile(
     re.VERBOSE,
 )
 
-EXPAND_INFO_KWARGS = {"expand": True}
-
 
 @dataclass
 class HfFileSystemResolvedPath:
