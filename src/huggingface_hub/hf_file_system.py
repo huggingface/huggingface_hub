@@ -261,12 +261,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         try:
-            out = self._ls_tree(path, refresh=refresh, detail=detail, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(path, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             if not resolved_path.path_in_repo:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, detail=detail, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(self._parent(path), refresh=refresh, revision=resolved_path.revision, **kwargs)
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
@@ -278,7 +278,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self,
         path: str,
         recursive: bool = False,
-        detail: bool = False,
         refresh: bool = False,
         revision: Optional[str] = None,
         expand_info: bool = True,
@@ -312,11 +311,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         )
 
             dirs_not_expanded = []
-            if detail and expand_info:
+            if expand_info:
                 # Check if there are directories with non-expanded entries
                 dirs_not_expanded = [self._parent(o["name"]) for o in out if o["last_commit"] is None]
 
-            if (recursive and dirs_not_in_dircache) or (detail and dirs_not_expanded):
+            if (recursive and dirs_not_in_dircache) or (expand_info and dirs_not_expanded):
                 # If the dircache is incomplete, find the common path of the missing and non-expanded entries
                 # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
                 common_prefix = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded)
@@ -333,7 +332,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self.dircache.pop(common_path, None)
                 out.extend(
                     self._ls_tree(
-                        common_path, recursive=recursive, detail=detail, refresh=True, revision=resolved_path.revision, expand_info=expand_info
+                        common_path, recursive=recursive, refresh=True, revision=resolved_path.revision, expand_info=expand_info
                     )
                 )
         else:
@@ -341,7 +340,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 resolved_path.repo_id,
                 resolved_path.path_in_repo,
                 recursive=recursive,
-                expand=detail and expand_info,
+                expand=expand_info,
                 revision=resolved_path.revision,
                 repo_type=resolved_path.repo_type,
             )
@@ -385,14 +384,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
         if maxdepth:
             return super().find(
-                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
+                path, maxdepth=maxdepth, withdirs=withdirs, refresh=refresh, revision=revision, **kwargs
             )
         resolved_path = self.resolve_path(path, revision=revision)
         revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         try:
-            out = self._ls_tree(path, recursive=True, detail=detail, refresh=refresh, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             if self.info(path, revision=resolved_path.revision)["type"] == "file":
