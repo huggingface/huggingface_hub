@@ -260,6 +260,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
+        kwargs = {"expand_info": detail, **kwargs}
         try:
             out = self._ls_tree(path, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
@@ -370,7 +371,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def glob(self, path, maxdepth=None, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
-        return super().glob(path, maxdepth=maxdepth, **{"expand_info": False, **kwargs})
+        kwargs = {"expand_info": False, **kwargs}
+        return super().glob(path, maxdepth=maxdepth, **kwargs)
 
     def find(
         self,
@@ -390,6 +392,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
+        kwargs = {"expand_info": detail, **kwargs}
         try:
             out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
