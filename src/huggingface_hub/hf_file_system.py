@@ -390,7 +390,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
         if maxdepth:
             return super().find(
-                path, maxdepth=maxdepth, withdirs=withdirs, refresh=refresh, revision=revision, **kwargs
+                path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
             )
         resolved_path = self.resolve_path(path, revision=revision)
         revision_in_path = "@" + safe_quote(resolved_path.revision)
