@@ -185,6 +185,7 @@ _SUBMOD_ATTRS = {
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_model_tags",
+        "get_paths_info",
         "get_repo_discussions",
         "get_space_runtime",
         "get_space_variables",
@@ -200,6 +201,7 @@ _SUBMOD_ATTRS = {
         "list_repo_files",
         "list_repo_likers",
         "list_repo_refs",
+        "list_repo_tree",
         "list_spaces",
         "merge_pull_request",
         "model_info",
@@ -519,6 +521,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
+        get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
@@ -534,6 +537,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_files,  # noqa: F401
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
+        list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401

@@ -21,7 +21,7 @@ class HfFileSystemTests(unittest.TestCase):
             fsspec.register_implementation(HfFileSystem.protocol, HfFileSystem)
 
     def setUp(self):
-        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
         self.api = self.hffs._api
 
         # Create dummy repo
@@ -52,6 +52,32 @@ class HfFileSystemTests(unittest.TestCase):
 
     def tearDown(self):
         self.api.delete_repo(self.repo_id, repo_type="dataset")
+
+    def test_info(self):
+        root_dir = self.hffs.info(self.hf_path)
+        self.assertEqual(root_dir["type"], "directory")
+        self.assertEqual(root_dir["size"], 0)
+        self.assertTrue(root_dir["name"].endswith(self.repo_id))
+        self.assertIsNotNone(root_dir["last_commit"])
+
+        data_dir = self.hffs.info(self.hf_path + "/data")
+        self.assertEqual(data_dir["type"], "directory")
+        self.assertEqual(data_dir["size"], 0)
+        self.assertTrue(data_dir["name"].endswith("/data"))
+        self.assertIsNotNone(data_dir["last_commit"])
+        self.assertIsNotNone(data_dir["tree_id"])
+
+        text_data_file = self.hffs.info(self.hf_path + "/data/text_data.txt")
+        self.assertEqual(text_data_file["type"], "file")
+        self.assertGreater(text_data_file["size"], 0)  # not empty
+        self.assertTrue(text_data_file["name"].endswith("/data/text_data.txt"))
+        self.assertIsNone(text_data_file["lfs"])
+        self.assertIsNotNone(text_data_file["last_commit"])
+        self.assertIsNotNone(text_data_file["blob_id"])
+        self.assertIn("security", text_data_file)  # the staging endpoint does not run security checks
+
+        # cached info
+        self.assertEqual(self.hffs.info(self.hf_path + "/data/text_data.txt"), text_data_file)
 
     def test_glob(self):
         self.assertEqual(
@@ -97,15 +123,14 @@ class HfFileSystemTests(unittest.TestCase):
             self.assertEqual(f.read(), data)
 
     def test_write_file_multiple_chunks(self):
-        # TODO: try with files between 10 and 50MB (as of 16 March 2023 I was getting 504 errors on hub-ci)
         data = "a" * (4 << 20)  # 4MB
         with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "w") as f:
-            for _ in range(2):  # 8MB in total
+            for _ in range(8):  # 32MB in total
                 f.write(data)
 
         self.assertIn(self.hf_path + "/data/new_text_data_big.txt", self.hffs.glob(self.hf_path + "/data/*"))
         with self.hffs.open(self.hf_path + "/data/new_text_data_big.txt", "r") as f:
-            for _ in range(2):
+            for _ in range(8):
                 self.assertEqual(f.read(len(data)), data)
 
     @unittest.skip("Not implemented yet")
@@ -132,12 +157,10 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_modified_time(self):
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data/text_data.txt"), datetime.datetime)
+        self.assertIsInstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
         # should fail on a non-existing file
         with self.assertRaises(FileNotFoundError):
             self.hffs.modified(self.hf_path + "/data/not_existing_file.txt")
-        # should fail on a directory
-        with self.assertRaises(IsADirectoryError):
-            self.hffs.modified(self.hf_path + "/data")
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
@@ -163,10 +186,15 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(files[0]["type"], "directory")
         self.assertEqual(files[0]["size"], 0)
         self.assertTrue(files[0]["name"].endswith("/data"))
+        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNotNone(files[0]["tree_id"])
 
         self.assertEqual(files[1]["type"], "file")
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/.gitattributes"))
+        self.assertIsNotNone(files[1]["last_commit"])
+        self.assertIsNotNone(files[1]["blob_id"])
+        self.assertIn("security", files[1])  # the staging endpoint does not run security checks
 
     def test_list_data_directory_no_revision(self):
         files = self.hffs.ls(self.hf_path + "/data")
@@ -176,14 +204,32 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertGreater(files[0]["size"], 0)  # not empty
         self.assertTrue(files[0]["name"].endswith("/data/binary_data.bin"))
         self.assertIsNotNone(files[0]["lfs"])
-        self.assertIn("oid", files[0]["lfs"])
+        self.assertIn("sha256", files[0]["lfs"])
         self.assertIn("size", files[0]["lfs"])
-        self.assertIn("pointerSize", files[0]["lfs"])
+        self.assertIn("pointer_size", files[0]["lfs"])
+        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNotNone(files[0]["blob_id"])
+        self.assertIn("security", files[0])  # the staging endpoint does not run security checks
 
         self.assertEqual(files[1]["type"], "file")
         self.assertGreater(files[1]["size"], 0)  # not empty
         self.assertTrue(files[1]["name"].endswith("/data/text_data.txt"))
         self.assertIsNone(files[1]["lfs"])
+        self.assertIsNotNone(files[1]["last_commit"])
+        self.assertIsNotNone(files[1]["blob_id"])
+        self.assertIn("security", files[1])  # the staging endpoint does not run security checks
+
+    def test_list_data_file_no_revision(self):
+        files = self.hffs.ls(self.hf_path + "/data/text_data.txt")
+        self.assertEqual(len(files), 1)
+
+        self.assertEqual(files[0]["type"], "file")
+        self.assertGreater(files[0]["size"], 0)  # not empty
+        self.assertTrue(files[0]["name"].endswith("/data/text_data.txt"))
+        self.assertIsNone(files[0]["lfs"])
+        self.assertIsNotNone(files[0]["last_commit"])
+        self.assertIsNotNone(files[0]["blob_id"])
+        self.assertIn("security", files[0])  # the staging endpoint does not run security checks
 
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
@@ -197,6 +243,73 @@ class HfFileSystemTests(unittest.TestCase):
                 self.assertEqual(len(files), 1)  # only one file in PR
                 self.assertEqual(files[0]["type"], "file")
                 self.assertTrue(files[0]["name"].endswith("/data/binary_data_for_pr.bin"))  # PR file
+
+    def test_list_root_directory_no_revision_no_detail_then_with_detail(self):
+        files = self.hffs.ls(self.hf_path, detail=False)
+        self.assertEqual(len(files), 2)
+        self.assertTrue(files[0].endswith("/data") and files[1].endswith("/.gitattributes"))
+        self.assertIsNone(
+            self.hffs.dircache[self.hf_path + "@main"][0]["last_commit"]
+        )  # no detail -> no last_commit in cache
+
+        files = self.hffs.ls(self.hf_path, detail=True)
+        self.assertEqual(len(files), 2)
+        self.assertTrue(files[0]["name"].endswith("/data") and files[1]["name"].endswith("/.gitattributes"))
+        self.assertIsNotNone(self.hffs.dircache[self.hf_path + "@main"][0]["last_commit"])
+
+    def test_find_root_directory_no_revision(self):
+        files = self.hffs.find(self.hf_path, detail=False)
+        self.assertEqual(
+            files, self.hffs.ls(self.hf_path, detail=False)[1:] + self.hffs.ls(self.hf_path + "/data", detail=False)
+        )
+
+        files = self.hffs.find(self.hf_path, detail=True)
+        self.assertEqual(
+            files,
+            {
+                f["name"]: f
+                for f in self.hffs.ls(self.hf_path, detail=True)[1:]
+                + self.hffs.ls(self.hf_path + "/data", detail=True)
+            },
+        )
+
+        files_with_dirs = self.hffs.find(self.hf_path, withdirs=True, detail=False)
+        self.assertEqual(
+            files_with_dirs,
+            sorted(
+                [self.hf_path]
+                + self.hffs.ls(self.hf_path, detail=False)
+                + self.hffs.ls(self.hf_path + "/data", detail=False)
+            ),
+        )
+
+    def test_find_root_directory_no_revision_with_incomplete_cache(self):
+        self.api.upload_file(
+            path_or_fileobj=b"dummy text data 2",
+            path_in_repo="data/sub_data/text_data2.txt",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
+        self.api.upload_file(
+            path_or_fileobj=b"dummy binary data 2",
+            path_in_repo="data1/binary_data2.bin",
+            repo_id=self.repo_id,
+            repo_type="dataset",
+        )
+
+        files = self.hffs.find(self.hf_path, detail=True)
+
+        # some directories not in cache
+        self.hffs.dircache.pop(self.hf_path + "@main/data/sub_data")
+        # some files not expanded
+        self.hffs.dircache[self.hf_path + "@main/data"][1]["last_commit"] = None
+
+        self.assertEqual(self.hffs.find(self.hf_path, detail=True), files)
+
+    def test_find_data_file_no_revision(self):
+        files = self.hffs.find(self.hf_path + "/data/text_data.txt", detail=False)
+        self.assertEqual(files, [self.hf_path + "/data/text_data.txt"])
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
@@ -316,7 +429,5 @@ def test_access_repositories_lists(not_supported_path):
         fs.info(not_supported_path)
     with pytest.raises(NotImplementedError):
         fs.ls(not_supported_path)
-    with pytest.raises(NotImplementedError):
-        fs.glob(not_supported_path + "/")
     with pytest.raises(NotImplementedError):
         fs.open(not_supported_path)
