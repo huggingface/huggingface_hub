@@ -333,7 +333,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self.dircache.pop(common_path, None)
                 out.extend(
                     self._ls_tree(
-                        common_path, recursive=recursive, refresh=True, revision=resolved_path.revision, expand_info=expand_info
+                        common_path,
+                        recursive=recursive,
+                        refresh=True,
+                        revision=resolved_path.revision,
+                        expand_info=expand_info,
                     )
                 )
         else:
@@ -468,7 +472,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        expand_info = kwargs.get("expand_info", True)  # don't expose it as a parameter in the public API to follow the spec
+        expand_info = kwargs.get(
+            "expand_info", True
+        )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
             out = {
