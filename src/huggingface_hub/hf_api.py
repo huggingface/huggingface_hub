@@ -994,11 +994,15 @@ class GitRefs:
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
         tags (`List[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about tags on the repo.
+        pull_requests (`List[GitRefInfo]`, *optional*):
+            A list of [`GitRefInfo`] containing information about pull requests on the repo.
+            Only returned if `include_prs=True` is set.
     """
 
     branches: List[GitRefInfo]
     converts: List[GitRefInfo]
     tags: List[GitRefInfo]
+    pull_requests: Optional[List[GitRefInfo]]
 
 
 @dataclass
@@ -2643,6 +2647,7 @@ class HfApi:
         repo_id: str,
         *,
         repo_type: Optional[str] = None,
+        include_pull_requests: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> GitRefs:
         """
@@ -2655,6 +2660,8 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
                 `None` or `"model"` if listing from a model. Default is `None`.
+            include_pull_requests (`bool`, *optional*):
+                Whether to include refs from pull requests in the list. Defaults to `False`.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -2687,7 +2694,9 @@ class HfApi:
         """
         repo_type = repo_type or REPO_TYPE_MODEL
         response = get_session().get(
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
+            headers=self._build_hf_headers(token=token),
+            params={"include_prs": 1} if include_pull_requests else {},
         )
         hf_raise_for_status(response)
         data = response.json()
@@ -2699,6 +2708,9 @@ class HfApi:
             branches=[_format_as_git_ref_info(item) for item in data["branches"]],
             converts=[_format_as_git_ref_info(item) for item in data["converts"]],
             tags=[_format_as_git_ref_info(item) for item in data["tags"]],
+            pull_requests=[_format_as_git_ref_info(item) for item in data["pullRequests"]]
+            if include_pull_requests
+            else None,
         )
 
     @validate_hf_hub_args
