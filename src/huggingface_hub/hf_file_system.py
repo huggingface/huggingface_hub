@@ -260,13 +260,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
+        kwargs = {"expand_info": detail, **kwargs}
         try:
-            out = self._ls_tree(path, refresh=refresh, detail=detail, revision=resolved_path.revision)
+            out = self._ls_tree(path, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             if not resolved_path.path_in_repo:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, detail=detail, revision=resolved_path.revision)
+            out = self._ls_tree(self._parent(path), refresh=refresh, revision=resolved_path.revision, **kwargs)
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
@@ -278,9 +279,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self,
         path: str,
         recursive: bool = False,
-        detail: bool = False,
         refresh: bool = False,
         revision: Optional[str] = None,
+        expand_info: bool = True,
     ):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
@@ -311,11 +312,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         )
 
             dirs_not_expanded = []
-            if detail:
+            if expand_info:
                 # Check if there are directories with non-expanded entries
                 dirs_not_expanded = [self._parent(o["name"]) for o in out if o["last_commit"] is None]
 
-            if (recursive and dirs_not_in_dircache) or (detail and dirs_not_expanded):
+            if (recursive and dirs_not_in_dircache) or (expand_info and dirs_not_expanded):
                 # If the dircache is incomplete, find the common path of the missing and non-expanded entries
                 # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
                 common_prefix = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded)
@@ -332,7 +333,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self.dircache.pop(common_path, None)
                 out.extend(
                     self._ls_tree(
-                        common_path, recursive=recursive, detail=detail, refresh=True, revision=resolved_path.revision
+                        common_path,
+                        recursive=recursive,
+                        refresh=True,
+                        revision=resolved_path.revision,
+                        expand_info=expand_info,
                     )
                 )
         else:
@@ -340,7 +345,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 resolved_path.repo_id,
                 resolved_path.path_in_repo,
                 recursive=recursive,
-                expand=detail,
+                expand=expand_info,
                 revision=resolved_path.revision,
                 repo_type=resolved_path.repo_type,
             )
@@ -368,6 +373,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out.append(cache_path_info)
         return out
 
+    def glob(self, path, maxdepth=None, **kwargs):
+        # Set expand_info=False by default to get a x10 speed boost
+        kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
+        return super().glob(path, maxdepth=maxdepth, **kwargs)
+
     def find(
         self,
         path: str,
@@ -386,11 +396,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_quote(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
+        kwargs = {"expand_info": detail, **kwargs}
         try:
-            out = self._ls_tree(path, recursive=True, detail=detail, refresh=refresh, revision=resolved_path.revision)
+            out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
-            if self.info(path, revision=resolved_path.revision)["type"] == "file":
+            if self.info(path, revision=resolved_path.revision, **kwargs)["type"] == "file":
                 path = path.replace(revision_in_path, "", 1) if not has_revision_in_path else path
                 out = {path: {}}
             else:
@@ -400,7 +411,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out = [o for o in out if o["type"] != "directory"]
             else:
                 # If `withdirs=True`, include the directory itself to be consistent with the spec
-                path_info = self.info(path, revision=resolved_path.revision)
+                path_info = self.info(path, revision=resolved_path.revision, **kwargs)
                 out = [path_info] + out if path_info["type"] == "directory" else out
             if not has_revision_in_path:
                 out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
@@ -461,7 +472,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision_in_path = "@" + safe_revision(resolved_path.revision)
         has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
-        detail = kwargs.get("detail", True)  # don't expose it as a parameter in the public API to follow the spec
+        expand_info = kwargs.get(
+            "expand_info", True
+        )  # don't expose it as a parameter in the public API to follow the spec
         if not resolved_path.path_in_repo:
             # Path is the root directory
             out = {
@@ -469,7 +482,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 "size": 0,
                 "type": "directory",
             }
-            if detail:
+            if expand_info:
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
                 )[-1]
@@ -489,11 +502,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not out1:
                     _raise_file_not_found(path, None)
                 out = out1[0]
-            if refresh or out is None or (detail and out and out["last_commit"] is None):
+            if refresh or out is None or (expand_info and out and out["last_commit"] is None):
                 paths_info = self._api.get_paths_info(
                     resolved_path.repo_id,
                     resolved_path.path_in_repo,
-                    expand=detail,
+                    expand=expand_info,
                     revision=resolved_path.revision,
                     repo_type=resolved_path.repo_type,
                 )
@@ -521,7 +534,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
-                if not detail:
+                if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
         if not has_revision_in_path:
@@ -531,7 +544,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
-            self.info(path, detail=False, **kwargs)
+            self.info(path, expand_info=False, **kwargs)
             return True
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
@@ -540,14 +553,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def isdir(self, path):
         """Is this entry directory-like?"""
         try:
-            return self.info(path, detail=False)["type"] == "directory"
+            return self.info(path, expand_info=False)["type"] == "directory"
         except OSError:
             return False
 
     def isfile(self, path):
         """Is this entry file-like?"""
         try:
-            return self.info(path, detail=False)["type"] == "file"
+            return self.info(path, expand_info=False)["type"] == "file"
         except:  # noqa: E722
             return False
 

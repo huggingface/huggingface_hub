@@ -93,6 +93,18 @@ class HfFileSystemTests(unittest.TestCase):
             sorted(self.hffs.glob(self.hf_path + "@main" + "/*")),
             sorted([self.hf_path + "@main" + "/.gitattributes", self.hf_path + "@main" + "/data"]),
         )
+        self.assertIsNone(
+            self.hffs.dircache[self.hf_path + "@main"][0]["last_commit"]
+        )  # no detail -> no last_commit in cache
+
+        files = self.hffs.glob(self.hf_path + "@main" + "/*", detail=True)
+        self.assertIsInstance(files, dict)
+        self.assertEqual(len(files), 2)
+        keys = sorted(files)
+        self.assertTrue(
+            files[keys[0]]["name"].endswith("/.gitattributes") and files[keys[1]]["name"].endswith("/data")
+        )
+        self.assertIsNotNone(files[keys[0]]["last_commit"])
 
     def test_file_type(self):
         self.assertTrue(
