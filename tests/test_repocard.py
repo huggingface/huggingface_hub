@@ -333,7 +333,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
             metadata_update(self.repo_id, new_metadata, token=self.token, overwrite=False)
 
     def test_update_existing_field_without_overwrite(self):
-        new_datasets_data = {"datasets": "['test/test_dataset']"}
+        new_datasets_data = {"datasets": ["Open-Orca/OpenOrca"]}
         metadata_update(self.repo_id, new_datasets_data, token=self.token)
 
         with pytest.raises(
@@ -343,7 +343,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
                 " Set `overwrite=True` to overwrite existing metadata."
             ),
         ):
-            new_datasets_data = {"datasets": "['test/test_dataset_2']"}
+            new_datasets_data = {"datasets": ["HuggingFaceH4/no_robots"]}
             metadata_update(self.repo_id, new_datasets_data, token=self.token, overwrite=False)
 
     def test_update_new_result_existing_dataset(self):
