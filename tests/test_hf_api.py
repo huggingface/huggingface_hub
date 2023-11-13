@@ -1569,6 +1569,48 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert files is not None
         self._check_siblings_metadata(files)
 
+    def test_model_info_corrupted_model_index(self) -> None:
+        """Loading model info from a model with corrupted data card should still work.
+
+        Here we use a model with a "model-index" that is not an array. Git hook should prevent this from happening
+        on the server, but models uploaded before we implemented the check might have this issue.
+
+        Example data from https://huggingface.co/Waynehillsdev/Waynehills-STT-doogie-server.
+        """
+        with self.assertWarnsRegex(UserWarning, "Invalid model-index"):
+            model = ModelInfo(
+                **{
+                    "_id": "621ffdc036468d709f1751d8",
+                    "id": "Waynehillsdev/Waynehills-STT-doogie-server",
+                    "cardData": {
+                        "license": "apache-2.0",
+                        "tags": ["generated_from_trainer"],
+                        "model-index": {"name": "Waynehills-STT-doogie-server"},
+                    },
+                    "gitalyUid": "53c57f29a007fc728c968127061b7b740dcf2b1ad401d907f703b27658559413",
+                    "likes": 0,
+                    "private": False,
+                    "config": {"architectures": ["Wav2Vec2ForCTC"], "model_type": "wav2vec2"},
+                    "downloads": 1,
+                    "tags": [
+                        "transformers",
+                        "pytorch",
+                        "tensorboard",
+                        "wav2vec2",
+                        "automatic-speech-recognition",
+                        "generated_from_trainer",
+                        "license:apache-2.0",
+                        "endpoints_compatible",
+                        "region:us",
+                    ],
+                    "pipeline_tag": "automatic-speech-recognition",
+                    "createdAt": "2022-03-02T23:29:04.000Z",
+                    "modelId": "Waynehillsdev/Waynehills-STT-doogie-server",
+                    "siblings": None,
+                }
+            )
+            self.assertIsNone(model.card_data.eval_results)
+
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
         expected_files = [
