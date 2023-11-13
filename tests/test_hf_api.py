@@ -3128,6 +3128,7 @@ class ListGitRefsTest(unittest.TestCase):
         self.assertGreater(len(refs.branches), 0)
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
         self.assertEqual(main_branch.ref, "refs/heads/main")
+        self.assertIsNone(refs.pull_requests)
         # Can get info by revision
         self.api.repo_info("gpt2", revision=main_branch.target_commit)
 
@@ -3135,6 +3136,7 @@ class ListGitRefsTest(unittest.TestCase):
         refs = self.api.list_repo_refs("bigcode/admin", repo_type="dataset")
         self.assertGreater(len(refs.branches), 0)
         self.assertGreater(len(refs.converts), 0)
+        self.assertIsNone(refs.pull_requests)
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
         self.assertEqual(main_branch.ref, "refs/heads/main")
 
@@ -3147,6 +3149,11 @@ class ListGitRefsTest(unittest.TestCase):
             repo_type="dataset",
             revision=convert_branch.target_commit,
         )
+
+    def test_list_refs_with_prs(self) -> None:
+        refs = self.api.list_repo_refs("openchat/openchat_3.5", include_pull_requests=True)
+        self.assertGreater(len(refs.pull_requests), 1)
+        self.assertTrue(refs.pull_requests[0].ref.startswith("refs/pr/"))
 
 
 class ListGitCommitsTest(unittest.TestCase):
