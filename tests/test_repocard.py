@@ -41,7 +41,7 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import REGEX_YAML_BLOCK
 from huggingface_hub.repocard_data import CardData
-from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_jinja_available, logging
+from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_jinja_available
 
 from .testing_constants import (
     ENDPOINT_STAGING,
@@ -512,16 +512,11 @@ class TestMetadataUpdateOnMissingCard(unittest.TestCase):
         self._api.delete_repo(self._repo_id, repo_type="space")
 
 
-class TestCaseWithCapLog(unittest.TestCase):
+class TestCaseWithHfApi(unittest.TestCase):
     _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
-    @pytest.fixture(autouse=True)
-    def inject_fixtures(self, caplog):
-        """Assign pytest caplog as attribute so we can use captured log messages in tests below."""
-        self.caplog = caplog
 
-
-class RepoCardTest(TestCaseWithCapLog):
+class RepoCardTest(TestCaseWithHfApi):
     def test_load_repocard_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
@@ -618,12 +613,8 @@ class RepoCardTest(TestCaseWithCapLog):
     def test_repo_card_without_metadata(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_no_metadata.md"
 
-        with self.caplog.at_level(logging.WARNING):
+        with self.assertWarnsRegex(UserWarning, "Repo card metadata block was not found. Setting CardData to empty."):
             card = RepoCard(sample_path.read_text())
-        self.assertIn(
-            "Repo card metadata block was not found. Setting CardData to empty.",
-            self.caplog.text,
-        )
         self.assertEqual(card.data, CardData())
 
     def test_validate_repocard(self):
@@ -725,7 +716,7 @@ class TestRegexYamlBlock(unittest.TestCase):
         self.assertIsNone(REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---"))
 
 
-class ModelCardTest(TestCaseWithCapLog):
+class ModelCardTest(TestCaseWithHfApi):
     def test_model_card_with_invalid_model_index(self):
         """Test raise an error when loading a card that has invalid model-index."""
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
@@ -738,12 +729,8 @@ class ModelCardTest(TestCaseWithCapLog):
         Some information is lost.
         """
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
-        with self.caplog.at_level(logging.WARNING):
+        with self.assertWarnsRegex(UserWarning, "Invalid model-index. Not loading eval results into CardData."):
             card = ModelCard.load(sample_path, ignore_metadata_errors=True)
-        self.assertIn(
-            "Invalid model-index. Not loading eval results into CardData.",
-            self.caplog.text,
-        )
         self.assertIsNone(card.data.eval_results)
 
     def test_model_card_with_model_index(self):
@@ -828,7 +815,7 @@ class ModelCardTest(TestCaseWithCapLog):
         self.assertEqual(str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT)
 
 
-class DatasetCardTest(TestCaseWithCapLog):
+class DatasetCardTest(TestCaseWithHfApi):
     def test_load_datasetcard_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_datasetcard_simple.md"
         card = DatasetCard.load(sample_path)
@@ -919,7 +906,7 @@ class DatasetCardTest(TestCaseWithCapLog):
 
 
 @with_production_testing
-class SpaceCardTest(TestCaseWithCapLog):
+class SpaceCardTest(TestCaseWithHfApi):
     def test_load_spacecard_from_hub(self) -> None:
         card = SpaceCard.load("multimodalart/dreambooth-training")
         self.assertIsInstance(card, SpaceCard)
