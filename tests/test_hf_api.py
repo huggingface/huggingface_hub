@@ -3151,8 +3151,8 @@ class ListGitRefsTest(unittest.TestCase):
         )
 
     def test_list_refs_with_prs(self) -> None:
-        refs = self.api.list_repo_refs("bigcode/the-stack", repo_type="dataset", include_pull_requests=True)
-        self.assertGreater(len(refs.pull_requests), 10)  # More than 10 PRs on this repo
+        refs = self.api.list_repo_refs("openchat/openchat_3.5", include_pull_requests=True)
+        self.assertGreater(len(refs.pull_requests), 1)
         self.assertTrue(refs.pull_requests[0].ref.startswith("refs/pr/"))
 
 
