@@ -401,7 +401,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
-            if self.info(path, revision=resolved_path.revision)["type"] == "file":
+            if self.info(path, revision=resolved_path.revision, **kwargs)["type"] == "file":
                 path = path.replace(revision_in_path, "", 1) if not has_revision_in_path else path
                 out = {path: {}}
             else:
@@ -411,7 +411,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out = [o for o in out if o["type"] != "directory"]
             else:
                 # If `withdirs=True`, include the directory itself to be consistent with the spec
-                path_info = self.info(path, revision=resolved_path.revision)
+                path_info = self.info(path, revision=resolved_path.revision, **kwargs)
                 out = [path_info] + out if path_info["type"] == "directory" else out
             if not has_revision_in_path:
                 out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
