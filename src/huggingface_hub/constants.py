@@ -82,15 +82,16 @@ REPO_TYPES_MAPPING = {
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
-hf_cache_home = os.path.expanduser(
+HF_HOME = os.path.expanduser(
     os.getenv(
         "HF_HOME",
         os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
     )
 )
+hf_cache_home = HF_HOME # for backward compatibility. TODO: remove this in 1.0.0
 
-default_cache_path = os.path.join(hf_cache_home, "hub")
-default_assets_cache_path = os.path.join(hf_cache_home, "assets")
+default_cache_path = os.path.join(HF_HOME, "hub")
+default_assets_cache_path = os.path.join(HF_HOME, "assets")
 
 # Legacy env variables
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
@@ -109,7 +110,7 @@ HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") o
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
 # See https://github.com/huggingface/huggingface_hub/issues/1232
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
+HF_TOKEN_PATH = os.path.join(HF_HOME, "token")
 
 
 if _staging_mode:
