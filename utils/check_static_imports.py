@@ -80,8 +80,8 @@ def check_static_imports(update: bool) -> NoReturn:
             reordered_content_before_static_checks + IF_TYPE_CHECKING_LINE + "\n".join(static_imports) + "\n"
         )
         ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
         os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix", "--quiet"])
+        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
         expected_init_content = filepath.read_text()
 
     # If expected `__init__.py` content is different, test fails. If '--update-init-file'
