@@ -88,7 +88,7 @@ HF_HOME = os.path.expanduser(
         os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
     )
 )
-hf_cache_home = HF_HOME # for backward compatibility. TODO: remove this in 1.0.0
+hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
 
 default_cache_path = os.path.join(HF_HOME, "hub")
 default_assets_cache_path = os.path.join(HF_HOME, "assets")
