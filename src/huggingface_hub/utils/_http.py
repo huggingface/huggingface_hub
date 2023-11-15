@@ -25,7 +25,6 @@ from typing import Callable, Tuple, Type, Union
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
-from requests.exceptions import Timeout
 from requests.models import PreparedRequest
 
 from . import logging
@@ -173,7 +172,10 @@ def http_backoff(
     max_retries: int = 5,
     base_wait_time: float = 1,
     max_wait_time: float = 8,
-    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (Timeout, ConnectionError),
+    retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
+        requests.Timeout,
+        requests.ConnectionError,
+    ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
 ) -> Response:
@@ -200,9 +202,9 @@ def http_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(Timeout, ConnectionError,)`):
+        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `Timeout` and `ConnectionError`.
+            By default, retry on `requests.Timeout` and `requests.ConnectionError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
@@ -275,7 +277,7 @@ def http_backoff(
         except retry_on_exceptions as err:
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
-            if isinstance(err, ConnectionError):
+            if isinstance(err, requests.ConnectionError):
                 reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
 
             if nb_tries > max_retries:
