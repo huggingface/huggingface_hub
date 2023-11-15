@@ -73,7 +73,6 @@ jobs:
               sudo apt update
               sudo apt install -y graphviz
               pip install .[tensorflow]
-              pip install typing_extensions>=4.8.0
               ;;
 
           esac

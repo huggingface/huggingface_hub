@@ -92,13 +92,18 @@ def _create_model_card(
 ):
     """
     Creates a model card for the repository.
+
+    Do not overwrite an existing README.md file.
     """
+    readme_path = repo_dir / "README.md"
+    if readme_path.exists():
+        return
+
     hyperparameters = _create_hyperparameter_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     if metadata is None:
         metadata = {}
-    readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
     model_card: str = "---\n"
     model_card += yaml_dump(metadata, default_flow_style=False)
@@ -120,13 +125,7 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
         model_card += "\n</details>"
 
-    if os.path.exists(readme_path):
-        with open(readme_path, "r", encoding="utf8") as f:
-            readme = f.read()
-    else:
-        readme = model_card
-    with open(readme_path, "w", encoding="utf-8") as f:
-        f.write(readme)
+    readme_path.write_text(model_card)
 
 
 def save_pretrained_keras(
