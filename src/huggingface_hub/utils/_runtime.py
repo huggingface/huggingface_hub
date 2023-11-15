@@ -168,13 +168,15 @@ def get_pillow_version() -> str:
 def is_pydantic_available() -> bool:
     if not _is_available("pydantic"):
         return False
-    # For Pydantic, we add an extra check to test whether it is correctly installed. If pydantic 2.x is installed
-    # but typing_extensions<=4.5.0 is installed, then pydantic will fail to import. This should not happen when
+    # For Pydantic, we add an extra check to test whether it is correctly installed or not. If both pydantic 2.x and
+    # typing_extensions<=4.5.0 are installed, then pydantic will fail at import time. This should not happen when
     # it is installed with `pip install huggingface_hub[inference]` but it can happen when it is installed manually
     # by the user in an environment that we don't control.
     #
     # Usually we won't need to do this kind of check on optional dependencies. However, pydantic is a special case
-    # has it is automatically imported when doing `from huggingface_hub import ...` even if the user doesn't use it.
+    # as it is automatically imported when doing `from huggingface_hub import ...` even if the user doesn't use it.
+    #
+    # See https://github.com/huggingface/huggingface_hub/pull/1829 for more details.
     try:
         from pydantic import validator  # noqa: F401
     except ImportError:
