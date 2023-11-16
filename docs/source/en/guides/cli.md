@@ -195,7 +195,7 @@ The examples above show how to download from the latest commit on the main branc
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
 
-<Tip warning="true">
+<Tip warning={true}>
 
 Downloading to a local directory comes with some downsides. Please check out the limitations in the [Download](./download#download-files-to-local-folder) guide before using `--local-dir`.
 

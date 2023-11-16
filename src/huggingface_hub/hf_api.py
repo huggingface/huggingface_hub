@@ -378,6 +378,16 @@ class RepoSibling:
     """
     Contains basic information about a repo file inside a repo on the Hub.
 
+    <Tip>
+
+    All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
+    listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
+    information like file size, blob id or lfs details, you must request them specifically from one repo at a time
+    (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
+    retrieve these.
+
+    </Tip>
+
     Attributes:
         rfilename (str):
             file name, relative to the repo root.
@@ -487,6 +497,14 @@ class RepoFolder:
 class ModelInfo:
     """
     Contains information about a model on the Hub.
+
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing models
+    using [`list_models`] only a subset of the attributes are returned.
+
+    </Tip>
 
     Attributes:
         id (`str`):
@@ -625,6 +643,14 @@ class DatasetInfo:
     """
     Contains information about a dataset on the Hub.
 
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
+    using [`list_datasets`] only a subset of the attributes are returned.
+
+    </Tip>
+
     Attributes:
         id (`str`):
             ID of dataset.
@@ -722,6 +748,14 @@ class DatasetInfo:
 class SpaceInfo:
     """
     Contains information about a Space on the Hub.
+
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
+    using [`list_spaces`] only a subset of the attributes are returned.
+
+    </Tip>
 
     Attributes:
         id (`str`):
@@ -1341,7 +1375,7 @@ class HfApi:
 
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
-
+        ```
 
         Example usage with the `search` argument:
 
