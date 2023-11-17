@@ -97,6 +97,7 @@ def post_lfs_batch_info(
     token: Optional[str],
     repo_type: str,
     repo_id: str,
+    ref: Optional[str] = None,
     endpoint: Optional[str] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
@@ -115,6 +116,8 @@ def post_lfs_batch_info(
             by a `/`.
         token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
+        ref (`str`, *optional*):
+            The git ref to upload to.
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -131,21 +134,24 @@ def post_lfs_batch_info(
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
+    payload = {
+        "operation": "upload",
+        "transfers": ["basic", "multipart"],
+        "objects": [
+            {
+                "oid": upload.sha256.hex(),
+                "size": upload.size,
+            }
+            for upload in upload_infos
+        ],
+        "hash_algo": "sha256",
+    }
+    if ref is not None:
+        payload["ref"] = {"name": ref}
     resp = get_session().post(
         batch_url,
         headers=LFS_HEADERS,
-        json={
-            "operation": "upload",
-            "transfers": ["basic", "multipart"],
-            "objects": [
-                {
-                    "oid": upload.sha256.hex(),
-                    "size": upload.size,
-                }
-                for upload in upload_infos
-            ],
-            "hash_algo": "sha256",
-        },
+        json=payload,
         auth=HTTPBasicAuth(
             "access_token",
             get_token_to_send(token or True),  # type: ignore  # Token must be provided or retrieved
