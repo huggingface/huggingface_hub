@@ -314,7 +314,7 @@ def _upload_lfs_files(
     token: Optional[str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
-    ref: Optional[str] = None,
+    revision: Optional[str] = None,
 ):
     """
     Uploads the content of `additions` to the Hub using the large file storage protocol.
@@ -334,8 +334,8 @@ def _upload_lfs_files(
             An authentication token ( See https://huggingface.co/settings/tokens )
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
-        ref (`str`, *optional*):
-            The git ref to upload to.
+        revision (`str`, *optional*):
+            The git revision to upload to.
 
     Raises: `RuntimeError` if an upload failed for any reason
 
@@ -355,7 +355,7 @@ def _upload_lfs_files(
             token=token,
             repo_id=repo_id,
             repo_type=repo_type,
-            ref=ref,
+            revision=revision,
             endpoint=endpoint,
         )
 

@@ -97,7 +97,7 @@ def post_lfs_batch_info(
     token: Optional[str],
     repo_type: str,
     repo_id: str,
-    ref: Optional[str] = None,
+    revision: Optional[str] = None,
     endpoint: Optional[str] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
@@ -116,8 +116,8 @@ def post_lfs_batch_info(
             by a `/`.
         token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
-        ref (`str`, *optional*):
-            The git ref to upload to.
+        revision (`str`, *optional*):
+            The git revision to upload to.
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -146,8 +146,8 @@ def post_lfs_batch_info(
         ],
         "hash_algo": "sha256",
     }
-    if ref is not None:
-        payload["ref"] = {"name": ref}
+    if revision is not None:
+        payload["ref"] = {"name": revision}
     resp = get_session().post(
         batch_url,
         headers=LFS_HEADERS,
