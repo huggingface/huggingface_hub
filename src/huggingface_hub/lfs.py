@@ -134,7 +134,7 @@ def post_lfs_batch_info(
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    payload = {
+    payload: Dict = {
         "operation": "upload",
         "transfers": ["basic", "multipart"],
         "objects": [
