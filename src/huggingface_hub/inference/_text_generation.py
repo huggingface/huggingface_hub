@@ -33,7 +33,7 @@ from ..utils import is_pydantic_available
 
 
 if is_pydantic_available():
-    from pydantic import validator
+    from pydantic import validator, field_validator
     from pydantic.dataclasses import dataclass
 else:
     # No validation if Pydantic is not installed
@@ -118,7 +118,7 @@ class TextGenerationParameters:
     # Get decoder input token logprobs and ids
     decoder_input_details: bool = False
 
-    @validator("best_of")
+    @field_validator("best_of")
     def valid_best_of(cls, field_value, values):
         if field_value is not None:
             if field_value <= 0:
@@ -137,43 +137,43 @@ class TextGenerationParameters:
 
         return field_value
 
-    @validator("repetition_penalty")
+    @field_validator("repetition_penalty")
     def valid_repetition_penalty(cls, v):
         if v is not None and v <= 0:
             raise ValueError("`repetition_penalty` must be strictly positive")
         return v
 
-    @validator("seed")
+    @field_validator("seed")
     def valid_seed(cls, v):
         if v is not None and v < 0:
             raise ValueError("`seed` must be positive")
         return v
 
-    @validator("temperature")
+    @field_validator("temperature")
     def valid_temp(cls, v):
         if v is not None and v <= 0:
             raise ValueError("`temperature` must be strictly positive")
         return v
 
-    @validator("top_k")
+    @field_validator("top_k")
     def valid_top_k(cls, v):
         if v is not None and v <= 0:
             raise ValueError("`top_k` must be strictly positive")
         return v
 
-    @validator("top_p")
+    @field_validator("top_p")
     def valid_top_p(cls, v):
         if v is not None and (v <= 0 or v >= 1.0):
             raise ValueError("`top_p` must be > 0.0 and < 1.0")
         return v
 
-    @validator("truncate")
+    @field_validator("truncate")
     def valid_truncate(cls, v):
         if v is not None and v <= 0:
             raise ValueError("`truncate` must be strictly positive")
         return v
 
-    @validator("typical_p")
+    @field_validator("typical_p")
     def valid_typical_p(cls, v):
         if v is not None and (v <= 0 or v >= 1.0):
             raise ValueError("`typical_p` must be > 0.0 and < 1.0")
@@ -201,13 +201,13 @@ class TextGenerationRequest:
     # Whether to stream output tokens
     stream: bool = False
 
-    @validator("inputs")
+    @field_validator("inputs")
     def valid_input(cls, v):
         if not v:
             raise ValueError("`inputs` cannot be empty")
         return v
 
-    @validator("stream")
+    @field_validator("stream")
     def valid_best_of_stream(cls, field_value, values):
         parameters = values["parameters"]
         if parameters is not None and parameters.best_of is not None and parameters.best_of > 1 and field_value:
