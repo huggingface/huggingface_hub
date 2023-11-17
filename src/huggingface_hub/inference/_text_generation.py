@@ -33,7 +33,10 @@ from ..utils import is_pydantic_available
 
 
 if is_pydantic_available():
-    from pydantic import validator
+    try:
+        from pydantic import field_validator as validator
+    except ImportError:
+        from pydantic import validator
     from pydantic.dataclasses import dataclass
 else:
     # No validation if Pydantic is not installed
