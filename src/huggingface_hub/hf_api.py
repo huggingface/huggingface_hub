@@ -3965,10 +3965,10 @@ class HfApi:
             token=token or self.token,
             endpoint=self.endpoint,
             num_threads=num_threads,
-            # If `create_pr`, we don't want to check user permission on the revision as
-            # users with read permission should still be able to create PRs even if they
-            # don't have write permission on the target branch of the PR (i.e. `revision`)
-            revision=revision if not create_pr,
+            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+            # should still be able to create PRs even if they don't have write permission on the target branch of the
+            # PR (i.e. `revision`).
+            revision=revision if not create_pr else None,
         )
         for addition in new_lfs_additions:
             addition._is_uploaded = True
