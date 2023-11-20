@@ -3677,9 +3677,7 @@ class HfApi:
         logger.info(f"Multi-commits strategy with ID {strategy.id}.")
 
         # 2. Get or create a PR with this strategy ID
-        for discussion in self.get_repo_discussions(
-            repo_id=repo_id, repo_type=repo_type, token=token, discussion_type="pull_request"
-        ):
+        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
             # search for a draft PR with strategy ID
             if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
                 pr = self.get_discussion_details(
