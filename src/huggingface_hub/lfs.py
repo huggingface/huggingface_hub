@@ -24,6 +24,7 @@ from math import ceil
 from os.path import getsize
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
+from urllib.parse import unquote
 
 from requests.auth import HTTPBasicAuth
 
@@ -147,7 +148,7 @@ def post_lfs_batch_info(
         "hash_algo": "sha256",
     }
     if revision is not None:
-        payload["ref"] = {"name": revision}
+        payload["ref"] = {"name": unquote(revision)} # revision has been previously 'quoted'
     resp = get_session().post(
         batch_url,
         headers=LFS_HEADERS,
