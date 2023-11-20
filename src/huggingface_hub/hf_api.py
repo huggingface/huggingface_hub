@@ -3677,7 +3677,9 @@ class HfApi:
         logger.info(f"Multi-commits strategy with ID {strategy.id}.")
 
         # 2. Get or create a PR with this strategy ID
-        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token, discussion_type="pull_request"):
+        for discussion in self.get_repo_discussions(
+            repo_id=repo_id, repo_type=repo_type, token=token, discussion_type="pull_request"
+        ):
             # search for a draft PR with strategy ID
             if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
                 pr = self.get_discussion_details(
@@ -5254,7 +5256,7 @@ class HfApi:
             raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
-        query_dict = { }
+        query_dict = {}
         if discussion_type is not None:
             query_dict["type"] = discussion_type
         if discussion_status is not None:
@@ -5263,7 +5265,7 @@ class HfApi:
             query_dict["author"] = author
 
         def _fetch_discussion_page(page_index: int):
-            query_string = urlencode({ **query_dict, "page_index": page_index })
+            query_string = urlencode({**query_dict, "page_index": page_index})
             path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?{query_string}"
             resp = get_session().get(path, headers=headers)
             hf_raise_for_status(resp)
