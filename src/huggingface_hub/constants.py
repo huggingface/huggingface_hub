@@ -79,6 +79,8 @@ REPO_TYPES_MAPPING = {
     "models": REPO_TYPE_MODEL,
 }
 
+DISCUSSION_TYPES = ["all", "discussion", "pull_request"]
+DISCUSSION_STATUS = ["all", "open", "closed"]
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
