@@ -3494,7 +3494,7 @@ class HfApi:
             additions=additions,
             token=token,
             repo_type=repo_type,
-            revision=unquoted_revision, # first-class methods take unquoted revision
+            revision=unquoted_revision,  # first-class methods take unquoted revision
             create_pr=create_pr,
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users

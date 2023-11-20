@@ -148,7 +148,7 @@ def post_lfs_batch_info(
         "hash_algo": "sha256",
     }
     if revision is not None:
-        payload["ref"] = {"name": unquote(revision)} # revision has been previously 'quoted'
+        payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
     resp = get_session().post(
         batch_url,
         headers=LFS_HEADERS,
