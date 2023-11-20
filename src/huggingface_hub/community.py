@@ -115,9 +115,10 @@ class DiscussionWithDetails(Discussion):
             The `datetime` of creation of the Discussion / Pull Request.
         events (`list` of [`DiscussionEvent`])
             The list of [`DiscussionEvents`] in this Discussion or Pull Request.
-        conflicting_files (`list` of `str`, *optional*):
+        conflicting_files (`Union[List[str], bool, None]`, *optional*):
             A list of conflicting files if this is a Pull Request.
             `None` if `self.is_pull_request` is `False`.
+            `True` if there are conflicting files but the list can't be retrieved.
         target_branch (`str`, *optional*):
             The branch into which changes are to be merged if this is a
             Pull Request . `None`  if `self.is_pull_request` is `False`.
