@@ -3965,7 +3965,7 @@ class HfApi:
             token=token or self.token,
             endpoint=self.endpoint,
             num_threads=num_threads,
-            revision=revision,
+            revision=revision if not create_pr,
         )
         for addition in new_lfs_additions:
             addition._is_uploaded = True
