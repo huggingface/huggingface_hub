@@ -323,7 +323,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 # Get the parent directory if the common prefix itself is not a directory
                 common_path = (
                     common_prefix.rstrip("/")
-                    if common_prefix.endswith("/") or common_prefix == root_path
+                    if common_prefix.endswith("/") or common_prefix == root_path or common_prefix in (dirs_not_in_dircache + dirs_not_expanded)
                     else self._parent(common_prefix)
                 )
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
