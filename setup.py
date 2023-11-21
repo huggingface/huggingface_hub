@@ -92,7 +92,8 @@ extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 extras["dev"] = extras["all"]
 
 extras["docs"] = extras["all"] + [
-    "hf-doc-builder",
+    # CI builds documentation using doc builder from source
+    "hf-doc-builder @ git+https://github.com/huggingface/doc-builder@main",
     "watchdog",
 ]
 
