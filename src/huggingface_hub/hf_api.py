@@ -3463,7 +3463,8 @@ class HfApi:
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        unquoted_revision = revision or DEFAULT_REVISION
+        revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
@@ -3493,7 +3494,7 @@ class HfApi:
             additions=additions,
             token=token,
             repo_type=repo_type,
-            revision=revision,
+            revision=unquoted_revision,  # first-class methods take unquoted revision
             create_pr=create_pr,
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
@@ -3965,6 +3966,10 @@ class HfApi:
             token=token or self.token,
             endpoint=self.endpoint,
             num_threads=num_threads,
+            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+            # should still be able to create PRs even if they don't have write permission on the target branch of the
+            # PR (i.e. `revision`).
+            revision=revision if not create_pr else None,
         )
         for addition in new_lfs_additions:
             addition._is_uploaded = True
