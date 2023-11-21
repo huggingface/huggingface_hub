@@ -667,8 +667,9 @@ class DatasetInfo:
             Is the repo private.
         disabled (`bool`, *optional*):
             Is the repo disabled.
-        gated (`bool`, *optional*):
+        gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
+            If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset.
         likes (`int`):
