@@ -22,7 +22,7 @@
 # - added default values for all parameters (not needed in BaseModel but dataclasses yes)
 # - integrated in `huggingface_hub.InferenceClient``
 # - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
-
+import warnings
 from dataclasses import field
 from enum import Enum
 from typing import List, NoReturn, Optional
@@ -33,11 +33,21 @@ from ..utils import is_pydantic_available
 
 
 if is_pydantic_available():
-    try:
-        from pydantic import field_validator as validator
-    except ImportError:
-        from pydantic import validator  # type: ignore
+    from pydantic import validator as pydantic_validator
     from pydantic.dataclasses import dataclass
+
+    def validator(*args, **kwargs):
+        # Pydantic v1's `@validator` is deprecated in favor of `@field_validator`. In order to support both pydantic v1
+        # and v2 without changing the logic, we catch the warning message in pydantic v2 and ignore it. If we want to
+        # support pydantic v3 in the future, we will drop support for pydantic v1 and use `pydantic.field_validator`
+        # correctly.
+        #
+        # Related:
+        # - https://docs.pydantic.dev/latest/migration/#changes-to-validators
+        # - https://github.com/huggingface/huggingface_hub/pull/1837
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Pydantic V1 style `@validator` validators are deprecated.")
+            return pydantic_validator(*args, **kwargs)
 else:
     # No validation if Pydantic is not installed
     from dataclasses import dataclass  # type: ignore
