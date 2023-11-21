@@ -4,6 +4,7 @@ import tempfile
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import chain
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
@@ -323,7 +324,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 # Get the parent directory if the common prefix itself is not a directory
                 common_path = (
                     common_prefix.rstrip("/")
-                    if common_prefix.endswith("/") or common_prefix == root_path or common_prefix in (dirs_not_in_dircache + dirs_not_expanded)
+                    if common_prefix.endswith("/")
+                    or common_prefix == root_path
+                    or common_prefix in chain(dirs_not_in_dircache, dirs_not_expanded)
                     else self._parent(common_prefix)
                 )
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
