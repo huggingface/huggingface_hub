@@ -1985,13 +1985,10 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue(any(space.card_data for space in spaces))
 
     def test_list_spaces_author(self):
-        spaces = list(self._api.list_spaces(author="evaluate-metric"))
-        self.assertGreater(len(spaces), 10)
-        self.assertTrue(
-            set([space.id for space in spaces]).issuperset(
-                set(["evaluate-metric/trec_eval", "evaluate-metric/perplexity"])
-            )
-        )
+        spaces = list(self._api.list_spaces(author="julien-c"))
+        assert len(spaces) > 10
+        for space in spaces:
+            assert space.id.startswith("julien-c/")
 
     def test_list_spaces_search(self):
         spaces = list(self._api.list_spaces(search="wikipedia"))
