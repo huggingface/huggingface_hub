@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 
 
 FILENAME_T = str
@@ -25,7 +25,9 @@ class SafetensorsFileMetadata:
             metadata=data["__metadata__"],
             tensors={
                 key: TensorInfo(
-                    dtype=tensor["dtype"], shape=tensor["shape"], data_offsets=tuple(tensor["data_offsets"])
+                    dtype=tensor["dtype"],
+                    shape=tensor["shape"],
+                    data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
                 )
                 for key, tensor in data.items()
                 if key != "__metadata__"
@@ -35,7 +37,7 @@ class SafetensorsFileMetadata:
 
 @dataclass
 class SafetensorsRepoMetadata:
-    metadata: Dict
+    metadata: Optional[Dict]
     sharded: bool
     weight_map: Dict[TENSOR_NAME_T, FILENAME_T]  # tensor name -> filename
     files_metadata: Dict[FILENAME_T, SafetensorsFileMetadata]  # filename -> metadata
