@@ -6,7 +6,7 @@ for more information on Pull Requests, Discussions, and the community tab.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 from .constants import REPO_TYPE_MODEL
 from .utils import parse_datetime
@@ -136,7 +136,7 @@ class DiscussionWithDetails(Discussion):
     """
 
     events: List["DiscussionEvent"]
-    conflicting_files: Optional[List[str]]
+    conflicting_files: Union[List[str], bool, None]
     target_branch: Optional[str]
     merge_commit_oid: Optional[str]
     diff: Optional[str]
