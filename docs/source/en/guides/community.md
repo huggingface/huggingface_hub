@@ -25,7 +25,7 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 [...]
 ```
 
-`HfApi.get_repo_discussions` supports by author, type (Pull Request or Discussion) and status (`open` or `closed`):
+`HfApi.get_repo_discussions` supports filtering by author, type (Pull Request or Discussion) and status (`open` or `closed`):
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
