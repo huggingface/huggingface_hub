@@ -40,7 +40,7 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 from requests.exceptions import HTTPError
@@ -93,6 +93,8 @@ from .community import (
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
+    DISCUSSION_STATUS,
+    DISCUSSION_TYPES,
     ENDPOINT,
     INFERENCE_ENDPOINTS_ENDPOINT,
     REGEX_COMMIT_OID,
@@ -101,6 +103,8 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+    DiscussionStatusFilter,
+    DiscussionTypeFilter,
 )
 from .file_download import (
     get_hf_file_metadata,
@@ -5196,6 +5200,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
+        author: Optional[str] = None,
+        discussion_type: Optional[DiscussionTypeFilter] = None,
+        discussion_status: Optional[DiscussionStatusFilter] = None,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> Iterator[Discussion]:
@@ -5206,6 +5213,18 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
+            author (`str`, *optional*):
+                Pass a value to filter by discussion author. `None` means no filter.
+                Default is `None`.
+            discussion_type (`str`, *optional*):
+                Set to `"pull_request"` to fetch only pull requests, `"discussion"`
+                to fetch only discussions. Set to `"all"` or `None` to fetch both.
+                Default is `None`.
+            discussion_status (`str`, *optional*):
+                Set to `"open"` (respectively `"closed"`) to fetch only open
+                (respectively closed) discussions. Set to `"all"` or `None`
+                to fetch both.
+                Default is `None`.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if fetching from a dataset or
                 space, `None` or `"model"` if fetching from a model. Default is
@@ -5236,11 +5255,23 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
+        if discussion_type is not None and discussion_type not in DISCUSSION_TYPES:
+            raise ValueError(f"Invalid discussion_type, must be one of {DISCUSSION_TYPES}")
+        if discussion_status is not None and discussion_status not in DISCUSSION_STATUS:
+            raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
+        query_dict: Dict[str, str] = {}
+        if discussion_type is not None:
+            query_dict["type"] = discussion_type
+        if discussion_status is not None:
+            query_dict["status"] = discussion_status
+        if author is not None:
+            query_dict["author"] = author
 
         def _fetch_discussion_page(page_index: int):
-            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
+            query_string = urlencode({**query_dict, "page_index": page_index})
+            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?{query_string}"
             resp = get_session().get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()

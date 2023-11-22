@@ -1,6 +1,7 @@
 import os
 import re
-from typing import Optional
+import typing
+from typing import Literal, Optional, Tuple
 
 
 # Possible values for env variables
@@ -79,6 +80,10 @@ REPO_TYPES_MAPPING = {
     "models": REPO_TYPE_MODEL,
 }
 
+DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
+DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
+DiscussionStatusFilter = Literal["all", "open", "closed"]
+DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
