@@ -92,6 +92,7 @@ from .community import (
 )
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
+    DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
     DISCUSSION_STATUS,
     DISCUSSION_TYPES,
@@ -106,10 +107,7 @@ from .constants import (
     DiscussionStatusFilter,
     DiscussionTypeFilter,
 )
-from .file_download import (
-    get_hf_file_metadata,
-    hf_hub_url,
-)
+from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
@@ -4612,6 +4610,48 @@ class HfApi:
             commit_description=commit_description,
             create_pr=create_pr,
             parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def get_hf_file_metadata(
+        self,
+        *,
+        url: str,
+        token: Union[bool, str, None] = None,
+        proxies: Optional[Dict] = None,
+        timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+    ) -> HfFileMetadata:
+        """Fetch metadata of a file versioned on the Hub for a given url.
+
+        Args:
+            url (`str`):
+                File url, for example returned by [`hf_hub_url`].
+            token (`str` or `bool`, *optional*):
+                A token to be used for the download.
+                    - If `True`, the token is read from the HuggingFace config
+                    folder.
+                    - If `False` or `None`, no token is provided.
+                    - If a string, it's used as the authentication token.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send metadata before giving up.
+
+        Returns:
+            A [`HfFileMetadata`] object containing metadata such as location, etag, size and commit_hash.
+        """
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
+        return get_hf_file_metadata(
+            url=url,
+            token=token,
+            proxies=proxies,
+            timeout=timeout,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            user_agent=self.user_agent,
         )
 
     @validate_hf_hub_args
