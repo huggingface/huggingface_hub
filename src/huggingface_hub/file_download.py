@@ -75,6 +75,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_method
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
@@ -345,6 +346,7 @@ def filename_to_url(
     return url, etag
 
 
+@_deprecate_method(version="0.22.0", message="Use `huggingface_hub.utils.build_hf_headers` instead.")
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
@@ -1249,6 +1251,9 @@ def hf_hub_download(
                     token=token,
                     proxies=proxies,
                     timeout=etag_timeout,
+                    library_name=library_name,
+                    library_version=library_version,
+                    user_agent=user_agent,
                 )
             except EntryNotFoundError as http_error:
                 # Cache the non-existence of the file and raise
@@ -1595,6 +1600,9 @@ def get_hf_file_metadata(
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
     timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1612,12 +1620,20 @@ def get_hf_file_metadata(
             `requests.request`.
         timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
+        library_name (`str`, *optional*):
+            The name of the library to which the object corresponds.
+        library_version (`str`, *optional*):
+            The version of the library.
+        user_agent (`dict`, `str`, *optional*):
+            The user-agent info in the form of a dictionary or a string.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
-    headers = build_hf_headers(token=token)
+    headers = build_hf_headers(
+        token=token, library_name=library_name, library_version=library_version, user_agent=user_agent
+    )
     headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
