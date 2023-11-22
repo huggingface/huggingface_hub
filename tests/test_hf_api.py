@@ -2424,6 +2424,43 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
+    def test_get_repo_discussion_by_type(self):
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="pull_request")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="discussion")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="all")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(
+            list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
+        )
+
+    def test_get_repo_discussion_by_author(self):
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, author="unknown")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [])
+
+    def test_get_repo_discussion_by_status(self):
+        self._api.change_discussion_status(self.repo_id, self.discussion.num, "closed")
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="open")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="closed")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="all")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(
+            list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
+        )
+
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
         self.assertEqual(retrieved, self.discussion)
