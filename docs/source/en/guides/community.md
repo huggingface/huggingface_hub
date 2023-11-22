@@ -14,7 +14,7 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
->>> for discussion in get_repo_discussions(repo_id="bigscience/bloom-1b3"):
+>>> for discussion in get_repo_discussions(repo_id="bigscience/bloom"):
 ...     print(f"{discussion.num} - {discussion.title}, pr: {discussion.is_pull_request}")
 
 # 11 - Add Flax weights, pr: True
@@ -23,6 +23,21 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 # 8 - Update tokenizer_config.json, pr: True
 # 7 - Slurm training script, pr: False
 [...]
+```
+
+`HfApi.get_repo_discussions` supports by author, type (Pull Request or Discussion) and status (`open` or `closed`):
+
+```python
+>>> from huggingface_hub import get_repo_discussions
+>>> for discussion in get_repo_discussions(
+...    repo_id="bigscience/bloom",
+...    author="ArthurZ",
+...    discussion_type="pull_request",
+...    discussion_status="open",
+... ):
+...     print(f"{discussion.num} - {discussion.title} by {discussion.author}, pr: {discussion.is_pull_request}")
+
+# 19 - Add Flax weights by ArthurZ, pr: True
 ```
 
 `HfApi.get_repo_discussions` returns a [generator](https://docs.python.org/3.7/howto/functional.html#generators) that yields
