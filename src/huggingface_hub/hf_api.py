@@ -5261,7 +5261,7 @@ class HfApi:
             raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
-        query_dict = {}
+        query_dict: Dict[str, str] = {}
         if discussion_type is not None:
             query_dict["type"] = discussion_type
         if discussion_status is not None:

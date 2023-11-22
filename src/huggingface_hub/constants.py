@@ -1,7 +1,7 @@
 import os
 import re
-from typing import Literal, Optional, Tuple
 import typing
+from typing import Literal, Optional, Tuple
 
 
 # Possible values for env variables
