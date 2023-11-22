@@ -103,6 +103,8 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SPACES_SDK_TYPES,
+    DiscussionStatusFilter,
+    DiscussionTypeFilter,
 )
 from .file_download import (
     get_hf_file_metadata,
@@ -5199,8 +5201,8 @@ class HfApi:
         repo_id: str,
         *,
         author: Optional[str] = None,
-        discussion_type: Optional[str] = None,
-        discussion_status: Optional[str] = None,
+        discussion_type: Optional[DiscussionTypeFilter] = None,
+        discussion_status: Optional[DiscussionStatusFilter] = None,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> Iterator[Discussion]:
