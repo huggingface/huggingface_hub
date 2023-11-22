@@ -902,10 +902,11 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     abs_src = os.path.abspath(os.path.expanduser(src))
     abs_dst = os.path.abspath(os.path.expanduser(dst))
+    abs_dst_folder = os.path.dirname(abs_dst)
 
     # Use relative_dst in priority
     try:
-        relative_src = os.path.relpath(abs_src, os.path.dirname(abs_dst))
+        relative_src = os.path.relpath(abs_src, abs_dst_folder)
     except ValueError:
         # Raised on Windows if src and dst are not on the same volume. This is the case when creating a symlink to a
         # local_dir instead of within the cache directory.
@@ -913,17 +914,16 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         relative_src = None
 
     try:
-        try:
-            commonpath = os.path.commonpath([abs_src, abs_dst])
-            _support_symlinks = are_symlinks_supported(os.path.dirname(commonpath))
-        except ValueError:
-            # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
-            # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
-            _support_symlinks = os.name != "nt"
+        commonpath = os.path.commonpath([abs_src, abs_dst])
+        _support_symlinks = are_symlinks_supported(commonpath)
+    except ValueError:
+        # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
+        # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
+        _support_symlinks = os.name != "nt"
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
-        _support_symlinks = are_symlinks_supported(os.path.dirname(abs_dst))
+        _support_symlinks = are_symlinks_supported(abs_dst_folder)
 
     if _support_symlinks:
         src_rel_or_abs = relative_src or abs_src
