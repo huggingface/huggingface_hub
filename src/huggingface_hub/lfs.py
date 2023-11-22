@@ -24,6 +24,7 @@ from math import ceil
 from os.path import getsize
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
+from urllib.parse import unquote
 
 from requests.auth import HTTPBasicAuth
 
@@ -97,6 +98,7 @@ def post_lfs_batch_info(
     token: Optional[str],
     repo_type: str,
     repo_id: str,
+    revision: Optional[str] = None,
     endpoint: Optional[str] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
@@ -115,6 +117,8 @@ def post_lfs_batch_info(
             by a `/`.
         token (`str`, *optional*):
             An authentication token ( See https://huggingface.co/settings/tokens )
+        revision (`str`, *optional*):
+            The git revision to upload to.
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -131,21 +135,24 @@ def post_lfs_batch_info(
     if repo_type in REPO_TYPES_URL_PREFIXES:
         url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
+    payload: Dict = {
+        "operation": "upload",
+        "transfers": ["basic", "multipart"],
+        "objects": [
+            {
+                "oid": upload.sha256.hex(),
+                "size": upload.size,
+            }
+            for upload in upload_infos
+        ],
+        "hash_algo": "sha256",
+    }
+    if revision is not None:
+        payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
     resp = get_session().post(
         batch_url,
         headers=LFS_HEADERS,
-        json={
-            "operation": "upload",
-            "transfers": ["basic", "multipart"],
-            "objects": [
-                {
-                    "oid": upload.sha256.hex(),
-                    "size": upload.size,
-                }
-                for upload in upload_infos
-            ],
-            "hash_algo": "sha256",
-        },
+        json=payload,
         auth=HTTPBasicAuth(
             "access_token",
             get_token_to_send(token or True),  # type: ignore  # Token must be provided or retrieved
