@@ -33,6 +33,7 @@ extras["inference"] = [
     # On Python 3.8, Pydantic 2.x and tensorflow don't play well together
     # Let's limit pydantic to 1.x for now. Since Tensorflow 2.14, Python3.8 is not supported anyway so impact should be
     # limited. We still trigger some CIs on Python 3.8 so we need this workaround.
+    # NOTE: when relaxing constraint to support v3.x, make sure to adapt `src/huggingface_hub/inference/_text_generation.py`.
     "pydantic>1.1,<3.0; python_version>'3.8'",
     "pydantic>1.1,<2.0; python_version=='3.8'",
 ]
