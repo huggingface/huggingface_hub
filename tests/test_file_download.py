@@ -391,7 +391,10 @@ class CachedDownloadTests(unittest.TestCase):
 
     def test_hf_hub_download_with_user_agent(self):
         """
-        Regression test for #1852.
+        Check that user agent is correctly sent to the HEAD call when downloading a file.
+
+        Regression test for #1854.
+        See https://github.com/huggingface/huggingface_hub/pull/1854.
         """
 
         def _check_user_agent(headers: dict):
