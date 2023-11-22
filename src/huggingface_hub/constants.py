@@ -37,6 +37,11 @@ DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
 HF_TRANSFER_CONCURRENCY = 100
 
+# Constants for safetensors repos
+
+SAFETENSORS_SINGLE_FILE = "model.safetensors"
+SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
+
 # Git-related constants
 
 DEFAULT_REVISION = "main"

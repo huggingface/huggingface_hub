@@ -17,6 +17,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -102,6 +103,8 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
+    SAFETENSORS_INDEX_FILE,
+    SAFETENSORS_SINGLE_FILE,
     SPACES_SDK_TYPES,
     DiscussionStatusFilter,
     DiscussionTypeFilter,
@@ -115,6 +118,9 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     BadRequestError,
     HfFolder,
     HfHubHTTPError,
+    SafetensorsFileMetadata,
+    SafetensorsRepoMetadata,
+    TensorInfo,
     build_hf_headers,
     filter_repo_objects,
     hf_raise_for_status,
@@ -4924,6 +4930,148 @@ class HfApi:
             tqdm_class=tqdm_class,
         )
 
+    def get_safetensors_metadata(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> SafetensorsRepoMetadata:
+        """
+        Parse metadata for a safetensors repo on the Hub.
+
+        We first check if the repo has a single safetensors file or a sharded safetensors repo. If it's a single
+        safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
+        metadata from the index file and then parse the metadata from each shard.
+
+        To parse metadata from a single safetensors file, use [`get_safetensors_metadata`].
+
+        To learn more about safetensors metadata parsing, check out https://huggingface.co/docs/safetensors/metadata_parsing.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
+                model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
+                head of the `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            [`SafetensorsRepoMetadata`]: information related to safetensors repo.
+        """
+        filenames = self.list_repo_files(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+
+        if SAFETENSORS_SINGLE_FILE in filenames:
+            # Single safetensors file => non-sharded model
+            file_metadata = parse_safetensors_metadata(
+                repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            )
+            return SafetensorsRepoMetadata(
+                metadata=None,
+                sharded=False,
+                weight_map={tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
+                files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
+            )
+        elif SAFETENSORS_INDEX_FILE in filenames:
+            # Multiple safetensors files => sharded with index
+
+            # Fetch index
+            index_file = self.hf_hub_download(
+                repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            )
+            with open(index_file) as f:
+                index = json.load(f)
+
+            weight_map = index.get("weight_map", {})
+
+            # Fetch metadata per shard
+            # TODO: parallelize this
+            files_metadata = {
+                filename: parse_safetensors_metadata(
+                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                )
+                for filename in set(weight_map.values())
+            }
+
+            return SafetensorsRepoMetadata(
+                metadata=index.get("metadata", None),
+                sharded=True,
+                weight_map=weight_map,
+                files_metadata=files_metadata,
+            )
+        else:
+            # Not a safetensors repo
+            # TODO: custom exception
+            raise Exception(...)
+
+    def parse_safetensors_metadata(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> SafetensorsFileMetadata:
+        """
+        Parse metadata from a safetensors file on the Hub.
+
+        To parse metadata from all safetensors files in a repo at once, use [`get_safetensors_metadata`].
+
+        To learn more about safetensors metadata parsing, check out https://huggingface.co/docs/safetensors/metadata_parsing.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
+                model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
+                head of the `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            [`SafetensorsFileMetadata`]: information related to a safetensors file.
+        """
+        url = hf_hub_url(
+            repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
+        )
+        _headers = self._build_hf_headers(token=token)
+
+        # 1. Fetch first 100kb
+        # We assume that most files will have a metadata size < 100kb. We also assume that receiving a 100kb response
+        # is faster than making 2 GET requests. Therefore we always fetch the first 100kb to avoid the 2nd GET in most
+        # cases.
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        hf_raise_for_status(response)
+
+        # 2. Parse metadata size
+        metadata_size = struct.unpack("<Q", response.content[:8])[0]
+
+        # 3.a. Parse metadata from payload
+        if metadata_size <= 100000:
+            return SafetensorsFileMetadata.from_raw(json.loads(response.content[8 : 8 + metadata_size].decode()))
+
+        # 3.b. Request full metadata
+        response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+        hf_raise_for_status(response)
+        return SafetensorsFileMetadata.from_raw(response.json())
+
     @validate_hf_hub_args
     def create_branch(
         self,
@@ -7418,6 +7566,10 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Safetensors helpers
+get_safetensors_metadata = api.get_safetensors_metadata
+parse_safetensors_metadata = api.parse_safetensors_metadata
 
 # Background jobs
 run_as_future = api.run_as_future
