@@ -1563,12 +1563,12 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         """Test `create_branch` from a different revision than main HEAD."""
         # Create commit and remember initial/latest commit
         initial_commit = self._api.model_info(repo_url.repo_id).sha
-        self._api.create_commit(
+        commit = self._api.create_commit(
             repo_url.repo_id,
             operations=[CommitOperationAdd(path_in_repo="app.py", path_or_fileobj=b"content")],
             commit_message="test commit",
         )
-        latest_commit = self._api.model_info(repo_url.repo_id).sha
+        latest_commit = commit.oid
 
         # Create branches
         self._api.create_branch(repo_url.repo_id, branch="from-head")
