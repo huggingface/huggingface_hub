@@ -83,7 +83,12 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
-from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
+from ._safetensors import (
+    SafetensorsFileMetadata,
+    SafetensorsRepoMetadata,
+    TensorInfo,
+    NotASafetensorsRepoError,
+)
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._validators import (
     HFValidationError,

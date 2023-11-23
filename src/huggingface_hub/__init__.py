@@ -207,7 +207,7 @@ _SUBMOD_ATTRS = {
         "merge_pull_request",
         "model_info",
         "move_repo",
-        "parse_safetensors_metadata",
+        "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
@@ -545,7 +545,7 @@ if TYPE_CHECKING:  # pragma: no cover
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
-        parse_safetensors_metadata,  # noqa: F401
+        parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401

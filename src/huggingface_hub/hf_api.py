@@ -46,16 +46,7 @@ from urllib.parse import quote, urlencode
 import requests
 from requests.exceptions import HTTPError
 from tqdm.auto import tqdm as base_tqdm
-
-from huggingface_hub.utils import (
-    IGNORE_GIT_FOLDER_PATTERNS,
-    EntryNotFoundError,
-    LocalTokenNotFoundError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
-    experimental,
-    get_session,
-)
+from tqdm.contrib.concurrent import thread_map
 
 from ._commit_api import (
     CommitOperation,
@@ -115,20 +106,28 @@ from .file_download import (
 )
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
+    IGNORE_GIT_FOLDER_PATTERNS,
     BadRequestError,
+    EntryNotFoundError,
     HfFolder,
     HfHubHTTPError,
+    LocalTokenNotFoundError,
+    NotASafetensorsRepoError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
     SafetensorsFileMetadata,
     SafetensorsRepoMetadata,
-    TensorInfo,
     build_hf_headers,
+    experimental,
     filter_repo_objects,
+    get_session,
     hf_raise_for_status,
     logging,
     paginate,
     parse_datetime,
     validate_hf_hub_args,
 )
+from .utils import tqdm as hf_tqdm
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -4947,7 +4946,7 @@ class HfApi:
 
         To parse metadata from a single safetensors file, use [`get_safetensors_metadata`].
 
-        To learn more about safetensors metadata parsing, check out https://huggingface.co/docs/safetensors/metadata_parsing.
+        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
         Args:
             repo_id (`str`):
@@ -4967,12 +4966,43 @@ class HfApi:
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
+
+        Raises:
+            [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+            `model.safetensors` or a `model.safetensors.index.json` file.
+
+        Example:
+            ```py
+            # Parse repo with single weights file
+            >>> metadata = get_safetensors_metadata("bigscience/bloomz-560m")
+            >>> metadata
+            SafetensorsRepoMetadata(
+                metadata=None,
+                sharded=False,
+                weight_map={'h.0.input_layernorm.bias': 'model.safetensors', ...},
+                files_metadata={'model.safetensors': SafetensorsFileMetadata(...)}
+            )
+            >>> metadata.files_metadata["model.safetensors"].metadata
+            {'format': 'pt'}
+
+            # Parse repo with sharded model
+            >>> metadata = get_safetensors_metadata("bigscience/bloom")
+            Parse safetensors files: 100%|██████████████████████████████████████████| 72/72 [00:12<00:00,  5.78it/s]
+            >>> metadata
+            SafetensorsRepoMetadata(metadata={'total_size': 352494542848}, sharded=True, weight_map={...}, files_metadata={...})
+            >>> len(metadata.files_metadata)
+            72  # All safetensors files have been fetched
+
+            # Parse repo with sharded model
+            >>> get_safetensors_metadata("runwayml/stable-diffusion-v1-5")
+            NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
+            ```
         """
         filenames = self.list_repo_files(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
 
         if SAFETENSORS_SINGLE_FILE in filenames:
             # Single safetensors file => non-sharded model
-            file_metadata = parse_safetensors_metadata(
+            file_metadata = parse_safetensors_file_metadata(
                 repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
             )
             return SafetensorsRepoMetadata(
@@ -4994,13 +5024,19 @@ class HfApi:
             weight_map = index.get("weight_map", {})
 
             # Fetch metadata per shard
-            # TODO: parallelize this
-            files_metadata = {
-                filename: parse_safetensors_metadata(
+            files_metadata = {}
+
+            def _parse(filename: str) -> None:
+                files_metadata[filename] = parse_safetensors_file_metadata(
                     repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
                 )
-                for filename in set(weight_map.values())
-            }
+
+            thread_map(
+                _parse,
+                set(weight_map.values()),
+                desc="Parse safetensors files",
+                tqdm_class=hf_tqdm,
+            )
 
             return SafetensorsRepoMetadata(
                 metadata=index.get("metadata", None),
@@ -5010,10 +5046,11 @@ class HfApi:
             )
         else:
             # Not a safetensors repo
-            # TODO: custom exception
-            raise Exception(...)
+            raise NotASafetensorsRepoError(
+                f"'{repo_id}' is not a safetensors repo. Couldn't find '{SAFETENSORS_INDEX_FILE}' or '{SAFETENSORS_SINGLE_FILE}' files."
+            )
 
-    def parse_safetensors_metadata(
+    def parse_safetensors_file_metadata(
         self,
         repo_id: str,
         filename: str,
@@ -5027,7 +5064,7 @@ class HfApi:
 
         To parse metadata from all safetensors files in a repo at once, use [`get_safetensors_metadata`].
 
-        To learn more about safetensors metadata parsing, check out https://huggingface.co/docs/safetensors/metadata_parsing.
+        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
         Args:
             repo_id (`str`):
@@ -7569,7 +7606,7 @@ get_full_repo_name = api.get_full_repo_name
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
-parse_safetensors_metadata = api.parse_safetensors_metadata
+parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
 run_as_future = api.run_as_future
