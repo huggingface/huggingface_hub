@@ -191,6 +191,7 @@ _SUBMOD_ATTRS = {
         "get_space_variables",
         "get_token_permission",
         "like",
+        "list_collections",
         "list_datasets",
         "list_files_info",
         "list_inference_endpoints",
@@ -527,6 +528,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
         like,  # noqa: F401
+        list_collections,
         list_datasets,  # noqa: F401
         list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
