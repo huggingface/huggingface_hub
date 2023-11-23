@@ -562,7 +562,7 @@ class ModelInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     downloads: int
     likes: int
@@ -689,7 +689,7 @@ class DatasetInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     downloads: int
     likes: int
@@ -806,7 +806,7 @@ class SpaceInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     host: Optional[str]
     subdomain: Optional[str]
