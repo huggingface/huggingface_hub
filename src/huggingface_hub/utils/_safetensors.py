@@ -7,6 +7,13 @@ TENSOR_NAME_T = str
 DTYPE_T = Literal["F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "BOOL"]
 
 
+class SafetensorsParsingError(Exception):
+    """Raised when failing to parse a safetensors file metadata.
+
+    This can be the case if the file is not a safetensors file or does not respect the specification.
+    """
+
+
 class NotASafetensorsRepoError(Exception):
     """Raised when a repo is not a Safetensors repo i.e. doesn't have either a `model.safetensors` or a
     `model.safetensors.index.json` file.
@@ -51,21 +58,6 @@ class SafetensorsFileMetadata:
 
     metadata: Dict
     tensors: Dict[TENSOR_NAME_T, TensorInfo]
-
-    @classmethod
-    def from_raw(cls, data: Dict) -> "SafetensorsFileMetadata":
-        return cls(
-            metadata=data["__metadata__"],
-            tensors={
-                key: TensorInfo(
-                    dtype=tensor["dtype"],
-                    shape=tensor["shape"],
-                    data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
-                )
-                for key, tensor in data.items()
-                if key != "__metadata__"
-            },
-        )
 
 
 @dataclass

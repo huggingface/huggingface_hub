@@ -95,6 +95,7 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
     SAFETENSORS_INDEX_FILE,
+    SAFETENSORS_MAX_HEADER_LENGTH,
     SAFETENSORS_SINGLE_FILE,
     SPACES_SDK_TYPES,
     DiscussionStatusFilter,
@@ -116,7 +117,9 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SafetensorsFileMetadata,
+    SafetensorsParsingError,
     SafetensorsRepoMetadata,
+    TensorInfo,
     build_hf_headers,
     experimental,
     filter_repo_objects,
@@ -4968,8 +4971,9 @@ class HfApi:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
 
         Raises:
-            [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
-            `model.safetensors` or a `model.safetensors.index.json` file.
+            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+              `model.safetensors` or a `model.safetensors.index.json` file.
+            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
 
         Example:
             ```py
@@ -5002,7 +5006,7 @@ class HfApi:
 
         if SAFETENSORS_SINGLE_FILE in filenames:
             # Single safetensors file => non-sharded model
-            file_metadata = parse_safetensors_file_metadata(
+            file_metadata = self.parse_safetensors_file_metadata(
                 repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
             )
             return SafetensorsRepoMetadata(
@@ -5027,7 +5031,7 @@ class HfApi:
             files_metadata = {}
 
             def _parse(filename: str) -> None:
-                files_metadata[filename] = parse_safetensors_file_metadata(
+                files_metadata[filename] = self.parse_safetensors_file_metadata(
                     repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
                 )
 
@@ -5084,6 +5088,11 @@ class HfApi:
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
+
+        Raises:
+            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+              `model.safetensors` or a `model.safetensors.index.json` file.
+            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
         """
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
@@ -5099,15 +5108,50 @@ class HfApi:
 
         # 2. Parse metadata size
         metadata_size = struct.unpack("<Q", response.content[:8])[0]
+        if metadata_size > SAFETENSORS_MAX_HEADER_LENGTH:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
+                f"{SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+            )
 
-        # 3.a. Parse metadata from payload
+        # 3.a. Get metadata from payload
         if metadata_size <= 100000:
-            return SafetensorsFileMetadata.from_raw(json.loads(response.content[8 : 8 + metadata_size].decode()))
+            metadata_as_bytes = response.content[8 : 8 + metadata_size]
+        else:  # 3.b. Request full metadata
+            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+            hf_raise_for_status(response)
+            metadata_as_bytes = response.content
 
-        # 3.b. Request full metadata
-        response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
-        hf_raise_for_status(response)
-        return SafetensorsFileMetadata.from_raw(response.json())
+        # 4. Parse json header
+        try:
+            metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
+        except json.JSONDecodeError as e:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
+                "correctly formatted safetensors file."
+            ) from e
+
+        try:
+            return SafetensorsFileMetadata(
+                metadata=metadata_as_dict["__metadata__"],
+                tensors={
+                    key: TensorInfo(
+                        dtype=tensor["dtype"],
+                        shape=tensor["shape"],
+                        data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
+                    )
+                    for key, tensor in metadata_as_dict.items()
+                    if key != "__metadata__"
+                },
+            )
+        except (KeyError, IndexError) as e:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
+                " formatted safetensors file."
+            ) from e
 
     @validate_hf_hub_args
     def create_branch(

@@ -87,6 +87,7 @@ from ._safetensors import (
     SafetensorsFileMetadata,
     SafetensorsRepoMetadata,
     TensorInfo,
+    SafetensorsParsingError,
     NotASafetensorsRepoError,
 )
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
