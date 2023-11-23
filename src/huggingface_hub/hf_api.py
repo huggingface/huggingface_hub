@@ -524,8 +524,9 @@ class ModelInfo:
             Is the repo private.
         disabled (`bool`, *optional*):
             Is the repo disabled.
-        gated (`bool`, *optional*):
+        gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
+            If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset.
         likes (`int`):
@@ -563,7 +564,7 @@ class ModelInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     downloads: int
     likes: int
@@ -669,8 +670,9 @@ class DatasetInfo:
             Is the repo private.
         disabled (`bool`, *optional*):
             Is the repo disabled.
-        gated (`bool`, *optional*):
+        gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
+            If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset.
         likes (`int`):
@@ -689,7 +691,7 @@ class DatasetInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     downloads: int
     likes: int
@@ -773,8 +775,9 @@ class SpaceInfo:
             Date of last commit to the repo.
         private (`bool`):
             Is the repo private.
-        gated (`bool`, *optional*):
+        gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
+            If so, whether there is manual or automatic approval.
         disabled (`bool`, *optional*):
             Is the Space disabled.
         host (`str`, *optional*):
@@ -805,7 +808,7 @@ class SpaceInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: bool
-    gated: Optional[bool]
+    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     host: Optional[str]
     subdomain: Optional[str]
