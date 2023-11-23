@@ -1,4 +1,7 @@
-from dataclasses import dataclass
+import functools
+import operator
+from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Tuple
 
 
@@ -33,11 +36,18 @@ class TensorInfo:
             The shape of the tensor.
         data_offsets (`Tuple[int, int]`):
             The offsets of the data in the file as a tuple `[BEGIN, END]`.
+        parameter_count (`int`):
+            The number of parameters in the tensor.
     """
 
     dtype: DTYPE_T
     shape: List[int]
     data_offsets: Tuple[int, int]
+    parameter_count: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        # Taken from https://stackoverflow.com/a/13840436
+        self.parameter_count = functools.reduce(operator.mul, self.shape)
 
 
 @dataclass
@@ -54,10 +64,20 @@ class SafetensorsFileMetadata:
         tensors (`Dict[str, TensorInfo]`):
             A map of all tensors. Keys are tensor names and values are information about the corresponding tensor, as a
             [`TensorInfo`] object.
+        parameter_count (`Dict[str, int]`):
+            A map of the number of parameters per data type. Keys are data types and values are the number of parameters
+            of that data type.
     """
 
     metadata: Dict
     tensors: Dict[TENSOR_NAME_T, TensorInfo]
+    parameter_count: Dict[DTYPE_T, int] = field(init=False)
+
+    def __post_init__(self) -> None:
+        parameter_count: Dict[DTYPE_T, int] = defaultdict(int)
+        for tensor in self.tensors.values():
+            parameter_count[tensor.dtype] += tensor.parameter_count
+        self.parameter_count = dict(parameter_count)
 
 
 @dataclass
@@ -82,9 +102,20 @@ class SafetensorsRepoMetadata:
         files_metadata (`Dict[str, SafetensorsFileMetadata]`):
             A map of all files metadata. Keys are filenames and values are the metadata of the corresponding file, as
             a [`SafetensorsFileMetadata`] object.
+        parameter_count (`Dict[str, int]`):
+            A map of the number of parameters per data type. Keys are data types and values are the number of parameters
+            of that data type.
     """
 
     metadata: Optional[Dict]
     sharded: bool
     weight_map: Dict[TENSOR_NAME_T, FILENAME_T]  # tensor name -> filename
     files_metadata: Dict[FILENAME_T, SafetensorsFileMetadata]  # filename -> metadata
+    parameter_count: Dict[DTYPE_T, int] = field(init=False)
+
+    def __post_init__(self) -> None:
+        parameter_count: Dict[DTYPE_T, int] = defaultdict(int)
+        for file_metadata in self.files_metadata.values():
+            for dtype, nb_parameters_ in file_metadata.parameter_count.items():
+                parameter_count[dtype] += nb_parameters_
+        self.parameter_count = dict(parameter_count)

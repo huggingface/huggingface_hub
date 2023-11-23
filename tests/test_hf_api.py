@@ -2069,6 +2069,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert isinstance(info.weight_map, dict)
         assert info.weight_map["h.0.input_layernorm.bias"] == "model.safetensors"
 
+        assert info.parameter_count == {"F16": 559214592}
+
     def test_get_safetensors_metadata_sharded_model(self) -> None:
         info = self._api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
         assert isinstance(info, SafetensorsRepoMetadata)
@@ -2079,6 +2081,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
         for file_metadata in info.files_metadata.values():
             assert isinstance(file_metadata, SafetensorsFileMetadata)
+
+        assert info.parameter_count == {"BF16": 7241732096}
 
     def test_not_a_safetensors_repo(self) -> None:
         with self.assertRaises(NotASafetensorsRepoError):
@@ -2099,6 +2103,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         tensor = info.tensors["model.layers.10.input_layernorm.weight"]
 
         assert tensor == TensorInfo(dtype="BF16", shape=[4096], data_offsets=(0, 8192))
+
+        assert tensor.parameter_count == 4096
+        assert info.parameter_count == {"BF16": 989888512}
 
     def test_not_a_safetensors_file(self) -> None:
         with self.assertRaises(SafetensorsParsingError):
