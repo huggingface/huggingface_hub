@@ -1579,6 +1579,7 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         self._api.create_branch(repo_url.repo_id, branch="from-head")
         self._api.create_branch(repo_url.repo_id, branch="from-initial", revision=initial_commit)
         self._api.create_branch(repo_url.repo_id, branch="from-branch", revision="from-initial")
+        time.sleep(0.2)  # hack: wait for server to update cache?
 
         # Checks branches start from expected commits
         self.assertEqual(
