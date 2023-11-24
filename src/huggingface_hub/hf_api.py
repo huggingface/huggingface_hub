@@ -6794,6 +6794,7 @@ class HfApi:
         max_replica: int = 1,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         namespace: Optional[str] = None,
         token: Optional[str] = None,
@@ -6827,6 +6828,9 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             namespace (`str`, *optional*):
@@ -6851,7 +6855,7 @@ class HfApi:
             ...     region="us-east-1",
             ...     type="protected",
             ...     instance_size="medium",
-            ...     instance_type="c6i"
+            ...     instance_type="c6i",
             ... )
             >>> endpoint
             InferenceEndpoint(name='my-endpoint-name', status="pending",...)
@@ -6860,9 +6864,39 @@ class HfApi:
             >>> endpoint.client.text_generation(...)
             "..."
             ```
+
+            ```python
+            # Start an Inference Endpoint running Zephyr-7b-beta on TGI
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> create_inference_endpoint(
+            ...     "aws-zephyr-7b-beta-0486",
+            ...     repository="HuggingFaceH4/zephyr-7b-beta",
+            ...     framework="pytorch",
+            ...     task="text-generation",
+            ...     accelerator="gpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="g5.2xlarge",
+            ...     custom_image={
+            ...         "health_route": "/health",
+            ...         "env": {
+            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...             "MAX_INPUT_LENGTH": "1024",
+            ...             "MAX_TOTAL_TOKENS": "1512",
+            ...             "MODEL_ID": "/repository"
+            ...         },
+            ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
+            ...     },
+            ... )
+
+            ```
         """
         namespace = namespace or self._get_namespace(token=token)
 
+        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
         payload: Dict = {
             "accountId": account_id,
             "compute": {
@@ -6879,7 +6913,7 @@ class HfApi:
                 "repository": repository,
                 "revision": revision,
                 "task": task,
-                "image": {"huggingface": {}},
+                "image": image,
             },
             "name": name,
             "provider": {
