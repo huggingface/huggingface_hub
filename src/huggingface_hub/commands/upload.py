@@ -53,7 +53,7 @@ from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import RevisionNotFoundError, disable_progress_bars, enable_progress_bars
 
 
 logger = logging.get_logger(__name__)
@@ -83,7 +83,10 @@ class UploadCommand(BaseHuggingfaceCLICommand):
         upload_parser.add_argument(
             "--revision",
             type=str,
-            help="An optional Git revision id which can be a branch name, a tag, or a commit hash.",
+            help=(
+                "An optional Git revision to push to. It can be a branch name or a PR reference. If revision does not"
+                " exist and `--create-pr` is not set, a branch will be automatically created."
+            ),
         )
         upload_parser.add_argument(
             "--private",
@@ -254,6 +257,15 @@ class UploadCommand(BaseHuggingfaceCLICommand):
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
             # ^ I'd rather not add CLI args to set it explicitly as we already have `huggingface-cli repo create` for that.
         ).repo_id
+
+        # Check if branch already exists and if not, create it
+        if self.revision is not None and not self.create_pr:
+            try:
+                self.api.repo_info(repo_id=repo_id, repo_type=self.repo_type, revision=self.revision)
+            except RevisionNotFoundError:
+                logger.info(f"Branch '{self.revision}' not found. Creating it...")
+                self.api.create_branch(repo_id=repo_id, repo_type=self.repo_type, branch=self.revision, exist_ok=True)
+                # ^ `exist_ok=True` to avoid race concurrency issues
 
         # File-based upload
         if os.path.isfile(self.local_path):
