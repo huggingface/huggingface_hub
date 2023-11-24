@@ -72,7 +72,7 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
 
     Tests are retried up to 3 times, waiting 5s between each try.
     """
-    NUMBER_OF_TRIES = 3
+    NUMBER_OF_TRIES = 5
     WAIT_TIME = 5
     HTTP_ERRORS = (502, 504)  # 502 Bad gateway (repo creation) or 504 Gateway timeout
 
