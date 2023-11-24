@@ -5149,9 +5149,10 @@ class HfApi:
         _headers = self._build_hf_headers(token=token)
 
         # 1. Fetch first 100kb
-        # We assume that most files will have a metadata size < 100kb. We also assume that receiving a 100kb response
-        # is faster than making 2 GET requests. Therefore we always fetch the first 100kb to avoid the 2nd GET in most
-        # cases.
+        # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
+        # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
+        # avoid the 2nd GET in most cases.
+        # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
         response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
         hf_raise_for_status(response)
 
