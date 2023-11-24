@@ -2330,7 +2330,9 @@ class HfApi:
 
         </Tip>
         """
-        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        url = hf_hub_url(
+            repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
+        )
         try:
             if token is None:
                 token = self.token
@@ -5045,10 +5047,9 @@ class HfApi:
             NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
             ```
         """
-        filenames = self.list_repo_files(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
-
-        if SAFETENSORS_SINGLE_FILE in filenames:
-            # Single safetensors file => non-sharded model
+        if self.file_exists(  # Single safetensors file => non-sharded model
+            repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+        ):
             file_metadata = self.parse_safetensors_file_metadata(
                 repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
             )
@@ -5058,9 +5059,9 @@ class HfApi:
                 weight_map={tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
                 files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
             )
-        elif SAFETENSORS_INDEX_FILE in filenames:
-            # Multiple safetensors files => sharded with index
-
+        elif self.file_exists(  # Multiple safetensors files => sharded with index
+            repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+        ):
             # Fetch index
             index_file = self.hf_hub_download(
                 repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
