@@ -108,6 +108,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     IGNORE_GIT_FOLDER_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfFolder,
     HfHubHTTPError,
     LocalTokenNotFoundError,
@@ -2278,6 +2279,8 @@ class HfApi:
         try:
             self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
+        except GatedRepoError:
+            return True  # we don't have access but it exists
         except RepositoryNotFoundError:
             return False
 
@@ -2338,6 +2341,8 @@ class HfApi:
                 token = self.token
             get_hf_file_metadata(url, token=token)
             return True
+        except GatedRepoError:  # raise specifically on gated repo
+            raise
         except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
             return False
 
