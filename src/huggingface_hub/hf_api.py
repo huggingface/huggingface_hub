@@ -5179,7 +5179,7 @@ class HfApi:
 
         try:
             return SafetensorsFileMetadata(
-                metadata=metadata_as_dict["__metadata__"],
+                metadata=metadata_as_dict.get("__metadata__", {}),
                 tensors={
                     key: TensorInfo(
                         dtype=tensor["dtype"],

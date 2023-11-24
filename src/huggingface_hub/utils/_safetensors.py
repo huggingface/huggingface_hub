@@ -47,7 +47,10 @@ class TensorInfo:
 
     def __post_init__(self) -> None:
         # Taken from https://stackoverflow.com/a/13840436
-        self.parameter_count = functools.reduce(operator.mul, self.shape)
+        try:
+            self.parameter_count = functools.reduce(operator.mul, self.shape)
+        except TypeError:
+            self.parameter_count = 1  # scalar value has no shape
 
 
 @dataclass
@@ -69,7 +72,7 @@ class SafetensorsFileMetadata:
             of that data type.
     """
 
-    metadata: Dict
+    metadata: Dict[str, str]
     tensors: Dict[TENSOR_NAME_T, TensorInfo]
     parameter_count: Dict[DTYPE_T, int] = field(init=False)
 
