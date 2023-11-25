@@ -70,9 +70,9 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
     """
     Retry test if failure because of unavailable service, bad gateway or race condition.
 
-    Tests are retried up to 3 times, waiting 5s between each try.
+    Tests are retried up to 10 times, waiting 5s between each try.
     """
-    NUMBER_OF_TRIES = 3
+    NUMBER_OF_TRIES = 10
     WAIT_TIME = 5
     HTTP_ERRORS = (502, 504)  # 502 Bad gateway (repo creation) or 504 Gateway timeout
 

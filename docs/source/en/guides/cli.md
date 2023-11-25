@@ -332,6 +332,8 @@ By default, files are uploaded to the `main` branch. If you want to upload files
 ...
 ```
 
+**Note:** if `revision` does not exist and `--create-pr` is not set, a branch will be created automatically from the `main` branch.
+
 ### Upload and create a PR
 
 If you don't have the permission to push to a repo, you must open a PR and let the authors know about the changes you want to make. This can be done by setting the `--create-pr` option:

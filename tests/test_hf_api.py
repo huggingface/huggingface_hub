@@ -71,9 +71,14 @@ from huggingface_hub.utils import (
     EntryNotFoundError,
     HfFolder,
     HfHubHTTPError,
+    NotASafetensorsRepoError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    SafetensorsFileMetadata,
+    SafetensorsParsingError,
+    SafetensorsRepoMetadata,
     SoftTemporaryDirectory,
+    TensorInfo,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
@@ -1564,12 +1569,12 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         """Test `create_branch` from a different revision than main HEAD."""
         # Create commit and remember initial/latest commit
         initial_commit = self._api.model_info(repo_url.repo_id).sha
-        self._api.create_commit(
+        commit = self._api.create_commit(
             repo_url.repo_id,
             operations=[CommitOperationAdd(path_in_repo="app.py", path_or_fileobj=b"content")],
             commit_message="test commit",
         )
-        latest_commit = self._api.model_info(repo_url.repo_id).sha
+        latest_commit = commit.oid
 
         # Create branches
         self._api.create_branch(repo_url.repo_id, branch="from-head")
@@ -2048,6 +2053,67 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsNotNone(paths_info[1].lfs)
         self.assertIsNotNone(paths_info[1].security)
         self.assertGreater(paths_info[1].size, 0)
+
+    def test_get_safetensors_metadata_single_file(self) -> None:
+        info = self._api.get_safetensors_metadata("bigscience/bloomz-560m")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+        assert not info.sharded
+        assert info.metadata is None  # Never populated on non-sharded models
+        assert len(info.files_metadata) == 1
+        assert "model.safetensors" in info.files_metadata
+
+        file_metadata = info.files_metadata["model.safetensors"]
+        assert isinstance(file_metadata, SafetensorsFileMetadata)
+        assert file_metadata.metadata == {"format": "pt"}
+        assert len(file_metadata.tensors) == 293
+
+        assert isinstance(info.weight_map, dict)
+        assert info.weight_map["h.0.input_layernorm.bias"] == "model.safetensors"
+
+        assert info.parameter_count == {"F16": 559214592}
+
+    def test_get_safetensors_metadata_sharded_model(self) -> None:
+        info = self._api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+        assert info.sharded
+        assert isinstance(info.metadata, dict)  # populated for sharded model
+        assert len(info.files_metadata) == 8
+
+        for file_metadata in info.files_metadata.values():
+            assert isinstance(file_metadata, SafetensorsFileMetadata)
+
+        assert info.parameter_count == {"BF16": 7241732096}
+
+    def test_not_a_safetensors_repo(self) -> None:
+        with self.assertRaises(NotASafetensorsRepoError):
+            self._api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata")
+
+    def test_get_safetensors_metadata_from_revision(self) -> None:
+        info = self._api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata", revision="refs/pr/1")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+    def test_parse_safetensors_metadata(self) -> None:
+        info = self._api.parse_safetensors_file_metadata(
+            "HuggingFaceH4/zephyr-7b-beta", "model-00003-of-00008.safetensors"
+        )
+        assert isinstance(info, SafetensorsFileMetadata)
+
+        assert info.metadata == {"format": "pt"}
+        assert isinstance(info.tensors, dict)
+        tensor = info.tensors["model.layers.10.input_layernorm.weight"]
+
+        assert tensor == TensorInfo(dtype="BF16", shape=[4096], data_offsets=(0, 8192))
+
+        assert tensor.parameter_count == 4096
+        assert info.parameter_count == {"BF16": 989888512}
+
+    def test_not_a_safetensors_file(self) -> None:
+        with self.assertRaises(SafetensorsParsingError):
+            self._api.parse_safetensors_file_metadata(
+                "HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin"
+            )
 
 
 class HfApiPrivateTest(HfApiCommonTest):

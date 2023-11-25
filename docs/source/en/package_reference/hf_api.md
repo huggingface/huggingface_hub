@@ -71,9 +71,21 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.RepoUrl
 
+### SafetensorsRepoMetadata
+
+[[autodoc]] huggingface_hub.utils.SafetensorsRepoMetadata
+
+### SafetensorsFileMetadata
+
+[[autodoc]] huggingface_hub.utils.SafetensorsFileMetadata
+
 ### SpaceInfo
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
+
+### TensorInfo
+
+[[autodoc]] huggingface_hub.utils.TensorInfo
 
 ### User
 

@@ -187,6 +187,7 @@ _SUBMOD_ATTRS = {
         "get_model_tags",
         "get_paths_info",
         "get_repo_discussions",
+        "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
@@ -207,6 +208,7 @@ _SUBMOD_ATTRS = {
         "merge_pull_request",
         "model_info",
         "move_repo",
+        "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
@@ -524,6 +526,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_model_tags,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
+        get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
@@ -544,6 +547,7 @@ if TYPE_CHECKING:  # pragma: no cover
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
+        parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
