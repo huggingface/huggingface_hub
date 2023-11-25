@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to manage Git credentials."""
+import re
 import subprocess
 from typing import List, Optional
 
@@ -38,16 +39,10 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         #       Example: `credential.https://huggingface.co.helper=store`
         #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
         for line in output.split("\n"):
-            if "credential.helper" in line:
-                if line.split("=")[-1]:
-                    value = line.split("=")[-1].split()[0]
-                else:
-                    value = line.split("=")[-1].strip()
-        return sorted(  # Sort for nice printing
-            {  # Might have some duplicates
-                value
-            }
-        )
+            return sorted(  # Sort for nice printing
+                # Might have some duplicates
+                re.findall(r"^\s*credential\.helper\s*=\s*(\w*)\s*$", line)
+            )
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
