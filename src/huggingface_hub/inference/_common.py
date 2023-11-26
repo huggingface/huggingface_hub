@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     AsyncIterable,
     BinaryIO,
     ContextManager,
@@ -37,7 +38,7 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
+from niquests import HTTPError
 
 from ..constants import ENDPOINT
 from ..utils import (
@@ -296,7 +297,7 @@ async def _async_stream_text_generation_response(
             yield output.token.text if not details else output
 
 
-async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
+async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncGenerator[bytes, None]:
     async for byte_payload in response.content:
         yield byte_payload
     await client.close()

@@ -18,8 +18,9 @@ from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
-import requests
+import niquests as requests
 from filelock import FileLock
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub import constants
 
@@ -410,8 +411,12 @@ def _request_wrapper(
 
         # If redirection, we redirect only relative paths.
         # This is useful in case of a renamed repository.
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
+        if response.status_code and 300 <= response.status_code <= 399:
+            parsed_target = urlparse(
+                response.headers["Location"]
+                if isinstance(response.headers["Location"], str)
+                else response.headers["Location"].decode("utf-8")
+            )
             if parsed_target.netloc == "":
                 # This means it is a relative 'location' headers, as allowed by RFC 7231.
                 # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
@@ -435,7 +440,7 @@ def http_get(
     *,
     proxies=None,
     resume_size: float = 0,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[CaseInsensitiveDict] = None,
     expected_size: Optional[int] = None,
     _nb_retries: int = 5,
 ):
@@ -463,7 +468,7 @@ def http_get(
                 )
 
     initial_headers = headers
-    headers = copy.deepcopy(headers) or {}
+    headers = copy.deepcopy(headers) or CaseInsensitiveDict()
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
 
@@ -724,8 +729,12 @@ def cached_download(
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             # Useful for lfs blobs that are stored on a CDN.
-            if 300 <= r.status_code <= 399:
-                url_to_download = r.headers["Location"]
+            if r.status_code and 300 <= r.status_code <= 399:
+                url_to_download = (
+                    r.headers["Location"]
+                    if isinstance(r.headers["Location"], str)
+                    else r.headers["Location"].decode("utf-8")
+                )
                 headers.pop("authorization", None)
                 expected_size = None  # redirected -> can't know the expected size
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
@@ -1257,7 +1266,9 @@ def hf_hub_download(
                 )
             except EntryNotFoundError as http_error:
                 # Cache the non-existence of the file and raise
-                commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                commit_hash = (
+                    http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT) if http_error.response else None
+                )
                 if commit_hash is not None and not legacy_cache_layout:
                     no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
                     no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)

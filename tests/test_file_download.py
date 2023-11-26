@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import Mock, patch
 
+import niquests as requests
 import pytest
-import requests
-from requests import Response
+from niquests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi

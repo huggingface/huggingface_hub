@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Callable, Optional, Type, TypeVar, Union
 from unittest.mock import Mock, patch
 
+import niquests as requests
 import pytest
-import requests
 
 from huggingface_hub.utils import is_gradio_available, logging
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
@@ -154,7 +154,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
     """
     import socket
 
-    from requests import request as online_request
+    from niquests import request as online_request
 
     def timeout_request(method, url, **kwargs):
         # Change the url to an invalid url so that the connection hangs
@@ -186,7 +186,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
                     yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
-        with patch("requests.request", timeout_request):
+        with patch("niquests.request", timeout_request):
             with patch("huggingface_hub.utils._http.get_session") as get_session_mock:
                 with patch("huggingface_hub.file_download.get_session") as get_session_mock:
                     get_session_mock().request = timeout_request

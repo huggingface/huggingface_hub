@@ -14,7 +14,7 @@
 import subprocess
 from argparse import _SubParsersAction
 
-from requests.exceptions import HTTPError
+from niquests.exceptions import HTTPError
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import (

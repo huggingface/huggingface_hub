@@ -17,8 +17,8 @@ import time
 import unittest
 from pathlib import Path
 
+import niquests as requests
 import pytest
-import requests
 
 from huggingface_hub import RepoUrl
 from huggingface_hub.hf_api import HfApi

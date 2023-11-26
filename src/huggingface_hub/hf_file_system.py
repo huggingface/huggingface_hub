@@ -619,7 +619,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         )
         r = http_backoff("GET", url, headers=headers)
         hf_raise_for_status(r)
-        return r.content
+        return r.content or b""
 
     def _initiate_upload(self) -> None:
         self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)

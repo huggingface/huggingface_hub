@@ -1,6 +1,6 @@
 from typing import Optional
 
-from requests import HTTPError, Response
+from niquests import HTTPError, Response
 
 from ..constants import INFERENCE_ENDPOINTS_ENDPOINT
 from ._fixes import JSONDecodeError
@@ -287,6 +287,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         elif (
             response.status_code == 401
+            and response.request
             and response.request.url is not None
             and "/api/collections" in response.request.url
         ):
@@ -296,6 +297,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         elif (
             response.status_code == 401
+            and response.request
             and response.request.url is not None
             and INFERENCE_ENDPOINTS_ENDPOINT in response.request.url
         ):

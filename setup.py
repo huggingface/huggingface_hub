@@ -14,7 +14,7 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    "requests",
+    "niquests",
     "tqdm>=4.42.1",
     "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
@@ -63,7 +63,6 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
         "gradio",  # to test webhooks
@@ -76,11 +75,9 @@ extras["testing"] = (
 extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
-    "types-requests",
     "types-simplejson",
     "types-toml",
     "types-tqdm",
-    "types-urllib3",
 ]
 
 extras["quality"] = [

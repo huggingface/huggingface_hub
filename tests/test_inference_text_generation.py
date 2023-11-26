@@ -7,8 +7,8 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+from niquests import HTTPError
 from pydantic import ValidationError
-from requests import HTTPError
 
 from huggingface_hub import InferenceClient
 from huggingface_hub.inference._common import _NON_TGI_SERVERS

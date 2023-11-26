@@ -26,6 +26,7 @@ from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     AsyncIterable,
     Dict,
     List,
@@ -35,7 +36,7 @@ from typing import (
     overload,
 )
 
-from requests.structures import CaseInsensitiveDict
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._common import (
@@ -150,7 +151,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]:
+    ) -> AsyncGenerator[bytes, None]:
         pass
 
     async def post(
@@ -161,7 +162,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: bool = False,
-    ) -> Union[bytes, AsyncIterable[bytes]]:
+    ) -> Union[bytes, AsyncGenerator[bytes, None]]:
         """
         Make a POST request to the inference server.
 

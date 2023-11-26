@@ -27,7 +27,7 @@ from dataclasses import field
 from enum import Enum
 from typing import List, NoReturn, Optional
 
-from requests import HTTPError
+from niquests import HTTPError
 
 from ..utils import is_pydantic_available
 
@@ -519,7 +519,9 @@ def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
 
     try:
         # Hacky way to retrieve payload in case of aiohttp error
-        payload = getattr(http_error, "response_error_payload", None) or http_error.response.json()
+        payload = getattr(http_error, "response_error_payload", None)
+        if payload is None:
+            payload = http_error.response.json() if http_error.response else {}
         error = payload.get("error")
         error_type = payload.get("error_type")
     except Exception:  # no payload

@@ -32,9 +32,9 @@ from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
+import niquests as requests
 import pytest
-import requests
-from requests.exceptions import HTTPError
+from niquests.exceptions import HTTPError
 
 import huggingface_hub.lfs
 from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage

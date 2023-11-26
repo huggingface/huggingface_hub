@@ -143,7 +143,7 @@ def _add_imports(code: str) -> str:
         repl=(
             r"\1"
             + "from .._common import _async_yield_from, _import_aiohttp\n"
-            + "from typing import AsyncIterable\n"
+            + "from typing import AsyncIterable, AsyncGenerator\n"
             + "import asyncio\n"
         ),
         string=code,
@@ -247,7 +247,7 @@ def _make_post_async(code: str) -> str:
         flags=re.DOTALL | re.VERBOSE,
     )
     # Update `post`'s type annotations
-    return code.replace("Iterable[bytes]", "AsyncIterable[bytes]", 2)
+    return code.replace("Generator[bytes, None, None]", "AsyncGenerator[bytes, None]", 2)
 
 
 def _rename_HTTPError_to_ClientResponseError_in_docstring(code: str) -> str:

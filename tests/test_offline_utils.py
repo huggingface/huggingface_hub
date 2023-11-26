@@ -1,7 +1,7 @@
 from io import BytesIO
 
+import niquests as requests
 import pytest
-import requests
 
 from huggingface_hub.file_download import http_get
 

@@ -41,6 +41,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
+    Generator,
     Iterable,
     List,
     Literal,
@@ -49,8 +50,8 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
-from requests.structures import CaseInsensitiveDict
+from niquests import HTTPError
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._common import (
@@ -166,7 +167,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[True] = ...,
-    ) -> Iterable[bytes]:
+    ) -> Generator[bytes, None, None]:
         pass
 
     def post(
@@ -177,7 +178,7 @@ class InferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: bool = False,
-    ) -> Union[bytes, Iterable[bytes]]:
+    ) -> Union[bytes, Generator[bytes, None, None]]:
         """
         Make a POST request to the inference server.
 
@@ -238,13 +239,13 @@ class InferenceClient:
 
             try:
                 hf_raise_for_status(response)
-                return response.iter_lines() if stream else response.content
+                return response.iter_lines() if stream else (response.content or b"")
             except HTTPError as error:
-                if error.response.status_code == 422 and task is not None:
+                if error.response is not None and error.response.status_code == 422 and task is not None:
                     error.args = (
                         f"{error.args[0]}\nMake sure '{task}' task is supported by the model.",
                     ) + error.args[1:]
-                if error.response.status_code == 503:
+                if error.response is not None and error.response.status_code == 503:
                     # If Model is unavailable, either raise a TimeoutError...
                     if timeout is not None and time.time() - t0 > timeout:
                         raise InferenceTimeoutError(

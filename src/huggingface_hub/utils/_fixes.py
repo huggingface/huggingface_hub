@@ -2,7 +2,7 @@
 # This allows us to support older requests for users
 # More information: https://github.com/psf/requests/pull/5856
 try:
-    from requests import JSONDecodeError  # type: ignore  # noqa: F401
+    from niquests import JSONDecodeError  # type: ignore  # noqa: F401
 except ImportError:
     try:
         from simplejson import JSONDecodeError  # type: ignore # noqa: F401

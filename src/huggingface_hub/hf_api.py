@@ -43,8 +43,9 @@ from typing import (
 )
 from urllib.parse import quote, urlencode
 
-import requests
-from requests.exceptions import HTTPError
+import niquests as requests
+from niquests.exceptions import HTTPError
+from niquests.structures import CaseInsensitiveDict
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -2034,9 +2035,9 @@ class HfApi:
         )
         params = {}
         if securityStatus:
-            params["securityStatus"] = True
+            params["securityStatus"] = "True"
         if files_metadata:
-            params["blobs"] = True
+            params["blobs"] = "True"
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         data = r.json()
@@ -2098,7 +2099,7 @@ class HfApi:
         )
         params = {}
         if files_metadata:
-            params["blobs"] = True
+            params["blobs"] = "True"
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2161,7 +2162,7 @@ class HfApi:
         )
         params = {}
         if files_metadata:
-            params["blobs"] = True
+            params["blobs"] = "True"
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2750,7 +2751,7 @@ class HfApi:
         response = get_session().get(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
             headers=self._build_hf_headers(token=token),
-            params={"include_prs": 1} if include_pull_requests else {},
+            params={"include_prs": "1"} if include_pull_requests else {},
         )
         hf_raise_for_status(response)
         data = response.json()
@@ -3117,7 +3118,11 @@ class HfApi:
 
         while True:
             r = get_session().post(path, headers=headers, json=json)
-            if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
+            if (
+                r.status_code == 409
+                and r.text is not None
+                and "Cannot create repo: another conflicting operation is in progress" in r.text
+            ):
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
                 # tests. To avoid any inconvenience, we retry to create the repo for this specific error.
@@ -3131,10 +3136,10 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if exist_ok and err.response.status_code == 409:
+            if exist_ok and err.response is not None and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
-            elif exist_ok and err.response.status_code == 403:
+            elif exist_ok and err.response is not None and err.response.status_code == 403:
                 # No write permission on the namespace but repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
@@ -3189,7 +3194,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token, is_write_action=True)
-        r = get_session().delete(path, headers=headers, json=json)
+        r = get_session().request("DELETE", path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -5186,6 +5191,12 @@ class HfApi:
         response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
         hf_raise_for_status(response)
 
+        if response.content is None:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): safetensors response has no content."
+            )
+
         # 2. Parse metadata size
         metadata_size = struct.unpack("<Q", response.content[:8])[0]
         if metadata_size > SAFETENSORS_MAX_HEADER_LENGTH:
@@ -5201,7 +5212,7 @@ class HfApi:
         else:  # 3.b. Request full metadata
             response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
             hf_raise_for_status(response)
-            metadata_as_bytes = response.content
+            metadata_as_bytes = response.content or b""
 
         # 4. Parse json header
         try:
@@ -5297,7 +5308,7 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if not (e.response.status_code == 409 and exist_ok):
+            if not (e.response is not None and e.response.status_code == 409 and exist_ok):
                 raise
 
     @validate_hf_hub_args
@@ -5417,7 +5428,7 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if not (e.response.status_code == 409 and exist_ok):
+            if not (e.response is not None and e.response.status_code == 409 and exist_ok):
                 raise
 
     @validate_hf_hub_args
@@ -6292,7 +6303,8 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -6368,7 +6380,8 @@ class HfApi:
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if not provided.
         """
-        r = get_session().delete(
+        r = get_session().request(
+            "DELETE",
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
@@ -6677,7 +6690,7 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if exist_ok and err.response.status_code == 409:
+            if exist_ok and err.response is not None and err.response.status_code == 409:
                 # Repo already exists and `exist_ok=True`
                 pass
             else:
@@ -6788,7 +6801,9 @@ class HfApi:
                 try:
                     endpoints += list_inference_endpoints(namespace=org["name"], token=token)
                 except HfHubHTTPError as error:
-                    if error.response.status_code == 401:  # Either no billing or user don't have access)
+                    if (
+                        error.response is not None and error.response.status_code == 401
+                    ):  # Either no billing or user don't have access)
                         logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
                     pass
 
@@ -7375,7 +7390,7 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if exists_ok and err.response.status_code == 409:
+            if exists_ok and err.response is not None and err.response.status_code == 409:
                 # Collection already exists and `exists_ok=True`
                 slug = r.json()["slug"]
                 return self.get_collection(slug, token=token)
@@ -7480,7 +7495,7 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if missing_ok and err.response.status_code == 404:
+            if missing_ok and err.response is not None and err.response.status_code == 404:
                 # Collection doesn't exists and `missing_ok=True`
                 return
             else:
@@ -7549,7 +7564,7 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if exists_ok and err.response.status_code == 409:
+            if exists_ok and err.response is not None and err.response.status_code == 409:
                 # Item already exists and `exists_ok=True`
                 return self.get_collection(collection_slug, token=token)
             else:
@@ -7649,7 +7664,7 @@ class HfApi:
         try:
             hf_raise_for_status(r)
         except HTTPError as err:
-            if missing_ok and err.response.status_code == 404:
+            if missing_ok and err.response is not None and err.response.status_code == 404:
                 # Item already deleted and `missing_ok=True`
                 return
             else:
@@ -7662,7 +7677,7 @@ class HfApi:
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
-    ) -> Dict[str, str]:
+    ) -> CaseInsensitiveDict:
         """
         Alias for [`build_hf_headers`] that uses the token from [`HfApi`] client
         when `token` is not provided.

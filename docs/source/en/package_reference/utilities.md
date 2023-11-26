@@ -97,14 +97,14 @@ True
 
 In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
 `huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
-then use your settings. Under the hood, `huggingface_hub` uses `requests.Session` so you might want to refer to the
-[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the available
+then use your settings. Under the hood, `huggingface_hub` uses `niquests.Session` so you might want to refer to the
+[`niquests` documentation](https://niquests.readthedocs.io/en/latest/user/advanced) to learn more about the available
 parameters.
 
-Since `requests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
+Since `niquests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
 Using sessions allows us to keep the connection open between HTTP calls and ultimately save time. If you are
 integrating `huggingface_hub` in a third-party library and wants to make a custom call to the Hub, use [`get_session`]
-to get a Session configured by your users (i.e. replace any `requests.get(...)` call by `get_session().get(...)`).
+to get a Session configured by your users (i.e. replace any `niquests.get(...)` call by `get_session().get(...)`).
 
 [[autodoc]] configure_http_backend
 
@@ -114,19 +114,19 @@ to get a Session configured by your users (i.e. replace any `requests.get(...)` 
 ## Handle HTTP errors
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
-`requests` with additional information sent back by the server.
+`niquests` with additional information sent back by the server.
 
 ### Raise for status
 
 [`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
-request made to the Hub. It wraps the base `requests.raise_for_status` to provide
+request made to the Hub. It wraps the base `niquests.raise_for_status` to provide
 additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
 
 ```py
-import requests
+import niquests
 from huggingface_hub.utils import hf_raise_for_status, HfHubHTTPError
 
-response = requests.post(...)
+response = niquests.post(...)
 try:
     hf_raise_for_status(response)
 except HfHubHTTPError as e:

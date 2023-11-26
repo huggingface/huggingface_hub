@@ -22,10 +22,10 @@ from functools import lru_cache
 from http import HTTPStatus
 from typing import Callable, Tuple, Type, Union
 
-import requests
-from requests import Response
-from requests.adapters import HTTPAdapter
-from requests.models import PreparedRequest
+import niquests as requests
+from niquests import Response
+from niquests.adapters import HTTPAdapter
+from niquests.models import PreparedRequest
 
 from . import logging
 from ._typing import HTTP_METHOD_T
@@ -61,7 +61,7 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         try:
             return super().send(request, *args, **kwargs)
         except requests.RequestException as e:
-            request_id = request.headers.get(X_AMZN_TRACE_ID)
+            request_id = request.headers.get(X_AMZN_TRACE_ID) if request.headers else None
             if request_id is not None:
                 # Taken from https://stackoverflow.com/a/58270258
                 e.args = (*e.args, f"(Request ID: {request_id})")

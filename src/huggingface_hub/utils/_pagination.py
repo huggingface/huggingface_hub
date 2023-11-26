@@ -15,7 +15,8 @@
 """Contains utilities to handle pagination on Huggingface Hub."""
 from typing import Dict, Iterable, Optional
 
-import requests
+import niquests as requests
+from niquests.structures import CaseInsensitiveDict
 
 from . import get_session, hf_raise_for_status, logging
 
@@ -23,7 +24,7 @@ from . import get_session, hf_raise_for_status, logging
 logger = logging.get_logger(__name__)
 
 
-def paginate(path: str, params: Dict, headers: Dict) -> Iterable:
+def paginate(path: str, params: Dict, headers: CaseInsensitiveDict) -> Iterable:
     """Fetch a list of models/datasets/spaces and paginate through results.
 
     This is using the same "Link" header format as GitHub.

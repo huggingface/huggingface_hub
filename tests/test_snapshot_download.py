@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import requests
+import niquests as requests
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
 from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory

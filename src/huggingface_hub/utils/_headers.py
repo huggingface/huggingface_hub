@@ -15,6 +15,8 @@
 """Contains utilities to handle headers to send in calls to Huggingface Hub."""
 from typing import Dict, Optional, Union
 
+from niquests.structures import CaseInsensitiveDict
+
 from .. import constants
 from ._hf_folder import HfFolder
 from ._runtime import (
@@ -44,7 +46,7 @@ def build_hf_headers(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
-) -> Dict[str, str]:
+) -> CaseInsensitiveDict:
     """
     Build headers dictionary to send in a HF Hub call.
 
@@ -131,7 +133,7 @@ def build_hf_headers(
     }
     if token_to_send is not None:
         headers["authorization"] = f"Bearer {token_to_send}"
-    return headers
+    return CaseInsensitiveDict(headers)
 
 
 def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:

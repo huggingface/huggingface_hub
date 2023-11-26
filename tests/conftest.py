@@ -9,7 +9,7 @@ import pytest
 import requests
 from _pytest.fixtures import SubRequest
 from _pytest.python import Function as PytestFunction
-from requests.exceptions import HTTPError
+from niquests.exceptions import HTTPError
 
 import huggingface_hub
 from huggingface_hub import HfApi

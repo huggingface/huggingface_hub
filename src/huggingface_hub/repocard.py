@@ -4,8 +4,9 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Type, Union
 
-import requests
+import niquests
 import yaml
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import upload_file
@@ -213,12 +214,12 @@ class RepoCard:
             "repoType": repo_type,
             "content": str(self),
         }
-        headers = {"Accept": "text/plain"}
+        headers = CaseInsensitiveDict({"Accept": "text/plain"})
 
         try:
             r = get_session().post("https://huggingface.co/api/validate-yaml", body, headers=headers)
             r.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
+        except niquests.exceptions.HTTPError as exc:
             if r.status_code == 400:
                 raise ValueError(r.text)
             else:

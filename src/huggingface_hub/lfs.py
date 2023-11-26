@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
 from urllib.parse import unquote
 
-from requests.auth import HTTPBasicAuth
+from niquests.auth import HTTPBasicAuth
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
 from huggingface_hub.utils import get_session
@@ -44,10 +45,12 @@ OID_REGEX = re.compile(r"^[0-9a-f]{40}$")
 
 LFS_MULTIPART_UPLOAD_COMMAND = "lfs-multipart-upload"
 
-LFS_HEADERS = {
-    "Accept": "application/vnd.git-lfs+json",
-    "Content-Type": "application/vnd.git-lfs+json",
-}
+LFS_HEADERS = CaseInsensitiveDict(
+    {
+        "Accept": "application/vnd.git-lfs+json",
+        "Content-Type": "application/vnd.git-lfs+json",
+    }
+)
 
 
 @dataclass

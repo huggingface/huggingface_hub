@@ -206,6 +206,9 @@ class InferenceApi:
 
             from PIL import Image
 
+            if response.content is None:
+                raise RuntimeError("Trying to load Image while the response body is nonexistent.")
+
             return Image.open(io.BytesIO(response.content))
         elif content_type == "application/json":
             return response.json()

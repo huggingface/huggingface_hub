@@ -1,6 +1,7 @@
 import unittest
 
-from requests.models import PreparedRequest, Response
+from niquests.models import PreparedRequest, Response
+from niquests.structures import CaseInsensitiveDict
 
 from huggingface_hub.utils._errors import (
     BadRequestError,
@@ -15,7 +16,7 @@ from huggingface_hub.utils._errors import (
 class TestErrorUtils(unittest.TestCase):
     def test_hf_raise_for_status_repo_not_found(self) -> None:
         response = Response()
-        response.headers = {"X-Error-Code": "RepoNotFound", "X-Request-Id": 123}
+        response.headers = CaseInsensitiveDict({"X-Error-Code": "RepoNotFound", "X-Request-Id": 123})
         response.status_code = 404
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
             hf_raise_for_status(response)
@@ -25,7 +26,7 @@ class TestErrorUtils(unittest.TestCase):
 
     def test_hf_raise_for_status_repo_not_found_without_error_code(self) -> None:
         response = Response()
-        response.headers = {"X-Request-Id": 123}
+        response.headers = CaseInsensitiveDict({"X-Request-Id": 123})
         response.status_code = 401
         response.request = PreparedRequest()
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
@@ -36,7 +37,7 @@ class TestErrorUtils(unittest.TestCase):
 
     def test_hf_raise_for_status_revision_not_found(self) -> None:
         response = Response()
-        response.headers = {"X-Error-Code": "RevisionNotFound", "X-Request-Id": 123}
+        response.headers = CaseInsensitiveDict({"X-Error-Code": "RevisionNotFound", "X-Request-Id": 123})
         response.status_code = 404
         with self.assertRaisesRegex(RevisionNotFoundError, "Revision Not Found") as context:
             hf_raise_for_status(response)
@@ -46,7 +47,7 @@ class TestErrorUtils(unittest.TestCase):
 
     def test_hf_raise_for_status_entry_not_found(self) -> None:
         response = Response()
-        response.headers = {"X-Error-Code": "EntryNotFound", "X-Request-Id": 123}
+        response.headers = CaseInsensitiveDict({"X-Error-Code": "EntryNotFound", "X-Request-Id": 123})
         response.status_code = 404
         with self.assertRaisesRegex(EntryNotFoundError, "Entry Not Found") as context:
             hf_raise_for_status(response)
@@ -74,9 +75,11 @@ class TestErrorUtils(unittest.TestCase):
         """Test HTTPError is converted to HfHubHTTPError."""
         response = Response()
         response.status_code = 404
-        response.headers = {
-            "X-Request-Id": "test-id",
-        }
+        response.headers = CaseInsensitiveDict(
+            {
+                "X-Request-Id": "test-id",
+            }
+        )
         response.url = "test_URL"
         with self.assertRaisesRegex(HfHubHTTPError, "Request ID: test-id") as context:
             hf_raise_for_status(response)
@@ -104,14 +107,14 @@ class TestHfHubHTTPError(unittest.TestCase):
 
     def test_hf_hub_http_error_init_with_request_id(self) -> None:
         """Test request id is added to the message."""
-        self.response.headers = {"X-Request-Id": "test-id"}
+        self.response.headers = CaseInsensitiveDict({"X-Request-Id": "test-id"})
         error = HfHubHTTPError("this is a message", response=self.response)
         self.assertEqual(str(error), "this is a message (Request ID: test-id)")
         self.assertEqual(error.request_id, "test-id")
 
     def test_hf_hub_http_error_init_with_request_id_and_multiline_message(self) -> None:
         """Test request id is added to the end of the first line."""
-        self.response.headers = {"X-Request-Id": "test-id"}
+        self.response.headers = CaseInsensitiveDict({"X-Request-Id": "test-id"})
         error = HfHubHTTPError("this is a message\nthis is more details", response=self.response)
         self.assertEqual(str(error), "this is a message (Request ID: test-id)\nthis is more details")
 
@@ -123,7 +126,7 @@ class TestHfHubHTTPError(unittest.TestCase):
 
     def test_hf_hub_http_error_init_with_request_id_already_in_message(self) -> None:
         """Test request id is not duplicated in error message (case insensitive)"""
-        self.response.headers = {"X-Request-Id": "test-id"}
+        self.response.headers = CaseInsensitiveDict({"X-Request-Id": "test-id"})
         error = HfHubHTTPError("this is a message on request TEST-ID", response=self.response)
         self.assertEqual(str(error), "this is a message on request TEST-ID")
         self.assertEqual(error.request_id, "test-id")
@@ -131,6 +134,7 @@ class TestHfHubHTTPError(unittest.TestCase):
     def test_hf_hub_http_error_init_with_server_error(self) -> None:
         """Test server error is added to the error message."""
         self.response._content = b'{"error": "This is a message returned by the server"}'
+        self.response.headers["Content-Type"] = "application/json"
         error = HfHubHTTPError("this is a message", response=self.response)
         self.assertEqual(str(error), "this is a message\n\nThis is a message returned by the server")
         self.assertEqual(error.server_message, "This is a message returned by the server")
@@ -140,6 +144,7 @@ class TestHfHubHTTPError(unittest.TestCase):
     ) -> None:
         """Test server error is added to the error message after the details."""
         self.response._content = b'{"error": "This is a message returned by the server"}'
+        self.response.headers["Content-Type"] = "application/json"
         error = HfHubHTTPError("this is a message\n\nSome details.", response=self.response)
         self.assertEqual(
             str(error),
@@ -157,6 +162,7 @@ class TestHfHubHTTPError(unittest.TestCase):
             b'{"httpStatusCode": 400, "errors": [{"message": "this is error 1", "type":'
             b' "error"}, {"message": "this is error 2", "type": "error"}]}'
         )
+        self.response.headers["Content-Type"] = "application/json"
         error = HfHubHTTPError("this is a message\n\nSome details.", response=self.response)
         self.assertEqual(
             str(error),
@@ -171,6 +177,7 @@ class TestHfHubHTTPError(unittest.TestCase):
         Case insensitive.
         """
         self.response._content = b'{"error": "repo NOT found"}'
+        self.response.headers["Content-Type"] = "application/json"
         error = HfHubHTTPError(
             "this is a message\n\nRepo Not Found. and more\nand more",
             response=self.response,
@@ -203,7 +210,7 @@ class TestHfHubHTTPError(unittest.TestCase):
 
     def test_hf_hub_http_error_init_with_error_message_in_header(self) -> None:
         """Test server error from header is added to the error message."""
-        self.response.headers = {"X-Error-Message": "Error message from headers."}
+        self.response.headers = CaseInsensitiveDict({"X-Error-Message": "Error message from headers."})
         error = HfHubHTTPError("this is a message", response=self.response)
         self.assertEqual(str(error), "this is a message\n\nError message from headers.")
         self.assertEqual(error.server_message, "Error message from headers.")
@@ -213,7 +220,9 @@ class TestHfHubHTTPError(unittest.TestCase):
     ) -> None:
         """Test server error from header and from body are added to the error message."""
         self.response._content = b'{"error": "Error message from body."}'
-        self.response.headers = {"X-Error-Message": "Error message from headers."}
+        self.response.headers = CaseInsensitiveDict(
+            {"X-Error-Message": "Error message from headers.", "content-type": "application/json"}
+        )
         error = HfHubHTTPError("this is a message", response=self.response)
         self.assertEqual(
             str(error),
@@ -232,7 +241,9 @@ class TestHfHubHTTPError(unittest.TestCase):
         Should not duplicate it in the raised `HfHubHTTPError`.
         """
         self.response._content = b'{"error": "Error message duplicated in headers and body."}'
-        self.response.headers = {"X-Error-Message": "Error message duplicated in headers and body."}
+        self.response.headers = CaseInsensitiveDict(
+            {"X-Error-Message": "Error message duplicated in headers and body.", "content-type": "application/json"}
+        )
         error = HfHubHTTPError("this is a message", response=self.response)
         self.assertEqual(
             str(error),

@@ -7,8 +7,8 @@ from typing import Generator
 from unittest.mock import Mock, call, patch
 from uuid import UUID
 
-import requests
-from requests import ConnectTimeout, HTTPError
+import niquests as requests
+from niquests import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils._http import configure_http_backend, get_session, http_backoff
@@ -164,15 +164,15 @@ class TestConfigureSession(unittest.TestCase):
         self.assertIsNone(session.cert)
         self.assertEqual(session.max_redirects, 30)
         self.assertEqual(session.trust_env, True)
-        self.assertEqual(session.hooks, {"response": []})
+        self.assertEqual(session.hooks, {"pre_request": [], "pre_send": [], "on_upload": [], "response": []})
 
     def test_set_configuration(self) -> None:
         configure_http_backend(backend_factory=self._factory)
 
         # Check headers have been set correctly
         session = get_session()
-        self.assertNotEqual(session.headers, {"x-test-header": 4})
-        self.assertEqual(session.headers["x-test-header"], 4)
+        self.assertNotEqual(session.headers, {"x-test-header": "4"})
+        self.assertEqual(session.headers["x-test-header"], "4")
 
     def test_get_session_twice(self):
         session_1 = get_session()
@@ -187,7 +187,7 @@ class TestConfigureSession(unittest.TestCase):
         session_2 = get_session()
         self.assertIsNot(session_1, session_2)
         self.assertIsNone(session_1.headers.get("x-test-header"))
-        self.assertEqual(session_2.headers["x-test-header"], 4)
+        self.assertEqual(session_2.headers["x-test-header"], "4")
 
     def test_get_session_multiple_threads(self):
         N = 3
