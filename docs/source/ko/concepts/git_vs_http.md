@@ -2,61 +2,51 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Git vs HTTP paradigm
+# Git 대 HTTP 패러다임
 
-The `huggingface_hub` library is a library for interacting with the Hugging Face Hub, which is a 
-collections of git-based repositories (models, datasets or Spaces). There are two main
-ways to access the Hub using `huggingface_hub`.
+`huggingface_hub` 라이브러리는 Hugging Face Hub과 상호 작용하기 위한 라이브러리로, Git 기반의 저장소(모델, 데이터셋 또는 Spaces)로 구성된 Hub과 상호 작용하는 데 사용됩니다.
+`huggingface_hub`를 사용하여 Hub에 액세스하는 두 가지 주요 방법이 있습니다.
 
-The first approach, the so-called "git-based" approach, is led by the [`Repository`] class.
-This method uses a wrapper around the `git` command with additional functions specifically
-designed to interact with the Hub. The second option, called the "HTTP-based" approach,
-involves making HTTP requests using the [`HfApi`] client. Let's examine the pros and cons
-of each approach.
+첫 번째 방법은 "git 기반" 접근 방식이라고 불리며, [`Repository`] 클래스가 주도합니다.
+이 방법은 `git` 명령을 감싼 래퍼를 사용하며, 허브와 상호 작용하기 위해 특별히 설계된 추가 기능을 포함합니다.
+두 번째 옵션은 "HTTP 기반" 접근 방식이라고 불리며, [`HfApi`] 클라이언트를 사용하여 HTTP 요청을 수행합니다.
+각 방법의 장단점을 살펴보겠습니다.
 
-## Repository: the historical git-based approach
+## Repository: 역사적인 Git 기반 접근 방식
 
-At first, `huggingface_hub` was mostly built around the [`Repository`] class. It provides
-Python wrappers for common `git` commands such as `"git add"`, `"git commit"`, `"git push"`,
-`"git tag"`, `"git checkout"`, etc.
+먼저, `huggingface_hub`는 주로 [`Repository`] 클래스를 기반으로 구축되었습니다.
+이 방법은 `"git add"`, `"git commit"`, `"git push"`, `"git tag"`, `"git checkout"` 등과 같은 일반적인 `git` 명령에 대한 Python 래퍼를 제공합니다.
 
-The library also helps with setting credentials and tracking large files, which are often
-used in machine learning repositories. Additionally, the library allows you to execute its
-methods in the background, making it useful for uploading data during training.
+이 라이브러리는 머신러닝 저장소에서 자주 사용되는 큰 파일을 추적하고 자격 증명을 설정하는 데 도움이 됩니다.
+또한 이 라이브러리는 백그라운드에서 메서드를 실행할 수 있도록 해 훈련 중에 데이터를 업로드하는 데 유용합니다.
 
-The main advantage of using a [`Repository`] is that it allows you to maintain a local
-copy of the entire repository on your machine. This can also be a disadvantage as
-it requires you to constantly update and maintain this local copy. This is similar to
-traditional software development where each developer maintains their own local copy and
-pushes changes when working on a feature. However, in the context of machine learning,
-this may not always be necessary as users may only need to download weights for inference
-or convert weights from one format to another without the need to clone the entire
-repository.
+[`Repository`]를 사용하는 주요 이점은 로컬 머신에 전체 저장소의 로컬 복사본을 유지할 수 있다는 것입니다.
+이는 로컬 복사본을 지속적으로 업데이트 및 유지해야 한다는 단점이 될 수 있습니다.
+이는 각 개발자가 자체 로컬 복사본을 유지하고 기능을 개발할 때 변경 사항을 푸시하는 전통적인 소프트웨어 개발과 유사합니다.
+그러나 머신러닝의 맥락에서는 사용자가 전체 저장소를 복제하지 않고 추론을 위해 가중치를 다운로드하거나 가중치를 다른 형식으로 변환할 필요가 없을 수 있습니다.
 
 <Tip warning={true}>
 
-[`Repository`] is now deprecated in favor of the http-based alternatives. Given its large adoption in legacy code, the complete removal of [`Repository`] will only happen in release `v1.0`.
+[`Repository`]는 이제 더 이상 권장되지 않으며 HTTP 기반 대안을 사용하는 것이 좋습니다. [`Repository`]의 완전한 제거는 v1.0 릴리스에서만 발생합니다.
 
 </Tip>
 
-## HfApi: a flexible and convenient HTTP client
+## HfApi: 유연하고 편리한 HTTP 클라이언트
 
-The [`HfApi`] class was developed to provide an alternative to local git repositories, which
-can be cumbersome to maintain, especially when dealing with large models or datasets. The
-[`HfApi`] class offers the same functionality as git-based approaches, such as downloading
-and pushing files and creating branches and tags, but without the need for a local folder
-that needs to be kept in sync.
+[`HfApi`] 클래스는 특히 큰 모델이나 데이터셋을 처리할 때 유지하기 어려운 로컬 git 저장소 대안으로 개발되었습니다.
+[`HfApi`] 클래스는 로컬 폴더를 동기화할 필요 없이 다운로드 및 파일 푸시, 브랜치 및 태그 생성과 같은 git 기반 접근 방식과 동일한 기능을 제공합니다.
 
-In addition to the functionalities already provided by `git`, the [`HfApi`] class offers
-additional features, such as the ability to manage repos, download files using caching for
-efficient reuse, search the Hub for repos and metadata, access community features such as
-discussions, PRs, and comments, and configure Spaces hardware and secrets.
+`git`이 제공하는 기능 외에도, [`HfApi`] 클래스는 효율적인 재사용을 위해 캐싱을 사용하여 파일을 다운로드하고 Hub에서 저장소 및 메타데이터를 검색하고 토론, PR 및 코멘트와 같은 커뮤니티 기능에 액세스하며 Spaces 하드웨어 및 시크릿을 구성하는 기능을 제공합니다.
 
-## What should I use ? And when ?
+## 무엇을 사용해야 하나요? 언제 사용하나요?
 
-Overall, the **HTTP-based approach is the recommended way to use** `huggingface_hub`
-in all cases. [`HfApi`] allows to pull and push changes, work with PRs, tags and branches, interact with discussions and much more. Since the `0.16` release, the http-based methods can also run in the background, which was the last major advantage of the [`Repository`] class.
+전반적으로, **HTTP 기반 접근 방식은 모든 경우에** `huggingface_hub`를 사용하는 것이 좋습니다.
+[`HfApi`]를 사용하면 변경 사항을 끌어오고 밀어넣고, PR, 태그 및 브랜치로 작업하고, 토론과 상호 작용하는 등의 작업을 할 수 있습니다.
+`0.16` 릴리스부터는 [`Repository`] 클래스의 마지막 주요 장점이었던 http 기반 메서드도 백그라운드에서 실행할 수 있습니다.
 
-However, not all git commands are available through [`HfApi`]. Some may never be implemented, but we are always trying to improve and close the gap. If you don't see your use case covered, please open [an issue on Github](https://github.com/huggingface/huggingface_hub)! We welcome feedback to help build the 🤗 ecosystem with and for our users.
+그러나 모든 git 명령이 [`HfApi`]를 통해 사용 가능한 것은 아닙니다. 일부는 구현되지 않을 수도 있지만, 저희는 항상 개선하고 격차를 줄이기 위해 노력하고 있습니다.
+사용 사례에 해당되지 않는 경우, [Github에서 이슈](https://github.com/huggingface/huggingface_hub)를 개설해 주세요!
+사용자와 함께, 사용자를 위한 🤗 생태계를 구축하는 데 도움이 되는 피드백을 환영합니다.
 
-This preference of the http-based [`HfApi`] over the git-based [`Repository`] does not mean that git versioning will disappear from the Hugging Face Hub anytime soon. It will always be possible to use `git` commands locally in workflows where it makes sense.
+git 기반 [`Repository`]보다 http 기반 [`HfApi`]를 선호한다고 해서 허깅페이스 허브에서 git 버전 관리가 곧 사라지는 것은 아닙니다.
+워크플로에서 로컬로 `git` 명령을 사용하는 것이 합당한 경우 언제든지 가능합니다.
