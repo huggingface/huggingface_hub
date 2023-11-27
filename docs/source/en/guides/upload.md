@@ -73,12 +73,15 @@ folder to. Depending on your repository type, you can optionally set the reposit
 ... )
 ```
 
-Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
-Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
-If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+By default, the `.gitignore` file will be taken into account to know which files should
+be committed or not. By default we check if a `.gitignore` file is present in a commit, and if not, we check if it exists on the Hub. If you want to force the upload no matter
+the `.gitignore` file, you can pass `respect_gitignore=False`. Please be aware that only
+a `.gitignore` file present at the root of the directory with be used. We do not check
+for `.gitignore` files in subdirectories.
 
-Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore` file is not taken into account.
-This means you must use `allow_patterns` and `ignore_patterns` to specify which files to upload instead.
+If you don't want to use an hardcoded `.gitignore` file, you can use the `allow_patterns` and `ignore_patterns` arguments to filter which files to upload. These parameters accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply.
+
+Beside the `.gitignore` file and allow/ignore patterns, any `.git/` folder present in any subdirectory will be ignored.
 
 ```py
 >>> api.upload_folder(

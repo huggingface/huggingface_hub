@@ -3332,6 +3332,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        respect_gitignore: bool = True,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo:
         ...
@@ -3350,6 +3351,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        respect_gitignore: bool = True,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]:
         ...
@@ -3369,6 +3371,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
+        respect_gitignore: bool = True,
         run_as_future: bool = False,
     ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
@@ -3447,6 +3450,8 @@ class HfApi:
                 is `True`, the pull request will be created from `parent_commit`. Specifying `parent_commit`
                 ensures the repo has not changed before committing the changes, and can be especially useful
                 if the repo is updated / committed to concurrently.
+            respect_gitignore (`bool`, *optional*):
+                Whether to respect the `.gitignore` file in the repo. Defaults to `True`.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -3518,6 +3523,7 @@ class HfApi:
             create_pr=create_pr,
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
+            respect_gitignore=respect_gitignore,
         )
         files_to_copy = _fetch_lfs_files_to_copy(
             copies=copies,
@@ -3533,6 +3539,7 @@ class HfApi:
             commit_message=commit_message,
             commit_description=commit_description,
             parent_commit=parent_commit,
+            respect_gitignore=respect_gitignore,
         )
         commit_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/commit/{revision}"
 
@@ -3591,6 +3598,7 @@ class HfApi:
         merge_pr: bool = True,
         num_threads: int = 5,  # TODO: use to multithread uploads
         verbose: bool = False,
+        respect_gitignore: bool = True,
     ) -> str:
         """Push changes to the Hub in multiple commits.
 
@@ -3650,6 +3658,9 @@ class HfApi:
             verbose (`bool`):
                 If set to `True`, process will run on verbose mode i.e. print information about the ongoing tasks.
                 Defaults to `False`.
+
+            respect_gitignore (`bool`, *optional*):
+                Whether to respect the `.gitignore` file in the repo. Defaults to `True`.
 
         Returns:
             `str`: URL to the created PR.
@@ -3799,6 +3810,7 @@ class HfApi:
                 num_threads=num_threads,
                 operations=step.operations,
                 create_pr=False,
+                respect_gitignore=respect_gitignore,
             )
             step.completed = True
             nb_remaining -= 1
@@ -3887,6 +3899,8 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         free_memory: bool = True,
+        respect_gitignore: bool = True,
+        gitignore_content: Optional[str] = None,
     ):
         """Pre-upload LFS files to S3 in preparation on a future commit.
 
@@ -3933,6 +3947,15 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+            respect_gitignore (`bool`, *optional*):
+                Whether or not to respect the `.gitignore` file in the repo. Defaults to `True`.
+
+            gitignore_content (`str`, *optional*):
+                The content of the `.gitignore` file to know which files should be ignored. The order of priority
+                is to first check if `gitignore_content` is passed, then check if the `.gitignore` file is present
+                in the list of files to commit and finally default to the `.gitignore` file already hosted on the Hub
+                (if any).
+
         Example:
         ```py
         >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
@@ -3957,6 +3980,15 @@ class HfApi:
         revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
+        # Check if a `gitignore` file is being committed to the Hub.
+        additions = list(additions)
+        if gitignore_content is None:
+            for addition in additions:
+                if addition.path_in_repo == ".gitignore":
+                    with addition.as_file() as f:
+                        gitignore_content = f.read().decode()
+                        break
+
         # Filter out already uploaded files
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
@@ -3970,6 +4002,7 @@ class HfApi:
                 revision=revision,
                 endpoint=self.endpoint,
                 create_pr=create_pr or False,
+                gitignore_content=gitignore_content,
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -3978,9 +4011,25 @@ class HfApi:
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
+        # Filter out files listed in .gitignore
+        if respect_gitignore:
+            new_lfs_additions_to_upload = []
+            for addition in new_lfs_additions:
+                if addition._should_ignore:
+                    logger.debug(
+                        f"Skipping upload for LFS file '{addition.path_in_repo}' (ignored by gitignore file)."
+                    )
+                else:
+                    new_lfs_additions_to_upload.append(addition)
+            if len(new_lfs_additions) != len(new_lfs_additions_to_upload):
+                logger.info(
+                    f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
+                    "(ignored by gitignore file)."
+                )
+
         # Upload new LFS files
         _upload_lfs_files(
-            additions=new_lfs_additions,
+            additions=new_lfs_additions_to_upload,
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
@@ -3991,7 +4040,7 @@ class HfApi:
             # PR (i.e. `revision`).
             revision=revision if not create_pr else None,
         )
-        for addition in new_lfs_additions:
+        for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
                 addition.path_or_fileobj = b""
@@ -4207,6 +4256,7 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
+        respect_gitignore: bool = True,
         run_as_future: Literal[False] = ...,
     ) -> str:
         ...
@@ -4230,6 +4280,7 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
+        respect_gitignore: bool = True,
         run_as_future: Literal[True] = ...,
     ) -> Future[str]:
         ...
@@ -4254,6 +4305,7 @@ class HfApi:
         delete_patterns: Optional[Union[List[str], str]] = None,
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
+        respect_gitignore: bool = True,
         run_as_future: bool = False,
     ) -> Union[str, Future[str]]:
         """
@@ -4326,6 +4378,8 @@ class HfApi:
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
                 If True and `multi_commits` is used, more information will be displayed to the user.
+            respect_gitignore (`bool`, *optional*):
+                Whether or not to respect the `.gitignore` file in the repo. Defaults to `True`.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -4454,6 +4508,7 @@ class HfApi:
                 token=token,
                 merge_pr=not create_pr,
                 verbose=multi_commits_verbose,
+                respect_gitignore=respect_gitignore,
             )
         else:
             commit_info = self.create_commit(
@@ -4466,6 +4521,7 @@ class HfApi:
                 revision=revision,
                 create_pr=create_pr,
                 parent_commit=parent_commit,
+                respect_gitignore=respect_gitignore,
             )
             pr_url = commit_info.pr_url
 
