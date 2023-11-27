@@ -7196,6 +7196,54 @@ class HfApi:
     ########################
     # Collection Endpoints #
     ########################
+    @validate_hf_hub_args
+    def list_collections(
+        self,
+        *,
+        owner: Union[List[str], str, None] = None,
+        item: Union[List[str], str, None] = None,
+        sort: Optional[Literal["last_modified", "trending", "upvotes"]] = None,
+        limit: Optional[int] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> Iterable[Collection]:
+        """List collections on the Huggingface Hub, given some filters.
+
+        Args:
+            owner (`List[str]` or `str`, *optional*):
+                Filter by owner's username.
+            item (`List[str]` or `str`, *optional*):
+                Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
+            sort (`Literal["last_modified", "trending", "upvotes"]`, *optional*):
+                Sort collections by last modified, trending or upvotes.
+            limit (`int`, *optional*):
+                Maximum number of collections to be returned.
+            token (`bool` or `str`, *optional*):
+                An authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `Iterable[Collection]`: an iterable of [`Collection`] objects.
+        """
+        # Construct the API endpoint
+        path = f"{self.endpoint}/api/collections"
+        headers = self._build_hf_headers(token=token)
+        params: Dict = {}
+        if owner is not None:
+            params.update({"owner": owner})
+        if item is not None:
+            params.update({"item": item})
+        if sort is not None:
+            params.update({"sort": sort})
+        if limit is not None:
+            params.update({"limit": limit})
+
+        # Paginate over the results until limit is reached
+        items = paginate(path, headers=headers, params=params)
+        if limit is not None:
+            items = islice(items, limit)  # Do not iterate over all pages
+
+        # Parse as Collection and return
+        for position, collection_data in enumerate(items):
+            yield Collection(position=position, **collection_data)
 
     def get_collection(self, collection_slug: str, *, token: Optional[str] = None) -> Collection:
         """Gets information about a Collection on the Hub.
@@ -7783,6 +7831,7 @@ scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 
 # Collections API
 get_collection = api.get_collection
+list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
 delete_collection = api.delete_collection
