@@ -39,10 +39,11 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         #       Example: `credential.https://huggingface.co.helper=store`
         #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
         for line in output.split("\n"):
-            return sorted(  # Sort for nice printing
+            l_cred_helper = sorted(  # Sort for nice printing
                 # Might have some duplicates
                 re.findall(r"^\s*credential\.helper\s*=\s*(\w*)\s*$", line)
             )
+        return l_cred_helper
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
