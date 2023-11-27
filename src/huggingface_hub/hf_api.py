@@ -7202,7 +7202,7 @@ class HfApi:
         *,
         owner: Union[List[str], str, None] = None,
         item: Union[List[str], str, None] = None,
-        sort: Optional[Literal["last_modified", "trending", "upvotes"]] = None,
+        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
         limit: Optional[int] = None,
         token: Optional[Union[bool, str]] = None,
     ) -> Iterable[Collection]:
@@ -7213,7 +7213,7 @@ class HfApi:
                 Filter by owner's username.
             item (`List[str]` or `str`, *optional*):
                 Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
-            sort (`Literal["last_modified", "trending", "upvotes"]`, *optional*):
+            sort (`Literal["lastModified", "trending", "upvotes"]`, *optional*):
                 Sort collections by last modified, trending or upvotes.
             limit (`int`, *optional*):
                 Maximum number of collections to be returned.
