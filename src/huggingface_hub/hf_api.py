@@ -519,9 +519,9 @@ class ModelInfo:
 
     Attributes:
         id (`str`):
-            ID of dataset.
+            ID of model.
         author (`str`, *optional*):
-            Author of the dataset.
+            Author of the model.
         sha (`str`, *optional*):
             Repo SHA at this particular revision.
         created_at (`datetime`, *optional*):
@@ -537,9 +537,9 @@ class ModelInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the dataset.
+            Number of downloads of the model.
         likes (`int`):
-            Number of likes of the dataset.
+            Number of likes of the model.
         library_name (`str`, *optional*):
             Library associated with the model.
         tags (`List[str]`):
