@@ -232,7 +232,7 @@ class ModelCardData(CardData):
             https://huggingface.co/docs/hub/repositories-licenses. Defaults to None.
         library_name (`str`, *optional*):
             Name of library used by this model. Example: keras or any library from
-            https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Libraries.ts.
+            https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/model-libraries.ts.
             Defaults to None.
         tags (`List[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging

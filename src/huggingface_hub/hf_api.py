@@ -258,7 +258,7 @@ class BlobSecurityInfo(TypedDict, total=False):
 class TransformersInfo(TypedDict, total=False):
     auto_model: str
     custom_class: Optional[str]
-    # possible `pipeline_tag` values: https://github.com/huggingface/hub-docs/blob/f2003d2fca9d4c971629e858e314e0a5c05abf9d/js/src/lib/interfaces/Types.ts#L79
+    # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
     pipeline_tag: Optional[str]
     processor: Optional[str]
 
