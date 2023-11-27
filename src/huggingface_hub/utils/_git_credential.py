@@ -41,7 +41,7 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         return sorted(  # Sort for nice printing
             set(  # Might have some duplicates
                 re.findall(
-                    r"^\s*credential\.helper\s*=\s*(\w*)\s*$",
+                    r"^\s*credential\.helper\s*=\s*(\w*)\s*.*$",
                     output,
                     flags=re.MULTILINE | re.IGNORECASE,
                 )
