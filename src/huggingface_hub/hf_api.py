@@ -4026,6 +4026,8 @@ class HfApi:
                     f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                     "(ignored by gitignore file)."
                 )
+        else:
+            new_lfs_additions_to_upload = new_lfs_additions
 
         # Upload new LFS files
         _upload_lfs_files(
