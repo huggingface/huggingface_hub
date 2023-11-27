@@ -75,30 +75,30 @@ class InferenceEndpoint:
             Authentication token for the Inference Endpoint, if set when requesting the API.
 
     Example:
-    ```python
-    >>> from huggingface_hub import get_inference_endpoint
-    >>> endpoint = get_inference_endpoint("my-text-to-image")
-    >>> endpoint
-    InferenceEndpoint(name='my-text-to-image', ...)
+        ```python
+        >>> from huggingface_hub import get_inference_endpoint
+        >>> endpoint = get_inference_endpoint("my-text-to-image")
+        >>> endpoint
+        InferenceEndpoint(name='my-text-to-image', ...)
 
-    # Get status
-    >>> endpoint.status
-    'running'
-    >>> endpoint.url
-    'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+        # Get status
+        >>> endpoint.status
+        'running'
+        >>> endpoint.url
+        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
 
-    # Run inference
-    >>> endpoint.client.text_to_image(...)
+        # Run inference
+        >>> endpoint.client.text_to_image(...)
 
-    # Pause endpoint to save $$$
-    >>> endpoint.pause()
+        # Pause endpoint to save $$$
+        >>> endpoint.pause()
 
-    # ...
-    # Resume and wait for deployment
-    >>> endpoint.resume()
-    >>> endpoint.wait()
-    >>> endpoint.client.text_to_image(...)
-    ```
+        # ...
+        # Resume and wait for deployment
+        >>> endpoint.resume()
+        >>> endpoint.wait()
+        >>> endpoint.client.text_to_image(...)
+        ```
     """
 
     # Field in __repr__
@@ -146,6 +146,9 @@ class InferenceEndpoint:
     def client(self) -> InferenceClient:
         """Returns a client to make predictions on this Inference Endpoint.
 
+        Returns:
+            [`InferenceClient`]: an inference client pointing to the deployed endpoint.
+
         Raises:
             [`InferenceEndpointError`]: If the Inference Endpoint is not yet deployed.
         """
@@ -160,6 +163,9 @@ class InferenceEndpoint:
     def async_client(self) -> AsyncInferenceClient:
         """Returns a client to make predictions on this Inference Endpoint.
 
+        Returns:
+            [`AsyncInferenceClient`]: an asyncio-compatible inference client pointing to the deployed endpoint.
+
         Raises:
             [`InferenceEndpointError`]: If the Inference Endpoint is not yet deployed.
         """
@@ -170,7 +176,7 @@ class InferenceEndpoint:
             )
         return AsyncInferenceClient(model=self.url, token=self._token)
 
-    def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> None:
+    def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
         """Wait for the Inference Endpoint to be deployed.
 
         Information from the server will be fetched every 1s. If the Inference Endpoint is not deployed after `timeout`
@@ -183,10 +189,13 @@ class InferenceEndpoint:
                 indefinitely.
             refresh_every (`int`, *optional*):
                 The time to wait between each fetch of the Inference Endpoint status, in seconds. Defaults to 5s.
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
         if self.url is not None:  # Means the endpoint is deployed
             logger.info("Inference Endpoint is ready to be used.")
-            return
+            return self
 
         if timeout is not None and timeout < 0:
             raise ValueError("`timeout` cannot be negative.")
@@ -198,7 +207,7 @@ class InferenceEndpoint:
             self.fetch()
             if self.url is not None:  # Means the endpoint is deployed
                 logger.info("Inference Endpoint is ready to be used.")
-                return
+                return self
             if timeout is not None:
                 if time.time() - start > timeout:
                     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
@@ -206,7 +215,11 @@ class InferenceEndpoint:
             time.sleep(refresh_every)
 
     def fetch(self) -> "InferenceEndpoint":
-        """Fetch latest information about the Inference Endpoint."""
+        """Fetch latest information about the Inference Endpoint.
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
+        """
         obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
         self._populate_from_raw()
@@ -255,6 +268,9 @@ class InferenceEndpoint:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
         # Make API call
         obj = self._api.update_inference_endpoint(
@@ -286,6 +302,9 @@ class InferenceEndpoint:
 
         This is an alias for [`HfApi.pause_inference_endpoint`]. The current object is mutated in place with the
         latest data from the server.
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
         obj = self._api.pause_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
@@ -297,6 +316,9 @@ class InferenceEndpoint:
 
         This is an alias for [`HfApi.resume_inference_endpoint`]. The current object is mutated in place with the
         latest data from the server.
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
         obj = self._api.resume_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw
@@ -312,6 +334,9 @@ class InferenceEndpoint:
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the
         latest data from the server.
+
+        Returns:
+            [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
         obj = self._api.scale_to_zero_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
         self.raw = obj.raw

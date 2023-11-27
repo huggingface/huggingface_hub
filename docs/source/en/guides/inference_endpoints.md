@@ -42,6 +42,39 @@ Once your Inference Endpoint is created, you can find it on your [personal dashb
 
 ![](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/inference_endpoints_created.png)
 
+#### Using a custom image
+
+By default the Inference Endpoint is built from a docker image provided by Hugging Face. However, it is possible to specify any docker image using the `custom_image` parameter. A common use case is to run LLMs using the [text-generation-inference](https://github.com/huggingface/text-generation-inference) framework. This can be done like this:
+
+```python
+# Start an Inference Endpoint running Zephyr-7b-beta on TGI
+>>> from huggingface_hub import create_inference_endpoint
+>>> endpoint = create_inference_endpoint(
+...     "aws-zephyr-7b-beta-0486",
+...     repository="HuggingFaceH4/zephyr-7b-beta",
+...     framework="pytorch",
+...     task="text-generation",
+...     accelerator="gpu",
+...     vendor="aws",
+...     region="us-east-1",
+...     type="protected",
+...     instance_size="medium",
+...     instance_type="g5.2xlarge",
+...     custom_image={
+...         "health_route": "/health",
+...         "env": {
+...             "MAX_BATCH_PREFILL_TOKENS": "2048",
+...             "MAX_INPUT_LENGTH": "1024",
+...             "MAX_TOTAL_TOKENS": "1512",
+...             "MODEL_ID": "/repository"
+...         },
+...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
+...     },
+... )
+```
+
+The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
+
 ### Get or list existing Inference Endpoints
 
 In some cases, you might need to manage Inference Endpoints you created previously. If you know the name, you can fetch it using [`get_inference_endpoint`], which returns an [`InferenceEndpoint`] object. Alternatively, you can use [`list_inference_endpoints`] to retrieve a list of all Inference Endpoints. Both methods accept an optional `namespace` parameter. You can set the `namespace` to any organization you are a part of. Otherwise, it defaults to your username.
