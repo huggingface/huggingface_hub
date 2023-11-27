@@ -4229,6 +4229,7 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
+            respect_gitignore=False,  # force upload when uploading a single file
         )
 
         if commit_info.pr_url is not None:
