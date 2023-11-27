@@ -7192,7 +7192,7 @@ class HfApi:
         # Construct the API endpoint
         path = f"{self.endpoint}/api/collections"
         headers = self._build_hf_headers(token=token)
-        params = {}
+        params: Dict = {}
         if owner is not None:
             params.update({"owner": owner})
         if item is not None:
@@ -7202,8 +7202,13 @@ class HfApi:
         if limit is not None:
             params.update({"limit": limit})
 
-        # Paginate over the results and parse as Collection
-        for position, collection_data in enumerate(paginate(path, headers=headers, params=params)):
+        # Paginate over the results until limit is reached
+        items = paginate(path, headers=headers, params=params)
+        if limit is not None:
+            items = islice(items, limit)  # Do not iterate over all pages
+
+        # Parse as Collection and return
+        for position, collection_data in enumerate(items):
             yield Collection(position=position, **collection_data)
 
     def get_collection(self, collection_slug: str, *, token: Optional[str] = None) -> Collection:

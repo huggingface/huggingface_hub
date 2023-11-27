@@ -3500,22 +3500,23 @@ class CollectionAPITest(HfApiCommonTest):
             self._api.delete_collection(self.slug, missing_ok=True)
         return super().tearDown()
 
+    @with_production_testing
     def test_list_collections(self) -> None:
         item_id = "teknium/OpenHermes-2.5-Mistral-7B"
         item_type = "model"
         limit = 3
-        collections = self._api.list_collections(item=f"{item_type}s/{item_id}", limit=limit)
-        
+        collections = HfApi().list_collections(item=f"{item_type}s/{item_id}", limit=limit)
+
         # Check return type
         self.assertIsInstance(collections, Iterable)
         collections = list(collections)
 
         # Check length
         self.assertEqual(len(collections), limit)
-        
+
         # Check all collections contain the item
         for collection in collections:
-            self.assertTrue(any(item.id == item_id and item.type == item_type for item in collection.items))
+            self.assertTrue(any(item.item_id == item_id and item.item_type == item_type for item in collection.items))
 
     def test_create_collection_with_description(self) -> None:
         collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")
