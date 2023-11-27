@@ -4098,6 +4098,7 @@ class HfApi:
         commit_description: Optional[str] = None,
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
+        respect_gitignore: bool = True,
         run_as_future: bool = False,
     ) -> Union[str, Future[str]]:
         """
@@ -4140,6 +4141,8 @@ class HfApi:
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
+            respect_gitignore (`bool`, *optional*):
+                Whether or not to respect the `.gitignore` file in the repo. Defaults to `True`.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -4229,7 +4232,7 @@ class HfApi:
             revision=revision,
             create_pr=create_pr,
             parent_commit=parent_commit,
-            respect_gitignore=False,  # force upload when uploading a single file
+            respect_gitignore=respect_gitignore,
         )
 
         if commit_info.pr_url is not None:
