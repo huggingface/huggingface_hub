@@ -27,9 +27,9 @@
 </h4>
 ---
 
-**文档**: `<a href="https://hf.co/docs/huggingface_hub" target="_blank">`https://hf.co/docs/huggingface_hub`</a>`
+**文档**: `<a href="https://hf.co/docs/huggingface_hub" target="_blank">`https://hf.co/docs/huggingface_hub `</a>`
 
-**源代码**: `<a href="https://github.com/huggingface/huggingface_hub" target="_blank">`https://github.com/huggingface/huggingface_hub`</a>`
+**源代码**: `<a href="https://github.com/huggingface/huggingface_hub" target="_blank">`https://github.com/huggingface/huggingface_hub `</a>`
 
 ---
 
@@ -43,7 +43,7 @@
 - [上传文件到 hugging face hub](https://huggingface.co/docs/huggingface_hub/en/guides/upload)
 - [管理您的存储库](https://huggingface.co/docs/huggingface_hub/en/guides/repository)
 - [在部署的模型上运行推断](https://huggingface.co/docs/huggingface_hub/en/guides/inference)
-- [搜索 模型、数据集和空间](https://huggingface.co/docs/huggingface_hub/en/guides/search)
+- [搜索模型、数据集和空间](https://huggingface.co/docs/huggingface_hub/en/guides/search)
 - [分享模型卡片](https://huggingface.co/docs/huggingface_hub/en/guides/model-cards)
 - [社区互动](https://huggingface.co/docs/huggingface_hub/en/guides/community)
 
@@ -62,6 +62,7 @@ pip install huggingface_hub
 ```bash
 pip install huggingface_hub[inference]
 ```
+
 要了解更多安装和可选依赖项，请查看[安装指南](https://huggingface.co/docs/huggingface_hub/cn/安装)
 
 ## 快速入门指南
@@ -150,6 +151,6 @@ upload_folder(
 
 如果您想要集成您的库，请随时打开一个问题来开始讨论。我们编写了一份逐步指南，以❤️的方式展示如何进行这种集成。
 
-##  欢迎各种贡献（功能请求、错误等） 💙💚💛💜🧡❤️
+## 欢迎各种贡献（功能请求、错误等） 💙💚💛💜🧡❤️
 
 欢迎每个人来进行贡献，我们重视每个人的贡献。编写代码并非唯一的帮助社区的方式。回答问题、帮助他人、积极互动并改善文档对社区来说都是极其有价值的。为此我们编写了一份 [贡献指南](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md) 以进行总结，即如何开始为这个存储库做贡献
