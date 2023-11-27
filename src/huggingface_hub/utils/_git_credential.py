@@ -38,12 +38,15 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         # NOTE: If user has set an helper for a custom URL, it will not we caught here.
         #       Example: `credential.https://huggingface.co.helper=store`
         #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
-        for line in output.split("\n"):
-            l_cred_helper = sorted(  # Sort for nice printing
-                # Might have some duplicates
-                re.findall(r"^\s*credential\.helper\s*=\s*(\w*)\s*$", line)
+        return sorted(  # Sort for nice printing
+            set(  # Might have some duplicates
+                re.findall(
+                    r"^\s*credential\.helper\s*=\s*(\w*)\s*$",
+                    output,
+                    flags=re.MULTILINE | re.IGNORECASE,
+                )
             )
-        return l_cred_helper
+        )
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
