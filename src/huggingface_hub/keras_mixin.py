@@ -157,7 +157,7 @@ def save_pretrained_keras(
             card. Requires graphviz and pydot to be installed.
         tags (Union[`str`,`list`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
-            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+            [here](https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1).
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -339,7 +339,7 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         tags (Union[`list`, `str`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
-            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+            [here](https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1).
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.
