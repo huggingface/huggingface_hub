@@ -3549,7 +3549,9 @@ class CollectionAPITest(HfApiCommonTest):
 
         # Check all collections contain the item
         for collection in collections:
-            self.assertTrue(any(item.item_id == item_id and item.item_type == item_type for item in collection.items))
+            # all items are not necessarily returned when listing collections => retrieve complete one
+            full_collection = HfApi().get_collection(collection.slug)
+            assert any(item.item_id == item_id and item.item_type == item_type for item in full_collection.items)
 
     def test_create_collection_with_description(self) -> None:
         collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")

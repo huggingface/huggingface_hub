@@ -21,6 +21,18 @@ from ..constants import ENDPOINT
 from ._subprocess import run_interactive_subprocess, run_subprocess
 
 
+GIT_CREDENTIAL_REGEX = re.compile(
+    r"""
+        ^\s* # start of line
+        credential\.helper # credential.helper value
+        \s*=\s* # separator
+        (\w+) # the helper name (group 1)
+        (\s|$) # whitespace or end of line
+    """,
+    flags=re.MULTILINE | re.IGNORECASE | re.VERBOSE,
+)
+
+
 def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
     """Return the list of git credential helpers configured.
 
@@ -35,18 +47,8 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
     """
     try:
         output = run_subprocess("git config --list", folder=folder).stdout
-        # NOTE: If user has set an helper for a custom URL, it will not we caught here.
-        #       Example: `credential.https://huggingface.co.helper=store`
-        #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
-        return sorted(  # Sort for nice printing
-            set(  # Might have some duplicates
-                re.findall(
-                    r"^\s*credential\.helper\s*=\s*(\w*)\s*.*$",
-                    output,
-                    flags=re.MULTILINE | re.IGNORECASE,
-                )
-            )
-        )
+        parsed = _parse_credential_output(output)
+        return parsed
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
 
@@ -99,3 +101,20 @@ def unset_git_credential(username: str = "hf_user", folder: Optional[str] = None
 
         stdin.write(standard_input)
         stdin.flush()
+
+
+def _parse_credential_output(output: str) -> List[str]:
+    """Parse the output of `git credential fill` to extract the password.
+
+    Args:
+        output (`str`):
+            The output of `git credential fill`.
+    """
+    # NOTE: If user has set an helper for a custom URL, it will not we caught here.
+    #       Example: `credential.https://huggingface.co.helper=store`
+    #       See: https://github.com/huggingface/huggingface_hub/pull/1138#discussion_r1013324508
+    return sorted(  # Sort for nice printing
+        set(  # Might have some duplicates
+            match[0] for match in GIT_CREDENTIAL_REGEX.findall(output)
+        )
+    )
