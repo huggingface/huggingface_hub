@@ -1735,6 +1735,7 @@ class AsyncInferenceClient:
         your specific use case. Source and target languages usually depend on the model.
         However, it is possible to specify source and target languages for certain models. If you are working with one of these models,
         you can use `src_lang` and `tgt_lang` arguments to pass the relevant information.
+        You can find this information in the model card.
 
         Args:
             text (`str`):
