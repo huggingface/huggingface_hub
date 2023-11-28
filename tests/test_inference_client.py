@@ -329,6 +329,8 @@ class InferenceClientVCRTest(InferenceClientTest):
         
         with self.assertRaises(ValueError):
             self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX")
+
+        with self.assertRaises(ValueError):
             self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", tgt_lang="en_XX")
 
     def test_token_classification(self) -> None:
