@@ -50,7 +50,7 @@ class ModelHubMixin:
                 ID of your repository on the Hub. Used only if `push_to_hub=True`. Will default to the folder name if
                 not provided.
             kwargs:
-                Additional key word arguments passed along to the [`~ModelHubMixin._from_pretrained`] method.
+                Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
         """
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
