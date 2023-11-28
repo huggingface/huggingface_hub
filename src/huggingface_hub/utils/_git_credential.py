@@ -48,9 +48,6 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
     try:
         output = run_subprocess("git config --list", folder=folder).stdout
         parsed = _parse_credential_output(output)
-        print("=" * 30)
-        print(f"'{output}'")
-        print(parsed)
         return parsed
     except subprocess.CalledProcessError as exc:
         raise EnvironmentError(exc.stderr)
