@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Generator, List
 
 import pytest
+import requests
 from _pytest.fixtures import SubRequest
 from _pytest.python import Function as PytestFunction
 from requests.exceptions import HTTPError
@@ -92,6 +93,12 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
                     )
                 else:
                     raise
+            except requests.Timeout:
+                if retry_count >= NUMBER_OF_TRIES:
+                    raise
+                logger.info(
+                    f"HTTP Timeout while interacting with the Hub. Retrying new execution in {WAIT_TIME} second(s)..."
+                )
             except OSError:
                 if retry_count >= NUMBER_OF_TRIES:
                     raise
