@@ -324,6 +324,7 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.translation("Hello world")
         self.assertEqual(output, "Hallo Welt")
 
+    def test_translation_with_source_and_target_language(self) -> None:
         output_with_langs = self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX")
         self.assertIsInstance(output_with_langs, str)
         
