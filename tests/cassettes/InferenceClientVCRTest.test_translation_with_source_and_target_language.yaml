@@ -1,0 +1,55 @@
+interactions:
+- request:
+    body: '{"inputs": "Hello world", "parameters": {"src_lang": "en_XX", "tgt_lang":
+      "fr_XX"}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '83'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 6cb959e3-b061-4949-8b49-5ed5069382ed
+      user-agent:
+      - unknown/None; hf_hub/0.20.0.dev0; python/3.10.12
+    method: POST
+    uri: https://api-inference.huggingface.co/models/facebook/mbart-large-50-many-to-many-mmt
+  response:
+    body:
+      string: '[{"translation_text":"Hello world"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 28 Nov 2023 12:23:24 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      server:
+      - uvicorn
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '11'
+      x-compute-time:
+      - '0.739'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - 7qdna_s8iNTqOlR4PvwI-
+      x-sha:
+      - e30b6cb8eb0d43a0b73cab73c7676b9863223a30
+    status:
+      code: 200
+      message: OK
+version: 1

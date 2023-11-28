@@ -324,6 +324,18 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.translation("Hello world")
         self.assertEqual(output, "Hallo Welt")
 
+    def test_translation_with_source_and_target_language(self) -> None:
+        output_with_langs = self.client.translation(
+            "Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX"
+        )
+        self.assertIsInstance(output_with_langs, str)
+
+        with self.assertRaises(ValueError):
+            self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX")
+
+        with self.assertRaises(ValueError):
+            self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", tgt_lang="en_XX")
+
     def test_token_classification(self) -> None:
         output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
         self.assertIsInstance(output, list)
