@@ -1700,8 +1700,9 @@ class InferenceClient:
         )
         return _bytes_to_list(response)
 
-    def translation(self, text: str, *, model: Optional[str] = None,
-                    src_lang: Optional[str] = None, tgt_lang: Optional[str] = None) -> str:
+    def translation(
+        self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
+    ) -> str:
         """
         Convert text from one language to another.
 
@@ -1720,7 +1721,7 @@ class InferenceClient:
             src_lang (`str`, *optional*):
                 Source language of the translation task, i.e. input language. Cannot be passed without `tgt_lang`.
             tgt_lang (`str`, *optional*):
-                Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.            
+                Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.
 
         Returns:
             `str`: The generated translated text.

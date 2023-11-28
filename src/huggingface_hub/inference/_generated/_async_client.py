@@ -1725,12 +1725,16 @@ class AsyncInferenceClient:
         )
         return _bytes_to_list(response)
 
-    async def translation(self, text: str, *, model: Optional[str] = None) -> str:
+    async def translation(
+        self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
+    ) -> str:
         """
         Convert text from one language to another.
 
         Check out https://huggingface.co/tasks/translation for more information on how to choose the best model for
-        your specific use case. Source and target languages usually depends on the model.
+        your specific use case. Source and target languages usually depend on the model.
+        However, it is possible to specify source and target languages for certain models. If you are working with one of these models,
+        you can use `src_lang` and `tgt_lang` arguments to pass the relevant information.
 
         Args:
             text (`str`):
@@ -1739,6 +1743,10 @@ class AsyncInferenceClient:
                 The model to use for the translation task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended translation model will be used.
                 Defaults to None.
+            src_lang (`str`, *optional*):
+                Source language of the translation task, i.e. input language. Cannot be passed without `tgt_lang`.
+            tgt_lang (`str`, *optional*):
+                Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.
 
         Returns:
             `str`: The generated translated text.
@@ -1748,6 +1756,8 @@ class AsyncInferenceClient:
                 If the model is unavailable or the request times out.
             `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
+            `ValueError`:
+                If only one of the `src_lang` and `tgt_lang` arguments are provided.
 
         Example:
         ```py
@@ -1759,8 +1769,25 @@ class AsyncInferenceClient:
         >>> await client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
         "Je m'appelle Wolfgang et je vis à Berlin."
         ```
+
+        Specifying languages:
+        ```py
+        >>> client.translation("My name is Sarah Jessica Parker but you can call me Jessica", model="facebook/mbart-large-50-many-to-many-mmt", "src_lang="en_XX", tgt_lang="fr_XX")
+        "Mon nom est Sarah Jessica Parker mais vous pouvez m\'appeler Jessica"
+        ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="translation")
+        # Throw error if only one of `src_lang` and `tgt_lang` was given
+        if src_lang is not None and tgt_lang is None:
+            raise ValueError("You cannot specify `src_lang` without specifying `tgt_lang`.")
+
+        if src_lang is None and tgt_lang is not None:
+            raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
+
+        # If both `src_lang` and `tgt_lang` are given, pass them to the request body
+        payload: Dict = {"inputs": text}
+        if src_lang and tgt_lang:
+            payload["parameters"] = {"src_lang": src_lang, "tgt_lang": tgt_lang}
+        response = await self.post(json=payload, model=model, task="translation")
         return _bytes_to_dict(response)[0]["translation_text"]
 
     async def zero_shot_classification(
