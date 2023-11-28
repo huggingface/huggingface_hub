@@ -1773,7 +1773,7 @@ class AsyncInferenceClient:
 
         Specifying languages:
         ```py
-        >>> client.translation("My name is Sarah Jessica Parker but you can call me Jessica", model="facebook/mbart-large-50-many-to-many-mmt", "src_lang="en_XX", tgt_lang="fr_XX")
+        >>> client.translation("My name is Sarah Jessica Parker but you can call me Jessica", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX")
         "Mon nom est Sarah Jessica Parker mais vous pouvez m\'appeler Jessica"
         ```
         """
