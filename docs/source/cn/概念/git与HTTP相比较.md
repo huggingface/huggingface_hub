@@ -37,4 +37,4 @@ rendered properly in your Markdown viewer.
 
 并非所有 git 命令都通过 [`HfApi`] 提供。有些可能永远不会被实现，但我们一直在努力改进并缩小差距。如果您没有看到您的用例被覆盖。
 
-请在 Github: https://github.com/huggingface/huggingface_hub   打开一个 issue！我们欢迎反馈，以帮助我们与我们的用户一起构建 🤗 生态系统。
+请在[Github](https://github.com/huggingface/huggingface_hub)打开一个 issue！我们欢迎反馈，以帮助我们与我们的用户一起构建 🤗 生态系统。
