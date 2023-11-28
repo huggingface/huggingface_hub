@@ -1757,11 +1757,10 @@ class InferenceClient:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
 
         # If both `src_lang` and `tgt_lang` are given, pass them to the request body
+        payload: Dict = {"inputs": text}
         if src_lang and tgt_lang:
-            response = self.post(json={"inputs": text, "parameters": {"src_lang": src_lang, "tgt_lang": tgt_lang}},
-                                 model=model, task="translation")
-        else:
-            response = self.post(json={"inputs": text}, model=model, task="translation")
+            payload["parameters"] = {"src_lang": src_lang, "tgt_lang": tgt_lang}
+        response = self.post(json=payload, model=model, task="translation")
         return _bytes_to_dict(response)[0]["translation_text"]
 
     def zero_shot_classification(
