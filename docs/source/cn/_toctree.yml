@@ -70,6 +70,8 @@
       title: 代码仓库卡片和代码仓库卡片数据
     - local: package_reference/space_runtime
       title: Space 运行环境
+    - local: package_reference/collections
+      title: 集合
     - local: package_reference/tensorboard
       title: TensorBoard 日志记录器
     - local: package_reference/webhooks_server
