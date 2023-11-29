@@ -7270,6 +7270,13 @@ class HfApi:
     ) -> Iterable[Collection]:
         """List collections on the Huggingface Hub, given some filters.
 
+        <Tip warning={true}>
+
+        When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
+        from a collection, you must use [`get_collection`].
+
+        </Tip>
+
         Args:
             owner (`List[str]` or `str`, *optional*):
                 Filter by owner's username.
