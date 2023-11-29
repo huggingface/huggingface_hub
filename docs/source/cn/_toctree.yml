@@ -1,21 +1,21 @@
-- title: "Get started"  #"入门指南"
+- title: "开始"  
   sections:
     - local: index
-      title: 主页
+      title: 索引
     - local: quick-start
-      title: 快速开始
+      title: 快速入门指南
     - local: installation
       title: 安装
-- title: "How-to guides"  #"操作指南"
+- title: "指南" 
   sections:
     - local: guides/overview
-      title: 概述
+      title: 总览
     - local: guides/download
       title: 下载文件
     - local: guides/upload
       title: 上传文件
     - local: guides/hf_file_system
-      title: HfFileSystem
+      title: Hugging Face 文件系统
     - local: guides/repository
       title: 仓库
     - local: guides/search
@@ -24,21 +24,23 @@
       title: 推理
     - local: guides/community
       title: 社区贡献
+    - local: guides/collections
+      title: 集合
     - local: guides/manage-cache
-      title: 管理缓存
+      title: 缓存管理
     - local: guides/model-cards
-      title: 模型卡片
+      title: 模型信息卡
     - local: guides/manage-spaces
-      title: 管理空间
+      title: 空间管理
     - local: guides/integrations
-      title: 集成库
+      title: 集成
     - local: guides/webhooks_server
-      title: 服务器端
-- title: "Conceptual guides"   #概念指南
+      title: Webhook服务器
+- title: "概念指南" 
   sections:
     - local: concepts/git_vs_http
       title: Git vs HTTP 范式
-- title: "Reference"    #参考资料
+- title: "包详细信息"
   sections:
     - local: package_reference/overview
       title: 概述
