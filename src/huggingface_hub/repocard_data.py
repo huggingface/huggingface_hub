@@ -157,8 +157,6 @@ class EvalResult:
     def __post_init__(self) -> None:
         if self.source_name is not None and self.source_url is None:
             raise ValueError("If `source_name` is provided, `source_url` must also be provided.")
-        if self.source_url is not None and self.source_name is None:
-            raise ValueError("If `source_url` is provided, `source_name` must also be provided.")
 
 
 @dataclass
@@ -693,11 +691,13 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
                 for result in results
             ],
         }
-        if sample_result.source_name is not None:
-            data["source"] = {
-                "name": sample_result.source_name,
+        if sample_result.source_url is not None:
+            source = {
                 "url": sample_result.source_url,
             }
+            if sample_result.source_name is not None:
+                source["name"] = sample_result.source_name
+            data["source"] = source
         model_index_data.append(data)
 
     # TODO - Check if there cases where this list is longer than one?

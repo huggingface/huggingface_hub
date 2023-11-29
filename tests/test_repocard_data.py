@@ -14,6 +14,7 @@ from huggingface_hub.repocard_data import (
 )
 
 
+OPEN_LLM_LEADERBOARD_URL = "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard"
 DUMMY_METADATA_WITH_MODEL_INDEX = """
 language: en
 license: mit
@@ -81,7 +82,7 @@ class ModelCardDataTest(unittest.TestCase):
                 metric_type="acc",
                 metric_value=0.9,
                 source_name="Open LLM Leaderboard",
-                source_url="https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard",
+                source_url=OPEN_LLM_LEADERBOARD_URL,
             ),
         ]
 
@@ -131,7 +132,7 @@ class ModelCardDataTest(unittest.TestCase):
                         ],
                         "source": {
                             "name": "Open LLM Leaderboard",
-                            "url": "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard",
+                            "url": OPEN_LLM_LEADERBOARD_URL,
                         },
                     },
                 ],
@@ -156,9 +157,7 @@ class ModelCardDataTest(unittest.TestCase):
         self.assertEqual(eval_results[2].verified, True)
         self.assertEqual(eval_results[2].verify_token, 1234)
         self.assertEqual(eval_results[2].source_name, "Open LLM Leaderboard")
-        self.assertEqual(
-            eval_results[2].source_url, "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard"
-        )
+        self.assertEqual(eval_results[2].source_url, OPEN_LLM_LEADERBOARD_URL)
 
     def test_card_data_requires_model_name_for_eval_results(self):
         with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
@@ -212,17 +211,18 @@ class ModelCardDataTest(unittest.TestCase):
         data_dict = data.to_dict()
         self.assertEqual(data_dict["some_arbitrary_kwarg"], "some_value")
 
-    def test_eval_result_without_complete_source(self):
-        with self.assertRaises(ValueError):
-            EvalResult(
-                task_type="image-classification",
-                dataset_type="beans",
-                dataset_name="Beans",
-                metric_type="acc",
-                metric_value=0.9,
-                source_url="https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard",
-            )
+    def test_eval_result_with_incomplete_source(self):
+        # Source url without name: ok
+        EvalResult(
+            task_type="image-classification",
+            dataset_type="beans",
+            dataset_name="Beans",
+            metric_type="acc",
+            metric_value=0.9,
+            source_url=OPEN_LLM_LEADERBOARD_URL,
+        )
 
+        # Source name without url: not ok
         with self.assertRaises(ValueError):
             EvalResult(
                 task_type="image-classification",
