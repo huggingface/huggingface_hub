@@ -422,14 +422,6 @@ def _lfs_log_progress():
             os.environ["GIT_LFS_PROGRESS"] = current_lfs_progress_value
 
 
-@_deprecate_method(
-    version="1.0",
-    message=(
-        "Please prefer the http-based alternatives instead. Given its large adoption in legacy code, the complete"
-        " removal is only planned on next major release.\nFor more details, please read"
-        " https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http."
-    ),
-)
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -451,6 +443,14 @@ class Repository:
     command_queue: List[CommandInProgress]
 
     @validate_hf_hub_args
+    @_deprecate_method(
+        version="1.0",
+        message=(
+            "Please prefer the http-based alternatives instead. Given its large adoption in legacy code, the complete"
+            " removal is only planned on next major release.\nFor more details, please read"
+            " https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http."
+        ),
+    )
     def __init__(
         self,
         local_dir: Union[str, Path],
