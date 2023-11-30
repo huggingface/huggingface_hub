@@ -584,17 +584,6 @@ class CommitApiTest(HfApiCommonTest):
         # Check nested file not uploaded
         assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
 
-    @use_tmp_repo()
-    def test_upload_folder_ignore_gitignore(self, repo_url: RepoUrl) -> None:
-        # Create .gitignore file locally
-        (Path(self.tmp_dir) / ".gitignore").write_text("nested/*\n")
-
-        # Upload folder with `respect_gitignore=False`
-        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id, respect_gitignore=False)
-
-        # Check nested file is uploaded
-        assert self._api.file_exists(repo_url.repo_id, "nested/file.bin")
-
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
         self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)

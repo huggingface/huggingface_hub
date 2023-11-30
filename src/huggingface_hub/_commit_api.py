@@ -588,7 +588,6 @@ def _prepare_commit_payload(
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
-    respect_gitignore: bool = True,
 ) -> Iterable[Dict[str, Any]]:
     """
     Builds the payload to POST to the `/commit` API of the Hub.
@@ -613,7 +612,7 @@ def _prepare_commit_payload(
     # 2. Send operations, one per line
     for operation in operations:
         # Skip ignored files
-        if respect_gitignore and isinstance(operation, CommitOperationAdd) and operation._should_ignore:
+        if isinstance(operation, CommitOperationAdd) and operation._should_ignore:
             logger.debug(f"Skipping file '{operation.path_in_repo}' in commit (ignored by gitignore file).")
             nb_ignored_files += 1
             continue
