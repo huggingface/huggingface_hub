@@ -117,10 +117,14 @@ def _deprecate_method(*, version: str, message: Optional[str] = None):
     """
 
     def _inner_deprecate_method(f):
+        name = f.__name__
+        if name == "__init__":
+            name = f.__qualname__.split('.')[0]  # class name instead of method name
+
         @wraps(f)
         def inner_f(*args, **kwargs):
             warning_message = (
-                f"'{f.__name__}' (from '{f.__module__}') is deprecated and will be removed from version '{version}'."
+                f"'{name}' (from '{f.__module__}') is deprecated and will be removed from version '{version}'."
             )
             if message is not None:
                 warning_message += " " + message
