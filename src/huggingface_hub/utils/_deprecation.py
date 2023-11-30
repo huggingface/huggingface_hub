@@ -119,7 +119,7 @@ def _deprecate_method(*, version: str, message: Optional[str] = None):
     def _inner_deprecate_method(f):
         name = f.__name__
         if name == "__init__":
-            name = f.__qualname__.split('.')[0]  # class name instead of method name
+            name = f.__qualname__.split(".")[0]  # class name instead of method name
 
         @wraps(f)
         def inner_f(*args, **kwargs):
