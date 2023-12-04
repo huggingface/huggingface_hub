@@ -527,7 +527,7 @@ class AsyncInferenceClient:
         array([[-3.41086648e-02,  2.50333734e-02,  ..., -1.86223872e-02,  1.07370131e-03]], dtype=float32)
         ```
         """
-        payload = {"inputs": text}
+        payload: Dict[str, Any] = {"inputs": text}
         if truncate is not None:
             payload["truncate"] = truncate
         if normalize is not None:
