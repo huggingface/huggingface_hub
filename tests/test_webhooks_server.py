@@ -82,7 +82,7 @@ WEBHOOK_PAYLOAD_UPDATE_DISCUSSION = {  # valid payload but doesn't have a "comme
 
 def test_deserialize_payload_example_with_comment() -> None:
     """Confirm that the test stub can actually be deserialized."""
-    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
+    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
     assert payload.event.scope == WEBHOOK_PAYLOAD_CREATE_DISCUSSION["event"]["scope"]
     assert payload.comment is not None
     assert payload.comment.content == "Add co2 emissions information to the model card"
@@ -90,7 +90,7 @@ def test_deserialize_payload_example_with_comment() -> None:
 
 def test_deserialize_payload_example_without_comment() -> None:
     """Confirm that the test stub can actually be deserialized."""
-    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
+    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
     assert payload.event.scope == WEBHOOK_PAYLOAD_UPDATE_DISCUSSION["event"]["scope"]
     assert payload.comment is None
 
