@@ -481,7 +481,14 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="document-question-answering")
         return _bytes_to_list(response)
 
-    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    async def feature_extraction(
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        truncate: Optional[bool] = None,
+        normalize: Optional[bool] = None,
+    ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -492,6 +499,10 @@ class AsyncInferenceClient:
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
+            truncate (`bool`, *optional*):
+                Whether to truncate in the tokenization step
+            normalize (`bool`, *optional*):
+                Whether to apply L2 normalization on the server after feature extraction
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -512,9 +523,16 @@ class AsyncInferenceClient:
         [-0.42943227, -0.6364878 , -1.693462  , ...,  0.41978157, -2.4336355 ,  0.6162071 ],
         ...,
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
+        >>> await client.feature_extraction("Hi, who are you?"*10_000, truncate=True)
+        array([[-3.41086648e-02,  2.50333734e-02,  ..., -1.86223872e-02,  1.07370131e-03]], dtype=float32)
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        payload = {"inputs": text}
+        if truncate is not None:
+            payload["truncate"] = truncate
+        if normalize is not None:
+            payload["normalize"] = normalize
+        response = await self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 

@@ -487,7 +487,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         truncate: Optional[bool] = None,
-        normalize: Optional[bool] = None
+        normalize: Optional[bool] = None,
     ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
@@ -528,9 +528,9 @@ class InferenceClient:
         """
         payload = {"inputs": text}
         if truncate is not None:
-            payload['truncate'] = truncate
+            payload["truncate"] = truncate
         if normalize is not None:
-            payload['normalize'] = normalize
+            payload["normalize"] = normalize
         response = self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
