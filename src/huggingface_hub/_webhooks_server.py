@@ -152,7 +152,7 @@ class WebhooksServer:
 
         return _inner_post
 
-    def launch(self, prevent_thread_lock: bool = False, **launch_kwargs: Dict(str, Any)) -> None:
+    def launch(self, prevent_thread_lock: bool = False, **launch_kwargs: Any) -> None:
         """Launch the Gradio app and register webhooks to the underlying FastAPI server.
 
         Input parameters are forwarded to Gradio when launching the app.
