@@ -183,7 +183,7 @@ class TestWebhooksServerRun(unittest.TestCase):
             # Run without blocking
             with patch.object(huggingface_hub._webhooks_server, "_is_local", False):
                 # Run without tunnel
-                self.app.run()
+                self.app.launch()
                 return TestClient(self.app.fastapi_app)
 
     def test_run_print_instructions(self):
