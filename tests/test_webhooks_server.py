@@ -17,7 +17,7 @@ if is_gradio_available():
 
 
 # Taken from https://huggingface.co/docs/hub/webhooks#event
-WEBHOOK_PAYLOAD_EXAMPLE = {
+WEBHOOK_PAYLOAD_CREATE_DISCUSSION = {
     "event": {"action": "create", "scope": "discussion"},
     "repo": {
         "type": "model",
@@ -50,11 +50,49 @@ WEBHOOK_PAYLOAD_EXAMPLE = {
     "webhook": {"id": "6390e855e30d9209411de93b", "version": 3},
 }
 
+WEBHOOK_PAYLOAD_UPDATE_DISCUSSION = {  # valid payload but doesn't have a "comment" value
+    "event": {"action": "update", "scope": "discussion"},
+    "repo": {
+        "type": "space",
+        "name": "Wauplin/leaderboard",
+        "id": "656896965808298301ed7ccf",
+        "private": False,
+        "url": {
+            "web": "https://huggingface.co/spaces/Wauplin/leaderboard",
+            "api": "https://huggingface.co/api/spaces/Wauplin/leaderboard",
+        },
+        "owner": {"id": "6273f303f6d63a28483fde12"},
+    },
+    "discussion": {
+        "id": "656a0dfcadba74cd5ef4545b",
+        "title": "Update space_ci/webhook.py",
+        "url": {
+            "web": "https://huggingface.co/spaces/Wauplin/leaderboard/discussions/4",
+            "api": "https://huggingface.co/api/spaces/Wauplin/leaderboard/discussions/4",
+        },
+        "status": "closed",
+        "author": {"id": "6273f303f6d63a28483fde12"},
+        "num": 4,
+        "isPullRequest": True,
+        "changes": {"base": "refs/heads/main"},
+    },
+    "webhook": {"id": "656a05348c99518820a4dd54", "version": 3},
+}
 
-def test_deserialize_payload_example() -> None:
+
+def test_deserialize_payload_example_with_comment() -> None:
     """Confirm that the test stub can actually be deserialized."""
-    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_EXAMPLE)
-    assert payload.event.scope == WEBHOOK_PAYLOAD_EXAMPLE["event"]["scope"]
+    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
+    assert payload.event.scope == WEBHOOK_PAYLOAD_CREATE_DISCUSSION["event"]["scope"]
+    assert payload.comment is not None
+    assert payload.comment.content == "Add co2 emissions information to the model card"
+
+
+def test_deserialize_payload_example_without_comment() -> None:
+    """Confirm that the test stub can actually be deserialized."""
+    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
+    assert payload.event.scope == WEBHOOK_PAYLOAD_UPDATE_DISCUSSION["event"]["scope"]
+    assert payload.comment is None
 
 
 @require_webhooks
@@ -161,7 +199,7 @@ class TestWebhooksServerRun(unittest.TestCase):
     def test_run_parse_payload(self):
         """Test that the payload is correctly parsed when running the app."""
         response = self.client.post(
-            "/webhooks/test_webhook", headers=self.HEADERS_VALID_SECRET, json=WEBHOOK_PAYLOAD_EXAMPLE
+            "/webhooks/test_webhook", headers=self.HEADERS_VALID_SECRET, json=WEBHOOK_PAYLOAD_CREATE_DISCUSSION
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"scope": "discussion"})

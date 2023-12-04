@@ -17,9 +17,10 @@ import atexit
 import inspect
 import os
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from .utils import experimental, is_gradio_available
+from .utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -151,14 +152,18 @@ class WebhooksServer:
 
         return _inner_post
 
-    def run(self) -> None:
-        """Starts the Gradio app with the FastAPI server and registers the webhooks."""
+    def launch(self, prevent_thread_lock: bool = False, **launch_kwargs: Dict(str, Any)) -> None:
+        """Launch the Gradio app and register webhooks to the underlying FastAPI server.
+
+        Input parameters are forwarded to Gradio when launching the app.
+        """
         ui = self._ui or self._get_default_ui()
 
         # Start Gradio App
         #   - as non-blocking so that webhooks can be added afterwards
         #   - as shared if launch locally (to debug webhooks)
-        self.fastapi_app, _, _ = ui.launch(prevent_thread_lock=True, share=_is_local)
+        launch_kwargs.setdefault("share", _is_local)
+        self.fastapi_app, _, _ = ui.launch(prevent_thread_lock=True, **launch_kwargs)
 
         # Register webhooks to FastAPI app
         for path, func in self.registered_webhooks.items():
@@ -176,7 +181,12 @@ class WebhooksServer:
         message += "\nGo to https://huggingface.co/settings/webhooks to setup your webhooks."
         print(message)
 
-        ui.block_thread()
+        if not prevent_thread_lock:
+            ui.block_thread()
+
+    @_deprecate_method(version="0.23", message="Use `WebhooksServer.launch` instead.")
+    def run(self) -> None:
+        return self.launch()
 
     def _get_default_ui(self) -> "gr.Blocks":
         """Default UI if not provided (lists webhooks and provides basic instructions)."""
