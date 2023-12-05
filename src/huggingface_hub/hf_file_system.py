@@ -379,6 +379,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
+        path = self.resolve_path(path).unresolve()
         return super().glob(path, **kwargs)
 
     def find(
