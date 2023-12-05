@@ -50,4 +50,4 @@ rendered properly in your Markdown viewer.
 사용자와 함께, 사용자를 위한 🤗 생태계를 구축하는 데 도움이 되는 피드백을 환영합니다.
 
 git 기반 [`Repository`]보다 http 기반 [`HfApi`]를 선호한다고 해서 Hugging Face Hub에서 git 버전 관리가 바로 사라지는 것은 아닙니다.
-워크플로에서 로컬로 `git` 명령을 사용하는 것이 합당한 경우 언제든지 가능합니다.
+작업 흐름 상 합당하다면 언제든 로컬에서 `git` 명령을 사용할 수 있습니다.
