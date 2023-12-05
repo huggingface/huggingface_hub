@@ -27,7 +27,7 @@ from .utils import (
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
     r"""
-    (^refs\/convert\/parquet) # `refs/convert/parquet` revisions
+    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
     |
     (^refs\/pr\/\d+)          # PR revisions
     """,
@@ -43,10 +43,16 @@ class HfFileSystemResolvedPath:
     repo_id: str
     revision: str
     path_in_repo: str
+    _revision_in_path: Optional[str] = None  # the part placer after '@' in the path (can even be a quoted or unquoted special refs revision)
 
     def unresolve(self) -> str:
         repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
-        return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
+        if self._revision_in_path:
+            return f"{repo_path}@{self._revision_in_path}/{self.path_in_repo}".rstrip("/")
+        elif self.revision != "main":
+            return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
+        else:
+            return f"{repo_path}/{self.path_in_repo}".rstrip("/")
 
 
 class HfFileSystem(fsspec.AbstractFileSystem):
@@ -155,12 +161,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         revision_in_path, path_in_repo = revision_in_path.split("/", 1)
                 else:
                     path_in_repo = ""
-                revision_in_path = unquote(revision_in_path)
-                revision = _align_revision_in_path_with_revision(revision_in_path, revision)
+                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
                 repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
                 if not repo_and_revision_exist:
                     _raise_file_not_found(path, err)
             else:
+                revision_in_path = None
                 repo_id_with_namespace = "/".join(path.split("/")[:2])
                 path_in_repo_with_namespace = "/".join(path.split("/")[2:])
                 repo_id_without_namespace = path.split("/")[0]
@@ -182,19 +188,20 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             path_in_repo = ""
             if "@" in path:
                 repo_id, revision_in_path = path.split("@", 1)
-                revision_in_path = unquote(revision_in_path)
-                revision = _align_revision_in_path_with_revision(revision_in_path, revision)
+                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
+            else:
+                revision_in_path = None
             repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
             if not repo_and_revision_exist:
                 raise NotImplementedError("Access to repositories lists is not implemented.")
 
         revision = revision if revision is not None else DEFAULT_REVISION
-        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo)
+        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _revision_in_path=revision_in_path)
 
     def invalidate_cache(self, path: Optional[str] = None) -> None:
         if not path:
             self.dircache.clear()
-            self._repository_type_and_id_exists_cache.clear()
+            self._repo_and_revision_exists_cache.clear()
         else:
             path = self.resolve_path(path).unresolve()
             while path:
@@ -235,7 +242,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         root_path = REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "") + resolved_path.repo_id
-        paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=resolved_path.revision)
+        paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
         paths_in_repo = [path[len(root_path) + 1 :] for path in paths if not self.isdir(path)]
         operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
         commit_message = f"Delete {path} "
@@ -258,22 +265,18 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> List[Union[str, Dict[str, Any]]]:
         """List the contents of a directory."""
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + safe_revision(resolved_path.revision)
-        has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         kwargs = {"expand_info": detail, **kwargs}
         try:
-            out = self._ls_tree(path, refresh=refresh, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(path, refresh=refresh, revision=revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
             if not resolved_path.path_in_repo:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, revision=resolved_path.revision, **kwargs)
+            out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
-        if not has_revision_in_path:
-            out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
         return out if detail else [o["name"] for o in out]
 
     def _ls_tree(
@@ -287,7 +290,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         root_path = HfFileSystemResolvedPath(
-            resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+            resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "", _revision_in_path=resolved_path._revision_in_path
         ).unresolve()
 
         out = []
@@ -339,7 +342,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         common_path,
                         recursive=recursive,
                         refresh=True,
-                        revision=resolved_path.revision,
+                        revision=revision,
                         expand_info=expand_info,
                     )
                 )
@@ -379,7 +382,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
-        path = self.resolve_path(path).unresolve()
+        path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         return super().glob(path, **kwargs)
 
     def find(
@@ -397,16 +400,13 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
             )
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + safe_quote(resolved_path.revision)
-        has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         kwargs = {"expand_info": detail, **kwargs}
         try:
             out = self._ls_tree(path, recursive=True, refresh=refresh, revision=resolved_path.revision, **kwargs)
         except EntryNotFoundError:
             # Path could be a file
-            if self.info(path, revision=resolved_path.revision, **kwargs)["type"] == "file":
-                path = path.replace(revision_in_path, "", 1) if not has_revision_in_path else path
+            if self.info(path, revision=revision, **kwargs)["type"] == "file":
                 out = {path: {}}
             else:
                 out = {}
@@ -417,8 +417,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 # If `withdirs=True`, include the directory itself to be consistent with the spec
                 path_info = self.info(path, revision=resolved_path.revision, **kwargs)
                 out = [path_info] + out if path_info["type"] == "directory" else out
-            if not has_revision_in_path:
-                out = [{**o, "name": o["name"].replace(revision_in_path, "", 1)} for o in out]
             out = {o["name"]: o for o in out}
         names = sorted(out)
         if not detail:
@@ -518,7 +516,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     _raise_file_not_found(path, None)
                 path_info = paths_info[0]
                 root_path = HfFileSystemResolvedPath(
-                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, ""
+                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "", _revision_in_path=resolved_path._revision_in_path
                 ).unresolve()
                 if isinstance(path_info, RepoFile):
                     out = {
