@@ -115,7 +115,10 @@ def _sanitize_path(fn: Callable, path_args: List[str]) -> Callable:
             # case [{"name": "hf://foo@refs/pr/1"}]
             # e.g. ls()
             if isinstance(out, list) and out and isinstance(out[0], dict) and isinstance(out[0].get("name"), str):
-                out = [{**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)} for value in out]
+                out = [
+                    {**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)}
+                    for value in out
+                ]
             # case {"name": "hf://foo@refs/pr/1"}
             # e.g. info()
             if isinstance(out, dict) and isinstance(out.get("name"), str):
@@ -123,15 +126,28 @@ def _sanitize_path(fn: Callable, path_args: List[str]) -> Callable:
             # case {"hf://foo@refs/pr/1": ...}
             # e.g. glob() with detail
             if isinstance(out, dict) and out and isinstance(next(iter(out)), str):
-                out = {key.replace(unquoted_revision_in_path, revision_in_path, 1): value for key, value in out.items()}
+                out = {
+                    key.replace(unquoted_revision_in_path, revision_in_path, 1): value for key, value in out.items()
+                }
             # case {...: "hf://foo@refs/pr/1"}
             # e.g. ? (added just in case)
             if isinstance(out, dict) and out and isinstance(next(iter(out.values())), str):
-                out = {key: value["name"].replace(unquoted_revision_in_path, revision_in_path, 1) for key, value in out.items()}
+                out = {
+                    key: value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)
+                    for key, value in out.items()
+                }
             # case {...: {"name": "hf://foo@refs/pr/1"}}
             # e.g. glob() with detail
-            if isinstance(out, dict) and out and isinstance(next(iter(out.values())), dict) and isinstance(next(iter(out.values())).get("name"), str):
-                out = {key: {**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)} for key, value in out.items()}
+            if (
+                isinstance(out, dict)
+                and out
+                and isinstance(next(iter(out.values())), dict)
+                and isinstance(next(iter(out.values())).get("name"), str)
+            ):
+                out = {
+                    key: {**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)}
+                    for key, value in out.items()
+                }
         return out
 
     return _inner_fn
