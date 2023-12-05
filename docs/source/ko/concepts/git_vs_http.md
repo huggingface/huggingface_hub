@@ -5,7 +5,7 @@ rendered properly in your Markdown viewer.
 # Git 대 HTTP 패러다임
 
 `huggingface_hub` 라이브러리는 git 기반의 저장소(Models, Datasets 또는 Spaces)로 구성된 Hugging Face Hub과 상호 작용하기 위한 라이브러리입니다.
-크게 `huggingface_hub`를 사용하여 Hub에 접근하는 두 가지 방법이 있습니다.
+`huggingface_hub`를 사용하여 Hub에 접근하는 방법은 크게 두 가지입니다.
 
 첫 번째 접근 방식인 소위 "git 기반" 접근 방식은 [`Repository`] 클래스가 주도합니다.
 이 방법은 허브와 상호작용하도록 특별히 설계된 추가 기능과 함께 `git` 명령에 랩퍼를 사용합니다.
