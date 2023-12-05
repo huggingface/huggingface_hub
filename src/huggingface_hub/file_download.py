@@ -927,26 +927,34 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         # by the user via `local_dir`. Let's test symlink support there)
         _support_symlinks = are_symlinks_supported(abs_dst_folder)
 
+    # Symlinks are supported => let's create a symlink.
     if _support_symlinks:
         src_rel_or_abs = relative_src or abs_src
         logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
             os.symlink(src_rel_or_abs, abs_dst)
+            return
         except FileExistsError:
             if os.path.islink(abs_dst) and os.path.realpath(abs_dst) == os.path.realpath(abs_src):
                 # `abs_dst` already exists and is a symlink to the `abs_src` blob. It is most likely that the file has
                 # been cached twice concurrently (exactly between `os.remove` and `os.symlink`). Do nothing.
-                pass
+                return
             else:
                 # Very unlikely to happen. Means a file `dst` has been created exactly between `os.remove` and
                 # `os.symlink` and is not a symlink to the `abs_src` blob file. Raise exception.
                 raise
-    elif new_blob:
+        except PermissionError:
+            # Permission error means src and dst are not in the same volume (e.g. download to local dir) and symlink
+            # is supported on both volumes but not between them. Let's just make a hard copy in that case.
+            pass
+
+    # Symlinks are not supported => let's move or copy the file.
+    if new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(src, dst)
+        shutil.move(abs_src, abs_dst)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
-        shutil.copyfile(src, dst)
+        shutil.copyfile(abs_src, abs_dst)
 
 
 def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
