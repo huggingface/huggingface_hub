@@ -43,7 +43,8 @@ class HfFileSystemResolvedPath:
     repo_id: str
     revision: str
     path_in_repo: str
-    _revision_in_path: Optional[str] = None  # the part placer after '@' in the path (can even be a quoted or unquoted special refs revision)
+    # The part placer after '@' in the path (can even be a quoted or unquoted special refs revision)
+    _revision_in_path: Optional[str] = None
 
     def unresolve(self) -> str:
         repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
@@ -290,7 +291,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         root_path = HfFileSystemResolvedPath(
-            resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "", _revision_in_path=resolved_path._revision_in_path
+            resolved_path.repo_type,
+            resolved_path.repo_id,
+            resolved_path.revision,
+            "",
+            _revision_in_path=resolved_path._revision_in_path,
         ).unresolve()
 
         out = []
@@ -516,7 +521,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     _raise_file_not_found(path, None)
                 path_info = paths_info[0]
                 root_path = HfFileSystemResolvedPath(
-                    resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision, "", _revision_in_path=resolved_path._revision_in_path
+                    resolved_path.repo_type,
+                    resolved_path.repo_id,
+                    resolved_path.revision,
+                    "",
+                    _revision_in_path=resolved_path._revision_in_path,
                 ).unresolve()
                 if isinstance(path_info, RepoFile):
                     out = {
