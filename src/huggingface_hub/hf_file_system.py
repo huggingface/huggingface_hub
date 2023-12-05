@@ -1,11 +1,13 @@
+import inspect
 import os
 import re
 import tempfile
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial, wraps
 from itertools import chain
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -27,12 +29,121 @@ from .utils import (
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
     r"""
-    (^refs\/convert\/parquet) # `refs/convert/parquet` revisions
+    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
     |
     (^refs\/pr\/\d+)          # PR revisions
     """,
     re.VERBOSE,
 )
+
+# Regex used to match special revisions with "/" in them (see #1710)
+QUOTED_SPECIAL_REFS_REVISION_REGEX = re.compile(
+    r"""
+    (^refs%2Fconvert%2F\w+)     # `refs/convert/parquet` revisions
+    |
+    (^refs%2Fpr%2F\d+)          # PR revisions
+    """,
+    re.VERBOSE,
+)
+
+
+def _sanitize_path(fn: Callable, path_args: List[str]) -> Callable:
+    """Decorator to sanitize input path and make sure the output paths are formatted the same way.
+
+    Sanitization transforms quoted special refs revision to unqoted refs revisions inside the wrapped function.
+    For example: @refs%2Fpr%2F1 -> refs/pr/1
+
+    The output is then re-formatted using the same revision format as the input path.
+
+    Args:
+        fn (`Callable`):
+            The function that will have its input path sanitized.
+        path_args (`List[str]`):
+            The names of the path arguments in fn. Defaults to ["path"].
+
+    Returns:
+        `Callable`: The decorated function or a decorator.
+
+    Example:
+
+    ```python
+    >>> @sanitize_path
+    ... def my_function(path: str) -> str:
+    ...     print("inner:", path)
+    ...     return path + "/README.md"
+
+    >>> out = my_function("hf://foo@refs%2Fpr%2F1")
+    inner: hf://foo@refs/pr/1
+    >>> out
+    'hf://foo@refs%2Fpr%2F1/README.md'
+    ```
+
+    ```python
+    >>> @sanitize_path(path_args=["path1", "path2"])
+    ... def my_multi_paths_function(path1: str, path2: str) -> None:
+    ...     print("inner1:", path1)
+    ...     print("inner2:", path2)
+
+    >>> out = my_multi_paths_function(path1="hf://foo@refs%2Fpr%2F1", path2="hf://foo@refs%2Fpr%2F2")
+    inner1: hf://foo@refs/pr/1
+    inner2: hf://foo@refs/pr/2
+    ```
+    """
+
+    @wraps(fn)
+    def _inner_fn(*args, **kwargs):
+        kwargs = inspect.getcallargs(fn, *args, **kwargs)
+        kwargs.update(kwargs.pop("kwargs", {}))
+        sanitizations: List[Tuple[str, str]] = []
+        for path_arg in path_args:
+            path: str = kwargs[path_arg]
+            if "@" in path:
+                repo_id, revision_in_path = path.split("@", 1)
+                if "/" in revision_in_path:
+                    match = QUOTED_SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
+                    if match is not None:
+                        # Handle `refs%2Fconvert%2Fparquet` and quoted PR revisions separately
+                        revision_in_path = match.group()
+                        kwargs[path_arg] = path.replace(revision_in_path, unquote(revision_in_path), 1)
+                        sanitizations.append((revision_in_path, unquote(revision_in_path)))
+        out = fn(**kwargs)
+        for revision_in_path, unquoted_revision_in_path in sanitizations:
+            # case ["hf://foo@refs/pr/1"]
+            # e.g. glob()
+            if isinstance(out, list) and out and isinstance(out[0], str):
+                out = [value.replace(unquoted_revision_in_path, revision_in_path, 1) for value in out]
+            # case [{"name": "hf://foo@refs/pr/1"}]
+            # e.g. ls()
+            if isinstance(out, list) and out and isinstance(out[0], dict) and isinstance(out[0].get("name"), str):
+                out = [{**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)} for value in out]
+            # case {"name": "hf://foo@refs/pr/1"}
+            # e.g. info()
+            if isinstance(out, dict) and isinstance(out.get("name"), str):
+                out = {**out, "name": out["name"].replace(unquoted_revision_in_path, revision_in_path, 1)}
+            # case {"hf://foo@refs/pr/1": ...}
+            # e.g. glob() with detail
+            if isinstance(out, dict) and out and isinstance(next(iter(out)), str):
+                out = {key.replace(unquoted_revision_in_path, revision_in_path, 1): value for key, value in out.items()}
+            # case {...: "hf://foo@refs/pr/1"}
+            # e.g. ? (added just in case)
+            if isinstance(out, dict) and out and isinstance(next(iter(out.values())), str):
+                out = {key: value["name"].replace(unquoted_revision_in_path, revision_in_path, 1) for key, value in out.items()}
+            # case {...: {"name": "hf://foo@refs/pr/1"}}
+            # e.g. glob() with detail
+            if isinstance(out, dict) and out and isinstance(next(iter(out.values())), dict) and isinstance(next(iter(out.values())).get("name"), str):
+                out = {key: {**value, "name": value["name"].replace(unquoted_revision_in_path, revision_in_path, 1)} for key, value in out.items()}
+        return out
+
+    return _inner_fn
+
+
+def sanitize_path(fn: Optional[Callable] = None, path_args: Optional[List[str]] = None) -> Callable:
+    if path_args is None:
+        path_args = ["path"]
+    if fn is None:
+        return partial(_sanitize_path, path_args=path_args)
+    else:
+        return _sanitize_path(fn=fn, path_args=path_args)
 
 
 @dataclass
@@ -191,10 +302,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision = revision if revision is not None else DEFAULT_REVISION
         return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo)
 
+    @sanitize_path
     def invalidate_cache(self, path: Optional[str] = None) -> None:
         if not path:
             self.dircache.clear()
-            self._repository_type_and_id_exists_cache.clear()
+            self._repo_and_revision_exists_cache.clear()
         else:
             path = self.resolve_path(path).unresolve()
             while path:
@@ -225,6 +337,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         )
         self.invalidate_cache(path=resolved_path.unresolve())
 
+    @sanitize_path
     def rm(
         self,
         path: str,
@@ -253,6 +366,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         )
         self.invalidate_cache(path=resolved_path.unresolve())
 
+    @sanitize_path
     def ls(
         self, path: str, detail: bool = True, refresh: bool = False, revision: Optional[str] = None, **kwargs
     ) -> List[Union[str, Dict[str, Any]]]:
@@ -376,12 +490,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out.append(cache_path_info)
         return out
 
+    @sanitize_path
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
         path = self.resolve_path(path).unresolve()
         return super().glob(path, **kwargs)
 
+    @sanitize_path
     def find(
         self,
         path: str,
@@ -426,6 +542,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         else:
             return {name: out[name] for name in names}
 
+    @sanitize_path(path_args=["path1", "path2"])
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
@@ -471,6 +588,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         info = self.info(path, **kwargs)
         return info["last_commit"]["date"]
 
+    @sanitize_path
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path, revision=revision)
         revision_in_path = "@" + safe_revision(resolved_path.revision)
