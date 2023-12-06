@@ -477,8 +477,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         resolved_path = self.resolve_path(path, revision=revision)
-        revision_in_path = "@" + safe_revision(resolved_path.revision)
-        has_revision_in_path = revision_in_path in path
         path = resolved_path.unresolve()
         expand_info = kwargs.get(
             "expand_info", True
@@ -549,8 +547,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
-        if not has_revision_in_path:
-            out["name"] = out["name"].replace(revision_in_path, "", 1)  # type: ignore
         return copy.deepcopy(out)  # copy to not let users modify the dircache
 
     def exists(self, path, **kwargs):
