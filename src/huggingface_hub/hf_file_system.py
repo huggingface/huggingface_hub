@@ -44,14 +44,15 @@ class HfFileSystemResolvedPath:
     repo_id: str
     revision: str
     path_in_repo: str
-    # The part placer after '@' in the path (can even be a quoted or unquoted special refs revision)
-    _revision_in_path: Optional[str] = field(default=None, repr=False)
+    # The part placed after '@' in the initial path. It can be a quoted or unquoted refs revision.
+    # Used to reconstruct the unresolved path to return to the user.
+    _raw_revision: Optional[str] = field(default=None, repr=False)
 
     def unresolve(self) -> str:
         repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
-        if self._revision_in_path:
-            return f"{repo_path}@{self._revision_in_path}/{self.path_in_repo}".rstrip("/")
-        elif self.revision != "main":
+        if self._raw_revision:
+            return f"{repo_path}@{self._raw_revision}/{self.path_in_repo}".rstrip("/")
+        elif self.revision != DEFAULT_REVISION:
             return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
         else:
             return f"{repo_path}/{self.path_in_repo}".rstrip("/")
@@ -198,7 +199,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 raise NotImplementedError("Access to repositories lists is not implemented.")
 
         revision = revision if revision is not None else DEFAULT_REVISION
-        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _revision_in_path=revision_in_path)
+        return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path)
 
     def invalidate_cache(self, path: Optional[str] = None) -> None:
         if not path:
@@ -295,8 +296,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             resolved_path.repo_type,
             resolved_path.repo_id,
             resolved_path.revision,
-            "",
-            _revision_in_path=resolved_path._revision_in_path,
+            path_in_repo="",
+            _raw_revision=resolved_path._raw_revision,
         ).unresolve()
 
         out = []
@@ -523,8 +524,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     resolved_path.repo_type,
                     resolved_path.repo_id,
                     resolved_path.revision,
-                    "",
-                    _revision_in_path=resolved_path._revision_in_path,
+                    path_in_repo="",
+                    _raw_revision=resolved_path._raw_revision,
                 ).unresolve()
                 if isinstance(path_info, RepoFile):
                     out = {
