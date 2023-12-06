@@ -1,8 +1,9 @@
+import copy
 import os
 import re
 import tempfile
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
@@ -44,7 +45,7 @@ class HfFileSystemResolvedPath:
     revision: str
     path_in_repo: str
     # The part placer after '@' in the path (can even be a quoted or unquoted special refs revision)
-    _revision_in_path: Optional[str] = None
+    _revision_in_path: Optional[str] = field(default=None, repr=False)
 
     def unresolve(self) -> str:
         repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
@@ -382,7 +383,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
                 out.append(cache_path_info)
-        return out
+        return copy.deepcopy(out)  # copy to not let users modify the dircache
 
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
@@ -550,7 +551,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         assert out is not None
         if not has_revision_in_path:
             out["name"] = out["name"].replace(revision_in_path, "", 1)  # type: ignore
-        return out
+        return copy.deepcopy(out)  # copy to not let users modify the dircache
 
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""

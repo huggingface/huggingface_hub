@@ -1,4 +1,3 @@
-import copy
 import datetime
 import unittest
 from typing import Optional
@@ -340,7 +339,7 @@ class HfFileSystemTests(unittest.TestCase):
             repo_type="dataset",
         )
 
-        files = copy.deepcopy(self.hffs.find(self.hf_path, detail=True))
+        files = self.hffs.find(self.hf_path, detail=True)
 
         # some directories not in cache
         self.hffs.dircache.pop(self.hf_path + "/data/sub_data")
