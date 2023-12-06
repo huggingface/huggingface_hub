@@ -415,7 +415,7 @@ def test_resolve_path(
             resolved_path.path_in_repo,
         ) == (repo_type, repo_id, resolved_revision, path_in_repo)
         if "@" in path:
-            assert resolved_path._revision_in_path in path
+            assert resolved_path._raw_revision in path
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])
