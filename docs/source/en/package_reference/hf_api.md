@@ -109,15 +109,6 @@ Below are the supported values for [`CommitOperation`]:
 
 [[autodoc]] CommitScheduler
 
-## Token helper
-
-`huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
-methods.
-
-It does this using the [`HfFolder`] utility, which saves data at the root of the user.
-
-[[autodoc]] HfFolder
-
 ## Search helpers
 
 Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.

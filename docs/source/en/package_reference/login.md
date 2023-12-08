@@ -4,8 +4,9 @@ rendered properly in your Markdown viewer.
 
 # Login and logout
 
-The `huggingface_hub` library allows users to programmatically login and logout the
-machine to the Hub.
+The `huggingface_hub` library allows users to programmatically login and logout the machine to the Hub.
+
+For more details about authentication, check out [this section](../quick-start#authentication).
 
 ## login
 

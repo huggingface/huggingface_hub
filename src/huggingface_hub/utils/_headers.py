@@ -16,7 +16,7 @@
 from typing import Dict, Optional, Union
 
 from .. import constants
-from ._hf_folder import HfFolder
+from .._login import get_token
 from ._runtime import (
     get_fastai_version,
     get_fastcore_version,
@@ -145,7 +145,7 @@ def get_token_to_send(token: Optional[Union[bool, str]]) -> Optional[str]:
         return None
 
     # Token is not provided: we get it from local cache
-    cached_token = HfFolder().get_token()
+    cached_token = get_token()
 
     # Case token is explicitly required
     if token is True:

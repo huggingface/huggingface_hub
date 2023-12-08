@@ -14,7 +14,6 @@
 import datetime
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import time
@@ -69,7 +68,6 @@ from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
 from huggingface_hub.utils import (
     BadRequestError,
     EntryNotFoundError,
-    HfFolder,
     HfHubHTTPError,
     NotASafetensorsRepoError,
     RepositoryNotFoundError,
@@ -185,21 +183,19 @@ class HfApiEndpointsTest(HfApiCommonTest):
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
         self.assertIsInstance(valid_org["apiToken"], str)
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `huggingface-cli login`."""
-        mock_HfFolder().get_token.return_value = self._token
-
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
         self.assertEqual(info["name"], USER)
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_hf_api(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token")
+    def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
-        mock_HfFolder().get_token.assert_not_called()
+        mock_get_token.assert_not_called()
 
     def test_delete_repo_error_message(self):
         # test for #751
@@ -397,8 +393,8 @@ class CommitApiTest(HfApiCommonTest):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
-    def test_create_repo_org_token_none_fail(self):
-        HfFolder.save_token("api_org_dummy_token")
+    @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
+    def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
@@ -826,17 +822,16 @@ class CommitApiTest(HfApiCommonTest):
 
                 self.assertEqual(str(context.exception), expected_message)
 
-    def test_create_commit_lfs_file_implicit_token(self):
-        """Test that uploading a file as LFS works with implicit token (from cache).
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_create_commit_lfs_file_implicit_token(self, get_token_mock: Mock) -> None:
+        """Test that uploading a file as LFS works with cached token.
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/1084.
         """
         REPO_NAME = repo_name("create_commit_with_lfs")
         repo_id = f"{USER}/{REPO_NAME}"
 
-        def _inner(mock: Mock) -> None:
-            mock.return_value = self._token  # Set implicit token
-
+        with patch.object(self._api, "token", None):  # no default token
             # Create repo
             self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
 
@@ -862,16 +857,12 @@ class CommitApiTest(HfApiCommonTest):
             )
 
             # Check uploaded as LFS
-            info = self._api.model_info(repo_id=repo_id, use_auth_token=self._token, files_metadata=True)
+            info = self._api.model_info(repo_id=repo_id, files_metadata=True)
             siblings = {file.rfilename: file for file in info.siblings}
             self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
 
             # Delete repo
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-        with patch.object(self._api, "token", None):  # no default token
-            with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
-                _inner(mock)  # just to avoid indenting twice the code code
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     def test_create_commit_huge_regular_files(self):
         """Test committing 12 text files (>100MB in total) at once.
@@ -2149,8 +2140,12 @@ class HfApiPrivateTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.REPO_NAME)
         self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
-    def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
+        """Test using `whoami` after a `huggingface-cli login`."""
+        mock_get_token.return_value = self._token
+
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_model_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
@@ -2165,8 +2160,8 @@ class HfApiPrivateTest(HfApiCommonTest):
             model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
-    def test_dataset_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_dataset_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(

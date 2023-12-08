@@ -63,6 +63,7 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_login": [
+        "get_token",
         "interpreter_login",
         "login",
         "logout",
@@ -406,6 +407,7 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._login import (
+        get_token,  # noqa: F401
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
         logout,  # noqa: F401

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import requests
 
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
-from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
+from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
 from .testing_utils import repo_name
@@ -105,10 +105,10 @@ class SnapshotDownloadTests(unittest.TestCase):
                 _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
         # Test we can download with token from cache
-        with SoftTemporaryDirectory() as tmpdir:
-            HfFolder.save_token(TOKEN)
-            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+        with patch("huggingface_hub.utils._headers.get_token", return_value=None):
+            with SoftTemporaryDirectory() as tmpdir:
+                storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
+                self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test we can download with explicit token
         with SoftTemporaryDirectory() as tmpdir:

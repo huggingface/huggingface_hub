@@ -92,6 +92,8 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
+For more details about authentication, check out [this section](../quick-start#authentication).
+
 ## huggingface-cli whoami
 
 If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
