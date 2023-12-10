@@ -2,43 +2,44 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Quickstart
+# Démarrage rapide
 
-The [Hugging Face Hub](https://huggingface.co/) is the go-to place for sharing machine learning
-models, demos, datasets, and metrics. `huggingface_hub` library helps you interact with
-the Hub without leaving your development environment. You can create and manage
-repositories easily, download and upload files, and get useful model and dataset
-metadata from the Hub.
+Le [Hub Hugging Face](https://huggingface.co/) est le meilleur endroit pour partager des
+modèles de machine learning, des démos, des datasets et des metriques. La librairie
+`huggingface_hub` vous aide à intéragir avec le Hub sans sortir de votre environnement de
+développement. Vous pouvez: créer et gérer des dépôts facilement, télécharger et upload des
+fichiers, et obtenir des modèles et des metadata depuis le Hub.
 
 ## Installation
 
-To get started, install the `huggingface_hub` library:
+Pour commencer, installez la librairie `huggingface_hub`:
 
 ```bash
 pip install --upgrade huggingface_hub
 ```
 
-For more details, check out the [installation](installation) guide.
+Pour plus de détails, vérifiez le guide [installation](installation)
 
-## Download files
+## Télécharger des fichiers
 
-Repositories on the Hub are git version controlled, and users can download a single file
-or the whole repository. You can use the [`hf_hub_download`] function to download files.
-This function will download and cache a file on your local disk. The next time you need
-that file, it will load from your cache, so you don't need to re-download it.
+Les dépôts sur le Hub sont sous controle de version Git, et les utilisateurs peuvent
+télécharger un fichier, ou dépôt entier. Vous pouvez utiliser la fonction [`hf_hub_download`]
+pour télécharger des fichiers. Cette fonction télécharger et mettra dans le cache un fichier
+sur votre disque local. La prochaine fois que vous aurez besoin de ce fichier, il sera chargé
+depuis votre cache de façon à ce que vous n'ayez pas besoin de le retélécharger.
 
-You will need the repository id and the filename of the file you want to download. For
-example, to download the [Pegasus](https://huggingface.co/google/pegasus-xsum) model
-configuration file: 
+Vous aurez besoin de l'id du dépôt et du nom du fichier que vous voulez télécharger.
+Par exemple, pour télécharger le fichier de configuration du
+modèle [Pegasus](https://huggingface.co/google/pegasus-xsum):
 
 ```py
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(repo_id="google/pegasus-xsum", filename="config.json")
 ```
 
-To download a specific version of the file, use the `revision` parameter to specify the
-branch name, tag, or commit hash. If you choose to use the commit hash, it must be the
-full-length hash instead of the shorter 7-character commit hash: 
+Pour télécharger une version spécifique du fichier, utilisez le paramètre `revision` afin
+de spécifier le nom de la branche, le tag ou le hash de commit. Si vous décidez d'utiliser
+le hash de commit, ce doit être le hash entier et pas le hash court de 7 caractères:
 
 ```py
 >>> from huggingface_hub import hf_hub_download
@@ -49,18 +50,20 @@ full-length hash instead of the shorter 7-character commit hash:
 ... )
 ```
 
-For more details and options, see the API reference for [`hf_hub_download`].
+Pour plus de détails et d'options, consultez la réference de l'API pour [`hf_hub_download`].
 
-## Login
+## Connexion
 
-In a lot of cases, you must be logged in with a Hugging Face account to interact with
-the Hub: download private repos, upload files, create PRs,...
-[Create an account](https://huggingface.co/join) if you don't already have one, and then sign in
-to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens) from
-your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
-used to authenticate your identity to the Hub.
+Dans la plupart des cas, vous devez être connectés avec un compte Hugging Face pour intéragir
+avec le Hub: pour télécharger des dépôts privés, upload des fichiers, créer des pull
+requests...
+[Créez un compte](https://huggingface.co/join) si vous n'en avez pas déjà un et connectez
+vous pour obtenir votre [Token d'Authentification](https://huggingface.co/docs/hub/security-tokens)
+depuis vos [Paramètres](https://huggingface.co/settings/tokens). Le token
+est utilisé pour authentifier votre identité au Hub.
 
-Once you have your User Access Token, run the following command in your terminal:
+Une fois que vous avez votre token d'authentification, lancez la commande suivante
+dans votre terminal:
 
 ```bash
 huggingface-cli login
@@ -68,35 +71,37 @@ huggingface-cli login
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
-Alternatively, you can programmatically login using [`login`] in a notebook or a script:
+Alternativement, vous pouvez vous connecter en utilisant [`login`] dans un notebook ou
+un script:
 
 ```py
 >>> from huggingface_hub import login
 >>> login()
 ```
 
-It is also possible to login programmatically without being prompted to enter your token by directly
-passing the token to [`login`] like `login(token="hf_xxx")`. If you do so, be careful when
-sharing your source code. It is a best practice to load the token from a secure vault instead
-of saving it explicitly in your codebase/notebook.
+Il est aussi possible de se connecter automatiquement sans qu'on vous demande votre token en
+passant le token dans [`login`] de cette manière: `login(token="hf_xxx")`. Si vous choisissez
+cette méthode, faites attention lorsque vous partagez votre code source. Une bonne pratique est
+de charger le token depuis un trousseau sécurisé aulieu de l'enregistrer en clair dans votre
+codebase/notebook.
 
-You can be logged in only to 1 account at a time. If you login your machine to a new account, you will get logged out
-from the previous. Make sure to always which account you are using with the command `huggingface-cli whoami`.
-If you want to handle several accounts in the same script, you can provide your token when calling each method. This
-is also useful if you don't want to store any token on your machine.
+Vous ne pouvez être connecté qu'à un seul compte à la fois. Si vous connectez votre machine à un autre compte,
+vous serez déconnectés du premier compte. Vérifiez toujours le compte que vous utilisez avec la commande
+`huggingface-cli whoami`. Si vous voulez gérer plusieurs compte dans le même script, vous pouvez passer votre
+token à chaque appel de méthode. C'est aussi utile si vous ne voulez pas sauvegarder de token sur votre machine.
 
 <Tip warning={true}>
 
-Once you are logged in, all requests to the Hub -even methods that don't necessarily require authentication- will use your
-access token by default. If you want to disable implicit use of your token, you should set the
-`HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
+une fois que vous êtes connectés, toutes les requêtes vers le Hub (même les méthodes qui ne nécessite pas explicitement
+d'authentification) utiliseront votre token d'authentification par défaut. Si vous voulez supprimer l'utilisation implicite
+de votre token, vous devez définir la variable d'environnement `HF_HUB_DISABLE_IMPLICIT_TOKEN`.
 
 </Tip>
 
-## Create a repository
+## Créer un dépôt
 
-Once you've registered and logged in, create a repository with the [`create_repo`]
-function:
+Une fois que vous avez créer votre compte et que vous vous êtes connectés,
+vous pouvez créer un dépôt avec la fonction [`create_repo`]:
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -104,7 +109,7 @@ function:
 >>> api.create_repo(repo_id="super-cool-model")
 ```
 
-If you want your repository to be private, then:
+Si vous voulez que votre dépôt soit privé, alors:
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -112,24 +117,24 @@ If you want your repository to be private, then:
 >>> api.create_repo(repo_id="super-cool-model", private=True)
 ```
 
-Private repositories will not be visible to anyone except yourself.
+Les dépôts privés ne seront visible que par vous.
 
 <Tip>
 
-To create a repository or to push content to the Hub, you must provide a User Access
-Token that has the `write` permission. You can choose the permission when creating the
-token in your [Settings page](https://huggingface.co/settings/tokens).
+Pour créer un dépôt ou push du contenu sur le Hub, vous devez fournir un token
+d'authentification qui a les permissions `write`. Vous pouvez choisir la permission
+lorsque vous créez le token dans vos [Paramètres](https://huggingface.co/settings/tokens).
 
 </Tip>
 
-## Upload files
+## Upload des fichiers
 
-Use the [`upload_file`] function to add a file to your newly created repository. You
-need to specify:
+Utilisez la fonction [`upload_file`] pour ajouter un fichier à votre dépôt.
+Vous devez spécifier:
 
-1. The path of the file to upload.
-2. The path of the file in the repository.
-3. The repository id of where you want to add the file.
+1. Le chemin du fichier à upload.
+2. Le chemin du fichier dans le dépôt.
+3. L'id du dépôt dans lequel vous voulez ajouter le fichier.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -141,17 +146,18 @@ need to specify:
 ... )
 ```
 
-To upload more than one file at a time, take a look at the [Upload](./guides/upload) guide
-which will introduce you to several methods for uploading files (with or without git).
+Pour upload plus d'un fichier à la fois, consultez le guide [Upload](./guides/upload)
+qui vous expliqueras plusieurs méthodes pour upload des fichiers (avec ou sans Git).
 
-## Next steps
+## Prochaines étapes
 
-The `huggingface_hub` library provides an easy way for users to interact with the Hub
-with Python. To learn more about how you can manage your files and repositories on the
-Hub, we recommend reading our [how-to guides](./guides/overview) to:
+La librairie `huggingface_hub` offre une manière simple aux utilisateurs pour qu'ils puissent
+intéragir avec le Hub via Python. Pour en apprendre plus sur comment gérer vos fichiers
+et vos dépôts sur le Hub, nous vous recommandons de lire notre [how-to guides](./guides/overview)
+pour :
 
-- [Manage your repository](./guides/repository).
-- [Download](./guides/download) files from the Hub.
-- [Upload](./guides/upload) files to the Hub.
-- [Search the Hub](./guides/search) for your desired model or dataset.
-- [Access the Inference API](./guides/inference) for fast inference.
+- [Gérer votre dépôt](./guides/repository).
+- [Télécharger](./guides/download) des fichiers depuis le HUb.
+- [Upload](./guides/upload) des fichiers vers le Hub.
+- [Faire des recherches dans le Hub](./guides/search) pour votre modèle ou dataset.
+- [Accédder à l'API d'inférence](./guides/inference) pour faire des inférences rapides.
