@@ -2,9 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 🤗 Hub client library
+# La librairie client 🤗 Hub 
 
-test
+La librairie
 The `huggingface_hub` library allows you to interact with the [Hugging Face
 Hub](https://hf.co), a machine learning platform for creators and collaborators.
 Discover pre-trained models and datasets for your projects or play with the hundreds of
