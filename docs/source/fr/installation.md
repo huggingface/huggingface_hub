@@ -4,104 +4,108 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Before you start, you will need to setup your environment by installing the appropriate packages.
+Avant de commmencer l'installation, vous allez avoir besoin de préparer votre environnement
+en installant les packages appropriés.
 
-`huggingface_hub` is tested on **Python 3.8+**.
+`huggingface_hub` est testé sur **Python 3.8+**.
 
-## Install with pip
+## Installation avec pip
 
-It is highly recommended to install `huggingface_hub` in a [virtual environment](https://docs.python.org/3/library/venv.html).
-If you are unfamiliar with Python virtual environments, take a look at this [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/).
-A virtual environment makes it easier to manage different projects, and avoid compatibility issues between dependencies.
+Il est fortement recommandé d'installer `huggingface_hub` dans un [environnement virtuel](https://docs.python.org/3/library/venv.html).
+Si vous êtes familier avec les environnements virtuels python, regardez plutôt ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des projets différents
+et éviter les problèmes de compatibilité entre les différetnes dépendances.
 
-Start by creating a virtual environment in your project directory:
+Commencez par créer un environnement virtuel dans le chemin de votre projet:
 
 ```bash
 python -m venv .env
 ```
 
-Activate the virtual environment. On Linux and macOS:
+Activez l'environnement virtuel sur Linux et macOS:
 
 ```bash
 source .env/bin/activate
 ```
 
-Activate virtual environment on Windows:
+Activez l'environnement virtuel sur Windows:
 
 ```bash
 .env/Scripts/activate
 ```
 
-Now you're ready to install `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
+Maintenant, vous êtes prêts à installer `hugginface_hub` [depuis PyPi ](https://pypi.org/project/huggingface-hub/):
 
 ```bash
 pip install --upgrade huggingface_hub
 ```
 
-Once done, [check installation](#check-installation) is working correctly.
+Une fois l'installation finie, [vérifiez](#check-installation) que tout marche correctement.
 
-### Install optional dependencies
+### Installation des dépendances optionnelles
 
-Some dependencies of `huggingface_hub` are [optional](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) because they are not required to run the core features of `huggingface_hub`. However, some features of the `huggingface_hub` may not be available if the optional dependencies aren't installed.
+Certaines dépendances de `huggingface_hub` sont [optionnelles](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) car elles ne sont pas nécessaire pour faire marcher les fonctionnalités principales de `huggingface_hub`.
+Toutefois, certaines fonctionnalités de `huggingface_hub` ne seront pas disponibles si les dépendancces optionnelles ne sont pas installées
 
-You can install optional dependencies via `pip`:
+Vous pouvez installer des dépendances optionelles via `pip`:
 ```bash
-# Install dependencies for tensorflow-specific features
-# /!\ Warning: this is not equivalent to `pip install tensorflow`
+#Installation des dépendances pour les fonctionnalités spécifiques à Tensorflow.
+#/!\ Attention : cette commande n'est pas équivalente à `pip install tensorflow`.
 pip install 'huggingface_hub[tensorflow]'
 
-# Install dependencies for both torch-specific and CLI-specific features.
+#Installation des dépendances spécifiques à Pytorch et au CLI.
 pip install 'huggingface_hub[cli,torch]'
 ```
 
-Here is the list of optional dependencies in `huggingface_hub`:
-- `cli`: provide a more convenient CLI interface for `huggingface_hub`.
-- `fastai`, `torch`, `tensorflow`: dependencies to run framework-specific features.
-- `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
+Voici une liste des dépendances optionnelles dans `huggingface_hub`:
+- `cli` fournit une interface d'invite de commande plus pratique pour `huggingface_hub`.
+- `fastai`, `torch` et `tensorflow` sont des dépendances pour utiliser des fonctionnalités spécifique à un framework.
+- `dev` permet de contribuer à la librairie. Cette dépendance inclut `testing` (pour lancer des tests), `typing` (pour lancer le vérifieur de type) et `quality` (pour lancer des linters). 
 
 
 
-### Install from source
+### Installation depuis la source
 
-In some cases, it is interesting to install `huggingface_hub` directly from source.
-This allows you to use the bleeding edge `main` version rather than the latest stable version.
-The `main` version is useful for staying up-to-date with the latest developments, for instance
-if a bug has been fixed since the last official release but a new release hasn't been rolled out yet.
+Dans certains cas, il est intéressant d'installer `huggingface_hub` directement depuis la source.
+Ceci vous permet d'utiliser la version `main`, contenant les dernières mises à jour, plutôt que
+d'utiliser la dernière version stable. La version `main` est utile pour rester à jour sur les
+derniers développements, par exemple si un bug est réglé depuis la dernière sortie officielle
+mais que la nouvelle sortie n'a pas encore été faite.
 
-However, this means the `main` version may not always be stable. We strive to keep the
-`main` version operational, and most issues are usually resolved
-within a few hours or a day. If you run into a problem, please open an Issue so we can
-fix it even sooner!
+Toutefois, cela signifie que la version `main` pourrait ne pas stable. Nous travaillons
+afin de rendre la version `main` optionnelle, et la pluspart des problèmes sont résolus
+en quelques heure ou en une journée. Si vous avez un problème, ouvrez une Issue afin que
+nous puissions la régler encore plus vite !
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub
 ```
 
-When installing from source, you can also specify a specific branch. This is useful if you
-want to test a new feature or a new bug-fix that has not been merged yet:
+Lorsque vous faites l'installation depuis le code source, vous pouvez aussi préciser une 
+branche spécifique. C'est utile si vous voulez tester une nouvelle fonctionnalité ou un
+nouveau bug-fix qui n'a pas encore été merge:
 
 ```bash
-pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch
+pip install git+https://github.com/huggingface/huggingface_hub@ma-branche
 ```
 
-Once done, [check installation](#check-installation) is working correctly.
+Une fois fini, [vérifiez l'installation](#check-installation).
 
-### Editable install
+### Installation éditable
 
-Installing from source allows you to setup an [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs).
-This is a more advanced installation if you plan to contribute to `huggingface_hub`
-and need to test changes in the code. You need to clone a local copy of `huggingface_hub`
-on your machine.
+L'installation depuis le code source vous permet de mettre en place une [installation éditable](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Cette installation est plus avancée et sert surtout si vous comptez contribuer à `huggingface_hub`
+et que vous avez besoin de tester des changements dans le code. Vous devez cloner une copie locale de `huggingface_hub` sur votre machine.
 
 ```bash
-# First, clone repo locally
+#D'abord, clonez le dépôt en local
 git clone https://github.com/huggingface/huggingface_hub.git
 
-# Then, install with -e flag
+# Ensuite, installez avec le flag -e
 cd huggingface_hub
 pip install -e .
 ```
 
+Ces commandes lieront le dossier que vous avez cloné avec le dépôt et vos chemins de librairies Python.
+Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt et
 These commands will link the folder you cloned the repository to and your Python library paths.
 Python will now look inside the folder you cloned to in addition to the normal library paths.
 For example, if your Python packages are typically installed in `./.venv/lib/python3.11/site-packages/`,
