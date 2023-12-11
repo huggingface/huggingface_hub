@@ -64,19 +64,19 @@ used to authenticate your identity to the Hub.
 
 <Tip>
 
-Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risks in case you leak your token inadvertently.
+Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
 
 </Tip>
 
 ### Login command
 
-The easiest way to authenticate is to save the token on your machine. You can do that from the terminal using the `login` command:
+The easiest way to authenticate is to save the token on your machine. You can do that from the terminal using the [`login`] command:
 
 ```bash
 huggingface-cli login
 ```
 
-The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (default to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
+The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
 
 Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
@@ -85,33 +85,33 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 >>> login()
 ```
 
-You can only be logged into one account at a time. Logging into a new account will automatically log you out of the previous one. To determine your currently active account, simply run the huggingface-cli whoami command.
+You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `huggingface-cli whoami` command.
 
 <Tip warning={true}>
 
-Once you are logged in, all requests to the Hub -even methods that don't necessarily require authentication- will use your access token by default. If you want to disable implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
+Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
 
 </Tip>
 
 ### Environment variable
 
-Another possibility to authenticate is to set the environment variable `HF_TOKEN` with your access token. This is especially useful in Spaces where you can set `HF_TOKEN` as a [Space secret](https://huggingface.co/docs/hub/spaces-overview#managing-secrets).
+The environment variable `HF_TOKEN` can also be used to authenticate yourself. This is especially useful in a Space where you can set `HF_TOKEN` as a [Space secret](https://huggingface.co/docs/hub/spaces-overview#managing-secrets).
 
 <Tip>
 
-**NEW:** Google Colaboratory let you [define private keys](https://twitter.com/GoogleColab/status/1719798406195867814) for your notebooks. Define a `HF_TOKEN` secret to be automatically authenticated!
+**NEW:** Google Colaboratory lets you define [private keys](https://twitter.com/GoogleColab/status/1719798406195867814) for your notebooks. Define a `HF_TOKEN` secret to be automatically authenticated!
 
 </Tip>
 
 Authentication via an environment variable or a secret has priority over the token stored on your machine.
 
-### Programmatically
+### Method parameters
 
 Finally, it is also possible to authenticate programmatically by passing your token to any method that accepts `token` as parameter. This is usually discouraged except in an environment where you don't want to store your token permanently or if you need to handle several tokens at once.
 
 <Tip warning={true}>
 
-Please be careful when passing tokens as parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major risk of leak if you share your code inadvertently.
+Please be careful when passing tokens as a parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major leak risk if you share your code inadvertently.
 
 </Tip>
 
