@@ -2,10 +2,10 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interacting with Discussions and Pull Requests
+# Interagir avec les dicussions et les pull requestions
 
-Check the [`HfApi`] documentation page for the reference of methods enabling
-interaction with Pull Requests and Discussions on the Hub.
+Regardez la page de documentation [`HfApi`] pour les références des méthodes permettant l'intéraction
+avec des pull requests et des discussions sur le Hub.
 
 - [`get_repo_discussions`]
 - [`get_discussion_details`]
@@ -17,7 +17,7 @@ interaction with Pull Requests and Discussions on the Hub.
 - [`change_discussion_status`]
 - [`merge_pull_request`]
 
-## Data structures
+## Structure des données
 
 [[autodoc]] Discussion
 
