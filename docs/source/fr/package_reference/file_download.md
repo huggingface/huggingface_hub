@@ -2,9 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Downloading files
+# Téléchargement des fichiers
 
-## Download a single file
+## Télécharger un unique fichier
 
 ### hf_hub_download
 
@@ -14,11 +14,11 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.hf_hub_url
 
-## Download a snapshot of the repo
+## Télécharger un instantané du dépôt
 
 [[autodoc]] huggingface_hub.snapshot_download
 
-## Get metadata about a file
+## Obtenir une métadonnée sur un fichier
 
 ### get_hf_file_metadata
 
@@ -28,11 +28,11 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.HfFileMetadata
 
-## Caching
+## Utilisation du cache
 
-The methods displayed above are designed to work with a caching system that prevents
-re-downloading files. The caching system was updated in v0.8.0 to become the central
-cache-system shared across libraries that depend on the Hub.
+Le méthodes affichées ci dessus sont faites pour fonctionner avec un système de cache
+ce qui évite de retélécharger des fichiers. Le système de cache a été mis à jour dans
+la version v0.8.0 afin d'être le système de cache central partagé dans toutes les
+librairies dépendant du Hub.
 
-Read the [cache-system guide](../guides/manage-cache) for a detailed presentation of caching at
-at HF.
+Consultez le [guide cache-system](../guides/manage-cache) pour une présentation détaillée du caching à HF.
