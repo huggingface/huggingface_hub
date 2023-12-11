@@ -2,13 +2,13 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Filesystem API
+# L'API FileSystem
 
-The `HfFileSystem` class provides a pythonic file interface to the Hugging Face Hub based on [`fsspec`](https://filesystem-spec.readthedocs.io/en/latest/).
+La classe `HfFileSystem` offre une interface Python pour le Hub Hugging Face basée sur [`fsspec`](https://filesystem-spec.readthedocs.io/en/latest/).
 
 ## HfFileSystem
 
-`HfFileSystem` is based on [fsspec](https://filesystem-spec.readthedocs.io/en/latest/), so it is compatible with most of the APIs that it offers. For more details, check out [our guide](../guides/hf_file_system) and fsspec's [API Reference](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem).
+`HfFileSystem` est basé sur [fsspec](https://filesystem-spec.readthedocs.io/en/latest/), donc cette classe est compatible avec la plupart des API offertes par fsspec. Pour plus de détails, consultez [notre guide](../guides/hf_file_system) et les [Références](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem) de l'API fsspec.
 
 [[autodoc]] HfFileSystem
     - __init__
