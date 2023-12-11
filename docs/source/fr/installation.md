@@ -104,34 +104,33 @@ cd huggingface_hub
 pip install -e .
 ```
 
-Ces commandes lieront le dossier que vous avez cloné avec le dépôt et vos chemins de librairies Python.
-Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt et
-These commands will link the folder you cloned the repository to and your Python library paths.
-Python will now look inside the folder you cloned to in addition to the normal library paths.
-For example, if your Python packages are typically installed in `./.venv/lib/python3.11/site-packages/`,
-Python will also search the folder you cloned `./huggingface_hub/`.
+Ces commandes lieront le dossier dans lequel vous avez cloné le dépôt et vos chemins de librairies Python.
+Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt en
+plus des chemins de librairie classiques. Par exemple, si vos packages Python sont installés dans
+`./.venv/lib/python3.11/site-packages/`, Python regardera uassi dans le dossier que vous avez
+cloné `./huggingface_hub/`.
 
-## Install with conda
+## Installation avec conda
 
-If you are more familiar with it, you can install `huggingface_hub` using the [conda-forge channel](https://anaconda.org/conda-forge/huggingface_hub):
+Si vous avez plutôt l'habitude d'utiliser conda, vous pouvez installer `huggingface_hub` en utilisant le [channel conda-forge](https://anaconda.org/conda-forge/huggingface_hub):
 
 
 ```bash
 conda install -c conda-forge huggingface_hub
 ```
 
-Once done, [check installation](#check-installation) is working correctly.
+Une fois fini, [vérifiez l'installation](#check-installation). 
 
-## Check installation
+## Vérification de l'installation
 
-Once installed, check that `huggingface_hub` works properly by running the following command:
+Une fois installé, vérifiez que `huggingface_hub` marche correctement en lançant la commande suivante:
 
 ```bash
 python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
 ```
 
-This command will fetch information from the Hub about the [gpt2](https://huggingface.co/gpt2) model.
-Output should look like this:
+Cette commande va récupérer des informations sur le modèle [gpt2](https://huggingface.co/gpt2) depuis le Hub.
+La sortie devrait ressembler à ça:
 
 ```text
 Model Name: gpt2
@@ -139,26 +138,28 @@ Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-ge
 Task: text-generation
 ```
 
-## Windows limitations
+## Les limitations Windows
 
-With our goal of democratizing good ML everywhere, we built `huggingface_hub` to be a
-cross-platform library and in particular to work correctly on both Unix-based and Windows
-systems. However, there are a few cases where `huggingface_hub` has some limitations when
-run on Windows. Here is an exhaustive list of known issues. Please let us know if you
-encounter any undocumented problem by opening [an issue on Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
+Afin de démocratiser le machine learning pour tous, nous avons construit `huggingface_hub`
+de façon à voir une librairie cross-platform et en particulier, une librairie qui marche
+sur les systèmes Windows et ceux basés sur Unix. Toutefois il y a certains cas où 
+`huggingface_hub` est plus limité lorsqu'il tourne sur Windows. Ci-dessous une liste exhaustive
+des problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
+sans documentation en ouvrant une [issue sur Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
 
-- `huggingface_hub`'s cache system relies on symlinks to efficiently cache files downloaded
-from the Hub. On Windows, you must activate developer mode or run your script as admin to
-enable symlinks. If they are not activated, the cache-system still works but in an non-optimized
-manner. Please read [the cache limitations](./guides/manage-cache#limitations) section for more details.
-- Filepaths on the Hub can have special characters (e.g. `"path/to?/my/file"`). Windows is
-more restrictive on [special characters](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)
-which makes it impossible to download those files on Windows. Hopefully this is a rare case.
-Please reach out to the repo owner if you think this is a mistake or to us to figure out
-a solution.
+- Le cache de `huggingface_hub` a besoin des symlinks pour mettre en cache les fichiers installé depuis le Hub.
+Sur windows, vous devez activer le mode développeur pour lancer votre script en tant qu'administrateur
+afin d'activer les symlinks. S'il ne sont pas activés, le système de cache fonctionnera toujours mais
+de manière suboptimale. Consultez [limitations du cache](./guides/manage-cache#limitations) pour plus de détails.
+- Les chemins de fichiers sur le Hub peuvent avoir des caractères spéciaux (par exemple `"path/to?/my/file"`).
+Windows est plus restrictif sur les [caractères spéciaux](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)
+ce qui rend ces fichiers ininstallables sur Windows. Heureusement c'est un cas assez rare.
+Contactez le propriétaire du dépôt sir vous pensez que c'est une erreur ou contactez nous
+pour que nous cherchions une solution.
 
 
-## Next steps
+## Prochaines étapes
 
-Once `huggingface_hub` is properly installed on your machine, you might want
-[configure environment variables](package_reference/environment_variables) or [check one of our guides](guides/overview) to get started.
+Une fois que `huggingface_hub` est installé correctement sur votre machine, vous aurez peut-être besoin de
+[configurer les variables d'environnement](package_reference/environment_variables) ou de [lire un de nos guides](guides/overview)
+pour vous lancer.
