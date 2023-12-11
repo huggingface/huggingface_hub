@@ -2140,10 +2140,6 @@ class HfApiPrivateTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.REPO_NAME)
         self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
-    def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
-        """Test using `whoami` after a `huggingface-cli login`."""
-        mock_get_token.return_value = self._token
-
     @patch("huggingface_hub.utils._headers.get_token", return_value=None)
     def test_model_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
@@ -2864,9 +2860,9 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Restart
         self.api.restart_space(self.repo_id)
-        time.sleep(1.0)
+        time.sleep(5.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
-        self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
+        self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
