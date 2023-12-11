@@ -1,9 +1,9 @@
+import os
 import time
 import uuid
 from typing import Generator
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 
 from huggingface_hub import delete_repo
 
@@ -20,9 +20,13 @@ def user() -> str:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def login_as_dummy_user(token: str, monkeypatch: MonkeyPatch) -> Generator:
+def login_as_dummy_user(token: str) -> Generator:
     """Login with dummy user token."""
-    monkeypatch.setenv("HF_TOKEN", token)
+    # Cannot use `monkeypatch` fixture since we want it to be "session-scoped"
+    old_token = os.environ["HF_TOKEN"]
+    os.environ["HF_TOKEN"] = token
+    yield
+    os.environ["HF_TOKEN"] = old_token
 
 
 @pytest.fixture
