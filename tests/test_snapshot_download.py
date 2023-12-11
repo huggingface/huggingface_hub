@@ -105,7 +105,7 @@ class SnapshotDownloadTests(unittest.TestCase):
                 _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
         # Test we can download with token from cache
-        with patch("huggingface_hub.utils._headers.get_token", return_value=None):
+        with patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN):
             with SoftTemporaryDirectory() as tmpdir:
                 storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
                 self.assertTrue(self.second_commit_hash in storage_folder)
