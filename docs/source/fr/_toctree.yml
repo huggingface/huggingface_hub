@@ -63,7 +63,7 @@
     - local: package_reference/inference_client
       title: Client d'inférence
     - local: package_reference/inference_endpoints
-      title: Endpoints d'Inférence
+      title: Inference Endpoints
     - local: package_reference/hf_file_system
       title: HfFileSystem
     - local: package_reference/utilities

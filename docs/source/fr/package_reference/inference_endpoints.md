@@ -1,27 +1,31 @@
 # Inference Endpoints
 
-Inference Endpoints provides a secure production solution to easily deploy models on a dedicated and autoscaling infrastructure managed by Hugging Face. An Inference Endpoint is built from a model from the [Hub](https://huggingface.co/models). This page is a reference for `huggingface_hub`'s integration with Inference Endpoints. For more information about the Inference Endpoints product, check out its [official documentation](https://huggingface.co/docs/inference-endpoints/index).
+Inferrence Endpoints est une solutions permettant de déployer facilement les modèles en production sur une infrastructure dédiée et capaable de faire de l'autoscaling gérée par Hugging Face. Un Inference Endpoint peut être crée sur un modèle depuis le [Hub](https://huggingface.co/models). Cette page est
+une référence pour l'intégration d'`huggingface_hub` avec Inference Endpoints. Pour plus d'informations à propos du produit Inference Endpoints, consulez
+la [documentation officielle](https://huggingface.co/docs/inference-endpoints/index).
 
 <Tip>
 
-Check out the [related guide](../guides/inference_endpoints) to learn how to use `huggingface_hub` to manage your Inference Endpoints programmatically.
+Consultez ce [guide](../guides/inference_endpoints) pour apprendre comment utiliser `huggingface_hub` pour gérer votre Inference Enpoints depuis le code.
 
 </Tip>
 
-Inference Endpoints can be fully managed via API. The endpoints are documented with [Swagger](https://api.endpoints.huggingface.cloud/). The [`InferenceEndpoint`] class is a simple wrapper built on top on this API.
+Inference Endpoints peut-être complètement géré depuis une API. Les enpoints sont consultables via [Swagger](https://api.endpoints.huggingface.cloud/).
+La classe [`InferenceEndpoint`] est un simple wrapper autour de cette API.
 
-## Methods
+## Méthodes
 
-A subset of the Inference Endpoint features are implemented in [`HfApi`]:
+Un sous ensemble des fonctionnalités de l'Inference Endpoint sont implémentées dans [`HfApi`]: 
 
-- [`get_inference_endpoint`] and [`list_inference_endpoints`] to get information about your Inference Endpoints
-- [`create_inference_endpoint`], [`update_inference_endpoint`] and [`delete_inference_endpoint`] to deploy and manage Inference Endpoints
-- [`pause_inference_endpoint`] and [`resume_inference_endpoint`] to pause and resume an Inference Endpoint
-- [`scale_to_zero_inference_endpoint`] to manually scale an Endpoint to 0 replicas
+- [`get_inference_endpoint`] et [`list_inference_endpoints`] pour obtenir de l'information sur votre Inference Endpoints
+- [`create_inference_endpoint`], [`update_inference_endpoint`] et [`delete_inference_endpoint`] pour déployer et gérer Inference Endpoints
+- [`pause_inference_endpoint`] et [`resume_inference_endpoint`] pour mettre en pause et relancer un Inference Enpoint
+- [`scale_to_zero_inference_endpoint`] pour scale à la main l'Inference Endpoint à 0 replicas
 
 ## InferenceEndpoint
 
-The main dataclass is [`InferenceEndpoint`]. It contains information about a deployed `InferenceEndpoint`, including its configuration and current state. Once deployed, you can run inference on the Endpoint using the  [`InferenceEndpoint.client`] and [`InferenceEndpoint.async_client`] properties that respectively return an [`InferenceClient`] and an [`AsyncInferenceClient`] object.
+La dataclass principale est [`InferenceEndpoint`]. Elle contient des informations sur un `InferenceEndpoint` déployé, incluant sa configuration et son
+état actuel. Une fois déployé, vous pouvez faire des inférences sur l'enpoint en utilisant les propriétés [`InferenceEndpoint.client`] et [`InferenceEndpoint.async_client`] qui return respectivement un objet [`InferenceClient`] et [`AsyncInferenceClient`]
 
 [[autodoc]] InferenceEndpoint
   - from_raw
