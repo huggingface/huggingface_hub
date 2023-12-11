@@ -181,7 +181,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertIsInstance(valid_org["apiToken"], str)
+        self.assertEqual(valid_org["fullname"], "Dummy Org")
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
