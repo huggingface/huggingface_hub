@@ -107,7 +107,15 @@ Authentication via an environment variable or a secret has priority over the tok
 
 ### Method parameters
 
-Finally, it is also possible to authenticate programmatically by passing your token to any method that accepts `token` as parameter. This is usually discouraged except in an environment where you don't want to store your token permanently or if you need to handle several tokens at once.
+Finally, it is also possible to authenticate by passing your token to any method that accepts `token` as a parameter.
+
+```
+from transformers import whoami
+
+user = whoami(token=...)
+```
+
+This is usually discouraged except in an environment where you don't want to store your token permanently or if you need to handle several tokens at once.
 
 <Tip warning={true}>
 
