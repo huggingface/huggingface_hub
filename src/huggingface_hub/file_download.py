@@ -50,6 +50,7 @@ from .utils import (
     FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
+    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SoftTemporaryDirectory,
@@ -361,28 +362,11 @@ def http_user_agent(
     )
 
 
-class OfflineModeIsEnabled(ConnectionError):
-    pass
-
-
-def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
-    """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if
-    HF_HUB_OFFLINE is True."""
-    if constants.HF_HUB_OFFLINE:
-        raise OfflineModeIsEnabled(
-            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
-        )
-
-
 def _request_wrapper(
     method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
 ) -> requests.Response:
-    """Wrapper around requests methods to add several features.
-
-    What it does:
-    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1). If enabled, a
-       `OfflineModeIsEnabled` exception is raised.
-    2. Follow relative redirects if `follow_relative_redirects=True` even when `allow_redirection=False`.
+    """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
+    `allow_redirection=False`.
 
     Args:
         method (`str`):
@@ -396,10 +380,7 @@ def _request_wrapper(
         **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
-    # 1. Check online mode
-    _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
-
-    # 2. Force relative redirection
+    # Recursively follow relative redirects
     if follow_relative_redirects:
         response = _request_wrapper(
             method=method,
