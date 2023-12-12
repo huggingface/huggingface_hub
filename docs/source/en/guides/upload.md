@@ -11,31 +11,7 @@ Sharing your files and work is an important aspect of the Hub. The `huggingface_
 - with the `commit` context manager.
 - with the [`~Repository.push_to_hub`] function.
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
-
-- Log in to your Hugging Face account with the following command:
-
-  ```bash
-  huggingface-cli login
-  # or using an environment variable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
-  ```
-
-- Alternatively, you can programmatically login using [`login`] in a notebook or a script:
-
-  ```python
-  >>> from huggingface_hub import login
-  >>> login()
-  ```
-
-  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
-  which you can enter your Hugging Face access token. Otherwise, a message will be
-  prompted in the terminal.
-
-  It is also possible to login programmatically without the widget by directly passing
-  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
-  best practice to load the token from a secure vault instead of saving it in plain in
-  your Colaboratory notebook.
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
 
 ## Upload a file
 

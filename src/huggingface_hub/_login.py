@@ -14,24 +14,18 @@
 """Contains methods to login to the Hub."""
 import os
 import subprocess
+import warnings
 from functools import partial
 from getpass import getpass
+from pathlib import Path
 from typing import Optional
 
+from . import constants
 from .commands._cli_utils import ANSI
-from .commands.delete_cache import _ask_for_confirmation_no_tui
-from .hf_api import get_token_permission
-from .utils import (
-    HfFolder,
-    capture_output,
-    is_google_colab,
-    is_notebook,
-    list_credential_helpers,
-    logging,
-    run_subprocess,
-    set_git_credential,
-    unset_git_credential,
-)
+from .utils import logging
+from .utils._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
+from .utils._runtime import is_google_colab, is_notebook
+from .utils._subprocess import capture_output, run_subprocess
 
 
 logger = logging.get_logger(__name__)
@@ -43,6 +37,8 @@ _HF_LOGO_ASCII = """
     _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
     _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 """
+
+_CHECK_GOOGLE_COLAB_SECRET = True
 
 
 def login(
@@ -117,12 +113,31 @@ def logout() -> None:
 
     Token is deleted from the machine and removed from git credential.
     """
-    token = HfFolder.get_token()
-    if token is None:
+    if get_token() is None:
         print("Not logged in!")
         return
-    HfFolder.delete_token()
+
+    # Delete token from git credentials
     unset_git_credential()
+
+    # Delete token file
+    try:
+        Path(constants.HF_TOKEN_PATH).unlink()
+    except FileNotFoundError:
+        pass
+
+    # Check if still logged in
+    if _get_token_from_google_colab() is not None:
+        raise EnvironmentError(
+            "You are automatically logged in using a Google Colab secret.\n"
+            "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
+        )
+    if _get_token_from_environment() is not None:
+        raise EnvironmentError(
+            "Token has been deleted from your machine but you are still logged in.\n"
+            "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
+        )
+
     print("Successfully logged out.")
 
 
@@ -152,8 +167,10 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
         print("User is already logged in.")
         return
 
+    from .commands.delete_cache import _ask_for_confirmation_no_tui
+
     print(_HF_LOGO_ASCII)
-    if HfFolder.get_token() is not None:
+    if get_token() is not None:
         print(
             "    A token is already saved on your machine. Run `huggingface-cli"
             " whoami` to get more information or `huggingface-cli logout` if you want"
@@ -268,11 +285,104 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 
 
 ###
+# Token helpers
+###
+
+
+def get_token() -> Optional[str]:
+    """
+    Get token if user is logged in.
+
+    Note: in most cases, you should use [`huggingface_hub.utils.build_hf_headers`] instead. This method is only useful
+          if you want to retrieve the token for other purposes than sending an HTTP request.
+
+    Token is retrieved in priority from the `HF_TOKEN` environment variable. Otherwise, we read the token file located
+    in the Hugging Face home folder. Returns None if user is not logged in. To log in, use [`login`] or
+    `huggingface-cli login`.
+
+    Returns:
+        `str` or `None`: The token, `None` if it doesn't exist.
+    """
+    return _get_token_from_google_colab() or _get_token_from_environment() or _get_token_from_file()
+
+
+def _get_token_from_google_colab() -> Optional[str]:
+    if not is_google_colab():
+        return None
+
+    global _CHECK_GOOGLE_COLAB_SECRET
+    if not _CHECK_GOOGLE_COLAB_SECRET:  # request access only once
+        return None
+
+    try:
+        from google.colab import userdata
+        from google.colab.errors import Error as ColabError
+    except ImportError:
+        return None
+
+    try:
+        token = userdata.get("HF_TOKEN")
+    except userdata.NotebookAccessError:
+        # Means the user has a secret call `HF_TOKEN` and got a popup "please grand access to HF_TOKEN" and refused it
+        # => warn user but ignore error => do not re-request access to user
+        warnings.warn(
+            "Access to the secret `HF_TOKEN` has not been granted on this notebook. You will not be requested again. "
+            "Please restart the session if you want to be prompted again."
+        )
+        _CHECK_GOOGLE_COLAB_SECRET = False
+        return None
+    except ColabError as e:
+        if "does not exist" in str(e):
+            # Means the user did not define a `HF_TOKEN` secret => warn
+            warnings.warn(
+                "The secret `HF_TOKEN` does not exist in your Colab secrets. To authenticate with the Huggingface "
+                "Hub, create a token in your settings tab (https://huggingface.co/settings/tokens), set it as secret "
+                "in your Google Colab and restart your session. You will be able to reuse this secret in all of your "
+                "notebook. Please note that authentication is recommended but still optional to access public models "
+                "or datasets."
+            )
+        else:
+            # Something happen but we don't know what => recommend to open a GitHub issue
+            warnings.warn(
+                f"Error while fetching `HF_TOKEN` secret value from your vault: '{str(e)}'. You are not authenticated "
+                "with the Huggingface Hub in this notebook. If the error persists, please let us know by opening an "
+                "issue on GitHub (https://github.com/huggingface/huggingface_hub/issues/new)."
+            )
+        return None
+
+    return _clean_token(token)
+
+
+def _get_token_from_environment() -> Optional[str]:
+    # `HF_TOKEN` has priority (keep `HUGGING_FACE_HUB_TOKEN` for backward compatibility)
+    return _clean_token(os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"))
+
+
+def _get_token_from_file() -> Optional[str]:
+    try:
+        return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
+    except FileNotFoundError:
+        return None
+
+
+def _clean_token(token: Optional[str]) -> Optional[str]:
+    """Clean token by removing trailing and leading spaces and newlines.
+
+    If token is an empty string, return None.
+    """
+    if token is None:
+        return None
+    return token.replace("\r", "").replace("\n", "").strip() or None
+
+
+###
 # Login private helpers
 ###
 
 
 def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
+    from .hf_api import get_token_permission  # avoid circular import
+
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token, not an organization token.")
 
@@ -296,8 +406,11 @@ def _login(token: str, add_to_git_credential: bool, write_permission: bool = Fal
         else:
             print("Token has not been saved to git credential helper.")
 
-    HfFolder.save_token(token)
-    print(f"Your token has been saved to {HfFolder.path_token}")
+    # Save token
+    path = Path(constants.HF_TOKEN_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(token)
+    print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
     print("Login successful")
 
 
@@ -311,6 +424,8 @@ def _current_token_okay(write_permission: bool = False):
     Returns:
         `bool`: `True` if the current token is valid, `False` otherwise.
     """
+    from .hf_api import get_token_permission  # avoid circular import
+
     permission = get_token_permission()
     if permission is None or (write_permission and permission != "write"):
         return False

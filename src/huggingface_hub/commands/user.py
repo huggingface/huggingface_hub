@@ -29,11 +29,11 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     NOTEBOOK_LOGIN_PASSWORD_HTML,
     NOTEBOOK_LOGIN_TOKEN_HTML_END,
     NOTEBOOK_LOGIN_TOKEN_HTML_START,
+    get_token,
     login,
     logout,
     notebook_login,
 )
-from ..utils import HfFolder
 from ._cli_utils import ANSI
 
 
@@ -105,7 +105,7 @@ class LogoutCommand(BaseUserCommand):
 
 class WhoamiCommand(BaseUserCommand):
     def run(self):
-        token = HfFolder.get_token()
+        token = get_token()
         if token is None:
             print("Not logged in")
             exit()
@@ -126,7 +126,7 @@ class WhoamiCommand(BaseUserCommand):
 
 class RepoCreateCommand(BaseUserCommand):
     def run(self):
-        token = HfFolder.get_token()
+        token = get_token()
         if token is None:
             print("Not logged in")
             exit(1)
