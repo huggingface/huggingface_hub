@@ -10,6 +10,7 @@ from .constants import (
     DEFAULT_REVISION,
     HF_HUB_CACHE,
     HF_HUB_ENABLE_HF_TRANSFER,
+    HF_HUB_OFFLINE,
     REPO_TYPES,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
@@ -161,7 +162,7 @@ def snapshot_download(
     # appropriate folder in the cache
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
-    if local_files_only:
+    if local_files_only or HF_HUB_OFFLINE:
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
