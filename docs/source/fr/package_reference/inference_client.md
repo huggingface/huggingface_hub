@@ -8,7 +8,7 @@ L'inférence est le fait d'utiliser un modèle déjà entrainé pour faire des p
 processus peut demander beaucoup de ressources computationnelles, le lancer sur un serveur dédié peut être une option
 intéressante. La librairie `huggingface_hub` offre une manière facile d'appeler un service qui fait de l'inférence pour
 les modèles hébergés. Il y a plusieurs services auxquels vous pouvez vous connecter:
-- [Inference API](https://huggingface.co/docs/api-inference/index): un service qui vous permet de faire des inférences accélérée
+- [Inference API](https://huggingface.co/docs/api-inference/index): un service qui vous permet de faire des inférences accélérées
 sur l'infrastructure Hugging Face gratuitement. Ce service est une manière rapide de commencer, tester différents modèles et
 créer des premiers prototypes de produits IA.
 -[Inference Endpoints](https://huggingface.co/inference-endpoints): un produit qui permet de déployer facilement des modèles en production.
@@ -69,7 +69,7 @@ Pour la plupart des tâches, la valeur retournée a un type intégré (string, l
 ### Types pour la génération de texte
 
 La tâche [`~InferenceClient.text_generation`] a un meilleur support que d'autres tâches dans `InferenceClient`.
-Plus précisément, les inputs des utilisateurs et les outputs des serveurs sont validés en utilisant [Pydantic](https://docs.pydantic.dev/latest/)
+Les inputs des utilisateurs et les outputs des serveurs sont validés en utilisant [Pydantic](https://docs.pydantic.dev/latest/)
 si ce package est installé. Par conséquent, nous vous recommandons de l'installer (`pip install pydantic`) pour
 une meilleure expérience.
 

@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interagir avec les dicussions et les pull requestions
+# Interagir avec les dicussions et les pull requests
 
 Regardez la page de documentation [`HfApi`] pour les références des méthodes permettant l'intéraction
 avec des pull requests et des discussions sur le Hub.

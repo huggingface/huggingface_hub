@@ -11,21 +11,21 @@
     - local: guides/overview
       title: Vue d'ensemble
     - local: guides/download
-      title: Télécharger les fichiers
+      title: Télécharger des fichiers
     - local: guides/upload
-      title: Charger les fichiers
+      title: Upload des fichiers
     - local: guides/cli
-      title: Utiliser l'invite de commande
+      title: Utiliser le CLI
     - local: guides/hf_file_system
       title: HfFileSystem
     - local: guides/repository
-      title: Repository
+      title: Dépôts
     - local: guides/search
       title: Rechercher
     - local: guides/inference
       title: Inférence
     - local: guides/inference_endpoints
-      title: Endpoint d'Inférence
+      title: Inference Endpoints
     - local: guides/community
       title: Community Tab
     - local: guides/collections

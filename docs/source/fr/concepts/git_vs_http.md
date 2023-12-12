@@ -9,8 +9,7 @@ qui est une collection de dépots Git (modèles, datasets ou espaces).
 Il y a deux manières principales pour accéder au Hub en utilisant `huggingface_hub`.
 
 La première approche, basée sur Git, appelée approche "git-based", est rendue possible par la classe [`Repository`].
-Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" ,
-nécessite de faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminions
+Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" , nécessite de faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminions
 les avantages et les inconvénients de ces deux méthodes.
 
 ## Repository: L'approche hstorique basée sur git
@@ -19,16 +18,16 @@ Au début, `huggingface_hub` était principalement construit autour de la classe
 wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git commit"`, `"git push"`,
 `"git tag"`, `"git checkout"`, etc.
 
-Cette librairie permet aussi de définir les données d'identification et de suivre les fichiers volumineux, qui sont souvent utilisés dans les dépot Git de machine learning. De plus, la librairie vous permet d'exécuter ses
+Cette librairie permet aussi de définir les données d'identification et de suivre les fichiers volumineux, qui sont souvent utilisés dans les dépôts Git de machine learning. De plus, la librairie vous permet d'exécuter ses
 méthodes en arrière-plan, ce qui la rend utile pour upload des données pendant l'entrainement des modèles.
 
 L'avantage principal de l'utilisation de [`Repository`] est que cette méthode permet de garder une
 copie en local de tout le dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
 car cette copie locale doit être mise à jour et maintenue constamment. C'est une manière de procéder
-analogue au développement de logiciel traditionnel où chaque développeur maintient sa propre copie locale
-et push les changement lorsqu'ils travaillent sur une fonctionnalité.
-Toutefois, dans le contexte du machine learning,
-elle n'est pas toujours pertinente car les utilisateurs ont parfois uniquement besoin d'avoir
+analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
+et push les changement lorsqu'il travaille sur une fonctionnalité.
+Toutefois, dans le contexte du machine learning, elle n'est pas toujours pertinente car
+les utilisateurs ont parfois uniquement besoin d'avoir
 les poids des modèles pour l'inférence ou de convertir ces poids d'un format à un autre sans avoir à cloner
 tout le dépôt.
 
@@ -48,7 +47,7 @@ telles que le téléchargement et le push de fichier ainsi que la création de b
 avoir besoin d'un fichier local qui doit être constamment synchronisé.
 
 En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offre des fonctionnalités
-additionnelles, telles que la capacité de gérer des dépots, le téléchargement des fichiers
+additionnelles, telles que la capacité de gérer des dépôts, le téléchargement des fichiers
 en utilisant le cache pour une réutilisation plus efficace, la recherche dans le Hub pour trouver
 des dépôts et des métadonnées, l'accès aux fonctionnalités de communautés telles que, les dicussions,
 les pull requests, les commentaires, et la configuration d'espaces hardwares et de secrets.

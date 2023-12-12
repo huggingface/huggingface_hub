@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Invite de commande (CLI)
 
-Le module Python `huggingface_hub` offre un CLI intégré appelé `huggingface-cli`. Cet outil vous permet d'intéragir directement avec le Hub Hugging
+Le module Python `huggingface_hub` offre un CLI intégré appelé `huggingface-cli`. Cet outil vous permet d'intéragir avec le Hub Hugging
 Face directement depuis un terminal. Par exemple, vous pouvez vous connecter à votre compte, créer un dépot, upload et download des fichiers, etc.
 Le CLI contient aussi des fonctionnalités pratiques pour configurer votre machine ou gérer votre cache. Dans ce guide, nous regarderons les
 fonctionnalités principales du CLI et comment les utiliser.
@@ -20,7 +20,7 @@ Tout d'abord, installons le CLI:
 
 <Tip>
 
-Dans les snippet ci dessus, nous avons aussi installé les dépendances `[cli]` pour rendre l'expérience utilisateur meilleur, en particulier lors de
+Dans les snippet ci dessus, nous avons aussi installé les dépendances `[cli]` pour rendre l'expérience utilisateur meilleure, en particulier lors de
 l'utilisation de la commande `delete-cache`.
 
 </Tip>
@@ -64,7 +64,7 @@ CLI.
 ## Connexion à huggingface-cli
 
 Dans la plupart des cas, vous devez être connectés à un compte Hugging Face pour intéragir avec le Hub (pour télécharger des dépôts privés, upload des
-fichiers, créer des pull requests, etc.). Pour ce faire, vous avez besoin d'un [Token d'authentification](https://huggingface.co/docs/hub/security-tokens) depuis vos [paramètres](https://huggingface.co/settings/tokens). Ce token est utilisé pour authentifier votre identité au Hub.
+fichiers, créer des pull requests, etc.). Pour ce faire, vous avez besoin d'un [token d'authentification](https://huggingface.co/docs/hub/security-tokens) depuis vos [paramètres](https://huggingface.co/settings/tokens). Ce token est utilisé pour authentifier votre identité au Hub.
 Vérifiez bien que vous générez un token avec les accès write si vous voulez upload ou modifier du contenu.
 
 Une fois que vous avez votre token d'authentification, lancez la commande suivante dans votre terminal :
@@ -94,7 +94,7 @@ Login successful
 ```
 
 Alternativement, si vous souhaitez vous connecter sans que le CLI vous demande quoi que ce soit, vous pouvez mettre votre token directement depuis
-l'invite de commande. Pour que le processus soit plus sécurisé, nous vous recommandons de mettre votre token en tant que variable d'environnement
+l'invite de commande. Pour que le processus soit plus sécurisé, nous vous recommandons de mettre votre token dans une variable d'environnement
 pour éviter de le laisser dans l'historique de votre invite de commande.
 
 ```bash
@@ -122,12 +122,12 @@ Si vous n'êtes pas connecté, un message d'erreur sera renvoyé.
 
 Cette commande vous déconecte. En pratique, elle supprime le token enregistré sur votre machine.
 
-Cette commande ne vous déconnectera pas si vous vous êtes connecté en utilisant la variable d'environnement `HF_TOKEN` (voir [reference](../package_reference/environment_variables#hftoken)). Si c'est le cas, vous devez désactiver la variable dans les paramètres de votre machine.
+Cette commande ne vous déconnectera pas si vous vous êtes connecté en utilisant la variable d'environnement `HF_TOKEN` (voir [référence](../package_reference/environment_variables#hftoken)). Si c'est le cas, vous devez désactiver la variable dans les paramètres de votre machine.
 
 ## huggingface-cli download
 
 Utilisez la commande `huggingface-cli download` pour télécharger des fichiers directement depuis le Hub. En interne, cette commande utilise
-les mêmes helpers [`hf_hub_download`] et [`snapshot_download`] Décrit dans le guide [Téléchargement](./download) et affiche le chemin
+les mêmes helpers [`hf_hub_download`] et [`snapshot_download`] décrits dans le guide [Téléchargement](./download) et affiche le chemin
 retourné dans le terminal. Dans les exemples ci-dessous, nous verrons les cas d'usage les plus communs. Pour afficher la liste des
 options disponibles, vous pouvez lancer la commande:
 
@@ -162,7 +162,7 @@ Fetching 23 files:   0%|                                                | 0/23 [
 
 ### Télécharger plusieurs fichiers
 
-Vous pouvez aussi télécharger un sous ensemble des fichiers d'un dépôts en une seule commande. Vous pouvez faire ceci de deux manières. Si vous avez
+Vous pouvez aussi télécharger un sous ensemble des fichiers d'un dépôt en une seule commande. Vous pouvez faire ceci de deux manières. Si vous avez
 déjà une liste précise des fichiers à télécharger, vous pouvez simplement les mettre un par un: 
 
 ```bash
@@ -201,7 +201,7 @@ l'option `--repo-type`:
 ...
 ```
 
-### Télécgarger une version spécifique
+### Télécharger une version spécifique
 
 Les exemples ci-dessus montrent comment télécharger le dernier commit sur la branche main. Pour télécharger une version spécifique (hash de commit,
 nom de la branche ou tag), utilisez l'option `revision`:
@@ -213,8 +213,7 @@ nom de la branche ou tag), utilisez l'option `revision`:
 
 ### Télécharger vers un dossier local
 
-La manière recommandée (et appliquée par défaut) pour télécharger des fichiers depuis le Hub est d'utiliser le cache-system. Toutefois, dans certains cas
-vous aurez besoin de télécharger des fichiers et les déplacer dans un dossier spécifique. C'est utile pour avoir un fonctionnement similaire à celui de git. Vous pouvez faire ceci en utilisant l'option `--local_dir`.
+La manière recommandée (et appliquée par défaut) pour télécharger des fichiers depuis le Hub est d'utiliser le cache-system. Toutefois, dans certains cas, vous aurez besoin de télécharger des fichiers et les déplacer dans un dossier spécifique. C'est utile pour avoir un fonctionnement similaire à celui de git. Vous pouvez faire ceci en utilisant l'option `--local_dir`.
 
 <Tip warning={true}>
 
@@ -262,7 +261,7 @@ et des barres de progression. Si vous ne voulez pas de ce type de message, utili
 ## huggingface-cli upload
 
 Utilisez la commande `huggingface-cli upload` pour uploader des fichiers directement dans le Hub. En interne, cette commande utilise les mêmes helpers
-que [`upload_file`] et [`upload_folder`] décrits dans le guide [Upload](./upload). Dans les exemples ci-dessous, nous verrons les cas d'utilisation les plus communs.
+que [`upload_file`] et [`upload_folder`] décrits dans le guide [upload](./upload). Dans les exemples ci-dessous, nous verrons les cas d'utilisation les plus communs.
 Pour une liste exhaustive des options disponibles, vous pouvez lancer:
 
 ```bash
@@ -274,14 +273,14 @@ Pour une liste exhaustive des options disponibles, vous pouvez lancer:
 L'utilisation par défaut de cette commande est:
 
 ```bash
-# Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
+# Utilisation:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
 ```
 
 Pour upload le chemin courant dans la racine du dépôts, utilisez:
 
 ```bash
 >>> huggingface-cli upload mon-super-modele . .
-https://huggingface.co/Wauplin/my-cool-model/tree/main/
+https://huggingface.co/Wauplin/mon-super-modele/tree/main/
 ```
 
 <Tip>
@@ -294,18 +293,18 @@ Vous pouvez aussi upload un dossier spécifique:
 
 ```bash
 >>> huggingface-cli upload mon-super-modele ./models .
-https://huggingface.co/Wauplin/my-cool-model/tree/main/
+https://huggingface.co/Wauplin/mon-super-modele/tree/main/
 ```
 Enfin, vous pouvez upload un dossier dans une destination spécifique dans le dépot:
 
 ```bash
 >>> huggingface-cli upload mon-super-modele ./path/to/curated/data /data/train
-https://huggingface.co/Wauplin/my-cool-model/tree/main/data/train
+https://huggingface.co/Wauplin/mon-super-modele/tree/main/data/train
 ```
 
 ### Upload un seul fichier
 
-Vous pouvez aussi upload un seul fichier en définissant `loca_path` pour qu'il pointe vers ce fichier dans votre machine. Si c'est le cas, `path_in_repo` est optionnel
+Vous pouvez aussi upload un seul fichier en définissant `local_path` pour qu'il pointe vers ce fichier dans votre machine. Si c'est le cas, `path_in_repo` est optionnel
 et aura, comme valeur par défaut, le nom de votre fichier local:
 
 ```bash
@@ -322,11 +321,10 @@ https://huggingface.co/Wauplin/mon-super-modele/blob/main/vae/model.safetensors
 
 ### Upload plusieurs fichiers
 
-Pour upload plusieurs fichiers d'un coup depuis un dossier sans upload tout le dossier, vous pouvez utiliser `--include` et `--exclude`. Cette méthode peut aussi être combinée
-avec l'option `--delete` pour supprimer des fichiers du dépôt tout en uploadant les nouveaux fichiers. Dans l'exemple ci-dessous, nous synchronisons l'espace local en supprimant les fichiers distant et en uploadant tous les fichiers sauf ceux dans `/logs`:
+Pour upload plusieurs fichiers d'un coup depuis un dossier sans upload tout le dossier, vous pouvez utiliser `--include` et `--exclude`. Cette méthode peut aussi être combinée avec l'option `--delete` pour supprimer des fichiers du dépôt tout en uploadant les nouveaux fichiers. Dans l'exemple ci-dessous, nous synchronisons l'espace local en supprimant les fichiers distant et en uploadant tous les fichiers sauf ceux dans `/logs`:
 
 ```bash
-# Sync local Space with Hub (upload new files except from logs/, delete removed files)
+# Synchronisation de l'espace local avec le Hub (upload des nouveaux fichier excepté ceux de logs/, supression des fichiers retirés)
 >>> huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Synchronisation de l'espace local avec le Hub"
 ...
 ```
@@ -433,11 +431,11 @@ Pour plus de détails sur comment scanner le chemin vers votre cache, veuillez v
 
 ## huggingface-cli delete-cache
 
-`huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+`huggingface-cli delete-cache` est un outil qui vous permet de supprimer des parties de votre cache que vous n'utilisez plus. C'est utile pour libérer de la mémoire disque. Pour en apprendre plus sur cette commande, consultez le guide [Gérez votre cache](./manage-cache#clean-cache-from-the-terminal). 
 
 ## huggingface-cli env
 
-La commande `huggingface-cli env` affiche des détails sur le setup de votre machine. C'est particulièrement utile si vous ouvrez une issu sur [GitHub](https://github.com/huggingface/huggingface_hub) pour aider les mainteneurs à enquêter sur vos problèmes.
+La commande `huggingface-cli env` affiche des détails sur le setup de votre machine. C'est particulièrement utile si vous ouvrez une issue sur [GitHub](https://github.com/huggingface/huggingface_hub) pour aider les mainteneurs à enquêter sur vos problèmes.
 
 ```bash
 >>> huggingface-cli env

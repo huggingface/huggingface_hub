@@ -5,7 +5,7 @@ rendered properly in your Markdown viewer.
 # Démarrage rapide
 
 Le [Hub Hugging Face](https://huggingface.co/) est le meilleur endroit pour partager des
-modèles de machine learning, des démos, des datasets et des metriques. La librairie
+modèles de machine learning, des démos, des datasets et des métriques. La librairie
 `huggingface_hub` vous aide à intéragir avec le Hub sans sortir de votre environnement de
 développement. Vous pouvez: créer et gérer des dépôts facilement, télécharger et upload des
 fichiers, et obtenir des modèles et des metadata depuis le Hub.
@@ -18,12 +18,12 @@ Pour commencer, installez la librairie `huggingface_hub`:
 pip install --upgrade huggingface_hub
 ```
 
-Pour plus de détails, vérifiez le guide [installation](installation)
+Pour plus de détails, vérifiez le guide d'[installation](installation)
 
 ## Télécharger des fichiers
 
 Les dépôts sur le Hub sont sous controle de version Git, et les utilisateurs peuvent
-télécharger un fichier, ou dépôt entier. Vous pouvez utiliser la fonction [`hf_hub_download`]
+télécharger un fichier, ou un dépôt entier. Vous pouvez utiliser la fonction [`hf_hub_download`]
 pour télécharger des fichiers. Cette fonction télécharger et mettra dans le cache un fichier
 sur votre disque local. La prochaine fois que vous aurez besoin de ce fichier, il sera chargé
 depuis votre cache de façon à ce que vous n'ayez pas besoin de le retélécharger.
@@ -58,8 +58,8 @@ Dans la plupart des cas, vous devez être connectés avec un compte Hugging Face
 avec le Hub: pour télécharger des dépôts privés, upload des fichiers, créer des pull
 requests...
 [Créez un compte](https://huggingface.co/join) si vous n'en avez pas déjà un et connectez
-vous pour obtenir votre [Token d'Authentification](https://huggingface.co/docs/hub/security-tokens)
-depuis vos [Paramètres](https://huggingface.co/settings/tokens). Le token
+vous pour obtenir votre [token d'authentification](https://huggingface.co/docs/hub/security-tokens)
+depuis vos [paramètres](https://huggingface.co/settings/tokens). Le token
 est utilisé pour authentifier votre identité au Hub.
 
 Une fois que vous avez votre token d'authentification, lancez la commande suivante
@@ -67,7 +67,7 @@ dans votre terminal:
 
 ```bash
 huggingface-cli login
-# or using an environment variable
+# ou en utilisant une varible d'environnement:
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
@@ -123,7 +123,7 @@ Les dépôts privés ne seront visible que par vous.
 
 Pour créer un dépôt ou push du contenu sur le Hub, vous devez fournir un token
 d'authentification qui a les permissions `write`. Vous pouvez choisir la permission
-lorsque vous créez le token dans vos [Paramètres](https://huggingface.co/settings/tokens).
+lorsque vous générez le token dans vos [paramètres](https://huggingface.co/settings/tokens).
 
 </Tip>
 
@@ -146,7 +146,7 @@ Vous devez spécifier:
 ... )
 ```
 
-Pour upload plus d'un fichier à la fois, consultez le guide [Upload](./guides/upload)
+Pour upload plus d'un fichier à la fois, consultez le guide [upload](./guides/upload)
 qui vous expliqueras plusieurs méthodes pour upload des fichiers (avec ou sans Git).
 
 ## Prochaines étapes
