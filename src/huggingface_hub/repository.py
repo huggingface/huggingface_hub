@@ -12,10 +12,10 @@ from urllib.parse import urlparse
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
+from ._login import get_token
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import (
-    HfFolder,
     SoftTemporaryDirectory,
     logging,
     run_subprocess,
@@ -422,14 +422,6 @@ def _lfs_log_progress():
             os.environ["GIT_LFS_PROGRESS"] = current_lfs_progress_value
 
 
-@_deprecate_method(
-    version="1.0",
-    message=(
-        "Please prefer the http-based alternatives instead. Given its large adoption in legacy code, the complete"
-        " removal is only planned on next major release.\nFor more details, please read"
-        " https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http."
-    ),
-)
 class Repository:
     """
     Helper class to wrap the git and git-lfs commands.
@@ -451,6 +443,14 @@ class Repository:
     command_queue: List[CommandInProgress]
 
     @validate_hf_hub_args
+    @_deprecate_method(
+        version="1.0",
+        message=(
+            "Please prefer the http-based alternatives instead. Given its large adoption in legacy code, the complete"
+            " removal is only planned on next major release.\nFor more details, please read"
+            " https://huggingface.co/docs/huggingface_hub/concepts/git_vs_http."
+        ),
+    )
     def __init__(
         self,
         local_dir: Union[str, Path],
@@ -527,7 +527,7 @@ class Repository:
         else:
             # if `True` -> explicit use of the cached token
             # if `None` -> implicit use of the cached token
-            self.huggingface_token = HfFolder.get_token()
+            self.huggingface_token = get_token()
 
         if clone_from is not None:
             self.clone_from(repo_url=clone_from)

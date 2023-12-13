@@ -258,7 +258,7 @@ class BlobSecurityInfo(TypedDict, total=False):
 class TransformersInfo(TypedDict, total=False):
     auto_model: str
     custom_class: Optional[str]
-    # possible `pipeline_tag` values: https://github.com/huggingface/hub-docs/blob/f2003d2fca9d4c971629e858e314e0a5c05abf9d/js/src/lib/interfaces/Types.ts#L79
+    # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
     pipeline_tag: Optional[str]
     processor: Optional[str]
 
@@ -519,9 +519,9 @@ class ModelInfo:
 
     Attributes:
         id (`str`):
-            ID of dataset.
+            ID of model.
         author (`str`, *optional*):
-            Author of the dataset.
+            Author of the model.
         sha (`str`, *optional*):
             Repo SHA at this particular revision.
         created_at (`datetime`, *optional*):
@@ -537,9 +537,9 @@ class ModelInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the dataset.
+            Number of downloads of the model.
         likes (`int`):
-            Number of likes of the dataset.
+            Number of likes of the model.
         library_name (`str`, *optional*):
             Library associated with the model.
         tags (`List[str]`):
@@ -3887,6 +3887,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         free_memory: bool = True,
+        gitignore_content: Optional[str] = None,
     ):
         """Pre-upload LFS files to S3 in preparation on a future commit.
 
@@ -3933,6 +3934,12 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+            gitignore_content (`str`, *optional*):
+                The content of the `.gitignore` file to know which files should be ignored. The order of priority
+                is to first check if `gitignore_content` is passed, then check if the `.gitignore` file is present
+                in the list of files to commit and finally default to the `.gitignore` file already hosted on the Hub
+                (if any).
+
         Example:
         ```py
         >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
@@ -3957,6 +3964,15 @@ class HfApi:
         revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
+        # Check if a `gitignore` file is being committed to the Hub.
+        additions = list(additions)
+        if gitignore_content is None:
+            for addition in additions:
+                if addition.path_in_repo == ".gitignore":
+                    with addition.as_file() as f:
+                        gitignore_content = f.read().decode()
+                        break
+
         # Filter out already uploaded files
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
@@ -3970,6 +3986,7 @@ class HfApi:
                 revision=revision,
                 endpoint=self.endpoint,
                 create_pr=create_pr or False,
+                gitignore_content=gitignore_content,
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -3978,9 +3995,22 @@ class HfApi:
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
+        # Filter out files listed in .gitignore
+        new_lfs_additions_to_upload = []
+        for addition in new_lfs_additions:
+            if addition._should_ignore:
+                logger.debug(f"Skipping upload for LFS file '{addition.path_in_repo}' (ignored by gitignore file).")
+            else:
+                new_lfs_additions_to_upload.append(addition)
+        if len(new_lfs_additions) != len(new_lfs_additions_to_upload):
+            logger.info(
+                f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
+                "(ignored by gitignore file)."
+            )
+
         # Upload new LFS files
         _upload_lfs_files(
-            additions=new_lfs_additions,
+            additions=new_lfs_additions_to_upload,
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
@@ -3991,7 +4021,7 @@ class HfApi:
             # PR (i.e. `revision`).
             revision=revision if not create_pr else None,
         )
-        for addition in new_lfs_additions:
+        for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
                 addition.path_or_fileobj = b""
@@ -6794,6 +6824,7 @@ class HfApi:
         max_replica: int = 1,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         namespace: Optional[str] = None,
         token: Optional[str] = None,
@@ -6827,6 +6858,9 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             namespace (`str`, *optional*):
@@ -6851,7 +6885,7 @@ class HfApi:
             ...     region="us-east-1",
             ...     type="protected",
             ...     instance_size="medium",
-            ...     instance_type="c6i"
+            ...     instance_type="c6i",
             ... )
             >>> endpoint
             InferenceEndpoint(name='my-endpoint-name', status="pending",...)
@@ -6860,9 +6894,39 @@ class HfApi:
             >>> endpoint.client.text_generation(...)
             "..."
             ```
+
+            ```python
+            # Start an Inference Endpoint running Zephyr-7b-beta on TGI
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> create_inference_endpoint(
+            ...     "aws-zephyr-7b-beta-0486",
+            ...     repository="HuggingFaceH4/zephyr-7b-beta",
+            ...     framework="pytorch",
+            ...     task="text-generation",
+            ...     accelerator="gpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="g5.2xlarge",
+            ...     custom_image={
+            ...         "health_route": "/health",
+            ...         "env": {
+            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...             "MAX_INPUT_LENGTH": "1024",
+            ...             "MAX_TOTAL_TOKENS": "1512",
+            ...             "MODEL_ID": "/repository"
+            ...         },
+            ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
+            ...     },
+            ... )
+
+            ```
         """
         namespace = namespace or self._get_namespace(token=token)
 
+        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
         payload: Dict = {
             "accountId": account_id,
             "compute": {
@@ -6879,7 +6943,7 @@ class HfApi:
                 "repository": repository,
                 "revision": revision,
                 "task": task,
-                "image": {"huggingface": {}},
+                "image": image,
             },
             "name": name,
             "provider": {
@@ -7162,6 +7226,61 @@ class HfApi:
     ########################
     # Collection Endpoints #
     ########################
+    @validate_hf_hub_args
+    def list_collections(
+        self,
+        *,
+        owner: Union[List[str], str, None] = None,
+        item: Union[List[str], str, None] = None,
+        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
+        limit: Optional[int] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> Iterable[Collection]:
+        """List collections on the Huggingface Hub, given some filters.
+
+        <Tip warning={true}>
+
+        When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
+        from a collection, you must use [`get_collection`].
+
+        </Tip>
+
+        Args:
+            owner (`List[str]` or `str`, *optional*):
+                Filter by owner's username.
+            item (`List[str]` or `str`, *optional*):
+                Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
+            sort (`Literal["lastModified", "trending", "upvotes"]`, *optional*):
+                Sort collections by last modified, trending or upvotes.
+            limit (`int`, *optional*):
+                Maximum number of collections to be returned.
+            token (`bool` or `str`, *optional*):
+                An authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `Iterable[Collection]`: an iterable of [`Collection`] objects.
+        """
+        # Construct the API endpoint
+        path = f"{self.endpoint}/api/collections"
+        headers = self._build_hf_headers(token=token)
+        params: Dict = {}
+        if owner is not None:
+            params.update({"owner": owner})
+        if item is not None:
+            params.update({"item": item})
+        if sort is not None:
+            params.update({"sort": sort})
+        if limit is not None:
+            params.update({"limit": limit})
+
+        # Paginate over the results until limit is reached
+        items = paginate(path, headers=headers, params=params)
+        if limit is not None:
+            items = islice(items, limit)  # Do not iterate over all pages
+
+        # Parse as Collection and return
+        for position, collection_data in enumerate(items):
+            yield Collection(position=position, **collection_data)
 
     def get_collection(self, collection_slug: str, *, token: Optional[str] = None) -> Collection:
         """Gets information about a Collection on the Hub.
@@ -7749,6 +7868,7 @@ scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 
 # Collections API
 get_collection = api.get_collection
+list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
 delete_collection = api.delete_collection

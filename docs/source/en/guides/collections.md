@@ -58,6 +58,50 @@ A `note` can also be attached to the item. This is useful to add additional info
 
 In addition to these base attributes, returned items can have additional attributes depending on their type: `author`, `private`, `lastModified`, `gated`, `title`, `likes`, `upvotes`, etc. None of these attributes are guaranteed to be returned.
 
+## List collections
+
+We can also retrieve collections using [`list_collections`]. Collections can be filtered using some parameters. Let's list all the collections from the user [`teknium`](https://huggingface.co/teknium).
+```py
+>>> from huggingface_hub import list_collections
+
+>>> collections = list_collections(owner="teknium")
+```
+
+This returns an iterable of `Collection` objects. We can iterate over them to print, for example, the number of upvotes for each collection.
+
+```py
+>>> for collection in collections:
+...   print("Number of upvotes:", collection.upvotes)
+Number of upvotes: 1
+Number of upvotes: 5
+```
+
+<Tip warning={true}>
+
+When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items from a collection, you must use [`get_collection`].
+
+</Tip>
+
+It is possible to do more advanced filtering. Let's get all collections containing the model [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), sorted by trending, and limit the count to 5.
+```py
+>>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
+>>> for collection in collections:
+...   print(collection.slug)
+teknium/quantized-models-6544690bb978e0b0f7328748
+AmeerH/function-calling-65560a2565d7a6ef568527af
+PostArchitekt/7bz-65479bb8c194936469697d8c
+gnomealone/need-to-test-652007226c6ce4cdacf9c233
+Crataco/favorite-7b-models-651944072b4fffcb41f8b568
+```
+
+Parameter `sort` must be one of  `"last_modified"`,  `"trending"` or `"upvotes"`. Parameter `item` accepts any particular item. For example:
+* `"models/teknium/OpenHermes-2.5-Mistral-7B"`
+* `"spaces/julien-c/open-gpt-rhyming-robot"`
+* `"datasets/squad"`
+* `"papers/2311.12983"`
+
+For more details, please check out [`list_collections`] reference.
+
 ## Create a new collection
 
 Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and description. To create a collection on an organization page, pass `namespace="my-cool-org"` when creating the collection. Finally, you can also create private collections by passing `private=True`.

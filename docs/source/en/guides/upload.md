@@ -11,31 +11,7 @@ Sharing your files and work is an important aspect of the Hub. The `huggingface_
 - with the `commit` context manager.
 - with the [`~Repository.push_to_hub`] function.
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
-
-- Log in to your Hugging Face account with the following command:
-
-  ```bash
-  huggingface-cli login
-  # or using an environment variable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
-  ```
-
-- Alternatively, you can programmatically login using [`login`] in a notebook or a script:
-
-  ```python
-  >>> from huggingface_hub import login
-  >>> login()
-  ```
-
-  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
-  which you can enter your Hugging Face access token. Otherwise, a message will be
-  prompted in the terminal.
-
-  It is also possible to login programmatically without the widget by directly passing
-  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
-  best practice to load the token from a secure vault instead of saving it in plain in
-  your Colaboratory notebook.
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
 
 ## Upload a file
 
@@ -73,12 +49,11 @@ folder to. Depending on your repository type, you can optionally set the reposit
 ... )
 ```
 
-Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
-Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
-If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+By default, the `.gitignore` file will be taken into account to know which files should be committed or not. By default we check if a `.gitignore` file is present in a commit, and if not, we check if it exists on the Hub. Please be aware that only a `.gitignore` file present at the root of the directory with be used. We do not check for `.gitignore` files in subdirectories.
 
-Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore` file is not taken into account.
-This means you must use `allow_patterns` and `ignore_patterns` to specify which files to upload instead.
+If you don't want to use an hardcoded `.gitignore` file, you can use the `allow_patterns` and `ignore_patterns` arguments to filter which files to upload. These parameters accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply.
+
+Beside the `.gitignore` file and allow/ignore patterns, any `.git/` folder present in any subdirectory will be ignored.
 
 ```py
 >>> api.upload_folder(

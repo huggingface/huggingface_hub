@@ -128,6 +128,7 @@ if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it

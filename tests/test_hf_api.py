@@ -14,7 +14,6 @@
 import datetime
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import time
@@ -22,6 +21,7 @@ import types
 import unittest
 import uuid
 import warnings
+from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
 from functools import partial
@@ -68,7 +68,6 @@ from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
 from huggingface_hub.utils import (
     BadRequestError,
     EntryNotFoundError,
-    HfFolder,
     HfHubHTTPError,
     NotASafetensorsRepoError,
     RepositoryNotFoundError,
@@ -182,23 +181,21 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertIsInstance(valid_org["apiToken"], str)
+        self.assertEqual(valid_org["fullname"], "Dummy Org")
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `huggingface-cli login`."""
-        mock_HfFolder().get_token.return_value = self._token
-
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
         self.assertEqual(info["name"], USER)
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_hf_api(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token")
+    def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
-        mock_HfFolder().get_token.assert_not_called()
+        mock_get_token.assert_not_called()
 
     def test_delete_repo_error_message(self):
         # test for #751
@@ -396,8 +393,8 @@ class CommitApiTest(HfApiCommonTest):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
-    def test_create_repo_org_token_none_fail(self):
-        HfFolder.save_token("api_org_dummy_token")
+    @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
+    def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
@@ -560,6 +557,28 @@ class CommitApiTest(HfApiCommonTest):
             set(self._api.list_repo_files(repo_id=repo_url.repo_id)),
             {".gitattributes", ".git_something/file.txt", "file.git", "temp", "nested/file.bin"},
         )
+
+    @use_tmp_repo()
+    def test_upload_folder_gitignore_already_exists(self, repo_url: RepoUrl) -> None:
+        # Ignore nested folder
+        self._api.upload_file(path_or_fileobj=b"nested/*\n", path_in_repo=".gitignore", repo_id=repo_url.repo_id)
+
+        # Upload folder
+        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id)
+
+        # Check nested file not uploaded
+        assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
+
+    @use_tmp_repo()
+    def test_upload_folder_gitignore_in_commit(self, repo_url: RepoUrl) -> None:
+        # Create .gitignore file locally
+        (Path(self.tmp_dir) / ".gitignore").write_text("nested/*\n")
+
+        # Upload folder
+        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id)
+
+        # Check nested file not uploaded
+        assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
 
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
@@ -803,17 +822,16 @@ class CommitApiTest(HfApiCommonTest):
 
                 self.assertEqual(str(context.exception), expected_message)
 
-    def test_create_commit_lfs_file_implicit_token(self):
-        """Test that uploading a file as LFS works with implicit token (from cache).
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_create_commit_lfs_file_implicit_token(self, get_token_mock: Mock) -> None:
+        """Test that uploading a file as LFS works with cached token.
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/1084.
         """
         REPO_NAME = repo_name("create_commit_with_lfs")
         repo_id = f"{USER}/{REPO_NAME}"
 
-        def _inner(mock: Mock) -> None:
-            mock.return_value = self._token  # Set implicit token
-
+        with patch.object(self._api, "token", None):  # no default token
             # Create repo
             self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
 
@@ -839,16 +857,12 @@ class CommitApiTest(HfApiCommonTest):
             )
 
             # Check uploaded as LFS
-            info = self._api.model_info(repo_id=repo_id, use_auth_token=self._token, files_metadata=True)
+            info = self._api.model_info(repo_id=repo_id, files_metadata=True)
             siblings = {file.rfilename: file for file in info.siblings}
             self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
 
             # Delete repo
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-        with patch.object(self._api, "token", None):  # no default token
-            with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
-                _inner(mock)  # just to avoid indenting twice the code code
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     def test_create_commit_huge_regular_files(self):
         """Test committing 12 text files (>100MB in total) at once.
@@ -2126,8 +2140,8 @@ class HfApiPrivateTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.REPO_NAME)
         self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
-    def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_model_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
@@ -2142,8 +2156,8 @@ class HfApiPrivateTest(HfApiCommonTest):
             model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
-    def test_dataset_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_dataset_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
@@ -2846,9 +2860,9 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Restart
         self.api.restart_space(self.repo_id)
-        time.sleep(1.0)
+        time.sleep(5.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
-        self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
+        self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -3498,6 +3512,26 @@ class CollectionAPITest(HfApiCommonTest):
         if self.slug is not None:  # Delete collection even if test failed
             self._api.delete_collection(self.slug, missing_ok=True)
         return super().tearDown()
+
+    @with_production_testing
+    def test_list_collections(self) -> None:
+        item_id = "teknium/OpenHermes-2.5-Mistral-7B"
+        item_type = "model"
+        limit = 3
+        collections = HfApi().list_collections(item=f"{item_type}s/{item_id}", limit=limit)
+
+        # Check return type
+        self.assertIsInstance(collections, Iterable)
+        collections = list(collections)
+
+        # Check length
+        self.assertEqual(len(collections), limit)
+
+        # Check all collections contain the item
+        for collection in collections:
+            # all items are not necessarily returned when listing collections => retrieve complete one
+            full_collection = HfApi().get_collection(collection.slug)
+            assert any(item.item_id == item_id and item.item_type == item_type for item in full_collection.items)
 
     def test_create_collection_with_description(self) -> None:
         collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")

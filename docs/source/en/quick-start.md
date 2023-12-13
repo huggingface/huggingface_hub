@@ -51,22 +51,32 @@ full-length hash instead of the shorter 7-character commit hash:
 
 For more details and options, see the API reference for [`hf_hub_download`].
 
-## Login
+<a id="login"></a> <!-- backward compatible anchor -->
 
-In a lot of cases, you must be logged in with a Hugging Face account to interact with
+## Authentication
+
+In a lot of cases, you must be authenticated with a Hugging Face account to interact with
 the Hub: download private repos, upload files, create PRs,...
 [Create an account](https://huggingface.co/join) if you don't already have one, and then sign in
 to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens) from
 your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
 used to authenticate your identity to the Hub.
 
-Once you have your User Access Token, run the following command in your terminal:
+<Tip>
+
+Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
+
+</Tip>
+
+### Login command
+
+The easiest way to authenticate is to save the token on your machine. You can do that from the terminal using the [`login`] command:
 
 ```bash
 huggingface-cli login
-# or using an environment variable
-huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
+
+The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
 
 Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
@@ -75,21 +85,41 @@ Alternatively, you can programmatically login using [`login`] in a notebook or a
 >>> login()
 ```
 
-It is also possible to login programmatically without being prompted to enter your token by directly
-passing the token to [`login`] like `login(token="hf_xxx")`. If you do so, be careful when
-sharing your source code. It is a best practice to load the token from a secure vault instead
-of saving it explicitly in your codebase/notebook.
-
-You can be logged in only to 1 account at a time. If you login your machine to a new account, you will get logged out
-from the previous. Make sure to always which account you are using with the command `huggingface-cli whoami`.
-If you want to handle several accounts in the same script, you can provide your token when calling each method. This
-is also useful if you don't want to store any token on your machine.
+You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `huggingface-cli whoami` command.
 
 <Tip warning={true}>
 
-Once you are logged in, all requests to the Hub -even methods that don't necessarily require authentication- will use your
-access token by default. If you want to disable implicit use of your token, you should set the
-`HF_HUB_DISABLE_IMPLICIT_TOKEN` environment variable.
+Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
+
+</Tip>
+
+### Environment variable
+
+The environment variable `HF_TOKEN` can also be used to authenticate yourself. This is especially useful in a Space where you can set `HF_TOKEN` as a [Space secret](https://huggingface.co/docs/hub/spaces-overview#managing-secrets).
+
+<Tip>
+
+**NEW:** Google Colaboratory lets you define [private keys](https://twitter.com/GoogleColab/status/1719798406195867814) for your notebooks. Define a `HF_TOKEN` secret to be automatically authenticated!
+
+</Tip>
+
+Authentication via an environment variable or a secret has priority over the token stored on your machine.
+
+### Method parameters
+
+Finally, it is also possible to authenticate by passing your token to any method that accepts `token` as a parameter.
+
+```
+from transformers import whoami
+
+user = whoami(token=...)
+```
+
+This is usually discouraged except in an environment where you don't want to store your token permanently or if you need to handle several tokens at once.
+
+<Tip warning={true}>
+
+Please be careful when passing tokens as a parameter. It is always best practice to load the token from a secure vault instead of hardcoding it in your codebase or notebook. Hardcoded tokens present a major leak risk if you share your code inadvertently.
 
 </Tip>
 

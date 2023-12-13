@@ -80,7 +80,7 @@ class WebhookPayloadDiscussionChanges(BaseModel):
 class WebhookPayloadComment(ObjectId):
     author: ObjectId
     hidden: bool
-    content: Optional[str]
+    content: Optional[str] = None
     url: WebhookPayloadUrl
 
 
@@ -91,7 +91,7 @@ class WebhookPayloadDiscussion(ObjectId):
     title: str
     isPullRequest: bool
     status: DiscussionStatus_T
-    changes: Optional[WebhookPayloadDiscussionChanges]
+    changes: Optional[WebhookPayloadDiscussionChanges] = None
     pinned: Optional[bool] = None
 
 
@@ -109,7 +109,7 @@ class WebhookPayloadRepo(ObjectId):
 class WebhookPayload(BaseModel):
     event: WebhookPayloadEvent
     repo: WebhookPayloadRepo
-    discussion: Optional[WebhookPayloadDiscussion]
-    comment: Optional[WebhookPayloadComment]
+    discussion: Optional[WebhookPayloadDiscussion] = None
+    comment: Optional[WebhookPayloadComment] = None
     webhook: WebhookPayloadWebhook
     movedTo: Optional[WebhookPayloadMovedTo] = None
