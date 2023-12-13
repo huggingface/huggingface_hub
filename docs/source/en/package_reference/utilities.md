@@ -176,6 +176,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
 
+#### OfflineModeIsEnabled
+
+[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
+
 ## Telemetry
 
 `huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
