@@ -102,6 +102,7 @@ from .constants import (
     DiscussionStatusFilter,
     DiscussionTypeFilter,
 )
+from .utils._deprecation import _deprecate_method
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
@@ -2347,6 +2348,7 @@ class HfApi:
             return False
 
     @validate_hf_hub_args
+    @_deprecate_method(version="1.0", message="Use `HfApi.list_repo_tree` and `HfApi.get_paths_info` instead.")
     def list_files_info(
         self,
         repo_id: str,
