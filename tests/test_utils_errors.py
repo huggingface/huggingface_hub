@@ -23,12 +23,25 @@ class TestErrorUtils(unittest.TestCase):
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertIn("Request ID: 123", str(context.exception))
 
-    def test_hf_raise_for_status_repo_not_found_without_error_code(self) -> None:
+    def test_hf_raise_for_status_401_repo_url(self) -> None:
         response = Response()
         response.headers = {"X-Request-Id": 123}
         response.status_code = 401
         response.request = PreparedRequest()
+        response.request.url = "https://huggingface.co/api/models/username/reponame"
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
+            hf_raise_for_status(response)
+
+        self.assertEqual(context.exception.response.status_code, 401)
+        self.assertIn("Request ID: 123", str(context.exception))
+
+    def test_hf_raise_for_status_401_not_repo_url(self) -> None:
+        response = Response()
+        response.headers = {"X-Request-Id": 123}
+        response.status_code = 401
+        response.request = PreparedRequest()
+        response.request.url = "https://huggingface.co/api/collections"
+        with self.assertRaises(HfHubHTTPError) as context:
             hf_raise_for_status(response)
 
         self.assertEqual(context.exception.response.status_code, 401)
