@@ -36,7 +36,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import AccessRequest, SpaceHardware, SpaceStage, SpaceStorage
+from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -52,6 +52,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
+    AccessRequest,
     Collection,
     CommitInfo,
     DatasetInfo,
