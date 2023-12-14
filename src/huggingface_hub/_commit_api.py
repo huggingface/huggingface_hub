@@ -10,14 +10,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List, Literal, Optional, Tuple, Union
 
 from tqdm.contrib.concurrent import thread_map
 
 from huggingface_hub import get_session
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
-from .hf_api import RepoFile
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     EntryNotFoundError,
@@ -29,6 +28,10 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+
+
+if TYPE_CHECKING:
+    from .hf_api import RepoFile
 
 
 logger = logging.get_logger(__name__)
@@ -552,7 +555,7 @@ def _fetch_lfs_files_to_copy(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    from .hf_api import HfApi
+    from .hf_api import HfApi, RepoFile
 
     hf_api = HfApi(endpoint=endpoint, token=token)
     files_to_copy = {}
