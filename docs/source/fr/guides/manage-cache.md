@@ -2,15 +2,15 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Manage `huggingface_hub` cache-system
+# Gérer le cache-system `huggingface_hub`
 
-## Understand caching
+## Comprendre le caching
 
-The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
-that depend on the Hub. It has been updated in v0.8.0 to prevent re-downloading same files
-between revisions.
+Le cache-system Hugging Face Hub a été créé pour être le cache central partagé par toutes les
+librairies dépendant du Hub. Il a été mis à jour dans la version v0.8.0 pour éviter de
+retélécharger les mêmes fichiers entre chaque révisions.
 
-The caching system is designed as follows:
+Le système de cache fonctionne comme suit:
 
 ```
 <CACHE_DIR>
@@ -19,11 +19,12 @@ The caching system is designed as follows:
 ├─ <SPACES>
 ```
 
-The `<CACHE_DIR>` is usually your user's home directory. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
+Le `<CACHE_DIR>` est souvent votre chemin vers la home de votre utilisateur. Cependant, vous pouvez le personnaliser avec l'argument `cache_dir` sur
+n'importe quelle méthode, où en spécifiant les variables d'environnement `HF_HOME` ou `HF_HUB_CACHE`.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
-repository type, the namespace (organization or username) if it exists and the
-repository name:
+Les modèles, datasets et espaces ont tous la même racine. Chacun de ces dépôts contient
+le type de dépôt, le namespace (nom de l'organisation ou du nom d'utilisateur) s'il existe
+et le nom du dépôt:
 
 ```
 <CACHE_DIR>
@@ -35,12 +36,12 @@ repository name:
 ├─ spaces--dalle-mini--dalle-mini
 ```
 
-It is within these folders that all files will now be downloaded from the Hub. Caching ensures that
-a file isn't downloaded twice if it already exists and wasn't updated; but if it was updated,
-and you're asking for the latest file, then it will download the latest file (while keeping
-the previous file intact in case you need it again).
+C'est parmi ces dossiers que tous les fichiers seront maintenant téléchargés depuis le Hub. Cacher
+vous assure qu'un fichier n'est pas téléchargé deux fois s'il a déjà été téléchargé et qu'il n'a
+pas été mis à jour; s'il a été mis à jour et que vous cherchez le dernier fichier, alors il téléchargera
+le dernier fichier (tout en gardant les fichiers précédents intacts au cas où vous en auriez besoin).
 
-In order to achieve this, all folders contain the same skeleton:
+Pour ce faire, tous les dossiers contiennent le même squelette:
 
 ```
 <CACHE_DIR>
@@ -51,87 +52,97 @@ In order to achieve this, all folders contain the same skeleton:
 ...
 ```
 
-Each folder is designed to contain the following:
+Chaque dossier est fait pour contenir les dossiers suivants:
 
 ### Refs
 
-The `refs` folder contains files which indicates the latest revision of the given reference. For example,
-if we have previously fetched a file from the `main` branch of a repository, the `refs`
-folder will contain a file named `main`, which will itself contain the commit identifier of the current head.
+Le fichier `refs` contient des dossiers qui indiquent la dernière révision d'une référence donnée. Par
+exemple, si précédemment, nous avions ajouté un fichier depuis la branche `main` d'un dépôt, le dossier
+`refs` contiendra un fichier nommé `main`, qui lui même contiendra l'identifier de commit du head actuel.
 
-If the latest commit of `main` has `aaaaaa` as identifier, then it will contain `aaaaaa`.
+Si le dernier commit de `main` a pour identifier `aaaaaa`, alors le fichier dans ``refs`
+contiendra `aaaaaa`.
 
-If that same branch gets updated with a new commit, that has `bbbbbb` as an identifier, then
-re-downloading a file from that reference will update the `refs/main` file to contain `bbbbbb`.
+Si cette même branche est mise à jour avec un nouveau commit, qui a `bbbbbb` en tant
+qu'identifier, alors re-télécharger un fichier de cette référence mettra à jour le fichier
+`refs/main` afin qu'il contienne `bbbbbb`.
 
 ### Blobs
 
-The `blobs` folder contains the actual files that we have downloaded. The name of each file is their hash.
+Le dossier `blobs` contient les fichiers que nous avons téléchargé. Le nom de chaque fichier est
+son hash.
 
 ### Snapshots
 
-The `snapshots` folder contains symlinks to the blobs mentioned above. It is itself made up of several folders:
-one per known revision!
+Le dossier `snapshots` contient des symlinks vers les blobs mentionnés ci dessus. Il est lui même fait
+de plusieurs dossiers:
+un par révision connue!
 
-In the explanation above, we had initially fetched a file from the `aaaaaa` revision, before fetching a file from
-the `bbbbbb` revision. In this situation, we would now have two folders in the `snapshots` folder: `aaaaaa`
-and `bbbbbb`.
+Dans l'exemple ci-dessus, nous avons initialement ajouté un fichier depuis la révision `aaaaaa`, avant d'ajouter
+un fichier basé sur la révision `bbbbbb`. Dans cette situation, nous aurions maintenant deux dossiers dans le
+dossier `snapshots`: `aaaaaaa` et `bbbbbbb`.
 
-In each of these folders, live symlinks that have the names of the files that we have downloaded. For example,
-if we had downloaded the `README.md` file at revision `aaaaaa`, we would have the following path:
+Dans chacun de ces dossiers, il y a des symlinks qui ont le nom des fichiers que nous avons téléchargé. Par
+exemple, si nous avions téléchargé le fichier `README.md` dans la révision `aaaaaa`, nous aurions ce chemin: 
 
 ```
 <CACHE_DIR>/<REPO_NAME>/snapshots/aaaaaa/README.md
 ```
 
-That `README.md` file is actually a symlink linking to the blob that has the hash of the file.
+Ce fichier `README.md` est enfaite un symlink qui dirige vers le blob qui a le hash du fichier.
 
-By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
-revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
+En créant le squelette de cette manière, nous ouvrons le mécanisme au partage de fichiers: si ce même
+fichier était ajouté dans la révision `bbbbbb`, il aurait le même hash et le fichier n'aurait pas besoin
+d'être re-téléchargé.
 
-### .no_exist (advanced)
+### .no_exist (avancé)
 
-In addition to the `blobs`, `refs` and `snapshots` folders, you might also find a `.no_exist` folder
-in your cache. This folder keeps track of files that you've tried to download once but don't exist
-on the Hub. Its structure is the same as the `snapshots` folder with 1 subfolder per known revision:
+En plus des fichiers `blobs`, `refs` et `snapshots`, vous pourrez aussi trouver un dossier `.no_exist`
+dans votre cache. Ce dossier garde une trace des fichiers que vous avez essayé de télécharger une fois
+mais qui n'existent pas sur le Hub. Sa structure est la même que le dossier `snapshots` avec 1 sous-dossier
+par révision connue:
 
 ```
-<CACHE_DIR>/<REPO_NAME>/.no_exist/aaaaaa/config_that_does_not_exist.json
+<CACHE_DIR>/<REPO_NAME>/.no_exist/aaaaaa/config_inexistante.json
 ```
 
-Unlike the `snapshots` folder, files are simple empty files (no symlinks). In this example,
-the file `"config_that_does_not_exist.json"` does not exist on the Hub for the revision `"aaaaaa"`.
-As it only stores empty files, this folder is neglectable is term of disk usage.
+Contrairement au dossier `snapshots`, les fichiers sont de simples fichiers vides (sans symlinks).
+Dans cet exemple, le fichier `"config_inexistante.json"` n'existe pas sur le Hub pour la révision
+`"aaaaaa"`. Comme il ne sauvegarde que des fichiers vides, ce dossier est négligeable en terme d'utilisation
+d'espace sur le disque.
 
-So now you might wonder, why is this information even relevant?
-In some cases, a framework tries to load optional files for a model. Saving the non-existence
-of optional files makes it faster to load a model as it saves 1 HTTP call per possible optional file.
-This is for example the case in `transformers` where each tokenizer can support additional files.
-The first time you load the tokenizer on your machine, it will cache which optional files exists (and
-which doesn't) to make the loading time faster for the next initializations.
+Maintenant, vous vous demandez peut être, pourquoi cette information est elle pertinente ?
+Dans certains cas, un framework essaye de charger des fichiers optionnels pour un modèle.
+Enregistrer la non-existence d'un fichier optionnel rend le chargement d'un fichier plus
+rapide vu qu'on économise 1 appel HTTP par fichier optionnel possible.
+C'est par exemple le cas dans `transformers`, où chacun des tokenizer peut accepter des fichiers additionnels.
+La première fois que vous chargez le tokenizer sur votre machine, il mettra en cache quels fichiers
+optionnels existent (et lesquels n'existent pas) pour faire en sorte que le chargement soit plus rapide
+lors des prochaines initialisations.
 
-To test if a file is cached locally (without making any HTTP request), you can use the [`try_to_load_from_cache`]
-helper. It will either return the filepath (if exists and cached), the object `_CACHED_NO_EXIST` (if non-existence
-is cached) or `None` (if we don't know).
+Pour tester si un fichier est en cache en local (sans faire aucune requête HTTP), vous pouvez utiliser
+le helper [`try_to_load_from_cache`]. Il retournera soit le chemin du fichier (s'il existe est qu'il est
+dans le cache), soit l'objet `_CACHED_NO_EXIST` (si la non existence est en cache), soit `None`
+(si on ne sait pas).
 
 ```python
 from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
 
 filepath = try_to_load_from_cache()
 if isinstance(filepath, str):
-    # file exists and is cached
+    # Le fichier existe et est dans le cache
     ...
 elif filepath is _CACHED_NO_EXIST:
-    # non-existence of file is cached
+    # La non-existence du fichier est dans le cache
     ...
 else:
-    # file is not cached
+    # Le fichier n'est pas dans le cache
     ...
 ```
 
-### In practice
+### En pratique
 
-In practice, your cache should look like the following tree:
+En pratique, votre cache devrait ressembler à l'arbre suivant:
 
 ```text
     [  96]  .
@@ -153,53 +164,58 @@ In practice, your cache should look like the following tree:
 
 ### Limitations
 
-In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
-symlinks are not supported on all machines. This is a known limitation especially on
-Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
-directly stores the files in the `snapshots/` directory instead. This workaround allows
-users to download and cache files from the Hub exactly the same way. Tools to inspect
-and delete the cache (see below) are also supported. However, the cache-system is less
-efficient as a single file might be downloaded several times if multiple revisions of
-the same repo is downloaded.
+Afin d'avoir un système de cache efficace, `huggingface_hub` utilise les symlinks.
+Cependant, les symlinks ne sont pas acceptés avec toutes les machines. C'est une
+limitation connue en particulier sur Windows. Lorsque c'est le cas, `huggingface_hub`
+n'utilise pas le chemin `blobs/` à la plce, elle enregistre les fichiers directement dans
+`snapshots/`. Ceci permet aux utilisateurs de télécharger et mettre en cache des fichiers
+directement depuis le Hub de la même manière que si tout marchait. Les outils pour
+inspecter et supprimer le cache (voir ci-deccous) sont aussi fonctionnels. Toutefois,
+le cache-system est moins efficace vu qu'un fichier risque d'être téléchargé un grand
+nombre de fois si plusieurs révisions du même dépôt sont téléchargés.
 
-If you want to benefit from the symlink-based cache-system on a Windows machine, you
-either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
-or to run Python as an administrator.
+Si vous voulez bénéficier d'un cache-system basé sur symlink sur une machine Windows,
+vous avez le choix entre [activer le mode développeur](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
+ou lancer Python en tant qu'administrateur.
 
-When symlinks are not supported, a warning message is displayed to the user to alert
-them they are using a degraded version of the cache-system. This warning can be disabled
-by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
+Lorsque les symlinks ne sont pas supportés, un message d'avertissement est affiché
+à l'utilisateur afin de les prévenir qu'ils utilisent une version dégradée du
+cache-system. Cet avertissement peut être désactivé en attribuant la valeur
+"true" à la varialbe d'environnement `HF_HUB_DISABLE_SYMLINKS_WARNING`.
 
-## Caching assets
+## Les assets
 
-In addition to caching files from the Hub, downstream libraries often requires to cache
-other files related to HF but not handled directly by `huggingface_hub` (example: file
-downloaded from GitHub, preprocessed data, logs,...). In order to cache those files,
-called `assets`, one can use [`cached_assets_path`]. This small helper generates paths
-in the HF cache in a unified way based on the name of the library requesting it and
-optionally on a namespace and a subfolder name. The goal is to let every downstream
-libraries manage its assets its own way (e.g. no rule on the structure) as long as it
-stays in the right assets folder. Those libraries can then leverage tools from
-`huggingface_hub` to manage the cache, in particular scanning and deleting parts of the
-assets from a CLI command.
+En plus de pouvoir mettre en cache des fichiers du Hub, les librairies demandent souvent
+de mettre en cache d'autres fichiers liés à HF mais pas gérés directement par
+`huggingface_hub` (par exemple: les fichiers téléchargés depuis GitHub, des données
+pré-nettoyés, les logs,...). Afin de mettre en cache ces fichiers appelés `assets`,
+[`cached_assets_path`] peut s'avérer utile. Ce petit helper génère des chemins dans le
+cache HF d'une manière unifiée selon sur le nom de la librairie qui le demande et
+peut aussi générer un chemin sur un namespace ou un nom de sous-dossier. Le but est de
+permettre à toutes les librairies de gérer ses assets de sa propre manière
+(i.e. pas de règle sur la structure) tant que c'est resté dans le bon dossier
+d'assets. Ces librairies peuvent s'appuyer sur des outil d'`huggingface_hub` pour gérer
+le cache, en partiluier pour scanner et supprimer des parties d'assets grace à une 
+commande du CLI. 
 
 ```py
 from huggingface_hub import cached_assets_path
 
 assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", subfolder="download")
-something_path = assets_path / "something.json" # Do anything you like in your assets folder !
+something_path = assets_path / "something.json" # Faites ce que vous voulez dans votre dossier d'assets !
 ```
 
 <Tip>
 
-[`cached_assets_path`] is the recommended way to store assets but is not mandatory. If
-your library already uses its own cache, feel free to use it!
+[`cached_assets_path`] est la manière recommandé de sauvegarder des assets, mais vous
+n'êtes pas obligés de l'utiliser. Si votre librairie utilise déjà son propre cache,
+n'hésitez pas à l'utiliser!
 
 </Tip>
 
-### Assets in practice
+### Les assets en pratique
 
-In practice, your assets cache should look like the following tree:
+En pratique, votre cache d'asset devrait ressembler à l'arbre suivant:
 
 ```text
     assets/
@@ -232,22 +248,26 @@ In practice, your assets cache should look like the following tree:
                 └── (...)
 ```
 
-## Scan your cache
+## Scannez votre cache
 
-At the moment, cached files are never deleted from your local directory: when you download
-a new revision of a branch, previous files are kept in case you need them again.
-Therefore it can be useful to scan your cache directory in order to know which repos
-and revisions are taking the most disk space. `huggingface_hub` provides an helper to
-do so that can be used via `huggingface-cli` or in a python script.
+Pour l'instant, les fichiers en cache ne sont jamais supprimés de votre chemin local:
+lorsque vous téléchargez une nouvelle révision de la branche, les fichiers précédents
+sont gardés au cas où vous en auriez encore besoin. Par conséquent, il peut être utile
+de scanner votre chemin où se trouvent le cache afin de savoir quel dépôts et
+révisions prennent le plus de place sur votre disque. `huggingface_hub` fournit
+un helper pour effectuer ce scan qui peut être utilisé via `huggingface-cli`
+où un script Python.
 
-### Scan cache from the terminal
 
-The easiest way to scan your HF cache-system is to use the `scan-cache` command from
-`huggingface-cli` tool. This command scans the cache and prints a report with information
-like repo id, repo type, disk usage, refs and full local path.
+### Scannez le cache depuis le terminal
 
-The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
-cached.
+La manière la plus simple de scanner votre cache-system HF est d'utiliser la
+commande `scan-cache` depuis l'outil `huggingface-clie`. CEtte commande scan le cache
+et affiche un rapport avec des informations telles ques l'id du dépôt, le type de
+dépôt, l'utilisation du disque, des références et un chemin local complet.
+
+Le snippet ci-dessous montre le rapport d'un scan dans un dossier qui contient 4
+modèles et 2 datasets en cache.
 
 ```text
 ➜ huggingface-cli scan-cache
@@ -264,12 +284,13 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-To get a more detailed report, use the `--verbose` option. For each repo, you get a
-list of all revisions that have been downloaded. As explained above, the files that don't
-change between 2 revisions are shared thanks to the symlinks. This means that the size of
-the repo on disk is expected to be less than the sum of the size of each of its revisions.
-For example, here `bert-base-cased` has 2 revisions of 1.4G and 1.5G but the total disk
-usage is only 1.9G.
+Pour avoir un rapport plus détaillé, utilisez l'option `--verbose`. Pour chacun des
+dépôts, vous obtenez une liste de toutes les révisions qui ont été téléchargées. Comme
+expliqué ci-dessus, les fichiers qui ne changent pas entre 2 révisions sont partagés
+grâce aux symlinks. Ceci signifie que la taille du dépôt sur le disque doit être plus
+petite que la somme des tailles de chacune de ses révisions. Par exemple, ici,
+`bert-based-cased` a 2 révisions de 1.4G et 1.5G, mais l'utilisation totale du disque est
+uniquement de 1.9G.
 
 ```text
 ➜ huggingface-cli scan-cache -v
@@ -291,11 +312,12 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-#### Grep example
+#### Exemple de grep
 
-Since the output is in tabular format, you can combine it with any `grep`-like tools to
-filter the entries. Here is an example to filter only revisions from the "t5-small"
-model on a Unix-based machine.
+Vu que l'output de la commande est sous forme de donnée tabulaire, vous pouvez le combiner
+avec n'importe quel outil similaire à `grep` pour filtrer les entrées. Voici un exemple
+pour filtrer uniquement les révision du modèle "t5-small" sur une machine basée sur
+Unix.
 
 ```text
 ➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
@@ -304,19 +326,20 @@ t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617  
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
-### Scan cache from Python
+### Scannez le cache depuis Python
 
-For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
-the CLI tool.
+Pour une utilisation plus avancée, utilisez [`scan_cache_dir`] qui est la fonction Python
+appelée par l'outil du CLI
 
-You can use it to get a detailed report structured around 4 dataclasses:
+Vous pouvez l'utiliser pour avoir un rapport structuré autour des 4 dataclasses:
 
-- [`HFCacheInfo`]: complete report returned by [`scan_cache_dir`]
-- [`CachedRepoInfo`]: information about a cached repo
-- [`CachedRevisionInfo`]: information about a cached revision (e.g. "snapshot") inside a repo
-- [`CachedFileInfo`]: information about a cached file in a snapshot
+- [`HFCacheInfo`]: rapport complet retourné par [`scan_cache_dir`]
+- [`CachedRepoInfo`]: informations sur le dépôt en cache
+- [`CachedRevisionInfo`]: informations sur une révision en cache (i.e. "snapshot") à
+  l'intérieur d'un dépôt
+- [`CachedFileInfo`]: informations sur un fichier en cache dans une snapshot
 
-Here is a simple usage example. See reference for details.
+Voici un exemple simple d'utilisation. Consultez les références pour plus de détails.
 
 ```py
 >>> from huggingface_hub import scan_cache_dir
@@ -338,7 +361,7 @@ HFCacheInfo(
                     commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
                     size_on_disk=970726339,
                     snapshot_path=PosixPath(...),
-                    # No `last_accessed` as blobs are shared among revisions
+                    # Pas de `last_accessed` car les blobs sont partagés entre les révisions
                     last_modified=1662971107.3567169,
                     files=frozenset({
                         CachedFileInfo(
@@ -361,97 +384,99 @@ HFCacheInfo(
         ...
     }),
     warnings=[
-        CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
+        CorruptedCacheException("Le chemin vers les snapshots n'existe par dans les dépôts en cache: ..."),
         CorruptedCacheException(...),
         ...
     ],
 )
 ```
 
-## Clean your cache
+## Néttoyez votre cache
 
-Scanning your cache is interesting but what you really want to do next is usually to
-delete some portions to free up some space on your drive. This is possible using the
-`delete-cache` CLI command. One can also programmatically use the
-[`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
-scanning the cache.
+Scanner votre cache est intéressant mais après, vous aurez surement envie de supprimer
+certaines parties du cache pour libérer de l'espace dans votre drive. C'est faisable
+en utilisant la commande CLI `delete-cache`. L'helper [`~HFCacheInfo.delete_revisions`]
+peut aussi être utilisé depuis le code depuis l'objet [`HFCacheInfo`] retourné lors
+du scan du cache.
 
-### Delete strategy
+### Stratégie de suppression
 
-To delete some cache, you need to pass a list of revisions to delete. The tool will
-define a strategy to free up the space based on this list. It returns a
-[`DeleteCacheStrategy`] object that describes which files and folders will be deleted.
-The [`DeleteCacheStrategy`] allows give you how much space is expected to be freed.
-Once you agree with the deletion, you must execute it to make the deletion effective. In
-order to avoid discrepancies, you cannot edit a strategy object manually.
+Pour supprimer des dossiers du cache, vous devez passer une liste de révisions à
+supprimer. L'outil définira une stratégie pour libérer de l'espace basé sur cette
+liste. Il renvoie un objet [`DeleteCacheStrategy`] qui décrit les fichiers et dossiers
+qui seront supprimés. [`DeleteCacheStrategy`] vous donne l'espace qui devrait être
+libéré. Une fois que vous acceptez la suppression, vous devez l'exécuter pour que la
+suppression soit effective. Afin d'éviter les différentces, vous ne pouvez pas modifier
+manuellement un objet stratégie.
 
-The strategy to delete revisions is the following:
+La stratégie pour supprimer des révisions est la suivante:
 
-- the `snapshot` folder containing the revision symlinks is deleted.
-- blobs files that are targeted only by revisions to be deleted are deleted as well.
-- if a revision is linked to 1 or more `refs`, references are deleted.
-- if all revisions from a repo are deleted, the entire cached repository is deleted.
+- Le dossier `snapshot` contenant les symlinks des révisions est supprimé.
+- Les fichiers blobs qui sont visés uniquement par les révisions à supprimer sont supprimés aussi.
+- Si une révision est lié à une `refs` ou plus, les références sont supprimées.
+- Si toutes les révisions d'un dépôt sont supprimées, le dépôts en cache est supprimé.
 
 <Tip>
 
-Revision hashes are unique across all repositories. This means you don't need to
-provide any `repo_id` or `repo_type` when removing revisions.
-
+Les hash de révision sont uniques parmi tous les dépôts. Ceci signifie que
+vous n'avez pas besoin de fournir un `repo_id` ou un `repo_type` lors de la
+suppression d'une révision.
 </Tip>
 
 <Tip warning={true}>
 
-If a revision is not found in the cache, it will be silently ignored. Besides, if a file
-or folder cannot be found while trying to delete it, a warning will be logged but no
-error is thrown. The deletion continues for other paths contained in the
-[`DeleteCacheStrategy`] object.
+Si une révision n'est pas trouvée dans le cache, elle sera ignorée. En dehors de ça,
+si un fichier où un dossier ne peut pas être trouvé lorsque vous essayez de le supprimer,
+un avertissement sera affiché mais aucune erreur ne sera retournée. La suppression
+continue pour d'autres chemins contenus dans l'objet [`DeleteCacheStrategy`].
 
 </Tip>
 
-### Clean cache from the terminal
+### Nettoyez le cache depuis le terminal
 
-The easiest way to delete some revisions from your HF cache-system is to use the
-`delete-cache` command from `huggingface-cli` tool. The command has two modes. By
-default, a TUI (Terminal User Interface) is displayed to the user to select which
-revisions to delete. This TUI is currently in beta as it has not been tested on all
-platforms. If the TUI doesn't work on your machine, you can disable it using the
-`--disable-tui` flag.
+La manière la plus simple de supprimer des révision de votre cache-system HF est
+d'utiliser la commande `delete-cache` depuis l'outil `huggingface-cli`. Cette
+commande a deux modes. Par défaut, un TUI (Terminla User Interface) es affiché
+à l'utilisateur pour sélectionner la révision à supprimer. Ce TUI est actuellement
+en beta car il n'a pas été testé sur toutes les plateformes. Si le TUI ne marche pas
+sur votre machine, vous pouvez le désactiver en utilisant le flag `--disable-tui`.
 
-#### Using the TUI
+#### Utilisation du TUI
 
-This is the default mode. To use it, you first need to install extra dependencies by
-running the following command:
+C'est le mode par défaut. Pour l'utliser, vous avez d'abord besoin d'installer les
+dépendances supplémentaire en lançant la commande suivante:
 
 ```
 pip install huggingface_hub["cli"]
 ```
 
-Then run the command:
+Ensuite lancez la commande:
 
 ```
 huggingface-cli delete-cache
 ```
 
-You should now see a list of revisions that you can select/deselect:
+Vous devriez maintenant voir une liste de révisions que vous pouvez sélectionner/désélectionner:
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/delete-cache-tui.png"/>
 </div>
 
 Instructions:
-    - Press keyboard arrow keys `<up>` and `<down>` to move the cursor.
-    - Press `<space>` to toggle (select/unselect) an item.
-    - When a revision is selected, the first line is updated to show you how much space
-      will be freed.
-    - Press `<enter>` to confirm your selection.
-    - If you want to cancel the operation and quit, you can select the first item
-      ("None of the following"). If this item is selected, the delete process will be
-      cancelled, no matter what other items are selected. Otherwise you can also press
-      `<ctrl+c>` to quit the TUI.
+    - Appuyez lsur les flèches `<haut>` et `<bas>` du clavier pour bouger le curseur.
+    - Appuyez sur `<espace>` pour sélectionner/désélectionner un objet.
+    - Lorsqu'une révision est sélectionnée, la première ligne est mise à jour pour vous montrer
+      l'espace libéré
+    - Appuyez sur `<entrée>` pour confirmer votre sélection.
+    - Si vous voulez annuler l'opération et quitter, vous pouvez sélectionner le premier item
+      ("none of the following"). Si cet item est sélectionné, le processus de suppression sera
+      annulé, et ce, quel que soit les autres items sélectionnés. Sinon, vous pouvez aussi
+      appuyer sur `<ctrl+c>` pour quitter le TUI.
 
-Once you've selected the revisions you want to delete and pressed `<enter>`, a last
-confirmation message will be prompted. Press `<enter>` again and the deletion will be
-effective. If you want to cancel, enter `n`.
+Une fois que vous avez sélectionné les révision que vous voulez supprimer et que vous
+avez appuyé sur `<entrée>`, un dernier message de confirmation sera affiché. Appuyez
+sur `<entrée>` encore une fois et la suppression sera effective. Si vous voulez l'annuler,
+appuyez sur `n`.
 
 ```txt
 ✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
@@ -461,28 +486,29 @@ Start deletion.
 Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 ```
 
-#### Without TUI
+#### sans le TUI
 
-As mentioned above, the TUI mode is currently in beta and is optional. It may be the
-case that it doesn't work on your machine or that you don't find it convenient.
+Comme mentionné ci-dessus, le mode TUI est actuellement en beta et est optionnel. Il
+se pourrait qu'il ne marche pas sur votre machine ou que vous ne le trouvez pas
+pratique.
 
-Another approach is to use the `--disable-tui` flag. The process is very similar as you
-will be asked to manually review the list of revisions to delete. However, this manual
-step will not take place in the terminal directly but in a temporary file generated on
-the fly and that you can manually edit.
+une autre approche est d'utiliser le flag `--disable-tui`. Le process est très similaire
+a ce qu'on vous demandera pour review manuellement la liste des révisions à supprimer.
+Cependant, cette étape manuelle ne se passera pas dans le terminal directement mais
+dans un fichier temporaire généré sur le volet et que vous pourrez éditer manuellement.
 
-This file has all the instructions you need in the header. Open it in your favorite text
-editor. To select/deselect a revision, simply comment/uncomment it with a `#`. Once the
-manual review is done and the file is edited, you can save it. Go back to your terminal
-and press `<enter>`. By default it will compute how much space would be freed with the
-updated list of revisions. You can continue to edit the file or confirm with `"y"`.
+Ce fichier a toutes les instructions dont vous avez besoin dans le header. Ouvrez le dans
+votre éditeur de texte favoris. Pour sélectionner ou déselectionner une révision, commentez
+ou décommentez simplement avec un `#`. Une fois que la review du manuel fini et que le fichier
+est édité, vous pouvez le sauvegarder. Revenez à votre terminal et appuyez sur `<entrée>`.
+Par défaut, l'espace libéré sera calculé avec la liste des révisions mise à jour. Vous
+pouvez continuer de modifier le fichier ou confirmer avec `"y"`.
 
 ```sh
 huggingface-cli delete-cache --disable-tui
 ```
 
-Example of command file:
-
+Exemple de fichier de commande:
 ```txt
 # INSTRUCTIONS
 # ------------
@@ -522,10 +548,10 @@ Example of command file:
 #    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
 ```
 
-### Clean cache from Python
+### Nettoyez le cache depuis Python
 
-For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
-programmatically. Here is a simple example. See reference for details.
+Pour plus de flexibilité, vous pouvez aussi utiliser la méthode [`~HFCacheInfo.delete_revisions`]
+depuis le code. Voici un exemple simple, consultez la référence pour plus de détails.
 
 ```py
 >>> from huggingface_hub import scan_cache_dir
