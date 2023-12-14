@@ -6,7 +6,20 @@ from requests import HTTPError, Response
 from ._fixes import JSONDecodeError
 
 
-REPO_API_REGEX = re.compile(r"^https://(hub-ci.)?huggingface.co/api/(models|datasets|spaces)/(.+)")
+REPO_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https://(hub-ci.)?huggingface.co
+        (
+            # on /api/repo_type/repo_id
+            /api/(models|datasets|spaces)/(.+)
+            |
+            # or /repo_id/resolve/revision/...
+            /(.+)/resolve/(.+)
+        )
+    """,
+    flags=re.VERBOSE,
+)
 
 
 class FileMetadataError(OSError):

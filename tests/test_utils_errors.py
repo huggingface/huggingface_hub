@@ -281,6 +281,12 @@ class TestHfHubHTTPError(unittest.TestCase):
         ("https://hub-ci.huggingface.co/api/models/repo_id", True),
         ("https://hub-ci.huggingface.co/api/datasets/repo_id", True),
         ("https://hub-ci.huggingface.co/api/spaces/repo_id", True),
+        # /resolve Endpoint => True
+        ("https://huggingface.co/gpt2/resolve/main/README.md", True),
+        ("https://huggingface.co/datasets/google/fleurs/resolve/revision/README.md", True),
+        # Regression tests
+        ("https://huggingface.co/bert-base/resolve/main/pytorch_model.bin", True),
+        ("https://hub-ci.huggingface.co/__DUMMY_USER__/repo-1470b5/resolve/main/file.txt", True),
     ],
 )
 def test_repo_api_regex(url: str, should_match: bool) -> None:
