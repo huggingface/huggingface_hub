@@ -6,7 +6,7 @@ from requests import HTTPError, Response
 from ._fixes import JSONDecodeError
 
 
-REPO_API_REGEX = re.compile(r"^https://huggingface.co/api/(models|datasets|spaces)/(.+)")
+REPO_API_REGEX = re.compile(r"^https://(hub-ci.)?huggingface.co/api/(models|datasets|spaces)/(.+)")
 
 
 class FileMetadataError(OSError):

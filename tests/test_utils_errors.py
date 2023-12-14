@@ -1,8 +1,10 @@
 import unittest
 
+import pytest
 from requests.models import PreparedRequest, Response
 
 from huggingface_hub.utils._errors import (
+    REPO_API_REGEX,
     BadRequestError,
     EntryNotFoundError,
     HfHubHTTPError,
@@ -252,3 +254,38 @@ class TestHfHubHTTPError(unittest.TestCase):
             "this is a message\n\nError message duplicated in headers and body.",
         )
         self.assertEqual(error.server_message, "Error message duplicated in headers and body.")
+
+
+@pytest.mark.parametrize(
+    ("url", "should_match"),
+    [
+        # Listing endpoints => False
+        ("https://huggingface.co/api/models", False),
+        ("https://huggingface.co/api/datasets", False),
+        ("https://huggingface.co/api/spaces", False),
+        # Create repo endpoint => False
+        ("https://huggingface.co/api/repos/create", False),
+        # Collection endpoints => False
+        ("https://huggingface.co/api/collections", False),
+        ("https://huggingface.co/api/collections/foo/bar", False),
+        # Repo endpoints => True
+        ("https://huggingface.co/api/models/repo_id", True),
+        ("https://huggingface.co/api/datasets/repo_id", True),
+        ("https://huggingface.co/api/spaces/repo_id", True),
+        ("https://huggingface.co/api/models/username/repo_name/refs/main", True),
+        ("https://huggingface.co/api/datasets/username/repo_name/refs/main", True),
+        ("https://huggingface.co/api/spaces/username/repo_name/refs/main", True),
+        # Inference Endpoint => False
+        ("https://api.endpoints.huggingface.cloud/v2/endpoint/namespace", False),
+        # Staging Endpoint => True
+        ("https://huggingface.co/api/models/repo_id", True),
+        ("https://huggingface.co/api/datasets/repo_id", True),
+        ("https://huggingface.co/api/spaces/repo_id", True),
+    ],
+)
+def test_repo_api_regex(url: str, should_match: bool) -> None:
+    """Test the regex used to match repo API URLs."""
+    if should_match:
+        assert REPO_API_REGEX.match(url)
+    else:
+        assert REPO_API_REGEX.match(url) is None
