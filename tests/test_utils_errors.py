@@ -278,9 +278,9 @@ class TestHfHubHTTPError(unittest.TestCase):
         # Inference Endpoint => False
         ("https://api.endpoints.huggingface.cloud/v2/endpoint/namespace", False),
         # Staging Endpoint => True
-        ("https://huggingface.co/api/models/repo_id", True),
-        ("https://huggingface.co/api/datasets/repo_id", True),
-        ("https://huggingface.co/api/spaces/repo_id", True),
+        ("https://hub-ci.huggingface.co/api/models/repo_id", True),
+        ("https://hub-ci.huggingface.co/api/datasets/repo_id", True),
+        ("https://hub-ci.huggingface.co/api/spaces/repo_id", True),
     ],
 )
 def test_repo_api_regex(url: str, should_match: bool) -> None:
