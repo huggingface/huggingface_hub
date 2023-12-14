@@ -137,6 +137,7 @@ _SUBMOD_ATTRS = {
         "try_to_load_from_cache",
     ],
     "hf_api": [
+        "AccessRequest",
         "Collection",
         "CollectionItem",
         "CommitInfo",
@@ -151,9 +152,11 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "User",
         "UserLikes",
+        "accept_access_request",
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "cancel_access_request",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -180,6 +183,7 @@ _SUBMOD_ATTRS = {
         "duplicate_space",
         "edit_discussion_comment",
         "file_exists",
+        "get_accepted_access_requests",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
@@ -187,11 +191,14 @@ _SUBMOD_ATTRS = {
         "get_inference_endpoint",
         "get_model_tags",
         "get_paths_info",
+        "get_pending_access_requests",
+        "get_rejected_access_requests",
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
+        "grant_access",
         "like",
         "list_collections",
         "list_datasets",
@@ -213,6 +220,7 @@ _SUBMOD_ATTRS = {
         "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
+        "reject_access_request",
         "rename_discussion",
         "repo_exists",
         "repo_info",
@@ -477,6 +485,7 @@ if TYPE_CHECKING:  # pragma: no cover
         try_to_load_from_cache,  # noqa: F401
     )
     from .hf_api import (
+        AccessRequest,  # noqa: F401
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
@@ -491,9 +500,11 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
+        accept_access_request,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        cancel_access_request,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -520,6 +531,7 @@ if TYPE_CHECKING:  # pragma: no cover
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
+        get_accepted_access_requests,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
@@ -527,11 +539,14 @@ if TYPE_CHECKING:  # pragma: no cover
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_paths_info,  # noqa: F401
+        get_pending_access_requests,  # noqa: F401
+        get_rejected_access_requests,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
+        grant_access,  # noqa: F401
         like,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
@@ -553,6 +568,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
