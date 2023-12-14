@@ -183,7 +183,6 @@ _SUBMOD_ATTRS = {
         "duplicate_space",
         "edit_discussion_comment",
         "file_exists",
-        "get_accepted_access_requests",
         "get_collection",
         "get_dataset_tags",
         "get_discussion_details",
@@ -191,8 +190,6 @@ _SUBMOD_ATTRS = {
         "get_inference_endpoint",
         "get_model_tags",
         "get_paths_info",
-        "get_pending_access_requests",
-        "get_rejected_access_requests",
         "get_repo_discussions",
         "get_safetensors_metadata",
         "get_space_runtime",
@@ -200,6 +197,7 @@ _SUBMOD_ATTRS = {
         "get_token_permission",
         "grant_access",
         "like",
+        "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
         "list_files_info",
@@ -207,6 +205,8 @@ _SUBMOD_ATTRS = {
         "list_liked_repos",
         "list_metrics",
         "list_models",
+        "list_pending_access_requests",
+        "list_rejected_access_requests",
         "list_repo_commits",
         "list_repo_files",
         "list_repo_likers",
@@ -531,7 +531,6 @@ if TYPE_CHECKING:  # pragma: no cover
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         file_exists,  # noqa: F401
-        get_accepted_access_requests,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
@@ -539,8 +538,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_inference_endpoint,  # noqa: F401
         get_model_tags,  # noqa: F401
         get_paths_info,  # noqa: F401
-        get_pending_access_requests,  # noqa: F401
-        get_rejected_access_requests,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
@@ -548,6 +545,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token_permission,  # noqa: F401
         grant_access,  # noqa: F401
         like,  # noqa: F401
+        list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
         list_files_info,  # noqa: F401
@@ -555,6 +553,8 @@ if TYPE_CHECKING:  # pragma: no cover
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
+        list_pending_access_requests,  # noqa: F401
+        list_rejected_access_requests,  # noqa: F401
         list_repo_commits,  # noqa: F401
         list_repo_files,  # noqa: F401
         list_repo_likers,  # noqa: F401

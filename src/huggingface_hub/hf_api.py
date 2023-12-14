@@ -7689,7 +7689,7 @@ class HfApi:
     ##########################
 
     @validate_hf_hub_args
-    def get_pending_access_requests(
+    def list_pending_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> List[AccessRequest]:
         """
@@ -7715,12 +7715,15 @@ class HfApi:
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
+        Raises:
+            `HTTPError`: HTTP 400 if the repo is not gated.
+
         Example:
         ```py
-        >>> from huggingface_hub import get_pending_access_requests, accept_access_request
+        >>> from huggingface_hub import list_pending_access_requests, accept_access_request
 
         # List pending requests
-        >>> requests = get_pending_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list_pending_access_requests("meta-llama/Llama-2-7b")
         >>> len(requests)
         411
         >>> requests[0]
@@ -7740,10 +7743,10 @@ class HfApi:
         >>> accept_access_request("meta-llama/Llama-2-7b", "clem")
         ```
         """
-        return self._get_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
+        return self._list_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
-    def get_accepted_access_requests(
+    def list_accepted_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> List[AccessRequest]:
         """
@@ -7771,11 +7774,14 @@ class HfApi:
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
+        Raises:
+            `HTTPError`: HTTP 400 if the repo is not gated.
+
         Example:
         ```py
-        >>> from huggingface_hub import get_accepted_access_requests
+        >>> from huggingface_hub import list_accepted_access_requests
 
-        >>> requests = get_accepted_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list_accepted_access_requests("meta-llama/Llama-2-7b")
         >>> len(requests)
         411
         >>> requests[0]
@@ -7792,10 +7798,10 @@ class HfApi:
         ]
         ```
         """
-        return self._get_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
+        return self._list_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
-    def get_rejected_access_requests(
+    def list_rejected_access_requests(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> List[AccessRequest]:
         """
@@ -7818,6 +7824,9 @@ class HfApi:
             token (`str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
 
+        Raises:
+            `HTTPError`: HTTP 400 if the repo is not gated.
+
         Returns:
             `List[AccessRequest]`: a list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
@@ -7825,9 +7834,9 @@ class HfApi:
 
         Example:
         ```py
-        >>> from huggingface_hub import get_rejected_access_requests
+        >>> from huggingface_hub import list_rejected_access_requests
 
-        >>> requests = get_rejected_access_requests("meta-llama/Llama-2-7b")
+        >>> requests = list_rejected_access_requests("meta-llama/Llama-2-7b")
         >>> len(requests)
         411
         >>> requests[0]
@@ -7844,9 +7853,9 @@ class HfApi:
         ]
         ```
         """
-        return self._get_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
+        return self._list_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
 
-    def _get_access_requests(
+    def _list_access_requests(
         self,
         repo_id: str,
         status: Literal["accepted", "rejected", "pending"],
@@ -7898,6 +7907,7 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
+            - `HTTPError`: HTTP 400 if the repo is not gated.
             - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
             - `HTTPError`: HTTP 404 if the user access request cannot be found.
             - `HTTPError`: HTTP 404 if the user access request is already in the pending list.
@@ -7929,6 +7939,7 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
+            - `HTTPError`: HTTP 400 if the repo is not gated.
             - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
             - `HTTPError`: HTTP 404 if the user access request cannot be found.
             - `HTTPError`: HTTP 404 if the user access request is already in the accepted list.
@@ -7961,6 +7972,7 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
+            - `HTTPError`: HTTP 400 if the repo is not gated.
             - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
             - `HTTPError`: HTTP 404 if the user access request cannot be found.
             - `HTTPError`: HTTP 404 if the user access request is already in the rejected list.
@@ -8013,6 +8025,7 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
+            - `HTTPError`: HTTP 400 if the repo is not gated.
             - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
             - `BadRequestError`: HTTP 400 if the user already has access to the repo.
         """
@@ -8256,9 +8269,9 @@ delete_collection_item = api.delete_collection_item
 delete_collection_item = api.delete_collection_item
 
 # Access requests API
-get_pending_access_requests = api.get_pending_access_requests
-get_accepted_access_requests = api.get_accepted_access_requests
-get_rejected_access_requests = api.get_rejected_access_requests
+list_pending_access_requests = api.list_pending_access_requests
+list_accepted_access_requests = api.list_accepted_access_requests
+list_rejected_access_requests = api.list_rejected_access_requests
 cancel_access_request = api.cancel_access_request
 accept_access_request = api.accept_access_request
 reject_access_request = api.reject_access_request
