@@ -102,7 +102,6 @@ from .constants import (
     DiscussionStatusFilter,
     DiscussionTypeFilter,
 )
-from .utils._deprecation import _deprecate_method
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
@@ -131,6 +130,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
