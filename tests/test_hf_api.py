@@ -99,6 +99,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -1000,7 +1001,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertIn("lfs Copy (1).bin", repo_files)
 
         # Check same LFS file
-        repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
+        repo_file1, repo_file2 = self._api.get_paths_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
     @use_tmp_repo()
@@ -1158,6 +1159,7 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
     def tearDownClass(cls):
         cls._api.delete_repo(repo_id=cls.repo_id)
 
+    @expect_deprecation("list_files_info")
     def test_get_regular_file_info(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="file.md"))
         self.assertEqual(len(files), 1)
@@ -1168,6 +1170,7 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertEqual(file.size, 4)
         self.assertEqual(file.blob_id, "6320cd248dd8aeaab759d5871f8781b5c0505172")
 
+    @expect_deprecation("list_files_info")
     def test_get_lfs_file_info(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="lfs.bin"))
         self.assertEqual(len(files), 1)
@@ -1185,34 +1188,41 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertEqual(file.size, 4)
         self.assertEqual(file.blob_id, "0a828055346279420bd02a4221c177bbcdc045d8")
 
+    @expect_deprecation("list_files_info")
     def test_list_files(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2/file_2.md"]))
         self.assertEqual(len(files), 3)
         self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_files_and_folder(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2"]))
         self.assertEqual(len(files), 3)
         self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_unknown_path_among_other(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "unknown"]))
         self.assertEqual(len(files), 1)
 
+    @expect_deprecation("list_files_info")
     def test_list_unknown_path_alone(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="unknown"))
         self.assertEqual(len(files), 0)
 
+    @expect_deprecation("list_files_info")
     def test_list_folder_flat(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["2"]))
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0].path, "2/file_2.md")
 
+    @expect_deprecation("list_files_info")
     def test_list_folder_recursively(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["1"]))
         self.assertEqual(len(files), 2)
         self.assertEqual({f.path for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_repo_files_manually(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id))
         self.assertEqual(len(files), 7)
@@ -1221,22 +1231,26 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
+    @expect_deprecation("list_files_info")
     def test_list_repo_files_alias(self):
         self.assertEqual(
-            set(self._api.list_repo_files(repo_id=self.repo_id)),
+            set(f.path for f in self._api.list_files_info(repo_id=self.repo_id)),
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
+    @expect_deprecation("list_files_info")
     def test_list_with_root_path_is_ignored(self):
         # must use `paths=None`
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="/"))
         self.assertEqual(len(files), 0)
 
+    @expect_deprecation("list_files_info")
     def test_list_with_empty_path_is_invalid(self):
         # must use `paths=None`
         with self.assertRaises(BadRequestError):
             list(self._api.list_files_info(repo_id=self.repo_id, paths=""))
 
+    @expect_deprecation("list_files_info")
     @with_production_testing
     def test_list_files_with_expand(self):
         files = list(
@@ -1256,6 +1270,7 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertTrue(vae_model.security["safe"])
         self.assertTrue(isinstance(vae_model.security["av_scan"], dict))  # all details in here
 
+    @expect_deprecation("list_files_info")
     @with_production_testing
     def test_list_files_without_expand(self):
         files = list(
