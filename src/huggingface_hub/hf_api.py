@@ -339,7 +339,7 @@ class AccessRequest:
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
             Status of the request. Can be one of `["pending", "accepted", "rejected"]`.
-        fields (`Dict[str, str]`, *optional*):
+        fields (`Dict[str, Any]`, *optional*):
             Additional fields filled by the user in the gate form.
     """
 
@@ -350,7 +350,7 @@ class AccessRequest:
     status: Literal["pending", "accepted", "rejected"]
 
     # Additional fields filled by the user in the gate form
-    fields: Optional[Dict[str, str]] = None
+    fields: Optional[Dict[str, Any]] = None
 
 
 class RepoUrl(str):
@@ -7753,10 +7753,10 @@ class HfApi:
         Get accepted access requests for a given gated repo.
 
         An accepted request means the user has requested access to the repo and the request has been accepted. The user
-        can download any file of the repo and access the community tab. If the approval mode is automatic, this list
-        should contains by default all requests. Accepted requests can be cancelled or rejected at any time using
-        [`cancel_access_request`] and [`reject_access_request`]. A cancelled request will go back to the pending list
-        while a rejected request will go to the rejected list. In both cases, the user will lose access to the repo.
+        can download any file of the repo. If the approval mode is automatic, this list should contains by default all
+        requests. Accepted requests can be cancelled or rejected at any time using [`cancel_access_request`] and
+        [`reject_access_request`]. A cancelled request will go back to the pending list while a rejected request will
+        go to the rejected list. In both cases, the user will lose access to the repo.
 
         For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
 
@@ -7809,9 +7809,9 @@ class HfApi:
 
         A rejected request means the user has requested access to the repo and the request has been explicitly rejected
         by a repo owner (either you or another user from your organization). The user cannot download any file of the
-        repo and cannot access the community tab. Rejected requests can be accepted or cancelled at any time using
-        [`accept_access_request`] and [`cancel_access_request`]. A cancelled request will go back to the pending list
-        while an accepted request will go to the accepted list.
+        repo. Rejected requests can be accepted or cancelled at any time using [`accept_access_request`] and
+        [`cancel_access_request`]. A cancelled request will go back to the pending list while an accepted request will
+        go to the accepted list.
 
         For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
 
@@ -7953,10 +7953,9 @@ class HfApi:
         """
         Reject an access request from a user for a given gated repo.
 
-        A rejected request will go to the rejected list. The user cannot download any file of the repo and cannot access
-        the community tab. Rejected requests can be accepted or cancelled at any time using [`accept_access_request`]
-        and [`cancel_access_request`]. A cancelled request will go back to the pending list while an accepted request
-        will go to the accepted list.
+        A rejected request will go to the rejected list. The user cannot download any file of the repo. Rejected
+        requests can be accepted or cancelled at any time using [`accept_access_request`] and [`cancel_access_request`].
+        A cancelled request will go back to the pending list while an accepted request will go to the accepted list.
 
         For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
 
@@ -8008,8 +8007,8 @@ class HfApi:
         Grant access to a user for a given gated repo.
 
         Granting access don't require for the user to send an access request by themselves. The user is automatically
-        added to the accepted list meaning they can download the files and access the community tab. You can revoke
-        the granted access at any time using [`cancel_access_request`] or [`reject_access_request`].
+        added to the accepted list meaning they can download the files You can revoke the granted access at any time
+        using [`cancel_access_request`] or [`reject_access_request`].
 
         For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
 
