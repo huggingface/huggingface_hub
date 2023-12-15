@@ -211,18 +211,24 @@ def snapshot_download(
     #    - if the specified revision is a commit hash, look inside "snapshots".
     #    - f the specified revision is a branch or tag, look inside "refs".
     if repo_info is None:
+        # Try to get which commit hash corresponds to the specified revision
+        commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
-            # retrieve commit_hash from file
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
+            if os.path.exists(ref_path):
+                # retrieve commit_hash from refs file
+                with open(ref_path) as f:
+                    commit_hash = f.read()
 
-        # Snapshot folder exists => let's return it (but we can't check if all the files are actually there)
-        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
-        if os.path.exists(snapshot_folder):
-            return snapshot_folder
+        # Try to locate snapshot folder for this commit hash
+        if commit_hash is not None:
+            snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+            if os.path.exists(snapshot_folder):
+                # Snapshot folder exists => let's return it
+                # (but we can't check if all the files are actually there)
+                return snapshot_folder
 
         # If we couldn't find the appropriate folder on disk, raise an error.
         if local_files_only:
