@@ -1,9 +1,25 @@
+import re
 from typing import Optional
 
 from requests import HTTPError, Response
 
-from ..constants import INFERENCE_ENDPOINTS_ENDPOINT
 from ._fixes import JSONDecodeError
+
+
+REPO_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https://(hub-ci.)?huggingface.co
+        (
+            # on /api/repo_type/repo_id
+            /api/(models|datasets|spaces)/(.+)
+            |
+            # or /repo_id/resolve/revision/...
+            /(.+)/resolve/(.+)
+        )
+    """,
+    flags=re.VERBOSE,
+)
 
 
 class FileMetadataError(OSError):
@@ -285,25 +301,12 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise GatedRepoError(message, response) from e
 
-        elif (
+        elif error_code == "RepoNotFound" or (
             response.status_code == 401
+            and response.request is not None
             and response.request.url is not None
-            and "/api/collections" in response.request.url
+            and REPO_API_REGEX.search(response.request.url) is not None
         ):
-            # Collection not found. We don't raise a custom error for this.
-            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
-            pass
-
-        elif (
-            response.status_code == 401
-            and response.request.url is not None
-            and INFERENCE_ENDPOINTS_ENDPOINT in response.request.url
-        ):
-            # Not enough permission to list Inference Endpoints from this org. We don't raise a custom error for this.
-            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
-            pass
-
-        elif error_code == "RepoNotFound" or response.status_code == 401:
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated
             #    - missing repos

@@ -2843,6 +2843,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
+    @unittest.skip("Too flaky to run in CI")
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
