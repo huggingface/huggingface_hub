@@ -91,7 +91,7 @@ jobs:
 
             "Repository only")
               # Run repo tests concurrently
-              PYTEST="$PYTEST ../tests -k 'TestRepository' -n8"
+              PYTEST="$PYTEST ../tests -k 'TestRepository' -n4"
               echo $PYTEST
               eval $PYTEST
             ;;

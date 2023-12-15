@@ -14,6 +14,7 @@ from huggingface_hub.repocard_data import (
 )
 
 
+OPEN_LLM_LEADERBOARD_URL = "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard"
 DUMMY_METADATA_WITH_MODEL_INDEX = """
 language: en
 license: mit
@@ -36,6 +37,9 @@ model-index:
     metrics:
     - type: acc
       value: 0.9
+    source:
+      name: Open LLM Leaderboard
+      url: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
 """
 
 
@@ -77,6 +81,8 @@ class ModelCardDataTest(unittest.TestCase):
                 dataset_name="Beans",
                 metric_type="acc",
                 metric_value=0.9,
+                source_name="Open LLM Leaderboard",
+                source_url=OPEN_LLM_LEADERBOARD_URL,
             ),
         ]
 
@@ -124,6 +130,10 @@ class ModelCardDataTest(unittest.TestCase):
                                 "verifyToken": 1234,
                             }
                         ],
+                        "source": {
+                            "name": "Open LLM Leaderboard",
+                            "url": OPEN_LLM_LEADERBOARD_URL,
+                        },
                     },
                 ],
             }
@@ -132,13 +142,22 @@ class ModelCardDataTest(unittest.TestCase):
 
         self.assertEqual(len(eval_results), 3)
         self.assertEqual(model_name, "my-cool-model")
+
         self.assertEqual(eval_results[0].dataset_type, "cats_vs_dogs")
+        self.assertIsNone(eval_results[0].source_name)
+        self.assertIsNone(eval_results[0].source_url)
+
         self.assertEqual(eval_results[1].metric_type, "f1")
         self.assertEqual(eval_results[1].metric_value, 0.9)
+        self.assertIsNone(eval_results[1].source_name)
+        self.assertIsNone(eval_results[1].source_url)
+
         self.assertEqual(eval_results[2].task_type, "image-classification")
         self.assertEqual(eval_results[2].dataset_type, "beans")
         self.assertEqual(eval_results[2].verified, True)
         self.assertEqual(eval_results[2].verify_token, 1234)
+        self.assertEqual(eval_results[2].source_name, "Open LLM Leaderboard")
+        self.assertEqual(eval_results[2].source_url, OPEN_LLM_LEADERBOARD_URL)
 
     def test_card_data_requires_model_name_for_eval_results(self):
         with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
@@ -191,6 +210,28 @@ class ModelCardDataTest(unittest.TestCase):
 
         data_dict = data.to_dict()
         self.assertEqual(data_dict["some_arbitrary_kwarg"], "some_value")
+
+    def test_eval_result_with_incomplete_source(self):
+        # Source url without name: ok
+        EvalResult(
+            task_type="image-classification",
+            dataset_type="beans",
+            dataset_name="Beans",
+            metric_type="acc",
+            metric_value=0.9,
+            source_url=OPEN_LLM_LEADERBOARD_URL,
+        )
+
+        # Source name without url: not ok
+        with self.assertRaises(ValueError):
+            EvalResult(
+                task_type="image-classification",
+                dataset_type="beans",
+                dataset_name="Beans",
+                metric_type="acc",
+                metric_value=0.9,
+                source_name="Open LLM Leaderboard",
+            )
 
 
 class DatasetCardDataTest(unittest.TestCase):

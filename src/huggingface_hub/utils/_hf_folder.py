@@ -26,6 +26,8 @@ class HfFolder:
     # Private attribute. Will be removed in v0.15
     _old_path_token = Path(constants._OLD_HF_TOKEN_PATH)
 
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.login` instead.")
     @classmethod
     def save_token(cls, token: str) -> None:
         """
@@ -41,12 +43,14 @@ class HfFolder:
         cls.path_token.parent.mkdir(parents=True, exist_ok=True)
         cls.path_token.write_text(token)
 
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.get_token` instead.")
     @classmethod
     def get_token(cls) -> Optional[str]:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HUGGING_FACE_HUB_TOKEN` environment variable.
+        Note that a token can be also provided using the `HF_TOKEN` environment variable.
 
         Token is saved in the huggingface home folder. You can configure it by setting
         the `HF_HOME` environment variable. Previous location was `~/.huggingface/token`.
@@ -63,9 +67,12 @@ class HfFolder:
             pass
 
         # 1. Is it set by environment variable ?
-        token: Optional[str] = os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        token: Optional[str] = os.environ.get("HF_TOKEN")
+        if token is None:  # Ensure backward compatibility but doesn't have priority
+            token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
         if token is not None:
             token = token.replace("\r", "").replace("\n", "").strip()
+        if token != "":
             return token
 
         # 2. Is it set in token path ?
@@ -76,6 +83,8 @@ class HfFolder:
         except FileNotFoundError:
             return None
 
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.logout` instead.")
     @classmethod
     def delete_token(cls) -> None:
         """

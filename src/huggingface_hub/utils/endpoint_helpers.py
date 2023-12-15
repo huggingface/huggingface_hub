@@ -16,27 +16,28 @@ with the aim for a user-friendly interface.
 import math
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
+
+from ..repocard_data import ModelCardData
 
 
 if TYPE_CHECKING:
     from ..hf_api import ModelInfo
 
 
-def _filter_emissions(
-    models: Iterable["ModelInfo"],
-    minimum_threshold: Optional[float] = None,
-    maximum_threshold: Optional[float] = None,
-) -> Iterable["ModelInfo"]:
-    """Filters a list of models for those that include an emission tag and limit them to between two thresholds
+def _is_emission_within_treshold(model_info: "ModelInfo", minimum_threshold: float, maximum_threshold: float) -> bool:
+    """Checks if a model's emission is within a given threshold.
 
     Args:
-        models (Iterable of `ModelInfo`):
-            A list of models to filter.
-        minimum_threshold (`float`, *optional*):
+        model_info (`ModelInfo`):
+            A model info object containing the model's emission information.
+        minimum_threshold (`float`):
             A minimum carbon threshold to filter by, such as 1.
-        maximum_threshold (`float`, *optional*):
+        maximum_threshold (`float`):
             A maximum carbon threshold to filter by, such as 10.
+
+    Returns:
+        `bool`: Whether the model's emission is within the given threshold.
     """
     if minimum_threshold is None and maximum_threshold is None:
         raise ValueError("Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
@@ -45,26 +46,24 @@ def _filter_emissions(
     if maximum_threshold is None:
         maximum_threshold = math.inf
 
-    for model in models:
-        card_data = getattr(model, "cardData", None)
-        if card_data is None or not isinstance(card_data, dict):
-            continue
+    card_data = getattr(model_info, "card_data", None)
+    if card_data is None or not isinstance(card_data, (dict, ModelCardData)):
+        return False
 
-        # Get CO2 emission metadata
-        emission = card_data.get("co2_eq_emissions", None)
-        if isinstance(emission, dict):
-            emission = emission["emissions"]
-        if not emission:
-            continue
+    # Get CO2 emission metadata
+    emission = card_data.get("co2_eq_emissions", None)
+    if isinstance(emission, dict):
+        emission = emission["emissions"]
+    if not emission:
+        return False
 
-        # Filter out if value is missing or out of range
-        matched = re.search(r"\d+\.\d+|\d+", str(emission))
-        if matched is None:
-            continue
+    # Filter out if value is missing or out of range
+    matched = re.search(r"\d+\.\d+|\d+", str(emission))
+    if matched is None:
+        return False
 
-        emission_value = float(matched.group(0))
-        if emission_value >= minimum_threshold and emission_value <= maximum_threshold:
-            yield model
+    emission_value = float(matched.group(0))
+    return minimum_threshold <= emission_value <= maximum_threshold
 
 
 @dataclass

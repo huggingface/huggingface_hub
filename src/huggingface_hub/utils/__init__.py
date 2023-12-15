@@ -44,7 +44,7 @@ from ._fixes import SoftTemporaryDirectory, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import build_hf_headers, get_token_to_send, LocalTokenNotFoundError
 from ._hf_folder import HfFolder
-from ._http import configure_http_backend, get_session, http_backoff, reset_sessions
+from ._http import configure_http_backend, get_session, http_backoff, reset_sessions, OfflineModeIsEnabled
 from ._pagination import paginate
 from ._paths import filter_repo_objects, IGNORE_GIT_FOLDER_PATTERNS
 from ._experimental import experimental
@@ -82,6 +82,13 @@ from ._runtime import (
     is_tensorboard_available,
     is_tf_available,
     is_torch_available,
+)
+from ._safetensors import (
+    SafetensorsFileMetadata,
+    SafetensorsRepoMetadata,
+    TensorInfo,
+    SafetensorsParsingError,
+    NotASafetensorsRepoError,
 )
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._validators import (

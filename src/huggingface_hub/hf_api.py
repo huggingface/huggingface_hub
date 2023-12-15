@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import inspect
 import json
-import pprint
 import re
-import textwrap
+import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -42,21 +41,12 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 from requests.exceptions import HTTPError
 from tqdm.auto import tqdm as base_tqdm
-
-from huggingface_hub.utils import (
-    IGNORE_GIT_FOLDER_PATTERNS,
-    EntryNotFoundError,
-    LocalTokenNotFoundError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
-    experimental,
-    get_session,
-)
+from tqdm.contrib.concurrent import thread_map
 
 from ._commit_api import (
     CommitOperation,
@@ -69,6 +59,7 @@ from ._commit_api import (
     _upload_lfs_files,
     _warn_on_overwriting_operations,
 )
+from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
@@ -93,39 +84,58 @@ from .community import (
 )
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
+    DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
+    DISCUSSION_STATUS,
+    DISCUSSION_TYPES,
     ENDPOINT,
+    INFERENCE_ENDPOINTS_ENDPOINT,
     REGEX_COMMIT_OID,
     REPO_TYPE_MODEL,
     REPO_TYPES,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
+    SAFETENSORS_INDEX_FILE,
+    SAFETENSORS_MAX_HEADER_LENGTH,
+    SAFETENSORS_SINGLE_FILE,
     SPACES_SDK_TYPES,
+    DiscussionStatusFilter,
+    DiscussionTypeFilter,
 )
-from .file_download import (
-    get_hf_file_metadata,
-    hf_hub_url,
-)
+from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
+    IGNORE_GIT_FOLDER_PATTERNS,
     BadRequestError,
+    EntryNotFoundError,
+    GatedRepoError,
     HfFolder,
     HfHubHTTPError,
+    LocalTokenNotFoundError,
+    NotASafetensorsRepoError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    SafetensorsFileMetadata,
+    SafetensorsParsingError,
+    SafetensorsRepoMetadata,
+    TensorInfo,
     build_hf_headers,
+    experimental,
     filter_repo_objects,
+    get_session,
     hf_raise_for_status,
     logging,
     paginate,
     parse_datetime,
     validate_hf_hub_args,
 )
-from .utils._deprecation import (
-    _deprecate_arguments,
-)
+from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    _filter_emissions,
+    _is_emission_within_treshold,
 )
 
 
@@ -141,24 +151,6 @@ _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
 )
 
 logger = logging.get_logger(__name__)
-
-
-class ReprMixin:
-    """Mixin to create the __repr__ for a class"""
-
-    def __init__(self, **kwargs) -> None:
-        # Store all the other fields returned by the API
-        # Hack to ensure backward compatibility with future versions of the API.
-        # See discussion in https://github.com/huggingface/huggingface_hub/pull/951#discussion_r926460408
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def __repr__(self):
-        formatted_value = pprint.pformat(self.__dict__, width=119, compact=True)
-        if "\n" in formatted_value:
-            return f"{self.__class__.__name__}: {{ \n{textwrap.indent(formatted_value, '  ')}\n}}"
-        else:
-            return f"{self.__class__.__name__}: {formatted_value}"
 
 
 def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
@@ -246,10 +238,35 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     return repo_type, namespace, repo_id
 
 
+class LastCommitInfo(TypedDict, total=False):
+    oid: str
+    title: str
+    date: datetime
+
+
 class BlobLfsInfo(TypedDict, total=False):
     size: int
     sha256: str
     pointer_size: int
+
+
+class BlobSecurityInfo(TypedDict, total=False):
+    safe: bool
+    av_scan: Optional[Dict]
+    pickle_import_scan: Optional[Dict]
+
+
+class TransformersInfo(TypedDict, total=False):
+    auto_model: str
+    custom_class: Optional[str]
+    # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
+    pipeline_tag: Optional[str]
+    processor: Optional[str]
+
+
+class SafeTensorsInfo(TypedDict, total=False):
+    parameters: List[Dict[str, int]]
+    total: int
 
 
 @dataclass
@@ -258,7 +275,7 @@ class CommitInfo:
 
     Returned by [`create_commit`].
 
-    Args:
+    Attributes:
         commit_url (`str`):
             Url where to find the commit.
 
@@ -306,6 +323,35 @@ class CommitInfo:
         else:
             self.pr_revision = None
             self.pr_num = None
+
+
+@dataclass
+class AccessRequest:
+    """Data structure containing information about a user access request.
+
+    Attributes:
+        username (`str`):
+            Username of the user who requested access.
+        fullname (`str`):
+            Fullname of the user who requested access.
+        email (`str`):
+            Email of the user who requested access.
+        timestamp (`datetime`):
+            Timestamp of the request.
+        status (`Literal["pending", "accepted", "rejected"]`):
+            Status of the request. Can be one of `["pending", "accepted", "rejected"]`.
+        fields (`Dict[str, Any]`, *optional*):
+            Additional fields filled by the user in the gate form.
+    """
+
+    username: str
+    fullname: str
+    email: str
+    timestamp: datetime
+    status: Literal["pending", "accepted", "rejected"]
+
+    # Additional fields filled by the user in the gate form
+    fields: Optional[Dict[str, Any]] = None
 
 
 class RepoUrl(str):
@@ -368,251 +414,538 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
-class RepoFile(ReprMixin):
+@dataclass
+class RepoSibling:
     """
-    Data structure that represents a public file inside a repo, accessible from huggingface.co
+    Contains basic information about a repo file inside a repo on the Hub.
 
-    Args:
+    <Tip>
+
+    All attributes of this class are optional except `rfilename`. This is because only the file names are returned when
+    listing repositories on the Hub (with [`list_models`], [`list_datasets`] or [`list_spaces`]). If you need more
+    information like file size, blob id or lfs details, you must request them specifically from one repo at a time
+    (using [`model_info`], [`dataset_info`] or [`space_info`]) as it adds more constraints on the backend server to
+    retrieve these.
+
+    </Tip>
+
+    Attributes:
         rfilename (str):
-            file name, relative to the repo root. This is the only attribute that's guaranteed to be here, but under
-            certain conditions there can certain other stuff.
+            file name, relative to the repo root.
         size (`int`, *optional*):
-            The file's size, in bytes. This attribute is present when `files_metadata` argument of [`repo_info`] is set
+            The file's size, in bytes. This attribute is defined when `files_metadata` argument of [`repo_info`] is set
             to `True`. It's `None` otherwise.
         blob_id (`str`, *optional*):
-            The file's git OID. This attribute is present when `files_metadata` argument of [`repo_info`] is set to
+            The file's git OID. This attribute is defined when `files_metadata` argument of [`repo_info`] is set to
             `True`. It's `None` otherwise.
         lfs (`BlobLfsInfo`, *optional*):
-            The file's LFS metadata. This attribute is present when`files_metadata` argument of [`repo_info`] is set to
+            The file's LFS metadata. This attribute is defined when`files_metadata` argument of [`repo_info`] is set to
             `True` and the file is stored with Git LFS. It's `None` otherwise.
     """
 
-    def __init__(
-        self,
-        rfilename: str,
-        size: Optional[int] = None,
-        blobId: Optional[str] = None,
-        lfs: Optional[BlobLfsInfo] = None,
-        **kwargs,
-    ):
-        self.rfilename = rfilename  # filename relative to the repo root
+    rfilename: str
+    size: Optional[int] = None
+    blob_id: Optional[str] = None
+    lfs: Optional[BlobLfsInfo] = None
 
-        # Optional file metadata
-        self.size = size
-        self.blob_id = blobId
+
+@dataclass
+class RepoFile:
+    """
+    Contains information about a file on the Hub.
+
+    Attributes:
+        path (str):
+            file path relative to the repo root.
+        size (`int`):
+            The file's size, in bytes.
+        blob_id (`str`):
+            The file's git OID.
+        lfs (`BlobLfsInfo`):
+            The file's LFS metadata.
+        last_commit (`LastCommitInfo`, *optional*):
+            The file's last commit metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
+        security (`BlobSecurityInfo`, *optional*):
+            The file's security scan metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
+    """
+
+    path: str
+    size: int
+    blob_id: str
+    lfs: Optional[BlobLfsInfo] = None
+    last_commit: Optional[LastCommitInfo] = None
+    security: Optional[BlobSecurityInfo] = None
+
+    def __init__(self, **kwargs):
+        self.path = kwargs.pop("path")
+        self.size = kwargs.pop("size")
+        self.blob_id = kwargs.pop("oid")
+        lfs = kwargs.pop("lfs", None)
+        if lfs is not None:
+            lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
         self.lfs = lfs
+        last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
+        if last_commit is not None:
+            last_commit = LastCommitInfo(
+                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
+            )
+        self.last_commit = last_commit
+        security = kwargs.pop("security", None)
+        if security is not None:
+            security = BlobSecurityInfo(
+                safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
+            )
+        self.security = security
 
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+        # backwards compatibility
+        self.rfilename = self.path
+        self.lastCommit = self.last_commit
 
 
-class ModelInfo(ReprMixin):
+@dataclass
+class RepoFolder:
     """
-    Info about a model accessible from huggingface.co
+    Contains information about a folder on the Hub.
 
     Attributes:
-        modelId (`str`, *optional*):
-            ID of model repository.
+        path (str):
+            folder path relative to the repo root.
+        tree_id (`str`):
+            The folder's git OID.
+        last_commit (`LastCommitInfo`, *optional*):
+            The folder's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
+            are called with `expand=True`.
+    """
+
+    path: str
+    tree_id: str
+    last_commit: Optional[LastCommitInfo] = None
+
+    def __init__(self, **kwargs):
+        self.path = kwargs.pop("path")
+        self.tree_id = kwargs.pop("oid")
+        last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
+        if last_commit is not None:
+            last_commit = LastCommitInfo(
+                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
+            )
+        self.last_commit = last_commit
+
+
+@dataclass
+class ModelInfo:
+    """
+    Contains information about a model on the Hub.
+
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing models
+    using [`list_models`] only a subset of the attributes are returned.
+
+    </Tip>
+
+    Attributes:
+        id (`str`):
+            ID of model.
+        author (`str`, *optional*):
+            Author of the model.
         sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        tags (`List[str]`, *optional*):
-            List of tags.
+            Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        disabled (`bool`, *optional*):
+            Is the repo disabled.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated.
+            If so, whether there is manual or automatic approval.
+        downloads (`int`):
+            Number of downloads of the model.
+        likes (`int`):
+            Number of likes of the model.
+        library_name (`str`, *optional*):
+            Library associated with the model.
+        tags (`List[str]`):
+            List of tags of the model. Compared to `card_data.tags`, contains extra tags computed by the Hub
+            (e.g. supported libraries, model's arXiv).
         pipeline_tag (`str`, *optional*):
-            Pipeline tag to identify the correct widget.
-        siblings (`List[RepoFile]`, *optional*):
-            list of ([`huggingface_hub.hf_api.RepoFile`]) objects that constitute the model.
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
-        author (`str`, *optional*):
-            repo author
+            Pipeline tag associated with the model.
+        mask_token (`str`, *optional*):
+            Mask token used by the model.
+        widget_data (`Any`, *optional*):
+            Widget data associated with the model.
+        model_index (`Dict`, *optional*):
+            Model index for evaluation.
         config (`Dict`, *optional*):
-            Model configuration information
-        securityStatus (`Dict`, *optional*):
-            Security status of the model.
-            Example: `{"containsInfected": False}`
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+            Model configuration.
+        transformers_info (`TransformersInfo`, *optional*):
+            Transformers-specific info (auto class, processor, etc.) associated with the model.
+        card_data (`ModelCardData`, *optional*):
+            Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the model.
+        spaces (`List[str]`, *optional*):
+            List of spaces using the model.
+        safetensors (`SafeTensorsInfo`, *optional*):
+            Model's safetensors information.
     """
 
-    def __init__(
-        self,
-        *,
-        modelId: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        pipeline_tag: Optional[str] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        config: Optional[Dict] = None,
-        securityStatus: Optional[Dict] = None,
-        **kwargs,
-    ):
-        self.modelId = modelId
-        self.sha = sha
-        self.lastModified = lastModified
-        self.tags = tags
-        self.pipeline_tag = pipeline_tag
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        self.private = private
-        self.author = author
-        self.config = config
-        self.securityStatus = securityStatus
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    created_at: Optional[datetime]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[Literal["auto", "manual", False]]
+    disabled: Optional[bool]
+    downloads: int
+    likes: int
+    library_name: Optional[str]
+    tags: List[str]
+    pipeline_tag: Optional[str]
+    mask_token: Optional[str]
+    card_data: Optional[ModelCardData]
+    widget_data: Optional[Any]
+    model_index: Optional[Dict]
+    config: Optional[Dict]
+    transformers_info: Optional[TransformersInfo]
+    siblings: Optional[List[RepoSibling]]
+    spaces: Optional[List[str]]
+    safetensors: Optional[SafeTensorsInfo]
 
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.downloads = kwargs.pop("downloads")
+        self.likes = kwargs.pop("likes")
+        self.library_name = kwargs.pop("library_name", None)
+        self.tags = kwargs.pop("tags")
+        self.pipeline_tag = kwargs.pop("pipeline_tag", None)
+        self.mask_token = kwargs.pop("mask_token", None)
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
 
-    def __str__(self):
-        r = f"Model Name: {self.modelId}, Tags: {self.tags}"
-        if self.pipeline_tag:
-            r += f", Task: {self.pipeline_tag}"
-        return r
+        self.widget_data = kwargs.pop("widget_data", None)
+        self.model_index = kwargs.pop("model-index", None) or kwargs.pop("model_index", None)
+        self.config = kwargs.pop("config", None)
+        transformers_info = kwargs.pop("transformersInfo", None) or kwargs.pop("transformers_info", None)
+        self.transformers_info = TransformersInfo(**transformers_info) if transformers_info else None
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+        self.spaces = kwargs.pop("spaces", None)
+        safetensors = kwargs.pop("safetensors", None)
+        self.safetensors = SafeTensorsInfo(**safetensors) if safetensors else None
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.transformersInfo = self.transformers_info
+        self.__dict__.update(**kwargs)
 
 
-class DatasetInfo(ReprMixin):
+@dataclass
+class DatasetInfo:
     """
-    Info about a dataset accessible from huggingface.co
+    Contains information about a dataset on the Hub.
+
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing datasets
+    using [`list_datasets`] only a subset of the attributes are returned.
+
+    </Tip>
 
     Attributes:
-        id (`str`, *optional*):
-            ID of dataset repository.
-        sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        tags (`List[str]`, *optional*):
-            List of tags.
-        siblings (`List[RepoFile]`, *optional*):
-            list of [`huggingface_hub.hf_api.RepoFile`] objects that constitute the dataset.
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
-        author (`str`, *optional*):
-            repo author
-        description (`str`, *optional*):
-            Description of the dataset
-        citation (`str`, *optional*):
-            Dataset citation
-        cardData (`Dict`, *optional*):
-            Metadata of the model card as a dictionary.
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+        id (`str`):
+            ID of dataset.
+        author (`str`):
+            Author of the dataset.
+        sha (`str`):
+            Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        disabled (`bool`, *optional*):
+            Is the repo disabled.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated.
+            If so, whether there is manual or automatic approval.
+        downloads (`int`):
+            Number of downloads of the dataset.
+        likes (`int`):
+            Number of likes of the dataset.
+        tags (`List[str]`):
+            List of tags of the dataset.
+        card_data (`DatasetCardData`, *optional*):
+            Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        description: Optional[str] = None,
-        citation: Optional[str] = None,
-        cardData: Optional[dict] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.sha = sha
-        self.lastModified = lastModified
-        self.tags = tags
-        self.private = private
-        self.author = author
-        self.description = description
-        self.citation = citation
-        self.cardData = cardData
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        # Legacy stuff, "key" is always returned with an empty string
-        # because of old versions of the datasets lib that need this field
-        kwargs.pop("key", None)
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    created_at: Optional[datetime]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[Literal["auto", "manual", False]]
+    disabled: Optional[bool]
+    downloads: int
+    likes: int
+    paperswithcode_id: Optional[str]
+    tags: List[str]
+    card_data: Optional[DatasetCardData]
+    siblings: Optional[List[RepoSibling]]
 
-    def __str__(self):
-        r = f"Dataset Name: {self.id}, Tags: {self.tags}"
-        return r
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.downloads = kwargs.pop("downloads")
+        self.likes = kwargs.pop("likes")
+        self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
+        self.tags = kwargs.pop("tags")
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.__dict__.update(**kwargs)
 
 
-class SpaceInfo(ReprMixin):
+@dataclass
+class SpaceInfo:
     """
-    Info about a Space accessible from huggingface.co
+    Contains information about a Space on the Hub.
 
-    This is a "dataclass" like container that just sets on itself any attribute
-    passed by the server.
+    <Tip>
+
+    Most attributes of this class are optional. This is because the data returned by the Hub depends on the query made.
+    In general, the more specific the query, the more information is returned. On the contrary, when listing spaces
+    using [`list_spaces`] only a subset of the attributes are returned.
+
+    </Tip>
 
     Attributes:
-        id (`str`, *optional*):
-            id of space
-        sha (`str`, *optional*):
-            repo sha at this particular revision
-        lastModified (`str`, *optional*):
-            date of last commit to repo
-        siblings (`List[RepoFile]`, *optional*):
-            list of [`huggingface_hub.hf_api.RepoFIle`] objects that constitute the Space
-        private (`bool`, *optional*, defaults to `False`):
-            is the repo private
+        id (`str`):
+            ID of the Space.
         author (`str`, *optional*):
-            repo author
-        kwargs (`Dict`, *optional*):
-            Kwargs that will be become attributes of the class.
+            Author of the Space.
+        sha (`str`, *optional*):
+            Repo SHA at this particular revision.
+        created_at (`datetime`, *optional*):
+            Date of creation of the repo on the Hub. Note that the lowest value is `2022-03-02T23:29:04.000Z`,
+            corresponding to the date when we began to store creation dates.
+        last_modified (`datetime`, *optional*):
+            Date of last commit to the repo.
+        private (`bool`):
+            Is the repo private.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated.
+            If so, whether there is manual or automatic approval.
+        disabled (`bool`, *optional*):
+            Is the Space disabled.
+        host (`str`, *optional*):
+            Host URL of the Space.
+        subdomain (`str`, *optional*):
+            Subdomain of the Space.
+        likes (`int`):
+            Number of likes of the Space.
+        tags (`List[str]`):
+            List of tags of the Space.
+        siblings (`List[RepoSibling]`):
+            List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the Space.
+        card_data (`SpaceCardData`, *optional*):
+            Space Card Metadata  as a [`huggingface_hub.repocard_data.SpaceCardData`] object.
+        runtime (`SpaceRuntime`, *optional*):
+            Space runtime information as a [`huggingface_hub.hf_api.SpaceRuntime`] object.
+        sdk (`str`, *optional*):
+            SDK used by the Space.
+        models (`List[str]`, *optional*):
+            List of models used by the Space.
+        datasets (`List[str]`, *optional*):
+            List of datasets used by the Space.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,
-        sha: Optional[str] = None,
-        lastModified: Optional[str] = None,
-        siblings: Optional[List[Dict]] = None,
-        private: bool = False,
-        author: Optional[str] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.sha = sha
-        self.lastModified = lastModified
-        self.siblings = [RepoFile(**x) for x in siblings] if siblings is not None else []
-        self.private = private
-        self.author = author
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    author: Optional[str]
+    sha: Optional[str]
+    created_at: Optional[datetime]
+    last_modified: Optional[datetime]
+    private: bool
+    gated: Optional[Literal["auto", "manual", False]]
+    disabled: Optional[bool]
+    host: Optional[str]
+    subdomain: Optional[str]
+    likes: int
+    sdk: Optional[str]
+    tags: List[str]
+    siblings: Optional[List[RepoSibling]]
+    card_data: Optional[SpaceCardData]
+    runtime: Optional[SpaceRuntime]
+    models: Optional[List[str]]
+    datasets: Optional[List[str]]
+
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.author = kwargs.pop("author", None)
+        self.sha = kwargs.pop("sha", None)
+        created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
+        self.created_at = parse_datetime(created_at) if created_at else None
+        last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
+        self.last_modified = parse_datetime(last_modified) if last_modified else None
+        self.private = kwargs.pop("private")
+        self.gated = kwargs.pop("gated", None)
+        self.disabled = kwargs.pop("disabled", None)
+        self.host = kwargs.pop("host", None)
+        self.subdomain = kwargs.pop("subdomain", None)
+        self.likes = kwargs.pop("likes")
+        self.sdk = kwargs.pop("sdk", None)
+        self.tags = kwargs.pop("tags")
+        card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
+        self.card_data = (
+            SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
+        )
+        siblings = kwargs.pop("siblings", None)
+        self.siblings = (
+            [
+                RepoSibling(
+                    rfilename=sibling["rfilename"],
+                    size=sibling.get("size"),
+                    blob_id=sibling.get("blobId"),
+                    lfs=(
+                        BlobLfsInfo(
+                            size=sibling["lfs"]["size"],
+                            sha256=sibling["lfs"]["sha256"],
+                            pointer_size=sibling["lfs"]["pointerSize"],
+                        )
+                        if sibling.get("lfs")
+                        else None
+                    ),
+                )
+                for sibling in siblings
+            ]
+            if siblings
+            else None
+        )
+        runtime = kwargs.pop("runtime", None)
+        self.runtime = SpaceRuntime(runtime) if runtime else None
+        self.models = kwargs.pop("models", None)
+        self.datasets = kwargs.pop("datasets", None)
+
+        # backwards compatibility
+        self.lastModified = self.last_modified
+        self.cardData = self.card_data
+        self.__dict__.update(**kwargs)
 
 
-class MetricInfo(ReprMixin):
+@dataclass
+class MetricInfo:
     """
-    Info about a public metric accessible from huggingface.co
+    Contains information about a metric on the Hub.
+
+    Attributes:
+        id (`str`):
+            ID of the metric. E.g. `"accuracy"`.
+        space_id (`str`):
+            ID of the space associated with the metric. E.g. `"Accuracy"`.
+        description (`str`):
+            Description of the metric.
     """
 
-    def __init__(
-        self,
-        *,
-        id: Optional[str] = None,  # id of metric
-        description: Optional[str] = None,
-        citation: Optional[str] = None,
-        **kwargs,
-    ):
-        self.id = id
-        self.description = description
-        self.citation = citation
-        # Legacy stuff, "key" is always returned with an empty string
-        # because of old versions of the datasets lib that need this field
-        kwargs.pop("key", None)
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
+    id: str
+    space_id: str
+    description: Optional[str]
 
-    def __str__(self):
-        r = f"Metric Name: {self.id}"
-        return r
+    def __init__(self, **kwargs):
+        self.id = kwargs.pop("id")
+        self.space_id = kwargs.pop("spaceId")
+        self.description = kwargs.pop("description", None)
+        # backwards compatibility
+        self.spaceId = self.space_id
+        self.__dict__.update(**kwargs)
 
 
-class CollectionItem(ReprMixin):
-    """Contains information about an item of a Collection (model, dataset, Space or paper).
+@dataclass
+class CollectionItem:
+    """
+    Contains information about an item of a Collection (model, dataset, Space or paper).
 
-    Args:
+    Attributes:
         item_object_id (`str`):
             Unique ID of the item in the collection.
         item_id (`str`):
@@ -624,10 +957,13 @@ class CollectionItem(ReprMixin):
             Position of the item in the collection.
         note (`str`, *optional*):
             Note associated with the item, as plain text.
-        kwargs (`Dict`, *optional*):
-            Any other attribute returned by the server. Those attributes depend on the `item_type`: "author", "private",
-            "lastModified", "gated", "title", "likes", "upvotes", etc.
     """
+
+    item_object_id: str  # id in database
+    item_id: str  # repo_id or paper id
+    item_type: str
+    position: int
+    note: Optional[str] = None
 
     def __init__(
         self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
@@ -638,23 +974,19 @@ class CollectionItem(ReprMixin):
         self.position: int = position
         self.note: str = note["text"] if note is not None else None
 
-        # Store all the other fields returned by the API
-        super().__init__(**kwargs)
 
-
-class Collection(ReprMixin):
+@dataclass
+class Collection:
     """
     Contains information about a Collection on the Hub.
 
-    Args:
+    Attributes:
         slug (`str`):
             Slug of the collection. E.g. `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
         title (`str`):
             Title of the collection. E.g. `"Recent models"`.
         owner (`str`):
             Owner of the collection. E.g. `"TheBloke"`.
-        description (`str`, *optional*):
-            Description of the collection, as plain text.
         items (`List[CollectionItem]`):
             List of items in the collection.
         last_updated (`datetime`):
@@ -665,39 +997,45 @@ class Collection(ReprMixin):
             Whether the collection is private or not.
         theme (`str`):
             Theme of the collection. E.g. `"green"`.
+        upvotes (`int`):
+            Number of upvotes of the collection.
+        description (`str`, *optional*):
+            Description of the collection, as plain text.
         url (`str`):
-            URL for the collection on the Hub.
+            (property) URL of the collection on the Hub.
     """
 
     slug: str
     title: str
     owner: str
-    description: Optional[str]
     items: List[CollectionItem]
-
     last_updated: datetime
     position: int
     private: bool
     theme: str
+    upvotes: int
+    description: Optional[str] = None
 
-    def __init__(self, data: Dict, endpoint: Optional[str] = None) -> None:
-        # Collection info
-        self.slug = data["slug"]
-        self.title = data["title"]
-        self.owner = data["owner"]["name"]
-        self.description = data.get("description")
-        self.items = [CollectionItem(**item) for item in data["items"]]
-
-        # Metadata
-        self.last_updated = parse_datetime(data["lastUpdated"])
-        self.private = data["private"]
-        self.position = data["position"]
-        self.theme = data["theme"]
-
-        # (internal)
+    def __init__(self, **kwargs) -> None:
+        self.slug = kwargs.pop("slug")
+        self.title = kwargs.pop("title")
+        self.owner = kwargs.pop("owner")
+        self.items = [CollectionItem(**item) for item in kwargs.pop("items")]
+        self.last_updated = parse_datetime(kwargs.pop("lastUpdated"))
+        self.position = kwargs.pop("position")
+        self.private = kwargs.pop("private")
+        self.theme = kwargs.pop("theme")
+        self.upvotes = kwargs.pop("upvotes")
+        self.description = kwargs.pop("description", None)
+        endpoint = kwargs.pop("endpoint", None)
         if endpoint is None:
             endpoint = ENDPOINT
-        self.url = f"{ENDPOINT}/collections/{self.slug}"
+        self._url = f"{endpoint}/collections/{self.slug}"
+
+    @property
+    def url(self) -> str:
+        """Returns the URL of the collection on the Hub."""
+        return self._url
 
 
 @dataclass
@@ -705,7 +1043,7 @@ class GitRefInfo:
     """
     Contains information about a git reference for a repo on the Hub.
 
-    Args:
+    Attributes:
         name (`str`):
             Name of the reference (e.g. tag name or branch name).
         ref (`str`):
@@ -718,11 +1056,6 @@ class GitRefInfo:
     ref: str
     target_commit: str
 
-    def __init__(self, data: Dict) -> None:
-        self.name = data["name"]
-        self.ref = data["ref"]
-        self.target_commit = data["targetCommit"]
-
 
 @dataclass
 class GitRefs:
@@ -731,7 +1064,7 @@ class GitRefs:
 
     Object is returned by [`list_repo_refs`].
 
-    Args:
+    Attributes:
         branches (`List[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about branches on the repo.
         converts (`List[GitRefInfo]`):
@@ -739,11 +1072,15 @@ class GitRefs:
             Converts are refs used (internally) to push preprocessed data in Dataset repos.
         tags (`List[GitRefInfo]`):
             A list of [`GitRefInfo`] containing information about tags on the repo.
+        pull_requests (`List[GitRefInfo]`, *optional*):
+            A list of [`GitRefInfo`] containing information about pull requests on the repo.
+            Only returned if `include_prs=True` is set.
     """
 
     branches: List[GitRefInfo]
     converts: List[GitRefInfo]
     tags: List[GitRefInfo]
+    pull_requests: Optional[List[GitRefInfo]]
 
 
 @dataclass
@@ -751,7 +1088,7 @@ class GitCommitInfo:
     """
     Contains information about a git commit for a repo on the Hub. Check out [`list_repo_commits`] for more details.
 
-    Args:
+    Attributes:
         commit_id (`str`):
             OID of the commit (e.g. `"e7da7f221d5bf496a48136c0cd264e630fe9fcc8"`)
         authors (`List[str]`):
@@ -778,23 +1115,13 @@ class GitCommitInfo:
     formatted_title: Optional[str]
     formatted_message: Optional[str]
 
-    def __init__(self, data: Dict) -> None:
-        self.commit_id = data["id"]
-        self.authors = [author["user"] for author in data["authors"]]
-        self.created_at = parse_datetime(data["date"])
-        self.title = data["title"]
-        self.message = data["message"]
-
-        self.formatted_title = data.get("formatted", {}).get("title")
-        self.formatted_message = data.get("formatted", {}).get("message")
-
 
 @dataclass
 class UserLikes:
     """
     Contains information about a user likes on the Hub.
 
-    Args:
+    Attributes:
         user (`str`):
             Name of the user for which we fetched the likes.
         total (`int`):
@@ -822,7 +1149,7 @@ class User:
     """
     Contains information about a user on the Hub.
 
-    Args:
+    Attributes:
         avatar_url (`str`):
             URL of the user's avatar.
         username (`str`):
@@ -887,9 +1214,6 @@ class HfApi:
         directly at the root of `huggingface_hub`.
 
         Args:
-            endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise,
-                one can set the `HF_ENDPOINT` environment variable.
             token (`str`, *optional*):
                 Hugging Face token. Will default to the locally saved token if
                 not provided.
@@ -1025,7 +1349,7 @@ class HfApi:
         author: Optional[str] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
@@ -1048,7 +1372,7 @@ class HfApi:
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting models. Possible values
                 are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1058,7 +1382,7 @@ class HfApi:
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
             full (`bool`, *optional*):
-                Whether to fetch all model data, including the `lastModified`,
+                Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
                 default when using a filter.
             cardData (`bool`, *optional*):
@@ -1095,7 +1419,7 @@ class HfApi:
 
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
-
+        ```
 
         Example usage with the `search` argument:
 
@@ -1128,7 +1452,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1147,10 +1471,12 @@ class HfApi:
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
-        if emissions_thresholds is not None:
-            items = _filter_emissions(items, *emissions_thresholds)
         for item in items:
-            yield ModelInfo(**item)
+            if "siblings" not in item:
+                item["siblings"] = None
+            model_info = ModelInfo(**item)
+            if emissions_thresholds is None or _is_emission_within_treshold(model_info, *emissions_thresholds):
+                yield model_info
 
     def _unpack_model_filter(self, model_filter: ModelFilter):
         """
@@ -1208,7 +1534,7 @@ class HfApi:
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
@@ -1225,7 +1551,7 @@ class HfApi:
                 A string which identify the author of the returned datasets.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting datasets. Possible
                 values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1235,8 +1561,8 @@ class HfApi:
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
             full (`bool`, *optional*):
-                Whether to fetch all dataset data, including the `lastModified`
-                and the `cardData`. Can contain useful information such as the
+                Whether to fetch all dataset data, including the `last_modified`,
+                the `card_data` and  the files. Can contain useful information such as the
                 PapersWithCode ID.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
@@ -1301,7 +1627,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1313,6 +1639,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
+            if "siblings" not in item:
+                item["siblings"] = None
             yield DatasetInfo(**item)
 
     def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
@@ -1376,7 +1704,7 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["lastModified"], str, None] = None,
+        sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
@@ -1395,7 +1723,7 @@ class HfApi:
                 A string which identify the author of the returned Spaces.
             search (`str`, *optional*):
                 A string that will be contained in the returned Spaces.
-            sort (`Literal["lastModified"]` or `str`, *optional*):
+            sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
                 values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
             direction (`Literal[-1]` or `int`, *optional*):
@@ -1413,8 +1741,8 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             full (`bool`, *optional*):
-                Whether to fetch all Spaces data, including the `lastModified`
-                and the `cardData`.
+                Whether to fetch all Spaces data, including the `last_modified`, `siblings`
+                and `card_data` fields.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -1434,7 +1762,7 @@ class HfApi:
         if search is not None:
             params.update({"search": search})
         if sort is not None:
-            params.update({"sort": sort})
+            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
         if direction is not None:
             params.update({"direction": direction})
         if limit is not None:
@@ -1452,6 +1780,8 @@ class HfApi:
         if limit is not None:
             items = islice(items, limit)  # Do not iterate over all pages
         for item in items:
+            if "siblings" not in item:
+                item["siblings"] = None
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
@@ -1739,8 +2069,8 @@ class HfApi:
             params["blobs"] = True
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return ModelInfo(**d)
+        data = r.json()
+        return ModelInfo(**data)
 
     @validate_hf_hub_args
     def dataset_info(
@@ -1802,8 +2132,8 @@ class HfApi:
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return DatasetInfo(**d)
+        data = r.json()
+        return DatasetInfo(**data)
 
     @validate_hf_hub_args
     def space_info(
@@ -1865,8 +2195,8 @@ class HfApi:
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
-        d = r.json()
-        return SpaceInfo(**d)
+        data = r.json()
+        return SpaceInfo(**data)
 
     @validate_hf_hub_args
     def repo_info(
@@ -1979,6 +2309,8 @@ class HfApi:
         try:
             self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
+        except GatedRepoError:
+            return True  # we don't have access but it exists
         except RepositoryNotFoundError:
             return False
 
@@ -2031,16 +2363,21 @@ class HfApi:
 
         </Tip>
         """
-        url = hf_hub_url(repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename)
+        url = hf_hub_url(
+            repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
+        )
         try:
             if token is None:
                 token = self.token
             get_hf_file_metadata(url, token=token)
             return True
+        except GatedRepoError:  # raise specifically on gated repo
+            raise
         except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
             return False
 
     @validate_hf_hub_args
+    @_deprecate_method(version="0.23", message="Use `list_repo_tree` and `get_paths_info` instead.")
     def list_files_info(
         self,
         repo_id: str,
@@ -2105,8 +2442,8 @@ class HfApi:
             <generator object HfApi.list_files_info at 0x7f93b848e730>
             >>> list(files_info)
             [
-                RepoFile: {"blob_id": "43bd404b159de6fba7c2f4d3264347668d43af25", "lfs": None, "rfilename": "README.md", "size": 391},
-                RepoFile: {"blob_id": "2f9618c3a19b9a61add74f70bfb121335aeef666", "lfs": None, "rfilename": "config.json", "size": 554},
+                RepoFile(path='README.md', size=391, blob_id='43bd404b159de6fba7c2f4d3264347668d43af25', lfs=None, last_commit=None, security=None),
+                RepoFile(path='config.json', size=554, blob_id='2f9618c3a19b9a61add74f70bfb121335aeef666', lfs=None, last_commit=None, security=None)
             ]
             ```
 
@@ -2116,44 +2453,56 @@ class HfApi:
             >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
             >>> list(files_info)
             [
-                RepoFile: {
-                {'blob_id': '815004af1a321eaed1d93f850b2e94b0c0678e42',
-                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
-                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                                'title': 'Upload diffusers weights (#48)'},
-                'lfs': None,
-                'rfilename': 'model_index.json',
-                'security': {'avScan': {'virusFound': False, 'virusNames': None},
-                                'blobId': '815004af1a321eaed1d93f850b2e94b0c0678e42',
-                                'name': 'model_index.json',
-                                'pickleImportScan': None,
-                                'repositoryId': 'models/prompthero/openjourney-v4',
-                                'safe': True},
-                'size': 584}
-                },
-                RepoFile: {
-                {'blob_id': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
-                'lastCommit': {'date': '2023-03-21T09:05:27.000Z',
-                                'id': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                                'title': 'Upload diffusers weights (#48)'},
-                'lfs': {'pointer_size': 134,
-                        'sha256': 'dcf4507d99b88db73f3916e2a20169fe74ada6b5582e9af56cfa80f5f3141765',
-                        'size': 334711857},
-                'rfilename': 'vae/diffusion_pytorch_model.bin',
-                'security': {'avScan': {'virusFound': False, 'virusNames': None},
-                                'blobId': 'd2343d78b33ac03dade1d525538b02b130d0a3a0',
-                                'name': 'vae/diffusion_pytorch_model.bin',
-                                'pickleImportScan': {'highestSafetyLevel': 'innocuous',
-                                                    'imports': [{'module': 'torch._utils',
-                                                                'name': '_rebuild_tensor_v2',
-                                                                'safety': 'innocuous'},
-                                                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
-                                                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'}]},
-                                'repositoryId': 'models/prompthero/openjourney-v4',
-                                'safe': True},
-                'size': 334711857}
-                },
-                (...)
+                RepoFile(
+                    path='safety_checker/pytorch_model.bin',
+                    size=1216064769,
+                    blob_id='c8835557a0d3af583cb06c7c154b7e54a069c41d',
+                    lfs={
+                        'size': 1216064769,
+                        'sha256': '16d28f2b37109f222cdc33620fdd262102ac32112be0352a7f77e9614b35a394',
+                        'pointer_size': 135
+                    },
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)
+                    },
+                    security={
+                        'safe': True,
+                        'av_scan': {
+                            'virusFound': False,
+                            'virusNames': None
+                        },
+                        'pickle_import_scan': {
+                            'highestSafetyLevel': 'innocuous',
+                            'imports': [
+                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'},
+                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
+                                {'module': 'torch', 'name': 'LongStorage', 'safety': 'innocuous'},
+                                {'module': 'torch._utils', 'name': '_rebuild_tensor_v2', 'safety': 'innocuous'}
+                            ]
+                        }
+                    }
+                ),
+                RepoFile(
+                    path='scheduler/scheduler_config.json',
+                    size=465,
+                    blob_id='70d55e3e9679f41cbc66222831b38d5abce683dd',
+                    lfs=None,
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)},
+                        security={
+                            'safe': True,
+                            'av_scan': {
+                                'virusFound': False,
+                                'virusNames': None
+                            },
+                            'pickle_import_scan': None
+                        }
+                ),
+                ...
             ]
             ```
 
@@ -2161,32 +2510,20 @@ class HfApi:
 
             ```py
             >>> from huggingface_hub import list_files_info
-            >>> [info.rfilename for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
+            >>> [info.path for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
             ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
             ```
 
             List all files on a repo.
             ```py
             >>> from huggingface_hub import list_files_info
-            >>> [info.rfilename for info in list_files_info("glue", repo_type="dataset")]
+            >>> [info.path for info in list_files_info("glue", repo_type="dataset")]
             ['.gitattributes', 'README.md', 'dataset_infos.json', 'glue.py']
             ```
         """
         repo_type = repo_type or REPO_TYPE_MODEL
         revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         headers = self._build_hf_headers(token=token)
-
-        def _format_as_repo_file(info: Dict) -> RepoFile:
-            # Quick alias very specific to the server return type of /paths-info and /tree endpoints. Let's keep this
-            # logic here.
-            rfilename = info.pop("path")
-            size = info.pop("size")
-            blobId = info.pop("oid")
-            lfs = info.pop("lfs", None)
-            info.pop("type", None)  # "file" or "folder" -> not needed in practice since we know it's a file
-            if lfs is not None:
-                lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
-            return RepoFile(rfilename=rfilename, size=size, blobId=blobId, lfs=lfs, **info)
 
         folder_paths = []
         if paths is None:
@@ -2201,7 +2538,7 @@ class HfApi:
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
                 data={
                     "paths": paths if isinstance(paths, list) else [paths],
-                    "expand": True,
+                    "expand": expand,
                 },
                 headers=headers,
             )
@@ -2211,7 +2548,7 @@ class HfApi:
             # List top-level files first
             for path_info in paths_info:
                 if path_info["type"] == "file":
-                    yield _format_as_repo_file(path_info)
+                    yield RepoFile(**path_info)
                 else:
                     folder_paths.append(path_info["path"])
 
@@ -2221,9 +2558,8 @@ class HfApi:
             tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path}"
             for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True, "expand": expand}):
                 if subpath_info["type"] == "file":
-                    yield _format_as_repo_file(subpath_info)
+                    yield RepoFile(**subpath_info)
 
-    @_deprecate_arguments(version="0.17", deprecated_args=["timeout"], custom_message="timeout is not used anymore.")
     @validate_hf_hub_args
     def list_repo_files(
         self,
@@ -2231,7 +2567,6 @@ class HfApi:
         *,
         revision: Optional[str] = None,
         repo_type: Optional[str] = None,
-        timeout: Optional[float] = None,
         token: Optional[Union[bool, str]] = None,
     ) -> List[str]:
         """
@@ -2255,10 +2590,142 @@ class HfApi:
         """
         return [
             f.rfilename
-            for f in self.list_files_info(
-                repo_id=repo_id, paths=None, revision=revision, repo_type=repo_type, token=token
+            for f in self.list_repo_tree(
+                repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type, token=token
             )
+            if isinstance(f, RepoFile)
         ]
+
+    @validate_hf_hub_args
+    def list_repo_tree(
+        self,
+        repo_id: str,
+        path_in_repo: Optional[str] = None,
+        *,
+        recursive: bool = False,
+        expand: bool = False,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> Iterable[Union[RepoFile, RepoFolder]]:
+        """
+        List a repo tree's files and folders and get information about them.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            path_in_repo (`str`, *optional*):
+                Relative path of the tree (folder) in the repo, for example:
+                `"checkpoints/1fec34a/results"`. Will default to the root tree (folder) of the repository.
+            recursive (`bool`, *optional*, defaults to `False`):
+                Whether to list tree's files and folders recursively.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the tree's files and folders (e.g. last commit and files' security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the tree. Defaults to `"main"` branch.
+            repo_type (`str`, *optional*):
+                The type of the repository from which to get the tree (`"model"`, `"dataset"` or `"space"`.
+                Defaults to `"model"`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            `Iterable[Union[RepoFile, RepoFolder]]`:
+                The information about the tree's files and folders, as an iterable of [`RepoFile`] and [`RepoFolder`] objects. The order of the files and folders is
+                not guaranteed.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+            [`~utils.EntryNotFoundError`]:
+                If the tree (folder) does not exist (error 404) on the repo.
+
+        Examples:
+
+            Get information about a repo's tree.
+            ```py
+            >>> from huggingface_hub import list_repo_tree
+            >>> repo_tree = list_repo_tree("lysandre/arxiv-nlp")
+            >>> repo_tree
+            <generator object HfApi.list_repo_tree at 0x7fa4088e1ac0>
+            >>> list(repo_tree)
+            [
+                RepoFile(path='.gitattributes', size=391, blob_id='ae8c63daedbd4206d7d40126955d4e6ab1c80f8f', lfs=None, last_commit=None, security=None),
+                RepoFile(path='README.md', size=391, blob_id='43bd404b159de6fba7c2f4d3264347668d43af25', lfs=None, last_commit=None, security=None),
+                RepoFile(path='config.json', size=554, blob_id='2f9618c3a19b9a61add74f70bfb121335aeef666', lfs=None, last_commit=None, security=None),
+                RepoFile(
+                    path='flax_model.msgpack', size=497764107, blob_id='8095a62ccb4d806da7666fcda07467e2d150218e',
+                    lfs={'size': 497764107, 'sha256': 'd88b0d6a6ff9c3f8151f9d3228f57092aaea997f09af009eefd7373a77b5abb9', 'pointer_size': 134}, last_commit=None, security=None
+                ),
+                RepoFile(path='merges.txt', size=456318, blob_id='226b0752cac7789c48f0cb3ec53eda48b7be36cc', lfs=None, last_commit=None, security=None),
+                RepoFile(
+                    path='pytorch_model.bin', size=548123560, blob_id='64eaa9c526867e404b68f2c5d66fd78e27026523',
+                    lfs={'size': 548123560, 'sha256': '9be78edb5b928eba33aa88f431551348f7466ba9f5ef3daf1d552398722a5436', 'pointer_size': 134}, last_commit=None, security=None
+                ),
+                RepoFile(path='vocab.json', size=898669, blob_id='b00361fece0387ca34b4b8b8539ed830d644dbeb', lfs=None, last_commit=None, security=None)]
+            ]
+            ```
+
+            Get even more information about a repo's tree (last commit and files' security scan results)
+            ```py
+            >>> from huggingface_hub import list_repo_tree
+            >>> repo_tree = list_repo_tree("prompthero/openjourney-v4", expand=True)
+            >>> list(repo_tree)
+            [
+                RepoFolder(
+                    path='feature_extractor',
+                    tree_id='aa536c4ea18073388b5b0bc791057a7296a00398',
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 9, 5, 27, tzinfo=datetime.timezone.utc)
+                    }
+                ),
+                RepoFolder(
+                    path='safety_checker',
+                    tree_id='65aef9d787e5557373fdf714d6c34d4fcdd70440',
+                    last_commit={
+                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
+                        'title': 'Upload diffusers weights (#48)',
+                        'date': datetime.datetime(2023, 3, 21, 9, 5, 27, tzinfo=datetime.timezone.utc)
+                    }
+                ),
+                RepoFile(
+                    path='model_index.json',
+                    size=582,
+                    blob_id='d3d7c1e8c3e78eeb1640b8e2041ee256e24c9ee1',
+                    lfs=None,
+                    last_commit={
+                        'oid': 'b195ed2d503f3eb29637050a886d77bd81d35f0e',
+                        'title': 'Fix deprecation warning by changing `CLIPFeatureExtractor` to `CLIPImageProcessor`. (#54)',
+                        'date': datetime.datetime(2023, 5, 15, 21, 41, 59, tzinfo=datetime.timezone.utc)
+                    },
+                    security={
+                        'safe': True,
+                        'av_scan': {'virusFound': False, 'virusNames': None},
+                        'pickle_import_scan': None
+                    }
+                )
+                ...
+            ]
+            ```
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        headers = self._build_hf_headers(token=token)
+
+        encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
+        tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
+        for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+            yield (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
 
     @validate_hf_hub_args
     def list_repo_refs(
@@ -2266,6 +2733,7 @@ class HfApi:
         repo_id: str,
         *,
         repo_type: Optional[str] = None,
+        include_pull_requests: bool = False,
         token: Optional[Union[bool, str]] = None,
     ) -> GitRefs:
         """
@@ -2278,6 +2746,8 @@ class HfApi:
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if listing refs from a dataset or a Space,
                 `None` or `"model"` if listing from a model. Default is `None`.
+            include_pull_requests (`bool`, *optional*):
+                Whether to include refs from pull requests in the list. Defaults to `False`.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -2310,14 +2780,23 @@ class HfApi:
         """
         repo_type = repo_type or REPO_TYPE_MODEL
         response = get_session().get(
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
+            headers=self._build_hf_headers(token=token),
+            params={"include_prs": 1} if include_pull_requests else {},
         )
         hf_raise_for_status(response)
         data = response.json()
+
+        def _format_as_git_ref_info(item: Dict) -> GitRefInfo:
+            return GitRefInfo(name=item["name"], ref=item["ref"], target_commit=item["targetCommit"])
+
         return GitRefs(
-            branches=[GitRefInfo(item) for item in data["branches"]],
-            converts=[GitRefInfo(item) for item in data["converts"]],
-            tags=[GitRefInfo(item) for item in data["tags"]],
+            branches=[_format_as_git_ref_info(item) for item in data["branches"]],
+            converts=[_format_as_git_ref_info(item) for item in data["converts"]],
+            tags=[_format_as_git_ref_info(item) for item in data["tags"]],
+            pull_requests=[_format_as_git_ref_info(item) for item in data["pullRequests"]]
+            if include_pull_requests
+            else None,
         )
 
     @validate_hf_hub_args
@@ -2390,12 +2869,96 @@ class HfApi:
 
         # Paginate over results and return the list of commits.
         return [
-            GitCommitInfo(item)
+            GitCommitInfo(
+                commit_id=item["id"],
+                authors=[author["user"] for author in item["authors"]],
+                created_at=parse_datetime(item["date"]),
+                title=item["title"],
+                message=item["message"],
+                formatted_title=item.get("formatted", {}).get("title"),
+                formatted_message=item.get("formatted", {}).get("message"),
+            )
             for item in paginate(
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
                 headers=self._build_hf_headers(token=token),
                 params={"expand[]": "formatted"} if formatted else {},
             )
+        ]
+
+    @validate_hf_hub_args
+    def get_paths_info(
+        self,
+        repo_id: str,
+        paths: Union[List[str], str],
+        *,
+        expand: bool = False,
+        revision: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> List[Union[RepoFile, RepoFolder]]:
+        """
+        Get information about a repo's paths.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a `/`.
+            paths (`Union[List[str], str]`, *optional*):
+                The paths to get information about. If a path do not exist, it is ignored without raising
+                an exception.
+            expand (`bool`, *optional*, defaults to `False`):
+                Whether to fetch more information about the paths (e.g. last commit and files' security scan results). This
+                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
+                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
+                takes to get the results.
+            revision (`str`, *optional*):
+                The revision of the repository from which to get the information. Defaults to `"main"` branch.
+            repo_type (`str`, *optional*):
+                The type of the repository from which to get the information (`"model"`, `"dataset"` or `"space"`.
+                Defaults to `"model"`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            `List[Union[RepoFile, RepoFolder]]`:
+                The information about the paths, as a list of [`RepoFile`] and [`RepoFolder`] objects.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
+                does not exist.
+            [`~utils.RevisionNotFoundError`]:
+                If revision is not found (error 404) on the repo.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import get_paths_info
+        >>> paths_info = get_paths_info("allenai/c4", ["README.md", "en"], repo_type="dataset")
+        >>> paths_info
+        [
+            RepoFile(path='README.md', size=2379, blob_id='f84cb4c97182890fc1dbdeaf1a6a468fd27b4fff', lfs=None, last_commit=None, security=None),
+            RepoFolder(path='en', tree_id='dc943c4c40f53d02b31ced1defa7e5f438d5862e', last_commit=None)
+        ]
+        ```
+        """
+        repo_type = repo_type or REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        headers = self._build_hf_headers(token=token)
+
+        response = get_session().post(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
+            data={
+                "paths": paths if isinstance(paths, list) else [paths],
+                "expand": expand,
+            },
+            headers=headers,
+        )
+        hf_raise_for_status(response)
+        paths_info = response.json()
+        return [
+            RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
+            for path_info in paths_info
         ]
 
     @validate_hf_hub_args
@@ -2952,7 +3515,8 @@ class HfApi:
         repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        unquoted_revision = revision or DEFAULT_REVISION
+        revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
 
         operations = list(operations)
@@ -2982,7 +3546,7 @@ class HfApi:
             additions=additions,
             token=token,
             repo_type=repo_type,
-            revision=revision,
+            revision=unquoted_revision,  # first-class methods take unquoted revision
             create_pr=create_pr,
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
@@ -3355,6 +3919,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         num_threads: int = 5,
         free_memory: bool = True,
+        gitignore_content: Optional[str] = None,
     ):
         """Pre-upload LFS files to S3 in preparation on a future commit.
 
@@ -3401,6 +3966,12 @@ class HfApi:
                 Number of concurrent threads for uploading files. Defaults to 5.
                 Setting it to 2 means at most 2 files will be uploaded concurrently.
 
+            gitignore_content (`str`, *optional*):
+                The content of the `.gitignore` file to know which files should be ignored. The order of priority
+                is to first check if `gitignore_content` is passed, then check if the `.gitignore` file is present
+                in the list of files to commit and finally default to the `.gitignore` file already hosted on the Hub
+                (if any).
+
         Example:
         ```py
         >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
@@ -3425,6 +3996,15 @@ class HfApi:
         revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
 
+        # Check if a `gitignore` file is being committed to the Hub.
+        additions = list(additions)
+        if gitignore_content is None:
+            for addition in additions:
+                if addition.path_in_repo == ".gitignore":
+                    with addition.as_file() as f:
+                        gitignore_content = f.read().decode()
+                        break
+
         # Filter out already uploaded files
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
@@ -3438,6 +4018,7 @@ class HfApi:
                 revision=revision,
                 endpoint=self.endpoint,
                 create_pr=create_pr or False,
+                gitignore_content=gitignore_content,
             )
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -3446,16 +4027,33 @@ class HfApi:
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
+        # Filter out files listed in .gitignore
+        new_lfs_additions_to_upload = []
+        for addition in new_lfs_additions:
+            if addition._should_ignore:
+                logger.debug(f"Skipping upload for LFS file '{addition.path_in_repo}' (ignored by gitignore file).")
+            else:
+                new_lfs_additions_to_upload.append(addition)
+        if len(new_lfs_additions) != len(new_lfs_additions_to_upload):
+            logger.info(
+                f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
+                "(ignored by gitignore file)."
+            )
+
         # Upload new LFS files
         _upload_lfs_files(
-            additions=new_lfs_additions,
+            additions=new_lfs_additions_to_upload,
             repo_type=repo_type,
             repo_id=repo_id,
             token=token or self.token,
             endpoint=self.endpoint,
             num_threads=num_threads,
+            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+            # should still be able to create PRs even if they don't have write permission on the target branch of the
+            # PR (i.e. `revision`).
+            revision=revision if not create_pr else None,
         )
-        for addition in new_lfs_additions:
+        for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
                 addition.path_or_fileobj = b""
@@ -4095,6 +4693,48 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def get_hf_file_metadata(
+        self,
+        *,
+        url: str,
+        token: Union[bool, str, None] = None,
+        proxies: Optional[Dict] = None,
+        timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+    ) -> HfFileMetadata:
+        """Fetch metadata of a file versioned on the Hub for a given url.
+
+        Args:
+            url (`str`):
+                File url, for example returned by [`hf_hub_url`].
+            token (`str` or `bool`, *optional*):
+                A token to be used for the download.
+                    - If `True`, the token is read from the HuggingFace config
+                    folder.
+                    - If `False` or `None`, no token is provided.
+                    - If a string, it's used as the authentication token.
+            proxies (`dict`, *optional*):
+                Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send metadata before giving up.
+
+        Returns:
+            A [`HfFileMetadata`] object containing metadata such as location, etag, size and commit_hash.
+        """
+        if token is None:
+            # Cannot do `token = token or self.token` as token can be `False`.
+            token = self.token
+
+        return get_hf_file_metadata(
+            url=url,
+            token=token,
+            proxies=proxies,
+            timeout=timeout,
+            library_name=self.library_name,
+            library_version=self.library_version,
+            user_agent=self.user_agent,
+        )
+
+    @validate_hf_hub_args
     def hf_hub_download(
         self,
         repo_id: str,
@@ -4173,9 +4813,6 @@ class HfApi:
             revision (`str`, *optional*):
                 An optional Git revision id which can be a branch name, a tag, or a
                 commit hash.
-            endpoint (`str`, *optional*):
-                Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-                environment variable.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
@@ -4406,6 +5043,227 @@ class HfApi:
             max_workers=max_workers,
             tqdm_class=tqdm_class,
         )
+
+    def get_safetensors_metadata(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> SafetensorsRepoMetadata:
+        """
+        Parse metadata for a safetensors repo on the Hub.
+
+        We first check if the repo has a single safetensors file or a sharded safetensors repo. If it's a single
+        safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
+        metadata from the index file and then parse the metadata from each shard.
+
+        To parse metadata from a single safetensors file, use [`get_safetensors_metadata`].
+
+        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
+                model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
+                head of the `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            [`SafetensorsRepoMetadata`]: information related to safetensors repo.
+
+        Raises:
+            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+              `model.safetensors` or a `model.safetensors.index.json` file.
+            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+
+        Example:
+            ```py
+            # Parse repo with single weights file
+            >>> metadata = get_safetensors_metadata("bigscience/bloomz-560m")
+            >>> metadata
+            SafetensorsRepoMetadata(
+                metadata=None,
+                sharded=False,
+                weight_map={'h.0.input_layernorm.bias': 'model.safetensors', ...},
+                files_metadata={'model.safetensors': SafetensorsFileMetadata(...)}
+            )
+            >>> metadata.files_metadata["model.safetensors"].metadata
+            {'format': 'pt'}
+
+            # Parse repo with sharded model
+            >>> metadata = get_safetensors_metadata("bigscience/bloom")
+            Parse safetensors files: 100%|██████████████████████████████████████████| 72/72 [00:12<00:00,  5.78it/s]
+            >>> metadata
+            SafetensorsRepoMetadata(metadata={'total_size': 352494542848}, sharded=True, weight_map={...}, files_metadata={...})
+            >>> len(metadata.files_metadata)
+            72  # All safetensors files have been fetched
+
+            # Parse repo with sharded model
+            >>> get_safetensors_metadata("runwayml/stable-diffusion-v1-5")
+            NotASafetensorsRepoError: 'runwayml/stable-diffusion-v1-5' is not a safetensors repo. Couldn't find 'model.safetensors.index.json' or 'model.safetensors' files.
+            ```
+        """
+        if self.file_exists(  # Single safetensors file => non-sharded model
+            repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+        ):
+            file_metadata = self.parse_safetensors_file_metadata(
+                repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            )
+            return SafetensorsRepoMetadata(
+                metadata=None,
+                sharded=False,
+                weight_map={tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
+                files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
+            )
+        elif self.file_exists(  # Multiple safetensors files => sharded with index
+            repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+        ):
+            # Fetch index
+            index_file = self.hf_hub_download(
+                repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            )
+            with open(index_file) as f:
+                index = json.load(f)
+
+            weight_map = index.get("weight_map", {})
+
+            # Fetch metadata per shard
+            files_metadata = {}
+
+            def _parse(filename: str) -> None:
+                files_metadata[filename] = self.parse_safetensors_file_metadata(
+                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                )
+
+            thread_map(
+                _parse,
+                set(weight_map.values()),
+                desc="Parse safetensors files",
+                tqdm_class=hf_tqdm,
+            )
+
+            return SafetensorsRepoMetadata(
+                metadata=index.get("metadata", None),
+                sharded=True,
+                weight_map=weight_map,
+                files_metadata=files_metadata,
+            )
+        else:
+            # Not a safetensors repo
+            raise NotASafetensorsRepoError(
+                f"'{repo_id}' is not a safetensors repo. Couldn't find '{SAFETENSORS_INDEX_FILE}' or '{SAFETENSORS_SINGLE_FILE}' files."
+            )
+
+    def parse_safetensors_file_metadata(
+        self,
+        repo_id: str,
+        filename: str,
+        *,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> SafetensorsFileMetadata:
+        """
+        Parse metadata from a safetensors file on the Hub.
+
+        To parse metadata from all safetensors files in a repo at once, use [`get_safetensors_metadata`].
+
+        For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`):
+                The name of the file in the repo.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
+                model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to fetch the file from. Can be a branch name, a tag, or a commit hash. Defaults to the
+                head of the `"main"` branch.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
+                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
+                retrieved from the cache. If `False`, token is not sent in the request header.
+
+        Returns:
+            [`SafetensorsFileMetadata`]: information related to a safetensors file.
+
+        Raises:
+            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+              `model.safetensors` or a `model.safetensors.index.json` file.
+            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+        """
+        url = hf_hub_url(
+            repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
+        )
+        _headers = self._build_hf_headers(token=token)
+
+        # 1. Fetch first 100kb
+        # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
+        # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
+        # avoid the 2nd GET in most cases.
+        # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        hf_raise_for_status(response)
+
+        # 2. Parse metadata size
+        metadata_size = struct.unpack("<Q", response.content[:8])[0]
+        if metadata_size > SAFETENSORS_MAX_HEADER_LENGTH:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
+                f"{SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+            )
+
+        # 3.a. Get metadata from payload
+        if metadata_size <= 100000:
+            metadata_as_bytes = response.content[8 : 8 + metadata_size]
+        else:  # 3.b. Request full metadata
+            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+            hf_raise_for_status(response)
+            metadata_as_bytes = response.content
+
+        # 4. Parse json header
+        try:
+            metadata_as_dict = json.loads(metadata_as_bytes.decode(errors="ignore"))
+        except json.JSONDecodeError as e:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
+                "correctly formatted safetensors file."
+            ) from e
+
+        try:
+            return SafetensorsFileMetadata(
+                metadata=metadata_as_dict.get("__metadata__", {}),
+                tensors={
+                    key: TensorInfo(
+                        dtype=tensor["dtype"],
+                        shape=tensor["shape"],
+                        data_offsets=tuple(tensor["data_offsets"]),  # type: ignore
+                    )
+                    for key, tensor in metadata_as_dict.items()
+                    if key != "__metadata__"
+                },
+            )
+        except (KeyError, IndexError) as e:
+            raise SafetensorsParsingError(
+                f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
+                f"'{revision or DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
+                " formatted safetensors file."
+            ) from e
 
     @validate_hf_hub_args
     def create_branch(
@@ -4683,6 +5541,9 @@ class HfApi:
         self,
         repo_id: str,
         *,
+        author: Optional[str] = None,
+        discussion_type: Optional[DiscussionTypeFilter] = None,
+        discussion_status: Optional[DiscussionStatusFilter] = None,
         repo_type: Optional[str] = None,
         token: Optional[str] = None,
     ) -> Iterator[Discussion]:
@@ -4693,6 +5554,18 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated
                 by a `/`.
+            author (`str`, *optional*):
+                Pass a value to filter by discussion author. `None` means no filter.
+                Default is `None`.
+            discussion_type (`str`, *optional*):
+                Set to `"pull_request"` to fetch only pull requests, `"discussion"`
+                to fetch only discussions. Set to `"all"` or `None` to fetch both.
+                Default is `None`.
+            discussion_status (`str`, *optional*):
+                Set to `"open"` (respectively `"closed"`) to fetch only open
+                (respectively closed) discussions. Set to `"all"` or `None`
+                to fetch both.
+                Default is `None`.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if fetching from a dataset or
                 space, `None` or `"model"` if fetching from a model. Default is
@@ -4723,11 +5596,23 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
+        if discussion_type is not None and discussion_type not in DISCUSSION_TYPES:
+            raise ValueError(f"Invalid discussion_type, must be one of {DISCUSSION_TYPES}")
+        if discussion_status is not None and discussion_status not in DISCUSSION_STATUS:
+            raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
+        query_dict: Dict[str, str] = {}
+        if discussion_type is not None:
+            query_dict["type"] = discussion_type
+        if discussion_status is not None:
+            query_dict["status"] = discussion_status
+        if author is not None:
+            query_dict["author"] = author
 
         def _fetch_discussion_page(page_index: int):
-            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?p={page_index}"
+            query_string = urlencode({**query_dict, "page_index": page_index})
+            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?{query_string}"
             resp = get_session().get(path, headers=headers)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
@@ -5896,9 +6781,538 @@ class HfApi:
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
 
+    #######################
+    # Inference Endpoints #
+    #######################
+
+    def list_inference_endpoints(
+        self, namespace: Optional[str] = None, *, token: Optional[str] = None
+    ) -> List[InferenceEndpoint]:
+        """Lists all inference endpoints for the given namespace.
+
+        Args:
+            namespace (`str`, *optional*):
+                The namespace to list endpoints for. Defaults to the current user. Set to `"*"` to list all endpoints
+                from all namespaces (i.e. personal namespace and all orgs the user belongs to).
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            List[`InferenceEndpoint`]: A list of all inference endpoints for the given namespace.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> api.list_inference_endpoints()
+        [InferenceEndpoint(name='my-endpoint', ...), ...]
+        ```
+        """
+        # Special case: list all endpoints for all namespaces the user has access to
+        if namespace == "*":
+            user = self.whoami(token=token)
+
+            # List personal endpoints first
+            endpoints: List[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+
+            # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
+            for org in user.get("orgs", []):
+                try:
+                    endpoints += list_inference_endpoints(namespace=org["name"], token=token)
+                except HfHubHTTPError as error:
+                    if error.response.status_code == 401:  # Either no billing or user don't have access)
+                        logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
+                    pass
+
+            return endpoints
+
+        # Normal case: list endpoints for a specific namespace
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return [
+            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token)
+            for endpoint in response.json()["items"]
+        ]
+
+    def create_inference_endpoint(
+        self,
+        name: str,
+        *,
+        repository: str,
+        framework: str,
+        accelerator: str,
+        instance_size: str,
+        instance_type: str,
+        region: str,
+        vendor: str,
+        account_id: Optional[str] = None,
+        min_replica: int = 0,
+        max_replica: int = 1,
+        revision: Optional[str] = None,
+        task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
+        type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
+        namespace: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Create a new Inference Endpoint.
+
+        Args:
+            name (`str`):
+                The unique name for the new Inference Endpoint.
+            repository (`str`):
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
+            framework (`str`):
+                The machine learning framework used for the model (e.g. `"custom"`).
+            accelerator (`str`):
+                The hardware accelerator to be used for inference (e.g. `"cpu"`).
+            instance_size (`str`):
+                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+            instance_type (`str`):
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+            region (`str`):
+                The cloud region in which the Inference Endpoint will be created (e.g. `"us-east-1"`).
+            vendor (`str`):
+                The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
+            account_id (`str`, *optional*):
+                The account ID used to link a VPC to a private Inference Endpoint (if applicable).
+            min_replica (`int`, *optional*):
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
+            max_replica (`int`, *optional*):
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
+            revision (`str`, *optional*):
+                The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
+            task (`str`, *optional*):
+                The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            type ([`InferenceEndpointType]`, *optional*):
+                The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be created. Defaults to the current user's namespace.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+            Returns:
+                [`InferenceEndpoint`]: information about the updated Inference Endpoint.
+
+            Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> create_inference_endpoint(
+            ...     "my-endpoint-name",
+            ...     repository="gpt2",
+            ...     framework="pytorch",
+            ...     task="text-generation",
+            ...     accelerator="cpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="c6i",
+            ... )
+            >>> endpoint
+            InferenceEndpoint(name='my-endpoint-name', status="pending",...)
+
+            # Run inference on the endpoint
+            >>> endpoint.client.text_generation(...)
+            "..."
+            ```
+
+            ```python
+            # Start an Inference Endpoint running Zephyr-7b-beta on TGI
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> create_inference_endpoint(
+            ...     "aws-zephyr-7b-beta-0486",
+            ...     repository="HuggingFaceH4/zephyr-7b-beta",
+            ...     framework="pytorch",
+            ...     task="text-generation",
+            ...     accelerator="gpu",
+            ...     vendor="aws",
+            ...     region="us-east-1",
+            ...     type="protected",
+            ...     instance_size="medium",
+            ...     instance_type="g5.2xlarge",
+            ...     custom_image={
+            ...         "health_route": "/health",
+            ...         "env": {
+            ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
+            ...             "MAX_INPUT_LENGTH": "1024",
+            ...             "MAX_TOTAL_TOKENS": "1512",
+            ...             "MODEL_ID": "/repository"
+            ...         },
+            ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
+            ...     },
+            ... )
+
+            ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
+        payload: Dict = {
+            "accountId": account_id,
+            "compute": {
+                "accelerator": accelerator,
+                "instanceSize": instance_size,
+                "instanceType": instance_type,
+                "scaling": {
+                    "maxReplica": max_replica,
+                    "minReplica": min_replica,
+                },
+            },
+            "model": {
+                "framework": framework,
+                "repository": repository,
+                "revision": revision,
+                "task": task,
+                "image": image,
+            },
+            "name": name,
+            "provider": {
+                "region": region,
+                "vendor": vendor,
+            },
+            "type": type,
+        }
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def get_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Get information about an Inference Endpoint.
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to retrieve information about.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the requested Inference Endpoint.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> endpoint = api.get_inference_endpoint("my-text-to-image")
+        >>> endpoint
+        InferenceEndpoint(name='my-text-to-image', ...)
+
+        # Get status
+        >>> endpoint.status
+        'running'
+        >>> endpoint.url
+        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+
+        # Run inference
+        >>> endpoint.client.text_to_image(...)
+        ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def update_inference_endpoint(
+        self,
+        name: str,
+        *,
+        # Compute update
+        accelerator: Optional[str] = None,
+        instance_size: Optional[str] = None,
+        instance_type: Optional[str] = None,
+        min_replica: Optional[int] = None,
+        max_replica: Optional[int] = None,
+        # Model update
+        repository: Optional[str] = None,
+        framework: Optional[str] = None,
+        revision: Optional[str] = None,
+        task: Optional[str] = None,
+        # Other
+        namespace: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> InferenceEndpoint:
+        """Update an Inference Endpoint.
+
+        This method allows the update of either the compute configuration, the deployed model, or both. All arguments are
+        optional but at least one must be provided.
+
+        For convenience, you can also update an Inference Endpoint using [`InferenceEndpoint.update`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to update.
+
+            accelerator (`str`, *optional*):
+                The hardware accelerator to be used for inference (e.g. `"cpu"`).
+            instance_size (`str`, *optional*):
+                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+            instance_type (`str`, *optional*):
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+            min_replica (`int`, *optional*):
+                The minimum number of replicas (instances) to keep running for the Inference Endpoint.
+            max_replica (`int`, *optional*):
+                The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+
+            repository (`str`, *optional*):
+                The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
+            framework (`str`, *optional*):
+                The machine learning framework used for the model (e.g. `"custom"`).
+            revision (`str`, *optional*):
+                The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
+            task (`str`, *optional*):
+                The task on which to deploy the model (e.g. `"text-classification"`).
+
+            namespace (`str`, *optional*):
+                The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the updated Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        payload: Dict = {}
+        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica)):
+            payload["compute"] = {
+                "accelerator": accelerator,
+                "instanceSize": instance_size,
+                "instanceType": instance_type,
+                "scaling": {
+                    "maxReplica": max_replica,
+                    "minReplica": min_replica,
+                },
+            }
+        if any(value is not None for value in (repository, framework, revision, task)):
+            payload["model"] = {
+                "framework": framework,
+                "repository": repository,
+                "revision": revision,
+                "task": task,
+                "image": {"huggingface": {}},
+            }
+
+        response = get_session().put(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def delete_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """Delete an Inference Endpoint.
+
+        This operation is not reversible. If you don't want to be charged for an Inference Endpoint, it is preferable
+        to pause it with [`pause_inference_endpoint`] or scale it to zero with [`scale_to_zero_inference_endpoint`].
+
+        For convenience, you can also delete an Inference Endpoint using [`InferenceEndpoint.delete`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to delete.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+        """
+        namespace = namespace or self._get_namespace(token=token)
+        response = get_session().delete(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+    def pause_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Pause an Inference Endpoint.
+
+        A paused Inference Endpoint will not be charged. It can be resumed at any time using [`resume_inference_endpoint`].
+        This is different than scaling the Inference Endpoint to zero with [`scale_to_zero_inference_endpoint`], which
+        would be automatically restarted when a request is made to it.
+
+        For convenience, you can also pause an Inference Endpoint using [`pause_inference_endpoint`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to pause.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the paused Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/pause",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def resume_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Resume an Inference Endpoint.
+
+        For convenience, you can also resume an Inference Endpoint using [`InferenceEndpoint.resume`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to resume.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the resumed Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def scale_to_zero_inference_endpoint(
+        self, name: str, *, namespace: Optional[str] = None, token: Optional[str] = None
+    ) -> InferenceEndpoint:
+        """Scale Inference Endpoint to zero.
+
+        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
+        cold start delay. This is different than pausing the Inference Endpoint with [`pause_inference_endpoint`], which
+        would require a manual resume with [`resume_inference_endpoint`].
+
+        For convenience, you can also scale an Inference Endpoint to zero using [`InferenceEndpoint.scale_to_zero`].
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint to scale to zero.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            token (`str`, *optional*):
+                An authentication token (See https://huggingface.co/settings/token).
+
+        Returns:
+            [`InferenceEndpoint`]: information about the scaled-to-zero Inference Endpoint.
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().post(
+            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/scale-to-zero",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def _get_namespace(self, token: Optional[str] = None) -> str:
+        """Get the default namespace for the current user."""
+        me = self.whoami(token=token)
+        if me["type"] == "user":
+            return me["name"]
+        else:
+            raise ValueError(
+                "Cannot determine default namespace. You must provide a 'namespace' as input or be logged in as a"
+                " user."
+            )
+
     ########################
     # Collection Endpoints #
     ########################
+    @validate_hf_hub_args
+    def list_collections(
+        self,
+        *,
+        owner: Union[List[str], str, None] = None,
+        item: Union[List[str], str, None] = None,
+        sort: Optional[Literal["lastModified", "trending", "upvotes"]] = None,
+        limit: Optional[int] = None,
+        token: Optional[Union[bool, str]] = None,
+    ) -> Iterable[Collection]:
+        """List collections on the Huggingface Hub, given some filters.
+
+        <Tip warning={true}>
+
+        When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items
+        from a collection, you must use [`get_collection`].
+
+        </Tip>
+
+        Args:
+            owner (`List[str]` or `str`, *optional*):
+                Filter by owner's username.
+            item (`List[str]` or `str`, *optional*):
+                Filter collections containing a particular items. Example: `"models/teknium/OpenHermes-2.5-Mistral-7B"`, `"datasets/squad"` or `"papers/2311.12983"`.
+            sort (`Literal["lastModified", "trending", "upvotes"]`, *optional*):
+                Sort collections by last modified, trending or upvotes.
+            limit (`int`, *optional*):
+                Maximum number of collections to be returned.
+            token (`bool` or `str`, *optional*):
+                An authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `Iterable[Collection]`: an iterable of [`Collection`] objects.
+        """
+        # Construct the API endpoint
+        path = f"{self.endpoint}/api/collections"
+        headers = self._build_hf_headers(token=token)
+        params: Dict = {}
+        if owner is not None:
+            params.update({"owner": owner})
+        if item is not None:
+            params.update({"item": item})
+        if sort is not None:
+            params.update({"sort": sort})
+        if limit is not None:
+            params.update({"limit": limit})
+
+        # Paginate over the results until limit is reached
+        items = paginate(path, headers=headers, params=params)
+        if limit is not None:
+            items = islice(items, limit)  # Do not iterate over all pages
+
+        # Parse as Collection and return
+        for position, collection_data in enumerate(items):
+            yield Collection(position=position, **collection_data)
 
     def get_collection(self, collection_slug: str, *, token: Optional[str] = None) -> Collection:
         """Gets information about a Collection on the Hub.
@@ -5921,21 +7335,20 @@ class HfApi:
         >>> len(collection.items)
         37
         >>> collection.items[0]
-        CollectionItem: {
-            {'item_object_id': '6507f6d5423b46492ee1413e',
-            'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
-            'author': 'TheBloke',
-            'item_type': 'model',
-            'lastModified': '2023-09-19T12:55:21.000Z',
-            (...)
-        }}
+        CollectionItem(
+            item_object_id='651446103cd773a050bf64c2',
+            item_id='TheBloke/U-Amethyst-20B-AWQ',
+            item_type='model',
+            position=88,
+            note=None
+        )
         ```
         """
         r = get_session().get(
             f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def create_collection(
         self,
@@ -6000,7 +7413,7 @@ class HfApi:
                 return self.get_collection(slug, token=token)
             else:
                 raise
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def update_collection_metadata(
         self,
@@ -6065,7 +7478,7 @@ class HfApi:
             json={key: value for key, value in payload.items() if value is not None},
         )
         hf_raise_for_status(r)
-        return Collection(r.json()["data"], endpoint=self.endpoint)
+        return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
@@ -6173,7 +7586,7 @@ class HfApi:
                 return self.get_collection(collection_slug, token=token)
             else:
                 raise
-        return Collection(r.json(), endpoint=self.endpoint)
+        return Collection(**{**r.json(), "endpoint": self.endpoint})
 
     def update_collection_item(
         self,
@@ -6273,6 +7686,406 @@ class HfApi:
                 return
             else:
                 raise
+
+    ##########################
+    # Manage access requests #
+    ##########################
+
+    @validate_hf_hub_args
+    def list_pending_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get pending access requests for a given gated repo.
+
+        A pending request means the user has requested access to the repo but the request has not been processed yet.
+        If the approval mode is automatic, this list should be empty. Pending requests can be accepted or rejected
+        using [`accept_access_request`] and [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_pending_access_requests, accept_access_request
+
+        # List pending requests
+        >>> requests = list_pending_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='pending',
+                fields=None,
+            ),
+            ...
+        ]
+
+        # Accept Clem's request
+        >>> accept_access_request("meta-llama/Llama-2-7b", "clem")
+        ```
+        """
+        return self._list_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def list_accepted_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get accepted access requests for a given gated repo.
+
+        An accepted request means the user has requested access to the repo and the request has been accepted. The user
+        can download any file of the repo. If the approval mode is automatic, this list should contains by default all
+        requests. Accepted requests can be cancelled or rejected at any time using [`cancel_access_request`] and
+        [`reject_access_request`]. A cancelled request will go back to the pending list while a rejected request will
+        go to the rejected list. In both cases, the user will lose access to the repo.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_accepted_access_requests
+
+        >>> requests = list_accepted_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='accepted',
+                fields=None,
+            ),
+            ...
+        ]
+        ```
+        """
+        return self._list_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def list_rejected_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get rejected access requests for a given gated repo.
+
+        A rejected request means the user has requested access to the repo and the request has been explicitly rejected
+        by a repo owner (either you or another user from your organization). The user cannot download any file of the
+        repo. Rejected requests can be accepted or cancelled at any time using [`accept_access_request`] and
+        [`cancel_access_request`]. A cancelled request will go back to the pending list while an accepted request will
+        go to the accepted list.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_rejected_access_requests
+
+        >>> requests = list_rejected_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='rejected',
+                fields=None,
+            ),
+            ...
+        ]
+        ```
+        """
+        return self._list_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
+
+    def _list_access_requests(
+        self,
+        repo_id: str,
+        status: Literal["accepted", "rejected", "pending"],
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> List[AccessRequest]:
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().get(
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return [
+            AccessRequest(
+                username=request["user"]["user"],
+                fullname=request["user"]["fullname"],
+                email=request["user"]["email"],
+                status=request["status"],
+                timestamp=parse_datetime(request["timestamp"]),
+                fields=request.get("fields"),  # only if custom fields in form
+            )
+            for request in response.json()
+        ]
+
+    @validate_hf_hub_args
+    def cancel_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Cancel an access request from a user for a given gated repo.
+
+        A cancelled request will go back to the pending list and the user will lose access to the repo.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to cancel access request for.
+            user (`str`):
+                The username of the user which access request should be cancelled.
+            repo_type (`str`, *optional*):
+                The type of the repo to cancel access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the pending list.
+        """
+        self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def accept_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Accept an access request from a user for a given gated repo.
+
+        Once the request is accepted, the user will be able to download any file of the repo and access the community
+        tab. If the approval mode is automatic, you don't have to accept requests manually. An accepted request can be
+        cancelled or rejected at any time using [`cancel_access_request`] and [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to accept access request for.
+            user (`str`):
+                The username of the user which access request should be accepted.
+            repo_type (`str`, *optional*):
+                The type of the repo to accept access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the accepted list.
+        """
+        self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def reject_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Reject an access request from a user for a given gated repo.
+
+        A rejected request will go to the rejected list. The user cannot download any file of the repo. Rejected
+        requests can be accepted or cancelled at any time using [`accept_access_request`] and [`cancel_access_request`].
+        A cancelled request will go back to the pending list while an accepted request will go to the accepted list.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to reject access request for.
+            user (`str`):
+                The username of the user which access request should be rejected.
+            repo_type (`str`, *optional*):
+                The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the rejected list.
+        """
+        self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def _handle_access_request(
+        self,
+        repo_id: str,
+        user: str,
+        status: Literal["accepted", "rejected", "pending"],
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> None:
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            headers=self._build_hf_headers(token=token),
+            json={"user": user, "status": status},
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def grant_access(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Grant access to a user for a given gated repo.
+
+        Granting access don't require for the user to send an access request by themselves. The user is automatically
+        added to the accepted list meaning they can download the files You can revoke the granted access at any time
+        using [`cancel_access_request`] or [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to grant access to.
+            user (`str`):
+                The username of the user to grant access.
+            repo_type (`str`, *optional*):
+                The type of the repo to grant access to. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 400 if the user already has access to the repo.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            headers=self._build_hf_headers(token=token),
+            json={"user": user},
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    #############
+    # Internals #
+    #############
 
     def _build_hf_headers(
         self,
@@ -6410,6 +8223,8 @@ list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_files_info = api.list_files_info
+list_repo_tree = api.list_repo_tree
+get_paths_info = api.get_paths_info
 
 list_metrics = api.list_metrics
 
@@ -6433,6 +8248,10 @@ delete_branch = api.delete_branch
 create_tag = api.create_tag
 delete_tag = api.delete_tag
 get_full_repo_name = api.get_full_repo_name
+
+# Safetensors helpers
+get_safetensors_metadata = api.get_safetensors_metadata
+parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
 run_as_future = api.run_as_future
@@ -6469,8 +8288,19 @@ duplicate_space = api.duplicate_space
 request_space_storage = api.request_space_storage
 delete_space_storage = api.delete_space_storage
 
+# Inference Endpoint API
+list_inference_endpoints = api.list_inference_endpoints
+create_inference_endpoint = api.create_inference_endpoint
+get_inference_endpoint = api.get_inference_endpoint
+update_inference_endpoint = api.update_inference_endpoint
+delete_inference_endpoint = api.delete_inference_endpoint
+pause_inference_endpoint = api.pause_inference_endpoint
+resume_inference_endpoint = api.resume_inference_endpoint
+scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+
 # Collections API
 get_collection = api.get_collection
+list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
 delete_collection = api.delete_collection
@@ -6478,3 +8308,12 @@ add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item
 delete_collection_item = api.delete_collection_item
 delete_collection_item = api.delete_collection_item
+
+# Access requests API
+list_pending_access_requests = api.list_pending_access_requests
+list_accepted_access_requests = api.list_accepted_access_requests
+list_rejected_access_requests = api.list_rejected_access_requests
+cancel_access_request = api.cancel_access_request
+accept_access_request = api.accept_access_request
+reject_access_request = api.reject_access_request
+grant_access = api.grant_access

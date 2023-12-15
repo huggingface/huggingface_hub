@@ -25,9 +25,9 @@ from typing import Callable, Tuple, Type, Union
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
-from requests.exceptions import ProxyError, Timeout
 from requests.models import PreparedRequest
 
+from .. import constants
 from . import logging
 from ._typing import HTTP_METHOD_T
 
@@ -39,6 +39,10 @@ logger = logging.get_logger(__name__)
 # If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
 X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
+
+
+class OfflineModeIsEnabled(ConnectionError):
+    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
 
 
 class UniqueRequestIdAdapter(HTTPAdapter):
@@ -69,10 +73,21 @@ class UniqueRequestIdAdapter(HTTPAdapter):
             raise
 
 
+class OfflineAdapter(HTTPAdapter):
+    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        raise OfflineModeIsEnabled(
+            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+        )
+
+
 def _default_backend_factory() -> requests.Session:
     session = requests.Session()
-    session.mount("http://", UniqueRequestIdAdapter())
-    session.mount("https://", UniqueRequestIdAdapter())
+    if constants.HF_HUB_OFFLINE:
+        session.mount("http://", OfflineAdapter())
+        session.mount("https://", OfflineAdapter())
+    else:
+        session.mount("http://", UniqueRequestIdAdapter())
+        session.mount("https://", UniqueRequestIdAdapter())
     return session
 
 
@@ -174,8 +189,8 @@ def http_backoff(
     base_wait_time: float = 1,
     max_wait_time: float = 8,
     retry_on_exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = (
-        Timeout,
-        ProxyError,
+        requests.Timeout,
+        requests.ConnectionError,
     ),
     retry_on_status_codes: Union[int, Tuple[int, ...]] = HTTPStatus.SERVICE_UNAVAILABLE,
     **kwargs,
@@ -203,10 +218,9 @@ def http_backoff(
             `max_wait_time`.
         max_wait_time (`float`, *optional*, defaults to `8`):
             Maximum duration (in seconds) to wait before retrying.
-        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*, defaults to `(Timeout, ProxyError,)`):
-            Define which exceptions must be caught to retry the request. Can be a single
-            type or a tuple of types.
-            By default, retry on `Timeout` and `ProxyError`.
+        retry_on_exceptions (`Type[Exception]` or `Tuple[Type[Exception]]`, *optional*):
+            Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
+            By default, retry on `requests.Timeout` and `requests.ConnectionError`.
         retry_on_status_codes (`int` or `Tuple[int]`, *optional*, defaults to `503`):
             Define on which status codes the request must be retried. By default, only
             HTTP 503 Service Unavailable is retried.
@@ -278,6 +292,9 @@ def http_backoff(
 
         except retry_on_exceptions as err:
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
+
+            if isinstance(err, requests.ConnectionError):
+                reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
 
             if nb_tries > max_retries:
                 raise err

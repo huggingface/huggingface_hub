@@ -92,13 +92,18 @@ def _create_model_card(
 ):
     """
     Creates a model card for the repository.
+
+    Do not overwrite an existing README.md file.
     """
+    readme_path = repo_dir / "README.md"
+    if readme_path.exists():
+        return
+
     hyperparameters = _create_hyperparameter_table(model)
     if plot_model and is_graphviz_available() and is_pydot_available():
         _plot_network(model, repo_dir)
     if metadata is None:
         metadata = {}
-    readme_path = f"{repo_dir}/README.md"
     metadata["library_name"] = "keras"
     model_card: str = "---\n"
     model_card += yaml_dump(metadata, default_flow_style=False)
@@ -120,13 +125,7 @@ def _create_model_card(
         model_card += f"\n![Model Image]({path_to_plot})\n"
         model_card += "\n</details>"
 
-    if os.path.exists(readme_path):
-        with open(readme_path, "r", encoding="utf8") as f:
-            readme = f.read()
-    else:
-        readme = model_card
-    with open(readme_path, "w", encoding="utf-8") as f:
-        f.write(readme)
+    readme_path.write_text(model_card)
 
 
 def save_pretrained_keras(
@@ -158,7 +157,7 @@ def save_pretrained_keras(
             card. Requires graphviz and pydot to be installed.
         tags (Union[`str`,`list`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
-            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+            [here](https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1).
         model_save_kwargs(`dict`, *optional*):
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
@@ -340,7 +339,7 @@ def push_to_hub_keras(
             Whether or not to include optimizer during serialization.
         tags (Union[`list`, `str`], *optional*):
             List of tags that are related to model or string of a single tag. See example tags
-            [here](https://github.com/huggingface/hub-docs/blame/main/modelcard.md).
+            [here](https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1).
         plot_model (`bool`, *optional*, defaults to `True`):
             Setting this to `True` will plot the model and put it in the model
             card. Requires graphviz and pydot to be installed.

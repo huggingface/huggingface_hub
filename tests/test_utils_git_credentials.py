@@ -7,6 +7,7 @@ import pytest
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils import run_interactive_subprocess, run_subprocess
 from huggingface_hub.utils._git_credential import (
+    _parse_credential_output,
     list_credential_helpers,
     set_git_credential,
     unset_git_credential,
@@ -62,3 +63,10 @@ class TestGitCredentials(unittest.TestCase):
             stdin.flush()
             output = stdout.read()
         self.assertEqual("", output)
+
+    def test_git_credential_parsing_regex(self) -> None:
+        output = """
+            credential.helper = store
+            credential.helper = cache --timeout 30000
+        credential.helper = osxkeychain"""
+        assert _parse_credential_output(output) == ["cache", "osxkeychain", "store"]

@@ -11,7 +11,7 @@ from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.upload import UploadCommand
-from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
+from huggingface_hub.utils import RevisionNotFoundError, SoftTemporaryDirectory, capture_output
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -211,9 +211,10 @@ class TestUploadCommand(unittest.TestCase):
         cmd = UploadCommand(self.parser.parse_args(["upload", DUMMY_MODEL_ID, ".", "--every", "0.5"]))
         self.assertEqual(cmd.every, 0.5)
 
+    @patch("huggingface_hub.commands.upload.HfApi.repo_info")
     @patch("huggingface_hub.commands.upload.HfApi.upload_folder")
     @patch("huggingface_hub.commands.upload.HfApi.create_repo")
-    def test_upload_folder_mock(self, create_mock: Mock, upload_mock: Mock) -> None:
+    def test_upload_folder_mock(self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock) -> None:
         with SoftTemporaryDirectory() as cache_dir:
             cmd = UploadCommand(
                 self.parser.parse_args(
@@ -239,9 +240,10 @@ class TestUploadCommand(unittest.TestCase):
                 delete_patterns=["*.json"],
             )
 
+    @patch("huggingface_hub.commands.upload.HfApi.repo_info")
     @patch("huggingface_hub.commands.upload.HfApi.upload_file")
     @patch("huggingface_hub.commands.upload.HfApi.create_repo")
-    def test_upload_file_mock(self, create_mock: Mock, upload_mock: Mock) -> None:
+    def test_upload_file_mock(self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock) -> None:
         with SoftTemporaryDirectory() as cache_dir:
             file_path = Path(cache_dir) / "file.txt"
             file_path.write_text("content")
@@ -265,6 +267,65 @@ class TestUploadCommand(unittest.TestCase):
                 commit_description=None,
                 create_pr=True,
             )
+
+    @patch("huggingface_hub.commands.upload.HfApi.repo_info")
+    @patch("huggingface_hub.commands.upload.HfApi.upload_file")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
+    def test_upload_file_no_revision_mock(self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock) -> None:
+        with SoftTemporaryDirectory() as cache_dir:
+            file_path = Path(cache_dir) / "file.txt"
+            file_path.write_text("content")
+            cmd = UploadCommand(self.parser.parse_args(["upload", "my-model", str(file_path), "logs/file.txt"]))
+            cmd.run()
+            # Revision not specified => no need to check
+            repo_info_mock.assert_not_called()
+
+    @patch("huggingface_hub.commands.upload.HfApi.create_branch")
+    @patch("huggingface_hub.commands.upload.HfApi.repo_info")
+    @patch("huggingface_hub.commands.upload.HfApi.upload_file")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
+    def test_upload_file_with_revision_mock(
+        self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock, create_branch_mock: Mock
+    ) -> None:
+        repo_info_mock.side_effect = RevisionNotFoundError("revision not found")
+
+        with SoftTemporaryDirectory() as cache_dir:
+            file_path = Path(cache_dir) / "file.txt"
+            file_path.write_text("content")
+            cmd = UploadCommand(
+                self.parser.parse_args(
+                    ["upload", "my-model", str(file_path), "logs/file.txt", "--revision", "my-branch"]
+                )
+            )
+            cmd.run()
+
+            # Revision specified => check that it exists
+            repo_info_mock.assert_called_once_with(
+                repo_id=create_mock.return_value.repo_id, repo_type="model", revision="my-branch"
+            )
+
+            # Revision does not exist => create it
+            create_branch_mock.assert_called_once_with(
+                repo_id=create_mock.return_value.repo_id, repo_type="model", branch="my-branch", exist_ok=True
+            )
+
+    @patch("huggingface_hub.commands.upload.HfApi.repo_info")
+    @patch("huggingface_hub.commands.upload.HfApi.upload_file")
+    @patch("huggingface_hub.commands.upload.HfApi.create_repo")
+    def test_upload_file_revision_and_create_pr_mock(
+        self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock
+    ) -> None:
+        with SoftTemporaryDirectory() as cache_dir:
+            file_path = Path(cache_dir) / "file.txt"
+            file_path.write_text("content")
+            cmd = UploadCommand(
+                self.parser.parse_args(
+                    ["upload", "my-model", str(file_path), "logs/file.txt", "--revision", "my-branch", "--create-pr"]
+                )
+            )
+            cmd.run()
+            # Revision specified but --create-pr => no need to check
+            repo_info_mock.assert_not_called()
 
     @patch("huggingface_hub.commands.upload.HfApi.create_repo")
     def test_upload_missing_path(self, create_mock: Mock) -> None:

@@ -27,7 +27,7 @@ explanation page for more details.
 </Tip>
 
 If you want to create and manage a repository on the Hub, your machine must be logged in. If you are not, please refer to
-[this section](../quick-start#login). In the rest of this guide, we will assume that your machine is logged in.
+[this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
 ## Repo creation and deletion
 

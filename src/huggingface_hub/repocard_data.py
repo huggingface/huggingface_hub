@@ -1,14 +1,10 @@
 import copy
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from huggingface_hub.utils import yaml_dump
-
-from .utils.logging import get_logger
-
-
-logger = get_logger(__name__)
 
 
 @dataclass
@@ -54,6 +50,10 @@ class EvalResult:
             Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
         verify_token (`str`, *optional*):
             A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
+        source_name (`str`, *optional*):
+            The name of the source of the evaluation result. Example: "Open LLM Leaderboard".
+        source_url (`str`, *optional*):
+            The URL of the source of the evaluation result. Example: "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard".
     """
 
     # Required
@@ -121,6 +121,14 @@ class EvalResult:
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
     verify_token: Optional[str] = None
 
+    # The name of the source of the evaluation result.
+    # Example: Open LLM Leaderboard
+    source_name: Optional[str] = None
+
+    # The URL of the source of the evaluation result.
+    # Example: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+    source_url: Optional[str] = None
+
     @property
     def unique_identifier(self) -> tuple:
         """Returns a tuple that uniquely identifies this evaluation."""
@@ -145,6 +153,10 @@ class EvalResult:
             if key != "verify_token" and getattr(self, key) != getattr(other, key):
                 return False
         return True
+
+    def __post_init__(self) -> None:
+        if self.source_name is not None and self.source_url is None:
+            raise ValueError("If `source_name` is provided, `source_url` must also be provided.")
 
 
 @dataclass
@@ -194,6 +206,9 @@ class CardData:
         return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):
+        return repr(self.__dict__)
+
+    def __str__(self):
         return self.to_yaml()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -216,6 +231,10 @@ class CardData:
         """Check if a given metadata key is set."""
         return key in self.__dict__
 
+    def __len__(self) -> int:
+        """Return the number of metadata keys set."""
+        return len(self.__dict__)
+
 
 class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
@@ -229,7 +248,7 @@ class ModelCardData(CardData):
             https://huggingface.co/docs/hub/repositories-licenses. Defaults to None.
         library_name (`str`, *optional*):
             Name of library used by this model. Example: keras or any library from
-            https://github.com/huggingface/hub-docs/blob/main/js/src/lib/interfaces/Libraries.ts.
+            https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/model-libraries.ts.
             Defaults to None.
         tags (`List[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging
@@ -298,12 +317,12 @@ class ModelCardData(CardData):
                 model_name, eval_results = model_index_to_eval_results(model_index)
                 self.model_name = model_name
                 self.eval_results = eval_results
-            except KeyError as error:
+            except (KeyError, TypeError) as error:
                 if ignore_metadata_errors:
-                    logger.warning("Invalid model-index. Not loading eval results into CardData.")
+                    warnings.warn("Invalid model-index. Not loading eval results into CardData.")
                 else:
                     raise ValueError(
-                        f"Invalid `model_index` in metadata cannot be parsed: KeyError {error}. Pass"
+                        f"Invalid `model_index` in metadata cannot be parsed: {error.__class__} {error}. Pass"
                         " `ignore_metadata_errors=True` to ignore this error while loading a Model Card. Warning:"
                         " some information will be lost. Use it at your own risk."
                     )
@@ -553,6 +572,8 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str,
             dataset_split = result["dataset"].get("split")
             dataset_revision = result["dataset"].get("revision")
             dataset_args = result["dataset"].get("args")
+            source_name = result.get("source", {}).get("name")
+            source_url = result.get("source", {}).get("url")
 
             for metric in result["metrics"]:
                 metric_type = metric["type"]
@@ -579,6 +600,8 @@ def model_index_to_eval_results(model_index: List[Dict[str, Any]]) -> Tuple[str,
                     metric_config=metric_config,
                     verified=verified,
                     verify_token=verify_token,
+                    source_name=source_name,
+                    source_url=source_url,
                 )
                 eval_results.append(eval_result)
     return name, eval_results
@@ -633,7 +656,7 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
 
     # Metrics are reported on a unique task-and-dataset basis.
     # Here, we make a map of those pairs and the associated EvalResults.
-    task_and_ds_types_map = defaultdict(list)
+    task_and_ds_types_map: Dict[Any, List[EvalResult]] = defaultdict(list)
     for eval_result in eval_results:
         task_and_ds_types_map[eval_result.unique_identifier].append(eval_result)
 
@@ -668,6 +691,13 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
                 for result in results
             ],
         }
+        if sample_result.source_url is not None:
+            source = {
+                "url": sample_result.source_url,
+            }
+            if sample_result.source_name is not None:
+                source["name"] = sample_result.source_name
+            data["source"] = source
         model_index_data.append(data)
 
     # TODO - Check if there cases where this list is longer than one?

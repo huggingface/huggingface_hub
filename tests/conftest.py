@@ -6,12 +6,13 @@ from pathlib import Path
 from typing import Generator, List
 
 import pytest
+import requests
 from _pytest.fixtures import SubRequest
 from _pytest.python import Function as PytestFunction
 from requests.exceptions import HTTPError
 
 import huggingface_hub
-from huggingface_hub import HfApi, HfFolder
+from huggingface_hub import HfApi
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 from huggingface_hub.utils._typing import CallableT
 
@@ -44,23 +45,6 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
         shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
 
 
-@pytest.fixture(autouse=True, scope="session")
-def clean_hf_folder_token_for_tests() -> Generator:
-    """Clean token stored on machine before all tests and reset it back at the end.
-
-    Useful to avoid token deletion when running tests locally.
-    """
-    # Remove registered token
-    token = HfFolder().get_token()
-    HfFolder().delete_token()
-
-    yield  # Run all tests
-
-    # Set back token once all tests have passed
-    if token is not None:
-        HfFolder().save_token(token)
-
-
 @pytest.fixture(autouse=True)
 def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeSymlinkDict(dict):
@@ -87,9 +71,9 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
     """
     Retry test if failure because of unavailable service, bad gateway or race condition.
 
-    Tests are retried up to 3 times, waiting 5s between each try.
+    Tests are retried up to 10 times, waiting 5s between each try.
     """
-    NUMBER_OF_TRIES = 3
+    NUMBER_OF_TRIES = 10
     WAIT_TIME = 5
     HTTP_ERRORS = (502, 504)  # 502 Bad gateway (repo creation) or 504 Gateway timeout
 
@@ -109,6 +93,12 @@ def retry_on_transient_error(fn: CallableT) -> CallableT:
                     )
                 else:
                     raise
+            except requests.Timeout:
+                if retry_count >= NUMBER_OF_TRIES:
+                    raise
+                logger.info(
+                    f"HTTP Timeout while interacting with the Hub. Retrying new execution in {WAIT_TIME} second(s)..."
+                )
             except OSError:
                 if retry_count >= NUMBER_OF_TRIES:
                     raise

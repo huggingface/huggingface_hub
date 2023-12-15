@@ -1,9 +1,11 @@
 import os
 import re
-from typing import Optional
+import typing
+from typing import Literal, Optional, Tuple
 
 
 # Possible values for env variables
+
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 ENV_VARS_TRUE_AND_AUTO_VALUES = ENV_VARS_TRUE_VALUES.union({"AUTO"})
@@ -32,6 +34,14 @@ REPOCARD_NAME = "README.md"
 DEFAULT_ETAG_TIMEOUT = 10
 DEFAULT_DOWNLOAD_TIMEOUT = 10
 DEFAULT_REQUEST_TIMEOUT = 10
+DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
+HF_TRANSFER_CONCURRENCY = 100
+
+# Constants for safetensors repos
+
+SAFETENSORS_SINGLE_FILE = "model.safetensors"
+SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
+SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 
 # Git-related constants
 
@@ -50,6 +60,10 @@ HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
+
+# See https://huggingface.co/docs/inference-endpoints/index
+INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
+
 
 REPO_ID_SEPARATOR = "--"
 # ^ this substring is not allowed in repo_ids on hf.co
@@ -72,21 +86,31 @@ REPO_TYPES_MAPPING = {
     "models": REPO_TYPE_MODEL,
 }
 
+DiscussionTypeFilter = Literal["all", "discussion", "pull_request"]
+DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionTypeFilter)
+DiscussionStatusFilter = Literal["all", "open", "closed"]
+DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
-hf_cache_home = os.path.expanduser(
+HF_HOME = os.path.expanduser(
     os.getenv(
         "HF_HOME",
         os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
     )
 )
+hf_cache_home = HF_HOME  # for backward compatibility. TODO: remove this in 1.0.0
 
-default_cache_path = os.path.join(hf_cache_home, "hub")
-default_assets_cache_path = os.path.join(hf_cache_home, "assets")
+default_cache_path = os.path.join(HF_HOME, "hub")
+default_assets_cache_path = os.path.join(HF_HOME, "assets")
 
+# Legacy env variables
 HUGGINGFACE_HUB_CACHE = os.getenv("HUGGINGFACE_HUB_CACHE", default_cache_path)
 HUGGINGFACE_ASSETS_CACHE = os.getenv("HUGGINGFACE_ASSETS_CACHE", default_assets_cache_path)
+
+# New env variables
+HF_HUB_CACHE = os.getenv("HF_HUB_CACHE", HUGGINGFACE_HUB_CACHE)
+HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
@@ -97,8 +121,15 @@ HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") o
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
 # See https://github.com/huggingface/huggingface_hub/issues/1232
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.path.join(hf_cache_home, "token")
+HF_TOKEN_PATH = os.path.join(HF_HOME, "token")
 
+
+if _staging_mode:
+    # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
+    _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
+    HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
+    HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
 # programmatically. `False` will enable them without possibility of disabling them.

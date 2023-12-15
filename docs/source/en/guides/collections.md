@@ -22,30 +22,26 @@ Let's fetch the collection with, `"TheBloke/recent-models-64f9a55bb3115b4f513ec0
 >>> from huggingface_hub import get_collection
 >>> collection = get_collection("TheBloke/recent-models-64f9a55bb3115b4f513ec026")
 >>> collection
-Collection: { 
-  {'description': "Models I've recently quantized.',
-   'items': [...],
-   'last_updated': datetime.datetime(2023, 9, 21, 7, 26, 28, 57000, tzinfo=datetime.timezone.utc),
-   'owner': 'TheBloke',
-   'position': 1,
-   'private': False,
-   'slug': 'TheBloke/recent-models-64f9a55bb3115b4f513ec026',
-   'theme': 'green',
-   'title': 'Recent models'}
-}
+Collection(
+  slug='TheBloke/recent-models-64f9a55bb3115b4f513ec026',
+  title='Recent models',
+  owner='TheBloke',
+  items=[...],
+  last_updated=datetime.datetime(2023, 10, 2, 22, 56, 48, 632000, tzinfo=datetime.timezone.utc),
+  position=1,
+  private=False,
+  theme='green',
+  upvotes=90,
+  description="Models I've recently quantized. Please note that currently this list has to be updated manually, and therefore is not guaranteed to be up-to-date."
+)
 >>> collection.items[0]
-CollectionItem: { 
-  {'item_object_id': '6507f6d5423b46492ee1413e',
-   'author': 'TheBloke',
-   'item_id': 'TheBloke/TigerBot-70B-Chat-GPTQ',
-   'item_type': 'model',
-   'lastModified': '2023-09-19T12:55:21.000Z',
-   'position': 0,
-   'private': False,
-   'repoType': 'model'
-   (...)
-  }
-}
+CollectionItem(
+  item_object_id='651446103cd773a050bf64c2',
+  item_id='TheBloke/U-Amethyst-20B-AWQ',
+  item_type='model',
+  position=88, 
+  note=None
+)
 ```
 
 The [`Collection`] object returned by [`get_collection`] contains:
@@ -61,6 +57,50 @@ All collection items are guaranteed to have:
 A `note` can also be attached to the item. This is useful to add additional information about the item (a comment, a link to a blog post, etc.). The attribute still has a `None` value if an item doesn't have a note.
 
 In addition to these base attributes, returned items can have additional attributes depending on their type: `author`, `private`, `lastModified`, `gated`, `title`, `likes`, `upvotes`, etc. None of these attributes are guaranteed to be returned.
+
+## List collections
+
+We can also retrieve collections using [`list_collections`]. Collections can be filtered using some parameters. Let's list all the collections from the user [`teknium`](https://huggingface.co/teknium).
+```py
+>>> from huggingface_hub import list_collections
+
+>>> collections = list_collections(owner="teknium")
+```
+
+This returns an iterable of `Collection` objects. We can iterate over them to print, for example, the number of upvotes for each collection.
+
+```py
+>>> for collection in collections:
+...   print("Number of upvotes:", collection.upvotes)
+Number of upvotes: 1
+Number of upvotes: 5
+```
+
+<Tip warning={true}>
+
+When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items from a collection, you must use [`get_collection`].
+
+</Tip>
+
+It is possible to do more advanced filtering. Let's get all collections containing the model [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), sorted by trending, and limit the count to 5.
+```py
+>>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
+>>> for collection in collections:
+...   print(collection.slug)
+teknium/quantized-models-6544690bb978e0b0f7328748
+AmeerH/function-calling-65560a2565d7a6ef568527af
+PostArchitekt/7bz-65479bb8c194936469697d8c
+gnomealone/need-to-test-652007226c6ce4cdacf9c233
+Crataco/favorite-7b-models-651944072b4fffcb41f8b568
+```
+
+Parameter `sort` must be one of  `"last_modified"`,  `"trending"` or `"upvotes"`. Parameter `item` accepts any particular item. For example:
+* `"models/teknium/OpenHermes-2.5-Mistral-7B"`
+* `"spaces/julien-c/open-gpt-rhyming-robot"`
+* `"datasets/squad"`
+* `"papers/2311.12983"`
+
+For more details, please check out [`list_collections`] reference.
 
 ## Create a new collection
 
