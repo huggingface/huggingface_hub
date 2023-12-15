@@ -324,6 +324,35 @@ class CommitInfo:
             self.pr_num = None
 
 
+@dataclass
+class AccessRequest:
+    """Data structure containing information about a user access request.
+
+    Attributes:
+        username (`str`):
+            Username of the user who requested access.
+        fullname (`str`):
+            Fullname of the user who requested access.
+        email (`str`):
+            Email of the user who requested access.
+        timestamp (`datetime`):
+            Timestamp of the request.
+        status (`Literal["pending", "accepted", "rejected"]`):
+            Status of the request. Can be one of `["pending", "accepted", "rejected"]`.
+        fields (`Dict[str, Any]`, *optional*):
+            Additional fields filled by the user in the gate form.
+    """
+
+    username: str
+    fullname: str
+    email: str
+    timestamp: datetime
+    status: Literal["pending", "accepted", "rejected"]
+
+    # Additional fields filled by the user in the gate form
+    fields: Optional[Dict[str, Any]] = None
+
+
 class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
@@ -7655,6 +7684,406 @@ class HfApi:
             else:
                 raise
 
+    ##########################
+    # Manage access requests #
+    ##########################
+
+    @validate_hf_hub_args
+    def list_pending_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get pending access requests for a given gated repo.
+
+        A pending request means the user has requested access to the repo but the request has not been processed yet.
+        If the approval mode is automatic, this list should be empty. Pending requests can be accepted or rejected
+        using [`accept_access_request`] and [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_pending_access_requests, accept_access_request
+
+        # List pending requests
+        >>> requests = list_pending_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='pending',
+                fields=None,
+            ),
+            ...
+        ]
+
+        # Accept Clem's request
+        >>> accept_access_request("meta-llama/Llama-2-7b", "clem")
+        ```
+        """
+        return self._list_access_requests(repo_id, "pending", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def list_accepted_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get accepted access requests for a given gated repo.
+
+        An accepted request means the user has requested access to the repo and the request has been accepted. The user
+        can download any file of the repo. If the approval mode is automatic, this list should contains by default all
+        requests. Accepted requests can be cancelled or rejected at any time using [`cancel_access_request`] and
+        [`reject_access_request`]. A cancelled request will go back to the pending list while a rejected request will
+        go to the rejected list. In both cases, the user will lose access to the repo.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_accepted_access_requests
+
+        >>> requests = list_accepted_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='accepted',
+                fields=None,
+            ),
+            ...
+        ]
+        ```
+        """
+        return self._list_access_requests(repo_id, "accepted", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def list_rejected_access_requests(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> List[AccessRequest]:
+        """
+        Get rejected access requests for a given gated repo.
+
+        A rejected request means the user has requested access to the repo and the request has been explicitly rejected
+        by a repo owner (either you or another user from your organization). The user cannot download any file of the
+        repo. Rejected requests can be accepted or cancelled at any time using [`accept_access_request`] and
+        [`cancel_access_request`]. A cancelled request will go back to the pending list while an accepted request will
+        go to the accepted list.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to get access requests for.
+            repo_type (`str`, *optional*):
+                The type of the repo to get access requests for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
+            be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import list_rejected_access_requests
+
+        >>> requests = list_rejected_access_requests("meta-llama/Llama-2-7b")
+        >>> len(requests)
+        411
+        >>> requests[0]
+        [
+            AccessRequest(
+                username='clem',
+                fullname='Clem 🤗',
+                email='***',
+                timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
+                status='rejected',
+                fields=None,
+            ),
+            ...
+        ]
+        ```
+        """
+        return self._list_access_requests(repo_id, "rejected", repo_type=repo_type, token=token)
+
+    def _list_access_requests(
+        self,
+        repo_id: str,
+        status: Literal["accepted", "rejected", "pending"],
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> List[AccessRequest]:
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().get(
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return [
+            AccessRequest(
+                username=request["user"]["user"],
+                fullname=request["user"]["fullname"],
+                email=request["user"]["email"],
+                status=request["status"],
+                timestamp=parse_datetime(request["timestamp"]),
+                fields=request.get("fields"),  # only if custom fields in form
+            )
+            for request in response.json()
+        ]
+
+    @validate_hf_hub_args
+    def cancel_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Cancel an access request from a user for a given gated repo.
+
+        A cancelled request will go back to the pending list and the user will lose access to the repo.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to cancel access request for.
+            user (`str`):
+                The username of the user which access request should be cancelled.
+            repo_type (`str`, *optional*):
+                The type of the repo to cancel access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the pending list.
+        """
+        self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def accept_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Accept an access request from a user for a given gated repo.
+
+        Once the request is accepted, the user will be able to download any file of the repo and access the community
+        tab. If the approval mode is automatic, you don't have to accept requests manually. An accepted request can be
+        cancelled or rejected at any time using [`cancel_access_request`] and [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to accept access request for.
+            user (`str`):
+                The username of the user which access request should be accepted.
+            repo_type (`str`, *optional*):
+                The type of the repo to accept access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the accepted list.
+        """
+        self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def reject_access_request(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Reject an access request from a user for a given gated repo.
+
+        A rejected request will go to the rejected list. The user cannot download any file of the repo. Rejected
+        requests can be accepted or cancelled at any time using [`accept_access_request`] and [`cancel_access_request`].
+        A cancelled request will go back to the pending list while an accepted request will go to the accepted list.
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to reject access request for.
+            user (`str`):
+                The username of the user which access request should be rejected.
+            repo_type (`str`, *optional*):
+                The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the rejected list.
+        """
+        self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
+
+    @validate_hf_hub_args
+    def _handle_access_request(
+        self,
+        repo_id: str,
+        user: str,
+        status: Literal["accepted", "rejected", "pending"],
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> None:
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            headers=self._build_hf_headers(token=token),
+            json={"user": user, "status": status},
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
+    def grant_access(
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+    ) -> None:
+        """
+        Grant access to a user for a given gated repo.
+
+        Granting access don't require for the user to send an access request by themselves. The user is automatically
+        added to the accepted list meaning they can download the files You can revoke the granted access at any time
+        using [`cancel_access_request`] or [`reject_access_request`].
+
+        For more info about gated repos, see https://huggingface.co/docs/hub/models-gated.
+
+        Args:
+            repo_id (`str`):
+                The id of the repo to grant access to.
+            user (`str`):
+                The username of the user to grant access.
+            repo_type (`str`, *optional*):
+                The type of the repo to grant access to. Must be one of `model`, `dataset` or `space`.
+                Defaults to `model`.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 400 if the user already has access to the repo.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+        """
+        if repo_type not in REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type is None:
+            repo_type = REPO_TYPE_MODEL
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            headers=self._build_hf_headers(token=token),
+            json={"user": user},
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    #############
+    # Internals #
+    #############
+
     def _build_hf_headers(
         self,
         token: Optional[Union[bool, str]] = None,
@@ -7876,3 +8305,12 @@ add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item
 delete_collection_item = api.delete_collection_item
 delete_collection_item = api.delete_collection_item
+
+# Access requests API
+list_pending_access_requests = api.list_pending_access_requests
+list_accepted_access_requests = api.list_accepted_access_requests
+list_rejected_access_requests = api.list_rejected_access_requests
+cancel_access_request = api.cancel_access_request
+accept_access_request = api.accept_access_request
+reject_access_request = api.reject_access_request
+grant_access = api.grant_access

@@ -52,6 +52,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
+    AccessRequest,
     Collection,
     CommitInfo,
     DatasetInfo,
@@ -77,6 +78,8 @@ from huggingface_hub.utils import (
     SafetensorsRepoMetadata,
     SoftTemporaryDirectory,
     TensorInfo,
+    get_session,
+    hf_raise_for_status,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
@@ -3669,3 +3672,85 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(model_id)
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
+
+
+class AccessRequestAPITest(HfApiCommonTest):
+    def setUp(self) -> None:
+        # Setup test with a gated repo
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name()).repo_id
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{self.repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(),
+        )
+        hf_raise_for_status(response)
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    def test_access_requests_normal_usage(self) -> None:
+        # No access requests initially
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 0
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 0
+        requests = self._api.list_rejected_access_requests(self.repo_id)
+        assert len(requests) == 0
+
+        # Grant access to a user
+        self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # User is in accepted list
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 1
+        request = requests[0]
+        assert isinstance(request, AccessRequest)
+        assert request.username == OTHER_USER
+        assert request.status == "accepted"
+        assert isinstance(request.timestamp, datetime.datetime)
+
+        # Cancel access
+        self._api.cancel_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 0  # not accepted anymore
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+        # Reject access
+        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 0  # not pending anymore
+        requests = self._api.list_rejected_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+        # Accept again
+        self._api.accept_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+    def test_access_request_error(self):
+        # Grant access to a user
+        self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # Cannot grant twice
+        with self.assertRaises(HTTPError):
+            self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # Cannot accept to already accepted
+        with self.assertRaises(HTTPError):
+            self._api.accept_access_request(self.repo_id, OTHER_USER)
+
+        # Cannot reject to already rejected
+        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        with self.assertRaises(HTTPError):
+            self._api.reject_access_request(self.repo_id, OTHER_USER)
+
+        # Cannot cancel to already cancelled
+        self._api.cancel_access_request(self.repo_id, OTHER_USER)
+        with self.assertRaises(HTTPError):
+            self._api.cancel_access_request(self.repo_id, OTHER_USER)

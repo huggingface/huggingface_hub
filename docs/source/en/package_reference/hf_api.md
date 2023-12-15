@@ -35,6 +35,10 @@ models = hf_api.list_models()
 
 ## API Dataclasses
 
+### AccessRequest
+
+[[autodoc]] huggingface_hub.hf_api.AccessRequest
+
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
