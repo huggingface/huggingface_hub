@@ -2348,7 +2348,7 @@ class HfApi:
             return False
 
     @validate_hf_hub_args
-    @_deprecate_method(version="1.0", message="Use `list_repo_tree` and `get_paths_info` instead.")
+    @_deprecate_method(version="0.23", message="Use `list_repo_tree` and `get_paths_info` instead.")
     def list_files_info(
         self,
         repo_id: str,

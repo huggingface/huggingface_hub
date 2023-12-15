@@ -570,7 +570,8 @@ def _fetch_lfs_files_to_copy(
                 repo_type=repo_type,
             )
             for src_repo_file in src_repo_files:
-                assert isinstance(src_repo_file, RepoFile)
+                if  isinstance(src_repo_file, RepoFolder):
+                    raise NotImplementedError("Copying a folder is not implemented.")
                 if not src_repo_file.lfs:
                     raise NotImplementedError("Copying a non-LFS file is not implemented")
                 files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
