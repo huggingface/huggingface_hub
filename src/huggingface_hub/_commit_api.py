@@ -555,7 +555,7 @@ def _fetch_lfs_files_to_copy(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    from .hf_api import HfApi, RepoFile
+    from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, token=token)
     files_to_copy = {}
@@ -570,7 +570,7 @@ def _fetch_lfs_files_to_copy(
                 repo_type=repo_type,
             )
             for src_repo_file in src_repo_files:
-                if  isinstance(src_repo_file, RepoFolder):
+                if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
                 if not src_repo_file.lfs:
                     raise NotImplementedError("Copying a non-LFS file is not implemented")
