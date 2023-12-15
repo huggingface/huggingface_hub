@@ -7711,14 +7711,16 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Returns:
-            `List[AccessRequest]`: a list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
         Raises:
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
         Example:
         ```py
@@ -7772,14 +7774,17 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Returns:
-            `List[AccessRequest]`: a list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
 
         Raises:
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+
         Example:
         ```py
         >>> from huggingface_hub import list_accepted_access_requests
@@ -7827,14 +7832,17 @@ class HfApi:
             token (`str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
 
-        Raises:
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 400 if the repo is not gated.
         Returns:
-            `List[AccessRequest]`: a list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
+            `List[AccessRequest]`: A list of [`AccessRequest`] objects. Each time contains a `username`, `email`,
             `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
             be populated with user's answers.
+
+        Raises:
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
         Example:
         ```py
@@ -7911,12 +7919,17 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
-            - `HTTPError`: HTTP 400 if the repo is not gated.
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
-            - `HTTPError`: HTTP 404 if the user access request cannot be found.
-            - `HTTPError`: HTTP 404 if the user access request is already in the pending list.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the pending list.
         """
         self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
 
@@ -7945,12 +7958,17 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
-            - `HTTPError`: HTTP 400 if the repo is not gated.
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
-            - `HTTPError`: HTTP 404 if the user access request cannot be found.
-            - `HTTPError`: HTTP 404 if the user access request is already in the accepted list.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the accepted list.
         """
         self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
 
@@ -7979,12 +7997,17 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
-            - `HTTPError`: HTTP 400 if the repo is not gated.
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
-            - `HTTPError`: HTTP 404 if the user access request cannot be found.
-            - `HTTPError`: HTTP 404 if the user access request is already in the rejected list.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 404 if the user access request cannot be found.
+            `HTTPError`:
+                HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
 
@@ -8034,11 +8057,15 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Raises:
-            - `BadRequestError`: HTTP 400 if the repo is not gated.
-            - `BadRequestError`: HTTP 400 if the user already has access to the repo.
-            - `HTTPError`: HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have
-                           `write` or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            - `HTTPError`: HTTP 404 if the user does not exist on the Hub.
+            `HTTPError`:
+                HTTP 400 if the repo is not gated.
+            `HTTPError`:
+                HTTP 400 if the user already has access to the repo.
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the user does not exist on the Hub.
         """
         if repo_type not in REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
