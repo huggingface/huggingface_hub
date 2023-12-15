@@ -326,28 +326,30 @@ def _get_token_from_google_colab() -> Optional[str]:
         # Means the user has a secret call `HF_TOKEN` and got a popup "please grand access to HF_TOKEN" and refused it
         # => warn user but ignore error => do not re-request access to user
         warnings.warn(
-            "Access to the secret `HF_TOKEN` has not been granted on this notebook. You will not be requested again. "
-            "Please restart the session if you want to be prompted again."
+            "\nAccess to the secret `HF_TOKEN` has not been granted on this notebook."
+            "\nYou will not be requested again."
+            "\nPlease restart the session if you want to be prompted again."
         )
         _CHECK_GOOGLE_COLAB_SECRET = False
         return None
+    except userdata.SecretNotFoundError:
+        # Means the user did not define a `HF_TOKEN` secret => warn
+        warnings.warn(
+            "\nThe secret `HF_TOKEN` does not exist in your Colab secrets."
+            "\nTo authenticate with the Hugging Face Hub, create a token in your settings tab "
+            "(https://huggingface.co/settings/tokens), set it as secret in your Google Colab and restart your session."
+            "\nYou will be able to reuse this secret in all of your notebooks."
+            "\nPlease note that authentication is recommended but still optional to access public models or datasets."
+        )
+        return None
     except ColabError as e:
-        if "does not exist" in str(e):
-            # Means the user did not define a `HF_TOKEN` secret => warn
-            warnings.warn(
-                "The secret `HF_TOKEN` does not exist in your Colab secrets. To authenticate with the Huggingface "
-                "Hub, create a token in your settings tab (https://huggingface.co/settings/tokens), set it as secret "
-                "in your Google Colab and restart your session. You will be able to reuse this secret in all of your "
-                "notebook. Please note that authentication is recommended but still optional to access public models "
-                "or datasets."
-            )
-        else:
-            # Something happen but we don't know what => recommend to open a GitHub issue
-            warnings.warn(
-                f"Error while fetching `HF_TOKEN` secret value from your vault: '{str(e)}'. You are not authenticated "
-                "with the Huggingface Hub in this notebook. If the error persists, please let us know by opening an "
-                "issue on GitHub (https://github.com/huggingface/huggingface_hub/issues/new)."
-            )
+        # Something happen but we don't know what => recommend to open a GitHub issue
+        warnings.warn(
+            f"\nError while fetching `HF_TOKEN` secret value from your vault: '{str(e)}'."
+            "\nYou are not authenticated with the Hugging Face Hub in this notebook."
+            "\nIf the error persists, please let us know by opening an issue on GitHub "
+            "(https://github.com/huggingface/huggingface_hub/issues/new)."
+        )
         return None
 
     return _clean_token(token)
