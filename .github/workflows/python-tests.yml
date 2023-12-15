@@ -85,7 +85,7 @@ jobs:
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun "(OSError|Timeout|HTTPError.*502|HTTPError.*504)""
 
           case "${{ matrix.test_name }}" in
 
@@ -166,7 +166,8 @@ jobs:
         run: python -m pytest \
                --cov=./huggingface_hub --cov-report=xml:../coverage.xml \
                --vcr-record=none \
-               --reruns 5 --reruns-delay 1 --only-rerun "(OSError|Timeout|HTTPError.*502|HTTPError.*504)" ../tests
+               --reruns 5 --reruns-delay 1 --only-rerun "(OSError|Timeout|HTTPError.*502|HTTPError.*504)" \
+               ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
