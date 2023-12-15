@@ -2,76 +2,82 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Manage your Space
+# Gérez votre espace
 
-In this guide, we will see how to manage your Space runtime
-([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
-[hardware](https://huggingface.co/docs/hub/spaces-gpus), and [storage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)) using `huggingface_hub`.
+Dans ce guide, nous allons voir comment gérer le temps de calcul sur votre espace,
+([les secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
+[le hardware](https://huggingface.co/docs/hub/spaces-gpus), et [le stockage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage))
+en utilisant `huggingface_hub`.
 
-## A simple example: configure secrets and hardware.
+## Un exemple simple: configurez les secrets et le hardware.
 
-Here is an end-to-end example to create and setup a Space on the Hub.
+Voici un exemple de A à Z pour créer et mettre en place un espace sur le Hub.
 
-**1. Create a Space on the Hub.**
+**1. Créez un espace sur le Hub.**
 
 ```py
 >>> from huggingface_hub import HfApi
 >>> repo_id = "Wauplin/my-cool-training-space"
 >>> api = HfApi()
 
-# For example with a Gradio SDK
+# Par exemple, avec un SDK Gradio
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
-**1. (bis) Duplicate a Space.**
+**1. (bis) Dupliquez un espace.**
 
-This can prove useful if you want to build up from an existing Space instead of starting from scratch.
-It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
+Ceci peut-être utile si vous voulez construire depuis un espace existant aulieu de commencer à zéro.
+C'est aussi utile si vous voulez controler la configuration et les paramètres d'un espace publique.
+Consultez [`duplicate_space`] pour plus de détails.
 
 ```py
 >>> api.duplicate_space("multimodalart/dreambooth-training")
 ```
 
-**2. Upload your code using your preferred solution.**
+**2. Uploadez votre code en utilisant votre solution préférée.**
 
-Here is an example to upload the local folder `src/` from your machine to your Space:
+Voici un exemple pour upload le dossier local `src/` depuis votre machine vers votre espace:
 
 ```py
 >>> api.upload_folder(repo_id=repo_id, repo_type="space", folder_path="src/")
 ```
 
-At this step, your app should already be running on the Hub for free !
-However, you might want to configure it further with secrets and upgraded hardware.
+A ce niveau là, votre application devrait déjà être en train de tourner sur le Hub gratuitement !
+Toutefois, vous voudez peut-être la configurer plus en détail avec des secrets et un
+meilleur hardware.
 
-**3. Configure secrets and variables**
+**3. Configurez des secrets et des variables**
 
-Your Space might require some secret keys, token or variables to work.
-See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
-For example, an HF token to upload an image dataset to the Hub once generated from your Space.
+Votre espace aura peut-être besoin d'une clef secrète, un token ou de variables
+pour fonctionner. Consultez [la doc](https://huggingface.co/docs/hub/spaces-overview#managing-secrets)
+pour plus de détails. Par exemple, un token HF pour upload un dataset d'image vers le Hub
+une fois généré depuis votre espace.
 
 ```py
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
 >>> api.add_space_variable(repo_id=repo_id, key="MODEL_REPO_ID", value="user/repo")
 ```
 
-Secrets and variables can be deleted as well:
+Les secrets et les variables peuvent supprimés aussi:
 ```py
 >>> api.delete_space_secret(repo_id=repo_id, key="HF_TOKEN")
 >>> api.delete_space_variable(repo_id=repo_id, key="MODEL_REPO_ID")
 ```
 
 <Tip>
-From within your Space, secrets are available as environment variables (or
-Streamlit Secrets Management if using Streamlit). No need to fetch them via the API!
+Depuis votre espace, les secrets sont définissables en tant que variables
+(ou en tant que management de secrets Streamlit si vous utilisez Streamlit).
+Pas besoin de les ajouter via l'API!
 </Tip>
 
 <Tip warning={true}>
-Any change in your Space configuration (secrets or hardware) will trigger a restart of your app.
+Tout changement dans la configuration de votre espace (secrets ou hardware) relancera votre
+application.
 </Tip>
 
-**Bonus: set secrets and variables when creating or duplicating the Space!**
+**Bonus: définissez les secrets et les variables lors de la création ou la duplication de l'espace!**
 
-Secrets and variables can be set when creating or duplicating a space:
+Les secrets et les variables peuvent être défini lors de la création ou la duplication d'un espace:
 
 ```py
 >>> api.create_repo(
@@ -91,24 +97,25 @@ Secrets and variables can be set when creating or duplicating a space:
 ... )
 ```
 
-**4. Configure the hardware**
+**4. Configurez le hardware**
 
-By default, your Space will run on a CPU environment for free. You can upgrade the hardware
-to run it on GPUs. A payment card or a community grant is required to access upgrade your
-Space. See [docs](https://huggingface.co/docs/hub/spaces-gpus) for more details.
+Par défaut, votre espace tournera sur un CPU gratuitement. Vous pouvez améliorer le
+hardware pour le faire tourner sur des GPUs. Une carte bleue ou un community grant sera
+nécessaire pour accéder à l'amélioration de votre espace. Consultez [la doc](https://huggingface.co/docs/hub/spaces-gpus)
+pour plus de détails.
 
 ```py
-# Use `SpaceHardware` enum
+# Utilisez l'enum `SpaceHardware`
 >>> from huggingface_hub import SpaceHardware
 >>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM)
 
-# Or simply pass a string value
+# Ou simplement passez un string
 >>> api.request_space_hardware(repo_id=repo_id, hardware="t4-medium")
 ```
 
-Hardware updates are not done immediately as your Space has to be reloaded on our servers.
-At any time, you can check on which hardware your Space is running to see if your request
-has been met.
+Les mises à jour d'hardware ne sont pas faites immédiatement vu que votre espace doit
+être rechargé sur nos serveurs. A n'importe quel moment, vous pouvez vérifier sur quel
+hardware votre espace tourne pour vérifier que votre demande a été réalisée.
 
 ```py
 >>> runtime = api.get_space_runtime(repo_id=repo_id)
@@ -120,12 +127,15 @@ has been met.
 "t4-medium"
 ```
 
+Vous avez maintenant un espace totalement configuré. Une fois que vous avez fini avec les
+GPUs, assurez vous de revenir à "cpu-classic".
 You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
 when you are done using it.
 
-**Bonus: request hardware when creating or duplicating the Space!**
+**Bonus: demandez du hardware lors de la création ou la duplication d'un espace!**
 
-Upgraded hardware will be automatically assigned to your Space once it's built.
+Les nouvel hardware sera automatiquement assigné à votre espace une fois qu'il
+a été construit.
 
 ```py
 >>> api.create_repo(
@@ -134,7 +144,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
 ...     space_storage="small",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time="7200", # 2 heure en secondes
 ... )
 ```
 ```py
@@ -142,46 +152,48 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     hardware="cpu-upgrade",
 ...     storage="small",
-...     sleep_time="7200", # 2 hours in secs
+...     sleep_time="7200", # 2 heures en secondes
 ... )
 ```
 
-**5. Pause and restart your Space**
+**5. Mettez en pause et relancez votre espace**
 
-By default if your Space is running on an upgraded hardware, it will never be stopped. However to avoid getting billed,
-you might want to pause it when you are not using it. This is possible using [`pause_space`]. A paused Space will be
-inactive until the owner of the Space restarts it, either with the UI or via API using [`restart_space`].
-For more details about paused mode, please refer to [this section](https://huggingface.co/docs/hub/spaces-gpus#pause)
+Par défaut, si votre espace tourne sur un hardware amélioré, il ne sera jamais arrêté. Toutefois pour éviter de vous
+faire facturer, vous aurez surement besoin de le mettre en pause lorsque vous ne l'utilisez pas. C'est possible en
+utilisant [`pause_space`]. Un espace en pause sera inactif tant que le propriétaire de l'espace ne l'a pas relancé,
+soit avec l'interface utliisateur ou via l'API en utilisant [`restart_space`]. Pour plus de détails sur le mode "en pause",
+consultez [cette section](https://huggingface.co/docs/hub/spaces-gpus#pause) du guide.
 
 ```py
-# Pause your Space to avoid getting billed
+# Mettez en pause votre espace pour éviter de payer
 >>> api.pause_space(repo_id=repo_id)
 # (...)
-# Restart it when you need it
+# Relancez le quand vous en avez besoin
 >>> api.restart_space(repo_id=repo_id)
 ```
 
-Another possibility is to set a timeout for your Space. If your Space is inactive for more than the timeout duration,
-it will go to sleep. Any visitor landing on your Space will start it back up. You can set a timeout using
-[`set_space_sleep_time`]. For more details about sleeping mode, please refer to [this section](https://huggingface.co/docs/hub/spaces-gpus#sleep-time).
+Une auter possibilité est de définir un timeout pour votre espace. Si votre espace est inactif pour une durée
+plus grande que la durée de timeout, alors il se mettra en pause automatiquement. N'importe quel visiteur qui
+arrive sur votre espace le relancera. Vous pouvez définir un timeout en utilisant [`set_space_sleep_time`].
+Pour plus de détails sur le mode "en pause", consultez [cette section](https://huggingface.co/docs/hub/spaces-gpus#sleep-time).
 
 ```py
-# Put your Space to sleep after 1h of inactivity
+# Mettez votre espace en pause après une heure d'inactivité
 >>> api.set_space_sleep_time(repo_id=repo_id, sleep_time=3600)
 ```
 
-Note: if you are using a 'cpu-basic' hardware, you cannot configure a custom sleep time. Your Space will automatically
-be paused after 48h of inactivity.
+Note: si vous utlisez du du hardware 'cpu-basic', vous ne pouvez pas configurer un timeout personnalisé. Votre espace
+se mettre en pause automatiquement aprèss 48h d'inactivité.
 
-**Bonus: set a sleep time while requesting hardware**
+**Bonus: définissez le temps de timeout lorsque vous demandez le hardware**
 
-Upgraded hardware will be automatically assigned to your Space once it's built.
+Le hardware amélioré sera automatiquement assigné à votre espace une fois construit.
 
 ```py
 >>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
 ```
 
-**Bonus: set a sleep time when creating or duplicating the Space!**
+**Bonus: définissez un temps de timeout lors de la création ou de la duplication d'un espace!**
 
 ```py
 >>> api.create_repo(
@@ -200,24 +212,27 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 
-**6. Add persistent storage to your Space**
+**6. Ajoutez du stockage persistant à votre espace**
 
-You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
+Vous pouvez choisir le stockage de votre choix pour accéder au disque dont la mémoire ne s'écrase pas lors du redémarrage de l'espace. Ceci signifie que
+vous pouvez lire et écrire sur ce disque comme vous l'auriez fait avec un disque dur traditionnel.
+Consultez See [la doc](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) pour plus de détails.
 
 ```py
 >>> from huggingface_hub import SpaceStorage
 >>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
 ```
 
-You can also delete your storage, losing all the data permanently.
+Vous pouvez aussi supprimer votre stockage, mais vous perdrez toute la donnée de manière irréversible.
 ```py
 >>> api.delete_space_storage(repo_id=repo_id)
 ```
 
-Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
-you must delete the storage first then request the new desired tier.
+Note: Vous ne pouvez pas diminuer le niveau de stockage de votre espace une fois qu'il a été
+donné. Pour ce faire, vous devez d'abord supprimer le stockage
+(attention, les données sont supprimés définitivement) puis demander le niveau de stockage désiré.
 
-**Bonus: request storage when creating or duplicating the Space!**
+**Bonus: demandez du stockage lors de la création ou la duplication de l'espace!**
 
 ```py
 >>> api.create_repo(
@@ -234,87 +249,89 @@ you must delete the storage first then request the new desired tier.
 ... )
 ```
 
-## More advanced: temporarily upgrade your Space !
+## Avancé: améliorez votre espace pour un durée déterminée!
 
-Spaces allow for a lot of different use cases. Sometimes, you might want
-to temporarily run a Space on a specific hardware, do something and then shut it down. In
-this section, we will explore how to benefit from Spaces to finetune a model on demand.
-This is only one way of solving this particular problem. It has to be taken as a suggestion
-and adapted to your use case.
+Les espaces ont un grand nombre de cas d'application. Parfois, vous aurez
+peut-être envie de faire un tourner un espace pendant une durée déterminée sur un hardware
+spécifique, faire quelque chose puis éteindre l'espace. dans cette section, nous explorerons
+les avantgaes des espaces pour finetune un modèle sur demande. C'est la seule manière de
+résoudre ce problème. Toutefois, ces tutoriaux ne sont que des suggestions et doivent être
+adaptés à votre cas d'usage.
 
-Let's assume we have a Space to finetune a model. It is a Gradio app that takes as input
-a model id and a dataset id. The workflow is as follows:
+Supposons que nous avons un espace pour finetune un modèle. C'est une aplication Gradio qui
+prend en entrée l'id d'un modèle et l'id d'un dataset. Le workflow est le suivant:
 
-0. (Prompt the user for a model and a dataset)
-1. Load the model from the Hub.
-2. Load the dataset from the Hub.
-3. Finetune the model on the dataset.
-4. Upload the new model to the Hub.
+0.Demander à l'utilisateur un modèle et un dataset.
+1.Charger le modèle depuis le Hub.
+2.Charger le dataset depuis le Hub.
+3.Finetune le modèle sur le dataset.
+4.Upload le nouveau modèle vers le Hub.
 
-Step 3. requires a custom hardware but you don't want your Space to be running all the time on a paid
-GPU. A solution is to dynamically request hardware for the training and shut it
-down afterwards. Since requesting hardware restarts your Space, your app must somehow "remember"
-the current task it is performing. There are multiple ways of doing this. In this guide
-we will see one solution using a Dataset as "task scheduler".
+La 3ème étape demande un hardware personnalisé mais vous n'aurez surement pas envie que votre espace
+tourne tout le temps sur un GPU que vous payez. Une solution est de demander du hardware de manière
+dynmaique pour l'entrainement et l'éteindre après. Vu que demander du hardware redémarre voter espace,
+votre application doit d'une manière ou d'une autre "se rappeler" la tache qu'il est entrain de réaliser.
+Il y a plusieurs manières de faire ceci. Dans ce guide, nous verrons une solution utilisant un dataset
+qui fera office de "programmateur de tâche".
 
-### App skeleton
+### Le squelette de l'application
 
-Here is what your app would look like. On startup, check if a task is scheduled and if yes,
-run it on the correct hardware. Once done, set back hardware to the free-plan CPU and
-prompt the user for a new task.
+Voici ce à quoi votre application ressemblerait. Au lancement, elle vérifie si une tâche est
+programmée et si oui, cette tâche sera lancée sur le bon hardware. Une fois fini, le
+hardware est remis au CPU du plan gratuit et demande à l'utilisateur une nouvelle tâche.
 
 <Tip warning={true}>
-Such a workflow does not support concurrent access as normal demos.
-In particular, the interface will be disabled when training occurs.
-It is preferable to set your repo as private to ensure you are the only user.
+Un tel workflow ne permet pas un accès simultané en tant que démo
+normales. En particulier, l'interface sera supprimée lors de
+l'entrainement. il est préférable de mettre votre dépôt en privé
+pour vous assurer que vous êtes le seul utilisateur.
 </Tip>
 
 ```py
-# Space will need your token to request hardware: set it as a Secret !
+# Un espace aura besoin de votre token pour demander du hardware: définissez le en temps que secret!
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
-# Space own repo_id
+# Le repo_id de l'espace
 TRAINING_SPACE_ID = "Wauplin/dreambooth-training"
 
 from huggingface_hub import HfApi, SpaceHardware
 api = HfApi(token=HF_TOKEN)
 
-# On Space startup, check if a task is scheduled. If yes, finetune the model. If not,
-# display an interface to request a new task.
+# Lors du lancement de l'espace, vérifiez si une tâche est programmée. Si oui, finetunez le modèle. Si non,
+# affichez une interface pour demander une nouvelle tâche.
 task = get_task()
 if task is None:
-    # Start Gradio app
+    # Lancez l'application Gradio
     def gradio_fn(task):
-        # On user request, add task and request hardware
+        # Lorsque l'utilisateur le demande, ajoutez une tâche et demandez du hardware.
         add_task(task)
         api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 
     gr.Interface(fn=gradio_fn, ...).launch()
 else:
     runtime = api.get_space_runtime(repo_id=TRAINING_SPACE_ID)
-    # Check if Space is loaded with a GPU.
+    # Vérifiez si l'espace est chargé avec un GPU.
     if runtime.hardware == SpaceHardware.T4_MEDIUM:
-        # If yes, finetune base model on dataset !
+        # Si oui, fintunez le modèle de base sur le dataset!
         train_and_upload(task)
 
-        # Then, mark the task as "DONE"
+        # Ensuite, signalez la tâche comme finie
         mark_as_done(task)
 
-        # DO NOT FORGET: set back CPU hardware
+        # N'OUBLIEZ PAS: remettez le hardware en mode CPU
         api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.CPU_BASIC)
     else:
         api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 ```
 
-### Task scheduler
+### Le task scheduler
 
-Scheduling tasks can be done in many ways. Here is an example how it could be done using
-a simple CSV stored as a Dataset.
+Programmer une tâche peut-être fait de plusieurs manières. Voici un exemple de comment
+on pourrait le faire en utilisant un simple CSV enregistré en tant que dataset.
 
 ```py
-# Dataset ID in which a `tasks.csv` file contains the tasks to perform.
-# Here is a basic example for `tasks.csv` containing inputs (base model and dataset)
-# and status (PENDING or DONE).
+# ID du dataset dans lequel un fichier `task.csv` cotient la tâche à accomplir.
+# Voici un exemple basique pour les inputs de `tasks.csv` et le status PEDING (en cours) ou DONE (fait).
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
@@ -339,7 +356,7 @@ def add_task(task):
         repo_id=repo_id,
         repo_type=repo_type,
         path_in_repo="tasks.csv",
-        # Quick and dirty way to add a task
+        # Manière simple et inélégante d'ajouter une tâche
         path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
     )
 
@@ -353,7 +370,7 @@ def mark_as_done(task):
         repo_id=repo_id,
         repo_type=repo_type,
         path_in_repo="tasks.csv",
-        # Quick and dirty way to set the task as DONE
+        # Manière simple et inélégante de marquer une tâche comme DONE
         path_or_fileobj=tasks.replace(
             f"{model_id},{dataset_id},PENDING",
             f"{model_id},{dataset_id},DONE"
