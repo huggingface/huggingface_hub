@@ -2,174 +2,185 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Environment variables
+# Variables d'environnement
 
-`huggingface_hub` can be configured using environment variables.
+`huggingface_hub` peut être configuré en utilisant des variables d'environnement.
 
-If you are unfamiliar with environment variable, here are generic articles about them
-[on macOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
-and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
+Si vous n'êtes pas familier avec le principe de variable d'environnement, voici des
+articles assez générique sur ces dernières [sur macOS et Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
+et sur [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
 
-This page will guide you through all environment variables specific to `huggingface_hub`
-and their meaning.
+Cette page vous guidera à travers toutes les variables d'environnement spécifiques à
+`huggingface_hub` et leur signification.
 
-## Generic
+## Les variables génériques
 
 ### HF_INFERENCE_ENDPOINT
 
-To configure the inference api base url. You might want to set this variable if your organization
-is pointing at an API Gateway rather than directly at the inference api.
+Pour configurer l'url de base de l'api d'inférence, vous aurez peut-être besoin de définir
+cette variable si votre organisation pointe vers un gateway d'API plutôt que directement vers
+l'API d'inférence.
 
-Defaults to `"https://api-inference.huggingface.com"`.
+Par défaut, l'endpoint sera `"https://api-inference.huggingface.com"`.
 
 ### HF_HOME
 
-To configure where `huggingface_hub` will locally store data. In particular, your token
-and the cache will be stored in this folder.
+Pour configurer le chemin vers lequel `huggingface_hub` enregistrera de la donnée par
+défaut. En particulier, votre token d'authentification et le cache seront enregistrés
+dans ce dossier.
 
-Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
+Par défaut, ce chemin sera `"~/.cache/huggingface"` sauf si [XDG_CACHE_HOME](#xdgcachehome)
+est définie.
 
 ### HF_HUB_CACHE
 
-To configure where repositories from the Hub will be cached locally (models, datasets and
-spaces).
+Pour configurer le chemin vers lequels les dépôts du Hub seront mis en cache en local
+(modèles, datasets et espaces).
 
-Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
+Par défaut, ce sera `"$HF_HOME/hub"` (i.e. `"~/.cache/huggingface/hub"` par défaut).
 
 ### HF_ASSETS_CACHE
 
-To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries
-will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
-logs,...
+Pour configurer le chemin vers lequel les [assets](../guides/manage-cache#caching-assets) créés
+par des librairies seront mis en cache en local. Ces assets peuvent être de la donnée pré-traitée,
+des fichiers téléchargés depuis GitHub, des logs,...
 
-Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default).
+Par défaut, le chemin sera `"$HF_HOME/assets"` (i.e. `"~/.cache/huggingface/assets"` par défaut).
 
 ### HF_TOKEN
 
-To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (in `"$HF_HOME/token"`).
+Pour configurer le token d'authentification qui permet de vous authentifier sur le Hub.
+Si définie, cette valeur écrasera le token enregistré sur la machine (dans `"$HF_HOME/token"`).
 
-See [login reference](../package_reference/login) for more details.
+Consultez [la référence aux connexions](../package_reference/login) pour plus de détails.
 
 ### HF_HUB_VERBOSITY
 
-Set the verbosity level of the `huggingface_hub`'s logger. Must be one of
-`{"debug", "info", "warning", "error", "critical"}`.
+Définissez le niveau de verbosité du logger `huggingface_hub`. La variable doit
+être choisie parmi `{"debug", "info", "warning", "error", "critical"}`.
 
-Defaults to `"warning"`.
+Par défaut, la variable sera `"warning"`.
 
-For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
+Pour plus de détails, consultez [la référence aux connexions](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
 ### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
 
-Integer value to define under which size a file is considered as "small". When downloading files to a local directory,
-small files will be duplicated to ease user experience while bigger files are symlinked to save disk usage.
+Valeur entière définissant en dessous de quelle taille un fichier est considéré comme "petit". Lors du téléchargement
+de fichiers vers un chemin local, les petits fichiers seront dupliqués pour faciliter l'expérience utilisateur là où
+les fichiers plus gros n'auront qu'un symlink vers eux pour conserver de l'espace sur le disque.
 
-For more details, see the [download guide](../guides/download#download-files-to-local-folder).
+Pour plus de détails, consultez le [guide de téléchargement](../guides/download#download-files-to-local-folder).
 
 ### HF_HUB_ETAG_TIMEOUT
 
-Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
+Valeur entière définissant le nombre de secondes pendant lesquelles il faut attendre la réponse du serveur lors de l'affichage des dernières metadonnées depuis un dépôt avant de télécharger un fichier. En cas de timeout, alors, par défaut, `huggingface_hub` se limitera aux fichiers en cache en local. Définir une valeur plus faible accélère le workflow pour des machines avec une connexion lente qui ont déjà des fichiers en cache. Une plus grande valeur garanti l'appel aux métadonnées pour réussir dans plus de cas. Par défaut, la valeur est de 10s.
 
 ### HF_HUB_DOWNLOAD_TIMEOUT
 
-Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
+Valeur entière pour définir le nombre de secondes durant lesquelles il faut attendre la réponse du serveur lors du téléchargement d'un fichier. Si la requête tiemout, une TimeoutError sera levée. Définir une valeur grande est bénéfique sur une machine qui a une connexion lente. Une valeur plus faible fait échouer le process plus vite dans le cas d'un réseau complexe. Par défaut, la valeur est de 10s.
 
-## Boolean values
+## Valeures booléennes
 
-The following environment variables expect a boolean value. The variable will be considered
-as `True` if its value is one of `{"1", "ON", "YES", "TRUE"}` (case-insensitive). Any other value
-(or undefined) will be considered as `False`.
+Les variables d'environnement suivantes attendes une valeur booléenne. La variable sera
+considérées comme `True` si sa valeur fait partie de la liste`{"1", "ON", "YES", "TRUE"}`.
+Toute autre valeur (ou undefined) sera considérée comme `False`.
 
 ### HF_HUB_OFFLINE
 
-If set, no HTTP calls will me made when trying to fetch files. Only files that are already
-cached will be accessed. This is useful in case your network is slow and you don't care
-about having absolutely the latest version of a file.
+Si définie, aucun appel HTTP ne sera fait lors de l'ajout de fichiers. Seuls les fichiers
+qui sont déjà en cache seront ajoutés. C'est utile si votre réseau est lent et que vous
+vous en fichez d'avoir absolument la dernière version d'un fichier.
 
-**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers
-a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will
-skip this call which speeds up your loading time.
+**Note:** Même si la dernière version d'un fichier est en cache, l'appel de `hf_hub_download`
+lancera quand même une requête HTTP pour vérifier qu'une nouvelle version est disponible.
+Définir `HF_HUB_OFFLINE=1` évitera cet appel ce qui peut accélérer votre temps de chargement.
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 
-Authentication is not mandatory for every requests to the Hub. For instance, requesting
-details about `"gpt2"` model does not require to be authenticated. However, if a user is
-[logged in](../package_reference/login), the default behavior will be to always send the token
-in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
-disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
-the token will be sent only for "write-access" calls (example: create a commit).
+L'authentification n'est pas obligatoire pour toutes les requêtes vers le Hub. Par
+exemple, demander des détails sur le modèle `"gpt2"` ne demande pas nécessairement
+d'être authentifié. Cependant, si un utilisateur est [connecté](../package_reference/login),
+le comportement par défaut sera de toujours envoyer le token pour faciliter l'expérience
+utilisateur (cela évite d'avoir une erreur 401 Unauthorized) lors de l'accès de dépôt
+privés ou protégé. Vous pouvez supprimer ce comportement en définissant `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`.
+Dans ce cas, le token ne sera envoyé que pour des appels de type "write-access" (par exemple, pour créer un commit).
 
-**Note:** disabling implicit sending of token can have weird side effects. For example,
-if you want to list all models on the Hub, your private models will not be listed. You
-would need to explicitly pass `token=True` argument in your script.
+**Note:** supprimer l'envoi implicit de token peut avoir des effets secondaires bizarres.
+Par exemple, si vous voulez lister tous les modèles sur le Hub, vos modèles privés ne
+seront pas listés. Vous auriez besoin d'un argument explicite `token=True` dans votre
+script.
 
 ### HF_HUB_DISABLE_PROGRESS_BARS
 
-For time consuming tasks, `huggingface_hub` displays a progress bar by default (using tqdm).
-You can disable all the progress bars at once by setting `HF_HUB_DISABLE_PROGRESS_BARS=1`.
+Pour les tâches longues, `huggingface_hub` affiche une bar de chargement par défaut (en utilisant tqdm).
+Vous pouvez désactiver toutes les barres de progression d'un coup en définissant
+`HF_HUB_DISABLE_PROGRESS_BARS=1`.
 
 ### HF_HUB_DISABLE_SYMLINKS_WARNING
 
-If you are on a Windows machine, it is recommended to enable the developer mode or to run
-`huggingface_hub` in admin mode. If not, `huggingface_hub` will not be able to create
-symlinks in your cache system. You will be able to execute any script but your user experience
-will be degraded as some huge files might end-up duplicated on your hard-drive. A warning
-message is triggered to warn you about this behavior. Set `HF_HUB_DISABLE_SYMLINKS_WARNING=1`,
-to disable this warning.
+Si vous avez une machine Windows, il est recommandé d'activer le mode développeur ou de
+faire tourner `huggingface_hub` en mode admin. Sinon, `huggingface_hub` ne ser pas capable
+de créer des symlinks dans votre système de cache. Vous serez capables d'exécuter n'importe
+quel script, mais votre expérience utilisateur sera moins bonne vu que certains gros fichiers
+pourraient être dupliqués sur votre disque dur. Un message d'avertissement vous préviendra
+de ce type de comportement. Définissez `HF_HUB_DISABLE_SYMLINKS_WARNING=1`, pour désactiver
+cet avertissement.
 
-For more details, see [cache limitations](../guides/manage-cache#limitations).
+Pour plus de détails, consultez [les limitations du cache](../guides/manage-cache#limitations).
 
 ### HF_HUB_DISABLE_EXPERIMENTAL_WARNING
 
-Some features of `huggingface_hub` are experimental. This means you can use them but we do not guarantee they will be
-maintained in the future. In particular, we might update the API or behavior of such features without any deprecation
-cycle. A warning message is triggered when using an experimental feature to warn you about it. If you're comfortable debugging any potential issues using an experimental feature, you can set `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` to disable the warning.
+Certaines fonctionnalités de `huggingface_hub` sont expérimentales, cela signfie que vous pouvez les utliiser mais
+nous ne garantissons pas  qu'elles seront maintenues plus tard. En particulier, nous mettrons peut-être à jour les 
+API ou le comportement de telles fonctionnalités sans aucun cycle de deprecation. Un message d'avertissement sera
+affiché lorsque vous utilisez une fonctionnalités expérimentale pour vous l'indiquer. Si vous n'êtes pas dérangé par
+le fait de devoir debug toute erreur potentielle liée à l'usage d'une fonctionnalité expérimentale, vous pouvez
+définir `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` pour désactiver l'avertissement.
 
-If you are using an experimental feature, please let us know! Your feedback can help us design and improve it.
+Si vous utilisez une fonctoinnalité expérimental, faites le nous savoir! Votre retour peut nous aider à l'améliorer.
 
 ### HF_HUB_DISABLE_TELEMETRY
 
-By default, some data is collected by HF libraries (`transformers`, `datasets`, `gradio`,..) to monitor usage, debug issues and help prioritize features.
-Each library defines its own policy (i.e. which usage to monitor) but the core implementation happens in `huggingface_hub` (see [`send_telemetry`]).
+Par défaut, des données sont collectées par les librairies HF (`transformers`, `datasets`, `gradio`,..) pour gérer l'utilisation et les problèmes de débug et pour aider à définir les fonctionnalités prioritaires. Chaque librairie définit sa propre politique (i.e. les cas d'usage sur lesquels les données eront collectées), mais l'implémentation principale se passe dans `huggingface_hub` (consultez [`send_telemetry`]).
 
-You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally disable telemetry.
+Vous pouvez définir `HF_HUB_DISABLE_TELEMETRY=1` en tant que variable d'environnement pour désactiver la télémétrie.
 
 ### HF_HUB_ENABLE_HF_TRANSFER
 
-Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
+Définissez cette valeur à `True` pour des upload et des téléchargements plus rapides depuis le Hub en utilisant `hf_transfer`.
 
-By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions. Although these are reliable and versatile, they may not be the most efficient choice for machines with high bandwidth. [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to maximize the bandwidth used by dividing large files into smaller parts and transferring them simultaneously using multiple threads. This approach can potentially double the transfer speed. To use `hf_transfer`, you need to install it separately [from PyPI](https://pypi.org/project/hf-transfer/) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+Par défaut, `huggingface_hub` utilise les fonctions basées sur Python `requests.get` et `requests.post`. Même si ces fonctions sont fiables et assez versatiles, elle pourrait ne pas être le choix le plus efficace pour les machines avec une bande passante large. [`hf_transfer`](https://github.com/huggingface/hf_transfer) est un package basé sur Rust développé pour maximiser la bande passante utilisée en divisant les gros fichier en des parties plus petites et les transférer toutes simultanément en utilisant plusieurs threads. Cette approche peut potentiellement doubler la vitesse de transfert. Pour utiliser `hf_transfer`, vous devez l'installer séparément [de PyPI](https://pypi.org/project/hf-transfer/) et définir `HF_HUB_ENABLE_HF_TRANSFER=1` en tant que variable d'environnement.
 
-Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
+N'oubliez pas que l'utilisation d'`hf_transfer` a certaines limitations. Vu qu'elle n'est pas purement basé sur Python, le debug d'erreurs peut s'avérer plus compliqué. De plus, `hf_transfer` n'est pas totues les fonctionnalités user-friendly telles que le téléchargement reprenables et les proxys. Ces omissions sont intentionnelles et permettent de maintenir la simplicité et la vitesse de la logique Rust. Par conséquent, `hf_transfer` n'est pas activée par défaut dans `huggingface_hub`.
 
-## Deprecated environment variables
+## Variables d'environnement deprecated
 
-In order to standardize all environment variables within the Hugging Face ecosystem, some variables have been marked as deprecated. Although they remain functional, they no longer take precedence over their replacements. The following table outlines the deprecated variables and their corresponding alternatives:
+Afin de standardiser toutes les variables d'environnement dans l'écosystème Hugging Face, certaines variable ont été marquée comme deprecated. Même si elle fonctionnent toujours, elles ne sont plus prioritaires par rapport à leur remplacements. La table suivante liste les variables d'environnement deprecated et leurs alternatives respectives:
 
 
-| Deprecated Variable | Replacement |
+| Variable deprecated | Alternative |
 | --- | --- |
 | `HUGGINGFACE_HUB_CACHE` | `HF_HUB_CACHE` |
 | `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
 | `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
 | `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
-## From external tools
+## Depuis un outil extérieur
 
-Some environment variables are not specific to `huggingface_hub` but are still taken into account when they are set.
+Certaines variables d'environnement ne sont pas spécifiques à `huggingface_hub` mais sont tout de même prises en compte
+lorsqu'elles sont définies.
 
 ### NO_COLOR
 
-Boolean value. When set, `huggingface-cli` tool will not print any ANSI color.
-See [no-color.org](https://no-color.org/).
+Valeur booléenne, lorsque définie à `True`, l'outil `huggingface-cli` n'affichera
+aucune couleur ANSI.
+Consultez [no-color.org](https://no-color.org/).
 
 ### XDG_CACHE_HOME
 
-Used only when `HF_HOME` is not set!
+Utilisé uniqueemnt si `HF_HOME` n'est pas défini!
 
-This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
-on linux machines. 
+C'est la manière par défaut de configurer l'endroit où [les données en cache non essentielles devraient être écrites](https://wiki.archlinux.org/title/XDG_Base_Directory) sur les machines linux.
 
-If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
-of `"~/.cache/huggingface"`.
+Si `HF_HOME` n'est pas définie, le chemin par défaut sera `"$XDG_CACHE_HOME/huggingface"`
+aulieu de `"~/.cache/huggingface"`.

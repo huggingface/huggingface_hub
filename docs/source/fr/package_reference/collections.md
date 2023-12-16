@@ -2,17 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Managing collections
+# Gérer les collections
 
-Check out the [`HfApi`] documentation page for the reference of methods to manage your Space on the Hub.
+Consultez la page de documentation [`HfApi`] pour les références des méthodes qui vous permettront
+de gérer votre espace sur le Hub.
 
-- Get collection content: [`get_collection`]
-- Create new collection: [`create_collection`]
-- Update a collection: [`update_collection_metadata`]
-- Delete a collection: [`delete_collection`]
-- Add an item to a collection: [`add_collection_item`]
-- Update an item in a collection: [`update_collection_item`]
-- Remove an item from a collection: [`delete_collection_item`]
+- Afficher le contenu d'une collection: [`get_collection`]
+- Créer une nouvelle collection: [`create_collection`]
+- Mettre à jour une collection: [`update_collection_metadata`]
+- Supprimer une collection: [`delete_collection`]
+- Ajouter un item à une collection: [`add_collection_item`]
+- Mettre à jour un item dans une collection: [`update_collection_item`]
+- Supprimer un item d'une collection: [`delete_collection_item`]
 
 
 ### Collection

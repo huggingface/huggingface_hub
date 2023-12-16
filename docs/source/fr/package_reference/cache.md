@@ -2,13 +2,14 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Cache-system reference
+# Référence au système cache
 
-The caching system was updated in v0.8.0 to become the central cache-system shared
-across libraries that depend on the Hub. Read the [cache-system guide](../guides/manage-cache)
-for a detailed presentation of caching at HF.
+Le système de caching a été mis à jour dans la version v0.8.0 pour devenir un système
+cache central et partagé par toutes les librairies dépendant du Hub. Consultez le
+[guide système cache](../guides/manage-cache) pour une présentation détaillée du
+cache à HF.
 
-## Helpers
+## Les Helpers
 
 ### try_to_load_from_cache
 
@@ -22,9 +23,10 @@ for a detailed presentation of caching at HF.
 
 [[autodoc]] huggingface_hub.scan_cache_dir
 
-## Data structures
+## Structures de données
 
-All structures are built and returned by [`scan_cache_dir`] and are immutable.
+Toutes les structures sont construites et retournées par [`scan_cache_dir`]
+et sont immuables.
 
 ### HFCacheInfo
 

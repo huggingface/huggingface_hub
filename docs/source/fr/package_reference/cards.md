@@ -2,28 +2,29 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Repository Cards
+# Cartes de dépôts
 
-The huggingface_hub library provides a Python interface to create, share, and update Model/Dataset Cards. 
-Visit the [dedicated documentation page](https://huggingface.co/docs/hub/models-cards) for a deeper view of what 
-Model Cards on the Hub are, and how they work under the hood. You can also check out our [Model Cards guide](../how-to-model-cards) to 
-get a feel for how you would use these utilities in your own projects.
+La librairie `huggingface_hub` fournit une interface Python pour créer, partager et mettre à jour les
+cartes de modèles ou de dataset. Consultez la [page de documentation dédiée](https://huggingface.co/docs/hub/models-cards)
+Pour une vue plus profonde de ce que son les cartes de modèle sur le Hub et de comment elles fonctionnent
+en arrière plan. Vous pouvez aussi consulter notre [guide de cartes de modèle](../how-to-model-cards)
+pour avoir une intuition de la manière dont vous pourriez les utiliser dans vos projets.
 
-## Repo Card
+## Carte de dépôt
 
-The `RepoCard` object is the parent class of [`ModelCard`], [`DatasetCard`] and `SpaceCard`.
+L'objet `RepoCard` est la classe parent de [`ModelCard`], [`DatasetCard`] et `SpaceCard`.
 
 [[autodoc]] huggingface_hub.repocard.RepoCard
     - __init__
     - all
 
-## Card Data
+## Donnée de cartes
 
-The [`CardData`] object is the parent class of [`ModelCardData`] and [`DatasetCardData`].
+L'objet [`CardData`] est la classe parent de [`ModelCardData`] et [`DatasetCardData`].
 
 [[autodoc]] huggingface_hub.repocard_data.CardData
 
-## Model Cards
+## Cartes de modèles
 
 ### ModelCard
 
@@ -45,7 +46,7 @@ Dataset cards are also known as Data Cards in the ML Community.
 
 [[autodoc]] DatasetCardData
 
-## Space Cards
+## Cartes d'espace
 
 ### SpaceCard
 
