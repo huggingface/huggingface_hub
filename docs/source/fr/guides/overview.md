@@ -2,10 +2,10 @@
 rendered properly in your Markdown viewer.
 -->
 
-# How-to guides
+# Guides conceptuels
 
-In this section, you will find practical guides to help you achieve a specific goal.
-Take a look at these guides to learn how to use huggingface_hub to solve real-world problems:
+Dans cette section, vous trouverez des guides pratiques pour vous aider à accomplir un but spécifique.
+Consultez ces guides pour apprendre à utiliser `huggingface_hub` pour résoudre des problèmes pratiques:
 
 <div class="mt-10">
   <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-3 md:gap-y-4 md:gap-x-5">
@@ -13,36 +13,36 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./repository">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Repository
+        Dépôts
       </div><p class="text-gray-700">
-        How to create a repository on the Hub? How to configure it? How to interact with it?
+        Comment créer un dépôt sur le Hub ? Comment le configurer ? Comment intéragir avec ?
       </p>
     </a>
     
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./download">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Download files
+        Télécharger des fichiers
       </div><p class="text-gray-700">
-        How do I download a file from the Hub? How do I download a repository?
+        Comment télécharger un fichier du Hub? Comment télécharger un dépôt?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./upload">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Upload files
+        Upload des fichiers
       </div><p class="text-gray-700">
-        How to upload a file or a folder? How to make changes to an existing repository on the Hub?
+        Comment upload un fichier ou un dossier? Comment modifier un dépôt existant sur le Hub?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./search">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Search
+        Recherche
       </div><p class="text-gray-700">
-        How to efficiently search through the 200k+ public models, datasets and spaces?
+        Comment faire une recherche efficace parmi les plus de 200 000 modèles, datasets et espaces?
       </p>
     </a>
 
@@ -51,16 +51,16 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         HfFileSystem
       </div><p class="text-gray-700">
-        How to interact with the Hub through a convenient interface that mimics Python's file interface?
+        Comment intéragir avec le Hub à travers une interface pratique qui colle parfaitement à l'interface fichier de Python?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./inference">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Inference
+        Inférence
       </div><p class="text-gray-700">
-        How to make predictions using the accelerated Inference API?
+        Comment faire des prédictions en utilisant l'API d'inférence accélérée?
       </p>
     </a>
 
@@ -69,7 +69,7 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Community Tab
       </div><p class="text-gray-700">
-        How to interact with the Community tab (Discussions and Pull Requests)?
+        Comment intéragir avec la communauté (discussions et pull requests)?
       </p>
     </a>
 
@@ -78,7 +78,7 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Collections
       </div><p class="text-gray-700">
-        How to programmatically build collections?
+        Comment construire des collections depuis le code?
       </p>
     </a>
 
@@ -87,43 +87,43 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Cache
       </div><p class="text-gray-700">
-        How does the cache-system work? How to benefit from it?
+        Comment le système cache fonctionne? Comment l'utiliser à son avantage?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./model-cards">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Model Cards
+        Carte de modèle
       </div><p class="text-gray-700">
-        How to create and share Model Cards?
+        Comment créer et partager une carte de modèle?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./manage-spaces">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Manage your Space
+        Gérez votre espace
       </div><p class="text-gray-700">
-        How to manage your Space hardware and configuration?
+        Comment gérer le hardware d'un espace et sa configuration?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./integrations">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Integrate a library
+        Intégrez une librairie
       </div><p class="text-gray-700">
-        What does it mean to integrate a library with the Hub? And how to do it?
+        Que signifie intégrer une librairie avec le Hub? Et comment le faire?
       </p>
     </a>
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./webhooks_server">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Webhooks server
+        Serveurs WebHooks
       </div><p class="text-gray-700">
-        How to create a server to receive Webhooks and deploy it as a Space?
+        Comment créer un serveur pour recevoir des webhooks et le dépployer en tant qu'espace?
       </p>
     </a>
 

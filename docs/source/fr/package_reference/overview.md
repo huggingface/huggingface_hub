@@ -2,6 +2,6 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Overview
+# Vue d'ensemble
 
-This section contains an exhaustive and technical description of `huggingface_hub` classes and methods.
+Cette section contiens une description technique et exhaustive des classes `huggingface_hub` et des méthodes.
