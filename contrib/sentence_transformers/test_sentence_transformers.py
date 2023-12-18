@@ -1,5 +1,9 @@
+import time
+
 import pytest
 from sentence_transformers import SentenceTransformer, util
+
+from huggingface_hub import model_info
 
 from ..utils import production_endpoint
 
@@ -22,6 +26,12 @@ def test_from_pretrained(multi_qa_model: SentenceTransformer) -> None:
     print("Similarity:", util.dot_score(query_embedding, passage_embedding))
 
 
-@pytest.mark.xfail(reason="Production endpoint is hardcoded in sentence_transformers when pushing to Hub.")
-def test_push_to_hub(multi_qa_model: SentenceTransformer, repo_name: str, cleanup_repo: None) -> None:
-    multi_qa_model.save_to_hub(repo_name)
+def test_push_to_hub(multi_qa_model: SentenceTransformer, repo_name: str, user: str, cleanup_repo: None) -> None:
+    multi_qa_model.save_to_hub(repo_name, organization=user)
+
+    # Sleep to ensure that model_info isn't called too soon
+    time.sleep(1)
+
+    # Check model has been pushed properly
+    model_id = f"{user}/{repo_name}"
+    assert model_info(model_id).library_name == "sentence-transformers"
