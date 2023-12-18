@@ -2,13 +2,13 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Mixins & serialization methods
+# Mixins & méthodes de sérialisation
 
 ## Mixins
 
-The `huggingface_hub` library offers a range of mixins that can be used as a parent class for your objects, in order to
-provide simple uploading and downloading functions. Check out our [integration guide](../guides/integrations) to learn
-how to integrate any ML framework with the Hub.
+La librairie `huggingface_hub` offre une liste de mixins qui peuvent être utilisés en tant que classes parentes pour vos
+objets, afin d'avoir des fonctions upload et de téléchargements simples. Consultez notre [guide d'intégration](../guides/integrations)
+pour apprendre à intégrer n'importe quel framework ML avec le Hub.
 
 ### Generic
 

@@ -4,9 +4,8 @@ rendered properly in your Markdown viewer.
 
 # Login and logout
 
-The `huggingface_hub` library allows users to programmatically login and logout the
-machine to the Hub.
-
+La librairie `huggingface_hub` permet aux utilisateur de se connecter et déconnecter
+votre machine au Hub par le code.
 ## login
 
 [[autodoc]] login

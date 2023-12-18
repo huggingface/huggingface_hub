@@ -2,17 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# TensorBoard logger
+# Logger TensorBoard
 
-TensorBoard is a visualization toolkit for machine learning experimentation. TensorBoard allows tracking and visualizing
-metrics such as loss and accuracy, visualizing the model graph, viewing histograms, displaying images and much more.
-TensorBoard is well integrated with the Hugging Face Hub. The Hub automatically detects TensorBoard traces (such as
-`tfevents`) when pushed to the Hub which starts an instance to visualize them. To get more information about TensorBoard
-integration on the Hub, check out [this guide](https://huggingface.co/docs/hub/tensorboard).
+TensorBoard est un kit d'outils pour l'expérimentation avec les outils de machine learning. TensorBoard permet de traquer
+et de visualiser les métriques telles que la fonction de perte la précision, visualiser le graphe, visualisers des
+histogrammes, afficher des images et bien plus. TensorBoard est bien intégré avec le Hub Hugging Face. Le Hub détecte
+automatiquement les traces de Tensorboard (telles que `tfevents`) lors d'un push vers le Hub qui lance une instance
+pour les visualiser. Pour avoir plus d'informations sur l'intégration de TensorBoard avec le Hub, consultez [ce guide](https://huggingface.co/docs/hub/tensorboard).
 
-To benefit from this integration, `huggingface_hub` provides a custom logger to push logs to the Hub. It works as a
-drop-in replacement for [SummaryWriter](https://tensorboardx.readthedocs.io/en/latest/tensorboard.html) with no extra
-code needed. Traces are still saved locally and a background job push them to the Hub at regular interval.
+Pour bénéficier de cette intégration, `huggingface_hub` fournit un logger personnalisé pour push les logs vers le Hub.
+Il fonctionne comme un remplacement de [SummaryWriter](https://tensorboardx.readthedocs.io/en/latest/tensorboard.html)
+avec aucun code supplémentaire nécessaire. Les traces sont toujours enregistrées en local et sont push vers le Hub
+à des intervalles réguliers en arrière plan.
 
 ## HFSummaryWriter
 

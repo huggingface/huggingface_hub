@@ -4,25 +4,26 @@ rendered properly in your Markdown viewer.
 
 # HfApi Client
 
-Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face Hub's API.
+Ci dessous la documentation pour la classe `HfApi`, qui sert de wrapper Python pour l'API Hugging Face Hub.
 
-All methods from the `HfApi` are also accessible from the package's root directly. Both approaches are detailed below.
+Toutes les méthodes de `HfApi` sont aussi accessibles depuis la racine du package directement. Les deux approches sont détaillées ci-dessous.
 
-Using the root method is more straightforward but the [`HfApi`] class gives you more flexibility.
-In particular, you can pass a token that will be reused in all HTTP calls. This is different
-than `huggingface-cli login` or [`login`] as the token is not persisted on the machine.
-It is also possible to provide a different endpoint or configure a custom user-agent.
+Utiliser la méthode du chemin racine est plus direct mais la classe [`HfApi`] donne plus de flexibilité.
+En particulier,  vous pouvez mettre un token qui va être réutilisé dans tous les appels HTTP. C'est
+différent de la commande `huggingface-cli login` ou [`login`] vu que le token n'est pas enregistré
+sur la machine. Il est aussi possible de fournir un endpoint différent ou de configurer un user-agent
+personnalisé.
 
 ```python
 from huggingface_hub import HfApi, list_models
 
-# Use root method
+# Utilisez la méthode du chemin racine
 models = list_models()
 
-# Or configure a HfApi client
+# Ou configurez le client HfApi
 hf_api = HfApi(
-    endpoint="https://huggingface.co", # Can be a Private Hub endpoint.
-    token="hf_xxx", # Token is not persisted on the machine.
+    endpoint="https://huggingface.co", # Vous pouvez mettre un endpoint de Hub privéC.
+    token="hf_xxx", # Le token n'est pas sauvegardé sur la machine.
 )
 models = hf_api.list_models()
 ```
@@ -97,7 +98,7 @@ models = hf_api.list_models()
 
 ## CommitOperation
 
-Below are the supported values for [`CommitOperation`]:
+Ci dessous les valeurs supportés pour [`CommitOperation`]:
 
 [[autodoc]] CommitOperationAdd
 
@@ -111,16 +112,18 @@ Below are the supported values for [`CommitOperation`]:
 
 ## Token helper
 
-`huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
-methods.
+`huggingface_hub` garde en mémoire l'information d'authentification en local pour qu'il puisse être réutilisé
+dans les méthodes suivantes.
 
-It does this using the [`HfFolder`] utility, which saves data at the root of the user.
+La librairie fait ceci en utilisant l'utilitaire [`HfFolder`], qui sauvegarde de la donnée
+à la racine de l'utilisateur.
 
 [[autodoc]] HfFolder
 
 ## Search helpers
 
-Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
+Certains helpers pour filtrer les dépôts sur le Hub sont disponibles dans le package
+`huggingface_hub`.
 
 ### DatasetFilter
 

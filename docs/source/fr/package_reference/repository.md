@@ -4,11 +4,11 @@ rendered properly in your Markdown viewer.
 
 # Managing local and online repositories
 
-The `Repository` class is a helper class that wraps `git` and `git-lfs` commands. It provides tooling adapted
-for managing repositories which can be very large.
+La classe `Repository` est un helper autour des commandes `git` et `git-lfs`. Elle offre des outils adaptés
+à la gestion de dépôts qui peuvent être très volumineux. 
 
-It is the recommended tool as soon as any `git` operation is involved, or when collaboration will be a point
-of focus with the repository itself.
+C'est l'outil recommandé dès que des opérations avec `git` sont faites, ou lorsque la collaboration sera un point
+clef du dépôt.
 
 ## The Repository class
 
@@ -33,15 +33,15 @@ of focus with the repository itself.
 
 [[autodoc]] huggingface_hub.repository.commits_to_push
 
-## Following asynchronous commands
+## Commandes asynchrones
 
-The `Repository` utility offers several methods which can be launched asynchronously:
+L'utilitaire `Repository` offre plusieurs méthodes qui peuvent tourner en asynchrone:
 - `git_push`
 - `git_pull`
 - `push_to_hub`
-- The `commit` context manager
+- Le manager de contexte `commit`
 
-See below for utilities to manage such asynchronous methods.
+Regardez ci-dessous les utilities pour gérer ce genre de méthodes asynchrones.
 
 [[autodoc]] Repository
     - commands_failed

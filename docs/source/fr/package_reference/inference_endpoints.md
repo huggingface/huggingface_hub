@@ -1,6 +1,6 @@
 # Inference Endpoints
 
-Inferrence Endpoints est une solution permettant de déployer facilement les modèles en production sur une infrastructure gérée par Hugging Face et capable d'autoscaling . Un Inference Endpoint peut être crée sur un modèle depuis le [Hub](https://huggingface.co/models). Cette page est
+Inference Endpoints est une solution permettant de déployer facilement les modèles en production sur une infrastructure gérée par Hugging Face et capable d'autoscaling . Un Inference Endpoint peut être crée sur un modèle depuis le [Hub](https://huggingface.co/models). Cette page est
 une référence pour l'intégration d'`huggingface_hub` avec Inference Endpoints. Pour plus d'informations à propos du produit Inference Endpoints, consultez la [documentation officielle](https://huggingface.co/docs/inference-endpoints/index).
 
 <Tip>

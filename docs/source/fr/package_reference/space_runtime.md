@@ -2,17 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Managing your Space runtime
+# Gérez votre temps d'exécution de votre espace
 
-Check the [`HfApi`] documentation page for the reference of methods to manage your Space on the Hub.
+Consultez la page de documentation d'[`HfApi`] pour les références des méthodes pour gérer votre espace
+sur le Hub.
 
-- Duplicate a Space: [`duplicate_space`]
-- Fetch current runtime: [`get_space_runtime`]
-- Manage secrets: [`add_space_secret`] and [`delete_space_secret`]
-- Manage hardware: [`request_space_hardware`]
-- Manage state: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
+- Dupliquer un espace: [`duplicate_space`]
+- Afficher les temps de calcul actuels: [`get_space_runtime`]
+- Gérer les secrets: [`add_space_secret`] et [`delete_space_secret`]
+- Gérer le hardware: [`request_space_hardware`]
+- Gérer l'état: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
 
-## Data structures
+## Structures de données
 
 ### SpaceRuntime
 
