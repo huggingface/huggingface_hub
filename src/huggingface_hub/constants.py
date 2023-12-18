@@ -115,7 +115,11 @@ HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
 # Opt-out from telemetry requests
-HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") or os.environ.get("DISABLE_TELEMETRY"))
+HF_HUB_DISABLE_TELEMETRY = (
+    _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable
+    or _is_true(os.environ.get("DISABLE_TELEMETRY"))
+    or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
+)
 
 # In the past, token was stored in a hardcoded location
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
