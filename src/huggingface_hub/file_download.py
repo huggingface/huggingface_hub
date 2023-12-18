@@ -1417,6 +1417,8 @@ def hf_hub_download(
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
             # Even if returning early like here, the lock will be released.
+            if local_dir is not None:
+                return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
             return pointer_path
 
         if resume_download:
