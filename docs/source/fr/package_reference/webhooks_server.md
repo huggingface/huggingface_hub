@@ -2,32 +2,36 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Webhooks Server
+# Serveurs WebHooks
 
-Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
-all repos belonging to particular users/organizations you're interested in following. To learn
-more about webhooks on the Huggingface Hub, you can read the Webhooks [guide](https://huggingface.co/docs/hub/webhooks).
+Les webhooks sont un pilier des fonctionnalités autour du MLOps. Ils vous permettent de suivre tous les nouveaux
+changements sur des dépôts spécifiques ou sur tous les dépôts appartenants à des utilisateurs/organisations que
+vous voulez suivre. Pour en apprendre plus sur les webhooks dans le Hub Huggingface, vous pouvez consulter
+le [guide](https://huggingface.co/docs/hub/webhooks) consacré aux webhooks. 
 
 <Tip>
 
-Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your webhooks server and
-deploy it as a Space.
+Consultez ce [guide](../guides/webhooks_server) pour un tutoriel pas à pas sur comment mettre en place votre serveur
+webhooks et le déployer en tant qu'espace.
 
 </Tip>
 
 <Tip warning={true}>
 
-This is an experimental feature. This means that we are still working on improving the API. Breaking changes might be
-introduced in the future without prior notice. Make sure to pin the version of `huggingface_hub` in your requirements.
-A warning is triggered when you use an experimental feature. You can disable it by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as an environment variable.
+Ceci est une fonctionnalité expérimentale, ce qui signifie que nous travaillons toujours sur l'amélioration de l'API.
+De gros changements pourraient être introduit dans le futur sans avertissement préalable. Faites en sorte
+d'épingler la version d'`huggingface_hub` dans le requirements. Un avertissement est affiché lorsque vous utilisez
+des fonctionnalités expérimentales. Vous pouvez le supprimer en définissant la variable d'environnement
+`HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1`.
 
 </Tip>
 
-## Server
+## Serveur
 
-The server is a [Gradio](https://gradio.app/) app. It has a UI to display instructions for you or your users and an API
-to listen to webhooks. Implementing a webhook endpoint is as simple as decorating a function. You can then debug it
-by redirecting the Webhooks to your machine (using a Gradio tunnel) before deploying it to a Space.
+Le serveur est une application [Gradio](https://gradio.app/). Il possède une interface pour afficher des instructions pour vous
+ou vos utilisateurs et une API pour écouter les webhooks. Implémenter un endpoint de webhook est aussi simple que d'ajouter
+un décorateur à une fonction. Vous pouvez ensuite le debugger en redirigeant le webhook vers votre machine (en utilisant
+un tunnel Gradio) avant de le déployer sur un espace.
 
 ### WebhooksServer
 
@@ -39,11 +43,12 @@ by redirecting the Webhooks to your machine (using a Gradio tunnel) before deplo
 
 ## Payload
 
-[`WebhookPayload`] is the main data structure that contains the payload from Webhooks. This is
-a `pydantic` class which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it
-will be automatically validated and parsed as a Python object.
+[`WebhookPayload`] est la structure de donnée principale qui contient le payload de webhooks.
+C'est une classe `pydantic` ce qui la rend très facile à utiliser avec FastAPI. Si vous la
+passez en tant que paramètre d'un endpoint webhook, il sera automatiquement validé et parsé en tant qu'objet Python.
 
-For more information about webhooks payload, you can refer to the Webhooks Payload [guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
+Pour plus d'informations sur les payload webhooks, vous pouvez vous référer au [guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
+sur les payloads webhooks
 
 [[autodoc]] huggingface_hub.WebhookPayload
 
