@@ -241,7 +241,7 @@ def snapshot_download(
             raise LocalEntryNotFoundError(
                 "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
                 "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
-                "'HF_HUB_OFFLINE' as environment variable."
+                "'HF_HUB_OFFLINE=0' as environment variable."
             ) from api_call_error
         elif isinstance(api_call_error, RepositoryNotFoundError) or isinstance(api_call_error, GatedRepoError):
             # Repo not found => let's raise the actual error
