@@ -97,7 +97,7 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
 ## Authentication
 
-In many cases, you must be logged in with a Hugging Face account to interact with the Hub. Refer to the [Login](../quick-start#login) section of the documentation to learn more about authentication methods on the Hub. 
+In many cases, you must be logged in with a Hugging Face account to interact with the Hub. Refer to the [Authentication](../quick-start#authentication) section of the documentation to learn more about authentication methods on the Hub.
 
 It is also possible to login programmatically by passing your `token` as an argument to [`HfFileSystem`]:
 

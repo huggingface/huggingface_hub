@@ -27,8 +27,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .[dev]
-      - run: black --check tests src contrib
-      - run: ruff tests src contrib
+      - run: ruff check tests src contrib # linter
+      - run: ruff format --check tests src contrib # formatter
       - run: python utils/check_contrib_list.py
       - run: python utils/check_static_imports.py
       - run: python utils/generate_async_inference_client.py

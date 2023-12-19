@@ -16,6 +16,7 @@
 import importlib.metadata
 import platform
 import sys
+import warnings
 from typing import Any, Dict
 
 from .. import __version__, constants
@@ -165,7 +166,27 @@ def get_pillow_version() -> str:
 
 # Pydantic
 def is_pydantic_available() -> bool:
-    return _is_available("pydantic")
+    if not _is_available("pydantic"):
+        return False
+    # For Pydantic, we add an extra check to test whether it is correctly installed or not. If both pydantic 2.x and
+    # typing_extensions<=4.5.0 are installed, then pydantic will fail at import time. This should not happen when
+    # it is installed with `pip install huggingface_hub[inference]` but it can happen when it is installed manually
+    # by the user in an environment that we don't control.
+    #
+    # Usually we won't need to do this kind of check on optional dependencies. However, pydantic is a special case
+    # as it is automatically imported when doing `from huggingface_hub import ...` even if the user doesn't use it.
+    #
+    # See https://github.com/huggingface/huggingface_hub/pull/1829 for more details.
+    try:
+        from pydantic import validator  # noqa: F401
+    except ImportError:
+        # Example: "ImportError: cannot import name 'TypeAliasType' from 'typing_extensions'"
+        warnings.warn(
+            "Pydantic is installed but cannot be imported. Please check your installation. `huggingface_hub` will "
+            "default to not using Pydantic. Error message: '{e}'"
+        )
+        return False
+    return True
 
 
 def get_pydantic_version() -> str:
@@ -252,10 +273,10 @@ def dump_environment_info() -> Dict[str, Any]:
     - `diffusers` (https://github.com/huggingface/diffusers/blob/main/src/diffusers/commands/env.py)
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
-    from huggingface_hub import HfFolder, whoami
+    from huggingface_hub import get_token, whoami
     from huggingface_hub.utils import list_credential_helpers
 
-    token = HfFolder().get_token()
+    token = get_token()
 
     # Generic machine info
     info: Dict[str, Any] = {
@@ -275,7 +296,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Running in Google Colab ?"] = "Yes" if is_google_colab() else "No"
 
     # Login info
-    info["Token path ?"] = HfFolder().path_token
+    info["Token path ?"] = constants.HF_TOKEN_PATH
     info["Has saved token ?"] = token is not None
     if token is not None:
         try:
@@ -305,8 +326,8 @@ def dump_environment_info() -> Dict[str, Any]:
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
-    info["HUGGINGFACE_HUB_CACHE"] = constants.HUGGINGFACE_HUB_CACHE
-    info["HUGGINGFACE_ASSETS_CACHE"] = constants.HUGGINGFACE_ASSETS_CACHE
+    info["HF_HUB_CACHE"] = constants.HF_HUB_CACHE
+    info["HF_ASSETS_CACHE"] = constants.HF_ASSETS_CACHE
     info["HF_TOKEN_PATH"] = constants.HF_TOKEN_PATH
     info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
     info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY

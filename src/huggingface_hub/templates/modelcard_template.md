@@ -24,7 +24,7 @@
 - **Model type:** {{ model_type | default("[More Information Needed]", true)}}
 - **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
 - **License:** {{ license | default("[More Information Needed]", true)}}
-- **Finetuned from model [optional]:** {{ finetuned_from | default("[More Information Needed]", true)}}
+- **Finetuned from model [optional]:** {{ base_model | default("[More Information Needed]", true)}}
 
 ### Model Sources [optional]
 
@@ -145,7 +145,7 @@ Use the code below to get started with the model.
 
 Carbon emissions can be estimated using the [Machine Learning Impact calculator](https://mlco2.github.io/impact#compute) presented in [Lacoste et al. (2019)](https://arxiv.org/abs/1910.09700).
 
-- **Hardware Type:** {{ hardware | default("[More Information Needed]", true)}}
+- **Hardware Type:** {{ hardware_type | default("[More Information Needed]", true)}}
 - **Hours used:** {{ hours_used | default("[More Information Needed]", true)}}
 - **Cloud Provider:** {{ cloud_provider | default("[More Information Needed]", true)}}
 - **Compute Region:** {{ cloud_region | default("[More Information Needed]", true)}}
@@ -163,7 +163,7 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 
 #### Hardware
 
-{{ hardware | default("[More Information Needed]", true)}}
+{{ hardware_requirements | default("[More Information Needed]", true)}}
 
 #### Software
 

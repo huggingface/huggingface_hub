@@ -8,8 +8,9 @@ from tqdm.contrib.concurrent import thread_map
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REVISION,
+    HF_HUB_CACHE,
     HF_HUB_ENABLE_HF_TRANSFER,
-    HUGGINGFACE_HUB_CACHE,
+    HF_HUB_OFFLINE,
     REPO_TYPES,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
@@ -27,7 +28,6 @@ def snapshot_download(
     *,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -44,6 +44,7 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[base_tqdm] = None,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Download repo files.
 
@@ -79,9 +80,6 @@ def snapshot_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         local_dir (`str` or `Path`, *optional*):
@@ -147,7 +145,7 @@ def snapshot_download(
     </Tip>
     """
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if revision is None:
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
@@ -164,7 +162,7 @@ def snapshot_download(
     # appropriate folder in the cache
     # If the specified revision is a commit hash, look inside "snapshots".
     # If the specified revision is a branch or tag, look inside "refs".
-    if local_files_only:
+    if local_files_only or HF_HUB_OFFLINE:
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
@@ -189,6 +187,7 @@ def snapshot_download(
     api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint)
     repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+    assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
 
     filtered_repo_files = list(
         filter_repo_objects(

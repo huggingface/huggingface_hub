@@ -41,6 +41,7 @@ from huggingface_hub.file_download import (
     _create_symlink,
     _get_pointer_path,
     _normalize_etag,
+    _request_wrapper,
     _to_local_dir,
     cached_download,
     filename_to_url,
@@ -387,6 +388,50 @@ class CachedDownloadTests(unittest.TestCase):
                     local_files_only=True,
                     cache_dir=cache_dir,
                 )
+
+    def test_hf_hub_download_with_user_agent(self):
+        """
+        Check that user agent is correctly sent to the HEAD call when downloading a file.
+
+        Regression test for #1854.
+        See https://github.com/huggingface/huggingface_hub/pull/1854.
+        """
+
+        def _check_user_agent(headers: dict):
+            assert "user-agent" in headers
+            assert "test/1.0.0" in headers["user-agent"]
+            assert "foo/bar" in headers["user-agent"]
+
+        with SoftTemporaryDirectory() as cache_dir:
+            with patch("huggingface_hub.file_download._request_wrapper", wraps=_request_wrapper) as mock_request:
+                # First download
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=cache_dir,
+                    library_name="test",
+                    library_version="1.0.0",
+                    user_agent="foo/bar",
+                )
+                calls = mock_request.call_args_list
+                assert len(calls) == 3  # HEAD, HEAD, GET
+                for call in calls:
+                    _check_user_agent(call.kwargs["headers"])
+
+            with patch("huggingface_hub.file_download._request_wrapper", wraps=_request_wrapper) as mock_request:
+                # Second download: no GET call
+                hf_hub_download(
+                    DUMMY_MODEL_ID,
+                    filename=CONFIG_NAME,
+                    cache_dir=cache_dir,
+                    library_name="test",
+                    library_version="1.0.0",
+                    user_agent="foo/bar",
+                )
+                calls = mock_request.call_args_list
+                assert len(calls) == 2  # HEAD, HEAD
+                for call in calls:
+                    _check_user_agent(call.kwargs["headers"])
 
     def test_hf_hub_url_with_empty_subfolder(self):
         """

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, FrozenSet, List, Literal, Optional, Set, Union
 
-from ..constants import HUGGINGFACE_HUB_CACHE
+from ..constants import HF_HUB_CACHE
 from . import logging
 
 
@@ -580,21 +580,18 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     Returns: a [`~HFCacheInfo`] object.
     """
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
 
     cache_dir = Path(cache_dir).expanduser().resolve()
     if not cache_dir.exists():
         raise CacheNotFound(
-            f"Cache directory not found: {cache_dir}. Please use `cache_dir`"
-            " argument or set `HUGGINGFACE_HUB_CACHE` environment variable.",
+            f"Cache directory not found: {cache_dir}. Please use `cache_dir` argument or set `HF_HUB_CACHE` environment variable.",
             cache_dir=cache_dir,
         )
 
     if cache_dir.is_file():
         raise ValueError(
-            f"Scan cache expects a directory but found a file: {cache_dir}. Please use"
-            " `cache_dir` argument or set `HUGGINGFACE_HUB_CACHE` environment"
-            " variable."
+            f"Scan cache expects a directory but found a file: {cache_dir}. Please use `cache_dir` argument or set `HF_HUB_CACHE` environment variable."
         )
 
     repos: Set[CachedRepoInfo] = set()

@@ -22,7 +22,7 @@
 # - added default values for all parameters (not needed in BaseModel but dataclasses yes)
 # - integrated in `huggingface_hub.InferenceClient``
 # - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
-
+import warnings
 from dataclasses import field
 from enum import Enum
 from typing import List, NoReturn, Optional
@@ -33,8 +33,21 @@ from ..utils import is_pydantic_available
 
 
 if is_pydantic_available():
-    from pydantic import validator
+    from pydantic import validator as pydantic_validator
     from pydantic.dataclasses import dataclass
+
+    def validator(*args, **kwargs):
+        # Pydantic v1's `@validator` is deprecated in favor of `@field_validator`. In order to support both pydantic v1
+        # and v2 without changing the logic, we catch the warning message in pydantic v2 and ignore it. If we want to
+        # support pydantic v3 in the future, we will drop support for pydantic v1 and use `pydantic.field_validator`
+        # correctly.
+        #
+        # Related:
+        # - https://docs.pydantic.dev/latest/migration/#changes-to-validators
+        # - https://github.com/huggingface/huggingface_hub/pull/1837
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Pydantic V1 style `@validator` validators are deprecated.")
+            return pydantic_validator(*args, **kwargs)
 else:
     # No validation if Pydantic is not installed
     from dataclasses import dataclass  # type: ignore
@@ -214,6 +227,12 @@ class TextGenerationRequest:
             raise ValueError("`best_of` != 1 is not supported when `stream` == True")
         return field_value
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if self.parameters is not None and isinstance(self.parameters, dict):
+                self.parameters = TextGenerationParameters(**self.parameters)
+
 
 # Decoder input tokens
 @dataclass
@@ -312,6 +331,15 @@ class BestOfSequence:
     # Generated tokens
     tokens: List[Token] = field(default_factory=lambda: [])
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            self.prefill = [
+                InputToken(**input_token) if isinstance(input_token, dict) else input_token
+                for input_token in self.prefill
+            ]
+            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+
 
 # `generate` details
 @dataclass
@@ -347,6 +375,20 @@ class Details:
     # Additional sequences when using the `best_of` parameter
     best_of_sequences: Optional[List[BestOfSequence]] = None
 
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            self.prefill = [
+                InputToken(**input_token) if isinstance(input_token, dict) else input_token
+                for input_token in self.prefill
+            ]
+            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+            if self.best_of_sequences is not None:
+                self.best_of_sequences = [
+                    BestOfSequence(**best_of_sequence) if isinstance(best_of_sequence, dict) else best_of_sequence
+                    for best_of_sequence in self.best_of_sequences
+                ]
+
 
 # `generate` return value
 @dataclass
@@ -367,6 +409,12 @@ class TextGenerationResponse:
     generated_text: str
     # Generation details
     details: Optional[Details] = None
+
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if self.details is not None and isinstance(self.details, dict):
+                self.details = Details(**self.details)
 
 
 # `generate_stream` details
@@ -417,6 +465,14 @@ class TextGenerationStreamResponse:
     # Generation details
     # Only available when the generation is finished
     details: Optional[StreamDetails] = None
+
+    def __post_init__(self):
+        if not is_pydantic_available():
+            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
+            if isinstance(self.token, dict):
+                self.token = Token(**self.token)
+            if self.details is not None and isinstance(self.details, dict):
+                self.details = StreamDetails(**self.details)
 
 
 # TEXT GENERATION ERRORS

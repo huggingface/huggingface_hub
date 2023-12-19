@@ -11,31 +11,7 @@ Sharing your files and work is an important aspect of the Hub. The `huggingface_
 - with the `commit` context manager.
 - with the [`~Repository.push_to_hub`] function.
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
-
-- Log in to your Hugging Face account with the following command:
-
-  ```bash
-  huggingface-cli login
-  # or using an environment variable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
-  ```
-
-- Alternatively, you can programmatically login using [`login`] in a notebook or a script:
-
-  ```python
-  >>> from huggingface_hub import login
-  >>> login()
-  ```
-
-  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
-  which you can enter your Hugging Face access token. Otherwise, a message will be
-  prompted in the terminal.
-
-  It is also possible to login programmatically without the widget by directly passing
-  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
-  best practice to load the token from a secure vault instead of saving it in plain in
-  your Colaboratory notebook.
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
 
 ## Upload a file
 
@@ -73,12 +49,11 @@ folder to. Depending on your repository type, you can optionally set the reposit
 ... )
 ```
 
-Use the `allow_patterns` and `ignore_patterns` arguments to specify which files to upload. These parameters accept either a single pattern or a list of patterns.
-Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm).
-If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply. By default, all files from the folder are uploaded.
+By default, the `.gitignore` file will be taken into account to know which files should be committed or not. By default we check if a `.gitignore` file is present in a commit, and if not, we check if it exists on the Hub. Please be aware that only a `.gitignore` file present at the root of the directory with be used. We do not check for `.gitignore` files in subdirectories.
 
-Any `.git/` folder present in any subdirectory will be ignored. However, please be aware that the `.gitignore` file is not taken into account.
-This means you must use `allow_patterns` and `ignore_patterns` to specify which files to upload instead.
+If you don't want to use an hardcoded `.gitignore` file, you can use the `allow_patterns` and `ignore_patterns` arguments to filter which files to upload. These parameters accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply.
+
+Beside the `.gitignore` file and allow/ignore patterns, any `.git/` folder present in any subdirectory will be ignored.
 
 ```py
 >>> api.upload_folder(
@@ -108,8 +83,7 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 
 ## Upload from the CLI
 
-You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally
-it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
+You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
 
 You can either upload a single file or an entire folder:
 
@@ -127,38 +101,7 @@ check if a local folder or file has the same name as the `repo_id`. If that's th
 Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
 set, files are uploaded at the root of the repo.
 
-```bash
-# Upload file at root
-huggingface-cli upload my-cool-model model.safetensors
-
-# Upload directory at root
-huggingface-cli upload my-cool-model ./models
-
-# Upload `my-cool-model/` directory if it exist, raise otherwise
-huggingface-cli upload my-cool-model
-```
-
-By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly,
-use the `--token` option:
-
-```bash
-huggingface-cli upload my-cool-model --token=hf_****
-```
-
-When uploading a folder, you can use the `--include` and `--exclude` arguments to filter the files to upload. You can
-also use `--delete` to delete existing files on the Hub.
-
-```bash
-# Sync local Space with Hub (upload new files except from logs/, delete removed files)
-huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
-```
-
-Finally, you can also schedule a job that will upload your files regularly (see [scheduled uploads](#scheduled-uploads)).
-
-```bash
-# Upload new logs every 10 minutes
-huggingface-cli upload training-model logs/ --every=10
-```
+For more details about the CLI upload command, please refer to the [CLI guide](./cli#huggingface-cli-upload).
 
 ## Advanced features
 
@@ -492,8 +435,13 @@ be re-uploaded twice but checking it client-side can still save some time.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up
 uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
 by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
-Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like progress
-bars or advanced error handling. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like advanced error handling or proxies. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+
+<Tip>
+
+Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster uploads.
+
+</Tip>
 
 ## (legacy) Upload files with Git LFS
 

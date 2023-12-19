@@ -39,7 +39,7 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
-# Max is 1,000 per request on the Hub for HfApi.list_files_info
+# Max is 1,000 per request on the Hub for HfApi.get_paths_info
 # Otherwise we get:
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
@@ -137,13 +137,19 @@ class CommitOperationAdd:
     upload_info: UploadInfo = field(init=False, repr=False)
 
     # Internal attributes
-    _upload_mode: Optional[UploadMode] = field(
-        init=False, repr=False, default=None
-    )  # set to "lfs" or "regular" once known
-    _is_uploaded: bool = field(
-        init=False, repr=False, default=False
-    )  # set to True once the file has been uploaded as LFS
-    _is_committed: bool = field(init=False, repr=False, default=False)  # set to True once the file has been committed
+
+    # set to "lfs" or "regular" once known
+    _upload_mode: Optional[UploadMode] = field(init=False, repr=False, default=None)
+
+    # set to True if .gitignore rules prevent the file from being uploaded as LFS
+    # (server-side check)
+    _should_ignore: Optional[bool] = field(init=False, repr=False, default=None)
+
+    # set to True once the file has been uploaded as LFS
+    _is_uploaded: bool = field(init=False, repr=False, default=False)
+
+    # set to True once the file has been committed
+    _is_committed: bool = field(init=False, repr=False, default=False)
 
     def __post_init__(self) -> None:
         """Validates `path_or_fileobj` and compute `upload_info`."""
@@ -314,6 +320,7 @@ def _upload_lfs_files(
     token: Optional[str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
+    revision: Optional[str] = None,
 ):
     """
     Uploads the content of `additions` to the Hub using the large file storage protocol.
@@ -333,7 +340,8 @@ def _upload_lfs_files(
             An authentication token ( See https://huggingface.co/settings/tokens )
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
-
+        revision (`str`, *optional*):
+            The git revision to upload to.
 
     Raises: `RuntimeError` if an upload failed for any reason
 
@@ -353,6 +361,7 @@ def _upload_lfs_files(
             token=token,
             repo_id=repo_id,
             repo_type=repo_type,
+            revision=revision,
             endpoint=endpoint,
         )
 
@@ -436,6 +445,7 @@ def _fetch_upload_modes(
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
+    gitignore_content: Optional[str] = None,
 ) -> None:
     """
     Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob
@@ -454,7 +464,11 @@ def _fetch_upload_modes(
             An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
-
+        gitignore_content (`str`, *optional*):
+            The content of the `.gitignore` file to know which files should be ignored. The order of priority
+            is to first check if `gitignore_content` is passed, then check if the `.gitignore` file is present
+            in the list of files to commit and finally default to the `.gitignore` file already hosted on the Hub
+            (if any).
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.
@@ -466,8 +480,10 @@ def _fetch_upload_modes(
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}
+    should_ignore_info: Dict[str, bool] = {}
+
     for chunk in chunk_iterable(additions, 256):
-        payload = {
+        payload: Dict = {
             "files": [
                 {
                     "path": op.path_in_repo,
@@ -478,6 +494,8 @@ def _fetch_upload_modes(
                 for op in chunk
             ]
         }
+        if gitignore_content is not None:
+            payload["gitIgnore"] = gitignore_content
 
         resp = get_session().post(
             f"{endpoint}/api/{repo_type}s/{repo_id}/preupload/{revision}",
@@ -488,10 +506,12 @@ def _fetch_upload_modes(
         hf_raise_for_status(resp)
         preupload_info = _validate_preupload_info(resp.json())
         upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
+        should_ignore_info.update(**{file["path"]: file["shouldIgnore"] for file in preupload_info["files"]})
 
     # Set upload mode for each addition operation
     for addition in additions:
         addition._upload_mode = upload_modes[addition.path_in_repo]
+        addition._should_ignore = should_ignore_info[addition.path_in_repo]
 
     # Empty files cannot be uploaded as LFS (S3 would fail with a 501 Not Implemented)
     # => empty files are uploaded as "regular" to still allow users to commit them.
@@ -535,7 +555,7 @@ def _fetch_lfs_files_to_copy(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    from .hf_api import HfApi
+    from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, token=token)
     files_to_copy = {}
@@ -543,13 +563,15 @@ def _fetch_lfs_files_to_copy(
         operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
         for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
-            src_repo_files = hf_api.list_files_info(
+            src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
                 paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
             for src_repo_file in src_repo_files:
+                if isinstance(src_repo_file, RepoFolder):
+                    raise NotImplementedError("Copying a folder is not implemented.")
                 if not src_repo_file.lfs:
                     raise NotImplementedError("Copying a non-LFS file is not implemented")
                 files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
@@ -587,8 +609,16 @@ def _prepare_commit_payload(
         header_value["parentCommit"] = parent_commit
     yield {"key": "header", "value": header_value}
 
+    nb_ignored_files = 0
+
     # 2. Send operations, one per line
     for operation in operations:
+        # Skip ignored files
+        if isinstance(operation, CommitOperationAdd) and operation._should_ignore:
+            logger.debug(f"Skipping file '{operation.path_in_repo}' in commit (ignored by gitignore file).")
+            nb_ignored_files += 1
+            continue
+
         # 2.a. Case adding a regular file
         if isinstance(operation, CommitOperationAdd) and operation._upload_mode == "regular":
             yield {
@@ -635,3 +665,6 @@ def _prepare_commit_payload(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"
                 f" {getattr(operation, '_upload_mode', None)}"
             )
+
+    if nb_ignored_files > 0:
+        logger.info(f"Skipped {nb_ignored_files} file(s) in commit (ignored by gitignore file).")

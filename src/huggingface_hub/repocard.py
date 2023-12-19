@@ -1,5 +1,6 @@
 import os
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Type, Union
 
@@ -21,7 +22,6 @@ from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
 from .utils import EntryNotFoundError, SoftTemporaryDirectory, validate_hf_hub_args
-from .utils.logging import get_logger
 
 
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
@@ -30,8 +30,6 @@ TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_t
 # exact same regex as in the Hub server. Please keep in sync.
 # See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
 REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
-
-logger = get_logger(__name__)
 
 
 class RepoCard:
@@ -104,7 +102,7 @@ class RepoCard:
                 raise ValueError("repo card metadata block should be a dict")
         else:
             # Model card without metadata... create empty metadata
-            logger.warning("Repo card metadata block was not found. Setting CardData to empty.")
+            warnings.warn("Repo card metadata block was not found. Setting CardData to empty.")
             data_dict = {}
             self.text = content
 

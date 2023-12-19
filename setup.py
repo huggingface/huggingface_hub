@@ -30,7 +30,12 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
-    "pydantic>1.1,<3.0",  # match text-generation-inference v1.1.0
+    # On Python 3.8, Pydantic 2.x and tensorflow don't play well together
+    # Let's limit pydantic to 1.x for now. Since Tensorflow 2.14, Python3.8 is not supported anyway so impact should be
+    # limited. We still trigger some CIs on Python 3.8 so we need this workaround.
+    # NOTE: when relaxing constraint to support v3.x, make sure to adapt `src/huggingface_hub/inference/_text_generation.py`.
+    "pydantic>1.1,<3.0; python_version>'3.8'",
+    "pydantic>1.1,<2.0; python_version=='3.8'",
 ]
 
 extras["torch"] = [
@@ -58,6 +63,7 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
+        "pytest-rerunfailures",  # to rerun flaky tests in CI
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
@@ -76,12 +82,10 @@ extras["typing"] = [
     "types-toml",
     "types-tqdm",
     "types-urllib3",
-    "pydantic>1.1,<3.0",  # for text-generation-interface dataclasses
 ]
 
 extras["quality"] = [
-    "black==23.7",
-    "ruff>=0.0.241",
+    "ruff>=0.1.3",
     "mypy==1.5.1",
 ]
 
@@ -90,7 +94,8 @@ extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 extras["dev"] = extras["all"]
 
 extras["docs"] = extras["all"] + [
-    "hf-doc-builder",
+    # CI builds documentation using doc builder from source
+    "hf-doc-builder @ git+https://github.com/huggingface/doc-builder@main",
     "watchdog",
 ]
 

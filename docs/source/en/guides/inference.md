@@ -97,7 +97,7 @@ code as before, changing only the `model` parameter:
 
 Calls made with the [`InferenceClient`] can be authenticated using a [User Access Token](https://huggingface.co/docs/hub/security-tokens).
 By default, it will use the token saved on your machine if you are logged in (check out
-[how to login](https://huggingface.co/docs/huggingface_hub/quick-start#login)). If you are not logged in, you can pass
+[how to authenticate](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)). If you are not logged in, you can pass
 your token as an instance parameter:
 
 ```python

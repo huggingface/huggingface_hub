@@ -1,5 +1,6 @@
 import copy
 import fnmatch
+import inspect
 import io
 import json
 import os
@@ -13,7 +14,6 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
-from hashlib import sha256
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
@@ -28,16 +28,19 @@ from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
+    DOWNLOAD_CHUNK_SIZE,
     ENDPOINT,
+    HF_HUB_CACHE,
     HF_HUB_DISABLE_SYMLINKS_WARNING,
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HF_HUB_ETAG_TIMEOUT,
+    HF_TRANSFER_CONCURRENCY,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
     HUGGINGFACE_HEADER_X_LINKED_SIZE,
     HUGGINGFACE_HEADER_X_REPO_COMMIT,
-    HUGGINGFACE_HUB_CACHE,
+    HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
     REPO_ID_SEPARATOR,
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
@@ -47,6 +50,7 @@ from .utils import (
     FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
+    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SoftTemporaryDirectory,
@@ -72,9 +76,11 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_method
 from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
+from .utils.insecure_hashlib import sha256
 
 
 logger = logging.get_logger(__name__)
@@ -100,7 +106,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     """
     # Defaults to HF cache
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
     # Check symlink compatibility only once (per cache directory) at first time use
@@ -205,9 +211,6 @@ def hf_hub_url(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
 
     Example:
 
@@ -324,7 +327,7 @@ def filename_to_url(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -344,6 +347,7 @@ def filename_to_url(
     return url, etag
 
 
+@_deprecate_method(version="0.22.0", message="Use `huggingface_hub.utils.build_hf_headers` instead.")
 def http_user_agent(
     *,
     library_name: Optional[str] = None,
@@ -358,28 +362,11 @@ def http_user_agent(
     )
 
 
-class OfflineModeIsEnabled(ConnectionError):
-    pass
-
-
-def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
-    """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if
-    HF_HUB_OFFLINE is True."""
-    if constants.HF_HUB_OFFLINE:
-        raise OfflineModeIsEnabled(
-            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
-        )
-
-
 def _request_wrapper(
     method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
 ) -> requests.Response:
-    """Wrapper around requests methods to add several features.
-
-    What it does:
-    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1). If enabled, a
-       `OfflineModeIsEnabled` exception is raised.
-    2. Follow relative redirects if `follow_relative_redirects=True` even when `allow_redirection=False`.
+    """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
+    `allow_redirection=False`.
 
     Args:
         method (`str`):
@@ -393,10 +380,7 @@ def _request_wrapper(
         **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
-    # 1. Check online mode
-    _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
-
-    # 2. Force relative redirection
+    # Recursively follow relative redirects
     if follow_relative_redirects:
         response = _request_wrapper(
             method=method,
@@ -441,31 +425,23 @@ def http_get(
 
     If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
     transient error (network outage?). We log a warning message and try to resume the download a few times before
-    giving up.
+    giving up. The method gives up after 5 attempts if no new data has being received from the server.
     """
-    if not resume_size:
-        if HF_HUB_ENABLE_HF_TRANSFER:
+    hf_transfer = None
+    if HF_HUB_ENABLE_HF_TRANSFER:
+        if resume_size != 0:
+            warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
+        elif proxies is not None:
+            warnings.warn("'hf_transfer' does not support `proxies`: falling back to regular download method")
+        else:
             try:
-                # Download file using an external Rust-based package. Download is faster
-                # (~2x speed-up) but support less features (no progress bars).
-                from hf_transfer import download
-
-                logger.debug(f"Download {url} using HF_TRANSFER.")
-                max_files = 100
-                chunk_size = 10 * 1024 * 1024  # 10 MB
-                download(url, temp_file.name, max_files, chunk_size, headers=headers)
-                return
+                import hf_transfer  # type: ignore[no-redef]
             except ImportError:
                 raise ValueError(
                     "Fast download using 'hf_transfer' is enabled"
                     " (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is not"
                     " available in your environment. Try `pip install hf_transfer`."
                 )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
 
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
@@ -494,51 +470,90 @@ def http_get(
     if len(displayed_name) > 40:
         displayed_name = f"(…){displayed_name[-40:]}"
 
+    consistency_error_message = (
+        f"Consistency check failed: file should be of size {expected_size} but has size"
+        f" {{actual_size}} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+        " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
+        " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+    )
+
     # Stream file to buffer
-    progress = tqdm(
+    with tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=resume_size,
         desc=displayed_name,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
-    )
-    try:
+    ) as progress:
+        if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
+            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+            if not supports_callback:
+                warnings.warn(
+                    "You are using an outdated version of `hf_transfer`. "
+                    "Consider upgrading to latest version to enable progress bars "
+                    "using `pip install -U hf_transfer`."
+                )
+            try:
+                hf_transfer.download(
+                    url=url,
+                    filename=temp_file.name,
+                    max_files=HF_TRANSFER_CONCURRENCY,
+                    chunk_size=DOWNLOAD_CHUNK_SIZE,
+                    headers=headers,
+                    parallel_failures=3,
+                    max_retries=5,
+                    **({"callback": progress.update} if supports_callback else {}),
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+            if not supports_callback:
+                progress.update(total)
+            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
+                raise EnvironmentError(
+                    consistency_error_message.format(
+                        actual_size=os.path.getsize(temp_file.name),
+                    )
+                )
+            return
         new_resume_size = resume_size
-        for chunk in r.iter_content(chunk_size=10 * 1024 * 1024):
-            if chunk:  # filter out keep-alive new chunks
-                progress.update(len(chunk))
-                temp_file.write(chunk)
-                new_resume_size += len(chunk)
-    except (requests.ConnectionError, requests.ReadTimeout) as e:
-        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-        # a transient error (network outage?). We log a warning message and try to resume the download a few times
-        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-        if _nb_retries <= 0:
-            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-            raise
-        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-        time.sleep(1)
-        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-        return http_get(
-            url=url,
-            temp_file=temp_file,
-            proxies=proxies,
-            resume_size=new_resume_size,
-            headers=initial_headers,
-            expected_size=expected_size,
-            _nb_retries=_nb_retries - 1,
-        )
+        try:
+            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                if chunk:  # filter out keep-alive new chunks
+                    progress.update(len(chunk))
+                    temp_file.write(chunk)
+                    new_resume_size += len(chunk)
+                    # Some data has been downloaded from the server so we reset the number of retries.
+                    _nb_retries = 5
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+            # a transient error (network outage?). We log a warning message and try to resume the download a few times
+            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                proxies=proxies,
+                resume_size=new_resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                _nb_retries=_nb_retries - 1,
+            )
 
-    if expected_size is not None and expected_size != temp_file.tell():
-        raise EnvironmentError(
-            f"Consistency check failed: file should be of size {expected_size} but has size"
-            f" {temp_file.tell()} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
-            " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
-            " know by opening an issue on https://github.com/huggingface/huggingface_hub."
-        )
-
-    progress.close()
+        if expected_size is not None and expected_size != temp_file.tell():
+            raise EnvironmentError(
+                consistency_error_message.format(
+                    actual_size=temp_file.tell(),
+                )
+            )
 
 
 @validate_hf_hub_args
@@ -644,7 +659,7 @@ def cached_download(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -870,10 +885,11 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     abs_src = os.path.abspath(os.path.expanduser(src))
     abs_dst = os.path.abspath(os.path.expanduser(dst))
+    abs_dst_folder = os.path.dirname(abs_dst)
 
     # Use relative_dst in priority
     try:
-        relative_src = os.path.relpath(abs_src, os.path.dirname(abs_dst))
+        relative_src = os.path.relpath(abs_src, abs_dst_folder)
     except ValueError:
         # Raised on Windows if src and dst are not on the same volume. This is the case when creating a symlink to a
         # local_dir instead of within the cache directory.
@@ -881,38 +897,45 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         relative_src = None
 
     try:
-        try:
-            commonpath = os.path.commonpath([abs_src, abs_dst])
-            _support_symlinks = are_symlinks_supported(os.path.dirname(commonpath))
-        except ValueError:
-            # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
-            # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
-            _support_symlinks = os.name != "nt"
+        commonpath = os.path.commonpath([abs_src, abs_dst])
+        _support_symlinks = are_symlinks_supported(commonpath)
+    except ValueError:
+        # Raised if src and dst are not on the same volume. Symlinks will still work on Linux/Macos.
+        # See https://docs.python.org/3/library/os.path.html#os.path.commonpath
+        _support_symlinks = os.name != "nt"
     except PermissionError:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
-        _support_symlinks = are_symlinks_supported(os.path.dirname(abs_dst))
+        _support_symlinks = are_symlinks_supported(abs_dst_folder)
 
+    # Symlinks are supported => let's create a symlink.
     if _support_symlinks:
         src_rel_or_abs = relative_src or abs_src
         logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
             os.symlink(src_rel_or_abs, abs_dst)
+            return
         except FileExistsError:
             if os.path.islink(abs_dst) and os.path.realpath(abs_dst) == os.path.realpath(abs_src):
                 # `abs_dst` already exists and is a symlink to the `abs_src` blob. It is most likely that the file has
                 # been cached twice concurrently (exactly between `os.remove` and `os.symlink`). Do nothing.
-                pass
+                return
             else:
                 # Very unlikely to happen. Means a file `dst` has been created exactly between `os.remove` and
                 # `os.symlink` and is not a symlink to the `abs_src` blob file. Raise exception.
                 raise
-    elif new_blob:
+        except PermissionError:
+            # Permission error means src and dst are not in the same volume (e.g. download to local dir) and symlink
+            # is supported on both volumes but not between them. Let's just make a hard copy in that case.
+            pass
+
+    # Symlinks are not supported => let's move or copy the file.
+    if new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(src, dst)
+        shutil.move(abs_src, abs_dst)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
-        shutil.copyfile(src, dst)
+        shutil.copyfile(abs_src, abs_dst)
 
 
 def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
@@ -975,7 +998,6 @@ def hf_hub_download(
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -990,6 +1012,7 @@ def hf_hub_download(
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
+    endpoint: Optional[str] = None,
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 
@@ -1049,9 +1072,6 @@ def hf_hub_download(
         revision (`str`, *optional*):
             An optional Git revision id which can be a branch name, a tag, or a
             commit hash.
-        endpoint (`str`, *optional*):
-            Hugging Face Hub base url. Will default to https://huggingface.co/. Otherwise, one can set the `HF_ENDPOINT`
-            environment variable.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -1157,7 +1177,7 @@ def hf_hub_download(
         )
 
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
     if revision is None:
         revision = DEFAULT_REVISION
     if isinstance(cache_dir, Path):
@@ -1220,6 +1240,9 @@ def hf_hub_download(
                     token=token,
                     proxies=proxies,
                     timeout=etag_timeout,
+                    library_name=library_name,
+                    library_version=library_version,
+                    user_agent=user_agent,
                 )
             except EntryNotFoundError as http_error:
                 # Cache the non-existence of the file and raise
@@ -1524,7 +1547,7 @@ def try_to_load_from_cache(
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
     if cache_dir is None:
-        cache_dir = HUGGINGFACE_HUB_CACHE
+        cache_dir = HF_HUB_CACHE
 
     object_id = repo_id.replace("/", "--")
     repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
@@ -1566,6 +1589,9 @@ def get_hf_file_metadata(
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
     timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    user_agent: Union[Dict, str, None] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1583,12 +1609,20 @@ def get_hf_file_metadata(
             `requests.request`.
         timeout (`float`, *optional*, defaults to 10):
             How many seconds to wait for the server to send metadata before giving up.
+        library_name (`str`, *optional*):
+            The name of the library to which the object corresponds.
+        library_version (`str`, *optional*):
+            The version of the library.
+        user_agent (`dict`, `str`, *optional*):
+            The user-agent info in the form of a dictionary or a string.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
-    headers = build_hf_headers(token=token)
+    headers = build_hf_headers(
+        token=token, library_name=library_name, library_version=library_version, user_agent=user_agent
+    )
     headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
@@ -1606,12 +1640,9 @@ def get_hf_file_metadata(
     # Return
     return HfFileMetadata(
         commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
-        etag=_normalize_etag(
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG)
-            or r.headers.get("ETag")
-        ),
+        # We favor a custom header indicating the etag of the linked resource, and
+        # we fallback to the regular etag header.
+        etag=_normalize_etag(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.

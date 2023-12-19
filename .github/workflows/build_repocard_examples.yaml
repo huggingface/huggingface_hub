@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
+  HF_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
 
 jobs:
   build:

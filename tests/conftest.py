@@ -1,19 +1,14 @@
 import os
 import shutil
-import time
-from functools import wraps
 from pathlib import Path
-from typing import Generator, List
+from typing import Generator
 
 import pytest
 from _pytest.fixtures import SubRequest
-from _pytest.python import Function as PytestFunction
-from requests.exceptions import HTTPError
 
 import huggingface_hub
-from huggingface_hub import HfApi, HfFolder
+from huggingface_hub import HfApi
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
-from huggingface_hub.utils._typing import CallableT
 
 from .testing_constants import ENDPOINT_PRODUCTION, PRODUCTION_TOKEN
 from .testing_utils import repo_name, set_write_permission_and_retry
@@ -44,23 +39,6 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
         shutil.rmtree(cache_dir, onerror=set_write_permission_and_retry)
 
 
-@pytest.fixture(autouse=True, scope="session")
-def clean_hf_folder_token_for_tests() -> Generator:
-    """Clean token stored on machine before all tests and reset it back at the end.
-
-    Useful to avoid token deletion when running tests locally.
-    """
-    # Remove registered token
-    token = HfFolder().get_token()
-    HfFolder().delete_token()
-
-    yield  # Run all tests
-
-    # Set back token once all tests have passed
-    if token is not None:
-        HfFolder().save_token(token)
-
-
 @pytest.fixture(autouse=True)
 def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeSymlinkDict(dict):
@@ -81,58 +59,6 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def disable_experimental_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_DISABLE_EXPERIMENTAL_WARNING", True)
-
-
-def retry_on_transient_error(fn: CallableT) -> CallableT:
-    """
-    Retry test if failure because of unavailable service, bad gateway or race condition.
-
-    Tests are retried up to 3 times, waiting 5s between each try.
-    """
-    NUMBER_OF_TRIES = 3
-    WAIT_TIME = 5
-    HTTP_ERRORS = (502, 504)  # 502 Bad gateway (repo creation) or 504 Gateway timeout
-
-    @wraps(fn)
-    def _inner(*args, **kwargs):
-        retry_count = 0
-        while True:
-            try:
-                return fn(*args, **kwargs)
-            except HTTPError as e:
-                if retry_count >= NUMBER_OF_TRIES:
-                    raise
-                if e.response.status_code in HTTP_ERRORS:
-                    logger.info(
-                        f"Attempt {retry_count} failed with a {e.response.status_code} error. Retrying new execution"
-                        f" in {WAIT_TIME} second(s)..."
-                    )
-                else:
-                    raise
-            except OSError:
-                if retry_count >= NUMBER_OF_TRIES:
-                    raise
-                logger.info(
-                    "Race condition met where we tried to `clone` before fully deleting a repository. Retrying new"
-                    f" execution in {WAIT_TIME} second(s)..."
-                )
-            time.sleep(WAIT_TIME)
-            retry_count += 1
-
-    return _inner
-
-
-def pytest_collection_modifyitems(items: List[PytestFunction]):
-    """Alter all tests to retry on transient errors.
-
-    Note: equivalent to the previously used `@retry_endpoint` decorator, but tests do
-          not have to be decorated individually anymore.
-    """
-    # called after collection is completed
-    # you can modify the ``items`` list
-    # see https://docs.pytest.org/en/7.3.x/how-to/writing_hook_functions.html
-    for item in items:
-        item.obj = retry_on_transient_error(item.obj)
 
 
 @pytest.fixture

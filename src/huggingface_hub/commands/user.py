@@ -29,11 +29,11 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     NOTEBOOK_LOGIN_PASSWORD_HTML,
     NOTEBOOK_LOGIN_TOKEN_HTML_END,
     NOTEBOOK_LOGIN_TOKEN_HTML_START,
+    get_token,
     login,
     logout,
     notebook_login,
 )
-from ..utils import HfFolder
 from ._cli_utils import ANSI
 
 
@@ -58,10 +58,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
         # new system: git-based repo system
-        repo_parser = parser.add_parser(
-            "repo",
-            help="{create, ls-files} Commands to interact with your huggingface.co repos.",
-        )
+        repo_parser = parser.add_parser("repo", help="{create} Commands to interact with your huggingface.co repos.")
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
         repo_create_parser = repo_subparsers.add_parser("create", help="Create a new repo on huggingface.co")
         repo_create_parser.add_argument(
@@ -108,7 +105,7 @@ class LogoutCommand(BaseUserCommand):
 
 class WhoamiCommand(BaseUserCommand):
     def run(self):
-        token = HfFolder.get_token()
+        token = get_token()
         if token is None:
             print("Not logged in")
             exit()
@@ -129,7 +126,7 @@ class WhoamiCommand(BaseUserCommand):
 
 class RepoCreateCommand(BaseUserCommand):
     def run(self):
-        token = HfFolder.get_token()
+        token = get_token()
         if token is None:
             print("Not logged in")
             exit(1)

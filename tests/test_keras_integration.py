@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import unittest
 from pathlib import Path
 
@@ -13,25 +12,14 @@ from huggingface_hub.keras_mixin import (
     push_to_hub_keras,
     save_pretrained_keras,
 )
-from huggingface_hub.utils import (
-    is_graphviz_available,
-    is_pydot_available,
-    is_tf_available,
-    logging,
-)
+from huggingface_hub.utils import is_graphviz_available, is_pydot_available, is_tf_available, logging
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import (
-    repo_name,
-)
+from .testing_utils import repo_name
 
 
 logger = logging.get_logger(__name__)
 
-WORKING_REPO_SUBDIR = f"fixtures/working_repo_{__name__.split('.')[-1]}"
-WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), WORKING_REPO_SUBDIR)
-
-PUSH_TO_HUB_KERAS_WARNING_REGEX = re.escape("Deprecated argument(s) used in 'push_to_hub_keras':")
 
 if is_tf_available():
     import tensorflow as tf
@@ -259,8 +247,9 @@ class HubKerasSequentialTest(CommonKerasTest):
         push_to_hub_keras(model, repo_id=repo_id, token=TOKEN, api_endpoint=ENDPOINT_STAGING)
         model_info = self._api.model_info(repo_id)
         self.assertEqual(model_info.modelId, repo_id)
-        self.assertTrue("README.md" in [f.rfilename for f in model_info.siblings])
-        self.assertTrue("model.png" in [f.rfilename for f in model_info.siblings])
+        repo_files = self._api.list_repo_files(repo_id)
+        self.assertIn("README.md", repo_files)
+        self.assertIn("model.png", repo_files)
         self._api.delete_repo(repo_id=repo_id)
 
     def test_push_to_hub_keras_sequential_via_http_plot_false(self):
@@ -269,8 +258,8 @@ class HubKerasSequentialTest(CommonKerasTest):
         model = self.model_fit(model)
 
         push_to_hub_keras(model, repo_id=repo_id, token=TOKEN, api_endpoint=ENDPOINT_STAGING, plot_model=False)
-        model_info = self._api.model_info(repo_id)
-        self.assertFalse("model.png" in [f.rfilename for f in model_info.siblings])
+        repo_files = self._api.list_repo_files(repo_id)
+        self.assertNotIn("model.png", repo_files)
         self._api.delete_repo(repo_id=repo_id)
 
     def test_push_to_hub_keras_via_http_override_tensorboard(self):

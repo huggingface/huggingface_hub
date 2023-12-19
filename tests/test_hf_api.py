@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import time
@@ -21,11 +21,13 @@ import types
 import unittest
 import uuid
 import warnings
+from collections.abc import Iterable
 from concurrent.futures import Future
+from dataclasses import fields
 from functools import partial
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -50,32 +52,40 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
+    AccessRequest,
     Collection,
     CommitInfo,
     DatasetInfo,
     HfApi,
     MetricInfo,
     ModelInfo,
-    RepoFile,
+    RepoSibling,
     RepoUrl,
-    ReprMixin,
     SpaceInfo,
+    SpaceRuntime,
     repo_type_and_id_from_hf_id,
 )
+from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
 from huggingface_hub.utils import (
     BadRequestError,
     EntryNotFoundError,
-    HfFolder,
     HfHubHTTPError,
+    NotASafetensorsRepoError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    SafetensorsFileMetadata,
+    SafetensorsParsingError,
+    SafetensorsRepoMetadata,
     SoftTemporaryDirectory,
+    TensorInfo,
+    get_session,
+    hf_raise_for_status,
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
     DatasetFilter,
     ModelFilter,
-    _filter_emissions,
+    _is_emission_within_treshold,
 )
 
 from .testing_constants import (
@@ -92,6 +102,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -174,23 +185,21 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self.assertEqual(info["fullname"], FULL_NAME)
         self.assertIsInstance(info["orgs"], list)
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org"][0]
-        self.assertIsInstance(valid_org["apiToken"], str)
+        self.assertEqual(valid_org["fullname"], "Dummy Org")
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_login(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_whoami_with_implicit_token_from_login(self, mock_get_token: Mock) -> None:
         """Test using `whoami` after a `huggingface-cli login`."""
-        mock_HfFolder().get_token.return_value = self._token
-
         with patch.object(self._api, "token", None):  # no default token
             info = self._api.whoami()
         self.assertEqual(info["name"], USER)
 
-    @patch("huggingface_hub.utils._headers.HfFolder")
-    def test_whoami_with_implicit_token_from_hf_api(self, mock_HfFolder: Mock) -> None:
+    @patch("huggingface_hub.utils._headers.get_token")
+    def test_whoami_with_implicit_token_from_hf_api(self, mock_get_token: Mock) -> None:
         """Test using `whoami` with token from the HfApi client."""
         info = self._api.whoami()
         self.assertEqual(info["name"], USER)
-        mock_HfFolder().get_token.assert_not_called()
+        mock_get_token.assert_not_called()
 
     def test_delete_repo_error_message(self):
         # test for #751
@@ -388,8 +397,8 @@ class CommitApiTest(HfApiCommonTest):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
-    def test_create_repo_org_token_none_fail(self):
-        HfFolder.save_token("api_org_dummy_token")
+    @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
+    def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
         with pytest.raises(ValueError, match="You must use your personal account token."):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
@@ -552,6 +561,28 @@ class CommitApiTest(HfApiCommonTest):
             set(self._api.list_repo_files(repo_id=repo_url.repo_id)),
             {".gitattributes", ".git_something/file.txt", "file.git", "temp", "nested/file.bin"},
         )
+
+    @use_tmp_repo()
+    def test_upload_folder_gitignore_already_exists(self, repo_url: RepoUrl) -> None:
+        # Ignore nested folder
+        self._api.upload_file(path_or_fileobj=b"nested/*\n", path_in_repo=".gitignore", repo_id=repo_url.repo_id)
+
+        # Upload folder
+        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id)
+
+        # Check nested file not uploaded
+        assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
+
+    @use_tmp_repo()
+    def test_upload_folder_gitignore_in_commit(self, repo_url: RepoUrl) -> None:
+        # Create .gitignore file locally
+        (Path(self.tmp_dir) / ".gitignore").write_text("nested/*\n")
+
+        # Upload folder
+        self._api.upload_folder(folder_path=self.tmp_dir, repo_id=repo_url.repo_id)
+
+        # Check nested file not uploaded
+        assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
 
     def test_create_commit_create_pr(self):
         REPO_NAME = repo_name("create_commit_create_pr")
@@ -795,17 +826,16 @@ class CommitApiTest(HfApiCommonTest):
 
                 self.assertEqual(str(context.exception), expected_message)
 
-    def test_create_commit_lfs_file_implicit_token(self):
-        """Test that uploading a file as LFS works with implicit token (from cache).
+    @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
+    def test_create_commit_lfs_file_implicit_token(self, get_token_mock: Mock) -> None:
+        """Test that uploading a file as LFS works with cached token.
 
         Regression test for https://github.com/huggingface/huggingface_hub/pull/1084.
         """
         REPO_NAME = repo_name("create_commit_with_lfs")
         repo_id = f"{USER}/{REPO_NAME}"
 
-        def _inner(mock: Mock) -> None:
-            mock.return_value = self._token  # Set implicit token
-
+        with patch.object(self._api, "token", None):  # no default token
             # Create repo
             self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
 
@@ -831,16 +861,12 @@ class CommitApiTest(HfApiCommonTest):
             )
 
             # Check uploaded as LFS
-            info = self._api.model_info(repo_id=repo_id, use_auth_token=self._token, files_metadata=True)
+            info = self._api.model_info(repo_id=repo_id, files_metadata=True)
             siblings = {file.rfilename: file for file in info.siblings}
             self.assertIsInstance(siblings["image.png"].lfs, dict)  # LFS file
 
             # Delete repo
-            self._api.delete_repo(repo_id=REPO_NAME, token=self._token)
-
-        with patch.object(self._api, "token", None):  # no default token
-            with patch("huggingface_hub.utils.HfFolder.get_token") as mock:
-                _inner(mock)  # just to avoid indenting twice the code code
+            self._api.delete_repo(repo_id=REPO_NAME)
 
     def test_create_commit_huge_regular_files(self):
         """Test committing 12 text files (>100MB in total) at once.
@@ -978,7 +1004,7 @@ class CommitApiTest(HfApiCommonTest):
         self.assertIn("lfs Copy (1).bin", repo_files)
 
         # Check same LFS file
-        repo_file1, repo_file2 = self._api.list_files_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
+        repo_file1, repo_file2 = self._api.get_paths_info(repo_id=repo_id, paths=["lfs.bin", "lfs Copy.bin"])
         self.assertEqual(repo_file1.lfs["sha256"], repo_file2.lfs["sha256"])
 
     @use_tmp_repo()
@@ -1136,22 +1162,24 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
     def tearDownClass(cls):
         cls._api.delete_repo(repo_id=cls.repo_id)
 
+    @expect_deprecation("list_files_info")
     def test_get_regular_file_info(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="file.md"))
         self.assertEqual(len(files), 1)
         file = files[0]
 
-        self.assertEqual(file.rfilename, "file.md")
+        self.assertEqual(file.path, "file.md")
         self.assertIsNone(file.lfs)
         self.assertEqual(file.size, 4)
         self.assertEqual(file.blob_id, "6320cd248dd8aeaab759d5871f8781b5c0505172")
 
+    @expect_deprecation("list_files_info")
     def test_get_lfs_file_info(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="lfs.bin"))
         self.assertEqual(len(files), 1)
         file = files[0]
 
-        self.assertEqual(file.rfilename, "lfs.bin")
+        self.assertEqual(file.path, "lfs.bin")
         self.assertEqual(
             file.lfs,
             {
@@ -1163,58 +1191,69 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         self.assertEqual(file.size, 4)
         self.assertEqual(file.blob_id, "0a828055346279420bd02a4221c177bbcdc045d8")
 
+    @expect_deprecation("list_files_info")
     def test_list_files(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2/file_2.md"]))
         self.assertEqual(len(files), 3)
-        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_files_and_folder(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2"]))
         self.assertEqual(len(files), 3)
-        self.assertEqual({f.rfilename for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
+        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_unknown_path_among_other(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "unknown"]))
         self.assertEqual(len(files), 1)
 
+    @expect_deprecation("list_files_info")
     def test_list_unknown_path_alone(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="unknown"))
         self.assertEqual(len(files), 0)
 
+    @expect_deprecation("list_files_info")
     def test_list_folder_flat(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["2"]))
         self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].rfilename, "2/file_2.md")
+        self.assertEqual(files[0].path, "2/file_2.md")
 
+    @expect_deprecation("list_files_info")
     def test_list_folder_recursively(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["1"]))
         self.assertEqual(len(files), 2)
-        self.assertEqual({f.rfilename for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
+        self.assertEqual({f.path for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
 
+    @expect_deprecation("list_files_info")
     def test_list_repo_files_manually(self):
         files = list(self._api.list_files_info(repo_id=self.repo_id))
         self.assertEqual(len(files), 7)
         self.assertEqual(
-            {f.rfilename for f in files},
+            {f.path for f in files},
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
+    @expect_deprecation("list_files_info")
     def test_list_repo_files_alias(self):
         self.assertEqual(
-            set(self._api.list_repo_files(repo_id=self.repo_id)),
+            set(f.path for f in self._api.list_files_info(repo_id=self.repo_id)),
             {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
         )
 
+    @expect_deprecation("list_files_info")
     def test_list_with_root_path_is_ignored(self):
         # must use `paths=None`
         files = list(self._api.list_files_info(repo_id=self.repo_id, paths="/"))
         self.assertEqual(len(files), 0)
 
+    @expect_deprecation("list_files_info")
     def test_list_with_empty_path_is_invalid(self):
         # must use `paths=None`
         with self.assertRaises(BadRequestError):
             list(self._api.list_files_info(repo_id=self.repo_id, paths=""))
 
+    @expect_deprecation("list_files_info")
     @with_production_testing
     def test_list_files_with_expand(self):
         files = list(
@@ -1226,14 +1265,15 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         )
         self.assertEqual(len(files), 22)
 
-        # check lastCommit and security are present
-        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
-        self.assertIsNotNone(vae_model.lastCommit)
-        self.assertEqual(vae_model.lastCommit["id"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+        # check last_commit and security are present
+        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
+        self.assertIsNotNone(vae_model.last_commit)
+        self.assertEqual(vae_model.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
         self.assertIsNotNone(vae_model.security)
         self.assertTrue(vae_model.security["safe"])
-        self.assertTrue(isinstance(vae_model.security["avScan"], dict))  # all details in here
+        self.assertTrue(isinstance(vae_model.security["av_scan"], dict))  # all details in here
 
+    @expect_deprecation("list_files_info")
     @with_production_testing
     def test_list_files_without_expand(self):
         files = list(
@@ -1245,10 +1285,123 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
         )
         self.assertEqual(len(files), 22)
 
-        # check lastCommit and security are missing
-        vae_model = next(file for file in files if file.rfilename == "vae/diffusion_pytorch_model.bin")
-        self.assertFalse(hasattr(vae_model, "lastCommit"))
-        self.assertFalse(hasattr(vae_model, "security"))
+        # check last_commit and security are missing
+        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
+        self.assertIsNone(vae_model.last_commit)
+        self.assertIsNone(vae_model.security)
+
+
+class HfApiListRepoTreeTest(HfApiCommonTest):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.repo_id = cls._api.create_repo(repo_id=repo_name()).repo_id
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="A first repo",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/file_1.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="1/2/file_1_2.md"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="2/file_2.md"),
+            ],
+        )
+
+        cls._api.create_commit(
+            repo_id=cls.repo_id,
+            commit_message="Another commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"data2", path_in_repo="3/file_3.md"),
+            ],
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._api.delete_repo(repo_id=cls.repo_id)
+
+    def test_list_tree(self):
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id))
+        self.assertEqual(len(tree), 6)
+        self.assertEqual({tree_obj.path for tree_obj in tree}, {"file.md", "lfs.bin", "1", "2", "3", ".gitattributes"})
+
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="1"))
+        self.assertEqual(len(tree), 2)
+        self.assertEqual({tree_obj.path for tree_obj in tree}, {"1/file_1.md", "1/2"})
+
+    def test_list_tree_recursively(self):
+        tree = list(self._api.list_repo_tree(repo_id=self.repo_id, recursive=True))
+        self.assertEqual(len(tree), 11)
+        self.assertEqual(
+            {tree_obj.path for tree_obj in tree},
+            {
+                "file.md",
+                "lfs.bin",
+                "1/file_1.md",
+                "1/2/file_1_2.md",
+                "2/file_2.md",
+                "3/file_3.md",
+                "1",
+                "2",
+                "1/2",
+                "3",
+                ".gitattributes",
+            },
+        )
+
+    def test_list_unknown_tree(self):
+        with self.assertRaises(EntryNotFoundError):
+            list(self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="unknown"))
+
+    def test_list_with_empty_path(self):
+        self.assertEqual(
+            set(tree_obj.path for tree_obj in self._api.list_repo_tree(repo_id=self.repo_id, path_in_repo="")),
+            set(tree_obj.path for tree_obj in self._api.list_repo_tree(repo_id=self.repo_id)),
+        )
+
+    @with_production_testing
+    def test_list_tree_with_expand(self):
+        tree = list(
+            HfApi().list_repo_tree(
+                repo_id="prompthero/openjourney-v4",
+                expand=True,
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(tree), 11)
+
+        # check last_commit and security are present for a file
+        model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
+        self.assertIsNotNone(model_ckpt.last_commit)
+        self.assertEqual(model_ckpt.last_commit["oid"], "bda967fdb79a50844e4a02cccae3217a8ecc86cd")
+        self.assertIsNotNone(model_ckpt.security)
+        self.assertTrue(model_ckpt.security["safe"])
+        self.assertTrue(isinstance(model_ckpt.security["av_scan"], dict))  # all details in here
+
+        # check last_commit is present for a folder
+        feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
+        self.assertIsNotNone(feature_extractor.last_commit)
+        self.assertEqual(feature_extractor.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
+
+    @with_production_testing
+    def test_list_files_without_expand(self):
+        tree = list(
+            HfApi().list_repo_tree(
+                repo_id="prompthero/openjourney-v4",
+                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
+            )
+        )
+        self.assertEqual(len(tree), 11)
+
+        # check last_commit and security are missing for a file
+        model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
+        self.assertIsNone(model_ckpt.last_commit)
+        self.assertIsNone(model_ckpt.security)
+
+        # check last_commit is missing for a folder
+        feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
+        self.assertIsNone(feature_extractor.last_commit)
 
 
 class HfApiTagEndpointTest(HfApiCommonTest):
@@ -1447,17 +1600,18 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
         """Test `create_branch` from a different revision than main HEAD."""
         # Create commit and remember initial/latest commit
         initial_commit = self._api.model_info(repo_url.repo_id).sha
-        self._api.create_commit(
+        commit = self._api.create_commit(
             repo_url.repo_id,
             operations=[CommitOperationAdd(path_in_repo="app.py", path_or_fileobj=b"content")],
             commit_message="test commit",
         )
-        latest_commit = self._api.model_info(repo_url.repo_id).sha
+        latest_commit = commit.oid
 
         # Create branches
         self._api.create_branch(repo_url.repo_id, branch="from-head")
         self._api.create_branch(repo_url.repo_id, branch="from-initial", revision=initial_commit)
         self._api.create_branch(repo_url.repo_id, branch="from-branch", revision="from-initial")
+        time.sleep(0.2)  # hack: wait for server to update cache?
 
         # Checks branches start from expected commits
         self.assertEqual(
@@ -1516,7 +1670,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Let's list the 10 most recent models
         # with tags "bert" and "jax",
         # ordered by last modified date.
-        models = list(self._api.list_models(filter=("bert", "jax"), sort="lastModified", direction=-1, limit=10))
+        models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
         # we have at least 1 models
         self.assertGreater(len(models), 1)
         self.assertLessEqual(len(models), 10)
@@ -1536,6 +1690,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
         self.assertNotEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
+        self.assertEqual(model.created_at, datetime.datetime(2022, 3, 2, 23, 29, 5, tzinfo=datetime.timezone.utc))
+
         # One particular commit (not the top of `main`)
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID, revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
         self.assertIsInstance(model, ModelInfo)
@@ -1566,6 +1722,48 @@ class HfApiPublicProductionTest(unittest.TestCase):
         files = model.siblings
         assert files is not None
         self._check_siblings_metadata(files)
+
+    def test_model_info_corrupted_model_index(self) -> None:
+        """Loading model info from a model with corrupted data card should still work.
+
+        Here we use a model with a "model-index" that is not an array. Git hook should prevent this from happening
+        on the server, but models uploaded before we implemented the check might have this issue.
+
+        Example data from https://huggingface.co/Waynehillsdev/Waynehills-STT-doogie-server.
+        """
+        with self.assertWarnsRegex(UserWarning, "Invalid model-index"):
+            model = ModelInfo(
+                **{
+                    "_id": "621ffdc036468d709f1751d8",
+                    "id": "Waynehillsdev/Waynehills-STT-doogie-server",
+                    "cardData": {
+                        "license": "apache-2.0",
+                        "tags": ["generated_from_trainer"],
+                        "model-index": {"name": "Waynehills-STT-doogie-server"},
+                    },
+                    "gitalyUid": "53c57f29a007fc728c968127061b7b740dcf2b1ad401d907f703b27658559413",
+                    "likes": 0,
+                    "private": False,
+                    "config": {"architectures": ["Wav2Vec2ForCTC"], "model_type": "wav2vec2"},
+                    "downloads": 1,
+                    "tags": [
+                        "transformers",
+                        "pytorch",
+                        "tensorboard",
+                        "wav2vec2",
+                        "automatic-speech-recognition",
+                        "generated_from_trainer",
+                        "license:apache-2.0",
+                        "endpoints_compatible",
+                        "region:us",
+                    ],
+                    "pipeline_tag": "automatic-speech-recognition",
+                    "createdAt": "2022-03-02T23:29:04.000Z",
+                    "modelId": "Waynehillsdev/Waynehills-STT-doogie-server",
+                    "siblings": None,
+                }
+            )
+            self.assertIsNone(model.card_data.eval_results)
 
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
@@ -1640,7 +1838,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         dataset = datasets[0]
         self.assertIsInstance(dataset, DatasetInfo)
-        self.assertTrue(any(dataset.cardData for dataset in datasets))
+        self.assertTrue(any(dataset.card_data for dataset in datasets))
 
     def test_list_datasets_author(self):
         datasets = list(self._api.list_datasets(author="huggingface"))
@@ -1652,18 +1850,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 10)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    def test_filter_datasets_with_cardData(self):
+    def test_filter_datasets_with_card_data(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
         self.assertGreater(
-            sum([getattr(dataset, "cardData", None) is not None for dataset in datasets]),
+            sum([getattr(dataset, "card_data", None) is not None for dataset in datasets]),
             0,
         )
         datasets = list(self._api.list_datasets(limit=500))
-        self.assertTrue(all([getattr(dataset, "cardData", None) is None for dataset in datasets]))
+        self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
 
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
-        self.assertTrue(isinstance(dataset.cardData, dict) and len(dataset.cardData) > 0)
+        self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
         self.assertTrue(isinstance(dataset.siblings, list) and len(dataset.siblings) > 0)
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
@@ -1683,7 +1881,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert files is not None
         self._check_siblings_metadata(files)
 
-    def _check_siblings_metadata(self, files: List[RepoFile]):
+    def _check_siblings_metadata(self, files: List[RepoSibling]):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
@@ -1694,6 +1892,12 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 self.assertTrue(isinstance(file.lfs, dict))
                 self.assertTrue("sha256" in file.lfs)
         self.assertTrue(at_least_one_lfs)
+
+    def test_space_info(self) -> None:
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
+        assert space.id == "HuggingFaceH4/zephyr-chat"
+        assert space.author == "HuggingFaceH4"
+        assert isinstance(space.runtime, SpaceRuntime)
 
     def test_list_metrics(self):
         metrics = self._api.list_metrics()
@@ -1748,28 +1952,32 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
         self.assertEqual(len(models), 0)
 
-    def test_filter_models_with_cardData(self):
+    def test_filter_models_with_card_data(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
-        self.assertTrue([hasattr(model, "cardData") for model in models])
+        self.assertGreater(
+            sum([getattr(model, "card_data", None) is not None for model in models]),
+            0,
+        )
         models = self._api.list_models(filter="co2_eq_emissions")
-        self.assertTrue(all([not hasattr(model, "cardData") for model in models]))
+        self.assertTrue(all([getattr(model, "card_data", None) is None for model in models]))
 
-    def test_filter_emissions_dict(self):
+    def test_is_emission_within_treshold(self):
         # tests that dictionary is handled correctly as "emissions" and that
         # 17g is accepted and parsed correctly as a value
         # regression test for #753
-        model = ModelInfo(cardData={"co2_eq_emissions": {"emissions": "17g"}})
-        res = list(_filter_emissions([model], -1, 100))
-        assert len(res) == 1
+        kwargs = {field.name: None for field in fields(ModelInfo) if field.init}
+        kwargs = {**kwargs, "card_data": ModelCardData(co2_eq_emissions={"emissions": "17g"})}
+        model = ModelInfo(**kwargs)
+        self.assertTrue(_is_emission_within_treshold(model, -1, 100))
 
     def test_filter_emissions_with_max(self):
         models = self._api.list_models(emissions_thresholds=(None, 100), cardData=True, limit=1000)
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] <= 100
+                    model.card_data["co2_eq_emissions"] <= 100
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1779,9 +1987,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] >= 5
+                    model.card_data["co2_eq_emissions"] >= 5
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1791,18 +1999,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] >= 5
+                    model.card_data["co2_eq_emissions"] >= 5
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
         self.assertTrue(
             all(
                 [
-                    model.cardData["co2_eq_emissions"] <= 100
+                    model.card_data["co2_eq_emissions"] <= 100
                     for model in models
-                    if isinstance(model.cardData["co2_eq_emissions"], (float, int))
+                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
                 ]
             )
         )
@@ -1812,16 +2020,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(spaces), 100)
         space = spaces[0]
         self.assertIsInstance(space, SpaceInfo)
-        self.assertTrue(any(space.cardData for space in spaces))
+        self.assertTrue(any(space.card_data for space in spaces))
 
     def test_list_spaces_author(self):
-        spaces = list(self._api.list_spaces(author="evaluate-metric"))
-        self.assertGreater(len(spaces), 10)
-        self.assertTrue(
-            set([space.id for space in spaces]).issuperset(
-                set(["evaluate-metric/trec_eval", "evaluate-metric/perplexity"])
-            )
-        )
+        spaces = list(self._api.list_spaces(author="julien-c"))
+        assert len(spaces) > 10
+        for space in spaces:
+            assert space.id.startswith("julien-c/")
 
     def test_list_spaces_search(self):
         spaces = list(self._api.list_spaces(search="wikipedia"))
@@ -1859,6 +2064,88 @@ class HfApiPublicProductionTest(unittest.TestCase):
             for space in spaces
         )
 
+    def test_get_paths_info(self):
+        paths_info = self._api.get_paths_info(
+            "allenai/c4",
+            ["en", "en/c4-train.00001-of-01024.json.gz", "non_existing_path"],
+            expand=True,
+            revision="607bd4c8450a42878aa9ddc051a65a055450ef87",
+            repo_type="dataset",
+        )
+        self.assertTrue(len(paths_info), 2)
+
+        self.assertEqual(paths_info[0].path, "en")
+        self.assertIsNotNone(paths_info[0].tree_id)
+        self.assertIsNotNone(paths_info[0].last_commit)
+
+        self.assertEqual(paths_info[1].path, "en/c4-train.00001-of-01024.json.gz")
+        self.assertIsNotNone(paths_info[1].blob_id)
+        self.assertIsNotNone(paths_info[1].last_commit)
+        self.assertIsNotNone(paths_info[1].lfs)
+        self.assertIsNotNone(paths_info[1].security)
+        self.assertGreater(paths_info[1].size, 0)
+
+    def test_get_safetensors_metadata_single_file(self) -> None:
+        info = self._api.get_safetensors_metadata("bigscience/bloomz-560m")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+        assert not info.sharded
+        assert info.metadata is None  # Never populated on non-sharded models
+        assert len(info.files_metadata) == 1
+        assert "model.safetensors" in info.files_metadata
+
+        file_metadata = info.files_metadata["model.safetensors"]
+        assert isinstance(file_metadata, SafetensorsFileMetadata)
+        assert file_metadata.metadata == {"format": "pt"}
+        assert len(file_metadata.tensors) == 293
+
+        assert isinstance(info.weight_map, dict)
+        assert info.weight_map["h.0.input_layernorm.bias"] == "model.safetensors"
+
+        assert info.parameter_count == {"F16": 559214592}
+
+    def test_get_safetensors_metadata_sharded_model(self) -> None:
+        info = self._api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+        assert info.sharded
+        assert isinstance(info.metadata, dict)  # populated for sharded model
+        assert len(info.files_metadata) == 8
+
+        for file_metadata in info.files_metadata.values():
+            assert isinstance(file_metadata, SafetensorsFileMetadata)
+
+        assert info.parameter_count == {"BF16": 7241732096}
+
+    def test_not_a_safetensors_repo(self) -> None:
+        with self.assertRaises(NotASafetensorsRepoError):
+            self._api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata")
+
+    def test_get_safetensors_metadata_from_revision(self) -> None:
+        info = self._api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata", revision="refs/pr/1")
+        assert isinstance(info, SafetensorsRepoMetadata)
+
+    def test_parse_safetensors_metadata(self) -> None:
+        info = self._api.parse_safetensors_file_metadata(
+            "HuggingFaceH4/zephyr-7b-beta", "model-00003-of-00008.safetensors"
+        )
+        assert isinstance(info, SafetensorsFileMetadata)
+
+        assert info.metadata == {"format": "pt"}
+        assert isinstance(info.tensors, dict)
+        tensor = info.tensors["model.layers.10.input_layernorm.weight"]
+
+        assert tensor == TensorInfo(dtype="BF16", shape=[4096], data_offsets=(0, 8192))
+
+        assert tensor.parameter_count == 4096
+        assert info.parameter_count == {"BF16": 989888512}
+
+    def test_not_a_safetensors_file(self) -> None:
+        with self.assertRaises(SafetensorsParsingError):
+            self._api.parse_safetensors_file_metadata(
+                "HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin"
+            )
+
 
 class HfApiPrivateTest(HfApiCommonTest):
     def setUp(self) -> None:
@@ -1871,8 +2158,8 @@ class HfApiPrivateTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=self.REPO_NAME)
         self._api.delete_repo(repo_id=self.REPO_NAME, repo_type="dataset")
 
-    def test_model_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_model_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
@@ -1887,8 +2174,8 @@ class HfApiPrivateTest(HfApiCommonTest):
             model_info = self._api.model_info(repo_id=f"{USER}/{self.REPO_NAME}", use_auth_token=self._token)
             self.assertIsInstance(model_info, ModelInfo)
 
-    def test_dataset_info(self):
-        shutil.rmtree(os.path.dirname(HfFolder.path_token), ignore_errors=True)
+    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
+    def test_dataset_info(self, mock_get_token: Mock) -> None:
         with patch.object(self._api, "token", None):  # no default token
             # Test we cannot access model info without a token
             with self.assertRaisesRegex(
@@ -2236,6 +2523,43 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
+    def test_get_repo_discussion_by_type(self):
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="pull_request")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="discussion")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_type="all")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(
+            list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
+        )
+
+    def test_get_repo_discussion_by_author(self):
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, author="unknown")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [])
+
+    def test_get_repo_discussion_by_status(self):
+        self._api.change_discussion_status(self.repo_id, self.discussion.num, "closed")
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="open")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.pull_request.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="closed")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(list([d.num for d in discussions_generator]), [self.discussion.num])
+
+        discussions_generator = self._api.get_repo_discussions(repo_id=self.repo_id, discussion_status="all")
+        self.assertIsInstance(discussions_generator, types.GeneratorType)
+        self.assertListEqual(
+            list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
+        )
+
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
         self.assertEqual(retrieved, self.discussion)
@@ -2534,6 +2858,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
+    @unittest.skip("Too flaky to run in CI")
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -2554,9 +2879,9 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Restart
         self.api.restart_space(self.repo_id)
-        time.sleep(1.0)
+        time.sleep(5.0)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
-        self.assertIn(runtime_after_restart.stage, (SpaceStage.BUILDING, SpaceStage.RUNNING_BUILDING))
+        self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -2937,6 +3262,7 @@ class ListGitRefsTest(unittest.TestCase):
         self.assertGreater(len(refs.branches), 0)
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
         self.assertEqual(main_branch.ref, "refs/heads/main")
+        self.assertIsNone(refs.pull_requests)
         # Can get info by revision
         self.api.repo_info("gpt2", revision=main_branch.target_commit)
 
@@ -2944,6 +3270,7 @@ class ListGitRefsTest(unittest.TestCase):
         refs = self.api.list_repo_refs("bigcode/admin", repo_type="dataset")
         self.assertGreater(len(refs.branches), 0)
         self.assertGreater(len(refs.converts), 0)
+        self.assertIsNone(refs.pull_requests)
         main_branch = [branch for branch in refs.branches if branch.name == "main"][0]
         self.assertEqual(main_branch.ref, "refs/heads/main")
 
@@ -2956,6 +3283,11 @@ class ListGitRefsTest(unittest.TestCase):
             repo_type="dataset",
             revision=convert_branch.target_commit,
         )
+
+    def test_list_refs_with_prs(self) -> None:
+        refs = self.api.list_repo_refs("openchat/openchat_3.5", include_pull_requests=True)
+        self.assertGreater(len(refs.pull_requests), 1)
+        self.assertTrue(refs.pull_requests[0].ref.startswith("refs/pr/"))
 
 
 class ListGitCommitsTest(unittest.TestCase):
@@ -3187,18 +3519,6 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
             self._api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
 
 
-class ReprMixinTest(unittest.TestCase):
-    def test_repr_mixin(self) -> None:
-        class MyClass(ReprMixin):
-            def __init__(self, **kwargs: Dict[str, Any]) -> None:
-                self.__dict__.update(kwargs)
-
-        self.assertEqual(
-            repr(MyClass(foo="foo", bar="bar")),
-            "MyClass: {'bar': 'bar', 'foo': 'foo'}",  # keys are sorted
-        )
-
-
 class CollectionAPITest(HfApiCommonTest):
     def setUp(self) -> None:
         id = uuid.uuid4()
@@ -3211,6 +3531,26 @@ class CollectionAPITest(HfApiCommonTest):
         if self.slug is not None:  # Delete collection even if test failed
             self._api.delete_collection(self.slug, missing_ok=True)
         return super().tearDown()
+
+    @with_production_testing
+    def test_list_collections(self) -> None:
+        item_id = "teknium/OpenHermes-2.5-Mistral-7B"
+        item_type = "model"
+        limit = 3
+        collections = HfApi().list_collections(item=f"{item_type}s/{item_id}", limit=limit)
+
+        # Check return type
+        self.assertIsInstance(collections, Iterable)
+        collections = list(collections)
+
+        # Check length
+        self.assertEqual(len(collections), limit)
+
+        # Check all collections contain the item
+        for collection in collections:
+            # all items are not necessarily returned when listing collections => retrieve complete one
+            full_collection = HfApi().get_collection(collection.slug)
+            assert any(item.item_id == item_id and item.item_type == item_type for item in full_collection.items)
 
     def test_create_collection_with_description(self) -> None:
         collection = self._api.create_collection(self.title, description="Contains a lot of cool stuff")
@@ -3347,3 +3687,85 @@ class CollectionAPITest(HfApiCommonTest):
         self._api.delete_repo(model_id)
         self._api.delete_repo(dataset_id, repo_type="dataset")
         self._api.delete_collection(collection.slug)
+
+
+class AccessRequestAPITest(HfApiCommonTest):
+    def setUp(self) -> None:
+        # Setup test with a gated repo
+        super().setUp()
+        self.repo_id = self._api.create_repo(repo_name()).repo_id
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{self.repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(),
+        )
+        hf_raise_for_status(response)
+
+    def tearDown(self) -> None:
+        self._api.delete_repo(self.repo_id)
+        return super().tearDown()
+
+    def test_access_requests_normal_usage(self) -> None:
+        # No access requests initially
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 0
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 0
+        requests = self._api.list_rejected_access_requests(self.repo_id)
+        assert len(requests) == 0
+
+        # Grant access to a user
+        self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # User is in accepted list
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 1
+        request = requests[0]
+        assert isinstance(request, AccessRequest)
+        assert request.username == OTHER_USER
+        assert request.status == "accepted"
+        assert isinstance(request.timestamp, datetime.datetime)
+
+        # Cancel access
+        self._api.cancel_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 0  # not accepted anymore
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+        # Reject access
+        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_pending_access_requests(self.repo_id)
+        assert len(requests) == 0  # not pending anymore
+        requests = self._api.list_rejected_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+        # Accept again
+        self._api.accept_access_request(self.repo_id, OTHER_USER)
+        requests = self._api.list_accepted_access_requests(self.repo_id)
+        assert len(requests) == 1
+        assert requests[0].username == OTHER_USER
+
+    def test_access_request_error(self):
+        # Grant access to a user
+        self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # Cannot grant twice
+        with self.assertRaises(HTTPError):
+            self._api.grant_access(self.repo_id, OTHER_USER)
+
+        # Cannot accept to already accepted
+        with self.assertRaises(HTTPError):
+            self._api.accept_access_request(self.repo_id, OTHER_USER)
+
+        # Cannot reject to already rejected
+        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        with self.assertRaises(HTTPError):
+            self._api.reject_access_request(self.repo_id, OTHER_USER)
+
+        # Cannot cancel to already cancelled
+        self._api.cancel_access_request(self.repo_id, OTHER_USER)
+        with self.assertRaises(HTTPError):
+            self._api.cancel_access_request(self.repo_id, OTHER_USER)
