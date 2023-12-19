@@ -39,7 +39,7 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
-# Max is 1,000 per request on the Hub for HfApi.list_files_info
+# Max is 1,000 per request on the Hub for HfApi.get_paths_info
 # Otherwise we get:
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
@@ -555,7 +555,7 @@ def _fetch_lfs_files_to_copy(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    from .hf_api import HfApi
+    from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, token=token)
     files_to_copy = {}
@@ -563,13 +563,15 @@ def _fetch_lfs_files_to_copy(
         operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
         for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
-            src_repo_files = hf_api.list_files_info(
+            src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
                 paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
             for src_repo_file in src_repo_files:
+                if isinstance(src_repo_file, RepoFolder):
+                    raise NotImplementedError("Copying a folder is not implemented.")
                 if not src_repo_file.lfs:
                     raise NotImplementedError("Copying a non-LFS file is not implemented")
                 files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file

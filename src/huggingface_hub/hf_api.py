@@ -130,6 +130,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -2376,6 +2377,7 @@ class HfApi:
             return False
 
     @validate_hf_hub_args
+    @_deprecate_method(version="0.23", message="Use `list_repo_tree` and `get_paths_info` instead.")
     def list_files_info(
         self,
         repo_id: str,
@@ -2588,9 +2590,10 @@ class HfApi:
         """
         return [
             f.rfilename
-            for f in self.list_files_info(
-                repo_id=repo_id, paths=None, revision=revision, repo_type=repo_type, token=token
+            for f in self.list_repo_tree(
+                repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type, token=token
             )
+            if isinstance(f, RepoFile)
         ]
 
     @validate_hf_hub_args
