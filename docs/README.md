@@ -16,11 +16,21 @@ limitations under the License.
 
 # Generating the documentation
 
-To generate the documentation, you first have to build it. Several packages are necessary to build the doc, 
-you can install them with the following command, at the root of the code repository:
+To generate the documentation, you have to build it. Several packages are necessary to build the doc.
+
+First, you need to install the project itself by running the following command at the root of the code repository:
 
 ```bash
-pip install -e ".[docs]"
+pip install -e .
+```
+
+You also need to install 2 extra packages:
+
+```bash
+# `hf-doc-builder` to build the docs
+pip install git+https://github.com/huggingface/doc-builder@main
+# `watchdog` for live reloads
+pip install watchdog
 ```
 
 ---
