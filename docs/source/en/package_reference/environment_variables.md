@@ -157,6 +157,10 @@ In order to standardize all environment variables within the Hugging Face ecosys
 
 Some environment variables are not specific to `huggingface_hub` but are still taken into account when they are set.
 
+### DO_NOT_TRACK
+
+Boolean value. Equivalent to `HF_HUB_DISABLE_TELEMETRY`. When set to true, telemetry is globally disabled in the Hugging Face Python ecosystem (`transformers`, `diffusers`, `gradio`, etc.). See https://consoledonottrack.com/ for more details.
+
 ### NO_COLOR
 
 Boolean value. When set, `huggingface-cli` tool will not print any ANSI color.

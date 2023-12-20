@@ -1,3 +1,5 @@
+import time
+
 from spacy_huggingface_hub import push
 
 from huggingface_hub import delete_repo, hf_hub_download, model_info
@@ -27,6 +29,9 @@ def test_push_to_hub(user: str) -> None:
 
     # Push spacy model to Hub
     push(whl_path)
+
+    # Sleep to ensure that model_info isn't called too soon
+    time.sleep(1)
 
     # Check model has been pushed properly
     model_id = f"{user}/en_core_web_sm"
