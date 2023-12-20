@@ -186,7 +186,7 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     print("    To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
-    token = getpass("Token: ")
+    token = getpass("Enter your token (input will not be visible): ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
     _login(token=token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
