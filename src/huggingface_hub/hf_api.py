@@ -270,10 +270,12 @@ class SafeTensorsInfo(TypedDict, total=False):
 
 
 @dataclass
-class CommitInfo:
+class CommitInfo(str):
     """Data structure containing information about a newly created commit.
 
-    Returned by [`create_commit`].
+    Returned by any method that creates a commit on the Hub: [`create_commit`], [`upload_file`], [`upload_folder`],
+    [`delete_file`], [`delete_folder`]. It inherits from `str` for backward compatibility but using methods specific
+    to `str` is deprecated.
 
     Attributes:
         commit_url (`str`):
@@ -300,6 +302,12 @@ class CommitInfo:
             Number of the PR discussion that has been created, if any. Populated when
             `create_pr=True` is passed. Can be passed as `discussion_num` in
             [`get_discussion_details`]. Example: `1`.
+
+        _url (`str`, *optional*):
+            Legacy url for `str` compatibility. Can be the url to the uploaded file on the Hub (if returned by
+            [`upload_file`]), to the uploaded folder on the Hub (if returned by [`upload_folder`]) or to the commit on
+            the Hub (if returned by [`create_commit`]). Defaults to `commit_url`. It is deprecated to use this
+            attribute. Please use `commit_url` instead.
     """
 
     commit_url: str
@@ -311,6 +319,12 @@ class CommitInfo:
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
     pr_num: Optional[str] = field(init=False)
+
+    # legacy url for `str` compatibility (ex: url to uploaded file, url to uploaded folder, url to PR, etc.)
+    _url: str = field(repr=False, default=None)  # type: ignore  # defaults to `commit_url`
+
+    def __new__(cls, *args, commit_url: str, _url: Optional[str] = None, **kwargs):
+        return str.__new__(cls, _url or commit_url)
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
@@ -4073,7 +4087,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
-    ) -> str:
+    ) -> CommitInfo:
         ...
 
     @overload
@@ -4091,7 +4105,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
-    ) -> Future[str]:
+    ) -> Future[CommitInfo]:
         ...
 
     @validate_hf_hub_args
@@ -4110,7 +4124,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: bool = False,
-    ) -> Union[str, Future[str]]:
+    ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Upload a local file (up to 50 GB) to the given repo. The upload is done
         through a HTTP post request, and doesn't require git or git-lfs to be
@@ -4158,9 +4172,10 @@ class HfApi:
 
 
         Returns:
-            `str` or `Future`: The URL to visualize the uploaded file on the hub. If `run_as_future=True` is passed,
-            returns a Future object which will contain the result when executed.
-
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
         <Tip>
 
         Raises the following errors:
@@ -4247,8 +4262,17 @@ class HfApi:
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
-        # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
-        return f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}"
+
+        return CommitInfo(
+            commit_url=commit_info.commit_url,
+            commit_message=commit_info.commit_message,
+            commit_description=commit_info.commit_description,
+            oid=commit_info.oid,
+            pr_url=commit_info.pr_url,
+            # Similar to `hf_hub_url` but it's "blob" instead of "resolve"
+            # TODO: remove this in v1.0
+            _url=f"{self.endpoint}/{repo_id}/blob/{revision}/{path_in_repo}",
+        )
 
     @overload
     def upload_folder(  # type: ignore
@@ -4267,10 +4291,56 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: bool = False,
+        multi_commits: Literal[False] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[False] = ...,
-    ) -> str:
+    ) -> CommitInfo:
+        ...
+
+    @overload
+    def upload_folder(  # type: ignore
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: Literal[True] = ...,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[False] = ...,
+    ) -> str:  # Only the PR url in multi-commits mode
+        ...
+
+    @overload
+    def upload_folder(  # type: ignore
+        self,
+        *,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        path_in_repo: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        token: Optional[str] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        delete_patterns: Optional[Union[List[str], str]] = None,
+        multi_commits: Literal[False] = ...,
+        multi_commits_verbose: bool = False,
+        run_as_future: Literal[True] = ...,
+    ) -> Future[CommitInfo]:
         ...
 
     @overload
@@ -4290,10 +4360,10 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: bool = False,
+        multi_commits: Literal[True] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[True] = ...,
-    ) -> Future[str]:
+    ) -> Future[str]:  # Only the PR url in multi-commits mode
         ...
 
     @validate_hf_hub_args
@@ -4317,7 +4387,7 @@ class HfApi:
         multi_commits: bool = False,
         multi_commits_verbose: bool = False,
         run_as_future: bool = False,
-    ) -> Union[str, Future[str]]:
+    ) -> Union[CommitInfo, str, Future[CommitInfo], Future[str]]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -4394,8 +4464,13 @@ class HfApi:
                 object. Defaults to `False`.
 
         Returns:
-            `str` or `Future[str]`: A URL to visualize the uploaded folder on the hub. If `run_as_future=True` is passed,
-            returns a Future object which will contain the result when executed.
+            [`CommitInfo`] or `Future`:
+                Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
+                url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
+                contain the result when executed.
+            [`str`] or `Future`:
+                If `multi_commits=True`, returns the url of the PR created to push the changes. If `run_as_future=True`
+                is passed, returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -4502,7 +4577,6 @@ class HfApi:
             ]
         commit_operations = delete_operations + add_operations
 
-        pr_url: Optional[str]
         commit_message = commit_message or "Upload folder using huggingface_hub"
         if multi_commits:
             addition_commits, deletion_commits = plan_multi_commits(operations=commit_operations)
@@ -4517,27 +4591,39 @@ class HfApi:
                 merge_pr=not create_pr,
                 verbose=multi_commits_verbose,
             )
-        else:
-            commit_info = self.create_commit(
-                repo_type=repo_type,
-                repo_id=repo_id,
-                operations=commit_operations,
-                commit_message=commit_message,
-                commit_description=commit_description,
-                token=token,
-                revision=revision,
-                create_pr=create_pr,
-                parent_commit=parent_commit,
-            )
-            pr_url = commit_info.pr_url
+            # Defining a CommitInfo object is not really relevant in this case
+            # Let's return early with pr_url only (as string).
+            return pr_url
 
-        if create_pr and pr_url is not None:
-            revision = quote(_parse_revision_from_pr_url(pr_url), safe="")
+        commit_info = self.create_commit(
+            repo_type=repo_type,
+            repo_id=repo_id,
+            operations=commit_operations,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            token=token,
+            revision=revision,
+            create_pr=create_pr,
+            parent_commit=parent_commit,
+        )
+
+        # Create url to uploaded folder (for legacy return value)
+        if create_pr and commit_info.pr_url is not None:
+            revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
         if repo_type in REPO_TYPES_URL_PREFIXES:
             repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
         revision = revision if revision is not None else DEFAULT_REVISION
-        # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
-        return f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}"
+
+        return CommitInfo(
+            commit_url=commit_info.commit_url,
+            commit_message=commit_info.commit_message,
+            commit_description=commit_info.commit_description,
+            oid=commit_info.oid,
+            pr_url=commit_info.pr_url,
+            # Similar to `hf_hub_url` but it's "tree" instead of "resolve"
+            # TODO: remove this in v1.0
+            _url=f"{self.endpoint}/{repo_id}/tree/{revision}/{path_in_repo}",
+        )
 
     @validate_hf_hub_args
     def delete_file(

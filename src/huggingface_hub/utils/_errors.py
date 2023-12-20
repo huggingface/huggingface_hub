@@ -192,7 +192,7 @@ class EntryNotFoundError(HfHubHTTPError):
 
 class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
     """
-    Raised when trying to access a file that is not on the disk when network is
+    Raised when trying to access a file or snapshot that is not on the disk when network is
     disabled or unavailable (connection issue). The entry may exist on the Hub.
 
     Note: `ValueError` type is to ensure backward compatibility.

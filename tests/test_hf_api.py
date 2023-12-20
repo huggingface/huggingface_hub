@@ -343,6 +343,7 @@ class CommitApiTest(HfApiCommonTest):
             repo_id=repo_id,
         )
         self.assertEqual(return_val, f"{repo_url}/blob/main/temp/new_file.md")
+        self.assertIsInstance(return_val, CommitInfo)
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
@@ -423,6 +424,7 @@ class CommitApiTest(HfApiCommonTest):
             create_pr=True,
         )
         self.assertEqual(return_val, f"{repo_url}/blob/{quote('refs/pr/1', safe='')}/temp/new_file.md")
+        self.assertIsInstance(return_val, CommitInfo)
 
         with SoftTemporaryDirectory() as cache_dir:
             with open(
@@ -439,7 +441,8 @@ class CommitApiTest(HfApiCommonTest):
             path_in_repo="temp/new_file.md",
             repo_id=repo_url.repo_id,
         )
-        self._api.delete_file(path_in_repo="temp/new_file.md", repo_id=repo_url.repo_id)
+        return_val = self._api.delete_file(path_in_repo="temp/new_file.md", repo_id=repo_url.repo_id)
+        self.assertIsInstance(return_val, CommitInfo)
 
         with self.assertRaises(EntryNotFoundError):
             # Should raise a 404
@@ -452,86 +455,51 @@ class CommitApiTest(HfApiCommonTest):
         repo_name_with_no_org = self._api.get_full_repo_name("model", organization="org")
         self.assertEqual(repo_name_with_no_org, "org/model")
 
-    def test_upload_folder(self):
-        for private in (False, True):
-            visibility = "private" if private else "public"
-            with self.subTest(f"{visibility} repo"):
-                REPO_NAME = repo_name(f"upload_folder_{visibility}")
-                self._api.create_repo(repo_id=REPO_NAME, private=private, exist_ok=False)
-                try:
-                    url = self._api.upload_folder(
-                        folder_path=self.tmp_dir,
-                        path_in_repo="temp/dir",
-                        repo_id=f"{USER}/{REPO_NAME}",
-                    )
-                    self.assertEqual(
-                        url,
-                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/main/temp/dir",
-                    )
-                    for rpath in ["temp", "nested/file.bin"]:
-                        local_path = os.path.join(self.tmp_dir, rpath)
-                        remote_path = f"temp/dir/{rpath}"
-                        filepath = hf_hub_download(
-                            repo_id=f"{USER}/{REPO_NAME}",
-                            filename=remote_path,
-                            revision="main",
-                            use_auth_token=self._token,
-                        )
-                        assert filepath is not None
-                        with open(filepath, "rb") as downloaded_file:
-                            content = downloaded_file.read()
-                        with open(local_path, "rb") as local_file:
-                            expected_content = local_file.read()
-                        self.assertEqual(content, expected_content)
+    @use_tmp_repo()
+    def test_upload_folder(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
 
-                    # Re-uploading the same folder twice should be fine
-                    self._api.upload_folder(
-                        folder_path=self.tmp_dir,
-                        path_in_repo="temp/dir",
-                        repo_id=f"{USER}/{REPO_NAME}",
-                    )
-                except Exception as err:
-                    self.fail(err)
-                finally:
-                    self._api.delete_repo(repo_id=REPO_NAME)
+        # Upload folder
+        url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
+        self.assertEqual(
+            url,
+            f"{self._api.endpoint}/{repo_id}/tree/main/temp/dir",
+        )
+        self.assertIsInstance(url, CommitInfo)
 
-    def test_upload_folder_create_pr(self):
-        pr_revision = quote("refs/pr/1", safe="")
-        for private in (False, True):
-            visibility = "private" if private else "public"
-            with self.subTest(f"{visibility} repo"):
-                REPO_NAME = repo_name(f"upload_folder_{visibility}")
-                self._api.create_repo(repo_id=REPO_NAME, private=private, exist_ok=False)
-                try:
-                    return_val = self._api.upload_folder(
-                        folder_path=self.tmp_dir,
-                        path_in_repo="temp/dir",
-                        repo_id=f"{USER}/{REPO_NAME}",
-                        create_pr=True,
-                    )
-                    self.assertEqual(
-                        return_val,
-                        f"{self._api.endpoint}/{USER}/{REPO_NAME}/tree/{pr_revision}/temp/dir",
-                    )
-                    for rpath in ["temp", "nested/file.bin"]:
-                        local_path = os.path.join(self.tmp_dir, rpath)
-                        remote_path = f"temp/dir/{rpath}"
-                        filepath = hf_hub_download(
-                            repo_id=f"{USER}/{REPO_NAME}",
-                            filename=remote_path,
-                            revision="refs/pr/1",
-                            use_auth_token=self._token,
-                        )
-                        assert filepath is not None
-                        with open(filepath, "rb") as downloaded_file:
-                            content = downloaded_file.read()
-                        with open(local_path, "rb") as local_file:
-                            expected_content = local_file.read()
-                        self.assertEqual(content, expected_content)
-                except Exception as err:
-                    self.fail(err)
-                finally:
-                    self._api.delete_repo(repo_id=REPO_NAME)
+        # Check files are uploaded
+        for rpath in ["temp", "nested/file.bin"]:
+            local_path = os.path.join(self.tmp_dir, rpath)
+            remote_path = f"temp/dir/{rpath}"
+            filepath = hf_hub_download(
+                repo_id=repo_id, filename=remote_path, revision="main", use_auth_token=self._token
+            )
+            assert filepath is not None
+            with open(filepath, "rb") as downloaded_file:
+                content = downloaded_file.read()
+            with open(local_path, "rb") as local_file:
+                expected_content = local_file.read()
+            self.assertEqual(content, expected_content)
+
+        # Re-uploading the same folder twice should be fine
+        return_val = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
+        self.assertIsInstance(return_val, CommitInfo)
+
+    @use_tmp_repo()
+    def test_upload_folder_create_pr(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+
+        # Upload folder as a new PR
+        return_val = self._api.upload_folder(
+            folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id, create_pr=True
+        )
+        self.assertEqual(return_val, f"{self._api.endpoint}/{repo_id}/tree/refs%2Fpr%2F1/temp/dir")
+
+        # Check files are uploaded
+        for rpath in ["temp", "nested/file.bin"]:
+            local_path = os.path.join(self.tmp_dir, rpath)
+            filepath = hf_hub_download(repo_id=repo_id, filename=f"temp/dir/{rpath}", revision="refs/pr/1")
+            assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
     def test_upload_folder_default_path_in_repo(self):
         REPO_NAME = repo_name("upload_folder_to_root")
@@ -584,63 +552,46 @@ class CommitApiTest(HfApiCommonTest):
         # Check nested file not uploaded
         assert not self._api.file_exists(repo_url.repo_id, "nested/file.bin")
 
-    def test_create_commit_create_pr(self):
-        REPO_NAME = repo_name("create_commit_create_pr")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        try:
-            self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-            )
-            operations = [
-                CommitOperationDelete(path_in_repo="temp/new_file.md"),
-                CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
-            ]
-            resp = self._api.create_commit(
-                operations=operations,
-                commit_message="Test create_commit",
-                repo_id=f"{USER}/{REPO_NAME}",
-                create_pr=True,
-            )
+    @use_tmp_repo()
+    def test_create_commit_create_pr(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
 
-            # Check commit info
-            self.assertIsInstance(resp, CommitInfo)
-            commit_id = resp.oid
-            self.assertIn("pr_revision='refs/pr/1'", str(resp))
-            self.assertIsInstance(commit_id, str)
-            self.assertGreater(len(commit_id), 0)
-            self.assertEqual(
-                resp.commit_url,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/commit/{commit_id}",
-            )
-            self.assertEqual(resp.commit_message, "Test create_commit")
-            self.assertEqual(resp.commit_description, "")
-            self.assertEqual(
-                resp.pr_url,
-                f"{self._api.endpoint}/{USER}/{REPO_NAME}/discussions/1",
-            )
-            self.assertEqual(resp.pr_num, 1)
-            self.assertEqual(resp.pr_revision, "refs/pr/1")
+        # Upload a first file
+        self._api.upload_file(path_or_fileobj=self.tmp_file, path_in_repo="temp/new_file.md", repo_id=repo_id)
 
-            with self.assertRaises(HTTPError) as ctx:
-                # Should raise a 404
-                hf_hub_download(f"{USER}/{REPO_NAME}", "buffer", use_auth_token=self._token)
-                self.assertEqual(ctx.exception.response.status_code, 404)
-            filepath = hf_hub_download(
-                filename="buffer",
-                repo_id=f"{USER}/{REPO_NAME}",
-                use_auth_token=self._token,
-                revision="refs/pr/1",
-            )
-            self.assertTrue(filepath is not None)
-            with open(filepath, "rb") as downloaded_file:
-                content = downloaded_file.read()
-            self.assertEqual(content, b"Buffer data")
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+        # Create a commit with a PR
+        operations = [
+            CommitOperationDelete(path_in_repo="temp/new_file.md"),
+            CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
+        ]
+        resp = self._api.create_commit(
+            operations=operations, commit_message="Test create_commit", repo_id=repo_id, create_pr=True
+        )
+
+        # Check commit info
+        self.assertIsInstance(resp, CommitInfo)
+        commit_id = resp.oid
+        self.assertIn("pr_revision='refs/pr/1'", repr(resp))
+        self.assertIsInstance(commit_id, str)
+        self.assertGreater(len(commit_id), 0)
+        self.assertEqual(resp.commit_url, f"{self._api.endpoint}/{repo_id}/commit/{commit_id}")
+        self.assertEqual(resp.commit_message, "Test create_commit")
+        self.assertEqual(resp.commit_description, "")
+        self.assertEqual(resp.pr_url, f"{self._api.endpoint}/{repo_id}/discussions/1")
+        self.assertEqual(resp.pr_num, 1)
+        self.assertEqual(resp.pr_revision, "refs/pr/1")
+
+        # File doesn't exist on main...
+        with self.assertRaises(HTTPError) as ctx:
+            # Should raise a 404
+            self._api.hf_hub_download(repo_id, "buffer")
+            self.assertEqual(ctx.exception.response.status_code, 404)
+
+        # ...but exists on PR
+        filepath = self._api.hf_hub_download(filename="buffer", repo_id=repo_id, revision="refs/pr/1")
+        with open(filepath, "rb") as downloaded_file:
+            content = downloaded_file.read()
+        self.assertEqual(content, b"Buffer data")
 
     def test_create_commit_create_pr_against_branch(self):
         repo_id = f"{USER}/{repo_name()}"
@@ -701,101 +652,73 @@ class CommitApiTest(HfApiCommonTest):
 
         foreign_api.delete_repo(repo_id=foreign_repo_url.repo_id)
 
-    def test_create_commit(self):
-        for private in (False, True):
-            visibility = "private" if private else "public"
-            with self.subTest(f"{visibility} repo"):
-                REPO_NAME = repo_name(f"create_commit_{visibility}")
-                self._api.create_repo(repo_id=REPO_NAME, private=private, exist_ok=False)
-                try:
-                    self._api.upload_file(
-                        path_or_fileobj=self.tmp_file,
-                        path_in_repo="temp/new_file.md",
-                        repo_id=f"{USER}/{REPO_NAME}",
-                    )
-                    with open(self.tmp_file, "rb") as fileobj:
-                        operations = [
-                            CommitOperationDelete(path_in_repo="temp/new_file.md"),
-                            CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
-                            CommitOperationAdd(
-                                path_in_repo="bytesio",
-                                path_or_fileobj=BytesIO(b"BytesIO data"),
-                            ),
-                            CommitOperationAdd(path_in_repo="fileobj", path_or_fileobj=fileobj),
-                            CommitOperationAdd(
-                                path_in_repo="nested/path",
-                                path_or_fileobj=self.tmp_file,
-                            ),
-                        ]
-                        resp = self._api.create_commit(
-                            operations=operations,
-                            commit_message="Test create_commit",
-                            repo_id=f"{USER}/{REPO_NAME}",
-                        )
-                        # Check commit info
-                        self.assertIsInstance(resp, CommitInfo)
-                        self.assertIsNone(resp.pr_url)  # No pr created
-                        self.assertIsNone(resp.pr_num)
-                        self.assertIsNone(resp.pr_revision)
-                    with self.assertRaises(HTTPError):
-                        # Should raise a 404
-                        hf_hub_download(
-                            f"{USER}/{REPO_NAME}",
-                            "temp/new_file.md",
-                            use_auth_token=self._token,
-                        )
-
-                    for path, expected_content in [
-                        ("buffer", b"Buffer data"),
-                        ("bytesio", b"BytesIO data"),
-                        ("fileobj", self.tmp_file_content.encode()),
-                        ("nested/path", self.tmp_file_content.encode()),
-                    ]:
-                        filepath = hf_hub_download(
-                            repo_id=f"{USER}/{REPO_NAME}",
-                            filename=path,
-                            revision="main",
-                            use_auth_token=self._token,
-                        )
-                        self.assertTrue(filepath is not None)
-                        with open(filepath, "rb") as downloaded_file:
-                            content = downloaded_file.read()
-                        self.assertEqual(content, expected_content)
-                except Exception as err:
-                    self.fail(err)
-                finally:
-                    self._api.delete_repo(repo_id=REPO_NAME)
-
-    def test_create_commit_conflict(self):
-        REPO_NAME = repo_name("create_commit_conflict")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        parent_commit = self._api.model_info(f"{USER}/{REPO_NAME}").sha
-        try:
-            self._api.upload_file(
-                path_or_fileobj=self.tmp_file,
-                path_in_repo="temp/new_file.md",
-                repo_id=f"{USER}/{REPO_NAME}",
-            )
+    @use_tmp_repo()
+    def test_create_commit(self, repo_url: RepoUrl) -> None:
+        repo_id = repo_url.repo_id
+        self._api.upload_file(path_or_fileobj=self.tmp_file, path_in_repo="temp/new_file.md", repo_id=repo_id)
+        with open(self.tmp_file, "rb") as fileobj:
             operations = [
+                CommitOperationDelete(path_in_repo="temp/new_file.md"),
                 CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
+                CommitOperationAdd(
+                    path_in_repo="bytesio",
+                    path_or_fileobj=BytesIO(b"BytesIO data"),
+                ),
+                CommitOperationAdd(path_in_repo="fileobj", path_or_fileobj=fileobj),
+                CommitOperationAdd(
+                    path_in_repo="nested/path",
+                    path_or_fileobj=self.tmp_file,
+                ),
             ]
-            with self.assertRaises(HTTPError) as exc_ctx:
-                self._api.create_commit(
-                    operations=operations,
-                    commit_message="Test create_commit",
-                    repo_id=f"{USER}/{REPO_NAME}",
-                    parent_commit=parent_commit,
-                )
-            self.assertEqual(exc_ctx.exception.response.status_code, 412)
-            self.assertIn(
-                # Check the server message is added to the exception
-                "A commit has happened since. Please refresh and try again.",
-                str(exc_ctx.exception),
+            resp = self._api.create_commit(operations=operations, commit_message="Test create_commit", repo_id=repo_id)
+            # Check commit info
+            self.assertIsInstance(resp, CommitInfo)
+            self.assertIsNone(resp.pr_url)  # No pr created
+            self.assertIsNone(resp.pr_num)
+            self.assertIsNone(resp.pr_revision)
+
+        with self.assertRaises(HTTPError):
+            # Should raise a 404
+            hf_hub_download(repo_id, "temp/new_file.md")
+
+        for path, expected_content in [
+            ("buffer", b"Buffer data"),
+            ("bytesio", b"BytesIO data"),
+            ("fileobj", self.tmp_file_content.encode()),
+            ("nested/path", self.tmp_file_content.encode()),
+        ]:
+            filepath = hf_hub_download(repo_id=repo_id, filename=path, revision="main")
+            self.assertTrue(filepath is not None)
+            with open(filepath, "rb") as downloaded_file:
+                content = downloaded_file.read()
+            self.assertEqual(content, expected_content)
+
+    @use_tmp_repo()
+    def test_create_commit_conflict(self, repo_url: RepoUrl) -> None:
+        # Get commit on main
+        repo_id = repo_url.repo_id
+        parent_commit = self._api.model_info(repo_id).sha
+
+        # Upload new file
+        self._api.upload_file(path_or_fileobj=self.tmp_file, path_in_repo="temp/new_file.md", repo_id=repo_id)
+
+        # Creating a commit with a parent commit that is not the current main should fail
+        operations = [
+            CommitOperationAdd(path_in_repo="buffer", path_or_fileobj=b"Buffer data"),
+        ]
+        with self.assertRaises(HTTPError) as exc_ctx:
+            self._api.create_commit(
+                operations=operations,
+                commit_message="Test create_commit",
+                repo_id=repo_id,
+                parent_commit=parent_commit,
             )
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+        self.assertEqual(exc_ctx.exception.response.status_code, 412)
+        self.assertIn(
+            # Check the server message is added to the exception
+            "A commit has happened since. Please refresh and try again.",
+            str(exc_ctx.exception),
+        )
 
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
@@ -868,7 +791,8 @@ class CommitApiTest(HfApiCommonTest):
             # Delete repo
             self._api.delete_repo(repo_id=REPO_NAME)
 
-    def test_create_commit_huge_regular_files(self):
+    @use_tmp_repo()
+    def test_create_commit_huge_regular_files(self, repo_url: RepoUrl) -> None:
         """Test committing 12 text files (>100MB in total) at once.
 
         This was not possible when using `json` format instead of `ndjson`
@@ -876,26 +800,18 @@ class CommitApiTest(HfApiCommonTest):
 
         See https://github.com/huggingface/huggingface_hub/pull/1117.
         """
-        REPO_NAME = repo_name("create_commit_huge_regular_files")
-        self._api.create_repo(repo_id=REPO_NAME, exist_ok=False)
-        try:
-            operations = []
-            for num in range(12):
-                operations.append(
-                    CommitOperationAdd(
-                        path_in_repo=f"file-{num}.text",
-                        path_or_fileobj=b"Hello regular " + b"a" * 1024 * 1024 * 9,
-                    )
-                )
-            self._api.create_commit(
-                operations=operations,  # 12*9MB regular => too much for "old" method
-                commit_message="Test create_commit with huge regular files",
-                repo_id=f"{USER}/{REPO_NAME}",
+        operations = [
+            CommitOperationAdd(
+                path_in_repo=f"file-{num}.text",
+                path_or_fileobj=b"Hello regular " + b"a" * 1024 * 1024 * 9,
             )
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=REPO_NAME)
+            for num in range(12)
+        ]
+        self._api.create_commit(
+            operations=operations,  # 12*9MB regular => too much for "old" method
+            commit_message="Test create_commit with huge regular files",
+            repo_id=repo_url.repo_id,
+        )
 
     @use_tmp_repo()
     def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
@@ -945,22 +861,17 @@ class CommitApiTest(HfApiCommonTest):
         REPO_NAME = repo_name("CaSe_Is_ImPoRtAnT")
         repo_id = self._api.create_repo(repo_id=REPO_NAME, exist_ok=False).repo_id
 
-        try:
-            self._api.create_commit(
-                repo_id=repo_id.lower(),  # API is case-insensitive!
-                commit_message="Add 1 regular and 1 LFs files.",
-                operations=[
-                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
-                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"LFS content"),
-                ],
-            )
-            repo_files = self._api.list_repo_files(repo_id=repo_id)
-            self.assertIn("file.txt", repo_files)
-            self.assertIn("lfs.bin", repo_files)
-        except Exception as err:
-            self.fail(err)
-        finally:
-            self._api.delete_repo(repo_id=repo_id)
+        self._api.create_commit(
+            repo_id=repo_id.lower(),  # API is case-insensitive!
+            commit_message="Add 1 regular and 1 LFs files.",
+            operations=[
+                CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"LFS content"),
+            ],
+        )
+        repo_files = self._api.list_repo_files(repo_id=repo_id)
+        self.assertIn("file.txt", repo_files)
+        self.assertIn("lfs.bin", repo_files)
 
     @use_tmp_repo()
     def test_commit_copy_file(self, repo_url: RepoUrl) -> None:
