@@ -12,11 +12,11 @@ from urllib.parse import urlparse
 from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
 from huggingface_hub.repocard import metadata_load, metadata_save
 
-from ._login import get_token
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import (
     SoftTemporaryDirectory,
+    get_token,
     logging,
     run_subprocess,
     tqdm,
