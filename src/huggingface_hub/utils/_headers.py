@@ -16,7 +16,6 @@
 from typing import Dict, Optional, Union
 
 from .. import constants
-from .._login import get_token
 from ._runtime import (
     get_fastai_version,
     get_fastcore_version,
@@ -29,6 +28,7 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
+from ._token import get_token
 from ._validators import validate_hf_hub_args
 
 

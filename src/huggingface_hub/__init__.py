@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.20.0.dev0"
+__version__ = "0.21.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -63,7 +63,6 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_login": [
-        "get_token",
         "interpreter_login",
         "login",
         "logout",
@@ -300,6 +299,7 @@ _SUBMOD_ATTRS = {
         "configure_http_backend",
         "dump_environment_info",
         "get_session",
+        "get_token",
         "logging",
         "scan_cache_dir",
     ],
@@ -414,7 +414,6 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._login import (
-        get_token,  # noqa: F401
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
         logout,  # noqa: F401
@@ -641,6 +640,7 @@ if TYPE_CHECKING:  # pragma: no cover
         configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
         get_session,  # noqa: F401
+        get_token,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
     )

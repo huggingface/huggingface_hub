@@ -40,6 +40,7 @@ from ._errors import (
     RevisionNotFoundError,
     hf_raise_for_status,
 )
+from ._token import get_token
 from ._fixes import SoftTemporaryDirectory, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import build_hf_headers, get_token_to_send, LocalTokenNotFoundError
