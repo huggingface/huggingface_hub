@@ -35,7 +35,7 @@
 
 ## 欢迎使用 Hugging Face Hub 库
 
-`huggingface_hub` 库允许您与[Hugging Face Hub](https://huggingface.co/)交互，该平台使开源机器学习民主化，适用于创作者和协作者。发现适用于您项目的预训练模型和数据集，或在 Hub 上托管的数千个机器学习应用程序中玩耍。您还可以与社区创建和分享您自己的模型、数据集和演示。`huggingface_hub` 库提供了一种使用 Python 轻松完成所有这些操作的方法。
+通过`huggingface_hub` 库，您可以与面向机器学习开发者和协作者的平台 [Hugging Face Hub](https://huggingface.co/)进行交互，找到适用于您所在项目的预训练模型和数据集，体验在平台托管的数百个机器学习应用，还可以创建或分享自己的模型和数据集并于社区共享。以上所有都可以用Python在`huggingface_hub` 库中轻松实现。
 
 ## 主要特点
 

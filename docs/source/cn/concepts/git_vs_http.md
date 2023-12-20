@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub`库是用于与Hugging Face Hub进行交互的库，Hugging Face Hub是一组基于Git的存储库（模型、数据集或Spaces）。使用 `huggingface_hub`有两种主要方式来访问Hub。
 
-第一种方法，即所谓的“基于git”的方法，由[`Repository`]类领导。这种方法使用了一个包装器，它在`git`命令的基础上增加了专门与Hub交互的额外函数。第二种选择，称为“基于HTTP”的方法，涉及使用[`HfApi`]客户端进行HTTP请求。让我们来看一看每种方法的优缺点。
+第一种方法，即所谓的“基于git”的方法，由[`Repository`]类驱动。这种方法使用了一个包装器，它在 `git`命令的基础上增加了专门与Hub交互的额外函数。第二种选择，称为“基于HTTP”的方法，涉及使用[`HfApi`]客户端进行HTTP请求。让我们来看一看每种方法的优缺点。
 
 ## 存储库：基于历史的 Git 方法
 

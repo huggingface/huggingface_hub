@@ -14,7 +14,7 @@ rendered properly in your Markdown viewer.
 pip install --upgrade huggingface_hub    
 ```
 
-更多详细信息,请查看[安装指南](安装)
+更多详细信息,请查看[安装指南](installation)
 
 ## 下载文件
 
@@ -115,14 +115,14 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 ... )
 ```
 
-要一次上传多个文件，请查看[上传指南](./指南/上传) ,该指南将向您介绍几种上传文件的方法（有或没有 git）。
+要一次上传多个文件，请查看[上传指南](./guides/upload) ,该指南将向您介绍几种上传文件的方法（有或没有 git）。
 
 ## 下一步
 
-`huggingface_hub`库为用户提供了一种使用Python与Hub 进行交互的简单方法。要了解有关如何在Hub上管理文件和存储库的更多信息，我们建议您阅读我们的[操作方法指南](./指南/总览)：
+`huggingface_hub`库为用户提供了一种使用Python与Hub 进行交互的简单方法。要了解有关如何在Hub上管理文件和存储库的更多信息，我们建议您阅读我们的[操作方法指南](./guides/overview)：
 
-- [管理您的存储库](./指南/仓库)
-- [从Hub下载文件](./指南/下载) 
-- [将文件上传到Hub](./指南/上传) 
-- [在Hub中搜索您的所需模型或数据集](./指南/搜索) 
-- [了解如何使用 Inference API 进行快速推理](./指南/推理) 
+- [管理您的存储库](./guides/repository)
+- [从Hub下载文件](./guides/download) 
+- [将文件上传到Hub](./guides/upload) 
+- [在Hub中搜索您的所需模型或数据集](./guides/search) 
+- [了解如何使用 Inference API 进行快速推理](./guides/inference) 

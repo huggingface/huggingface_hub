@@ -43,7 +43,7 @@ pip install --upgrade huggingface_hub
 
 ### 安装可选依赖项
 
-`huggingface_hub`的某些依赖是 [可选](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) 的，因为它们不是运行`huggingface_hub`的核心功能所必需的.但是，如果没有安装可选依赖项 `huggingface_hub` 的某些功能可能无法使用
+`huggingface_hub`的某些依赖项是 [可选](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) 的，因为它们不是运行`huggingface_hub`的核心功能所必需的.但是，如果没有安装可选依赖项， `huggingface_hub` 的某些功能可能会无法使用 
 
 您可以通过`pip`安装可选依赖项,请运行以下代码：
 
@@ -66,11 +66,11 @@ pip install 'huggingface_hub[cli,torch]'
 
 ### 从源代码安装
 
-在某些情况下，直接从源代码安装`huggingface_hub`很有趣。这允许您使用最新的稳定版本`main`版本而不是最新的稳定版本
+在某些情况下，直接从源代码安装`huggingface_hub`会更有趣。因为您可以使用最新的主版本`main`而非最新的稳定版本
 
-`main`版本对于保持最新的开发进度很有用，例如，如果自上次官方发布以来修复了一个错误，但尚未发布新的版本
+`main`版本更有利于跟进平台的最新开发进度，例如，在最近一次官方发布之后和最新的官方发布之前所修复的某个错误
 
-但是，这意味着`main`版本可能不总是稳定的。我们会尽力让 `main`版本保持可用，并且大多数问题通常会在几小时或一天内解决。如果您遇到问题，请创建一个 Issue ，以便我们可以更快地解决！
+但是，这意味着`main`版本可能不总是稳定的。我们会尽力让其正常运行，大多数问题通常会在几小时或一天内解决。如果您遇到问题，请创建一个 Issue ，以便我们可以更快地解决！
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub  # 使用pip从GitHub仓库安装Hugging Face Hub库
@@ -82,7 +82,7 @@ pip install git+https://github.com/huggingface/huggingface_hub  # 使用pip从Gi
 pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch  # 使用pip从指定的GitHub分支（my-feature-branch）安装Hugging Face Hub库
 ```
 
-完成安装后，请[检查安装](#验证安装)是否正常工作
+完成安装后，请[检查安装](#check-installation)是否正常工作
 
 ### 可编辑安装
 
@@ -108,7 +108,7 @@ pip install -e .
 ```bash
 conda install -c conda-forge huggingface_hub
 ```
-完成安装后，请[检查安装](#验证安装)是否正常工作
+完成安装后，请[检查安装](#check-installation)是否正常工作
 
 ## 验证安装
 
@@ -132,11 +132,11 @@ Task: text-generation  任务：文本生成
 
 为了实现让每个人都能使用机器学习的目标，我们构建了 `huggingface_hub`库，使其成为一个跨平台的库，尤其可以在 Unix 和 Windows 系统上正常工作。但是，在某些情况下，`huggingface_hub`在Windows上运行时会有一些限制。以下是一些已知问题的完整列表。如果您遇到任何未记录的问题，请打开 [Github上的issue](https://github.com/huggingface/huggingface_hub/issues/new/choose).让我们知道
 
-- `huggingface_hub`的缓存系统依赖于符号链接来高效地缓存从Hub下载的文件。在Windows上，您必须激活开发者模式或以管理员身份运行您的脚本才能启用符号链接。如果它们没有被激活，缓存系统仍然可以工作，但效率较低。有关更多详细信息，请阅读[缓存限制](./指南/缓存管理#限制)部分。
+- `huggingface_hub`的缓存系统依赖于符号链接来高效地缓存从Hub下载的文件。在Windows上，您必须激活开发者模式或以管理员身份运行您的脚本才能启用符号链接。如果它们没有被激活，缓存系统仍然可以工作，但效率较低。有关更多详细信息，请阅读[缓存限制](./guides/manage-cache#limitations)部分。
 
 - Hub上的文件路径可能包含特殊字符（例如:`path/to?/my/file`）。Windows对[特殊字符](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)更加严格，这使得在Windows上下载这些文件变得不可能。希望这是罕见的情况。如果您认为这是一个错误，请联系存储库所有者或我们，以找出解决方案。
 
 
 ## 后记
 
-一旦您在机器上正确安装了`huggingface_hub`，您可能需要[配置环境变量](包管理信息/环境变量)或者[查看我们的指南之一](指南/总览)以开始使用。
+一旦您在机器上正确安装了`huggingface_hub`，您可能需要[配置环境变量](package_reference/environment_variables)或者[查看我们的指南之一](guides/overview)以开始使用。
