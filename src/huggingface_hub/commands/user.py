@@ -29,11 +29,11 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     NOTEBOOK_LOGIN_PASSWORD_HTML,
     NOTEBOOK_LOGIN_TOKEN_HTML_END,
     NOTEBOOK_LOGIN_TOKEN_HTML_START,
-    get_token,
     login,
     logout,
     notebook_login,
 )
+from ..utils import get_token
 from ._cli_utils import ANSI
 
 
