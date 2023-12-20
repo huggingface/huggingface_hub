@@ -2,21 +2,22 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Create and share Model Cards
+# Créer en partager des cartes de modèle
 
-The `huggingface_hub` library provides a Python interface to create, share, and update Model Cards.
-Visit [the dedicated documentation page](https://huggingface.co/docs/hub/models-cards)
-for a deeper view of what Model Cards on the Hub are, and how they work under the hood.
+La librairie `huggingface_hub` fournit une interface Python pour créer, partager et mettre à jour
+des cartes de modèle. Consultez [page de documentation dédiée](https://huggingface.co/docs/hub/models-cards)
+pour une vue en profondeur de ce que les cartes de modèle sont et comment elles fonctionnent
+en arrière-plan.
 
 <Tip>
 
-[New (beta)! Try our experimental Model Card Creator App](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
+[`Nouveaux : Testez notre application de création de carte de modèle`](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 </Tip>
 
-## Load a Model Card from the Hub
+## Chargez une carte de modèle depuis le Hub
 
-To load an existing card from the Hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
+Pour charger une carte existante depuis le Hub, vous pouvez utiliser la fonction [`ModelCard.load`]. Ici, nous chargeront la carte depuis [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
 
 ```python
 from huggingface_hub import ModelCard
@@ -24,16 +25,17 @@ from huggingface_hub import ModelCard
 card = ModelCard.load('nateraw/vit-base-beans')
 ```
 
-This card has some helpful attributes that you may want to access/leverage:
-  - `card.data`: Returns a [`ModelCardData`] instance with the model card's metadata. Call `.to_dict()` on this instance to get the representation as a dictionary.
-  - `card.text`: Returns the text of the card, *excluding the metadata header*.
-  - `card.content`: Returns the text content of the card, *including the metadata header*.
+Cette carte a des attributs très utiles que vous aurez peut-être envie d'utiliser:
+  - `card.data`: Retourne une instance [`ModelCardData`] avec les métadonnées de la carte de modèle. Les appels à `.to_dict()` sur cette instance pour obtenir les représentations en tant que dictionnaire.
+  - `card.text`: Retourne le texte de la carte *sans le header des métadonnées*.
+  - `card.content`: Retourne le contenu textuel de la carte, *dont le header des métadonnées*.
 
-## Create Model Cards
+## Créez des cartes de modèle
 
-### From Text
+### Depuis le texte
 
-To initialize a Model Card from text, just pass the text content of the card to the `ModelCard` on init.
+Pour initialiser une carte de modèle depuis le texte, passez simplement en tant qu'argument le
+prochain contenu de la carte au `ModelCard` à l'initialisation. 
 
 ```python
 content = """
@@ -42,17 +44,19 @@ language: en
 license: mit
 ---
 
-# My Model Card
+# Ma carte de modèle
 """
 
 card = ModelCard(content)
 card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
 ```
 
-Another way you might want to do this is with f-strings. In the following example, we:
+Une autre manière que vous aurez peut-être besoin d'utiliser est celle utilisant les
+f-strings. Dans l'exemple suivant nous:
 
-- Use [`ModelCardData.to_yaml`] to convert metadata we defined to YAML so we can use it to insert the YAML block in the model card.
-- Show how you might use a template variable via Python f-strings.
+- Utiliseront [`ModelCardData.to_yaml`] pour convertir la métadonnée que nous avons définie en YAML afin de pouvoir l'utiliser pour
+  insérer le block YAML dans la carte de modèle.
+- Montreront comment vous pourriez utiliser une variable dans un template via les f-strings Python.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library='timm')
@@ -63,16 +67,16 @@ content = f"""
 { card_data.to_yaml() }
 ---
 
-# My Model Card
+# Ma carte de modèle
 
-This model created by [@{example_template_var}](https://github.com/{example_template_var})
+Ce modèle créé par [@{example_template_var}](https://github.com/{example_template_var})
 """
 
 card = ModelCard(content)
 print(card)
 ```
 
-The above example would leave us with a card that looks like this:
+L'exemple ci-dessus nous laisserait avec une carte qui ressemble à ça:
 
 ```
 ---
@@ -81,47 +85,48 @@ license: mit
 library: timm
 ---
 
-# My Model Card
+# Ma carte de modèle
 
-This model created by [@nateraw](https://github.com/nateraw)
+Ce modèle a été créé par [@nateraw](https://github.com/nateraw)
 ```
 
-### From a Jinja Template
+### Depuis un template Jinja
 
-If you have `Jinja2` installed, you can create Model Cards from a jinja template file. Let's see a basic example:
+Si `Jinja2` est installé, vous pouvez créer une carte de modèle depuis un template jinja. Consultons un exemple
+basique:
 
 ```python
 from pathlib import Path
 
 from huggingface_hub import ModelCard, ModelCardData
 
-# Define your jinja template
+# Définissez votre template jinja
 template_text = """
 ---
 {{ card_data }}
 ---
 
-# Model Card for MyCoolModel
+# Carte de modèle de MyCoolModel
 
-This model does this and that.
+Ce modèle fait ceci, il peut aussi faire cela...
 
-This model was created by [@{{ author }}](https://hf.co/{{author}}).
+Ce modèle a été créé par [@{{ author }}](https://hf.co/{{author}}).
 """.strip()
 
-# Write the template to a file
+# Écrivez le template vers un fichier
 Path('custom_template.md').write_text(template_text)
 
-# Define card metadata
+# Définissez la métadonnée de la carte
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
 
-# Create card from template, passing it any jinja template variables you want.
-# In our case, we'll pass author
+# Créez une carte depuis le template vous pouvez passer n'importe quelle variable de template jinja que vous voulez.
+# Dans notre cas, nous passeront author
 card = ModelCard.from_template(card_data, template_path='custom_template.md', author='nateraw')
 card.save('my_model_card_1.md')
 print(card)
 ```
 
-The resulting card's markdown looks like this:
+Le markdown de la carte affiché ressemblera à ça:
 
 ```
 ---
@@ -130,14 +135,15 @@ license: mit
 library_name: keras
 ---
 
-# Model Card for MyCoolModel
+# Carte de modèle pour MyCoolModel
 
-This model does this and that.
+Ce modèle fait ceci et cela.
 
-This model was created by [@nateraw](https://hf.co/nateraw).
+Ce modèle a été créé par [@nateraw](https://hf.co/nateraw).
 ```
 
-If you update any card.data, it'll reflect in the card itself.
+Si vous mettez à jour n'importe quelle card.data, elle sera aussi
+modifiée dans la carte elle même. 
 
 ```
 card.data.library_name = 'timm'
@@ -146,7 +152,8 @@ card.data.license = 'apache-2.0'
 print(card)
 ```
 
-Now, as you can see, the metadata header has been updated:
+Maintenant, comme vous pouvez le voir, le header de métadonnée
+a été mis à jour:
 
 ```
 ---
@@ -155,22 +162,23 @@ license: apache-2.0
 library_name: timm
 ---
 
-# Model Card for MyCoolModel
+# Carte de modèle pour MyCoolModel
 
-This model does this and that.
+Ce modèle peut faire ceci et cela...
 
-This model was created by [@nateraw](https://hf.co/nateraw).
+Ce modèle a été créé par [@nateraw](https://hf.co/nateraw).
 ```
 
-As you update the card data, you can validate the card is still valid against the Hub by calling [`ModelCard.validate`]. This ensures that the card passes any validation rules set up on the Hugging Face Hub.
+Tout en mettant à jour la donnée de carte, vous pouvez vérifier que la carte est toujours valide pour le Hub en appelant [`ModelCard.validate`]. Ceci vous assure que la carte passera n'importe quelle règle de validation existante sur le Hub Hugging Face.
 
-### From the Default Template
+### Depuis le template par défaut
 
-Instead of using your own template, you can also use the [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), which is a fully featured model card with tons of sections you may want to fill out. Under the hood, it uses [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) to fill out a template file.
+Aulieu d'utiliser votre propre template, vous pouvez aussi utiliser le [template par défaut](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), qui est une carte de modèle avec toutes les fonctionnalités possibles contenant des tonnes de sections que vous aurez peut-être besoin de remplir. En arrière plan, ce template utilise [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) pour remplir un fichier de template.
 
 <Tip>
 
-Note that you will have to have Jinja2 installed to use `from_template`. You can do so with `pip install Jinja2`.
+Notez que vous aurez besoin d'avoir Jinja2 installé pour utiliser `from_template`. Vous pouvez le faire avec
+`pip install Jinja2`.
 
 </Tip>
 
@@ -187,11 +195,13 @@ card.save('my_model_card_2.md')
 print(card)
 ```
 
-## Share Model Cards
+## Partagez une carte de modèle
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
+Si vous êtes authentifié dans le Hub Hugging Face (soit en utilisant `huggingface-cli login` ou [`login`]), vous pouvez push des cartes vers le Hub
+en appelant [`ModelCard.push_to_hub`]. Regardons comment le faire:
 
-First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the authenticated user's namespace:
+Tout d'abord, nous allons créer un nouveau dépôt qu'on appelera 'hf-hub-modelcards-pr-test' sur le namespace
+de l'utilisateur authentifié:
 
 ```python
 from huggingface_hub import whoami, create_repo
@@ -201,7 +211,7 @@ repo_id = f'{user}/hf-hub-modelcards-pr-test'
 url = create_repo(repo_id, exist_ok=True)
 ```
 
-Then, we'll create a card from the default template (same as the one defined in the section above):
+Ensuite, nous créerons la carte pour le template par défaut (de la même manière que celui défini dans la section ci-dessus):
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -214,41 +224,42 @@ card = ModelCard.from_template(
 )
 ```
 
-Finally, we'll push that up to the hub
+Enfin, nous pushong le tout sur le Hub
 
 ```python
 card.push_to_hub(repo_id)
 ```
 
-You can check out the resulting card [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/blob/main/README.md).
+Vous pouvez vérifier la carte créé [ici](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/blob/main/README.md).
 
-If you instead wanted to push a card as a pull request, you can just say `create_pr=True` when calling `push_to_hub`:
+Si vous avez envie de faire une pull request, vous pouvez juste préciser `create_pr=True` lors de l'appel
+`push_to_hub`:
 
 ```python
 card.push_to_hub(repo_id, create_pr=True)
 ```
 
-A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
+Une pull request créé de cette commande peut-être vue [ici](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
 
-## Update metadata
+## Mettre à jour les métadonnées
 
-In this section we will see what metadata are in repo cards and how to update them.
+Dans cette section, nous verons ce que les métadonnées sont dans les cartes de dépôt
+et comment les mettre à jour.
 
-`metadata` refers to a hash map (or key value) context that provides some high-level information about a model, dataset or Space. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. For more detail you can take a look to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
-Now lets see some examples on how to update those metadata.
+`metadata` fait référence à un contexte de hash map (ou clé-valeur) qui fournit des informations haut niveau sur un modèle, un dataset ou un espace. Cette information peut inclure des détails tels que le `type de pipeline`, le `model_id` ou le `model_description`. Pour plus de détails, vous pouvez consulter ces guides: [carte de modèle](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [carte de dataset](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings). Maintenant voyons des exemples de mise à jour de ces métadonnées.
 
 
-Let's start with a first example:
+Commençons avec un premier exemple:
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
 ```
 
-With these two lines of code you will update the metadata to set a new `pipeline_tag`.
+Avec ces deux lignes de code vous mettez à jour la métadonnée pour définir un nouveau `pipeline_tag`.
 
-By default, you cannot update a key that is already existing on the card. If you want to do so, you must pass
-`overwrite=True` explicitly:
+Par défaut, vous ne pouvez pas mettre à jour une clé qui existe déjà sur la carte. Si vous voulez le faire,
+vous devez passer explicitement `overwrite=True`:
 
 
 ```python
@@ -256,22 +267,23 @@ By default, you cannot update a key that is already existing on the card. If you
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
 ```
 
-It often happen that you want to suggest some changes to a repository
-on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owners to
-review and merge your suggestions.
+Souvent, vous aurez envie de suggérer des changements dans un dépôt sur
+lequel vous avez pas les permissions d'écriture. Vous pouvez faire ainsi
+en créant une pull request sur ce dépôt qui permettra aux propriétaires
+de review et de fusionner vos suggestions.
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("someone/model", {"pipeline_tag": "text-classification"}, create_pr=True)
 ```
 
-## Include Evaluation Results
+## Inclure des résultats d'évaluation
 
-To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
+Pour inclure des résultats d'évaluation dans la métadonnée `model-index`, vous pouvez passer un [`EvalResult`] ou une liste d'`EvalResult` avec vos résultats d'évaluation associés. En arrière-plan, le `model-index` sera créé lors de l'appel de `card.data.to_dict()`. Pour plus d'informations sur la manière dont tout ça fonctionne, vous pouvez consulter [cette section de la documentation du Hub](https://huggingface.co/docs/hub/models-cards#evaluation-results).
 
 <Tip>
 
-Note that using this function requires you to include the `model_name` attribute in [`ModelCardData`].
+Notez qu'utiliser cette fonction vous demande d'inclure l'attribut `model_name` dans [`ModelCardData`].
 
 </Tip>
 
@@ -293,7 +305,7 @@ card = ModelCard.from_template(card_data)
 print(card.data)
 ```
 
-The resulting `card.data` should look like this:
+Le `card.data` résultant devrait ressembler à ceci:
 
 ```
 language: en
@@ -311,7 +323,8 @@ model-index:
       value: 0.7
 ```
 
-If you have more than one evaluation result you'd like to share, just pass a list of `EvalResult`:
+Si vous avez plus d'un résultat d'évaluation que vous voulez partager, passez simplement une liste
+d'`EvalResult`:
 
 ```python
 card_data = ModelCardData(
@@ -339,7 +352,7 @@ card = ModelCard.from_template(card_data)
 card.data
 ```
 
-Which should leave you with the following `card.data`:
+Ce qui devrait donner le `card.data` suivant:
 
 ```
 language: en
