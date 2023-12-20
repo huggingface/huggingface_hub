@@ -33,7 +33,7 @@ source .env/bin/activate
 .env/Scripts/activate 
 ```
 
-现在您可以从[从 PyPi 注册表 ](https://pypi.org/project/huggingface-hub/)安装 `huggingface_hub`：
+现在您可以从[PyPi注册表](https://pypi.org/project/huggingface-hub/)安装 `huggingface_hub`：
 
 ```bash
 pip install --upgrade huggingface_hub 
