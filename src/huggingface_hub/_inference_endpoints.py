@@ -192,6 +192,12 @@ class InferenceEndpoint:
 
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
+
+        Raises:
+            [`InferenceEndpointError`]
+                If the Inference Endpoint ended up in a failed state.
+            [`InferenceEndpointTimeoutError`]
+                If the Inference Endpoint is not deployed after `timeout` seconds.
         """
         if self.url is not None:  # Means the endpoint is deployed
             logger.info("Inference Endpoint is ready to be used.")
@@ -208,6 +214,10 @@ class InferenceEndpoint:
             if self.url is not None:  # Means the endpoint is deployed
                 logger.info("Inference Endpoint is ready to be used.")
                 return self
+            if self.status == InferenceEndpointStatus.FAILED:
+                raise InferenceEndpointError(
+                    f"Inference Endpoint {self.name} failed to deploy. Please check the logs for more information."
+                )
             if timeout is not None:
                 if time.time() - start > timeout:
                     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
