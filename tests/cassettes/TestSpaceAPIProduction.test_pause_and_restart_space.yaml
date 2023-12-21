@@ -1,0 +1,574 @@
+interactions:
+- request:
+    body: '{"name": "tmp_test_space", "organization": "user",
+      "private": true, "type": "space", "sdk": "gradio"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '126'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - c8665da6-190c-44f5-97a9-657aa2970e7f
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/repos/create
+  response:
+    body:
+      string: '{"url":"https://huggingface.co/spaces/user/tmp_test_space","name":"user/tmp_test_space"}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '138'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:16 GMT
+      ETag:
+      - W/"8a-cX1tp8KZ9AbSjjAv7Ea81tUl/o0"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 9WC2pIXZRijNtgbWWJWNyUTnZooErgMTYSYana_9oBTi4_Y375JyHg==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e40-0971def90d16c23148e749c0;c8665da6-190c-44f5-97a9-657aa2970e7f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"files": [{"path": "app.py", "sample": "CmltcG9ydCBncmFkaW8gYXMgZ3IKCgpkZWYgZ3JlZXQobmFtZSk6CiAgICByZXR1cm4gIkhlbGxvICIgKyBuYW1lICsgIiEhIgoKaWZhY2UgPSBnci5JbnRlcmZhY2UoZm49Z3JlZXQsIGlucHV0cz0idGV4dCIsIG91dHB1dHM9InRleHQiKQppZmFjZS5sYXVuY2goKQo=",
+      "size": 152, "sha": "cf0d1d937f3c0dbe0d626e10da89ddd32c89c13cbbec8e5a665bb13c8abf19d4"}]}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '337'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 55b87731-52c0-4d26-b3f9-74de40980261
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/preupload/main
+  response:
+    body:
+      string: '{"files":[{"path":"app.py","uploadMode":"regular","shouldIgnore":false}]}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '73'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:17 GMT
+      ETag:
+      - W/"49-nCeVdVg3Vd8tCoIYVmhKsYvl0Vs"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - ItAaH1jzx1zN7PL5qBoV0bnV_TWkMAw-Yg8ySTlDFlGtSaRwbCHAmg==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e40-4d9d511a5f9386bc4b3fe3f0;55b87731-52c0-4d26-b3f9-74de40980261
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"key": "header", "value": {"summary": "Upload app.py with huggingface_hub",
+      "description": ""}}
+
+      {"key": "file", "value": {"content": "CmltcG9ydCBncmFkaW8gYXMgZ3IKCgpkZWYgZ3JlZXQobmFtZSk6CiAgICByZXR1cm4gIkhlbGxvICIgKyBuYW1lICsgIiEhIgoKaWZhY2UgPSBnci5JbnRlcmZhY2UoZm49Z3JlZXQsIGlucHV0cz0idGV4dCIsIG91dHB1dHM9InRleHQiKQppZmFjZS5sYXVuY2goKQo=",
+      "path": "app.py", "encoding": "base64"}}
+
+      '
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '383'
+      Content-Type:
+      - application/x-ndjson
+      X-Amzn-Trace-Id:
+      - eddaadbb-269b-47de-b30e-dbabe129b5fa
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/commit/main
+  response:
+    body:
+      string: '{"success":true,"commitOid":"2f2dcda7439e7451aedac474325b0f37afbeccaf","commitUrl":"https://huggingface.co/spaces/user/tmp_test_space/commit/2f2dcda7439e7451aedac474325b0f37afbeccaf","hookOutput":""}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '224'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:17 GMT
+      ETag:
+      - W/"e0-HUwkMh4OiEaF2bP3Aj9ujLvPgOo"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - pEi67vjgaYXn0LghY4hL9FeKBH4Fd5yJOql1MkoDhGz5Weax1JAofw==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e41-1393b1cf1b2d840634cec973;eddaadbb-269b-47de-b30e-dbabe129b5fa
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"files": [{"path": "app.py", "sample": "", "size": 0, "sha": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '131'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 31afebbb-3722-4d9b-aeff-eb3c3fd914a9
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/preupload/main
+  response:
+    body:
+      string: '{"files":[{"path":"app.py","uploadMode":"regular","shouldIgnore":false}]}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '73'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:17 GMT
+      ETag:
+      - W/"49-nCeVdVg3Vd8tCoIYVmhKsYvl0Vs"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - gn0KT92R8SMOy8A_iQjflvCyHBybj2kwKZTHutkOGY_6jb7-9NDzfw==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e41-267edc4170245e015a43e12b;31afebbb-3722-4d9b-aeff-eb3c3fd914a9
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"key": "header", "value": {"summary": "Upload app.py with huggingface_hub",
+      "description": ""}}
+
+      {"key": "file", "value": {"content": "", "path": "app.py", "encoding": "base64"}}
+
+      '
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '179'
+      Content-Type:
+      - application/x-ndjson
+      X-Amzn-Trace-Id:
+      - 069fb2f6-4b9a-474a-81f5-312d591b39bb
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/commit/main
+  response:
+    body:
+      string: '{"success":true,"commitOid":"3bc6e8cd08f81f9052b34d39022e397731acbe14","commitUrl":"https://huggingface.co/spaces/user/tmp_test_space/commit/3bc6e8cd08f81f9052b34d39022e397731acbe14","hookOutput":""}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '224'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:17 GMT
+      ETag:
+      - W/"e0-nW44QSoFe6DhLvkkH0JnsFTrCB8"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - zSgGac00h4Ym_xw2qj65C7ptvNLt_LuqfbuL91BSY9c6blX-gMVyPw==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e41-255e6ea827c256b93689ec06;069fb2f6-4b9a-474a-81f5-312d591b39bb
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 11a94de5-d46a-45c0-87bb-058605bd035e
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: GET
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/runtime
+  response:
+    body:
+      string: '{"stage":"BUILDING","hardware":{"current":null,"requested":"cpu-basic"},"storage":null,"gcTimeout":172800,"replicas":{"current":1,"requested":1}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '145'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:17 GMT
+      ETag:
+      - W/"91-j1NQfsXE5fy1h/qeo4p+DhhJGr8"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 5LXoJ0wtvQapkrpniR6YpWBcnlQWW2sfZ3n7AHfnFypDEla9hc23yg==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e41-0ef1595e4f0538bc008107a8;11a94de5-d46a-45c0-87bb-058605bd035e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
+      X-Amzn-Trace-Id:
+      - bfa7f96a-b56c-4cba-85b3-240973e1fe23
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/pause
+  response:
+    body:
+      string: '{"stage":"PAUSED","hardware":{"current":null,"requested":"cpu-basic"},"storage":null,"gcTimeout":172800,"replicas":{"current":1,"requested":1}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '143'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:18 GMT
+      ETag:
+      - W/"8f-EUVoDox+oD2Y+qurpiOKauzrpms"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - QK4J1JFKiaHiRjtsFAK0NqeYEFU2ndhZ8Er-qd-AP8tTdvR1-9RzkA==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e42-6094295a7dfcef531bb3dadb;bfa7f96a-b56c-4cba-85b3-240973e1fe23
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '0'
+      X-Amzn-Trace-Id:
+      - 68a13ffb-0e0a-4e83-8cfa-d14e781d57df
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/restart
+  response:
+    body:
+      string: '{"stage":"BUILDING","hardware":{"current":null,"requested":"cpu-basic"},"storage":null,"gcTimeout":172800,"replicas":{"current":1,"requested":1}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '145'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:18 GMT
+      ETag:
+      - W/"91-j1NQfsXE5fy1h/qeo4p+DhhJGr8"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - XuscfanQbg3kgh7t8ZYD0ICI-PmVIhEy6THfHCcFnukRRTAPQ6ruSA==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e42-25554a84326ba39e4b250d36;68a13ffb-0e0a-4e83-8cfa-d14e781d57df
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 473e46a8-d98c-4f45-893e-61a6ff42a6ea
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: GET
+    uri: https://huggingface.co/api/spaces/user/tmp_test_space/runtime
+  response:
+    body:
+      string: '{"stage":"BUILDING","hardware":{"current":null,"requested":"cpu-basic"},"storage":null,"gcTimeout":172800,"replicas":{"current":1,"requested":1}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '145'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:23 GMT
+      ETag:
+      - W/"91-j1NQfsXE5fy1h/qeo4p+DhhJGr8"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 8tK5pIK1ktOM5wdNboopObtl2TkzcpjBKdD9DRWvigbdSQpeqI0wbA==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e47-326f4c40440c694f37cccf70;473e46a8-d98c-4f45-893e-61a6ff42a6ea
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"name": "tmp_test_space", "organization": "user",
+      "type": "space"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '92'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 2ec5ed59-87c7-4eb1-bd89-b6fe1ff05d80
+      authorization:
+      - Bearer hf_fake_token
+      user-agent:
+      - unknown/None; hf_hub/0.21.0.dev0; python/3.10.12; torch/1.12.1; tensorflow/2.11.0;
+        fastcore/1.5.23
+    method: DELETE
+    uri: https://huggingface.co/api/repos/delete
+  response:
+    body:
+      string: OK
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '2'
+      Content-Type:
+      - text/plain; charset=utf-8
+      Date:
+      - Thu, 21 Dec 2023 15:48:24 GMT
+      ETag:
+      - W/"2-nOO9QiTIwXgNtWtBJezz8kv3SLc"
+      Vary:
+      - Origin
+      Via:
+      - 1.1 c0ec38d1888eee986b8ba3b8834111c6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - DRxwCPR7JUsMnEE2QOvIU5NM9dQgBUgYqwQRiTUVAj-hVf9nWKwBpA==
+      X-Amz-Cf-Pop:
+      - MRS52-P4
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-65845e47-4ea4c30647bb7a412e4bc76d;2ec5ed59-87c7-4eb1-bd89-b6fe1ff05d80
+    status:
+      code: 200
+      message: OK
+version: 1
