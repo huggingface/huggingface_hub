@@ -3510,7 +3510,8 @@ class HfApi:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If parent commit is not a valid commit OID.
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If the Hub API returns an HTTP 400 error (bad request)
+                If a README.md file with an invalid metadata section is committed. In this case, the commit will fail
+                early, before trying to upload any file.
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
             [`~utils.RepositoryNotFoundError`]:
@@ -3551,6 +3552,32 @@ class HfApi:
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
         )
+
+        # If updating a README.md file, make sure the metadata format is valid
+        # It's better to fail early than to fail after all the files have been uploaded.
+        for addition in additions:
+            if addition.path_in_repo == "README.md":
+                with addition.as_file() as file:
+                    response = get_session().post(
+                        f"{ENDPOINT}/api/validate-yaml",
+                        json={"content": file.read().decode(), "repoType": repo_type},
+                        headers=self._build_hf_headers(token=token),
+                    )
+                    # Handle warnings (example: empty metadata)
+                    response_content = response.json()
+                    message = "\n".join(
+                        [f"- {warning.get('message')}" for warning in response_content.get("warnings", [])]
+                    )
+                    if message:
+                        warnings.warn(f"Warnings while validating metadata in README.md:\n{message}")
+
+                    # Raise on errors
+                    try:
+                        hf_raise_for_status(response)
+                    except BadRequestError as e:
+                        errors = response_content.get("errors", [])
+                        message = "\n".join([f"- {error.get('message')}" for error in errors])
+                        raise ValueError(f"Invalid metadata in README.md.\n{message}") from e
 
         # If updating twice the same file or update then delete a file in a single commit
         _warn_on_overwriting_operations(operations)

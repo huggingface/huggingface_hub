@@ -121,6 +121,14 @@ WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fix
 LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
 LARGE_FILE_18MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.pdf"
 
+INVALID_MODELCARD = """
+---
+model-index: foo
+---
+
+This is a modelcard with an invalid metadata section.
+"""
+
 
 class HfApiCommonTest(unittest.TestCase):
     @classmethod
@@ -967,6 +975,40 @@ class CommitApiTest(HfApiCommonTest):
 
         # No LFS files uploaded during commit
         self.assertTrue(any("No LFS files to upload." in log for log in debug_logs.output))
+
+    @use_tmp_repo()
+    def test_commit_modelcard_invalid_metadata(self, repo_url: RepoUrl) -> None:
+        with patch.object(self._api, "preupload_lfs_files") as mock:
+            with self.assertRaisesRegex(ValueError, "Invalid metadata in README.md"):
+                self._api.create_commit(
+                    repo_id=repo_url.repo_id,
+                    operations=[
+                        CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=INVALID_MODELCARD.encode()),
+                        CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                        CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+                    ],
+                    commit_message="Test commit",
+                )
+
+        # Failed early => no LFS files uploaded
+        mock.assert_not_called()
+
+    @use_tmp_repo()
+    def test_commit_modelcard_empty_metadata(self, repo_url: RepoUrl) -> None:
+        modelcard = "This is a modelcard without metadata"
+        with self.assertWarnsRegex(UserWarning, "Warnings while validating metadata in README.md"):
+            commit = self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                operations=[
+                    CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=modelcard.encode()),
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+                ],
+                commit_message="Test commit",
+            )
+
+        # Commit still happened correctly
+        assert isinstance(commit, CommitInfo)
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
