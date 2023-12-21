@@ -254,7 +254,7 @@ class ModelCardData(CardData):
             List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
         base_model (`str` or `List[str]`, *optional*):
-            The name of the base model from which the model derives. This is applicable for example if your model is a
+            The identifier of the base model from which the model derives. This is applicable for example if your model is a
             fine-tune or adapter of an existing model. The value must be the ID of a model on the Hub (or a list of IDs
             if your model derives from multiple models). Defaults to None.
         datasets (`List[str]`, *optional*):
