@@ -482,7 +482,12 @@ class AsyncInferenceClient:
         return _bytes_to_list(response)
 
     async def feature_extraction(
-        self, text: str, truncate: bool = True, normalize: bool = True, *, model: Optional[str] = None
+        self,
+        text: str,
+        truncate: Optional[bool] = True,
+        normalize: Optional[bool] = True,
+        *,
+        model: Optional[str] = None,
     ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
@@ -490,6 +495,10 @@ class AsyncInferenceClient:
         Args:
             text (`str`):
                 The text to embed.
+            truncate (`bool`, *optional*):
+                If set to True, truncates inputs longer than 512 tokens. Defaults to True.
+            normalize (`bool`, *optional*):
+                If set to true, returned vectors will have length 1. Defaults to True.
             model (`str`, *optional*):
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
