@@ -481,7 +481,9 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="document-question-answering")
         return _bytes_to_list(response)
 
-    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    def feature_extraction(
+        self, text: str, truncate: bool = True, normalize: bool = True, *, model: Optional[str] = None
+    ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -513,7 +515,9 @@ class InferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        response = self.post(
+            json={"inputs": text, "truncate": truncate, "normalize": normalize}, model=model, task="feature-extraction"
+        )
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
