@@ -4,19 +4,19 @@ rendered properly in your Markdown viewer.
 
 # Collections
 
-A collection is a group of related items on the Hub (models, datasets, Spaces, papers) that are organized together on the same page. Collections are useful for creating your own portfolio, bookmarking content in categories, or presenting a curated list of items you want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more detail what collections are and how they look on the Hub.
+Une collection est un groupe d'objets reliés entre eux sur le Hub (par exemple des modèles, des datases, des espaces ou des articles) qui sont organisés ensemble sur la même page. Les collections sont utiles pour créer votre propre portefeuille de contenu, mettre du contenu dans des catégories ou présenter une liste précise d'objets que vous voulez partager. Consultez ce [guide](https://huggingface.co/docs/hub/collections) pour comprendre en détail ce que sont les collections et ce à quoi elles ressemblent sur le Hub.
 
-You can directly manage collections in the browser, but in this guide, we will focus on how to manage it programmatically.
+Vous pouvez gérer directement les collections depuis le navigateur, mais dans ce guide, nous nous concetrerons sur la gestion avec du code.
 
-## Fetch a collection
+## Afficher une collection
 
-Use [`get_collection`] to fetch your collections or any public ones. You must have the collection's *slug* to retrieve a collection. A slug is an identifier for a collection based on the title and a unique ID. You can find the slug in the URL of the collection page.
+Utiliser [`get_collection`] pour afficher vos collections ou n'importe quelle collection publique. Vous avez besoin du *slug* de la collection pour en récupérer une. Un slug est un identifiant pour une collection qui dépend du titre de l'ID de la collection. Vous pouvez trouver le slug dans l'URL de la page dédiée à la collection.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hfh_collection_slug.png"/>
 </div>
 
-Let's fetch the collection with, `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`:
+Affichons la collection qui a pour slug `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`: 
 
 ```py
 >>> from huggingface_hub import get_collection
@@ -44,30 +44,30 @@ CollectionItem(
 )
 ```
 
-The [`Collection`] object returned by [`get_collection`] contains:
-- high-level metadata: `slug`, `owner`, `title`, `description`, etc.
-- a list of [`CollectionItem`] objects; each item represents a model, a dataset, a Space, or a paper.
+L'objet [`Collection`] retourné par [`get_collection`] contient:
+- Des métadonnées: `slug`, `owner`, `title`, `description`, etc.
+- Une liste d'objets [`CollectionItem`]; chaque objet représente un modèle, un dataset, un espace ou un article.
 
-All collection items are guaranteed to have:
-- a unique `item_object_id`: this is the id of the collection item in the database
-- an `item_id`: this is the id on the Hub of the underlying item (model, dataset, Space, paper); it is not necessarily unique, and only the `item_id`/`item_type` pair is unique
-- an `item_type`: model, dataset, Space, paper
-- the `position` of the item in the collection, which can be updated to reorganize your collection (see [`update_collection_item`] below)
+Chaque objet d'une collection aura forcément:
+- Un `item_object_id` unique: c'est l'id de l'objet de la collection dans la base de données
+- Un `item_id`: c'est l'id dans le Hub de l'objet sous-jacent (modèle, dataset, espace ou article); il n'est pas nécessairement unique, et seule la paire `item_id`/`item_type` sont uniques
+- Un `item_type`: modèle, dataset, espace ou article
+- La `position` de l'objet dans la collection, qui peut-être mise à jour pour réorganiser votre collection (consultez [`update_collection_item`] ci dessous)
 
-A `note` can also be attached to the item. This is useful to add additional information about the item (a comment, a link to a blog post, etc.). The attribute still has a `None` value if an item doesn't have a note.
+Une note peut aussi être attachées à un objet. Ceci permet d'ajouter des informations supplémentaire sur l'objet (un commentaire, un lien vers le post d'un blog, etc.). L'attribut a toujours une valeur `None` si un objet n'a pas de note.
 
-In addition to these base attributes, returned items can have additional attributes depending on their type: `author`, `private`, `lastModified`, `gated`, `title`, `likes`, `upvotes`, etc. None of these attributes are guaranteed to be returned.
+En plus de ces attributs de base, les objets peuvent avoir des attributs supplémentaires en fonction de leur type: `author`, `private`, `lastModified`,`gated`, `title`, `likes`, `upvotes`, etc. Aucun de ces attribut ne sera retourné à coup sûr.
 
-## List collections
+## Lister les collections
 
-We can also retrieve collections using [`list_collections`]. Collections can be filtered using some parameters. Let's list all the collections from the user [`teknium`](https://huggingface.co/teknium).
+Nous pouvons aussi récupérer les collection en utilisant [`list_collections`]. Les collections peuvent être filtrées en utilisant certains paramètres. Listons toutes les collections de l'utilisateur [`teknium`](https://huggingface.co/teknium).
 ```py
 >>> from huggingface_hub import list_collections
 
 >>> collections = list_collections(owner="teknium")
 ```
 
-This returns an iterable of `Collection` objects. We can iterate over them to print, for example, the number of upvotes for each collection.
+Ce code renvoie un itérable d'objets `Collection`. On peut itérer sur ce dernier pour afficher, par exemple, le nombre d'upvote de chaque collection.
 
 ```py
 >>> for collection in collections:
@@ -78,11 +78,12 @@ Number of upvotes: 5
 
 <Tip warning={true}>
 
-When listing collections, the item list per collection is truncated to 4 items maximum. To retrieve all items from a collection, you must use [`get_collection`].
+Lorsque vous listez des collections, la liste d'objet est tronquée à 4 objets au maximum. Pour récupérer tous les objets d'une collection, vous devez utilisez [`get_collection`]
 
 </Tip>
 
-It is possible to do more advanced filtering. Let's get all collections containing the model [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), sorted by trending, and limit the count to 5.
+Il est possible d'avoir un filtrage plus avancé. Obtenons toutes les collections contenant le modèle [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), trié par popularité, et en limitant au nombre de 5, le nombre de collections affichées.
+
 ```py
 >>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
 >>> for collection in collections:
@@ -94,27 +95,29 @@ gnomealone/need-to-test-652007226c6ce4cdacf9c233
 Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 ```
 
-Parameter `sort` must be one of  `"last_modified"`,  `"trending"` or `"upvotes"`. Parameter `item` accepts any particular item. For example:
+Le paramètre `sort` doit prendre l'une des valeurs suivantes : `"last_modified"`,  `"trending"` ou `"upvotes"`. Le paramètre `item` prend
+n'importe quel objet. Par exemple:
 * `"models/teknium/OpenHermes-2.5-Mistral-7B"`
 * `"spaces/julien-c/open-gpt-rhyming-robot"`
 * `"datasets/squad"`
 * `"papers/2311.12983"`
 
-For more details, please check out [`list_collections`] reference.
+Pour plus de détails, consultez la référence à [`list_collections`]. 
 
-## Create a new collection
+## Créer une nouvelle collection
 
-Now that we know how to get a [`Collection`], let's create our own! Use [`create_collection`] with a title and description. To create a collection on an organization page, pass `namespace="my-cool-org"` when creating the collection. Finally, you can also create private collections by passing `private=True`.
+Maintenant que nous savons comment avoir une [`Collection`], créons la nôtre! Utilisez [`create_collection`] avec un titre et une description. Pour créer une collection sur la page d'une organisation, passez `namespace=mon_organisation` lors de la création de la collection. Enfin, vous pouvez aussi créer des collections privées en passant `private=True`
 
 ```py
 >>> from huggingface_hub import create_collection
 
 >>> collection = create_collection(
 ...     title="ICCV 2023",
-...     description="Portfolio of models, papers and demos I presented at ICCV 2023",
+...     description="Portefeuille de modèles, articles et démes présentées à l'ICCV 2023
 ... )
 ```
 
+Un objet [`Collection`] sera retourné avec les métadonnées (titre, description, propriétaire, etc.) et une liste vide d'objets. Vous serez maintenant capable de vous référer à cette collection en utilisant son `slug`.
 It will return a [`Collection`] object with the high-level metadata (title, description, owner, etc.) and an empty list of items. You will now be able to refer to this collection using it's `slug`.
 
 ```py
@@ -128,13 +131,13 @@ It will return a [`Collection`] object with the high-level metadata (title, desc
 'https://huggingface.co/collections/owner/iccv-2023-15e23b46cb98efca45'
 ```
 
-## Manage items in a collection
+## Gérer des objets dans une collection
 
-Now that we have a [`Collection`], we want to add items to it and organize them.
+Maintenant que nous notre [`Collection`], nous allons y ajouter des objets et les organiser. 
 
-### Add items
+### Ajouter des objets
 
-Items have to be added one by one using [`add_collection_item`]. You only need to know the `collection_slug`, `item_id` and `item_type`. Optionally, you can also add a `note` to the item (500 characters maximum).
+Les objets doivent être ajoutés un par un en utilisant [`add_collection_item`]. Le seules données dont vous aurez besoin seront le `collection_slug`, l'`item_id` et l'`item_type`. En option, vous pouvez aussi ajouter un `note` à l'objet (500 caractères max).
 
 ```py
 >>> from huggingface_hub import create_collection, add_collection_item
@@ -151,23 +154,24 @@ Items have to be added one by one using [`add_collection_item`]. You only need t
 ...     note="Würstchen is a new fast and efficient high resolution text-to-image architecture and model"
 ... )
 >>> add_collection_item(collection.slug, item_id="lmsys/lmsys-chat-1m", item_type="dataset")
->>> add_collection_item(collection.slug, item_id="warp-ai/wuerstchen", item_type="space") # same item_id, different item_type
+>>> add_collection_item(collection.slug, item_id="warp-ai/wuerstchen", item_type="space") # même item_id, mais l'item_type est différent
 ```
 
-If an item already exists in a collection (same `item_id`/`item_type` pair), an HTTP 409 error will be raised. You can choose to ignore this error by setting `exists_ok=True`.
+Si un objet existe déjà dans une collection (même paire `item_id`/`item_type`), une erreur HTTP 409 sera levée. Vous pouvez ignorer cette erreur en passant `exists_ok=True` dans la fonction.
 
-### Add a note to an existing item
+### Ajouter une note à un objet de la collection
 
-You can modify an existing item to add or modify the note attached to it using [`update_collection_item`]. Let's reuse the example above:
+Vous pouvez modifier un objet existant pour ajouter ou changer la note attachée à l'objet en utilisant [`update_collection_item`].
+Réutilisons l'exemple ci-dessus:
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Fetch collection with newly added items
+# Récupére la collection avec les objets nouvellement ajoutés
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Add note the `lmsys-chat-1m` dataset
+# Ajoute une note au dataset `lmsys-chat-1m`
 >>> update_collection_item(
 ...     collection_slug=collection_slug,
 ...     item_object_id=collection.items[2].item_object_id,
@@ -175,20 +179,20 @@ You can modify an existing item to add or modify the note attached to it using [
 ... )
 ```
 
-### Reorder items
+### Remettre en ordre les objets
 
-Items in a collection are ordered. The order is determined by the `position` attribute of each item. By default, items are ordered by appending new items at the end of the collection. You can update the order using [`update_collection_item`] the same way you would add a note.
+Les objets dans une collection sont rangés dans un ordre. L'ordre est déterminé par l'attribut `position` de chacun des objets. Par défaut, les objets sont triés dans l'ordre d'ajout (du plus ancien au plus récent). Vous pouvez mettre à jour cet ordre en utilisant [`update_collection_item`] de la même manière que vous ajouteriez unr note
 
-Let's reuse our example above:
+Réutilisons notre exemple ci-dessus:
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Fetch collection
+# Récupére la collection
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Reorder to place the two `Wuerstchen` items together
+# Change l'ordre pour placer les deux objets `Wuerstchen` ensemble
 >>> update_collection_item(
 ...     collection_slug=collection_slug,
 ...     item_object_id=collection.items[3].item_object_id,
@@ -196,28 +200,28 @@ Let's reuse our example above:
 ... )
 ```
 
-### Remove items
+### Supprimer des objets
 
-Finally, you can also remove an item using [`delete_collection_item`].
+Enfin, vous pouvez aussi supprimer un objet en utilisant [`delete_collection_item`].
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Fetch collection
+# Récupére la collection
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Remove `coqui/xtts` Space from the list
+# Supprimer l'espace `coqui/xtts` de la liste
 >>> delete_collection_item(collection_slug=collection_slug, item_object_id=collection.items[0].item_object_id)
 ```
 
-## Delete collection
+## Supprimer une collection
 
-A collection can be deleted using [`delete_collection`].
+Une collection peut être supprimée en utilisant [`delete_collection`].
 
 <Tip warning={true}>
 
-This is a non-revertible action. A deleted collection cannot be restored.
+Cette action est irréversible. Une collection supprimée ne peut pas être restaurée.
 
 </Tip>
 
