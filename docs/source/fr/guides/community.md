@@ -2,15 +2,16 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interact with Discussions and Pull Requests 
+# Intéragisser avec les discussions et les pull requests
 
-The `huggingface_hub` library provides a Python interface to interact with Pull Requests and Discussions on the Hub.
-Visit [the dedicated documentation page](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
-for a deeper view of what Discussions and Pull Requests on the Hub are, and how they work under the hood.
+La librairie `huggingface_hub` fournir une interface Python pour intéragir avec les discussions et les pull requests du Hub.
+Consultez [la page de documentation dédiée](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
+pour un aperçu plus détaillé de ce que les discussions et les pull requests sur le Hub sont, et comment celles ci
+fonctionnent en arrière plan.
 
-## Retrieve Discussions and Pull Requests from the Hub
+## Récupérer les discussions et les pull requests depuis le Hub
 
-The `HfApi` class allows you to retrieve Discussions and Pull Requests on a given repo:
+La classe `HfApi` vous permet de récupérer des discussions et des pulls requests d'un dépôt en particulier:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -25,7 +26,8 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 [...]
 ```
 
-`HfApi.get_repo_discussions` supports filtering by author, type (Pull Request or Discussion) and status (`open` or `closed`):
+`HfApi.get_repo_discussions` vous permet de filtrer par auteur, type (pull request ou discussion), et statut (`open` ou `closed`):
+
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -40,16 +42,16 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 # 19 - Add Flax weights by ArthurZ, pr: True
 ```
 
-`HfApi.get_repo_discussions` returns a [generator](https://docs.python.org/3.7/howto/functional.html#generators) that yields
-[`Discussion`] objects. To get all the Discussions in a single list, run:
+`HfApi.get_repo_discussions` retourne un [générateur](https://docs.python.org/3.7/howto/functional.html#generators) qui prend
+en charge des objets [`Discussion`]. Pour avoir toutes les discussions dans une seul liste, lancez: 
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
 >>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
 ```
 
-The [`Discussion`] object returned by [`HfApi.get_repo_discussions`] contains high-level overview of the
-Discussion or Pull Request. You can also get more detailed information using [`HfApi.get_discussion_details`]:
+L'objet [`Discussion`] retourné par [`HfApi.get_repo_discussions`] contient une vue d'ensemble de la discussion
+ou la pull request. Vous pouvez aussi obtenir des informations plus détaillée en utilisant [`HfApi.get_discussion_details`]:
 
 ```python
 >>> from huggingface_hub import get_discussion_details
@@ -75,22 +77,23 @@ DiscussionWithDetails(
 )
 ```
 
-[`HfApi.get_discussion_details`] returns a [`DiscussionWithDetails`] object, which is a subclass of [`Discussion`]
-with more detailed information about the Discussion or Pull Request. Information includes all the comments, status changes,
-and renames of the Discussion via [`DiscussionWithDetails.events`].
+[`HfApi.get_discussion_details`] retourne un objet [`DiscuccionWithDetails`], qui est une sous-classe de [`Discussion`]
+avec des informations plus détaillées sur la discussion ou la pull request. Les informations incluent tous les commentaires,
+les changements de statut, et les changements de nom de la discussion via [`DiscussionWithDetails.events`].
 
-In case of a Pull Request, you can retrieve the raw git diff with [`DiscussionWithDetails.diff`]. All the commits of the
-Pull Request are listed in [`DiscussionWithDetails.events`].
+En cas de pull request, vous pouvez récupérer la différence des versions git avec [`DiscussionWithDetails.diff`]. Tous les
+commits de la pull request sont listés dans [`DiscussionWithDetails.events`].
 
 
-## Create and edit a Discussion or Pull Request programmatically
+## Créer et changer une discussion ou une pull request par le code
 
-The [`HfApi`] class also offers ways to create and edit Discussions and Pull Requests.
-You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
-or Pull Requests.
+La classe [`HfApi`] fournit aussi des manière de créer et d'éditer des discussions et 
+des pull requests. Vous aurez besoin d'un [token d'authentification](https://huggingface.co/docs/hub/security-tokens)
+pour créer et modifier des discussions ou des pull requests.
 
-The simplest way to propose changes on a repo on the Hub is via the [`create_commit`] API: just 
-set the `create_pr` parameter to `True`. This parameter is also available on other methods that wrap [`create_commit`]:
+La manière la plus simple de proposer des changements sur un dépôt du Hub est d'utiliser l'API [`create_commit`]:
+fixez simplement le paramètre `create_pr` à `True`. Ce paramètre est aussi disponible avec d'autres méthodes
+autour de [`create_commit`] telles que:
 
     * [`upload_file`]
     * [`upload_folder`]
@@ -108,8 +111,9 @@ set the `create_pr` parameter to `True`. This parameter is also available on oth
 ... )
 ```
 
-You can also use [`HfApi.create_discussion`] (respectively [`HfApi.create_pull_request`]) to create a Discussion (respectively a Pull Request) on a repo.
-Opening a Pull Request this way can be useful if you need to work on changes locally. Pull Requests opened this way will be in `"draft"` mode.
+Vous pouvez aussi utiliser [`HfApi.create_discussion`] (respectivement [`hfApi.create_pull_request`]) pour créer une discussion (respectivement une pull
+request) sur un dépôt. Ouvrir une pull request de cette manière peut-être utile si vous avez besoin de travailler sur des changements en local. Les
+pull requests ouvertes de cette manière seront en mode `"draft"`.
 
 ```python
 >>> from huggingface_hub import create_discussion, create_pull_request
@@ -129,7 +133,7 @@ DiscussionWithDetails(...)
 DiscussionWithDetails(..., is_pull_request=True)
 ```
 
-Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] class. For example:
+La gestion des pull requests et des discussions peut être réalisée entièrement avec la classe [`HfApi`]. Par exemple:
 
     * [`comment_discussion`] to add comments
     * [`edit_discussion_comment`] to edit comments
@@ -138,12 +142,12 @@ Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] c
     * [`merge_pull_request`] to merge a Pull Request 
 
 
-Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
+Consultez la page de documentation [`HfApi`] pour une référence exhaustive de toutes les méthodes disponibles.
 
-## Push changes to a Pull Request
+## Push les changement vers une pull request
 
-*Coming soon !*
+*Arrive bientôt !*
 
-## See also
+## Voir aussi
 
-For a more detailed reference, visit the [Discussions and Pull Requests](../package_reference/community) and the [hf_api](../package_reference/hf_api) documentation page.
+Pour des références plus détaillées, consultez les pages de documentation [Discussions and Pull Requests](../package_reference/community) et [hf_api](../package_reference/hf_api).
