@@ -191,7 +191,7 @@ If you are running on a machine with high bandwidth, you can increase your downl
 
 <Tip>
 
-Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster downloads.
+Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf_transfer`) if you plan to enable faster downloads.
 
 </Tip>
 

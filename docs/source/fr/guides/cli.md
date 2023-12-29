@@ -128,7 +128,7 @@ Cette commande ne vous déconnectera pas si vous vous êtes connecté en utilisa
 
 Utilisez la commande `huggingface-cli download` pour télécharger des fichiers directement depuis le Hub. En interne, cette commande utilise
 les mêmes helpers [`hf_hub_download`] et [`snapshot_download`] décrits dans le guide [Téléchargement](./download) et affiche le chemin
-retourné dans le terminal. Dans les exemples ci-dessous, nous verrons les cas d'usage les plus communs. Pour afficher la liste des
+renvoyé dans le terminal. Dans les exemples ci-dessous, nous verrons les cas d'usage les plus communs. Pour afficher la liste des
 options disponibles, vous pouvez lancer la commande:
 
 ```bash

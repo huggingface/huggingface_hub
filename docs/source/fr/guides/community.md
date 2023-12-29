@@ -42,7 +42,7 @@ La classe `HfApi` vous permet de récupérer des discussions et des pulls reques
 # 19 - Add Flax weights by ArthurZ, pr: True
 ```
 
-`HfApi.get_repo_discussions` retourne un [générateur](https://docs.python.org/3.7/howto/functional.html#generators) qui prend
+`HfApi.get_repo_discussions` renvoie un [générateur](https://docs.python.org/3.7/howto/functional.html#generators) qui prend
 en charge des objets [`Discussion`]. Pour avoir toutes les discussions dans une seul liste, lancez: 
 
 ```python
@@ -77,7 +77,7 @@ DiscussionWithDetails(
 )
 ```
 
-[`HfApi.get_discussion_details`] retourne un objet [`DiscuccionWithDetails`], qui est une sous-classe de [`Discussion`]
+[`HfApi.get_discussion_details`] renvoie un objet [`DiscuccionWithDetails`], qui est une sous-classe de [`Discussion`]
 avec des informations plus détaillées sur la discussion ou la pull request. Les informations incluent tous les commentaires,
 les changements de statut, et les changements de nom de la discussion via [`DiscussionWithDetails.events`].
 

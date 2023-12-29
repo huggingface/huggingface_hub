@@ -2,180 +2,184 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Download files from the Hub
+# Télécharger des fichiers du Hub
 
-The `huggingface_hub` library provides functions to download files from the repositories
-stored on the Hub. You can use these functions independently or integrate them into your
-own library, making it more convenient for your users to interact with the Hub. This
-guide will show you how to:
+La librairie `huggingface_hub` fournit des fonctions pour télécharger des fichiers depuis
+les dépôts stockés sur le Hub. Vous pouvez utiliser ces fonctions directement ou les intégrer
+dans votre propre librairie, pour rendre l'intéraction entre vos utilisateurs et le Hub
+plus simple. Ce guide vous montrera comment:
 
-* Download and cache a single file.
-* Download and cache an entire repository.
-* Download files to a local folder. 
+* Télécharger et mettre en cache un fichier
+* Télécharger et mettre en cache un dépôt entier
+* Télécharger des fichiers dans un dossier local
 
-## Download a single file
+## Télécharger un fichier
 
-The [`hf_hub_download`] function is the main function for downloading files from the Hub.
-It downloads the remote file, caches it on disk (in a version-aware way), and returns its local file path.
+La fonction [`hf_hub_download`] est la fonction principale pour télécharger des fichiers du Hub.
+Elle télécharge le fichier, le met en cache sur le disque (en prenant en compte les versions)
+et retourne le chemin vers le fichier local téléchargé.
 
 <Tip>
 
-The returned filepath is a pointer to the HF local cache. Therefore, it is important to not modify the file to avoid
-having a corrupted cache. If you are interested in getting to know more about how files are cached, please refer to our
-[caching guide](./manage-cache).
+Le chemin retourné est un pointeur vers le cache local HF. Par conséquent, il est important de ne pas modifier le fichier
+pour éviter de corrompre le cache. Si vous voulez en apprendre plus sur la manière dont les fichiers sont mis en cache,
+consultez notre [guide dédié au cache](./manage-cache).
 
 </Tip>
 
-### From latest version
+### Télécharger la dernière version
 
-Select the file to download using the `repo_id`, `repo_type` and `filename` parameters. By default, the file will
-be considered as being part of a `model` repo.
+Sélectionnez le fichier à télécharger en utilisant les paramètres `repo_id`, `repo_type` et `filename`. Par défaut,
+le fichier sera considéré comme appartenant à un dépôt contenant des objets de type `model`.
 
 ```python
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json")
 '/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade/config.json'
 
-# Download from a dataset
+# Télécharger depuis un dataset
 >>> hf_hub_download(repo_id="google/fleurs", filename="fleurs.py", repo_type="dataset")
 '/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/199e4ae37915137c555b1765c01477c216287d34/fleurs.py'
 ```
 
-### From specific version
+### Télécharger une version spécifique
 
-By default, the latest version from the `main` branch is downloaded. However, in some cases you want to download a file
-at a particular version (e.g. from a specific branch, a PR, a tag or a commit hash).
-To do so, use the `revision` parameter:
+Par défaut, la dernière version de la branche `main` est téléchargée. Cependant, dans certains cas, vous aurez besoin
+de télécharger un fichier ayant une version particulière (i.e. d'une branche spécifique, une pull request, un tag,
+ou un hash de commit).
+Pour ce faire, utilisez le paramètre `revision`:
 
 ```python
-# Download from the `v1.0` tag
+# Télécharger à partir de tag `v1.0`
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
 
-# Download from the `test-branch` branch
+# Télécharger à partir de la branche `test-branch`
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="test-branch")
 
-# Download from Pull Request #3
+# Téléchargerà partir de la pull request #3
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/3")
 
-# Download from a specific commit hash
+# Télécharger à partir d'un hash de commit spécifique
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
 ```
 
-**Note:** When using the commit hash, it must be the full-length hash instead of a 7-character commit hash.
+**Note:** Lorsque vous utilisez le hash de commit, vous devez renseigner le hash complet et pas le hash de commit de 7 caractères.
 
-### Construct a download URL
+### Construire un URL de téléchargement
 
-In case you want to construct the URL used to download a file from a repo, you can use [`hf_hub_url`] which returns a URL.
-Note that it is used internally by [`hf_hub_download`].
+Si vous voulez construire l'URL utilisé pour télécharger un fichier depuis un dépôt, vous pouvez utiliser [`hf_hub_url`]
+qui renvoie un URL. Notez que cette méthode est utilisée en interne par  [`hf_hub_download`].
 
-## Download an entire repository
+## Télécharger un dépôt entier
 
-[`snapshot_download`] downloads an entire repository at a given revision. It uses internally [`hf_hub_download`] which
-means all downloaded files are also cached on your local disk. Downloads are made concurrently to speed-up the process.
+[`snapshot_download`] télécharge un dépôt entier à une révision donnée. Cette méthode utilise en arrière-plan
+[`hf_hub_download`] ce qui signifie que tous les fichiers téléchargés sont aussi mis en cache sur votre disque en local.
+Les téléchargements sont faits en parallèle pour rendre le processus plus rapide.
 
-To download a whole repository, just pass the `repo_id` and `repo_type`:
+Pour télécharger un dépôt entier, passez simplement le `repo_id` et le `repo_type`:
 
 ```python
 >>> from huggingface_hub import snapshot_download
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp")
 '/home/lysandre/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade'
 
-# Or from a dataset
+# Ou depuis un dataset
 >>> snapshot_download(repo_id="google/fleurs", repo_type="dataset")
 '/home/lysandre/.cache/huggingface/hub/datasets--google--fleurs/snapshots/199e4ae37915137c555b1765c01477c216287d34'
 ```
 
-[`snapshot_download`] downloads the latest revision by default. If you want a specific repository revision, use the
-`revision` parameter:
+[`snapshot_download`]  télécharge la dernière révision par défaut. Si vous voulez une révision spécifique, utilisez
+le paramètre `revision`:
 
 ```python
 >>> from huggingface_hub import snapshot_download
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp", revision="refs/pr/1")
 ```
 
-### Filter files to download
+### Filtrer les fichiers à télécharger
 
-[`snapshot_download`] provides an easy way to download a repository. However, you don't always want to download the
-entire content of a repository. For example, you might want to prevent downloading all `.bin` files if you know you'll
-only use the `.safetensors` weights. You can do that using `allow_patterns` and `ignore_patterns` parameters.
+[`snapshot_download`] offre une manière simple de télécharger un dépôt. Cependant, vous ne voudrait pas constamment
+télécharger tout le contenu d'un dépôt. Par exemple, vous n'aurez peut-être pas envie de télécharger tous les fichiers
+`.bin` si vous savez que vous utiliserez uniquement les poids du `.safetensors`. Vous pouvez faire ceci en utilisant
+les paramètres `allow_patterns` et `ignore_patterns`.
 
-These parameters accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing
-patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is
-based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+Ces paramètres acceptent un pattern ou une liste de patterns. Les patterns sont des wildcards standard, comme précisé
+[ici](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). Le matching de pattern utilise [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
 
-For example, you can use `allow_patterns` to only download JSON configuration files:
+Par exemple, vous pouvez utiliser `allow_patterns` pour ne télécharger que les fichiers de configuration JSON:
 
 ```python
 >>> from huggingface_hub import snapshot_download
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp", allow_patterns="*.json")
 ```
 
-On the other hand, `ignore_patterns` can exclude certain files from being downloaded. The
-following example ignores the `.msgpack` and `.h5` file extensions:
+A l'opposé, `ignore_patterns` empêche certains fichiers d'être téléchargés. L'exemple
+suivant ignore les fichiers ayant pour extension `.msgpack` et `.h5`:
 
 ```python
 >>> from huggingface_hub import snapshot_download
 >>> snapshot_download(repo_id="lysandre/arxiv-nlp", ignore_patterns=["*.msgpack", "*.h5"])
 ```
 
-Finally, you can combine both to precisely filter your download. Here is an example to download all json and markdown
-files except `vocab.json`.
+Enfin, vous pouvez combiner les deux pour filtrer avec précision vos téléchargements. voici un exemple pour télécharger
+tous les markdowns json à l'exception de `vocab.json`
 
 ```python
 >>> from huggingface_hub import snapshot_download
 >>> snapshot_download(repo_id="gpt2", allow_patterns=["*.md", "*.json"], ignore_patterns="vocab.json")
 ```
 
-## Download file(s) to local folder
+## Télécharger un ou plusieurs fichier(s) vers un dossier local
 
-The recommended (and default) way to download files from the Hub is to use the [cache-system](./manage-cache).
-You can define your cache location by setting `cache_dir` parameter (both in [`hf_hub_download`] and [`snapshot_download`]).
+La manière recommandée (et utilisée par défaut) pour télécharger des fichiers depuis les Hub est d'utiliser
+le [cache-system](./manage-cache). Vous pouvez définir le chemin vers votre cache en définissant le
+paramètre `cache_dir` (dans [`hf_hub_download`] et [`snapshot_download`]).
 
-However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow
-closer to what `git` commands offer. You can do that using the `local_dir` and `local_dir_use_symlinks` parameters:
-- `local_dir` must be a path to a folder on your system. The downloaded files will keep the same file structure as in the
-repo. For example if `filename="data/train.csv"` and `local_dir="path/to/folder"`, then the returned filepath will be
-`"path/to/folder/data/train.csv"`.
-- `local_dir_use_symlinks` defines how the file must be saved in your local folder.
-  - The default behavior (`"auto"`) is to duplicate small files (<5MB) and use symlinks for bigger files. Symlinks allow
-    to optimize both bandwidth and disk usage. However manually editing a symlinked file might corrupt the cache, hence
-    the duplication for small files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-    environment variable.
-  - If `local_dir_use_symlinks=True` is set, all files are symlinked for an optimal disk space optimization. This is
-    for example useful when downloading a huge dataset with thousands of small files.
-  - Finally, if you don't want symlinks at all you can disable them (`local_dir_use_symlinks=False`). The cache directory
-    will still be used to check wether the file is already cached or not. If already cached, the file is **duplicated**
-    from the cache (i.e. saves bandwidth but increases disk usage). If the file is not already cached, it will be
-    downloaded and moved directly to the local dir. This means that if you need to reuse it somewhere else later, it
-    will be **re-downloaded**.
+Toutefois, dans certains cas, vous aurez besoin de télécharger des fichiers et de les déplacer dans un dossier spécifique.
+C'est une pratique utile pour créer un workflow plus proche de ce qu'on peut retrouver avec les commande `git`. Vous
+pouvez faire ceci en utilisant les paramètres `local_dir` et `local_dir_use_symlinks`:
+- `local_dir` doit être un chemin vers un dossier de votre système. Les fichiers téléchargés garderont la même structure
+de fichier que dans le dépôt. Par exemple, si `filename="data/train.csv"` et `local_dir="path/to/folder"`, alors le
+chemin renvoyé sera `"path/to/folder/data/train.csv"`.
+- `local_dir_use_symlinks` définit comment le fichier doit être enregistré sur votre dossier local.
+  - Le comportement par défaut (`"auto"`), dupliquera les fichiers peu volumineux (<5MB) et utilise les symlinks pour
+    les fichiers plus gros. Les symlinks permettent d'optimiser à la fois la bande passante et l'utilisation du disque.
+    Cependant, éditer manuellement un fichier sous symlink pourrait corrompre le cache, d'où la duplication pour des
+    petits fichiers. Le seuil de 5MB peut être configuré avec la variable d'environnement`HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`.
+  - Si `local_dir_use_symlinks=True` est définit, alors tous les fichiers seront sous symlink pour une utilisation
+    optimal de l'espace disque? C'est par exemple utile lors du téléchargement d'un dataset très volumineux contenant
+    des milliers de petits fichiers.
+  - Enfin, si vous ne voulez pas utiliser de symlink du tout, vous pouvez les désactier (`local_dir_use_symlinks=False`).
+    Le chemin du cache sera toujours utilisé afin de vérifier si le fichier est déjà en cache ou pas. Si ce dernier
+    n'est pas déjà en cache, il sera téléchargé et déplacé directement vers le chemin local. Ce qui signifie que si
+    vous avez besoin de le réutiliser ailleurs, il sera **retéléchargé**
 
-Here is a table that summarizes the different options to help you choose the parameters that best suit your use case.
+Voici un table qui résume les différentes options pour vous aider à choisir les paramètres qui collent le mieux à votre situation.
 
 <!-- Generated with https://www.tablesgenerator.com/markdown_tables -->
-| Parameters | File already cached | Returned path | Can read path? | Can save to path? | Optimized bandwidth | Optimized disk usage |
+| Paramètre | Fichier déjà en cahce | Chemin renvoyé | Peut-on lire le chemin? | Pouvez vous sauvegarder le chemin | Bande passante optimisée | Utilisation du disque optimisée |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `local_dir=None` |  | symlink in cache | ✅ | ❌<br>_(save would corrupt the cache)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks="auto"` |  | file or symlink in folder | ✅ | ✅ _(for small files)_ <br> ⚠️ _(for big files do not resolve path before saving)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=True` |  | symlink in folder | ✅ | ⚠️<br>_(do not resolve path before saving)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | No | file in folder | ✅ | ✅ | ❌<br>_(if re-run, file is re-downloaded)_ | ⚠️<br>(multiple copies if ran in multiple folders) |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | Yes | file in folder | ✅ | ✅ | ⚠️<br>_(file has to be cached first)_ | ❌<br>_(file is duplicated)_ |
+| `local_dir=None` |  | symlink en cache | ✅ | ❌<br>_(sauvegarder corromprait le cache)_ | ✅ | ✅ |
+| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks="auto"` |  | fichier ou symlink dans un dossier | ✅ | ✅ _(for small files)_ <br> ⚠️ _(for big files do not resolve path before saving)_ | ✅ | ✅ |
+| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=True` |  | symlink dans un dossier | ✅ | ⚠️<br>_(do not resolve path before saving)_ | ✅ | ✅ |
+| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | Non | fichier dans un dossier | ✅ | ✅ | ❌<br>_(en cas de re-run, le fichier est retéléchargé)_ | ⚠️<br>(plusieurs copies si lancé dans plusieurs dossiers) |
+| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | oui | fichier dans un dossier | ✅ | ✅ | ⚠️<br>_(le fichier doit être mis en cache d'abord)_ | ❌<br>_(le fichier est dupliqué)_ |
 
-**Note:** if you are on a Windows machine, you need to enable developer mode or run `huggingface_hub` as admin to enable
-symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) section for more details.
+**Note:** si vous utilisez une machien Windows, vous devez activer le mode développeur ou lancer `huggingface_hub` en tant qu'administrateur pour activer les syymlinks. Consultez la section [limitations du cache](../guides/manage-cache#limitations)
 
-## Download from the CLI
+## Télécharger depuis le CLI
 
-You can use the `huggingface-cli download` command from the terminal to directly download files from the Hub.
-Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described above and prints the
-returned path to the terminal.
+Vous pouvez utiliser la commande `huggingface-cli download` depuis un terminal pour télécharger directement des
+fichiers du Hub. En interne, cette commande utilise les même helpers [`hf_hub_download`] et [`snapshot_download`]
+décrits ci-dessus et affiche le chemin renvoyé dans le terminal.
 
 ```bash
 >>> huggingface-cli download gpt2 config.json
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-You can download multiple files at once which displays a progress bar and returns the snapshot path in which the files
-are located:
+Vous pouvez télécharger plusieurs fichiers d'un coup ce qui affiche une barre de chargement et renvoie le chemin du
+snapshot dans lequel les fichiers sont localisés!
 
 ```bash
 >>> huggingface-cli download gpt2 config.json model.safetensors
@@ -183,20 +187,22 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-For more details about the CLI download command, please refer to the [CLI guide](./cli#huggingface-cli-download).
+Pour plus de détails sur la commande download du CLI, veuillez consulter le [guide CLI](./cli#huggingface-cli-download).
 
-## Faster downloads
+## Téléchargements plus rapides
 
-If you are running on a machine with high bandwidth, you can increase your download speed with [`hf_transfer`](https://github.com/huggingface/hf_transfer), a Rust-based library developed to speed up file transfers with the Hub. To enable it, install the package (`pip install hf_transfer`) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+Si vous tuilisez une machine avec une bande passante plus large, vous pouvez augmenter votre vitesse de téléchargement en utilisant [`hf_transfer`],
+une librairie basée sur Rust développée pour accélérer le transfer de fichiers avec le Hub. Pour l'activer, installez le package (`pip install hf_transfer`) et définissez set `HF_HUB_ENABLE_HF_TRANSFER=1` en tant que variable d'environnement 
 
 <Tip>
 
-Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster downloads.
+Les barres de chargement ne fonctionnent avec `hf_transfer` qu'à partir de la version `0.1.4`. Mettez à jour la version (`pip install -U hf_transfer`)
+si vous comptez utiliser cette librairie.
 
 </Tip>
 
 <Tip warning={true}>
 
-`hf_transfer` is a power user tool! It is tested and production-ready, but it lacks user-friendly features like advanced error handling or proxies. For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+`hf_transfer` est un outil très puissant! Il a été testé et est prêt à être utilisé en production, mais il lui manque certaines fonctionnalités user friendly, telles que la gestion d'erreurs avancée ou les proxys. Pour plus de détails, consultez cette [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 </Tip>
