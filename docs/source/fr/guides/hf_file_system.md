@@ -2,68 +2,69 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interact with the Hub through the Filesystem API
+# Intéragissez avec le Hub à partir de l'API Filesystem
 
-In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds of top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
+En plus d'[`HfApi`], la librairie `huggingface_hub` fournit [`HfFileSystem`], une interface vers le Hub Hugging Face, basée sur Python, et [compatible fsspec](https://filesystem-spec.readthedocs.io/en/latest/). [`HfFileSystem`] fournit les opérations classiques des filesystem telles que
+`cp`, `mv`, `ls`, `du`, `glob`, `get_file`, et `put_file`.
 
-## Usage
+## Utilisation
 
 ```python
 >>> from huggingface_hub import HfFileSystem
 >>> fs = HfFileSystem()
 
->>> # List all files in a directory
+>>> # Liste tous les fichiers d'un chemin
 >>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # List all ".csv" files in a repo
+>>> # Liste tous les fichiers ".csv" d'un dépôt
 >>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # Read a remote file 
+>>> # Lis un fichier distant 
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
->>> # Read the content of a remote file as a string
+>>> # Lis le contenu d'un fichier distant en renvoyant un string
 >>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
->>> # Write a remote file
+>>> # Lis un fichier distant
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
 
-The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash.
+L'argument optionnel `revision` peut être passé pour exécuter une opération sur un commit spécifique en précisant la branche, le tag, ou un hash de commit.
 
-Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
+A la différence des fonction native de Python `open`, la fonction `open` de `fsspec` est en mode binaire par défaut, `"rb"`. Ceci signifie que vous devez explicitement définir le mode à `"r"` pour lire et `"w"` pour écrire en mode texte. Les modes `"a"` et `"ab"` ne sont pas encore supportés.
 
-## Integrations
+## Intégrations
 
-The [`HfFileSystem`] can be used with any library that integrates `fsspec`, provided the URL follows the scheme:
+[`HfFileSystem`] peut être utilisé avec toutes les librairies qui intègrent `fsspec`, tant que l'URL a le schéma suivant:
 
 ```
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
-The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for spaces, and models don't need a prefix in the URL.
+Le `repo_type_prefix` vaut `datasets/` pour les datasets, `spaces/` pour les espaces, et les modèles n'ont pas besoin de préfixe dans l'URL.
 
-Some interesting integrations where [`HfFileSystem`] simplifies interacting with the Hub are listed below:
+Ci-dessous quelques intégrations intéressantes où [`HfFileSystem`] simplifie l'intéraction avec le Hub:
 
-* Reading/writing a [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) DataFrame from/to a Hub repository:
+* Lire/modifier un dataframe [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) depuis/vers un dépôt du Hub:
 
   ```python
   >>> import pandas as pd
 
-  >>> # Read a remote CSV file into a dataframe
+  >>> # Lis un fichier CSV distant en renvoyant un dataframe
   >>> df = pd.read_csv("hf://datasets/my-username/my-dataset-repo/train.csv")
 
-  >>> # Write a dataframe to a remote CSV file
+  >>> # Enregistre un dataframe vers un fichier CSV distant
   >>> df.to_csv("hf://datasets/my-username/my-dataset-repo/test.csv")
   ```
 
-The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html) DataFrames.
+Un workflow similaire peut-être utilisé pour les dataframes [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) et [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html)
 
-* Querying (remote) Hub files with [DuckDB](https://duckdb.org/docs/guides/python/filesystems):
+* Requête afin d'obtenir des fichiers du Hub (distants) avec [DuckDB](https://duckdb.org/docs/guides/python/filesystems): 
 
   ```python
   >>> from huggingface_hub import HfFileSystem
@@ -71,12 +72,12 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
   >>> fs = HfFileSystem()
   >>> duckdb.register_filesystem(fs)
-  >>> # Query a remote file and get the result back as a dataframe
+  >>> # Requête pour obtenir un fichier distant et récupérer les résultats sous forme de dataframe
   >>> fs_query_file = "hf://datasets/my-username/my-dataset-repo/data_dir/data.parquet"
   >>> df = duckdb.query(f"SELECT * FROM '{fs_query_file}' LIMIT 10").df()
   ```
 
-* Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec):
+* Utilisation du Hub pour stocker des tableau avec [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec):
 
   ```python
   >>> import numpy as np
@@ -84,26 +85,26 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
   >>> embeddings = np.random.randn(50000, 1000).astype("float32")
 
-  >>> # Write an array to a repo
+  >>> # Écriture d'un tableau vers un dépôt
   >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="w") as root:
   ...    foo = root.create_group("embeddings")
   ...    foobar = foo.zeros('experiment_0', shape=(50000, 1000), chunks=(10000, 1000), dtype='f4')
   ...    foobar[:] = embeddings
 
-  >>> # Read an array from a repo
+  >>> # Lecture d'un tableau depuis un dépôt
   >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="r") as root:
   ...    first_row = root["embeddings/experiment_0"][0]
   ```
 
-## Authentication
+## Authentification
 
-In many cases, you must be logged in with a Hugging Face account to interact with the Hub. Refer to the [Login](../quick-start#login) section of the documentation to learn more about authentication methods on the Hub. 
+Souvent, vous devrez être connecté avec un compte Hugging Face pour intéragir avec le Hub. Consultez la section [connexion](../quick-start#login) de la documentation pour en apprendre plus sur les méthodes d'authentifications sur le Hub.
 
-It is also possible to login programmatically by passing your `token` as an argument to [`HfFileSystem`]:
+Il est aussi possible de se connecter par le code en passant l'agument `token` à [`HfFileSystem`]:
 
 ```python
 >>> from huggingface_hub import HfFileSystem
 >>> fs = HfFileSystem(token=token)
 ```
 
-If you login this way, be careful not to accidentally leak the token when sharing your source code!
+Si vous vous connectez de cette manière, faites attention à ne pas accidentellement révéler votre token en cas de partage du code source!
