@@ -2,36 +2,37 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Run Inference on servers
+# Faire de l'inférence sur des serveurs
 
-Inference is the process of using a trained model to make predictions on new data. As this process can be compute-intensive,
-running on a dedicated server can be an interesting option. The `huggingface_hub` library provides an easy way to call a
-service that runs inference for hosted models. There are several services you can connect to:
-- [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
-on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and
-prototype AI products.
-- [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production.
-Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+L'inférence est le fait d'utiliser un modèle déjà entrainé pour faire des prédictions sur de nouvelles données. Comme ce
+processus peut demander beaucoup de ressources computationnelles, le lancer sur un serveur dédié peut être une option
+intéressante. La librairie `huggingface_hub` offre une manière facile d'appeler un service qui fait de l'inférence pour
+les modèles hébergés. Il y a plusieurs services auxquels vous pouvez vous connecter:
+- [Inference API](https://huggingface.co/docs/api-inference/index): un service qui vous permet de faire des inférences accélérées
+sur l'infrastructure Hugging Face gratuitement. Ce service est une manière rapide de commencer, tester différents modèles et
+créer des premiers prototypes de produits IA.
+-[Inference Endpoints](https://huggingface.co/inference-endpoints): un produit qui permet de déployer facilement des modèles en production.
+L'inférence est assurée par Hugging Face dans l'infrastructure dédiée d'un cloud provider de votre choix.
 
-These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
-[`InferenceApi`] client, adding specific support for tasks and handling inference on both
-[Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
-Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
+Ces services peuvent être appelés avec l'objet [`InferenceClient`]. Ce dernier remplace le client historique [`InferenceApi`],
+en ajoutant plus de support pour les tâches et la gestion de l'inférence avec [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index). Apprenez comment migrer vers le nouveau client dans la section
+[client historique InferenceAPI](#legacy-inferenceapi-client).
 
 <Tip>
 
-[`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
-your preferred tool (curl, postman,...), please refer to the [Inference API](https://huggingface.co/docs/api-inference/index)
-or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
+[`InferenceClient`] est un client Python qui fait des appels HTTP à nos APIs. Si vous voulez faire des appels HTTP
+directement en utilisant votre outil préféré (curl, postman,...), consultez les pages de documentation
+d'[Inference API](https://huggingface.co/docs/api-inference/index) ou d'[Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index)
 
-For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
-If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
+
+Pour le développement web, un [JS client](https://huggingface.co/docs/huggingface.js/inference/README) a été créé.
+Si vous êtes intéressés par le développement de jeu, consultez notre [projet C#](https://github.com/huggingface/unity-api).
 
 </Tip>
 
-## Getting started
+## Commencer avec les inférences
 
-Let's get started with a text-to-image task:
+Commençons avec du text-to-image:
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -41,64 +42,67 @@ Let's get started with a text-to-image task:
 >>> image.save("astronaut.png")
 ```
 
-We initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want
-to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
-example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
-file.
+Nous avons initialisé un [`InferenceClient`] avec les paramètres par défaut. La seule chose que vous avez besoin de savoir est la
+[tâche](#supported-tasks) que vous voulez réaliser. Par défaut, le client se connectera à Inference API et sélectionnera un modèle
+pour assurer la tâche. Dans notre exemple, nous avons généré une image depuis un prompt textuel. La valeur renvoyée est un objet
+`PIL.image` qui peut être enregistré en tant que fichier.
 
 <Tip warning={true}>
 
-The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
-[this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
-all the parameters available for each task.
+L'API est fait pour être simple. Cette paramètres et options ne sont pas disponibles pour l'utilisateur. Consultez
+[cette page](https://huggingface.co/docs/api-inference/detailed_parameters) si vous voulez en apprendre plus sur
+tous les paramètres disponibles pour chacune des tâches.
 
 </Tip>
 
-### Using a specific model
+### Utiliser un modèle spécifique
 
-What if you want to use a specific model? You can specify it either as a parameter or directly at an instance level:
+Et si vous voulez utiliser un modèle spécifique? Vous pouvez le préciser soit en tant que paramètre ou directement
+au niveau de l'instance:
 
 ```python
 >>> from huggingface_hub import InferenceClient
-# Initialize client for a specific model
+# Initialise le client pour un modèle spécifique
 >>> client = InferenceClient(model="prompthero/openjourney-v4")
 >>> client.text_to_image(...)
-# Or use a generic client but pass your model as an argument
+# Ou bien utiliser un client générique mais mettre son modèle en argument
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="prompthero/openjourney-v4")
 ```
 
 <Tip>
 
-There are more than 200k models on the Hugging Face Hub! Each task in the [`InferenceClient`] comes with a recommended
-model. Be aware that the HF recommendation can change over time without prior notice. Therefore it is best to explicitly
-set a model once you are decided. Also, in most cases you'll be interested in finding a model specific to _your_ needs.
-Visit the [Models](https://huggingface.co/models) page on the Hub to explore your possibilities.
+Il y a plus de 200 000 modèles sur le HUb Hugging Face! Chaque tâche dans [`InferenceClient`] a un modèle recommandé
+qui lui est assigné. Attention, les recommendantions HF peuvent changer du jour au lendemain sans avertissement préalable.
+Par conséquent il vaut mieux définir explicitement un modèle une fois que vous l'avez choisi. En plus dans la plupart des
+cas, vous aurez besoin d'un modèle qui  colle à vos besoins spécifiques. Consultez la page [Models](https://huggingface.co/models)
+sur le Hub pour explorer vos possibilités.
 
 </Tip>
 
-### Using a specific URL
+### Utiliser un URL spécifique
 
-The examples we saw above use the free-hosted Inference API. This proves to be very useful for prototyping
-and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
-That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
-any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
-code as before, changing only the `model` parameter:
+Les exemples vu ci dessis utilisent l'API hébergé gratuitement. Cette API est très utile pour les prototypes
+et les tests agiles. Une fois que vous êtes prêts à déployer vos modèles en production, vous aurez besoin d'utiliser
+des infrastructures dédiées. C'est là que les [enpoints d'inférence](https://huggingface.co/docs/inference-endpoints/index) 
+rentrent en jeu. Cet outil permet de déployer n'importe quel modèle et de l'exposer en tant que'API privé. Une fois déployé,
+vous obtiendrez un URL auquel vous pouvez vous connecter en utilisant exactement le même code qu'avant, vous aurez juste
+à changer le paramètre `model`:
 
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> client = InferenceClient(model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
-# or
+# ou bien
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
 ```
 
-### Authentication
+### Authentification
 
-Calls made with the [`InferenceClient`] can be authenticated using a [User Access Token](https://huggingface.co/docs/hub/security-tokens).
-By default, it will use the token saved on your machine if you are logged in (check out
-[how to login](https://huggingface.co/docs/huggingface_hub/quick-start#login)). If you are not logged in, you can pass
-your token as an instance parameter:
+Les appels faits avec le client [`InferenceClient`] peuvent passer par de l'authentification en utilisant un 
+[token d'authentification](https://huggingface.co/docs/hub/security-tokens). Par défaut, le token enregistré sur votre machine sera
+utilisé si vous êtes connectés (consultez [comment se connecter](https://huggingface.co/docs/huggingface_hub/quick-start#login)
+pour plus de détails). Si vous n'êtes pas connectés, vous pouvez passer votre token comme paramètre d'instance:
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -107,85 +111,88 @@ your token as an instance parameter:
 
 <Tip>
 
-Authentication is NOT mandatory when using the Inference API. However, authenticated users get a higher free-tier to
-play with the service. Token is also mandatory if you want to run inference on your private models or on private
-endpoints.
+L'authentification n'est PAS obligatoire lorsque que vous utilisez Inference API. Cependant, les utilisateur authentifiés
+ont droit à un free-tier. Les tokens sont de plus obligatoires si vous voulez faire de l'inférence sur vos modèles privés
+ou sur des endpoints privés. 
 
 </Tip>
 
-## Supported tasks
+## Tâches supportés
 
-[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It
-has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
+Le but d'[`InferenceClient`] est de fournir l'interface la plus simple possible pour faire de l'inférence
+sur des modèles Hugging Face. Ce client possède une API simple qui supporte la plupart des tâches usuelles.
+Voici une liste des tâches actuellement supportées: 
 
-| Domain | Task                           | Supported    | Documentation                             |
+| Domaine | Tâche                           | Supporté     | Documentation                             |
 |--------|--------------------------------|--------------|------------------------------------|
-| Audio | [Audio Classification](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
-| | [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
+| Audio | [Classification audio ](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
+| | [Reconaissance vocal automatique](https://huggingface.co/tasks/automatic-speech-recognition)| ✅ | [`~InferenceClient.automatic_speech_recognition`] |
 | | [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
-| Computer Vision | [Image Classification](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
-| | [Image Segmentation](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
-| | [Image-to-Image](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
-| | [Image-to-Text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
-| | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
-| | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
-| | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] 
-| | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
-| NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
+| Computer Vision | [Classification d'images](https://huggingface.co/tasks/image-classification)        | ✅ | [`~InferenceClient.image_classification`] |
+| | [Ségmentation d'images ](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
+| | [Image-to-image](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
+| | [Image-to-text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
+| | [Détection d'objets](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
+| | [Text-to-image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
+| | [Classification d'image zero-shot](https://huggingface.co/tasks/zero-shot-image-classification)| ✅ |[`~InferenceClient.zero_shot_image_classification`]|
+| Multimodal | [Réponse de questions liées à de la documentation](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] 
+| | [Réponse de questions visuelles](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
+| NLP | [conversationnel](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
 | | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`]
-| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
-| | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
-| | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
-| | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
-| | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
-| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
-| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
+| | [Réponse à des questions](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`]
+| | [Similarité de phrase](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
+| | [Création de résumés](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
+| | [Réponse de questions sous forme de tables](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
+| | [Classification de texte](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
+| | [Génération de texte](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
+| | [Classification de tokens](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
+| | [Traduction](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
+| | [Classification zero-shot](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
+| Tabular | [Classification tabulaire](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
+| | [Régression Tabulaire](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
 <Tip>
 
-Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task, how to use them, and the
-most popular models for each task.
+Consultez la page de [Tâches](https://huggingface.co/tasks) pour en savoir plus sur chaque tâche, comment les utiliser
+et les modèles les plus populaires pour chacune des tâches.
 
 </Tip>
 
-## Custom requests
+## Requêtes personnalisées
 
-However, it is not always possible to cover all use cases. For custom requests, the [`InferenceClient.post`] method
-gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs
-and outputs. In the example below, the generated image is returned as raw bytes instead of parsing it as a `PIL Image`.
-This can be helpful if you don't have `Pillow` installed in your setup and just care about the binary content of the
-image. [`InferenceClient.post`] is also useful to handle tasks that are not yet officially supported.
+Toutefois, il n'est pas toujours possible de couvrir tous les cas d'usages avec ces tâches. Pour faire des requêtes
+personnalisées, la méthode [`InferenceClient.post`] vous offre la flexibilité d'envoyer n'importe quelle requête à
+l'API d'inférence. Par exemple, vous pouvez spécifier comment parser les entrées et les sorties. Dans l'exemple
+ci-dessous, l'image générée est renvoyée en bytes aulieu d'être parsée en tant qu'`image PIL`.
+Ceci peut s'avérer utile si vous n'avez pas `Pillow` d'installé sur votre machine et que vous voulez juste avoir
+le contenu binaire de l'image.  [`InferenceClient.post`] est aussi utile pour gérer les tâches qui ne sont pas
+encore supportées officiellement
 
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> client = InferenceClient()
 >>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
+>>> response.content # bytes
 b'...'
 ```
 
-## Async client
+## Client asynchrone
 
-An async version of the client is also provided, based on `asyncio` and `aiohttp`. You can either install `aiohttp`
-directly or use the `[inference]` extra:
+Une version asynchrone du client est aussi fournie, basée sur `asyncio` et `aiohttp`. Vous avez le choix entre installer
+`aiohttp` directmeent ou utiliser l'extra `[inference]`:
 
 ```sh
 pip install --upgrade huggingface_hub[inference]
-# or
+# ou alors
 # pip install aiohttp
 ```
 
-After installation all async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are
-strictly the same as the sync-only version.
+Après l'installation, toutes les API asynchrones sont disponibles via [`AsyncInferenceClient`]. Son initialisation et
+les APIs sont exactement les mêmes que sur la version synchrone.
 
 ```py
-# Code must be run in a asyncio concurrent context.
+# Le code doit tourner dans un contexte asyncio
 # $ python -m asyncio
 >>> from huggingface_hub import AsyncInferenceClient
 >>> client = AsyncInferenceClient()
@@ -198,22 +205,23 @@ strictly the same as the sync-only version.
  a platform for sharing and discussing ML-related content.
 ```
 
-For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
+Pour plus d'informations sur le module `asyncio`, consultez la [documentation officielle](https://docs.python.org/3/library/asyncio.html).
 
-## Advanced tips
+## Astuces avancées
 
-In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
+Dans la section ci-dessus, nous avons vu les aspects principaux d' [`InferenceClient`]. Voyons maintenant les
+astuces plus avanceées.
 
 ### Timeout
 
-When doing inference, there are two main causes for a timeout:
-- The inference process takes a long time to complete.
-- The model is not available, for example when Inference API is loading it for the first time.
+Lorsque vous faites de l'inférence, il y a deux causes principales qui causent un timeout:
+- Le processus d'inférence prend beaucoup de temps à finir.
+- Le modèle n'est pas disponible, par exemple quand Inference API charge le modèle pour la première fois.
 
-[`InferenceClient`] has a global `timeout` parameter to handle those two aspects. By default, it is set to `None`,
-meaning that the client will wait indefinitely for the inference to complete. If you want more control in your workflow,
-you can set it to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised.
-You can catch it and handle it in your code:
+[`InferenceClient`] possède un paramètre global `timeout` qui gère ces deux aspects. Par défaut, il a pour valeur
+`None`, ce qui signifie que le client attendra indéfiniment pour que l'inférence soit complète. Si vous voulez plus
+de controle sur votre workflow, vous pouvez lui donner une valeur spécifique en secondes. Si le délai de timeout
+expire, une erreur [`InferenceTimeoutError`] est levée. Vous pouvez la catch et la gérer dans votre code:
 
 ```python
 >>> from huggingface_hub import InferenceClient, InferenceTimeoutError
@@ -224,15 +232,15 @@ You can catch it and handle it in your code:
 ...     print("Inference timed out after 30s.")
 ```
 
-### Binary inputs
+### Entrée binaires
 
-Some tasks require binary inputs, for example, when dealing with images or audio files. In this case, [`InferenceClient`]
-tries to be as permissive as possible and accept different types:
-- raw `bytes`
-- a file-like object, opened as binary (`with open("audio.flac", "rb") as f: ...`)
-- a path (`str` or `Path`) pointing to a local file
-- a URL (`str`) pointing to a remote file (e.g. `https://...`). In this case, the file will be downloaded locally before
-sending it to the Inference API.
+Certaines tâches demandent des entrées binaire, par exemple, lorsque vous utilisez des images ou des fichiers audio. Dans
+ce cas, [`InferenceClient`] essaye d'accepter différent types:
+- Des`bytes`
+- Un fichier, ouvert en tant que binaire (`with open("audio.flac", "rb") as f: ...`)
+- un chemin (`str` ou `path`) qui pointe vers un fichier local
+- Un URL (`str`) qui pointe vers un fichier distant (i.e. `https://...`). Dans ce cas là, le fichier sera téléchargé en local
+avant d'être envoyé à l'API.
 
 ```py
 >>> from huggingface_hub import InferenceClient
@@ -241,32 +249,32 @@ sending it to the Inference API.
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
 ```
 
-## Legacy InferenceAPI client
+## Client historique InferenceAPI
 
-[`InferenceClient`] acts as a replacement for the legacy [`InferenceApi`] client. It adds specific support for tasks and
-handles inference on both [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
+[`InferenceClient`] sert de remplacement pour l'approche historique [`InferenceApi`]. Il ajoute des supports spécifiques
+pour des tâches et gère l'inférence avec [Inference API](https://huggingface.co/docs/api-inference/index) et [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
 
-Here is a short guide to help you migrate from [`InferenceApi`] to [`InferenceClient`].
+Voici un guide très court qui vous aidera à migrer d'[`InferenceApi`] à [`InferenceClient`].
 
-### Initialization
+### Initialisation
 
-Change from
+Remplacez
 
 ```python
 >>> from huggingface_hub import InferenceApi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-to
+par
 
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
 ```
 
-### Run on a specific task
+### Réaliser une tâche spécifique
 
-Change from
+Remplacez
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -274,7 +282,7 @@ Change from
 >>> inference(...)
 ```
 
-to
+Par
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -284,14 +292,14 @@ to
 
 <Tip>
 
-This is the recommended way to adapt your code to [`InferenceClient`]. It lets you benefit from the task-specific
-methods like `feature_extraction`.
+C'est la méthode recommandée pour adapter votre code à [`InferenceClient`]. Elle vous permet de bénéficier des
+méthodes spécifiques à une tâche telles que `feature_extraction`.
 
 </Tip>
 
-### Run custom request
+### Faire un requête personnalisée
 
-Change from
+Remplacez
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -300,7 +308,7 @@ Change from
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-to
+par
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -310,9 +318,9 @@ to
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-### Run with parameters
+### INférence avec des paramètres
 
-Change from
+Remplacez
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -323,7 +331,7 @@ Change from
 {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```
 
-to
+par
 
 ```python
 >>> from huggingface_hub import InferenceClient
