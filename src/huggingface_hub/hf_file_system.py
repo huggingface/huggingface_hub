@@ -593,9 +593,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
-        super().__init__(fs, path, **kwargs)
-        self.fs: HfFileSystem
-
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
@@ -603,6 +600,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
+        super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
+        self.fs: HfFileSystem
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
