@@ -2,38 +2,40 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Webhooks Server
+# Serveurs Webhooks
 
-Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
-all repos belonging to particular users/organizations you're interested in following. This guide will explain how to
-leverage `huggingface_hub` to create a server listening to webhooks and deploy it to a Space. It assumes you are
-familiar with the concept of webhooks on the Huggingface Hub. To learn more about webhooks themselves, you can read
-this [guide](https://huggingface.co/docs/hub/webhooks) first.
+Les webhooks sont un pilier des fonctionnalités MLOps. Ils vous permettent de suivre tous les nouveaux
+changements sur des dépôts spécifiques ou sur tous les dépôts appartenants à des utilisateurs/organisations que
+vous voulez suivre. Ce guide vous expliquera comment utiliser `hugginface_hub` pour créer un serveur écoutant des
+webhooks et le déployer sur un espacce. Il postule que vous êtes familier avec le concept de webhooks sur le Hub Hugging Face.
+Pour en apprendre plus sur les webhooks, vous pouvez consulter le
+[guide](https://huggingface.co/docs/hub/webhooks) d'abord. 
 
-The base class that we will use in this guide is [`WebhooksServer`]. It is a class for easily configuring a server that
-can receive webhooks from the Huggingface Hub. The server is based on a [Gradio](https://gradio.app/) app. It has a UI
-to display instructions for you or your users and an API to listen to webhooks.
+La classe de base que nous utiliserons dans ce guide est [`WebhooksServer`]. C'est une classe qui permet de configurer
+facilement un serveur qui peut recevoir des webhooks du Hub Huggingface. Le serveur est basé sur une application
+[Gradio](https://gradio.app/). Il a une interface pour afficher des instruction pour vous ou vos utilisateurs et une API
+pour écouter les webhooks.
 
 <Tip>
 
-To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
-one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
+Pour voir un exemple fonctionnel de serveur webhooj, consultez l'[espace bot CI](https://huggingface.co/spaces/spaces-ci-bot/webhook).
+C'est un espace qui lance des environnements éphémères lorsqu'une pull request est ouverte sur un espace.
 
 </Tip>
 
 <Tip warning={true}>
 
-This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
-means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
-notice. Make sure to pin the version of `huggingface_hub` in your requirements.
+C'est une [fonctionnalité expérimentale](../package_reference/environment_variables#hfhubdisableexperimentalwarning),
+ce qui signifie que nous travaillons toujours sur l'amélioration de l'API. De nouveaux changement pourront être introduit
+dans les future sans avertissement préalable. Assurez vous d'épingler la version d'`hugginface_hub` dans vos requirements.
 
 </Tip>
 
 
-## Create an endpoint
+## Créer un endpoint
 
-Implementing a webhook endpoint is as simple as decorating a function. Let's see a first example to explain the main
-concepts:
+Implémenter un endpoint webhook est aussi facile que d'ajouter des décorateurs à une fonction. Voyons un premier
+exemple afin de clarifier les concepts principaux:
 
 ```python
 # app.py
@@ -42,11 +44,12 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # Trigger a training job if a dataset is updated
+        # Lance une tâche d'entrainement si votre dataset est mis à jour
         ...
 ```
 
-Save this snippet in a file called `'app.py'` and run it with `'python app.py'`. You should see a message like this:
+Enregistrez ce snippet de code dans un fichier appelé `'app.py'` et lancez le avec `'python app.py'`. Vous devriez
+voir un message de ce type:
 
 ```text
 Webhook secret is not defined. This means your webhook endpoints will be open to everyone.
@@ -63,71 +66,73 @@ Webhooks are correctly setup and ready to use:
 Go to https://huggingface.co/settings/webhooks to setup your webhooks.
 ```
 
-Good job! You just launched a webhook server! Let's break down what happened exactly:
+Bien joué! Vous venez de créer un serveur webhook! Décomposons ce qui vient de se passer exactement:
 
-1. By decorating a function with [`webhook_endpoint`], a [`WebhooksServer`] object has been created in the background.
-As you can see, this server is a Gradio app running on http://127.0.0.1:7860. If you open this URL in your browser, you
-will see a landing page with instructions about the registered webhooks.
-2. A Gradio app is a FastAPI server under the hood. A new POST route `/webhooks/trigger_training` has been added to it.
-This is the route that will listen to webhooks and run the `trigger_training` function when triggered. FastAPI will
-automatically parse the payload and pass it to the function as a [`WebhookPayload`] object. This is a `pydantic` object
-that contains all the information about the event that triggered the webhook.
-3. The Gradio app also opened a tunnel to receive requests from the internet. This is the interesting part: you can
-configure a Webhook on https://huggingface.co/settings/webhooks pointing to your local machine. This is useful for
-debugging your webhook server and quickly iterating before deploying it to a Space.
-4. Finally, the logs also tell you that your server is currently not secured by a secret. This is not problematic for
-local debugging but is to keep in mind for later.
+1. En décorant une fonction avec [`webhook_endpoint`], un objet [`WebhooksServer`] a été créé en arrière plan.
+Comme vous pouvez le voir, ce serveur est une application Gradio qui tourne sur http://127.0.0.1:7860. Si vous ouvrez
+cet URL dans votre navigateur, vous verez une page d'accueil avec des informations sur les webhooks en question.
+2. En arrière plan, une application Gradio n'est rien de plus qu'un serveur FastAPI . Une nouvelle route POST `/webhooks/trigger_training`
+y a été ajoutée. C'est cette route qui écoutera les webhooks et lancera la fonction `trigger_training` lors de son activation.
+FastAPI parsera automatiquement le paquet et le passera à la fonction en tant qu'objet [`WebhookPayload`]. C'est un objet
+`pydantic` qui contient toutes les informations sur l'événement qui a activé le webhook.
+3. L'application Gradio a aussi ouvert un tunnel pour recevoir des requêtes d'internet. C'est la partie intéressante:
+vous pouvez configurer un webhooj sur https://huggingface.co/settings/webhooks qui pointe vers votre machine. C'est utile
+pour debugger votre serveur webhook et rapidement itérer avant de le déployer dans un espace.
+4. Enfin, les logs vous disent aussi que votre serveur n'est pas sécurisé par un secret. Ce n'est pas problématique pour 
+le debugging en local mais c'est à garder dans un coin de la tête pour plus tard.
 
 <Tip warning={true}>
 
-By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
-once even if you have multiple endpoints.
+Par défaut, le serveur est lancé à la fin de votre script. Si vous l'utilisez dans un notebook, vous pouvez lancer serveur
+manuellement en appelant `decorated_function.run()`. Vu qu'un unique serveur est utilisé, vous aurez uniquement besoin de
+lancer le serveur une fois même si vous avez plusieurs endpoints.
 
 </Tip>
 
 
-## Configure a Webhook
+## Configurer un webhook
 
-Now that you have a webhook server running, you want to configure a Webhook to start receiving messages.
-Go to https://huggingface.co/settings/webhooks, click on "Add a new webhook" and configure your Webhook. Set the target
-repositories you want to watch and the Webhook URL, here `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`. 
+Maintenant que vous avez un serveur webhook qui tourne, vous aurez surement besoin de configure un webhook
+pour commencer à recevoir des messages. Allez sur https://huggingface.co/settings/webhooks, cliquez sur
+"Ajouter un nouveau webhook" et configurez votre webhook. Définissez les dépôts cibles que vous voulez
+surveiller et l'URL du webhook, ici `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`.
 
 <div class="flex justify-center">
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/configure_webhook.png"/>
 </div>
 
-And that's it! You can now trigger that webhook by updating the target repository (e.g. push a commit). Check the
-Activity tab of your Webhook to see the events that have been triggered. Now that you have a working setup, you can
-test it and quickly iterate. If you modify your code and restart the server, your public URL might change. Make sure
-to update the webhook configuration on the Hub if needed.
+Et voilà! Vous pouvez maintenant activer cce webhook en mettant à jour le dépôt cible (i.e. push un commit). Consultez
+la table d'activité de votre webhook pour voir les événements passés. Maintenant que vous avez un setup qui fonctionne,
+vous pouvez le tester et itérer rapidement. Si vous modifiez votre code et relancez le serveur, votre URL public pourrait
+changer. Assurez vous de mettre à jour la configuration du webhook dans le HUb si besoin.
 
-## Deploy to a Space
+## Déployer vers un espace
 
-Now that you have a working webhook server, the goal is to deploy it to a Space. Go to https://huggingface.co/new-space
-to create a Space. Give it a name, select the Gradio SDK and click on "Create Space". Upload your code to the Space
-in a file called `app.py`. Your Space will start automatically! For more details about Spaces, please refer to this
-[guide](https://huggingface.co/docs/hub/spaces-overview).
+Maintenant que vous avez un serveur webhook fonctionnel, le but est de le déplyer sur un espace. Allez sur
+https://huggingface.co/new-space pour créer un espace. Donnez lui un nom, sélectionnez le SDK Gradio et cliquer sur
+"Créer un espace" (ou "Create Space" en anglais). Uploadez votre code dans l'espace dans un fichier appelé `app.py`.
+Votre espace sera lancé automatiquement! Pour plus de détails sur les espaces, consultez ce [guide](https://huggingface.co/docs/hub/spaces-overview).
 
-Your webhook server is now running on a public Space. If most cases, you will want to secure it with a secret. Go to
-your Space settings > Section "Repository secrets" > "Add a secret". Set the `WEBHOOK_SECRET` environment variable to
-the value of your choice. Go back to the [Webhooks settings](https://huggingface.co/settings/webhooks) and set the
-secret in the webhook configuration. Now, only requests with the correct secret will be accepted by your server.
+Votre serveur webhook tourne maintenant sur un espace public. Dans la plupart de cas, vous aurez besoin de le sécuriser
+avec un secret. Allez dans les paramètres de votre espace > Section "Repository secrets" > "Add a secret". Définissez
+la variable d'environnement `WEBHOOK_SECRET` en choisissant la valeur que vous voulez. Retournez dans les 
+[réglages webhooks](https://huggingface.co/settings/webhooks) et définissez le secret dans la configuration du webhook.
+Maintenant, seules les requêtes avec le bon secret seront acceptées par votre serveur.
 
-And this is it! Your Space is now ready to receive webhooks from the Hub. Please keep in mind that if you run the Space
-on a free 'cpu-basic' hardware, it will be shut down after 48 hours of inactivity. If you need a permanent Space, you
-should consider setting to an [upgraded hardware](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
+Et c'est out! Votre espace est maintenant prêt à recevoir des webhooks du Hub. Gardez à l'esprit que si vous faites
+tourner l'espace sur le hardware gratuit 'cpu-basic', il sera éteint après 48 heures d'inactivité. Si vous avez besoin d'un
+espace permanent, vous devriez peut-être considérer l'amélioration vers un [hardware amélioré](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
 
-## Advanced usage
+## Utilisation avancée
 
-The guide above explained the quickest way to setup a [`WebhooksServer`]. In this section, we will see how to customize
-it further.
+Le guide ci dessus expliquait la manière la plus rapide d'initialiser un [`WebhookServer`]. Dans cette section, nous verrons
+comment le personnaliser plus en détails.
 
-### Multiple endpoints
+### Endpoints multilpes
 
-You can register multiple endpoints on the same server. For example, you might want to have one endpoint to trigger
-a training job and another one to trigger a model evaluation. You can do this by adding multiple `@webhook_endpoint`
-decorators:
+Vous pouvez avoir plusieurs endpoints sur le même serveur. Par exemple, vous aurez peut-être envie d'avoir un endpoint
+qui lance un entrainement de modèle et un autre qui lance une évaluation de modèle. Vous pouvez faire ça en ajoutant
+plusieurs décorateurs `@webhook_endpoint`:
 
 ```python
 # app.py
@@ -136,17 +141,17 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # Trigger a training job if a dataset is updated
+        # Lance une tâche d'entrainement si votre dataset est mis à jour
         ...
 
 @webhook_endpoint
 async def trigger_evaluation(payload: WebhookPayload) -> None:
     if payload.repo.type == "model" and payload.event.action == "update":
-        # Trigger an evaluation job if a model is updated
+        # Lance un tâche d'évaluation si un modèle est mis à jour
         ...
 ```
 
-Which will create two endpoints:
+Ce qui créera deux endpoints:
 
 ```text
 (...)
@@ -155,13 +160,13 @@ Webhooks are correctly setup and ready to use:
   - POST https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_evaluation
 ```
 
-### Custom server
+### Serveur personnalisé
 
-To get more flexibility, you can also create a [`WebhooksServer`] object directly. This is useful if you want to
-customize the landing page of your server. You can do this by passing a [Gradio UI](https://gradio.app/docs/#blocks)
-that will overwrite the default one. For example, you can add instructions for your users or add a form to manually
-trigger the webhooks. When creating a [`WebhooksServer`], you can register new webhooks using the
-[`~WebhooksServer.add_webhook`] decorator.
+Pour plus de flexibilité, vous pouvez aussi créer un objet [`WebhooksServer`] directement. C'est utile si vous
+voulez customiser la page d'acceuil de votre serveur. Vous pouvez le faire en passant une [UI Gradio](https://gradio.app/docs/#blocks)
+qui va overwrite linterface par défaut. Par exemple, vous pouvez ajouter des instructions pour vos utilisateurs
+ou ajouter un formulaire pour avtiver les webhooks manuellement. Lors de la création d'un [`WebhooksServer`], vous
+pouvez créer de nouveaux webhooks en utilisant le décorateur [`~WebhooksServer.add_webhook`].
 
 Here is a complete example:
 
@@ -170,30 +175,31 @@ import gradio as gr
 from fastapi import Request
 from huggingface_hub import WebhooksServer, WebhookPayload
 
-# 1. Define  UI
+# 1. Déifnition de l'interface
 with gr.Blocks() as ui:
     ...
 
-# 2. Create WebhooksServer with custom UI and secret
+# 2. Création d'un WebhooksServer avec une interface personnalisée et un secret
 app = WebhooksServer(ui=ui, webhook_secret="my_secret_key")
 
-# 3. Register webhook with explicit name
+# 3. Ajout d'un webhook avec un nom explicite
 @app.add_webhook("/say_hello")
 async def hello(payload: WebhookPayload):
     return {"message": "hello"}
 
-# 4. Register webhook with implicit name
+# 4. Ajout d'un webhook avec un nom implicite
 @app.add_webhook
 async def goodbye(payload: WebhookPayload):
     return {"message": "goodbye"}
 
-# 5. Start server (optional)
+# 5. Lancement du server (optionnel))
 app.run()
 ```
 
-1. We define a custom UI using Gradio blocks. This UI will be displayed on the landing page of the server.
-2. We create a [`WebhooksServer`] object with a custom UI and a secret. The secret is optional and can be set with
-the `WEBHOOK_SECRET` environment variable.
-3. We register a webhook with an explicit name. This will create an endpoint at `/webhooks/say_hello`.
-4. We register a webhook with an implicit name. This will create an endpoint at `/webhooks/goodbye`.
-5. We start the server. This is optional as your server will automatically be started at the end of the script.
+1. Nous définissons une interface personnalisée en utilisant des block Gradio. Cette interface sera affichée
+sur la page d'accueil du serveur.
+2. Nous créons un objet [`WebhooksServer`] avec une interface personnalisée et un secret. Le secret est optionnel et
+peut être définit avec la variable d'environnement `WEBHOOK_SECRET`.
+3. Nous créons un webhook avec un nom explicite. Ceci créera un endpoint à `/webhooks/say_hello`.
+4. Nous créons un webhook avec un nom implicite. Ceci créera un endpoint à `/webhoojs/goodbye`.
+5. Nous lançons le serveur. C'est optionnel car votre serveur sera automatiquement lancé à la fin du script.

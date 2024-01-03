@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Serveurs WebHooks
 
-Les webhooks sont un pilier des fonctionnalités autour du MLOps. Ils vous permettent de suivre tous les nouveaux
+Les webhooks sont un pilier des fonctionnalités MLOps. Ils vous permettent de suivre tous les nouveaux
 changements sur des dépôts spécifiques ou sur tous les dépôts appartenants à des utilisateurs/organisations que
 vous voulez suivre. Pour en apprendre plus sur les webhooks dans le Hub Huggingface, vous pouvez consulter
 le [guide](https://huggingface.co/docs/hub/webhooks) consacré aux webhooks. 
