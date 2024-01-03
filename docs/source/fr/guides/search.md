@@ -2,14 +2,14 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Search the Hub
+# Faites des recherches dans le Hub
 
-In this tutorial, you will learn how to search models, datasets and spaces on the Hub using `huggingface_hub`.
+Dans ce tutoriel, vous apprendrez à chercher des modèles, des datasets et des espaces du Hub en utilisant `huggingface_hub`.
 
-## How to list repositories ?
+## Comment lister les dépôts ?
 
-`huggingface_hub` library includes an HTTP client [`HfApi`] to interact with the Hub.
-Among other things, it can list models, datasets and spaces stored on the Hub:
+La librairie `huggingface_hub` inclus un client HTTP [`HfApi`] pour intéragir avec le Hub.
+Ce client peut, entre autres, lister les modèles, les dataset et les espaces enregistrés sur le Hub:
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -17,26 +17,26 @@ Among other things, it can list models, datasets and spaces stored on the Hub:
 >>> models = api.list_models()
 ```
 
-The output of [`list_models`] is an iterator over the models stored on the Hub.
+La sortie de [`list_models`] est un itérateur sur les modèles stockés dans le Hub.
 
-Similarly, you can use [`list_datasets`] to list datasets and [`list_spaces`] to list Spaces.
+De la même manière, vous pouvez utiliser [`list_datasets`] pour lister les datasets et [`list_spaces`] pour lister les espaces.
 
-## How to filter repositories ?
+## Comment filtrer des dépôts ?
 
-Listing repositories is great but now you might want to filter your search.
-The list helpers have several attributes like:
+Lister les dépôts est très utile, mais vous aurez surement besoin de filtrer votre recherche.
+Les helpers ont plusieurs attributs tels que:
 - `filter`
 - `author`
 - `search`
 - ...
 
-Two of these parameters are intuitive (`author` and `search`), but what about that `filter`?
-`filter` takes as input a [`ModelFilter`] object (or [`DatasetFilter`]). You can instantiate
-it by specifying which models you want to filter. 
+Deux de ces paramètres sont assez intuitifs (`author` et `search`) mais qu'en est il de `filter`?
+`filter` prend en entrée un objet [`ModelFilter`] (ou [`DatasetFilter`]). Vous pouvez l'instancier
+en précisang quels modèles vous voulez filtrer. 
 
-Let's see an example to get all models on the Hub that does image classification, have been
-trained on the imagenet dataset and that runs with PyTorch. That can be done with a single
-[`ModelFilter`]. Attributes are combined as "logical AND".
+Regaardons comment nous pouvons avoir tous les modèles sur le Hub qui font de la classification
+d'images, qui ont été entrainé sur le dataset imagenet et qui utilisent PyTorch. On peut le
+faire en utilisant un seul [`ModelFilter`]. Les attributs sont combinés comme des "ET" logiques:
 
 ```py
 models = hf_api.list_models(
@@ -48,8 +48,8 @@ models = hf_api.list_models(
 )
 ```
 
-While filtering, you can also sort the models and take only the top results. For example,
-the following example fetches the top 5 most downloaded datasets on the Hub:
+Lors du filtrage, vous pouvez aussi trier les modèles en prendre uniquement les premiers
+résultats. L'exemple suivant récupère les 5 datasets les plus téléchargés du Hub:
 
 ```py
 >>> list(list_datasets(sort="downloads", direction=-1, limit=5))
@@ -65,6 +65,5 @@ the following example fetches the top 5 most downloaded datasets on the Hub:
 
 
 
-To explore available filter on the Hub, visit [models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
-in your browser, search for some parameters and look at the values in the URL.
+Pour explorer tous les filtres disponibles sur le HUb, consultez les pages [modèles](https://huggingface.co/models) et [datasets](https://huggingface.co/datasets) dans votre navigateur, cherchez des paramètres et regardez les valeurs dans l'URL.
 
