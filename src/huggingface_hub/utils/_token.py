@@ -24,7 +24,6 @@ from ._runtime import is_google_colab
 
 _CHECK_GOOGLE_COLAB_SECRET = True
 _GOOGLE_COLAB_SECRET_LOCK = Lock()
-_GOOGLE_COLAB_SECRET_TOKEN: Optional[str] = None
 
 
 def get_token() -> Optional[str]:
