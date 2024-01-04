@@ -5296,7 +5296,7 @@ class HfApi:
         )
         _headers = self._build_hf_headers(token=token)
 
-        # 1. Fetch first 100kb
+        # 1. Fetch first 25kb
         # Empirically, 82% of safetensors files have a metadata size < 25kb (over the top 1000 models on the Hub).
         # We assume fetching 25kb is faster than making 2 GET requests. Therefore we always fetch the first 25kb to
         # avoid the 2nd GET in most cases.
