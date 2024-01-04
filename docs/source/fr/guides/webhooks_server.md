@@ -192,7 +192,7 @@ async def hello(payload: WebhookPayload):
 async def goodbye(payload: WebhookPayload):
     return {"message": "goodbye"}
 
-# 5. Lancement du server (optionnel))
+# 5. Lancement du serveur (optionnel)
 app.run()
 ```
 
