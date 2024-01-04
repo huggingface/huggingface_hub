@@ -414,18 +414,38 @@ def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
-    proxies=None,
+    proxies: Optional[Dict] = None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
     expected_size: Optional[int] = None,
+    filename: Optional[str] = None,
     _nb_retries: int = 5,
-):
+) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
 
     If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up. The method gives up after 5 attempts if no new data has being received from the server.
+
+    Args:
+        url (`str`):
+            The URL of the file to download.
+        temp_file (`BinaryIO`):
+            The file-like object where to save the file.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+        resume_size (`float`, *optional*):
+            The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
+            positive number, the download will resume at the given position.
+        headers (`dict`, *optional*):
+            Dictionary of HTTP Headers to send with the request.
+        expected_size (`int`, *optional*):
+            The expected size of the file to download. If set, the download will raise an error if the size of the
+            received content is different from the expected one.
+        filename (`str`, *optional*):
+            The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
+            not set, the filename is guessed from the URL or the `Content-Disposition` header.
     """
     hf_transfer = None
     if HF_HUB_ENABLE_HF_TRANSFER:
@@ -458,13 +478,15 @@ def http_get(
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
-    displayed_name = url
-    content_disposition = r.headers.get("Content-Disposition")
-    if content_disposition is not None:
-        match = HEADER_FILENAME_PATTERN.search(content_disposition)
-        if match is not None:
-            # Means file is on CDN
-            displayed_name = match.groupdict()["filename"]
+    displayed_name = filename
+    if displayed_name is None:
+        displayed_name = url
+        content_disposition = r.headers.get("Content-Disposition")
+        if content_disposition is not None:
+            match = HEADER_FILENAME_PATTERN.search(content_disposition)
+            if match is not None:
+                # Means file is on CDN
+                displayed_name = match.groupdict()["filename"]
 
     # Truncate filename if too long to display
     if len(displayed_name) > 40:
@@ -1461,6 +1483,7 @@ def hf_hub_download(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
+                filename=filename,
             )
 
         if local_dir is None:
