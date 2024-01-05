@@ -53,7 +53,7 @@ def _get_token_from_google_colab() -> Optional[str]:
     if not is_google_colab():
         return None
 
-    # `google.colab.userdata` is not thread-safe has it might trigger a popup in the UI
+    # `google.colab.userdata` is not thread-safe
     # This can lead to a deadlock if multiple threads try to access it at the same time
     # (typically when using `snapshot_download`)
     # => use a lock
