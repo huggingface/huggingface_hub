@@ -56,7 +56,8 @@ The `--help` option is very convenient for getting more details about a command.
 ### Alternative install
 
 #### Using pkgx
-[Pkgx](https://pkgx.sh) is a blazingly fast cross platform package manager that runs anything. It is a single binary that can be installed on any platform. It is a great alternative to pip and conda. You can install huggingface-cli using pkgx as follows:
+
+[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
 
 ```bash
 >>> pkgx install huggingface-cli
