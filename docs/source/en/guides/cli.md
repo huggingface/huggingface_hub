@@ -53,6 +53,33 @@ The `--help` option is very convenient for getting more details about a command.
 
 </Tip>
 
+### Alternative Install
+
+#### Using pkgx
+[Pkgx](https://pkgx.sh) is a blazingly fast cross platform package manager that runs anything. It is a single binary that can be installed on any platform. It is a great alternative to pip and conda. You can install huggingface-cli using pkgx as follows:
+
+```bash
+>>> pkgx install huggingface-cli
+```
+
+Or you can run huggingface-cli directly:
+
+```bash
+>>> pkgx huggingface-cli --help
+```
+
+Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+
+#### Using Homebrew
+
+You can also install the CLI using [Homebrew](https://brew.sh/):
+
+```bash
+>>> brew install huggingface-cli
+```
+
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
+
 ## huggingface-cli login
 
 In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
