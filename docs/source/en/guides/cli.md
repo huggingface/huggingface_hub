@@ -10,16 +10,8 @@ The `huggingface_hub` Python package comes with a built-in CLI called `huggingfa
 
 First of all, let's install the CLI:
 
-### Using pip
-
 ```
 >>> pip install -U "huggingface_hub[cli]"
-```
-
-### Using pkgx
-
-```
->>> pkgx install huggingface_cli
 ```
 
 <Tip>
