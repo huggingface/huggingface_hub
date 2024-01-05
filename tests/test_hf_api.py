@@ -36,7 +36,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -56,7 +56,6 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
-    HfApi,
     MetricInfo,
     ModelInfo,
     RepoSibling,
@@ -2729,7 +2728,7 @@ class TestSquashHistory(HfApiCommonTest):
         self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
 
 
-@pytest.mark.usefixtures("fx_production_space")
+@pytest.mark.vcr
 class TestSpaceAPIProduction(unittest.TestCase):
     """
     Testing Space API is not possible on staging. Tests are run against production
@@ -2739,6 +2738,37 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
     repo_id: str
     api: HfApi
+
+    _BASIC_APP_PY_TEMPLATE = """
+import gradio as gr
+
+
+def greet(name):
+    return "Hello " + name + "!!"
+
+iface = gr.Interface(fn=greet, inputs="text", outputs="text")
+iface.launch()
+""".encode()
+
+    def setUp(self):
+        super().setUp()
+
+        # If generating new VCR => use personal token and REMOVE IT from the VCR
+        self.repo_id = "user/tmp_test_space"  # no need to be unique as it's a VCRed test
+        self.api = HfApi(token="hf_fake_token", endpoint="https://huggingface.co")
+
+        # Create a Space
+        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
+        self.api.upload_file(
+            path_or_fileobj=self._BASIC_APP_PY_TEMPLATE,
+            repo_id=self.repo_id,
+            repo_type="space",
+            path_in_repo="app.py",
+        )
+
+    def tearDown(self):
+        self.api.delete_repo(repo_id=self.repo_id, repo_type="space")
+        super().tearDown()
 
     def test_manage_secrets(self) -> None:
         # Add 3 secrets
@@ -2811,7 +2841,6 @@ class TestSpaceAPIProduction(unittest.TestCase):
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
-    @unittest.skip("Too flaky to run in CI")
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -2832,7 +2861,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Restart
         self.api.restart_space(self.repo_id)
-        time.sleep(5.0)
+        time.sleep(0.5)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
 

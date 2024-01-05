@@ -150,6 +150,10 @@ class HfFileSystemTests(unittest.TestCase):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
             self.assertEqual(f.read(), "dummy text data")
 
+    def test_read_file_with_revision(self):
+        with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
+            self.assertEqual(f.read(), b"dummy binary data on pr")
+
     def test_write_file(self):
         data = "new text data"
         with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:

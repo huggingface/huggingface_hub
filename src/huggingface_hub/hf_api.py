@@ -7660,6 +7660,15 @@ class HfApi:
 
         Returns: [`Collection`]
 
+        Raises:
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the item you try to add to the collection does not exist on the Hub.
+            `HTTPError`:
+                HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
+
         Example:
 
         ```py
