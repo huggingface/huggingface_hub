@@ -1094,7 +1094,7 @@ class GitRefs:
     branches: List[GitRefInfo]
     converts: List[GitRefInfo]
     tags: List[GitRefInfo]
-    pull_requests: Optional[List[GitRefInfo]]
+    pull_requests: Optional[List[GitRefInfo]] = None
 
 
 @dataclass
