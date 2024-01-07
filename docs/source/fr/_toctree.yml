@@ -6,7 +6,7 @@
       title: Quickstart
     - local: installation
       title: Installation
-- title: "Guides et instructions"
+- title: "Guides"
   sections:
     - local: guides/overview
       title: Vue d'ensemble
@@ -33,13 +33,13 @@
     - local: guides/manage-cache
       title: Cache
     - local: guides/model-cards
-      title: Carte de modèle
+      title: Model cards
     - local: guides/manage-spaces
-      title: Gérez votre espace
+      title: Gérez vos Spaces
     - local: guides/integrations
       title: Intégrer une librairie
     - local: guides/webhooks_server
-      title: Serveur Webhook
+      title: Webhooks
 - title: "Guides conceptuels"
   sections:
     - local: concepts/git_vs_http
