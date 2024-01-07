@@ -8,7 +8,7 @@ Le [Hub Hugging Face](https://huggingface.co/) est le meilleur endroit pour part
 modèles de machine learning, des démos, des datasets et des métriques. La librairie
 `huggingface_hub` vous aide à intéragir avec le Hub sans sortir de votre environnement de
 développement. Vous pouvez: créer et gérer des dépôts facilement, télécharger et upload des
-fichiers, et obtenir des modèles et des metadata depuis le Hub.
+fichiers, et obtenir des modèles et des métadonnées depuis le Hub.
 
 ## Installation
 
@@ -22,9 +22,9 @@ Pour plus de détails, vérifiez le guide d'[installation](installation)
 
 ## Télécharger des fichiers
 
-Les dépôts sur le Hub sont sous controle de version Git, et les utilisateurs peuvent
+Les dépôts sur le Hub utilisent le versioning Git, les utilisateurs peuvent
 télécharger un fichier, ou un dépôt entier. Vous pouvez utiliser la fonction [`hf_hub_download`]
-pour télécharger des fichiers. Cette fonction télécharger et mettra dans le cache un fichier
+pour télécharger des fichiers. Cette fonction téléchargera et mettra dans le cache un fichier
 sur votre disque local. La prochaine fois que vous aurez besoin de ce fichier, il sera chargé
 depuis votre cache de façon à ce que vous n'ayez pas besoin de le retélécharger.
 
@@ -39,7 +39,7 @@ modèle [Pegasus](https://huggingface.co/google/pegasus-xsum):
 
 Pour télécharger une version spécifique du fichier, utilisez le paramètre `revision` afin
 de spécifier le nom de la branche, le tag ou le hash de commit. Si vous décidez d'utiliser
-le hash de commit, ce doit être le hash entier et pas le hash court de 7 caractères:
+le hash de commit, vous devez renseigner le hash entier et pas le hash court de 7 caractères:
 
 ```py
 >>> from huggingface_hub import hf_hub_download
@@ -71,7 +71,7 @@ huggingface-cli login
 huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
-Alternativement, vous pouvez vous connecter en utilisant [`login`] dans un notebook ou
+Sinon, vous pouvez vous connecter en utilisant [`login`] dans un notebook ou
 un script:
 
 ```py
@@ -86,13 +86,13 @@ de charger le token depuis un trousseau sécurisé aulieu de l'enregistrer en cl
 codebase/notebook.
 
 Vous ne pouvez être connecté qu'à un seul compte à la fois. Si vous connectez votre machine à un autre compte,
-vous serez déconnectés du premier compte. Vérifiez toujours le compte que vous utilisez avec la commande
+vous serez déconnecté du premier compte. Vérifiez toujours le compte que vous utilisez avec la commande
 `huggingface-cli whoami`. Si vous voulez gérer plusieurs compte dans le même script, vous pouvez passer votre
 token à chaque appel de méthode. C'est aussi utile si vous ne voulez pas sauvegarder de token sur votre machine.
 
 <Tip warning={true}>
 
-une fois que vous êtes connectés, toutes les requêtes vers le Hub (même les méthodes qui ne nécessite pas explicitement
+Une fois que vous êtes connectés, toutes les requêtes vers le Hub (même les méthodes qui ne nécessite pas explicitement
 d'authentification) utiliseront votre token d'authentification par défaut. Si vous voulez supprimer l'utilisation implicite
 de votre token, vous devez définir la variable d'environnement `HF_HUB_DISABLE_IMPLICIT_TOKEN`.
 
@@ -100,7 +100,7 @@ de votre token, vous devez définir la variable d'environnement `HF_HUB_DISABLE_
 
 ## Créer un dépôt
 
-Une fois que vous avez créer votre compte et que vous vous êtes connectés,
+Une fois que vous avez créé votre compte et que vous vous êtes connectés,
 vous pouvez créer un dépôt avec la fonction [`create_repo`]:
 
 ```py
@@ -147,17 +147,17 @@ Vous devez spécifier:
 ```
 
 Pour upload plus d'un fichier à la fois, consultez le guide [upload](./guides/upload)
-qui vous expliqueras plusieurs méthodes pour upload des fichiers (avec ou sans Git).
+qui détaille plusieurs méthodes pour upload des fichiers (avec ou sans Git).
 
 ## Prochaines étapes
 
-La librairie `huggingface_hub` offre une manière simple aux utilisateurs pour qu'ils puissent
-intéragir avec le Hub via Python. Pour en apprendre plus sur comment gérer vos fichiers
-et vos dépôts sur le Hub, nous vous recommandons de lire notre [how-to guides](./guides/overview)
+La librairie `huggingface_hub` permet à ses utilisateurs d'intéragir facilementavec le Hub via
+Python. Pour en apprendre plus sur comment gérer vos fichiers
+et vos dépôts sur le Hub, nous vous recommandons de lire notre [guide conceptuel](./guides/overview)
 pour :
 
 - [Gérer votre dépôt](./guides/repository).
-- [Télécharger](./guides/download) des fichiers depuis le HUb.
+- [Télécharger](./guides/download) des fichiers depuis le Hub.
 - [Upload](./guides/upload) des fichiers vers le Hub.
 - [Faire des recherches dans le Hub](./guides/search) pour votre modèle ou dataset.
 - [Accédder à l'API d'inférence](./guides/inference) pour faire des inférences rapides.
