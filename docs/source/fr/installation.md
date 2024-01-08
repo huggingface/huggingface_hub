@@ -140,18 +140,17 @@ Task: text-generation
 
 ## Les limitations Windows
 
-Afin de démocratiser le machine learning pour tous, nous avons construit `huggingface_hub`
-de façon à avoir une librairie cross-platform et en particulier, une librairie qui marche
-sur tous les systèmes d'exploitation. Toutefois il y a certains cas où 
-`huggingface_hub` est plus limité lorsqu'il tourne sur Windows. Ci-dessous une liste exhaustive
-des problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
-sans documentation en ouvrant une [issue sur Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
+Afin de démocratiser le machine learning pour tous, nous avons développé `huggingface_hub`
+de manière cross-platform et en particulier, pour qu'elle fonctionne sur un maximum de systèmes d'exploitation différents.
+Toutefois, `huggingface_hub` connaît dans certains cas des limiations sur Windows.
+Nous avons listés ci-dessous les problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
+non documenté en ouvrant une [issue sur Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
 
 - Le cache de `huggingface_hub` a besoin des symlinks pour mettre en cache les fichiers installé depuis le Hub.
-Sur windows, vous devez activer le mode développeur pour lancer votre script en tant qu'administrateur
-afin d'activer les symlinks. S'il ne sont pas activés, le système de cache fonctionnera toujours mais
-de manière suboptimale. Consultez les [limitations du cache](./guides/manage-cache#limitations) pour plus de détails.
-- Les chemins de fichiers sur le Hub peuvent avoir des caractères spéciaux (par exemple `"path/to?/my/file"`).
+Sur windows, vous devez activer le mode développeur pour lancer ou lancer votre script en tant qu'administrateur
+afin de faire fonctionner les symlinks. S'ils ne sont pas activés, le système de cache fonctionnera toujours mais
+de manière sous-optimale. Consultez les [limitations du cache](./guides/manage-cache#limitations) pour plus de détails.
+- Les noms de fichiers sur le Hub peuvent avoir des caractères spéciaux (par exemple `"path/to?/my/file"`).
 Windows est plus restrictif sur les [caractères spéciaux](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)
 ce qui rend ces fichiers ininstallables sur Windows. Heureusement c'est un cas assez rare.
 Contactez le propriétaire du dépôt si vous pensez que c'est une erreur ou contactez nous
