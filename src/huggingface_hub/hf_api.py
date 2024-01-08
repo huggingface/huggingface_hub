@@ -41,7 +41,7 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
@@ -5688,18 +5688,19 @@ class HfApi:
             raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
-        query_dict: Dict[str, str] = {}
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
+
+        params: Dict[str, Union[str, int]] = {}
         if discussion_type is not None:
-            query_dict["type"] = discussion_type
+            params["type"] = discussion_type
         if discussion_status is not None:
-            query_dict["status"] = discussion_status
+            params["status"] = discussion_status
         if author is not None:
-            query_dict["author"] = author
+            params["author"] = author
 
         def _fetch_discussion_page(page_index: int):
-            query_string = urlencode({**query_dict, "page_index": page_index})
-            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?{query_string}"
-            resp = get_session().get(path, headers=headers)
+            params["p"] = page_index
+            resp = get_session().get(path, headers=headers, params=params)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
