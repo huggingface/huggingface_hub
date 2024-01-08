@@ -418,7 +418,7 @@ def http_get(
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
     expected_size: Optional[int] = None,
-    filename: Optional[str] = None,
+    displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
 ) -> None:
     """
@@ -443,7 +443,7 @@ def http_get(
         expected_size (`int`, *optional*):
             The expected size of the file to download. If set, the download will raise an error if the size of the
             received content is different from the expected one.
-        filename (`str`, *optional*):
+        displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
     """
@@ -478,23 +478,22 @@ def http_get(
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
-    displayed_name = filename
-    if displayed_name is None:
-        displayed_name = url
+    if displayed_filename is None:
+        displayed_filename = url
         content_disposition = r.headers.get("Content-Disposition")
         if content_disposition is not None:
             match = HEADER_FILENAME_PATTERN.search(content_disposition)
             if match is not None:
                 # Means file is on CDN
-                displayed_name = match.groupdict()["filename"]
+                displayed_filename = match.groupdict()["filename"]
 
     # Truncate filename if too long to display
-    if len(displayed_name) > 40:
-        displayed_name = f"(…){displayed_name[-40:]}"
+    if len(displayed_filename) > 40:
+        displayed_filename = f"(…){displayed_filename[-40:]}"
 
     consistency_error_message = (
         f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry download and"
         " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
         " know by opening an issue on https://github.com/huggingface/huggingface_hub."
     )
@@ -505,7 +504,7 @@ def http_get(
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc=displayed_name,
+        desc=displayed_filename,
         disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
     ) as progress:
         if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
@@ -1483,7 +1482,7 @@ def hf_hub_download(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
-                filename=filename,
+                displayed_filename=filename,
             )
 
         if local_dir is None:
