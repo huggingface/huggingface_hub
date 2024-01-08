@@ -1483,7 +1483,7 @@ class InferenceClient:
         # Remove some parameters if not a TGI server
         if not _is_tgi_server(model):
             ignored_parameters = []
-            for key in "watermark", "stop", "details", "decoder_input_details":
+            for key in "watermark", "stop", "details", "decoder_input_details", "best_of":
                 if payload["parameters"][key] is not None:
                     ignored_parameters.append(key)
                 del payload["parameters"][key]
