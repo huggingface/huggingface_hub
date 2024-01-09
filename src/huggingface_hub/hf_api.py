@@ -5323,12 +5323,12 @@ class HfApi:
         )
         _headers = self._build_hf_headers(token=token)
 
-        # 1. Fetch first 25kb
-        # Empirically, 82% of safetensors files have a metadata size < 25kb (over the top 1000 models on the Hub).
-        # We assume fetching 25kb is faster than making 2 GET requests. Therefore we always fetch the first 25kb to
+        # 1. Fetch first 100kb
+        # Empirically, 97% of safetensors files have a metadata size < 100kb (over the top 1000 models on the Hub).
+        # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-25000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
         hf_raise_for_status(response)
 
         # 2. Parse metadata size
@@ -5341,7 +5341,7 @@ class HfApi:
             )
 
         # 3.a. Get metadata from payload
-        if metadata_size <= 25000:
+        if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
             response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
