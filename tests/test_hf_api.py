@@ -2470,6 +2470,13 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
+    @with_production_testing
+    def test_get_repo_discussion_pagination(self):
+        discussions = list(
+            HfApi().get_repo_discussions(repo_id="HuggingFaceH4/open_llm_leaderboard", repo_type="space")
+        )
+        assert len(discussions) > 50
+
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
         self.assertEqual(retrieved, self.discussion)
