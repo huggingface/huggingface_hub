@@ -141,10 +141,14 @@ class HfFileSystemTests(unittest.TestCase):
     def test_remove_file(self):
         self.hffs.rm_file(self.hf_path + "/data/text_data.txt")
         self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
+        self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
+        self.assertEqual(self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"), [])
 
     def test_remove_directory(self):
         self.hffs.rm(self.hf_path + "/data", recursive=True)
         self.assertNotIn(self.hf_path + "/data", self.hffs.ls(self.hf_path))
+        self.hffs.rm(self.hf_path + "@refs/pr/1" + "/data", recursive=True)
+        self.assertNotIn(self.hf_path + "@refs/pr/1" + "/data", self.hffs.ls(self.hf_path))
 
     def test_read_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
