@@ -41,7 +41,7 @@ from typing import (
     Union,
     overload,
 )
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
 import requests
 from requests.exceptions import HTTPError
@@ -1094,7 +1094,7 @@ class GitRefs:
     branches: List[GitRefInfo]
     converts: List[GitRefInfo]
     tags: List[GitRefInfo]
-    pull_requests: Optional[List[GitRefInfo]]
+    pull_requests: Optional[List[GitRefInfo]] = None
 
 
 @dataclass
@@ -3510,7 +3510,8 @@ class HfApi:
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If parent commit is not a valid commit OID.
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-                If the Hub API returns an HTTP 400 error (bad request)
+                If a README.md file with an invalid metadata section is committed. In this case, the commit will fail
+                early, before trying to upload any file.
             [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
                 If `create_pr` is `True` and revision is neither `None` nor `"main"`.
             [`~utils.RepositoryNotFoundError`]:
@@ -3551,6 +3552,32 @@ class HfApi:
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
         )
+
+        # If updating a README.md file, make sure the metadata format is valid
+        # It's better to fail early than to fail after all the files have been uploaded.
+        for addition in additions:
+            if addition.path_in_repo == "README.md":
+                with addition.as_file() as file:
+                    response = get_session().post(
+                        f"{ENDPOINT}/api/validate-yaml",
+                        json={"content": file.read().decode(), "repoType": repo_type},
+                        headers=self._build_hf_headers(token=token),
+                    )
+                    # Handle warnings (example: empty metadata)
+                    response_content = response.json()
+                    message = "\n".join(
+                        [f"- {warning.get('message')}" for warning in response_content.get("warnings", [])]
+                    )
+                    if message:
+                        warnings.warn(f"Warnings while validating metadata in README.md:\n{message}")
+
+                    # Raise on errors
+                    try:
+                        hf_raise_for_status(response)
+                    except BadRequestError as e:
+                        errors = response_content.get("errors", [])
+                        message = "\n".join([f"- {error.get('message')}" for error in errors])
+                        raise ValueError(f"Invalid metadata in README.md.\n{message}") from e
 
         # If updating twice the same file or update then delete a file in a single commit
         _warn_on_overwriting_operations(operations)
@@ -5688,18 +5715,19 @@ class HfApi:
             raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
-        query_dict: Dict[str, str] = {}
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
+
+        params: Dict[str, Union[str, int]] = {}
         if discussion_type is not None:
-            query_dict["type"] = discussion_type
+            params["type"] = discussion_type
         if discussion_status is not None:
-            query_dict["status"] = discussion_status
+            params["status"] = discussion_status
         if author is not None:
-            query_dict["author"] = author
+            params["author"] = author
 
         def _fetch_discussion_page(page_index: int):
-            query_string = urlencode({**query_dict, "page_index": page_index})
-            path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions?{query_string}"
-            resp = get_session().get(path, headers=headers)
+            params["p"] = page_index
+            resp = get_session().get(path, headers=headers, params=params)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -7632,6 +7660,15 @@ class HfApi:
                 Hugging Face token. Will default to the locally saved token if not provided.
 
         Returns: [`Collection`]
+
+        Raises:
+            `HTTPError`:
+                HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
+                or `admin` role in the organization the repo belongs to or if you passed a `read` token.
+            `HTTPError`:
+                HTTP 404 if the item you try to add to the collection does not exist on the Hub.
+            `HTTPError`:
+                HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
 
         Example:
 
