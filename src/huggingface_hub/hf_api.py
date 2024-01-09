@@ -5172,7 +5172,7 @@ class HfApi:
         safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
         metadata from the index file and then parse the metadata from each shard.
 
-        To parse metadata from a single safetensors file, use [`get_safetensors_metadata`].
+        To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
