@@ -244,9 +244,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         **kwargs,
     ) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
-        root_path = REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "") + resolved_path.repo_id
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
-        paths_in_repo = [path[len(root_path) + 1 :] for path in paths if not self.isdir(path)]
+        paths_in_repo = [self.resolve_path(path).path_in_repo for path in paths if not self.isdir(path)]
         operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
         commit_message = f"Delete {path} "
         commit_message += "recursively " if recursive else ""
