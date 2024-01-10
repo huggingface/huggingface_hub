@@ -42,7 +42,7 @@ Consultez ces guides pour apprendre à utiliser `huggingface_hub` pour résoudre
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Recherche
       </div><p class="text-gray-700">
-        Comment faire une recherche efficace parmi les plus de 200 000 modèles, datasets et espaces?
+        Comment faire une recherche efficace parmi les plus de 200 000 modèles, datasets et spaces?
       </p>
     </a>
 
@@ -103,9 +103,9 @@ Consultez ces guides pour apprendre à utiliser `huggingface_hub` pour résoudre
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./manage-spaces">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
-        Gérez votre espace
+        Gérez votre space
       </div><p class="text-gray-700">
-        Comment gérer le hardware d'un espace et sa configuration?
+        Comment gérer le hardware d'un space et sa configuration?
       </p>
     </a>
 
@@ -123,7 +123,7 @@ Consultez ces guides pour apprendre à utiliser `huggingface_hub` pour résoudre
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         Serveurs WebHooks
       </div><p class="text-gray-700">
-        Comment créer un serveur pour recevoir des webhooks et le dépployer en tant qu'espace?
+        Comment créer un serveur pour recevoir des webhooks et le déployer en tant que space?
       </p>
     </a>
 

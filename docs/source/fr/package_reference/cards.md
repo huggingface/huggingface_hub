@@ -46,7 +46,7 @@ Dataset cards are also known as Data Cards in the ML Community.
 
 [[autodoc]] DatasetCardData
 
-## Cartes d'espace
+## Cartes de Space
 
 ### SpaceCard
 

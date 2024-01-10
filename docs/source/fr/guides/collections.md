@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Collections
 
-Une collection est un groupe d'objets reliés entre eux sur le Hub (par exemple des modèles, des datases, des espaces ou des articles) qui sont organisés ensemble sur la même page. Les collections sont utiles pour créer votre propre portefeuille de contenu, mettre du contenu dans des catégories ou présenter une liste précise d'objets que vous voulez partager. Consultez ce [guide](https://huggingface.co/docs/hub/collections) pour comprendre en détail ce que sont les collections et ce à quoi elles ressemblent sur le Hub.
+Une collection est un groupe d'objets reliés entre eux sur le Hub (par exemple des modèles, des datases, des spaces ou des articles) qui sont organisés ensemble sur la même page. Les collections sont utiles pour créer votre propre portefeuille de contenu, mettre du contenu dans des catégories ou présenter une liste précise d'objets que vous voulez partager. Consultez ce [guide](https://huggingface.co/docs/hub/collections) pour comprendre en détail ce que sont les collections et ce à quoi elles ressemblent sur le Hub.
 
 Vous pouvez gérer directement les collections depuis le navigateur, mais dans ce guide, nous nous concetrerons sur la gestion avec du code.
 
@@ -46,12 +46,12 @@ CollectionItem(
 
 L'objet [`Collection`] retourné par [`get_collection`] contient:
 - Des métadonnées: `slug`, `owner`, `title`, `description`, etc.
-- Une liste d'objets [`CollectionItem`]; chaque objet représente un modèle, un dataset, un espace ou un article.
+- Une liste d'objets [`CollectionItem`]; chaque objet représente un modèle, un dataset, un space ou un article.
 
 Chaque objet d'une collection aura forcément:
 - Un `item_object_id` unique: c'est l'id de l'objet de la collection dans la base de données
-- Un `item_id`: c'est l'id dans le Hub de l'objet sous-jacent (modèle, dataset, espace ou article); il n'est pas nécessairement unique, et seule la paire `item_id`/`item_type` sont uniques
-- Un `item_type`: modèle, dataset, espace ou article
+- Un `item_id`: c'est l'id dans le Hub de l'objet sous-jacent (modèle, dataset, space ou article); il n'est pas nécessairement unique, et seule la paire `item_id`/`item_type` sont uniques
+- Un `item_type`: modèle, dataset, space ou article
 - La `position` de l'objet dans la collection, qui peut-être mise à jour pour réorganiser votre collection (consultez [`update_collection_item`] ci dessous)
 
 Une note peut aussi être attachées à un objet. Ceci permet d'ajouter des informations supplémentaire sur l'objet (un commentaire, un lien vers le post d'un blog, etc.). L'attribut a toujours une valeur `None` si un objet n'a pas de note.
@@ -211,7 +211,7 @@ Enfin, vous pouvez aussi supprimer un objet en utilisant [`delete_collection_ite
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Supprimer l'espace `coqui/xtts` de la liste
+# Supprimer le space `coqui/xtts` de la liste
 >>> delete_collection_item(collection_slug=collection_slug, item_object_id=collection.items[0].item_object_id)
 ```
 

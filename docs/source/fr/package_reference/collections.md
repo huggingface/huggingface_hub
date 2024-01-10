@@ -5,7 +5,7 @@ rendered properly in your Markdown viewer.
 # Gérer les collections
 
 Consultez la page de documentation [`HfApi`] pour les références des méthodes qui vous permettront
-de gérer votre espace sur le Hub.
+de gérer votre space sur le Hub.
 
 - Afficher le contenu d'une collection: [`get_collection`]
 - Créer une nouvelle collection: [`create_collection`]

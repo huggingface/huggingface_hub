@@ -46,7 +46,7 @@ A la différence des fonction native de Python `open`, la fonction `open` de `fs
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
-Le `repo_type_prefix` vaut `datasets/` pour les datasets, `spaces/` pour les espaces, et les modèles n'ont pas besoin de préfixe dans l'URL.
+Le `repo_type_prefix` vaut `datasets/` pour les datasets, `spaces/` pour les spaces, et les modèles n'ont pas besoin de préfixe dans l'URL.
 
 Ci-dessous quelques intégrations intéressantes où [`HfFileSystem`] simplifie l'intéraction avec le Hub:
 

@@ -22,7 +22,7 @@ Le système de cache fonctionne comme suit:
 Le `<CACHE_DIR>` est souvent votre chemin vers la home de votre utilisateur. Cependant, vous pouvez le personnaliser avec l'argument `cache_dir` sur
 n'importe quelle méthode, où en spécifiant les variables d'environnement `HF_HOME` ou `HF_HUB_CACHE`.
 
-Les modèles, datasets et espaces ont tous la même racine. Chacun de ces dépôts contient
+Les modèles, datasets et spaces ont tous la même racine. Chacun de ces dépôts contient
 le type de dépôt, le namespace (nom de l'organisation ou du nom d'utilisateur) s'il existe
 et le nom du dépôt:
 

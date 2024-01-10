@@ -2,12 +2,12 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Gérez votre temps d'exécution de votre espace
+# Gérez le temps d'exécution de votre space
 
-Consultez la page de documentation d'[`HfApi`] pour les références des méthodes pour gérer votre espace
+Consultez la page de documentation d'[`HfApi`] pour les références des méthodes pour gérer votre space
 sur le Hub.
 
-- Dupliquer un espace: [`duplicate_space`]
+- Dupliquer un space: [`duplicate_space`]
 - Afficher les temps de calcul actuels: [`get_space_runtime`]
 - Gérer les secrets: [`add_space_secret`] et [`delete_space_secret`]
 - Gérer le hardware: [`request_space_hardware`]

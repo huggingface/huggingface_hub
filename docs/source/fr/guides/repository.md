@@ -73,12 +73,12 @@ Précisez le `repo_id` du dépôt que vous voulez supprimer:
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
 ```
 
-### Dupliquer un dépôt (uniquement pour les espaces)
+### Dupliquer un dépôt (uniquement pour les spaces)
 
 Dans certains cas, vous avez besoin de copier les dépôts de quelqu'un d'autre pour l'adapter à votre cas d'utilisation.
-C'est possible pour les espaces en utilisant la méthode [`duplicate_space`]. Elle dupliquera le dépôt entier.
+C'est possible pour les spaces en utilisant la méthode [`duplicate_space`]. Elle dupliquera le dépôt entier.
 Vous aurez toujours besoin de configurer vos propres paramètres (hardware, temps de veille, stockage, variables et secrets).
-Consultez notre guide [gérez vos espaces](./manage-spaces) pour plus de détails.
+Consultez notre guide [gérez vos spaces](./manage-spaces) pour plus de détails.
 
 ```py
 >>> from huggingface_hub import duplicate_space
@@ -108,7 +108,7 @@ Vous pouvez créer de nouvelles branches et de nouveaux tags en utilisant [`crea
 ```py
 >>> from huggingface_hub import create_branch, create_tag
 
-# Créé une branche sur le dépôt d'un espace basée sur la branche `main`
+# Créé une branche sur le dépôt d'un space basée sur la branche `main`
 >>> create_branch("Matthijs/speecht5-tts-demo", repo_type="space", branch="handle-dog-speaker")
 
 # Créé un tag sur un dépôt de dataset à partir de la branche `v0.1-release`
@@ -143,7 +143,7 @@ dans la page de paramètre du dépôt dans votre navigateur. Vous devez avoir la
 configure (soit en étant le propriétaire ou en faisant partie d'une organisation). Dans cette secction, nous verrons les
 paramètres que vous pouvez aussi configurer par le code en utilisant `huggingface_hub`.
 
-Certains paramètres sont spécifique aux espaces (hardware, variables d'environnement,...). Pour les configurern, consultez notre guide [Gérez vos espaces](../guides/manage-spaces)
+Certains paramètres sont spécifique aux spaces (hardware, variables d'environnement,...). Pour les configurern, consultez notre guide [Gérez vos spaces](../guides/manage-spaces)
 
 ### Changer la visibilité
 

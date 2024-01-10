@@ -2,18 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Gérez votre espace
+# Gérez votre space
 
-Dans ce guide, nous allons voir comment gérer le temps de calcul sur votre espace,
+Dans ce guide, nous allons voir comment gérer le temps de calcul sur votre space,
 ([les secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
 [le hardware](https://huggingface.co/docs/hub/spaces-gpus), et [le stockage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage))
 en utilisant `huggingface_hub`.
 
 ## Un exemple simple: configurez les secrets et le hardware.
 
-Voici un exemple de A à Z pour créer et mettre en place un espace sur le Hub.
+Voici un exemple de A à Z pour créer et mettre en place un space sur le Hub.
 
-**1. Créez un espace sur le Hub.**
+**1. Créez un space sur le Hub.**
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -24,10 +24,10 @@ Voici un exemple de A à Z pour créer et mettre en place un espace sur le Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
-**1. (bis) Dupliquez un espace.**
+**1. (bis) Dupliquez un space.**
 
-Ceci peut-être utile si vous voulez construire depuis un espace existant aulieu de commencer à zéro.
-C'est aussi utile si vous voulez controler la configuration et les paramètres d'un espace publique.
+Ceci peut-être utile si vous voulez construire depuis un space existant aulieu de commencer à zéro.
+C'est aussi utile si vous voulez controler la configuration et les paramètres d'un space publique.
 Consultez [`duplicate_space`] pour plus de détails.
 
 ```py
@@ -36,7 +36,7 @@ Consultez [`duplicate_space`] pour plus de détails.
 
 **2. Uploadez votre code en utilisant votre solution préférée.**
 
-Voici un exemple pour upload le dossier local `src/` depuis votre machine vers votre espace:
+Voici un exemple pour upload le dossier local `src/` depuis votre machine vers votre space:
 
 ```py
 >>> api.upload_folder(repo_id=repo_id, repo_type="space", folder_path="src/")
@@ -48,10 +48,10 @@ meilleur hardware.
 
 **3. Configurez des secrets et des variables**
 
-Votre espace aura peut-être besoin d'une clef secrète, un token ou de variables
+Votre space aura peut-être besoin d'une clef secrète, un token ou de variables
 pour fonctionner. Consultez [la doc](https://huggingface.co/docs/hub/spaces-overview#managing-secrets)
 pour plus de détails. Par exemple, un token HF pour upload un dataset d'image vers le Hub
-une fois généré depuis votre espace.
+une fois généré depuis votre space.
 
 ```py
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
@@ -65,19 +65,19 @@ Les secrets et les variables peuvent supprimés aussi:
 ```
 
 <Tip>
-Depuis votre espace, les secrets sont définissables en tant que variables
+Depuis votre space, les secrets sont définissables en tant que variables
 (ou en tant que management de secrets Streamlit si vous utilisez Streamlit).
 Pas besoin de les ajouter via l'API!
 </Tip>
 
 <Tip warning={true}>
-Tout changement dans la configuration de votre espace (secrets ou hardware) relancera votre
+Tout changement dans la configuration de votre space (secrets ou hardware) relancera votre
 application.
 </Tip>
 
-**Bonus: définissez les secrets et les variables lors de la création ou la duplication de l'espace!**
+**Bonus: définissez les secrets et les variables lors de la création ou la duplication du space!**
 
-Les secrets et les variables peuvent être défini lors de la création ou la duplication d'un espace:
+Les secrets et les variables peuvent être défini lors de la création ou la duplication d'un space:
 
 ```py
 >>> api.create_repo(
@@ -99,9 +99,9 @@ Les secrets et les variables peuvent être défini lors de la création ou la du
 
 **4. Configurez le hardware**
 
-Par défaut, votre espace tournera sur un CPU gratuitement. Vous pouvez améliorer le
+Par défaut, votre space tournera sur un CPU gratuitement. Vous pouvez améliorer le
 hardware pour le faire tourner sur des GPUs. Une carte bleue ou un community grant sera
-nécessaire pour accéder à l'amélioration de votre espace. Consultez [la doc](https://huggingface.co/docs/hub/spaces-gpus)
+nécessaire pour accéder à l'amélioration de votre space. Consultez [la doc](https://huggingface.co/docs/hub/spaces-gpus)
 pour plus de détails.
 
 ```py
@@ -113,9 +113,9 @@ pour plus de détails.
 >>> api.request_space_hardware(repo_id=repo_id, hardware="t4-medium")
 ```
 
-Les mises à jour d'hardware ne sont pas faites immédiatement vu que votre espace doit
+Les mises à jour d'hardware ne sont pas faites immédiatement vu que votre space doit
 être rechargé sur nos serveurs. A n'importe quel moment, vous pouvez vérifier sur quel
-hardware votre espace tourne pour vérifier que votre demande a été réalisée.
+hardware votre space tourne pour vérifier que votre demande a été réalisée.
 
 ```py
 >>> runtime = api.get_space_runtime(repo_id=repo_id)
@@ -127,14 +127,14 @@ hardware votre espace tourne pour vérifier que votre demande a été réalisée
 "t4-medium"
 ```
 
-Vous avez maintenant un espace totalement configuré. Une fois que vous avez fini avec les
+Vous avez maintenant un space totalement configuré. Une fois que vous avez fini avec les
 GPUs, assurez vous de revenir à "cpu-classic".
 You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
 when you are done using it.
 
-**Bonus: demandez du hardware lors de la création ou la duplication d'un espace!**
+**Bonus: demandez du hardware lors de la création ou la duplication d'un space!**
 
-Les nouvel hardware sera automatiquement assigné à votre espace une fois qu'il
+Les nouvel hardware sera automatiquement assigné à votre space une fois qu'il
 a été construit.
 
 ```py
@@ -156,44 +156,44 @@ a été construit.
 ... )
 ```
 
-**5. Mettez en pause et relancez votre espace**
+**5. Mettez en pause et relancez votre space**
 
-Par défaut, si votre espace tourne sur un hardware amélioré, il ne sera jamais arrêté. Toutefois pour éviter de vous
+Par défaut, si votre space tourne sur un hardware amélioré, il ne sera jamais arrêté. Toutefois pour éviter de vous
 faire facturer, vous aurez surement besoin de le mettre en pause lorsque vous ne l'utilisez pas. C'est possible en
-utilisant [`pause_space`]. Un espace en pause sera inactif tant que le propriétaire de l'espace ne l'a pas relancé,
+utilisant [`pause_space`]. Un space en pause sera inactif tant que le propriétaire du space ne l'a pas relancé,
 soit avec l'interface utliisateur ou via l'API en utilisant [`restart_space`]. Pour plus de détails sur le mode "en pause",
 consultez [cette section](https://huggingface.co/docs/hub/spaces-gpus#pause) du guide.
 
 ```py
-# Mettez en pause votre espace pour éviter de payer
+# Met en pause le space pour éviter de payer
 >>> api.pause_space(repo_id=repo_id)
 # (...)
-# Relancez le quand vous en avez besoin
+# Relance le space quand vous en avez besoin
 >>> api.restart_space(repo_id=repo_id)
 ```
 
-Une auter possibilité est de définir un timeout pour votre espace. Si votre espace est inactif pour une durée
+Une auter possibilité est de définir un timeout pour votre space. Si votre space est inactif pour une durée
 plus grande que la durée de timeout, alors il se mettra en pause automatiquement. N'importe quel visiteur qui
-arrive sur votre espace le relancera. Vous pouvez définir un timeout en utilisant [`set_space_sleep_time`].
+arrive sur votre space le relancera. Vous pouvez définir un timeout en utilisant [`set_space_sleep_time`].
 Pour plus de détails sur le mode "en pause", consultez [cette section](https://huggingface.co/docs/hub/spaces-gpus#sleep-time).
 
 ```py
-# Mettez votre espace en pause après une heure d'inactivité
+# Met le space en pause après une heure d'inactivité
 >>> api.set_space_sleep_time(repo_id=repo_id, sleep_time=3600)
 ```
 
-Note: si vous utlisez du du hardware 'cpu-basic', vous ne pouvez pas configurer un timeout personnalisé. Votre espace
-se mettre en pause automatiquement aprèss 48h d'inactivité.
+Note: si vous utlisez du du hardware 'cpu-basic', vous ne pouvez pas configurer un timeout personnalisé. Votre space
+se mettra en pause automatiquement aprèss 48h d'inactivité.
 
 **Bonus: définissez le temps de timeout lorsque vous demandez le hardware**
 
-Le hardware amélioré sera automatiquement assigné à votre espace une fois construit.
+Le hardware amélioré sera automatiquement assigné à votre space une fois construit.
 
 ```py
 >>> api.request_space_hardware(repo_id=repo_id, hardware=SpaceHardware.T4_MEDIUM, sleep_time=3600)
 ```
 
-**Bonus: définissez un temps de timeout lors de la création ou de la duplication d'un espace!**
+**Bonus: définissez un temps de timeout lors de la création ou de la duplication d'un space!**
 
 ```py
 >>> api.create_repo(
@@ -212,9 +212,9 @@ Le hardware amélioré sera automatiquement assigné à votre espace une fois co
 ... )
 ```
 
-**6. Ajoutez du stockage persistant à votre espace**
+**6. Ajoutez du stockage persistant à votre space**
 
-Vous pouvez choisir le stockage de votre choix pour accéder au disque dont la mémoire ne s'écrase pas lors du redémarrage de l'espace. Ceci signifie que
+Vous pouvez choisir le stockage de votre choix pour accéder au disque dont la mémoire ne s'écrase pas lors du redémarrage du space. Ceci signifie que
 vous pouvez lire et écrire sur ce disque comme vous l'auriez fait avec un disque dur traditionnel.
 Consultez See [la doc](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) pour plus de détails.
 
@@ -228,11 +228,11 @@ Vous pouvez aussi supprimer votre stockage, mais vous perdrez toute la donnée d
 >>> api.delete_space_storage(repo_id=repo_id)
 ```
 
-Note: Vous ne pouvez pas diminuer le niveau de stockage de votre espace une fois qu'il a été
+Note: Vous ne pouvez pas diminuer le niveau de stockage de votre space une fois qu'il a été
 donné. Pour ce faire, vous devez d'abord supprimer le stockage
 (attention, les données sont supprimés définitivement) puis demander le niveau de stockage désiré.
 
-**Bonus: demandez du stockage lors de la création ou la duplication de l'espace!**
+**Bonus: demandez du stockage lors de la création ou la duplication du space!**
 
 ```py
 >>> api.create_repo(
@@ -249,16 +249,16 @@ donné. Pour ce faire, vous devez d'abord supprimer le stockage
 ... )
 ```
 
-## Avancé: améliorez votre espace pour un durée déterminée!
+## Avancé: améliorez votre space pour un durée déterminée!
 
-Les espaces ont un grand nombre de cas d'application. Parfois, vous aurez
-peut-être envie de faire un tourner un espace pendant une durée déterminée sur un hardware
-spécifique, faire quelque chose puis éteindre l'espace. dans cette section, nous explorerons
-les avantgaes des espaces pour finetune un modèle sur demande. C'est la seule manière de
+Les spaces ont un grand nombre de cas d'application. Parfois, vous aurez
+peut-être envie de faire un tourner un space pendant une durée déterminée sur un hardware
+spécifique, faire quelque chose puis éteindre le space. dans cette section, nous explorerons
+les avantgaes des spaces pour finetune un modèle sur demande. C'est la seule manière de
 résoudre ce problème. Toutefois, ces tutoriaux ne sont que des suggestions et doivent être
 adaptés à votre cas d'usage.
 
-Supposons que nous avons un espace pour finetune un modèle. C'est une aplication Gradio qui
+Supposons que nous avons un space pour finetune un modèle. C'est une aplication Gradio qui
 prend en entrée l'id d'un modèle et l'id d'un dataset. Le workflow est le suivant:
 
 0.Demander à l'utilisateur un modèle et un dataset.
@@ -267,9 +267,9 @@ prend en entrée l'id d'un modèle et l'id d'un dataset. Le workflow est le suiv
 3.Finetune le modèle sur le dataset.
 4.Upload le nouveau modèle vers le Hub.
 
-La 3ème étape demande un hardware personnalisé mais vous n'aurez surement pas envie que votre espace
+La 3ème étape demande un hardware personnalisé mais vous n'aurez surement pas envie que votre space
 tourne tout le temps sur un GPU que vous payez. Une solution est de demander du hardware de manière
-dynmaique pour l'entrainement et l'éteindre après. Vu que demander du hardware redémarre voter espace,
+dynmaique pour l'entrainement et l'éteindre après. Vu que demander du hardware redémarre voter space,
 votre application doit d'une manière ou d'une autre "se rappeler" la tache qu'il est entrain de réaliser.
 Il y a plusieurs manières de faire ceci. Dans ce guide, nous verrons une solution utilisant un dataset
 qui fera office de "programmateur de tâche".
@@ -288,16 +288,16 @@ pour vous assurer que vous êtes le seul utilisateur.
 </Tip>
 
 ```py
-# Un espace aura besoin de votre token pour demander du hardware: définissez le en temps que secret!
+# Un space aura besoin de votre token pour demander du hardware: définissez le en temps que secret!
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
-# Le repo_id de l'espace
+# Le repo_id du space
 TRAINING_SPACE_ID = "Wauplin/dreambooth-training"
 
 from huggingface_hub import HfApi, SpaceHardware
 api = HfApi(token=HF_TOKEN)
 
-# Lors du lancement de l'espace, vérifiez si une tâche est programmée. Si oui, finetunez le modèle. Si non,
+# Lors du lancement du space, vérifiez si une tâche est programmée. Si oui, finetunez le modèle. Si non,
 # affichez une interface pour demander une nouvelle tâche.
 task = get_task()
 if task is None:
@@ -310,7 +310,7 @@ if task is None:
     gr.Interface(fn=gradio_fn, ...).launch()
 else:
     runtime = api.get_space_runtime(repo_id=TRAINING_SPACE_ID)
-    # Vérifiez si l'espace est chargé avec un GPU.
+    # Vérifiez si le space est chargé avec un GPU.
     if runtime.hardware == SpaceHardware.T4_MEDIUM:
         # Si oui, fintunez le modèle de base sur le dataset!
         train_and_upload(task)

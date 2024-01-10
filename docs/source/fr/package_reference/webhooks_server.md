@@ -12,7 +12,7 @@ le [guide](https://huggingface.co/docs/hub/webhooks) consacré aux webhooks.
 <Tip>
 
 Consultez ce [guide](../guides/webhooks_server) pour un tutoriel pas à pas sur comment mettre en place votre serveur
-webhooks et le déployer en tant qu'espace.
+webhooks et le déployer en tant que space.
 
 </Tip>
 
@@ -31,7 +31,7 @@ des fonctionnalités expérimentales. Vous pouvez le supprimer en définissant l
 Le serveur est une application [Gradio](https://gradio.app/). Il possède une interface pour afficher des instructions pour vous
 ou vos utilisateurs et une API pour écouter les webhooks. Implémenter un endpoint de webhook est aussi simple que d'ajouter
 un décorateur à une fonction. Vous pouvez ensuite le debugger en redirigeant le webhook vers votre machine (en utilisant
-un tunnel Gradio) avant de le déployer sur un espace.
+un tunnel Gradio) avant de le déployer sur un space.
 
 ### WebhooksServer
 

@@ -246,7 +246,7 @@ Une pull request créé de cette commande peut-être vue [ici](https://huggingfa
 Dans cette section, nous verons ce que les métadonnées sont dans les cartes de dépôt
 et comment les mettre à jour.
 
-`metadata` fait référence à un contexte de hash map (ou clé-valeur) qui fournit des informations haut niveau sur un modèle, un dataset ou un espace. Cette information peut inclure des détails tels que le `type de pipeline`, le `model_id` ou le `model_description`. Pour plus de détails, vous pouvez consulter ces guides: [carte de modèle](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [carte de dataset](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings). Maintenant voyons des exemples de mise à jour de ces métadonnées.
+`metadata` fait référence à un contexte de hash map (ou clé-valeur) qui fournit des informations haut niveau sur un modèle, un dataset ou un space. Cette information peut inclure des détails tels que le `type de pipeline`, le `model_id` ou le `model_description`. Pour plus de détails, vous pouvez consulter ces guides: [carte de modèle](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [carte de dataset](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings). Maintenant voyons des exemples de mise à jour de ces métadonnées.
 
 
 Commençons avec un premier exemple:

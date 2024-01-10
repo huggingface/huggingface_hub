@@ -64,7 +64,7 @@ votre type de dépôt, vous pouvez facultativement définir le type de dépôt �
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 
-# Upload tout le contenu du fichier local vers votre espace distant
+# Upload tout le contenu du fichier local vers votre space distant
 # Par défaut, les fichiers sont upload à la racine du dépôt
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/space",
@@ -226,10 +226,10 @@ sans avertissement préalable.
 
 ### Uploads planifiées
 
-Le Hub Hugging Face rend facile l'enregistrement et le versionning de données. Cependant, il y a des limitations lorsqu'on met à jour un même fichier des milliers de fois. Par exemple, vous aurez peut-être envie d'enregistrer les logs d'un processus d'entrainement ou le feedback des utilisateur sur un espace déployé. Dans ces deux cas, upload la donnée en tant que dataset sur le Hub semble logique, mais il peut-être difficile de le faire correctement. La raison principale est que vous ne voulez pas versionner toutes les mises à jour de vos donnée, car cela rendrait le dépôt git inutilisable. La classe [`CommitScheduler`] offre une solution à ce problème.
+Le Hub Hugging Face rend facile l'enregistrement et le versionning de données. Cependant, il y a des limitations lorsqu'on met à jour un même fichier des milliers de fois. Par exemple, vous aurez peut-être envie d'enregistrer les logs d'un processus d'entrainement ou le feedback des utilisateur sur un space déployé. Dans ces deux cas, upload la donnée en tant que dataset sur le Hub semble logique, mais il peut-être difficile de le faire correctement. La raison principale est que vous ne voulez pas versionner toutes les mises à jour de vos donnée, car cela rendrait le dépôt git inutilisable. La classe [`CommitScheduler`] offre une solution à ce problème.
 
 L'idée est de faire tourner une tâche en arrière plan qui va push à intervalles réguliers un dossier local vers le Hub.
-Supposons que vous avez un espace Gradio qui prend en entré du texte et qui génére deux traductions. Dans ce cas, l'utilisateur peut sélectionner sa traduction préférée. Pour chaque traduction, vous voulez enregistrer l'input, output et les préférences de l'uitlisateur pour analyser les résultats.
+Supposons que vous avez un space Gradio qui prend en entré du texte et qui génére deux traductions. Dans ce cas, l'utilisateur peut sélectionner sa traduction préférée. Pour chaque traduction, vous voulez enregistrer l'input, output et les préférences de l'uitlisateur pour analyser les résultats.
 C'est un cas d'usage parfait pour [`CommitScheduler`]; vous voulez enregistrer des données sur le Hub (potentiellement des millions
 de retour utilisateurs) mais vous n'avez pas besoin d'enregistrer en temps réel chaque input de l'utilisateur. Aulieu de ça,
 vous pouvez enregistrer les données en local dans un fichier JSON et l'upload toutes les 10 minutes. Par exemple:
@@ -291,15 +291,15 @@ Pour plus de détails sur le [`CommitScheduler`], voici ce que vous devez savoir
     pendant l'upload. En pratique, il est possible que de telles problèmes arrivent pour des applications lourdes. Dans
     ce cas, nous conseillons d'utiliser le lock `scheduler.lock` pour s'assurer que le thread soient sécurisés. Le lock
     est bloquée uniquement lorsque le planificateur scan le dossier à la recherche de changements, pas lors de l'upload
-    de données. Vous pouvez sans problème supposer que ça n'affectera pas l'expérience utilisateur sur votre espace.
+    de données. Vous pouvez sans problème supposer que ça n'affectera pas l'expérience utilisateur sur votre space.
 
 #### Space persistence demo
 
-Faire persister des données d'un espace vers un dataset sur le Hub est le cas d'usage le plus courant pour [`CommitScheduler`].
+Faire persister des données d'un space vers un dataset sur le Hub est le cas d'usage le plus courant pour [`CommitScheduler`].
 Selon les cas d'usages, vous aurez peut-être envie de structurer vos données différemment. La structure doit être assez robuste
 pour gérer simultanément la connexion d'un utilisateur et le redémarrage ce qui implique souvent la génération d'UUIDs.
 En plus de la robustesse, vous devez upload des données dans un format lisible pour les librairies de datasets 🤗, afin
-de pouvoir les réuitiliser plus tard. Nous avons créé un [espace](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+de pouvoir les réuitiliser plus tard. Nous avons créé un [space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
 qui montre comment enregistrer plusieurs formats de données ddifférents (vous aurez peut-être besoin de l'adapter à vos
 propres besoins).
 
@@ -347,7 +347,7 @@ Lorsque vous modifier `push_to_hub` en faisant un overwrite, vous avez accès au
 <Tip>
 
 Pour plus d'exemples de planififcateurs personnalisés, consultez notre
-[espace de démos](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver) contenant différentes implementations
+[space de démo](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver) contenant différentes implementations
 dépendant de votre cas d'usage.
 
 </Tip>

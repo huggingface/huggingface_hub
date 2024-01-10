@@ -35,7 +35,7 @@ est définie.
 ### HF_HUB_CACHE
 
 Pour configurer le chemin vers lequels les dépôts du Hub seront mis en cache en local
-(modèles, datasets et espaces).
+(modèles, datasets et spaces).
 
 Par défaut, ce sera `"$HF_HOME/hub"` (i.e. `"~/.cache/huggingface/hub"` par défaut).
 

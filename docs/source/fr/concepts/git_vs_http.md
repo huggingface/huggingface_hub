@@ -5,7 +5,7 @@ rendered properly in your Markdown viewer.
 # Paradigme Git vs HTTP
 
 La librairie `huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
-qui est une collection de dépots Git (modèles, datasets ou espaces).
+qui est une collection de dépots Git (modèles, datasets ou spaces).
 Il y a deux manières principales pour accéder au Hub en utilisant `huggingface_hub`.
 
 La première approche, basée sur Git, appelée approche "git-based", est rendue possible par la classe [`Repository`].

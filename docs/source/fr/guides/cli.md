@@ -186,9 +186,9 @@ Fetching 8 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--stabilityai--stable-diffusion-xl-base-1.0/snapshots/462165984030d82259a11f4367a4eed129e94a7b
 ```
 
-### Télécharger un dataset où un espace
+### Télécharger un dataset ou un space
 
-Les exemples ci-dessus montrent comment télécharger des fichiers depuis un dépôt. Pour télécharger un dataset ou un espace, utilisez
+Les exemples ci-dessus montrent comment télécharger des fichiers depuis un dépôt. Pour télécharger un dataset ou un space, utilisez
 l'option `--repo-type`:
 
 ```bash
@@ -321,17 +321,17 @@ https://huggingface.co/Wauplin/mon-super-modele/blob/main/vae/model.safetensors
 
 ### Upload plusieurs fichiers
 
-Pour upload plusieurs fichiers d'un coup depuis un dossier sans upload tout le dossier, vous pouvez utiliser `--include` et `--exclude`. Cette méthode peut aussi être combinée avec l'option `--delete` pour supprimer des fichiers du dépôt tout en uploadant les nouveaux fichiers. Dans l'exemple ci-dessous, nous synchronisons l'espace local en supprimant les fichiers distant et en uploadant tous les fichiers sauf ceux dans `/logs`:
+Pour upload plusieurs fichiers d'un coup depuis un dossier sans upload tout le dossier, vous pouvez utiliser `--include` et `--exclude`. Cette méthode peut aussi être combinée avec l'option `--delete` pour supprimer des fichiers du dépôt tout en uploadant les nouveaux fichiers. Dans l'exemple ci-dessous, nous synchronisons le space local en supprimant les fichiers distant et en uploadant tous les fichiers sauf ceux dans `/logs`:
 
 ```bash
-# Synchronisation de l'espace local avec le Hub (upload des nouveaux fichier excepté ceux de logs/, supression des fichiers retirés)
->>> huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Synchronisation de l'espace local avec le Hub"
+# Synchronisation du space local avec le Hub (upload des nouveaux fichier excepté ceux de logs/, supression des fichiers retirés)
+>>> huggingface-cli upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Synchronisation du space local avec le Hub"
 ...
 ```
 
-### Upload vers un dataset ou un espace
+### Upload vers un dataset ou un space
 
-Pour upload vers un dataset ou un espace, utilisez l'option `--repo-type`:
+Pour upload vers un dataset ou un space, utilisez l'option `--repo-type`:
 
 ```bash
 >>> huggingface-cli upload Wauplin/mon-super-dataset ./data /train --repo-type=dataset
@@ -410,7 +410,7 @@ https://huggingface.co/Wauplin/mon-super-modele/tree/main
 
 ## huggingface-cli scan-cache
 
-Scanner le chemin de votre cache peut être utile si vous voulez savoir les dépôts que vous avez téléchargé et l'espace qu'ils prennent sur votre disque. Vous pouvez faire ceci en utilisant `huggingface-cli scan-cache`:
+Scanner le chemin de votre cache peut être utile si vous voulez connaître les dépôts que vous avez téléchargé et l'espace qu'ils prennent sur votre disque. Vous pouvez faire ceci en utilisant `huggingface-cli scan-cache`:
 
 ```bash
 >>> huggingface-cli scan-cache

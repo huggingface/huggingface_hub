@@ -4,12 +4,12 @@ rendered properly in your Markdown viewer.
 
 # Faites des recherches dans le Hub
 
-Dans ce tutoriel, vous apprendrez à chercher des modèles, des datasets et des espaces du Hub en utilisant `huggingface_hub`.
+Dans ce tutoriel, vous apprendrez à chercher des modèles, des datasets et des spaces du Hub en utilisant `huggingface_hub`.
 
 ## Comment lister les dépôts ?
 
 La librairie `huggingface_hub` inclus un client HTTP [`HfApi`] pour intéragir avec le Hub.
-Ce client peut, entre autres, lister les modèles, les dataset et les espaces enregistrés sur le Hub:
+Ce client peut, entre autres, lister les modèles, les dataset et les spaces enregistrés sur le Hub:
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -19,7 +19,7 @@ Ce client peut, entre autres, lister les modèles, les dataset et les espaces en
 
 La sortie de [`list_models`] est un itérateur sur les modèles stockés dans le Hub.
 
-De la même manière, vous pouvez utiliser [`list_datasets`] pour lister les datasets et [`list_spaces`] pour lister les espaces.
+De la même manière, vous pouvez utiliser [`list_datasets`] pour lister les datasets et [`list_spaces`] pour lister les spaces.
 
 ## Comment filtrer des dépôts ?
 

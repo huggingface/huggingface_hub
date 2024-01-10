@@ -18,8 +18,8 @@ pour écouter les webhooks.
 
 <Tip>
 
-Pour voir un exemple fonctionnel de serveur webhooj, consultez l'[espace bot CI](https://huggingface.co/spaces/spaces-ci-bot/webhook).
-C'est un espace qui lance des environnements éphémères lorsqu'une pull request est ouverte sur un espace.
+Pour voir un exemple fonctionnel de serveur webhook, consultez le [space bot CI](https://huggingface.co/spaces/spaces-ci-bot/webhook).
+C'est un space qui lance des environnements éphémères lorsqu'une pull request est ouverte sur un space.
 
 </Tip>
 
@@ -77,7 +77,7 @@ FastAPI parsera automatiquement le paquet et le passera à la fonction en tant q
 `pydantic` qui contient toutes les informations sur l'événement qui a activé le webhook.
 3. L'application Gradio a aussi ouvert un tunnel pour recevoir des requêtes d'internet. C'est la partie intéressante:
 vous pouvez configurer un webhooj sur https://huggingface.co/settings/webhooks qui pointe vers votre machine. C'est utile
-pour debugger votre serveur webhook et rapidement itérer avant de le déployer dans un espace.
+pour debugger votre serveur webhook et rapidement itérer avant de le déployer dans un space.
 4. Enfin, les logs vous disent aussi que votre serveur n'est pas sécurisé par un secret. Ce n'est pas problématique pour 
 le debugging en local mais c'est à garder dans un coin de la tête pour plus tard.
 
@@ -104,24 +104,24 @@ surveiller et l'URL du webhook, ici `https://1fadb0f52d8bf825fc.gradio.live/webh
 Et voilà! Vous pouvez maintenant activer cce webhook en mettant à jour le dépôt cible (i.e. push un commit). Consultez
 la table d'activité de votre webhook pour voir les événements passés. Maintenant que vous avez un setup qui fonctionne,
 vous pouvez le tester et itérer rapidement. Si vous modifiez votre code et relancez le serveur, votre URL public pourrait
-changer. Assurez vous de mettre à jour la configuration du webhook dans le HUb si besoin.
+changer. Assurez vous de mettre à jour la configuration du webhook dans le Hub si besoin.
 
-## Déployer vers un espace
+## Déployer vers un space
 
-Maintenant que vous avez un serveur webhook fonctionnel, le but est de le déplyer sur un espace. Allez sur
-https://huggingface.co/new-space pour créer un espace. Donnez lui un nom, sélectionnez le SDK Gradio et cliquer sur
-"Créer un espace" (ou "Create Space" en anglais). Uploadez votre code dans l'espace dans un fichier appelé `app.py`.
-Votre espace sera lancé automatiquement! Pour plus de détails sur les espaces, consultez ce [guide](https://huggingface.co/docs/hub/spaces-overview).
+Maintenant que vous avez un serveur webhook fonctionnel, le but est de le déployer sur un space. Allez sur
+https://huggingface.co/new-space pour créer un space. Donnez lui un nom, sélectionnez le SDK Gradio et cliquer sur
+"Créer un space" (ou "Create Space" en anglais). Uploadez votre code dans le space dans un fichier appelé `app.py`.
+Votre space sera lancé automatiquement! Pour plus de détails sur les spaces, consultez ce [guide](https://huggingface.co/docs/hub/spaces-overview).
 
-Votre serveur webhook tourne maintenant sur un espace public. Dans la plupart de cas, vous aurez besoin de le sécuriser
-avec un secret. Allez dans les paramètres de votre espace > Section "Repository secrets" > "Add a secret". Définissez
+Votre serveur webhook tourne maintenant sur un space public. Dans la plupart de cas, vous aurez besoin de le sécuriser
+avec un secret. Allez dans les paramètres de votre space > Section "Repository secrets" > "Add a secret". Définissez
 la variable d'environnement `WEBHOOK_SECRET` en choisissant la valeur que vous voulez. Retournez dans les 
 [réglages webhooks](https://huggingface.co/settings/webhooks) et définissez le secret dans la configuration du webhook.
 Maintenant, seules les requêtes avec le bon secret seront acceptées par votre serveur.
 
-Et c'est out! Votre espace est maintenant prêt à recevoir des webhooks du Hub. Gardez à l'esprit que si vous faites
-tourner l'espace sur le hardware gratuit 'cpu-basic', il sera éteint après 48 heures d'inactivité. Si vous avez besoin d'un
-espace permanent, vous devriez peut-être considérer l'amélioration vers un [hardware amélioré](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
+Et c'est tout! Votre space est maintenant prêt à recevoir des webhooks du Hub. Gardez à l'esprit que si vous faites
+tourner le space sur le hardware gratuit 'cpu-basic', il sera éteint après 48 heures d'inactivité. Si vous avez besoin d'un
+space permanent, vous devriez peut-être considérer l'amélioration vers un [hardware amélioré](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
 
 ## Utilisation avancée
 
