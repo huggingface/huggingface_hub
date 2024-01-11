@@ -655,9 +655,13 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
-    DEFAULT_BLOCK_SIZE = 0
-
-    def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
+    def __init__(
+        self, fs: HfFileSystem, path: str, revision: Optional[str] = None, block_size=0, cache_type="none", **kwargs
+    ):
+        if block_size != 0:
+            raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
+        if cache_type != "none":
+            raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
@@ -666,7 +670,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
-        super().__init__(fs, self.resolved_path.unresolve(), cache_type="none", **kwargs)
+        super().__init__(fs, self.resolved_path.unresolve(), block_size=block_size, cache_type=cache_type, **kwargs)
         self.r: Optional[Response] = None
         self.fs: HfFileSystem
 
