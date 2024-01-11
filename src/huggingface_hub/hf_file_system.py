@@ -222,10 +222,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> "HfFileSystemFile":
         if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
-        if block_size:
-            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
-        else:
+        if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+        else:
+            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
