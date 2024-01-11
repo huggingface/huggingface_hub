@@ -10,6 +10,7 @@ from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
@@ -216,11 +217,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         path: str,
         mode: str = "rb",
         revision: Optional[str] = None,
+        block_size: Optional[int] = None,
         **kwargs,
     ) -> "HfFileSystemFile":
         if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
-        return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
+        if block_size:
+            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+        else:
+            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
@@ -649,6 +654,54 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             )
 
 
+class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    DEFAULT_BLOCK_SIZE = 0
+
+    def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
+        try:
+            self.resolved_path = fs.resolve_path(path, revision=revision)
+        except FileNotFoundError as e:
+            if "w" in kwargs.get("mode", ""):
+                raise FileNotFoundError(
+                    f"{e}.\nMake sure the repository and revision exist before writing data."
+                ) from e
+        self.details = {"name": self.resolved_path.unresolve(), "size": None}
+        super().__init__(fs, self.resolved_path.unresolve(), cache_type="none", **kwargs)
+        self.r: Optional[Response] = None
+        self.fs: HfFileSystem
+
+    def seek(self, loc, whence=0):
+        if loc == 0 and whence == 1:
+            return
+        if loc == self.loc and whence == 0:
+            return
+        raise ValueError("Cannot seek streaming HF file")
+
+    def read(self, length=-1):
+        if self.r is None:
+            url = hf_hub_url(
+                repo_id=self.resolved_path.repo_id,
+                revision=self.resolved_path.revision,
+                filename=self.resolved_path.path_in_repo,
+                repo_type=self.resolved_path.repo_type,
+                endpoint=self.fs.endpoint,
+            )
+            self.r = http_backoff("GET", url, headers=self.fs._api._build_hf_headers(), stream=True)
+            hf_raise_for_status(self.r)
+        out = self.r.raw.read(length)
+        self.loc += len(out)
+        return out
+
+    def __del__(self):
+        if not hasattr(self, "resolved_path"):
+            # Means that the constructor failed. Nothing to do.
+            return
+        return super().__del__()
+
+    def __reduce__(self):
+        return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
+
+
 def safe_revision(revision: str) -> str:
     return revision if SPECIAL_REFS_REVISION_REGEX.match(revision) else safe_quote(revision)
 
@@ -666,3 +719,9 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
     elif isinstance(err, HFValidationError):
         msg = f"{path} (invalid repository id)"
     raise FileNotFoundError(msg) from err
+
+
+def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
+    return fs.open(
+        path, mode=mode, block_size=block_size, cache_type=cache_type
+    )
