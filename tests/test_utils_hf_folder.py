@@ -14,11 +14,9 @@
 """Contain tests for `HfFolder` utility."""
 import os
 import unittest
-from pathlib import Path
-from unittest.mock import patch
 from uuid import uuid4
 
-from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
+from huggingface_hub.utils import HfFolder
 
 
 def _generate_token() -> str:
@@ -43,46 +41,6 @@ class HfFolderTest(unittest.TestCase):
         self.assertEqual(HfFolder.get_token(), None)
         with unittest.mock.patch.dict(os.environ, {"HF_TOKEN": token}):
             self.assertEqual(HfFolder.get_token(), token)
-
-    def test_token_in_old_path(self):
-        token = _generate_token()
-        token2 = _generate_token()
-        with SoftTemporaryDirectory() as tmpdir:
-            path_token = Path(tmpdir) / "new_token_path"
-            old_path_token = Path(tmpdir) / "old_path_token"
-
-            # Use dummy paths
-            new_patcher = patch.object(HfFolder, "path_token", path_token)
-            old_patcher = patch.object(HfFolder, "_old_path_token", old_path_token)
-            new_patcher.start()
-            old_patcher.start()
-
-            # Reads from old path -> works but warn
-            old_path_token.write_text(token)
-            with self.assertWarns(UserWarning):
-                self.assertEqual(HfFolder.get_token(), token)
-            # Old path still exists
-            self.assertEqual(old_path_token.read_text(), token)
-            # New path is created
-            self.assertEqual(path_token.read_text(), token)
-
-            # Delete -> works, doesn't warn, delete both paths
-            HfFolder.delete_token()
-            self.assertFalse(old_path_token.exists())
-            self.assertFalse(path_token.exists())
-
-            # Write -> only to new path
-            HfFolder.save_token(token)
-            self.assertFalse(old_path_token.exists())
-            self.assertEqual(path_token.read_text(), token)
-
-            # Read -> new path has priority. No warning message.
-            old_path_token.write_text(token2)
-            self.assertEqual(HfFolder.get_token(), token)
-
-            # Un-patch
-            new_patcher.stop()
-            old_patcher.stop()
 
     def test_token_strip(self):
         """
