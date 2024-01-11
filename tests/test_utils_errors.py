@@ -6,6 +6,7 @@ from requests.models import PreparedRequest, Response
 from huggingface_hub.utils._errors import (
     REPO_API_REGEX,
     BadRequestError,
+    DisabledRepoError,
     EntryNotFoundError,
     HfHubHTTPError,
     RepositoryNotFoundError,
@@ -23,6 +24,17 @@ class TestErrorUtils(unittest.TestCase):
             hf_raise_for_status(response)
 
         self.assertEqual(context.exception.response.status_code, 404)
+        self.assertIn("Request ID: 123", str(context.exception))
+
+    def test_hf_raise_for_status_disabled_repo(self) -> None:
+        response = Response()
+        response.headers = {"X-Error-Message": "Access to this resource is disabled.", "X-Request-Id": 123}
+
+        response.status_code = 403
+        with self.assertRaises(DisabledRepoError) as context:
+            hf_raise_for_status(response)
+
+        self.assertEqual(context.exception.response.status_code, 403)
         self.assertIn("Request ID: 123", str(context.exception))
 
     def test_hf_raise_for_status_401_repo_url(self) -> None:

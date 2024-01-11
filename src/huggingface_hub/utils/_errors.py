@@ -154,6 +154,24 @@ class GatedRepoError(RepositoryNotFoundError):
     """
 
 
+class DisabledRepoError(HfHubHTTPError):
+    """
+    Raised when trying to access a repository that has been disabled by its author.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import dataset_info
+    >>> dataset_info("laion/laion-art")
+    (...)
+    huggingface_hub.utils._errors.DisabledRepoError: 403 Client Error. (Request ID: Root=1-659fc3fa-3031673e0f92c71a2260dbe2;bc6f4dfb-b30a-4862-af0a-5cfe827610d8)
+
+    Cannot access repository for url https://huggingface.co/api/datasets/laion/laion-art.
+    Access to this resource is disabled.
+    ```
+    """
+
+
 class RevisionNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with a valid repository but an invalid
@@ -286,6 +304,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
         response.raise_for_status()
     except HTTPError as e:
         error_code = response.headers.get("X-Error-Code")
+        error_message = response.headers.get("X-Error-Message")
 
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
@@ -300,6 +319,16 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
             raise GatedRepoError(message, response) from e
+
+        elif error_message == "Access to this resource is disabled.":
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Cannot access repository for url {response.url}."
+                + "\n"
+                + "Access to this resource is disabled."
+            )
+            raise DisabledRepoError(message, response) from e
 
         elif error_code == "RepoNotFound" or (
             response.status_code == 401
