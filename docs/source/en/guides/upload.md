@@ -433,13 +433,18 @@ servers. For example, if you plan to upload a large number of files, it's best t
 already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never
 be re-uploaded twice but checking it client-side can still save some time.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up
-uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
-by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
-Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like advanced error handling or proxies. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+  uploads on machines with very high bandwidth. To use `hf_transfer`:
 
-<Tip>
+    1. Specify the `hf_transfer` extra when installing `huggingface_hub`
+       (e.g. `pip install huggingface_hub[hf_transfer]`).
+    2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster uploads.
+<Tip warning={true}>
+
+`hf_transfer` is a power user tool!
+It is tested and production-ready,
+but it lacks user-friendly features like advanced error handling or proxies.
+For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 </Tip>
 
