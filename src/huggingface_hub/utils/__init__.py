@@ -36,6 +36,7 @@ from ._errors import (
     GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,
+    DisabledRepoError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
     hf_raise_for_status,
