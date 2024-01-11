@@ -722,6 +722,4 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
-    return fs.open(
-        path, mode=mode, block_size=block_size, cache_type=cache_type
-    )
+    return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
