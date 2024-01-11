@@ -176,7 +176,7 @@ class TextGenerationParameters:
 
     @validator("top_p")
     def valid_top_p(cls, v):
-        if v is not None and (v <= 0 or v >= 1.0):
+        if v is not None and (v <= 0 or v > 1.0):
             raise ValueError("`top_p` must be > 0.0 and <= 1.0")
         return v
 
@@ -188,7 +188,7 @@ class TextGenerationParameters:
 
     @validator("typical_p")
     def valid_typical_p(cls, v):
-        if v is not None and (v <= 0 or v >= 1.0):
+        if v is not None and (v <= 0 or v > 1.0):
             raise ValueError("`typical_p` must be > 0.0 and <= 1.0")
         return v
 
