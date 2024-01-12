@@ -1,17 +1,25 @@
 [tool.mypy]
 ignore_missing_imports = true
 no_implicit_optional = true
-scripts_are_modules = true
 plugins = [
-  "pydantic.mypy"
+    "pydantic.mypy",
+]
+scripts_are_modules = true
+
+[tool.pytest.ini_options]
+# Add the specified `OPTS` to the set of command line arguments as if they had
+# been specified by the user.
+addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0"
+# The defined variables will be added to the environment before any tests are
+# run, part of pytest-env plugin
+env = [
+    "DISABLE_SYMLINKS_IN_WINDOWS_TESTS=1",
+    "HF_TOKEN=",
+    "HUGGINGFACE_CO_STAGING=1",
+    "HUGGING_FACE_HUB_TOKEN=",
 ]
 
 [tool.ruff]
-# Ignored rules:
-#   "E501" -> line length violation
-ignore = ["E501"]
-select = ["E", "F", "I", "W"]
-line-length = 119
 exclude = [
     ".eggs",
     ".git",
@@ -32,23 +40,15 @@ exclude = [
     "dist",
     "venv",
 ]
+# Ignored rules:
+# "E501" -> line length violation
+ignore = ["E501"]
+line-length = 119
+select = ["E", "F", "I", "W"]
 
 [tool.ruff.lint.isort]
-lines-after-imports = 2
 known-first-party = ["huggingface_hub"]
-
-[tool.pytest.ini_options]
-# Add the specified `OPTS` to the set of command line arguments as if they had
-# been specified by the user.
-addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0"
-# The defined variables will be added to the environment before any tests are
-# run, part of pytest-env plugin
-env = [
-    "HF_TOKEN=",
-    "HUGGING_FACE_HUB_TOKEN=",
-    "HUGGINGFACE_CO_STAGING=1",
-    "DISABLE_SYMLINKS_IN_WINDOWS_TESTS=1",
-]
+lines-after-imports = 2
 
 [tool.tomlsort]
 all = true
