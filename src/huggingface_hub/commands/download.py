@@ -36,7 +36,7 @@ Usage:
     huggingface-cli download gpt2 --local-dir=./models/gpt2
 """
 import warnings
-from argparse import Namespace, _SubParsersAction
+from argparse import SUPPRESS, ArgumentDefaultsHelpFormatter, Namespace, _SubParsersAction
 from typing import List, Literal, Optional, Union
 
 from huggingface_hub import logging
@@ -53,7 +53,12 @@ logger = logging.get_logger(__name__)
 class DownloadCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        download_parser = parser.add_parser("download", help="Download files from the Hub")
+        download_parser = parser.add_parser(
+            "download",
+            help="Download files from the Hub",
+            formatter_class=ArgumentDefaultsHelpFormatter,
+            argument_default=SUPPRESS,
+        )
         download_parser.add_argument(
             "repo_id", type=str, help="ID of the repo to download from (e.g. `username/repo-name`)."
         )

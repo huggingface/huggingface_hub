@@ -45,7 +45,7 @@ Usage:
 import os
 import time
 import warnings
-from argparse import Namespace, _SubParsersAction
+from argparse import SUPPRESS, ArgumentDefaultsHelpFormatter, Namespace, _SubParsersAction
 from typing import List, Optional
 
 from huggingface_hub import logging
@@ -62,7 +62,12 @@ logger = logging.get_logger(__name__)
 class UploadCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        upload_parser = parser.add_parser("upload", help="Upload a file or a folder to a repo on the Hub")
+        upload_parser = parser.add_parser(
+            "upload",
+            help="Upload a file or a folder to a repo on the Hub",
+            formatter_class=ArgumentDefaultsHelpFormatter,
+            argument_default=SUPPRESS,
+        )
         upload_parser.add_argument(
             "repo_id", type=str, help="The ID of the repo to upload to (e.g. `username/repo-name`)."
         )
