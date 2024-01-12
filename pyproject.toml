@@ -49,3 +49,10 @@ env = [
     "HUGGINGFACE_CO_STAGING=1",
     "DISABLE_SYMLINKS_IN_WINDOWS_TESTS=1",
 ]
+
+[tool.tomlsort]
+all = true
+in_place = true
+spaces_before_inline_comment = 2  # Match Python PEP 8
+spaces_indent_inline_array = 4  # Match Python PEP 8
+trailing_comma_inline_array = true
