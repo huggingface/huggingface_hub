@@ -243,12 +243,16 @@ class LastCommitInfo(TypedDict, total=False):
     title: str
     date: datetime
 
-
-class BlobLfsInfo(TypedDict, total=False):
+@dataclass
+class BlobLfsInfo(Dict):
     size: int
     sha256: str
     pointer_size: int
-
+    def __init__(self, data:dict):
+        self.__dict__.update(data)
+        self.size = data['size']
+        self.sha256 = data['sha256']
+        self.pointer_size = data['pointer_size']
 
 class BlobSecurityInfo(TypedDict, total=False):
     safe: bool
