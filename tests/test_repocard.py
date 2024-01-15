@@ -613,8 +613,14 @@ class RepoCardTest(TestCaseWithHfApi):
     def test_repo_card_without_metadata(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_no_metadata.md"
 
-        with self.assertWarnsRegex(UserWarning, "Repo card metadata block was not found. Setting CardData to empty."):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             card = RepoCard(sample_path.read_text())
+        self.assertTrue(
+            any(
+                "Repo card metadata block was not found. Setting CardData to empty." in log
+                for log in warning_logs.output
+            )
+        )
         self.assertEqual(card.data, CardData())
 
     def test_validate_repocard(self):
@@ -729,8 +735,11 @@ class ModelCardTest(TestCaseWithHfApi):
         Some information is lost.
         """
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
-        with self.assertWarnsRegex(UserWarning, "Invalid model-index. Not loading eval results into CardData."):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             card = ModelCard.load(sample_path, ignore_metadata_errors=True)
+        self.assertTrue(
+            any("Invalid model-index. Not loading eval results into CardData." in log for log in warning_logs.output)
+        )
         self.assertIsNone(card.data.eval_results)
 
     def test_model_card_with_model_index(self):
