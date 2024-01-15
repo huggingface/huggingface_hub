@@ -33,7 +33,19 @@ exclude = [
     "venv",
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 known-first-party = ["huggingface_hub"]
 
+[tool.pytest.ini_options]
+# Add the specified `OPTS` to the set of command line arguments as if they had
+# been specified by the user.
+addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0"
+# The defined variables will be added to the environment before any tests are
+# run, part of pytest-env plugin
+env = [
+    "HF_TOKEN=",
+    "HUGGING_FACE_HUB_TOKEN=",
+    "HUGGINGFACE_CO_STAGING=1",
+    "DISABLE_SYMLINKS_IN_WINDOWS_TESTS=1",
+]
