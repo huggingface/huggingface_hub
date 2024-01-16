@@ -1338,10 +1338,6 @@ def hf_hub_download(
             head_call_error = error
             pass
 
-    # Repo not found or gated => let's raise the actual error
-    raise_actual_error = (isinstance(head_call_error, RepositoryNotFoundError) 
-                          or isinstance(head_call_error, GatedRepoError))
-
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
     # 2. we don't have a connection
@@ -1355,11 +1351,16 @@ def hf_hub_download(
     if etag is None:
         # In those cases, we cannot force download.
         if force_download:
-            if raise_actual_error:
-                raise head_call_error
-            raise ValueError(
-                "We have no connection or you passed local_files_only, so force_download is not an accepted option."
-            )
+            if local_files_only:
+                raise ValueError("Cannot pass 'force_download=True' and 'local_files_only=True' at the same time.")
+            elif isinstance(head_call_error, OfflineModeIsEnabled):
+                raise ValueError(
+                    "Cannot pass 'force_download=True' when offline mode is enabled."
+                ) from head_call_error
+            else:
+                raise ValueError(
+                    "Force download failed due to the above error."
+                ) from head_call_error
 
         # Try to get "commit_hash" from "revision"
         commit_hash = None
@@ -1390,7 +1391,8 @@ def hf_hub_download(
                 "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
                 " hf.co look-ups and downloads online, set 'local_files_only' to False."
             )
-        elif raise_actual_error:
+        elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
+            # Repo not found or gated => let's raise the actual error
             raise head_call_error
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
