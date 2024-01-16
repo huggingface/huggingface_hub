@@ -1338,6 +1338,10 @@ def hf_hub_download(
             head_call_error = error
             pass
 
+    assert (
+        local_files_only or etag is not None or head_call_error is not None
+    ), "etag is empty due to uncovered problems"
+
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
     # 2. we don't have a connection
@@ -1358,9 +1362,7 @@ def hf_hub_download(
                     "Cannot pass 'force_download=True' when offline mode is enabled."
                 ) from head_call_error
             else:
-                raise ValueError(
-                    "Force download failed due to the above error."
-                ) from head_call_error
+                raise ValueError("Force download failed due to the above error.") from head_call_error
 
         # Try to get "commit_hash" from "revision"
         commit_hash = None
