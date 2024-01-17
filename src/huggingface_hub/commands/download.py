@@ -64,7 +64,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             "--repo-type",
             choices=["model", "dataset", "space"],
             default="model",
-            help="Type of repo to download from (e.g. `dataset`).",
+            help="Type of repo to download from (e.g. `model`, which is the default).",
         )
         download_parser.add_argument(
             "--revision",
