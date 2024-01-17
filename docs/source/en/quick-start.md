@@ -29,7 +29,7 @@ that file, it will load from your cache, so you don't need to re-download it.
 
 You will need the repository id and the filename of the file you want to download. For
 example, to download the [Pegasus](https://huggingface.co/google/pegasus-xsum) model
-configuration file: 
+configuration file:
 
 ```py
 >>> from huggingface_hub import hf_hub_download
@@ -38,13 +38,13 @@ configuration file:
 
 To download a specific version of the file, use the `revision` parameter to specify the
 branch name, tag, or commit hash. If you choose to use the commit hash, it must be the
-full-length hash instead of the shorter 7-character commit hash: 
+full-length hash instead of the shorter 7-character commit hash:
 
 ```py
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(
-...     repo_id="google/pegasus-xsum", 
-...     filename="config.json", 
+...     repo_id="google/pegasus-xsum",
+...     filename="config.json",
 ...     revision="4d33b01d79672f27f001f6abade33f22d993b151"
 ... )
 ```

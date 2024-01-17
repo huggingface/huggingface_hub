@@ -68,7 +68,7 @@ that:
 
 If you've used Git before, this will be very easy since Git is used to manage
 files in the Hub. You can find a step-by-step guide on how to upload your model
-to the Hub: https://huggingface.co/docs/hub/adding-a-model. 
+to the Hub: https://huggingface.co/docs/hub/adding-a-model.
 
 
 ### API utilities in `hf_api.py`
@@ -112,9 +112,9 @@ With the `HfApi` class there are methods to query models, datasets, and metrics 
   - `space_info()`
 
 These lightly wrap around the API Endpoints. Documentation for valid parameters and descriptions can be found [here](https://huggingface.co/docs/hub/endpoints).
-  
 
-### Advanced programmatic repository management 
+
+### Advanced programmatic repository management
 
 The `Repository` class helps manage both offline Git repositories and Hugging
 Face Hub repositories. Using the `Repository` class requires `git` and `git-lfs`
@@ -181,9 +181,9 @@ who will be the author of the commits:
 
 ```python
 >>> repo = Repository(
-...   "my-dataset", 
-...   clone_from="<user>/<dataset_id>", 
-...   token=True, 
+...   "my-dataset",
+...   clone_from="<user>/<dataset_id>",
+...   token=True,
 ...   repo_type="dataset",
 ...   git_user="MyName",
 ...   git_email="me@cool.mail"
@@ -201,7 +201,7 @@ traditional Git methods:
 - `git_checkout(branch)`
 
 The `git_push` method has a parameter `blocking` which is `True` by default. When set to `False`, the push will
-happen behind the scenes - which can be helpful if you would like your script to continue on while the push is 
+happen behind the scenes - which can be helpful if you would like your script to continue on while the push is
 happening.
 
 LFS-tracking methods:
@@ -259,7 +259,7 @@ with repo.commit("Commit message", blocking=False):
 last_command = repo.command_queue[-1]
 
 # Status of the push command
-last_command.status  
+last_command.status
 # Will return the status code
 #     -> -1 will indicate the push is still ongoing
 #     -> 0 will indicate the push has completed successfully
@@ -282,7 +282,7 @@ if other errors happen in your script (a failed push counts as done).
 ### Need to upload very large (>5GB) files?
 
 To upload large files (>5GB 🔥) from git command-line, you need to install the custom transfer agent
-for git-lfs, bundled in this package. 
+for git-lfs, bundled in this package.
 
 To install, just run:
 
@@ -356,4 +356,3 @@ API.
 ```python
 inference = InferenceApi("bert-base-uncased", task="feature-extraction", token=API_TOKEN)
 ```
-

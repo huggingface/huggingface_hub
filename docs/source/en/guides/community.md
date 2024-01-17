@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interact with Discussions and Pull Requests 
+# Interact with Discussions and Pull Requests
 
 The `huggingface_hub` library provides a Python interface to interact with Pull Requests and Discussions on the Hub.
 Visit [the dedicated documentation page](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
@@ -89,7 +89,7 @@ The [`HfApi`] class also offers ways to create and edit Discussions and Pull Req
 You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
 or Pull Requests.
 
-The simplest way to propose changes on a repo on the Hub is via the [`create_commit`] API: just 
+The simplest way to propose changes on a repo on the Hub is via the [`create_commit`] API: just
 set the `create_pr` parameter to `True`. This parameter is also available on other methods that wrap [`create_commit`]:
 
     * [`upload_file`]
@@ -133,9 +133,9 @@ Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] c
 
     * [`comment_discussion`] to add comments
     * [`edit_discussion_comment`] to edit comments
-    * [`rename_discussion`] to rename a Discussion or Pull Request 
-    * [`change_discussion_status`] to open or close a Discussion / Pull Request 
-    * [`merge_pull_request`] to merge a Pull Request 
+    * [`rename_discussion`] to rename a Discussion or Pull Request
+    * [`change_discussion_status`] to open or close a Discussion / Pull Request
+    * [`merge_pull_request`] to merge a Pull Request
 
 
 Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.

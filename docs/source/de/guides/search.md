@@ -8,7 +8,7 @@ In diesem Tutorial lernen Sie, wie Sie Modelle, Datensätze und Spaces auf dem H
 
 ## Wie listet man Repositories auf?
 
-Die `huggingface_hub`-Bibliothek enthält einen HTTP-Client [`HfApi`], um mit dem Hub zu interagieren. 
+Die `huggingface_hub`-Bibliothek enthält einen HTTP-Client [`HfApi`], um mit dem Hub zu interagieren.
 Unter anderem kann er Modelle, Datensätze und Spaces auflisten, die auf dem Hub gespeichert sind:
 
 ```py
@@ -23,19 +23,19 @@ Die Ausgabe von [`list_models`] ist ein Iterator über die auf dem Hub gespeiche
 
 ## Wie filtert man Repositories?
 
-Das Auflisten von Repositories ist großartig, aber jetzt möchten Sie vielleicht Ihre Suche filtern. 
+Das Auflisten von Repositories ist großartig, aber jetzt möchten Sie vielleicht Ihre Suche filtern.
 Die List-Helfer haben mehrere Attribute wie:
 - `filter`
 - `author`
 - `search`
 - ...
 
-Zwei dieser Parameter sind intuitiv (`author` und `search`), aber was ist mit diesem `filter`? 
-`filter` nimmt als Eingabe ein [`ModelFilter`]-Objekt (oder [`DatasetFilter`]) entgegen. 
+Zwei dieser Parameter sind intuitiv (`author` und `search`), aber was ist mit diesem `filter`?
+`filter` nimmt als Eingabe ein [`ModelFilter`]-Objekt (oder [`DatasetFilter`]) entgegen.
 Sie können es instanziieren, indem Sie angeben, welche Modelle Sie filtern möchten.
 
-Hier ist ein Beispiel, um alle Modelle auf dem Hub zu erhalten, die Bildklassifizierung durchführen, 
-auf dem Imagenet-Datensatz trainiert wurden und mit PyTorch laufen. 
+Hier ist ein Beispiel, um alle Modelle auf dem Hub zu erhalten, die Bildklassifizierung durchführen,
+auf dem Imagenet-Datensatz trainiert wurden und mit PyTorch laufen.
 Das kann mit einem einzigen [`ModelFilter`] erreicht werden. Attribute werden als "logisches UND" kombiniert.
 
 ```py
@@ -48,7 +48,7 @@ models = hf_api.list_models(
 )
 ```
 
-Während des Filterns können Sie auch die Modelle sortieren und nur die Top-Ergebnisse abrufen. 
+Während des Filterns können Sie auch die Modelle sortieren und nur die Top-Ergebnisse abrufen.
 Zum Beispiel holt das folgende Beispiel die 5 am häufigsten heruntergeladenen Datensätze auf dem Hub:
 
 ```py
@@ -56,8 +56,8 @@ Zum Beispiel holt das folgende Beispiel die 5 am häufigsten heruntergeladenen D
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',
-	sha='4dcd1dedbe148307a833c931b21ca456a1fc4281', 
-	last_modified=datetime.datetime(2023, 10, 2, 12, 32, 53, tzinfo=datetime.timezone.utc), 
+	sha='4dcd1dedbe148307a833c931b21ca456a1fc4281',
+	last_modified=datetime.datetime(2023, 10, 2, 12, 32, 53, tzinfo=datetime.timezone.utc),
 	private=False,
 	downloads=8889377,
 	(...)
@@ -65,6 +65,6 @@ Zum Beispiel holt das folgende Beispiel die 5 am häufigsten heruntergeladenen D
 
 
 
-Eine andere Möglichkeit, dies zu tun, 
-besteht darin, die [Modelle](https://huggingface.co/models) und [Datensätze](https://huggingface.co/datasets) Seiten 
+Eine andere Möglichkeit, dies zu tun,
+besteht darin, die [Modelle](https://huggingface.co/models) und [Datensätze](https://huggingface.co/datasets) Seiten
 in Ihrem Browser zu besuchen, nach einigen Parametern zu suchen und die Werte in der URL anzusehen.

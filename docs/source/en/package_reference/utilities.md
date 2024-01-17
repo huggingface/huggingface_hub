@@ -60,7 +60,7 @@ when downloading or uploading files). `huggingface_hub` exposes a [`~utils.tqdm`
 consistent way across the library.
 
 By default, progress bars are enabled. You can disable them globally by setting `HF_HUB_DISABLE_PROGRESS_BARS`
-environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and 
+environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and
 [`~utils.disable_progress_bars`]. If set, the environment variable has priority on the helpers.
 
 

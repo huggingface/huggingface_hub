@@ -11,7 +11,7 @@ guide will show you how to:
 
 * Download and cache a single file.
 * Download and cache an entire repository.
-* Download files to a local folder. 
+* Download files to a local folder.
 
 ## Download a single file
 

@@ -182,7 +182,7 @@ See [no-color.org](https://no-color.org/).
 Used only when `HF_HOME` is not set!
 
 This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
-on linux machines. 
+on linux machines.
 
 If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
 of `"~/.cache/huggingface"`.

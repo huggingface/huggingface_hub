@@ -20,7 +20,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 >>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # Read a remote file 
+>>> # Read a remote file
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 

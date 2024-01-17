@@ -174,7 +174,7 @@ progress.
 
 The example below will upload the checkpoints folder to a dataset in multiple commits. A PR will be created on the Hub
 and merged automatically once the upload is complete. If you prefer the PR to stay open and review it manually, you can
-pass `create_pr=True`. 
+pass `create_pr=True`.
 
 ```py
 >>> upload_folder(
