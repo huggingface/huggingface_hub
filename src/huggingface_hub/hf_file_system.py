@@ -620,7 +620,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
-        r = http_backoff("GET", url, headers=headers)
+        r = http_backoff("GET", url, headers=headers, retry_on_status_codes=(502, 503, 504))
         hf_raise_for_status(r)
         return r.content
 

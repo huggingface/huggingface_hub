@@ -1,10 +1,12 @@
 import copy
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from huggingface_hub.utils import yaml_dump
+from huggingface_hub.utils import logging, yaml_dump
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -325,7 +327,7 @@ class ModelCardData(CardData):
                 self.eval_results = eval_results
             except (KeyError, TypeError) as error:
                 if ignore_metadata_errors:
-                    warnings.warn("Invalid model-index. Not loading eval results into CardData.")
+                    logger.warning("Invalid model-index. Not loading eval results into CardData.")
                 else:
                     raise ValueError(
                         f"Invalid `model_index` in metadata cannot be parsed: {error.__class__} {error}. Pass"
