@@ -243,16 +243,19 @@ class LastCommitInfo(TypedDict, total=False):
     title: str
     date: datetime
 
+
 @dataclass
-class BlobLfsInfo(Dict):
+class BlobLfsInfo(dict):
     size: int
     sha256: str
     pointer_size: int
-    def __init__(self, data:dict):
+
+    def __init__(self, data: dict):  # hack to make BlobLfsInfo backward compatible
         self.__dict__.update(data)
-        self.size = data['size']
-        self.sha256 = data['sha256']
-        self.pointer_size = data['pointer_size']
+        self.size = data["size"]
+        self.sha256 = data["sha256"]
+        self.pointer_size = data["pointer_size"]
+
 
 class BlobSecurityInfo(TypedDict, total=False):
     safe: bool
@@ -502,7 +505,7 @@ class RepoFile:
         self.blob_id = kwargs.pop("oid")
         lfs = kwargs.pop("lfs", None)
         if lfs is not None:
-            lfs = BlobLfsInfo(size=lfs["size"], sha256=lfs["oid"], pointer_size=lfs["pointerSize"])
+            lfs = BlobLfsInfo(lfs)
         self.lfs = lfs
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
@@ -674,9 +677,11 @@ class ModelInfo:
                     blob_id=sibling.get("blobId"),
                     lfs=(
                         BlobLfsInfo(
-                            size=sibling["lfs"]["size"],
-                            sha256=sibling["lfs"]["sha256"],
-                            pointer_size=sibling["lfs"]["pointerSize"],
+                            {
+                                "size": sibling["lfs"]["size"],
+                                "sha256": sibling["lfs"]["sha256"],
+                                "pointer_size": sibling["lfs"]["pointerSize"],
+                            }
                         )
                         if sibling.get("lfs")
                         else None
@@ -785,9 +790,11 @@ class DatasetInfo:
                     blob_id=sibling.get("blobId"),
                     lfs=(
                         BlobLfsInfo(
-                            size=sibling["lfs"]["size"],
-                            sha256=sibling["lfs"]["sha256"],
-                            pointer_size=sibling["lfs"]["pointerSize"],
+                            {
+                                "size": sibling["lfs"]["size"],
+                                "sha256": sibling["lfs"]["sha256"],
+                                "pointer_size": sibling["lfs"]["pointerSize"],
+                            }
                         )
                         if sibling.get("lfs")
                         else None
@@ -907,9 +914,11 @@ class SpaceInfo:
                     blob_id=sibling.get("blobId"),
                     lfs=(
                         BlobLfsInfo(
-                            size=sibling["lfs"]["size"],
-                            sha256=sibling["lfs"]["sha256"],
-                            pointer_size=sibling["lfs"]["pointerSize"],
+                            {
+                                "size": sibling["lfs"]["size"],
+                                "sha256": sibling["lfs"]["sha256"],
+                                "pointer_size": sibling["lfs"]["pointerSize"],
+                            }
                         )
                         if sibling.get("lfs")
                         else None
