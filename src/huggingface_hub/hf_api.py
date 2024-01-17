@@ -20,7 +20,7 @@ import re
 import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -244,10 +244,14 @@ class LastCommitInfo(TypedDict, total=False):
     date: datetime
 
 
-class BlobLfsInfo(TypedDict, total=False):
+@dataclass
+class BlobLfsInfo(dict):
     size: int
     sha256: str
     pointer_size: int
+
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+        self.update(asdict(self))
 
 
 class BlobSecurityInfo(TypedDict, total=False):
