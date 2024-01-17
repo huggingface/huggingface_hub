@@ -250,13 +250,7 @@ class BlobLfsInfo(dict):
     sha256: str
     pointer_size: int
 
-    def __init__(self, data: dict):  # hack to make BlobLfsInfo backward compatible
-        self.__dict__.update(data)
-        self.size = data["size"]
-        self.sha256 = data["sha256"]
-        self.pointer_size = data["pointer_size"]
-
-    def __post_init__(self):
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
         self.update(asdict(self))
 
 
