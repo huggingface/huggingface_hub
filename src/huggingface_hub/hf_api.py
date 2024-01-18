@@ -238,10 +238,14 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     return repo_type, namespace, repo_id
 
 
-class LastCommitInfo(TypedDict, total=False):
+@dataclass
+class LastCommitInfo(dict):
     oid: str
     title: str
     date: datetime
+    
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+        self.update(asdict(self))
 
 
 @dataclass
@@ -253,12 +257,14 @@ class BlobLfsInfo(dict):
     def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
         self.update(asdict(self))
 
-
-class BlobSecurityInfo(TypedDict, total=False):
+@dataclass
+class BlobSecurityInfo(dict):
     safe: bool
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+        self.update(asdict(self))
 
 class TransformersInfo(TypedDict, total=False):
     auto_model: str
@@ -268,9 +274,13 @@ class TransformersInfo(TypedDict, total=False):
     processor: Optional[str]
 
 
-class SafeTensorsInfo(TypedDict, total=False):
+@dataclass
+class SafeTensorsInfo(dict):
     parameters: List[Dict[str, int]]
     total: int
+
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+        self.update(asdict(self))
 
 
 @dataclass
