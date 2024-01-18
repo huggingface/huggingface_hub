@@ -74,8 +74,6 @@ extras["testing"] = (
     ]
 )
 
-# Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
-# Please make sure to update the list there when adding a new typing dependency.
 extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
@@ -89,6 +87,7 @@ extras["typing"] = [
 extras["quality"] = [
     "ruff>=0.1.3",
     "mypy==1.5.1",
+    "pre-commit",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
