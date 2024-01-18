@@ -243,7 +243,7 @@ class LastCommitInfo(dict):
     oid: str
     title: str
     date: datetime
-    
+
     def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
         self.update(asdict(self))
 
@@ -257,6 +257,7 @@ class BlobLfsInfo(dict):
     def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
         self.update(asdict(self))
 
+
 @dataclass
 class BlobSecurityInfo(dict):
     safe: bool
@@ -265,6 +266,7 @@ class BlobSecurityInfo(dict):
 
     def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
         self.update(asdict(self))
+
 
 class TransformersInfo(TypedDict, total=False):
     auto_model: str
