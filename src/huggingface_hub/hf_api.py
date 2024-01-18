@@ -256,15 +256,15 @@ class BlobSecurityInfo(TypedDict, total=False):
     pickle_import_scan: Optional[Dict]
 
 @dataclass
-class TransformersInfo(Dict):
+class TransformersInfo(TypedDict, total=False):
     auto_model: str
     custom_class: Optional[str]
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
     pipeline_tag: Optional[str]
     processor: Optional[str]
 
-    def __post_init__(self, data: dict):
-        self.update(asdict(self))
+    def __post_init__(self): # hack to make TransformersInfo backward compatible
+        self.update(asdict(self)) 
 
 class SafeTensorsInfo(TypedDict, total=False):
     parameters: List[Dict[str, int]]
