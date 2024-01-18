@@ -43,7 +43,7 @@ check how they look before committing for instance). You don't have to commit th
 
 ## Building the documentation
 
-Once you have setup the `doc-builder` and additional packages with the pip install command above, 
+Once you have setup the `doc-builder` and additional packages with the pip install command above,
 you can generate the documentation by typing the following command:
 
 ```bash
@@ -116,7 +116,7 @@ although we can write them directly in Markdown.
 
 Adding a new tutorial or section is done in two steps:
 
-- Add a new Markdown (.md) file under `./source`. 
+- Add a new Markdown (.md) file under `./source`.
 - Link that file in `./source/_toctree.yml` on the correct toc-tree.
 
 Make sure to put your new file under the proper section. If you have a doubt, feel free to ask in a Github Issue or PR.
@@ -131,7 +131,7 @@ Values that should be put in `code` should either be surrounded by backticks: \`
 and objects like True, None, or any strings should usually be put in `code`.
 
 When mentioning a class, function, or method, it is recommended to use our syntax for internal links so that our tool
-adds a link to its documentation with this syntax: \[\`XXXClass\`\] or \[\`function\`\]. This requires the class or 
+adds a link to its documentation with this syntax: \[\`XXXClass\`\] or \[\`function\`\]. This requires the class or
 function to be in the main package.
 
 If you want to create a link to some internal class or function, you need to
@@ -266,9 +266,9 @@ The syntax for Example docstrings can look as follows:
     ```
 ```
 
-The docstring should give a minimal, clear example of how the respective model 
+The docstring should give a minimal, clear example of how the respective model
 is to be used in inference and also include the expected (ideally sensible)
 output.
-Often, readers will try out the example before even going through the function 
-or class definitions. Therefore, it is of utmost importance that the example 
+Often, readers will try out the example before even going through the function
+or class definitions. Therefore, it is of utmost importance that the example
 works as expected.

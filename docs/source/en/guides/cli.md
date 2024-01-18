@@ -45,7 +45,7 @@ options:
   -h, --help            show this help message and exit
 ```
 
-If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide. 
+If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide.
 
 <Tip>
 
@@ -101,8 +101,8 @@ _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|    
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
 To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Token: 
-Add token as git credential? (Y/n) 
+Token:
+Add token as git credential? (Y/n)
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
@@ -113,7 +113,7 @@ Alternatively, if you want to log-in without being prompted, you can pass the to
 
 ```bash
 # Or using an environment variable
->>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential 
+>>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
@@ -127,7 +127,7 @@ For more details about authentication, check out [this section](../quick-start#a
 If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
 
 ```bash
-huggingface-cli whoami                                                                     
+huggingface-cli whoami
 Wauplin
 orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ```
@@ -326,7 +326,7 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 
 ### Upload multiple files
 
-To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`: 
+To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)

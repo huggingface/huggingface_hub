@@ -9,7 +9,7 @@ development to easily version projects when working collaboratively. This guide 
 repositories on the Hub, especially:
 
 - Create and delete a repository.
-- Manage branches and tags. 
+- Manage branches and tags.
 - Rename your repository.
 - Update your repository visibility.
 - Manage a local copy of your repository.
@@ -130,7 +130,7 @@ GitRefs(
          GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
    ]
 )
-``` 
+```
 
 ## Change repository settings
 

@@ -82,7 +82,7 @@ Use the code below to get started with the model.
 
 {{ training_data | default("[More Information Needed]", true)}}
 
-### Training Procedure 
+### Training Procedure
 
 <!-- This relates heavily to the Technical Specifications. Content here should link to that section when it is relevant to the training procedure. -->
 
@@ -198,6 +198,3 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 ## Model Card Contact
 
 {{ model_card_contact | default("[More Information Needed]", true)}}
-
-
-
