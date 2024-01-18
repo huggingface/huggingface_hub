@@ -137,7 +137,7 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     _is_emission_within_treshold,
 )
-
+from dataclasses import asdict
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
@@ -255,14 +255,16 @@ class BlobSecurityInfo(TypedDict, total=False):
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
-
-class TransformersInfo(TypedDict, total=False):
+@dataclass
+class TransformersInfo(Dict):
     auto_model: str
     custom_class: Optional[str]
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
     pipeline_tag: Optional[str]
     processor: Optional[str]
 
+    def __post_init__(self, data: dict):
+        self.update(asdict(self))
 
 class SafeTensorsInfo(TypedDict, total=False):
     parameters: List[Dict[str, int]]
