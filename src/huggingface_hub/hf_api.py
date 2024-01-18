@@ -244,7 +244,7 @@ class LastCommitInfo(dict):
     title: str
     date: datetime
 
-    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+    def __post_init__(self):  # hack to make LastCommitInfo backward compatible
         self.update(asdict(self))
 
 
@@ -264,7 +264,7 @@ class BlobSecurityInfo(dict):
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
-    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+    def __post_init__(self):  # hack to make BlogSecurityInfo backward compatible
         self.update(asdict(self))
 
 
@@ -281,7 +281,7 @@ class SafeTensorsInfo(dict):
     parameters: List[Dict[str, int]]
     total: int
 
-    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+    def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
         self.update(asdict(self))
 
 
