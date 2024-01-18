@@ -13,11 +13,7 @@ quality:
 	python utils/generate_async_inference_client.py
 
 style:
-	ruff check --fix $(check_dirs) # linter
-	ruff format $(check_dirs) # formatter
-	python utils/check_contrib_list.py --update
-	python utils/check_static_imports.py --update
-	python utils/generate_async_inference_client.py --update
+	python -m pre_commit run --all-files
 
 repocard:
 	python utils/push_repocard_examples.py
