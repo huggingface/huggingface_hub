@@ -166,7 +166,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 # 1. Define your Pytorch model exactly the same way you are used to
 >>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
 ...     def __init__(self):
-...         super().__init__() 
+...         super().__init__()
 ...         self.param = nn.Parameter(torch.rand(3, 4))
 ...         self.linear = nn.Linear(4, 5)
 

@@ -31,7 +31,7 @@ rendered properly in your Markdown viewer.
 
 通过 `huggingface_hub`库，您可以与面向机器学习开发者和协作者的平台 [Hugging Face Hub](https://huggingface.co/)进行交互，找到适用于您所在项目的预训练模型和数据集，体验在平台托管的数百个机器学习应用，还可以创建或分享自己的模型和数据集并于社区共享。以上所有都可以用Python在 `huggingface_hub`库中轻松实现。
 
-<!-- 
+<!--
 <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./tutorials/overview"
   ><div class="w-full text-center bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Tutorials</div>
   <p class="text-gray-700">Learn the basics and become familiar with using huggingface_hub to programmatically interact with the 🤗 Hub!</p>

@@ -11,7 +11,7 @@ rendered properly in your Markdown viewer.
 要开始使用,请安装`huggingface_hub`库:
 
 ```bash
-pip install --upgrade huggingface_hub    
+pip install --upgrade huggingface_hub
 ```
 
 更多详细信息,请查看[安装指南](installation)
@@ -23,8 +23,8 @@ Hugging Face 平台上的存储库是使用 git 版本控制的，用户可以�
 您将需要填写存储库 ID 和您要下载的文件的文件名。例如，要下载[Pegasus](https://huggingface.co/google/pegasus-xsum)模型配置文件，请运行以下代码：
 
 ```py
->>> from huggingface_hub import hf_hub_download   
->>> hf_hub_download(repo_id="google/pegasus-xsum", filename="config.json")   
+>>> from huggingface_hub import hf_hub_download
+>>> hf_hub_download(repo_id="google/pegasus-xsum", filename="config.json")
 repo_id: 仓库的 ID 或路径，这里使用了 "google/pegasus-xsum"
 filename: 要下载的文件名，这里是 "config.json"
 ```
@@ -32,11 +32,11 @@ filename: 要下载的文件名，这里是 "config.json"
 要下载文件的特定版本，请使用`revision`参数指定分支名称、标签或提交哈希。如果您选择使用提交哈希，它必须是完整长度的哈希，而不是较短的7个字符的提交哈希：
 
 ```py
->>> from huggingface_hub import hf_hub_download  
+>>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(
-...     repo_id="google/pegasus-xsum",   
-...     filename="config.json",   
-...   revision="4d33b01d79672f27f001f6abade33f22d993b151"  
+...     repo_id="google/pegasus-xsum",
+...     filename="config.json",
+...   revision="4d33b01d79672f27f001f6abade33f22d993b151"
 ... )
 ```
 
@@ -49,15 +49,15 @@ filename: 要下载的文件名，这里是 "config.json"
 运行以下代码，这将使用您的用户访问令牌登录到Hugging Face模型库
 
 ```bash
-huggingface-cli login      
+huggingface-cli login
 
-huggingface-cli login --token $HUGGINGFACE_TOKEN    
+huggingface-cli login --token $HUGGINGFACE_TOKEN
 ```
 
 或者，你可以在笔记本电脑或脚本中使用 [`login`] 来进行程序化登录,请运行以下代码:
 
 ```py
->>> from huggingface_hub import login  
+>>> from huggingface_hub import login
 >>> login()
 ```
 
@@ -72,20 +72,20 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 </Tip>
 
 ## 创建存储库
- 
+
 一旦您注册并登录，请使用 [`create_repo`] 函数创建存储库：
 
 ```py
->>> from huggingface_hub import HfApi  
->>> api = HfApi()  
->>> api.create_repo(repo_id="super-cool-model")   
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.create_repo(repo_id="super-cool-model")
 ```
 如果您想将存储库设置为私有，请按照以下步骤操作：
 
 ```py
->>> from huggingface_hub import HfApi  
->>> api = HfApi()  
->>> api.create_repo(repo_id="super-cool-model", private=True) 
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.create_repo(repo_id="super-cool-model", private=True)
 ```
 私有存储库将不会对任何人可见，除了您自己
 
@@ -100,18 +100,18 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 您可以使用 [`upload_file`] 函数将文件添加到您新创建的存储库。您需要指定：
 
 1. 要上传的文件的路径
-   
+
 2. 文件在存储库中的位置
-   
+
 3. 您要将文件添加到的存储库的 ID
 
 ```py
->>> from huggingface_hub import HfApi 
->>> api = HfApi() 
->>> api.upload_file(         
-...     path_or_fileobj="/home/lysandre/dummy-test/README.md"  
-...     path_in_repo="README.md" 
-...     repo_id="lysandre/test-model"  
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+>>> api.upload_file(
+...     path_or_fileobj="/home/lysandre/dummy-test/README.md"
+...     path_in_repo="README.md"
+...     repo_id="lysandre/test-model"
 ... )
 ```
 
@@ -122,7 +122,7 @@ huggingface-cli login --token $HUGGINGFACE_TOKEN
 `huggingface_hub`库为用户提供了一种使用Python与Hub 进行交互的简单方法。要了解有关如何在Hub上管理文件和存储库的更多信息，我们建议您阅读我们的[操作方法指南](./guides/overview)：
 
 - [管理您的存储库](./guides/repository)
-- [从Hub下载文件](./guides/download) 
-- [将文件上传到Hub](./guides/upload) 
-- [在Hub中搜索您的所需模型或数据集](./guides/search) 
-- [了解如何使用 Inference API 进行快速推理](./guides/inference) 
+- [从Hub下载文件](./guides/download)
+- [将文件上传到Hub](./guides/upload)
+- [在Hub中搜索您的所需模型或数据集](./guides/search)
+- [了解如何使用 Inference API 进行快速推理](./guides/inference)

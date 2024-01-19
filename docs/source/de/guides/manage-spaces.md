@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Verwalten Ihres Spaces (Bereiches)
 
-In diesem Leitfaden werden wir sehen, wie man den Laufzeitbereich eines Space 
+In diesem Leitfaden werden wir sehen, wie man den Laufzeitbereich eines Space
 ([Geheimnisse (Secrets)](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
 [Hardware](https://huggingface.co/docs/hub/spaces-gpus) und Speicher (Storage)) mit `huggingface_hub` verwaltet.
 
@@ -61,7 +61,7 @@ Geheimnisse und Variablen können auch gelöscht werden:
 ```
 
 <Tip>
-Innerhalb Ihres Space sind Geheimnisse als Umgebungsvariablen verfügbar (oder 
+Innerhalb Ihres Space sind Geheimnisse als Umgebungsvariablen verfügbar (oder
 Streamlit Secrets Management, wenn Streamlit verwendet wird). Keine Notwendigkeit, sie über die API abzurufen!
 </Tip>
 
@@ -239,12 +239,12 @@ Hinweis: Nachdem Ihnen ein Speicher-Tier zugewiesen wurde, können Sie diesen ni
 ## Fortgeschritten: Temporäres Space Upgrade
 
 Spaces ermöglichen viele verschiedene Einsatzmöglichkeiten. Manchmal möchten Sie vielleicht einen Space vorübergehend auf einer
-bestimmten Hardware ausführen, etwas tun und ihn dann herunterfahren. In diesem Abschnitt werden wir untersuchen, wie Sie die 
-Vorteile von Spaces nutzen können, um ein Modell auf Abruf zu finetunen. Dies ist nur eine Möglichkeit, dieses spezielle Problem zu 
+bestimmten Hardware ausführen, etwas tun und ihn dann herunterfahren. In diesem Abschnitt werden wir untersuchen, wie Sie die
+Vorteile von Spaces nutzen können, um ein Modell auf Abruf zu finetunen. Dies ist nur eine Möglichkeit, dieses spezielle Problem zu
 lösen. Es sollte als Vorschlag betrachtet und an Ihren Anwendungsfall angepasst werden.
 
 
-Nehmen wir an, wir haben einen Space, um ein Modell zu finetunen. 
+Nehmen wir an, wir haben einen Space, um ein Modell zu finetunen.
 Es handelt sich um eine Gradio-App, die ein Modell-Id und eine Dataset-Id als Eingabe nimmt. Der Ablauf sieht folgendermaßen aus:
 
 0. (Den Benutzer nach einem Modell und einem Datensatz auffordern)
@@ -253,23 +253,23 @@ Es handelt sich um eine Gradio-App, die ein Modell-Id und eine Dataset-Id als Ei
 3. Das Modell mit dem Datensatz finetunen.
 4. Das neue Modell auf den Hub hochladen.
 
-Schritt 3 erfordert eine spezielle Hardware, aber Sie möchten nicht, dass Ihr Space die ganze Zeit 
-auf einer kostenpflichtigen GPU läuft. Eine Lösung besteht darin, dynamisch Hardware für das Training 
-anzufordern und es anschließend herunterzufahren. Da das Anfordern von Hardware Ihren Space neu startet, 
-muss sich Ihre App irgendwie die aktuelle Aufgabe "merken", die sie ausführt. 
-Es gibt mehrere Möglichkeiten, dies zu tun. In diesem Leitfaden sehen wir eine Lösung, 
+Schritt 3 erfordert eine spezielle Hardware, aber Sie möchten nicht, dass Ihr Space die ganze Zeit
+auf einer kostenpflichtigen GPU läuft. Eine Lösung besteht darin, dynamisch Hardware für das Training
+anzufordern und es anschließend herunterzufahren. Da das Anfordern von Hardware Ihren Space neu startet,
+muss sich Ihre App irgendwie die aktuelle Aufgabe "merken", die sie ausführt.
+Es gibt mehrere Möglichkeiten, dies zu tun. In diesem Leitfaden sehen wir eine Lösung,
 bei der ein Datensatz als "Aufgabenplaner (task scheduler)" verwendet wird.
 
 ### App-Grundgerüst
 
-So würde Ihre App aussehen. Beim Start überprüfen, ob eine Aufgabe geplant ist und ob ja, 
-führen Sie sie auf der richtigen Hardware aus. Ist die Aufgabe erledigt, 
-setzen Sie die Hardware zurück auf den kostenlosen CPU-Plan und fordern den Benutzer auf, 
+So würde Ihre App aussehen. Beim Start überprüfen, ob eine Aufgabe geplant ist und ob ja,
+führen Sie sie auf der richtigen Hardware aus. Ist die Aufgabe erledigt,
+setzen Sie die Hardware zurück auf den kostenlosen CPU-Plan und fordern den Benutzer auf,
 eine neue Aufgabe anzufordern.
 
 <Tip warning={true}>
-Ein solcher Workflow unterstützt keinen gleichzeitigen Zugriff wie normale Demos. 
-Insbesondere wird die Schnittstelle deaktiviert, wenn das Training stattfindet. 
+Ein solcher Workflow unterstützt keinen gleichzeitigen Zugriff wie normale Demos.
+Insbesondere wird die Schnittstelle deaktiviert, wenn das Training stattfindet.
 Es ist vorzuziehen, Ihr Repo auf privat zu setzen, um sicherzustellen, dass Sie der einzige Benutzer sind.
 </Tip>
 
@@ -283,7 +283,7 @@ TRAINING_SPACE_ID = "Wauplin/dreambooth-training"
 from huggingface_hub import HfApi, SpaceHardware
 api = HfApi(token=HF_TOKEN)
 
-# Beim Start des Space überprüfen, ob eine Aufgabe geplant ist. Wenn ja, finetunen Sie das Modell. 
+# Beim Start des Space überprüfen, ob eine Aufgabe geplant ist. Wenn ja, finetunen Sie das Modell.
 # Wenn nicht, zeigen Sie eine Schnittstelle an, um eine neue Aufgabe anzufordern.
 task = get_task()
 if task is None:
@@ -312,12 +312,12 @@ else:
 
 ### Aufgabenplaner (Task scheduler)
 
-Das Planen von Aufgaben kann auf viele Arten erfolgen. Hier ist ein Beispiel, 
+Das Planen von Aufgaben kann auf viele Arten erfolgen. Hier ist ein Beispiel,
 wie es mit einer einfachen CSV gemacht werden könnte, die als Datensatz gespeichert ist.
 
 ```py
-# Dataset-ID, in der eine `tasks.csv` Datei die auszuführenden Aufgaben enthält. 
-# Hier ist ein einfaches Beispiel für `tasks.csv`, das Eingaben (Basis-Modell und Datensatz) 
+# Dataset-ID, in der eine `tasks.csv` Datei die auszuführenden Aufgaben enthält.
+# Hier ist ein einfaches Beispiel für `tasks.csv`, das Eingaben (Basis-Modell und Datensatz)
 # und Status (PENDING / AUSSTEHEND oder DONE / ERLEDIGT) enthält.
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
