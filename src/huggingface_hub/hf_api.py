@@ -36,7 +36,6 @@ from typing import (
     Literal,
     Optional,
     Tuple,
-    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -268,12 +267,16 @@ class BlobSecurityInfo(dict):
         self.update(asdict(self))
 
 
-class TransformersInfo(TypedDict, total=False):
+@dataclass
+class TransformersInfo(dict):
     auto_model: str
-    custom_class: Optional[str]
+    custom_class: Optional[str] = None
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
-    pipeline_tag: Optional[str]
-    processor: Optional[str]
+    pipeline_tag: Optional[str] = None
+    processor: Optional[str] = None
+
+    def __post_init__(self):  # hack to make TransformersInfo backward compatible
+        self.update(asdict(self))
 
 
 @dataclass
