@@ -137,7 +137,6 @@ from .utils.endpoint_helpers import (
     ModelFilter,
     _is_emission_within_treshold,
 )
-from dataclasses import asdict
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
