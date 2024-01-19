@@ -289,37 +289,48 @@ class ModelHubMixin:
 
 class PyTorchModelHubMixin(ModelHubMixin):
     """
-    Implementation of [`ModelHubMixin`] to provide model Hub upload/download capabilities to PyTorch models. The model
-    is set in evaluation mode by default using `model.eval()` (dropout modules are deactivated). To train the model,
-    you should first set it back in training mode with `model.train()`.
+    This class allows to add `from_pretrained` and `push_to_hub` capabilities to any custom PyTorch model.
+    One simply needs to inherit from this class in order to add these methods to any `nn.Module`.
 
-    Example:
+    It is advised to create an `nn.Module` which takes in a `config` argument in its `__init__` method, which
+    is a Python dictionary containing all hyperparameters such as the number of channels, hidden size, etc.
+
+    When calling `save_pretrained` or `push_to_hub`, pass along the config dictionary. This will then be saved
+    alongside the model weights in a `config.json` file, similar to how this is done in the Transformers library.
+
+    Usage is as follows:
 
     ```python
     >>> import torch
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
-
     >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-    ...     def __init__(self):
+    ...     def __init__(self, config):
     ...         super().__init__()
-    ...         self.param = nn.Parameter(torch.rand(3, 4))
-    ...         self.linear = nn.Linear(4, 5)
+    ...         self.param = nn.Parameter(torch.rand(num_channels, hidden_size))
+    ...         self.linear = nn.Linear(hidden_size, num_classes)
 
     ...     def forward(self, x):
     ...         return self.linear(x + self.param)
     >>> model = MyModel()
 
-    # Save model weights to local directory
-    >>> model.save_pretrained("my-awesome-model")
+    # Create model
+    >>> config = {"num_channels": 3, "hidden_size": 10, "num_classes": 2}
+    >>> model = MyModel(config)
 
-    # Push model weights to the Hub
-    >>> model.push_to_hub("my-awesome-model")
+    >>> # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model", config=config)
+
+    # Push model weights and config.json to the Hub
+    >>> model.push_to_hub("my-awesome-model", config=config)
 
     # Download and initialize weights from the Hub
     >>> model = MyModel.from_pretrained("username/my-awesome-model")
     ```
+
+    Note: the model is set in evaluation mode by default when using `from_pretrained` (similar to how this is done in the Transformers library).
+    To train the model, you should first set it back in training mode with `model.train()`.
     """
 
     def _save_pretrained(self, save_directory: Path) -> None:
