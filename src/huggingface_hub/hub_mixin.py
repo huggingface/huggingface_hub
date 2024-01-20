@@ -1,16 +1,25 @@
+import collections
 import json
 import os
+import re
 from pathlib import Path
-from typing import Dict, List, Optional, Type, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
+
+
+if is_safetensors_available():
+    from safetensors.torch import save_file as safe_save_file
+    from safetensors.torch import storage_ptr, storage_size
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
 from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils.constants import SAFE_WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, WEIGHTS_INDEX_NAME, WEIGHTS_NAME
 
 
 if is_torch_available():
     import torch  # type: ignore
+    from torch import nn
 
 logger = logging.get_logger(__name__)
 
@@ -287,6 +296,169 @@ class ModelHubMixin:
             )
 
 
+def unwrap_model(model: nn.Module) -> nn.Module:
+    """
+    Recursively unwraps a model from potential containers (as used in distributed training).
+
+    Args:
+        model (`torch.nn.Module`): The model to unwrap.
+    """
+    # since there could be multiple levels of wrapping, unwrap recursively
+    if hasattr(model, "module"):
+        return unwrap_model(model.module)
+    else:
+        return model
+
+
+def id_tensor_storage(tensor: torch.Tensor) -> Tuple[torch.device, int, int]:
+    """
+    Unique identifier to a tensor storage. Multiple different tensors can share the same underlying storage. For
+    example, "meta" tensors all share the same storage, and thus their identifier will all be equal. This identifier is
+    guaranteed to be unique and constant for this tensor's storage during its lifetime. Two tensor storages with
+    non-overlapping lifetimes may have the same id.
+    """
+    # NOTE torch XLA support can be added here as in Transformers
+    unique_id = storage_ptr(tensor)
+
+    return tensor.device, unique_id, storage_size(tensor)
+
+
+def convert_file_size_to_int(size: Union[int, str]):
+    """
+    Converts a size expressed as a string with digits an unit (like `"5MB"`) to an integer (in bytes).
+
+    Args:
+        size (`int` or `str`): The size to convert. Will be directly returned if an `int`.
+
+    Example:
+    ```py
+    >>> convert_file_size_to_int("1MiB")
+    1048576
+    ```
+    """
+    if isinstance(size, int):
+        return size
+    if size.upper().endswith("GIB"):
+        return int(size[:-3]) * (2**30)
+    if size.upper().endswith("MIB"):
+        return int(size[:-3]) * (2**20)
+    if size.upper().endswith("KIB"):
+        return int(size[:-3]) * (2**10)
+    if size.upper().endswith("GB"):
+        int_size = int(size[:-2]) * (10**9)
+        return int_size // 8 if size.endswith("b") else int_size
+    if size.upper().endswith("MB"):
+        int_size = int(size[:-2]) * (10**6)
+        return int_size // 8 if size.endswith("b") else int_size
+    if size.upper().endswith("KB"):
+        int_size = int(size[:-2]) * (10**3)
+        return int_size // 8 if size.endswith("b") else int_size
+    raise ValueError("`size` is not in a valid format. Use an integer followed by the unit, e.g., '5GB'.")
+
+
+def dtype_byte_size(dtype):
+    """
+    Returns the size (in bytes) occupied by one parameter of type `dtype`.
+
+    Example:
+
+    ```py
+    >>> dtype_byte_size(torch.float32)
+    4
+    ```
+    """
+    if dtype == torch.bool:
+        return 1 / 8
+    bit_search = re.search(r"[^\d](\d+)$", str(dtype))
+    if bit_search is None:
+        raise ValueError(f"`dtype` is not a valid dtype: {dtype}.")
+    bit_size = int(bit_search.groups()[0])
+    return bit_size // 8
+
+
+def shard_checkpoint(
+    state_dict: Dict[str, torch.Tensor], max_shard_size: Union[int, str] = "10GB", weights_name: str = WEIGHTS_NAME
+):
+    """
+    Splits a model state dictionary in sub-checkpoints so that the final size of each sub-checkpoint does not exceed a
+    given size.
+
+    The sub-checkpoints are determined by iterating through the `state_dict` in the order of its keys, so there is no
+    optimization made to make each sub-checkpoint as close as possible to the maximum size passed. For example, if the
+    limit is 10GB and we have weights of sizes [6GB, 6GB, 2GB, 6GB, 2GB, 2GB] they will get sharded as [6GB], [6+2GB],
+    [6+2+2GB] and not [6+2+2GB], [6+2GB], [6GB].
+
+    <Tip warning={true}>
+
+    If one of the model's weight is bigger than `max_shard_size`, it will end up in its own sub-checkpoint which will
+    have a size greater than `max_shard_size`.
+
+    </Tip>
+
+    Args:
+        state_dict (`Dict[str, torch.Tensor]`): The state dictionary of a model to save.
+        max_shard_size (`int` or `str`, *optional*, defaults to `"10GB"`):
+            The maximum size of each sub-checkpoint. If expressed as a string, needs to be digits followed by a unit
+            (like `"5MB"`).
+        weights_name (`str`, *optional*, defaults to `"pytorch_model.bin"`):
+            The name of the model save file.
+    """
+    max_shard_size = convert_file_size_to_int(max_shard_size)
+
+    sharded_state_dicts = [{}]
+    last_block_size = 0
+    total_size = 0
+    storage_id_to_block = {}
+
+    for key, weight in state_dict.items():
+        # when bnb serialization is used the weights in the state dict can be strings
+        # check: https://github.com/huggingface/transformers/pull/24416 for more details
+        if isinstance(weight, str):
+            continue
+        else:
+            storage_id = id_tensor_storage(weight)
+
+        # If a `weight` shares the same underlying storage as another tensor, we put `weight` in the same `block`
+        if storage_id in storage_id_to_block:
+            block_id = storage_id_to_block[storage_id]
+            sharded_state_dicts[block_id][key] = weight
+            continue
+
+        weight_size = weight.numel() * dtype_byte_size(weight.dtype)
+
+        # If this weight is going to tip up over the maximal size, we split, but only if we have put at least one
+        # weight in the current shard.
+        if last_block_size + weight_size > max_shard_size and len(sharded_state_dicts[-1]) > 0:
+            sharded_state_dicts.append({})
+            last_block_size = 0
+
+        sharded_state_dicts[-1][key] = weight
+        last_block_size += weight_size
+        total_size += weight_size
+        storage_id_to_block[storage_id] = len(sharded_state_dicts) - 1
+
+    # If we only have one shard, we return it
+    if len(sharded_state_dicts) == 1:
+        return {weights_name: sharded_state_dicts[0]}, None
+
+    # Otherwise, let's build the index
+    weight_map = {}
+    shards = {}
+    for idx, shard in enumerate(sharded_state_dicts):
+        shard_file = weights_name.replace(".bin", f"-{idx+1:05d}-of-{len(sharded_state_dicts):05d}.bin")
+        shard_file = shard_file.replace(
+            ".safetensors", f"-{idx + 1:05d}-of-{len(sharded_state_dicts):05d}.safetensors"
+        )
+        shards[shard_file] = shard
+        for key in shard.keys():
+            weight_map[key] = shard_file
+
+    # Add the metadata
+    metadata = {"total_size": total_size}
+    index = {"metadata": metadata, "weight_map": weight_map}
+    return shards, index
+
+
 class PyTorchModelHubMixin(ModelHubMixin):
     """
     This class allows to add `from_pretrained` and `push_to_hub` capabilities to any custom PyTorch model.
@@ -333,10 +505,130 @@ class PyTorchModelHubMixin(ModelHubMixin):
     To train the model, you should first set it back in training mode with `model.train()`.
     """
 
-    def _save_pretrained(self, save_directory: Path) -> None:
+    def _save_pretrained(self, save_directory: Path, push_to_hub: bool = False, max_shard_size: str = "5GB", safe_serialization: bool = True, **kwargs) -> None:
         """Save weights from a Pytorch model to a local directory."""
-        model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        torch.save(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+
+        if safe_serialization and not is_safetensors_available():
+            raise ImportError("`safe_serialization` requires the `safetensors library: `pip install safetensors`.")
+
+        if os.path.isfile(save_directory):
+            logger.error(f"Provided path ({save_directory}) should be a directory, not a file")
+            return
+
+        os.makedirs(save_directory, exist_ok=True)
+
+        if push_to_hub:
+            commit_message = kwargs.pop("commit_message", None)
+            repo_id = kwargs.pop("repo_id", save_directory.split(os.path.sep)[-1])
+            repo_id = self._create_repo(repo_id, **kwargs)
+            files_timestamps = self._get_files_timestamps(save_directory)
+
+        # Only save the model itself if we are using distributed training
+        model_to_save = unwrap_model(self)
+
+        # TODO safe dtype and class name as in Transformers?
+
+        # Save the config
+        config = self.config
+        if isinstance(config, dict):
+            (save_directory / CONFIG_NAME).write_text(json.dumps(config))
+
+        # Save the model
+        if state_dict is None:
+            state_dict = model_to_save.state_dict()
+
+        if safe_serialization:
+            # Safetensors does not allow tensor aliasing.
+            # We're going to remove aliases before saving
+            ptrs = collections.defaultdict(list)
+            for name, tensor in state_dict.items():
+                # Sometimes in the state_dict we have non-tensor objects.
+                # e.g. in bitsandbytes we have some `str` objects in the state_dict
+                if isinstance(tensor, torch.Tensor):
+                    ptrs[id_tensor_storage(tensor)].append(name)
+                else:
+                    # In the non-tensor case, fall back to the pointer of the object itself
+                    ptrs[id(tensor)].append(name)
+
+            # These are all the pointers of shared tensors.
+            shared_ptrs = {ptr: names for ptr, names in ptrs.items() if len(names) > 1}
+            warn_names = set()
+            for names in shared_ptrs.values():
+                # Removing the keys which are declared as known duplicates on
+                # load. This allows to make sure the name which is kept is consistent.
+                if self._tied_weights_keys is not None:
+                    found = 0
+                    for name in sorted(names):
+                        matches_pattern = any(re.search(pat, name) for pat in self._tied_weights_keys)
+                        if matches_pattern and name in state_dict:
+                            found += 1
+                            if found < len(names):
+                                del state_dict[name]
+
+                # When not all duplicates have been cleaned, still remove those keys, but put a clear warning.
+                # If the link between tensors was done at runtime then `from_pretrained` will not get
+                # the key back leading to random tensor. A proper warning will be shown
+                # during reload (if applicable), but since the file is not necessarily compatible with
+                # the config, better show a proper warning.
+                found = 0
+                for name in names:
+                    if name in state_dict:
+                        found += 1
+                        if found > 1:
+                            del state_dict[name]
+                            warn_names.add(name)
+            if len(warn_names) > 0:
+                logger.warning_once(
+                    f"Removed shared tensor {warn_names} while saving. This should be OK, but check by verifying that you don't receive any warning while reloading",
+                )
+
+        # Shard the model if it is too big.
+        weights_name = SAFE_WEIGHTS_NAME if safe_serialization else WEIGHTS_NAME
+
+        shards, index = shard_checkpoint(state_dict, max_shard_size=max_shard_size, weights_name=weights_name)
+
+        # Save the model
+        for shard_file, shard in shards.items():
+            if safe_serialization:
+                # At some point we will need to deal better with save_function (used for TPU and other distributed
+                # joyfulness), but for now this enough.
+                safe_save_file(shard, os.path.join(save_directory, shard_file), metadata={"format": "pt"})
+            else:
+                safe_function(shard, os.path.join(save_directory, shard_file))
+
+        if index is None:
+            weights_file_name = SAFE_WEIGHTS_NAME if safe_serialization else WEIGHTS_NAME
+            path_to_weights = os.path.join(save_directory, weights_file_name)
+            logger.info(f"Model weights saved in {path_to_weights}")
+        else:
+            save_index_file = SAFE_WEIGHTS_INDEX_NAME if safe_serialization else WEIGHTS_INDEX_NAME
+            save_index_file = os.path.join(save_directory, save_index_file)
+            # Save the index as well
+            with open(save_index_file, "w", encoding="utf-8") as f:
+                content = json.dumps(index, indent=2, sort_keys=True) + "\n"
+                f.write(content)
+            logger.info(
+                f"The model is bigger than the maximum size per checkpoint ({max_shard_size}) and is going to be "
+                f"split in {len(shards)} checkpoint shards. You can find where each parameters has been saved in the "
+                f"index located at {save_index_file}."
+            )
+
+        if push_to_hub:
+            # Eventually create an empty model card
+            model_card = create_and_tag_model_card(
+                repo_id, self.model_tags, token=token, ignore_metadata_errors=ignore_metadata_errors
+            )
+
+            # Update model card if needed:
+            model_card.save(os.path.join(save_directory, "README.md"))
+
+            self._upload_modified_files(
+                save_directory,
+                repo_id,
+                files_timestamps,
+                commit_message=commit_message,
+                token=token,
+            )
 
     @classmethod
     def _from_pretrained(
