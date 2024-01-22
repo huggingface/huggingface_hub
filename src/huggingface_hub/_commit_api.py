@@ -521,16 +521,19 @@ def _fetch_upload_modes(
 
 
 @validate_hf_hub_args
-def _fetch_lfs_files_to_copy(
+def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
+) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]]:
     """
-    Requests the Hub files information of the LFS files to be copied, including their sha256.
+    Requests the Hub files to be copied.
+
+    Contrary to regular files, we just need to return the information about LFS files
+    to be able to copy them (in particular their sha256).
 
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
@@ -546,8 +549,9 @@ def _fetch_lfs_files_to_copy(
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `Dict[Tuple[str, Optional[str]], RepoFile]]`
-        Key is the file path and revision of the file to copy, value is the repo file.
+    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, io.IOBase]]]`
+        Key is the file path and revision of the file to copy.
+        Value is the file-like object or the file information as a RepoFile.
 
     Raises:
         [`~utils.HfHubHTTPError`]
@@ -558,7 +562,7 @@ def _fetch_lfs_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, token=token)
-    files_to_copy = {}
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]] = {}
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
@@ -572,9 +576,20 @@ def _fetch_lfs_files_to_copy(
             for src_repo_file in src_repo_files:
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
-                if not src_repo_file.lfs:
-                    raise NotImplementedError("Copying a non-LFS file is not implemented")
-                files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
+                if src_repo_file.lfs:
+                    files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
+                else:
+                    from .hf_file_system import HfFileSystem, HfFileSystemResolvedPath
+
+                    resolved_path = HfFileSystemResolvedPath(
+                        repo_type=repo_type,
+                        repo_id=repo_id,
+                        revision=src_revision or revision,
+                        path_in_repo=src_repo_file.path,
+                    )
+                    files_to_copy[(src_repo_file.path, src_revision)] = HfFileSystem(
+                        endpoint=endpoint, token=token
+                    ).open(resolved_path.unresolve(), "rb")
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
@@ -586,7 +601,7 @@ def _fetch_lfs_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -649,16 +664,24 @@ def _prepare_commit_payload(
         # 2.d. Case copying a file or folder
         elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
-            if not file_to_copy.lfs:
-                raise NotImplementedError("Copying a non-LFS file is not implemented")
-            yield {
-                "key": "lfsFile",
-                "value": {
-                    "path": operation.path_in_repo,
-                    "algo": "sha256",
-                    "oid": file_to_copy.lfs["sha256"],
-                },
-            }
+            if isinstance(file_to_copy, io.IOBase):
+                yield {
+                    "key": "file",
+                    "value": {
+                        "content": base64.b64encode(file_to_copy.read()).decode(),
+                        "path": operation.path_in_repo,
+                        "encoding": "base64",
+                    },
+                }
+            else:
+                yield {
+                    "key": "lfsFile",
+                    "value": {
+                        "path": operation.path_in_repo,
+                        "algo": "sha256",
+                        "oid": file_to_copy.lfs["sha256"],
+                    },
+                }
         # 2.e. Never expected to happen
         else:
             raise ValueError(
