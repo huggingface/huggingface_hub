@@ -1300,11 +1300,14 @@ def hf_hub_download(
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
-            # Useful for lfs blobs that are stored on a CDN.
+            #
+            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
+            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
             if metadata.location != url:
                 url_to_download = metadata.location
-                # Remove authorization header when downloading a LFS blob
-                headers.pop("authorization", None)
+                if urlparse(url).netloc != urlparse(url_to_download).netloc:
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
