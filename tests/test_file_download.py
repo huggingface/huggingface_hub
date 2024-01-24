@@ -165,6 +165,26 @@ class StagingDownloadTests(unittest.TestCase):
                 )
 
 
+    @use_tmp_repo()
+    def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
+        repo_id_before = repo_url.repo_id
+        repo_id_after = repo_url.repo_id + "_renamed"
+
+        # Make private + rename + upload regular file
+        self._api.update_repo_visibility(repo_id_before, private=True)
+        self._api.upload_file(repo_id=repo_id_before, path_in_repo="file.txt", path_or_fileobj=b"content")
+        self._api.move_repo(repo_id_before, repo_id_after)
+
+        # Download from private renamed repo
+        path = self._api.hf_hub_download(repo_id_before, filename="file.txt")
+        with open(path) as f:
+            self.assertEqual(f.read(), "content")
+
+        # Move back (so that auto-cleanup works)
+        self._api.move_repo(repo_id_after, repo_id_before)
+
+
+
 @with_production_testing
 class CachedDownloadTests(unittest.TestCase):
     def test_bogus_url(self):
