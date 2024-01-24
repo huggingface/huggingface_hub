@@ -164,7 +164,6 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
-
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.
@@ -186,7 +185,6 @@ class StagingDownloadTests(unittest.TestCase):
 
         # Move back (so that auto-cleanup works)
         self._api.move_repo(repo_id_after, repo_id_before)
-
 
 
 @with_production_testing
