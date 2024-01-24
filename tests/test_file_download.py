@@ -167,6 +167,10 @@ class StagingDownloadTests(unittest.TestCase):
 
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
+        """Regression test for #1999.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1999.
+        """
         repo_id_before = repo_url.repo_id
         repo_id_after = repo_url.repo_id + "_renamed"
 
