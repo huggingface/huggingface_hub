@@ -505,7 +505,9 @@ def http_get(
         total=total,
         initial=resume_size,
         desc=displayed_filename,
-        disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
+        disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
+        # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+        # see https://github.com/huggingface/huggingface_hub/pull/2000
     ) as progress:
         if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
