@@ -1,13 +1,19 @@
+import inspect
 import json
 import os
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
 from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils._deprecation import _deprecate_arguments
 
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 if is_torch_available():
     import torch  # type: ignore
@@ -31,10 +37,10 @@ class ModelHubMixin:
         self,
         save_directory: Union[str, Path],
         *,
-        config: Optional[dict] = None,
+        config: Optional[Union[dict, "DataclassInstance"]] = None,
         repo_id: Optional[str] = None,
         push_to_hub: bool = False,
-        **kwargs,
+        **push_to_hub_kwargs,
     ) -> Optional[str]:
         """
         Save weights in local directory.
@@ -42,8 +48,8 @@ class ModelHubMixin:
         Args:
             save_directory (`str` or `Path`):
                 Path to directory in which the model weights and configuration will be saved.
-            config (`dict`, *optional*):
-                Model configuration specified as a key/value dictionary.
+            config (`dict` or `DataclassInstance`, *optional*):
+                Model configuration specified as a key/value dictionary or a dataclass instance.
             push_to_hub (`bool`, *optional*, defaults to `False`):
                 Whether or not to push your model to the Huggingface Hub after saving it.
             repo_id (`str`, *optional*):
@@ -55,15 +61,20 @@ class ModelHubMixin:
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
 
-        # saving model weights/files
+        # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # saving config
-        if isinstance(config, dict):
-            (save_directory / CONFIG_NAME).write_text(json.dumps(config))
+        # save config (if provided)
+        if config is None:
+            config = getattr(self, "config", None)
+        if config is not None:
+            if is_dataclass(config):
+                config = asdict(config)  # type: ignore[arg-type]
+            (save_directory / CONFIG_NAME).write_text(json.dumps(config, indent=2))
 
+        # push to the Hub if required
         if push_to_hub:
-            kwargs = kwargs.copy()  # soft-copy to avoid mutating input
+            kwargs = push_to_hub_kwargs.copy()  # soft-copy to avoid mutating input
             if config is not None:  # kwarg for `push_to_hub`
                 kwargs["config"] = config
             if repo_id is None:
@@ -126,17 +137,17 @@ class ModelHubMixin:
             model_kwargs (`Dict`, *optional*):
                 Additional kwargs to pass to the model during initialization.
         """
-        model_id = pretrained_model_name_or_path
+        model_id = str(pretrained_model_name_or_path)
         config_file: Optional[str] = None
         if os.path.isdir(model_id):
             if CONFIG_NAME in os.listdir(model_id):
                 config_file = os.path.join(model_id, CONFIG_NAME)
             else:
                 logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
-        elif isinstance(model_id, str):
+        else:
             try:
                 config_file = hf_hub_download(
-                    repo_id=str(model_id),
+                    repo_id=model_id,
                     filename=CONFIG_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
@@ -146,13 +157,32 @@ class ModelHubMixin:
                     token=token,
                     local_files_only=local_files_only,
                 )
-            except HfHubHTTPError:
-                logger.info(f"{CONFIG_NAME} not found in HuggingFace Hub.")
+            except HfHubHTTPError as e:
+                logger.info(f"{CONFIG_NAME} not found on the HuggingFace Hub: {str(e)}")
 
         if config_file is not None:
+            # Read config
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            model_kwargs.update({"config": config})
+
+            # Check if class expect a `config` argument
+            init_parameters = inspect.signature(cls.__init__).parameters
+            if "config" in init_parameters:
+                # Check if `config` argument is a dataclass
+                config_annotation = init_parameters["config"].annotation
+                if config_annotation is inspect.Parameter.empty:
+                    pass  # no annotation
+                elif is_dataclass(config_annotation):
+                    config = config_annotation(**config)  # expect a dataclass
+                else:
+                    # if Optional/Union annotation => check if a dataclass is in the Union
+                    for _sub_annotation in get_args(config_annotation):
+                        if is_dataclass(_sub_annotation):
+                            config = _sub_annotation(**config)
+                            break
+
+                # Forward config to model initialization
+                model_kwargs["config"] = config
 
         return cls._from_pretrained(
             model_id=str(model_id),
@@ -215,21 +245,27 @@ class ModelHubMixin:
         """
         raise NotImplementedError
 
+    @_deprecate_arguments(
+        version="0.23.0",
+        deprecated_args=["api_endpoint"],
+        custom_message="Use `HF_ENDPOINT` environment variable instead.",
+    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
         repo_id: str,
         *,
-        config: Optional[dict] = None,
+        config: Optional[Union[dict, "DataclassInstance"]] = None,
         commit_message: str = "Push model using huggingface_hub.",
         private: bool = False,
-        api_endpoint: Optional[str] = None,
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
+        # TODO: remove once deprecated
+        api_endpoint: Optional[str] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -238,12 +274,11 @@ class ModelHubMixin:
         `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
         details.
 
-
         Args:
             repo_id (`str`):
                 ID of the repository to push to (example: `"username/my-model"`).
-            config (`dict`, *optional*):
-                Configuration object to be saved alongside the model weights.
+            config (`dict` or `DataclassInstance`, *optional*):
+                Model configuration specified as a key/value dictionary or a dataclass instance.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
