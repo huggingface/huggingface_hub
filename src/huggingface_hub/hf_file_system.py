@@ -656,12 +656,21 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
     def __init__(
-        self, fs: HfFileSystem, path: str, revision: Optional[str] = None, block_size=0, cache_type="none", **kwargs
+        self,
+        fs: HfFileSystem,
+        path: str,
+        mode: str = "rb",
+        revision: Optional[str] = None,
+        block_size: int = 0,
+        cache_type: str = "none",
+        **kwargs,
     ):
         if block_size != 0:
             raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
         if cache_type != "none":
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
+        if "w" in mode:
+            raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
@@ -669,20 +678,23 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
+        # avoid an unecessary .info() call to instantiate .details
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
-        super().__init__(fs, self.resolved_path.unresolve(), block_size=block_size, cache_type=cache_type, **kwargs)
-        self.r: Optional[Response] = None
+        super().__init__(
+            fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
+        )
+        self.response: Optional[Response] = None
         self.fs: HfFileSystem
 
-    def seek(self, loc, whence=0):
+    def seek(self, loc: int, whence: int = 0):
         if loc == 0 and whence == 1:
             return
         if loc == self.loc and whence == 0:
             return
         raise ValueError("Cannot seek streaming HF file")
 
-    def read(self, length=-1):
-        if self.r is None:
+    def read(self, length: int = -1):
+        if self.response is None or self.response.raw.isclosed():
             url = hf_hub_url(
                 repo_id=self.resolved_path.repo_id,
                 revision=self.resolved_path.revision,
@@ -690,9 +702,33 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 repo_type=self.resolved_path.repo_type,
                 endpoint=self.fs.endpoint,
             )
-            self.r = http_backoff("GET", url, headers=self.fs._api._build_hf_headers(), stream=True)
-            hf_raise_for_status(self.r)
-        out = self.r.raw.read(length)
+            self.response = http_backoff(
+                "GET",
+                url,
+                headers=self.fs._api._build_hf_headers(),
+                retry_on_status_codes=(502, 503, 504),
+                stream=True,
+            )
+            hf_raise_for_status(self.response)
+        try:
+            out = self.response.raw.read(length)
+        except Exception:
+            self.response.close()
+
+            # Retry by recreating the connection
+            self.response = http_backoff(
+                "GET",
+                url,
+                headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
+                retry_on_status_codes=(502, 503, 504),
+                stream=True,
+            )
+            hf_raise_for_status(self.response)
+            try:
+                out = self.response.raw.read(length)
+            except Exception:
+                self.response.close()
+                raise
         self.loc += len(out)
         return out
 
