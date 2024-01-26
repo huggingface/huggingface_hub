@@ -673,15 +673,19 @@ def _prepare_commit_payload(
                         "encoding": "base64",
                     },
                 }
-            else:
+            elif file_to_copy.lfs:
                 yield {
                     "key": "lfsFile",
                     "value": {
                         "path": operation.path_in_repo,
                         "algo": "sha256",
-                        "oid": file_to_copy.lfs["sha256"],
+                        "oid": file_to_copy.lfs.sha256,
                     },
                 }
+            else:
+                raise ValueError(
+                    "Malformed files_to_copy (should be file like objects or RepoFile objects with LFS info."
+                )
         # 2.e. Never expected to happen
         else:
             raise ValueError(
