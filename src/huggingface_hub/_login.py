@@ -102,7 +102,7 @@ def login(
     if token is not None:
         if not add_to_git_credential:
             print(
-                "Token will not been saved to git credential helper. Pass"
+                "Token has not been saved to git credential helper. Pass"
                 " `add_to_git_credential=True` if you want to set the git"
                 " credential as well."
             )
