@@ -438,7 +438,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
 
-        if same_repo and self.info(path1, revision=resolved_path1.revision)["lfs"] is not None:
+        if same_repo:
             commit_message = f"Copy {path1} to {path2}"
             self._api.create_commit(
                 repo_id=resolved_path1.repo_id,
