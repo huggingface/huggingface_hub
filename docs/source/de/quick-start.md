@@ -37,8 +37,8 @@ entscheiden, muss es der vollständige Hash anstelle des kürzeren 7-Zeichen-Com
 ```py
 >>> from huggingface_hub import hf_hub_download
 >>> hf_hub_download(
-...     repo_id="google/pegasus-xsum", 
-...     filename="config.json", 
+...     repo_id="google/pegasus-xsum",
+...     filename="config.json",
 ...     revision="4d33b01d79672f27f001f6abade33f22d993b151"
 ... )
 ```
@@ -47,7 +47,7 @@ Für weitere Details und Optionen siehe die API-Referenz für [`hf_hub_download`
 
 ## Anmeldung
 
-In vielen Fällen müssen Sie mit einem Hugging Face-Konto angemeldet sein, um mit dem Hub zu interagieren: private Repos herunterladen, Dateien hochladen, PRs erstellen,... 
+In vielen Fällen müssen Sie mit einem Hugging Face-Konto angemeldet sein, um mit dem Hub zu interagieren: private Repos herunterladen, Dateien hochladen, PRs erstellen,...
 [Erstellen Sie ein Konto](https://huggingface.co/join), wenn Sie noch keines haben, und melden Sie sich dann an, um Ihr ["User Access Token"](https://huggingface.co/docs/hub/security-tokens) von Ihrer [Einstellungsseite](https://huggingface.co/settings/tokens) zu erhalten. Das "User Access Token" wird verwendet, um Ihre Identität gegenüber dem Hub zu authentifizieren.
 
 Sobald Sie Ihr "User Access Token" haben, führen Sie den folgenden Befehl in Ihrem Terminal aus:

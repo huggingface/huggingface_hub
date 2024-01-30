@@ -50,7 +50,7 @@ Save this snippet in a file called `'app.py'` and run it with `'python app.py'`.
 
 ```text
 Webhook secret is not defined. This means your webhook endpoints will be open to everyone.
-To add a secret, set `WEBHOOK_SECRET` as environment variable or pass it at initialization: 
+To add a secret, set `WEBHOOK_SECRET` as environment variable or pass it at initialization:
         `app = WebhooksServer(webhook_secret='my_secret', ...)`
 For more details about webhook secrets, please refer to https://huggingface.co/docs/hub/webhooks#webhook-secret.
 Running on local URL:  http://127.0.0.1:7860
@@ -91,7 +91,7 @@ once even if you have multiple endpoints.
 
 Now that you have a webhook server running, you want to configure a Webhook to start receiving messages.
 Go to https://huggingface.co/settings/webhooks, click on "Add a new webhook" and configure your Webhook. Set the target
-repositories you want to watch and the Webhook URL, here `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`. 
+repositories you want to watch and the Webhook URL, here `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`.
 
 <div class="flex justify-center">
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/configure_webhook.png"/>

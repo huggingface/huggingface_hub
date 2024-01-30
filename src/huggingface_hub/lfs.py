@@ -409,7 +409,10 @@ def _upload_parts_hf_transfer(
     desc = operation.path_in_repo
     if len(desc) > 40:
         desc = f"(…){desc[-40:]}"
-    disable = bool(logger.getEffectiveLevel() == logging.NOTSET)
+
+    # set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+    # see https://github.com/huggingface/huggingface_hub/pull/2000
+    disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
 
     with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
         try:

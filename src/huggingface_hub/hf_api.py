@@ -20,7 +20,7 @@ import re
 import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -36,7 +36,6 @@ from typing import (
     Literal,
     Optional,
     Tuple,
-    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -238,35 +237,55 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     return repo_type, namespace, repo_id
 
 
-class LastCommitInfo(TypedDict, total=False):
+@dataclass
+class LastCommitInfo(dict):
     oid: str
     title: str
     date: datetime
 
+    def __post_init__(self):  # hack to make LastCommitInfo backward compatible
+        self.update(asdict(self))
 
-class BlobLfsInfo(TypedDict, total=False):
+
+@dataclass
+class BlobLfsInfo(dict):
     size: int
     sha256: str
     pointer_size: int
 
+    def __post_init__(self):  # hack to make BlobLfsInfo backward compatible
+        self.update(asdict(self))
 
-class BlobSecurityInfo(TypedDict, total=False):
+
+@dataclass
+class BlobSecurityInfo(dict):
     safe: bool
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
+    def __post_init__(self):  # hack to make BlogSecurityInfo backward compatible
+        self.update(asdict(self))
 
-class TransformersInfo(TypedDict, total=False):
+
+@dataclass
+class TransformersInfo(dict):
     auto_model: str
-    custom_class: Optional[str]
+    custom_class: Optional[str] = None
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
-    pipeline_tag: Optional[str]
-    processor: Optional[str]
+    pipeline_tag: Optional[str] = None
+    processor: Optional[str] = None
+
+    def __post_init__(self):  # hack to make TransformersInfo backward compatible
+        self.update(asdict(self))
 
 
-class SafeTensorsInfo(TypedDict, total=False):
+@dataclass
+class SafeTensorsInfo(dict):
     parameters: List[Dict[str, int]]
     total: int
+
+    def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
+        self.update(asdict(self))
 
 
 @dataclass

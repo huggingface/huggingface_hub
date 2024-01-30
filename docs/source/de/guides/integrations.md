@@ -7,12 +7,12 @@ rendered properly in your Markdown viewer.
 Der Hugging Face Hub erleichtert das Hosten und Teilen von Modellen mit der Community. Er unterstützt [Dutzende von Bibliotheken](https://huggingface.co/docs/hub/models-libraries) im Open Source-Ökosystem. Wir arbeiten ständig daran, diese Unterstützung zu erweitern, um kollaboratives Machine Learning voranzutreiben. Die `huggingface_hub`-Bibliothek spielt eine Schlüsselrolle in diesem Prozess und ermöglicht es jedem Python-Skript, Dateien einfach hochzuladen und zu laden.
 
 Es gibt vier Hauptwege, eine Bibliothek mit dem Hub zu integrieren:
-1. **Push to Hub**: Implementieren Sie eine Methode, um ein Modell auf den Hub hochzuladen. 
+1. **Push to Hub**: Implementieren Sie eine Methode, um ein Modell auf den Hub hochzuladen.
    Dies beinhaltet das Modellgewicht sowie [die Modellkarte](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) und alle anderen relevanten Informationen oder Daten, die für den Betrieb des Modells erforderlich sind (zum Beispiel Trainingsprotokolle). Diese Methode wird oft `push_to_hub()` genannt.
 2. **Download from Hub**: Implementieren Sie eine Methode, um ein Modell vom Hub zu laden.
    Die Methode sollte die Modellkonfiguration/-gewichte herunterladen und das Modell laden. Diese Methode wird oft `from_pretrained` oder `load_from_hub()` genannt.
 3. **Inference API**: Nutzen Sie unsere Server, um Inferenz auf von Ihrer Bibliothek unterstützten Modellen kostenlos auszuführen.
-4. **Widgets**: Zeigen Sie ein Widget auf der Landing Page Ihrer Modelle auf dem Hub an. 
+4. **Widgets**: Zeigen Sie ein Widget auf der Landing Page Ihrer Modelle auf dem Hub an.
    Dies ermöglicht es Benutzern, ein Modell schnell aus dem Browser heraus auszuprobieren.
 
 In diesem Leitfaden konzentrieren wir uns auf die ersten beiden Themen. Wir werden die beiden Hauptansätze vorstellen, die Sie zur Integration einer Bibliothek verwenden können, mit ihren Vor- und Nachteilen. Am Ende des Leitfadens ist alles zusammengefasst, um Ihnen bei der Auswahl zwischen den beiden zu helfen. Bitte beachten Sie, dass dies nur Richtlinien sind, die Sie an Ihre Anforderungen anpassen können.
@@ -97,8 +97,8 @@ Beim Pushen von Modellen werden ähnliche Parameter unterstützt:
 - ...
 
 Alle diese Parameter können den zuvor gesehenen Implementierungen hinzugefügt und an die `huggingface_hub`-Methoden übergeben werden.
- Wenn sich jedoch ein Parameter ändert oder eine neue Funktion hinzugefügt wird, müssen Sie Ihr Paket aktualisieren. 
- Die Unterstützung dieser Parameter bedeutet auch mehr Dokumentation, die Sie auf Ihrer Seite pflegen müssen. 
+ Wenn sich jedoch ein Parameter ändert oder eine neue Funktion hinzugefügt wird, müssen Sie Ihr Paket aktualisieren.
+ Die Unterstützung dieser Parameter bedeutet auch mehr Dokumentation, die Sie auf Ihrer Seite pflegen müssen.
  Um zu sehen, wie man diese Einschränkungen mildert, springen wir zu unserem nächsten Abschnitt **Klassenvererbung**.
 
 ## Ein komplexerer Ansatz: Klassenvererbung
@@ -111,7 +111,7 @@ Die Klasse [ModelHubMixin] implementiert 3 *öffentliche* Methoden (`push_to_hub
 
 1. Lassen Sie Ihre Modell-Klasse von [`ModelHubMixin`] erben.
 2. Implementieren Sie die privaten Methoden:
-   - [`~ModelHubMixin._save_pretrained`]: Methode, die als Eingabe einen Pfad zu einem Verzeichnis nimmt und das Modell dort speichert. Sie müssen die gesamte Logik zum Speichern Ihres Modells in dieser Methode schreiben: Modellkarte, Modellgewichte, Konfigurationsdateien, Trainingsprotokolle und Diagramme. Alle relevanten Informationen für dieses Modell müssen von dieser Methode behandelt werden. 
+   - [`~ModelHubMixin._save_pretrained`]: Methode, die als Eingabe einen Pfad zu einem Verzeichnis nimmt und das Modell dort speichert. Sie müssen die gesamte Logik zum Speichern Ihres Modells in dieser Methode schreiben: Modellkarte, Modellgewichte, Konfigurationsdateien, Trainingsprotokolle und Diagramme. Alle relevanten Informationen für dieses Modell müssen von dieser Methode behandelt werden.
    [Model Cards](https://huggingface.co/docs/hub/model-cards) sind besonders wichtig, um Ihr Modell zu beschreiben. Weitere Details finden Sie in [unserem Implementierungsleitfaden](./model-cards).
    - [~ModelHubMixin._from_pretrained]: **Klassenmethode**, die als Eingabe eine `model_id` nimmt und ein instanziiertes Modell zurückgibt. Die Methode muss die relevanten Dateien herunterladen und laden.
 3. Sie sind fertig!
@@ -134,7 +134,7 @@ Hier ist, wie jeder Benutzer ein PyTorch-Modell vom/auf den Hub laden/speichern 
 # 1. Definieren Sie Ihr Pytorch-Modell genau so, wie Sie es gewohnt sind
 >>> class MyModel(nn.Module, PyTorchModelHubMixin): # Mehrfachvererbung
 ...     def __init__(self):
-...         super().__init__() 
+...         super().__init__()
 ...         self.param = nn.Parameter(torch.rand(3, 4))
 ...         self.linear = nn.Linear(4, 5)
 

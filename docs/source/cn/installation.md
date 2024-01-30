@@ -18,42 +18,42 @@ huggingface_hub 在 Python 3.8 或更高版本上进行了测试，可以保证�
 首先在你的项目目录中创建一个虚拟环境,请运行以下代码:
 
 ```bash
-python -m venv .env    
+python -m venv .env
 ```
 
 在Linux和macOS上,请运行以下代码激活虚拟环境:
 
 ```bash
-source .env/bin/activate  
+source .env/bin/activate
 ```
 
 在 Windows 上，请运行以下代码激活虚拟环境:
 
 ```bash
-.env/Scripts/activate 
+.env/Scripts/activate
 ```
 
 现在您可以从[PyPi注册表](https://pypi.org/project/huggingface-hub/)安装 `huggingface_hub`：
 
 ```bash
-pip install --upgrade huggingface_hub 
+pip install --upgrade huggingface_hub
 ```
 
 完成后,[检查安装](#check-installation)是否正常工作
 
 ### 安装可选依赖项
 
-`huggingface_hub`的某些依赖项是 [可选](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) 的，因为它们不是运行`huggingface_hub`的核心功能所必需的.但是，如果没有安装可选依赖项， `huggingface_hub` 的某些功能可能会无法使用 
+`huggingface_hub`的某些依赖项是 [可选](https://setuptools.pypa.io/en/latest/userguide/dependency_management.html#optional-dependencies) 的，因为它们不是运行`huggingface_hub`的核心功能所必需的.但是，如果没有安装可选依赖项， `huggingface_hub` 的某些功能可能会无法使用
 
 您可以通过`pip`安装可选依赖项,请运行以下代码：
 
 ```bash
 # 安装 TensorFlow 特定功能的依赖项
 # /!\ 注意：这不等同于 `pip install tensorflow`
-pip install 'huggingface_hub[tensorflow]' 
+pip install 'huggingface_hub[tensorflow]'
 
 # 安装 TensorFlow 特定功能和 CLI 特定功能的依赖项
-pip install 'huggingface_hub[cli,torch]'  
+pip install 'huggingface_hub[cli,torch]'
 ```
 
 这里列出了 `huggingface_hub` 的可选依赖项：
@@ -93,7 +93,7 @@ pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch
 git clone https://github.com/huggingface/huggingface_hub.git
 
 # 然后，使用以下命令启动虚拟环境
-cd huggingface_hub 
+cd huggingface_hub
 pip install -e .
 ```
 
@@ -115,7 +115,7 @@ conda install -c conda-forge huggingface_hub
 安装完成后，通过运行以下命令检查`huggingface_hub`是否正常工作:
 
 ```bash
-python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"  
+python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
 ```
 
 这个命令将从 Hub 获取有关 [gpt2](https://huggingface.co/gpt2) 模型的信息。

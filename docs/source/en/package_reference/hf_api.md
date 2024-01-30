@@ -124,4 +124,3 @@ Some helpers to filter repositories on the Hub are available in the `huggingface
 ### ModelFilter
 
 [[autodoc]] ModelFilter
-

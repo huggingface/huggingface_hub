@@ -1683,7 +1683,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
         Example data from https://huggingface.co/Waynehillsdev/Waynehills-STT-doogie-server.
         """
-        with self.assertWarnsRegex(UserWarning, "Invalid model-index"):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             model = ModelInfo(
                 **{
                     "_id": "621ffdc036468d709f1751d8",
@@ -1716,6 +1716,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 }
             )
             self.assertIsNone(model.card_data.eval_results)
+        self.assertTrue(any("Invalid model-index" in log for log in warning_logs.output))
 
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)

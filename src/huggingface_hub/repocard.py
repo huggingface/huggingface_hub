@@ -1,6 +1,5 @@
 import os
 import re
-import warnings
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Type, Union
 
@@ -21,7 +20,10 @@ from huggingface_hub.repocard_data import (
 from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
-from .utils import EntryNotFoundError, SoftTemporaryDirectory, validate_hf_hub_args
+from .utils import EntryNotFoundError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+
+
+logger = logging.get_logger(__name__)
 
 
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
@@ -102,7 +104,7 @@ class RepoCard:
                 raise ValueError("repo card metadata block should be a dict")
         else:
             # Model card without metadata... create empty metadata
-            warnings.warn("Repo card metadata block was not found. Setting CardData to empty.")
+            logger.warning("Repo card metadata block was not found. Setting CardData to empty.")
             data_dict = {}
             self.text = content
 
