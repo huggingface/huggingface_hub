@@ -694,6 +694,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         raise ValueError("Cannot seek streaming HF file")
 
     def read(self, length: int = -1):
+        read_args = (length,) if length >= 0 else ()
         if self.response is None or self.response.raw.isclosed():
             url = hf_hub_url(
                 repo_id=self.resolved_path.repo_id,
@@ -711,11 +712,18 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
             hf_raise_for_status(self.response)
         try:
-            out = self.response.raw.read(length)
+            out = self.response.raw.read(*read_args)
         except Exception:
             self.response.close()
 
             # Retry by recreating the connection
+            url = hf_hub_url(
+                repo_id=self.resolved_path.repo_id,
+                revision=self.resolved_path.revision,
+                filename=self.resolved_path.path_in_repo,
+                repo_type=self.resolved_path.repo_type,
+                endpoint=self.fs.endpoint,
+            )
             self.response = http_backoff(
                 "GET",
                 url,
@@ -725,7 +733,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             )
             hf_raise_for_status(self.response)
             try:
-                out = self.response.raw.read(length)
+                out = self.response.raw.read(*read_args)
             except Exception:
                 self.response.close()
                 raise
