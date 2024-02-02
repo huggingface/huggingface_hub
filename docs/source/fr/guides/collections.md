@@ -6,11 +6,11 @@ rendered properly in your Markdown viewer.
 
 Une collection est un groupe d'objets reliés entre eux sur le Hub (par exemple des modèles, des datases, des spaces ou des articles) qui sont organisés ensemble sur la même page. Les collections sont utiles pour créer votre propre portefeuille de contenu, mettre du contenu dans des catégories ou présenter une liste précise d'objets que vous voulez partager. Consultez ce [guide](https://huggingface.co/docs/hub/collections) pour comprendre en détail ce que sont les collections et ce à quoi elles ressemblent sur le Hub.
 
-Vous pouvez gérer directement les collections depuis le navigateur, mais dans ce guide, nous nous concetrerons sur la gestion avec du code.
+Vous pouvez gérer directement les collections depuis le navigateur, mais dans ce guide, nous nous concetrerons sur le code.
 
 ## Afficher une collection
 
-Utiliser [`get_collection`] pour afficher vos collections ou n'importe quelle collection publique. Vous avez besoin du *slug* de la collection pour en récupérer une. Un slug est un identifiant pour une collection qui dépend du titre de l'ID de la collection. Vous pouvez trouver le slug dans l'URL de la page dédiée à la collection.
+Utiliser [`get_collection`] pour afficher vos collections ou n'importe quelle collection publique. Vous avez besoin du *slug* de la collection pour en récupérer une. Un slug est un identifiant pour une collection qui dépend du titre et de l'ID de la collection. Vous pouvez trouver le slug dans l'URL de la page dédiée à la collection.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hfh_collection_slug.png"/>
@@ -54,13 +54,13 @@ Chaque objet d'une collection aura forcément:
 - Un `item_type`: modèle, dataset, space ou article
 - La `position` de l'objet dans la collection, qui peut-être mise à jour pour réorganiser votre collection (consultez [`update_collection_item`] ci dessous)
 
-Une note peut aussi être attachées à un objet. Ceci permet d'ajouter des informations supplémentaire sur l'objet (un commentaire, un lien vers le post d'un blog, etc.). L'attribut a toujours une valeur `None` si un objet n'a pas de note.
+Une note peut aussi être attachée à un objet. Cette note permet d'ajouter des informations supplémentaire sur l'objet (un commentaire, un lien vers le post d'un blog, etc.). L'attribut a toujours une valeur `None` si un objet n'a pas de note.
 
 En plus de ces attributs de base, les objets peuvent avoir des attributs supplémentaires en fonction de leur type: `author`, `private`, `lastModified`,`gated`, `title`, `likes`, `upvotes`, etc. Aucun de ces attribut ne sera retourné à coup sûr.
 
 ## Lister les collections
 
-Nous pouvons aussi récupérer les collection en utilisant [`list_collections`]. Les collections peuvent être filtrées en utilisant certains paramètres. Listons toutes les collections de l'utilisateur [`teknium`](https://huggingface.co/teknium).
+Vous pouvez aussi récupérer les collection en utilisant [`list_collections`]. Les collections peuvent être filtrées en utilisant certains paramètres. Listons toutes les collections de l'utilisateur [`teknium`](https://huggingface.co/teknium).
 ```py
 >>> from huggingface_hub import list_collections
 
@@ -82,7 +82,7 @@ Lorsque vous listez des collections, la liste d'objet est tronquée à 4 objets 
 
 </Tip>
 
-Il est possible d'avoir un filtrage plus avancé. Obtenons toutes les collections contenant le modèle [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), trié par popularité, et en limitant au nombre de 5, le nombre de collections affichées.
+Il est possible d'avoir un filtrage plus avancé. Obtenons toutes les collections contenant le modèle [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), triées par popularité, et en limitant au nombre de 5, le nombre de collections affichées.
 
 ```py
 >>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
@@ -117,8 +117,7 @@ Maintenant que nous savons comment avoir une [`Collection`], créons la nôtre! 
 ... )
 ```
 
-Un objet [`Collection`] sera retourné avec les métadonnées (titre, description, propriétaire, etc.) et une liste vide d'objets. Vous serez maintenant capable de vous référer à cette collection en utilisant son `slug`.
-It will return a [`Collection`] object with the high-level metadata (title, description, owner, etc.) and an empty list of items. You will now be able to refer to this collection using it's `slug`.
+Un objet [`Collection`] sera retourné avec les métadonnées (titre, description, propriétaire, etc.) et une liste vide d'objets. Vous pourrez ensuite vous référer à cette collection en utilisant son `slug`.
 
 ```py
 >>> collection.slug
@@ -133,11 +132,11 @@ It will return a [`Collection`] object with the high-level metadata (title, desc
 
 ## Gérer des objets dans une collection
 
-Maintenant que nous notre [`Collection`], nous allons y ajouter des objets et les organiser. 
+Maintenant que nous avons notre [`Collection`], nous allons y ajouter des objets et les organiser. 
 
 ### Ajouter des objets
 
-Les objets doivent être ajoutés un par un en utilisant [`add_collection_item`]. Le seules données dont vous aurez besoin seront le `collection_slug`, l'`item_id` et l'`item_type`. En option, vous pouvez aussi ajouter un `note` à l'objet (500 caractères max).
+Les objets doivent être ajoutés un par un en utilisant [`add_collection_item`]. Le seules données dont vous aurez besoin seront le `collection_slug`, l'`item_id` et l'`item_type`. En option, vous pouvez aussi ajouter une `note` à l'objet (500 caractères max).
 
 ```py
 >>> from huggingface_hub import create_collection, add_collection_item
@@ -167,7 +166,7 @@ Réutilisons l'exemple ci-dessus:
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Récupére la collection avec les objets nouvellement ajoutés
+# Récupère la collection avec les objets nouvellement ajoutés
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
@@ -181,18 +180,18 @@ Réutilisons l'exemple ci-dessus:
 
 ### Remettre en ordre les objets
 
-Les objets dans une collection sont rangés dans un ordre. L'ordre est déterminé par l'attribut `position` de chacun des objets. Par défaut, les objets sont triés dans l'ordre d'ajout (du plus ancien au plus récent). Vous pouvez mettre à jour cet ordre en utilisant [`update_collection_item`] de la même manière que vous ajouteriez unr note
+Les objets dans une collection sont rangés dans un ordre. Cet ordre est déterminé par l'attribut `position` de chacun des objets. Par défaut, les objets sont triés dans l'ordre d'ajout (du plus ancien au plus récent). Vous pouvez mettre à jour cet ordre en utilisant [`update_collection_item`] de la même manière que vous ajouteriez unr note
 
 Réutilisons notre exemple ci-dessus:
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Récupére la collection
+# Récupère la collection
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Change l'ordre pour placer les deux objets `Wuerstchen` ensemble
+# Change l'ordre pour mettre les deux objets `Wuerstchen` ensemble
 >>> update_collection_item(
 ...     collection_slug=collection_slug,
 ...     item_object_id=collection.items[3].item_object_id,
@@ -207,11 +206,11 @@ Enfin, vous pouvez aussi supprimer un objet en utilisant [`delete_collection_ite
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
 
-# Récupére la collection
+# Récupère la collection
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# Supprimer le space `coqui/xtts` de la liste
+# Supprime le space `coqui/xtts` de la liste
 >>> delete_collection_item(collection_slug=collection_slug, item_object_id=collection.items[0].item_object_id)
 ```
 
