@@ -4,12 +4,12 @@ rendered properly in your Markdown viewer.
 
 # Paradigme Git vs HTTP
 
-La librairie `huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
+`huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
 qui est une collection de dépots Git (modèles, datasets ou spaces).
 Il y a deux manières principales pour accéder au Hub en utilisant `huggingface_hub`.
 
 La première approche, basée sur Git, appelée approche "git-based", est rendue possible par la classe [`Repository`].
-Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" , nécessite de faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminions
+Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" , consiste à faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminions
 les avantages et les inconvénients de ces deux méthodes.
 
 ## Repository: L'approche hstorique basée sur git
@@ -23,11 +23,11 @@ méthodes en arrière-plan, ce qui la rend utile pour upload des données pendan
 
 L'avantage principal de l'utilisation de [`Repository`] est que cette méthode permet de garder une
 copie en local de tout le dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
-car cette copie locale doit être mise à jour et maintenue constamment. C'est une manière de procéder
+car cette copie locale doit être mise à jour et maintenue constamment. C'est une méthode
 analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
 et push les changement lorsqu'il travaille sur une fonctionnalité.
 Toutefois, dans le contexte du machine learning, elle n'est pas toujours pertinente car
-les utilisateurs ont parfois uniquement besoin d'avoir
+les utilisateurs ont parfois juste besoin d'avoir
 les poids des modèles pour l'inférence ou de convertir ces poids d'un format à un autre sans avoir à cloner
 tout le dépôt.
 
@@ -41,7 +41,7 @@ la suppression complète de [`Repository`] ne sera faite que pour la version `v1
 ## HfApi: Un client HTTP flexible et pratique
 
 La classe [`HfApi`] a été développée afin de fournir une alternative aux dépôts git locaux,
-qui peuvent être encombrant à maintenir, en particulier lors de l'utilisation de gros modèles ou de datasets volumineux.
+qui peuvent être peu pratiques à maintenir, en particulier lors de l'utilisation de gros modèles ou de datasets volumineux.
 La classe [`HfApi`]  offre les mêmes fonctionnalités que les approches basées sur Git,
 telles que le téléchargement et le push de fichier ainsi que la création de branches et de tags, mais sans
 avoir besoin d'un fichier local qui doit être constamment synchronisé.
@@ -50,20 +50,20 @@ En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offr
 additionnelles, telles que la capacité de gérer des dépôts, le téléchargement des fichiers
 en utilisant le cache pour une réutilisation plus efficace, la recherche dans le Hub pour trouver
 des dépôts et des métadonnées, l'accès aux fonctionnalités de communautés telles que, les dicussions,
-les pull requests, les commentaires, et la configuration d'espaces hardwares et de secrets.
+les pull requests, les commentaires, et la configuration de spaces et de secrets.
 
 ## Quelle méthode utiliser et quand ?
 
-En général, **L'approche basée sur l'HTTP est la méthode recommandée** pour l'utilisation d'`huggingface_hub`.
-[`HfApi`] permet de pull et push des changements, travailler avec les pull requests, les tags et les branches, l'intréaction avec les discussions
-et bien plus encore. Depuis la sortie  `0.16`, les méthodes basées sur l'HTTP peuvent aussi tourner en arrière plan, ce qui était le
+En général, **L'approche basée sur HTTP est la méthode recommandée** pour l'utilisation d'`huggingface_hub`.
+[`HfApi`] permet de pull et push des changements, de travailler avec les pull requests, les tags et les branches, d'intéragir avec les discussions
+et bien plus encore. Depuis la sortie  `0.16`, les méthodes basées sur HTTP peuvent aussi tourner en arrière plan, ce qui était le
 dernier gros avantage  de la classe [`Repository`] sur [`HfApi`].
 
 Toutefois, certaines commandes restent indisponibles en utilisant [`HfApi`].
-Peut être que certaines ne le seront jamais, mais nous essayons toujours de réduire le fossé entre les deux approches.
+Peut être que certaines ne le seront jamais, mais nous essayons toujours de réduire le fossé entre ces deux approches.
 Si votre cas d'usage n'est pas couvert, nous serions ravis de vous aider. Pour cela, ouvrez 
 [une issue sur Github](https://github.com/huggingface/huggingface_hub)! Nous sommes prêt à entendre tout type de retour nous permettant de construire
 l'écosystème 🤗 avec les utilisateurs et pour les utilisateurs.
 
 Cette préférence pour l'approche basé sur [`HfApi`] au détriment de celle basée sur [`Repository`] ne signifie pas que le versioning git disparaitra
-du Hub Hugging Face. Il sera toujours possible d'utiliser les commandes `git` en local lorsque cela a du sens.
+du Hub Hugging Face. Il sera toujours possible d'utiliser les commandes `git` en local lorsque c'est pertinent.
