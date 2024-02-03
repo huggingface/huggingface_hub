@@ -108,7 +108,7 @@ You can create new branch and tags using [`create_branch`] and [`create_tag`]:
 >>> create_branch("Matthijs/speecht5-tts-demo", repo_type="space", branch="handle-dog-speaker")
 
 # Create a tag on a Dataset repo from `v0.1-release` branch
->>> create_branch("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
+>>> create_branch("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", branch="coding-4-fun-and-profit")
 ```
 
 You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag.
