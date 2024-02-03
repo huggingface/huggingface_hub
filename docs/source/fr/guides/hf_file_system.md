@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Intéragissez avec le Hub à partir de l'API Filesystem
+# Intéragire avec le Hub à partir de l'API Filesystem
 
 En plus d'[`HfApi`], la librairie `huggingface_hub` fournit [`HfFileSystem`], une interface vers le Hub Hugging Face, basée sur Python, et [compatible fsspec](https://filesystem-spec.readthedocs.io/en/latest/). [`HfFileSystem`] fournit les opérations classiques des filesystem telles que
 `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, et `put_file`.
@@ -34,9 +34,9 @@ En plus d'[`HfApi`], la librairie `huggingface_hub` fournit [`HfFileSystem`], un
 ...     f.write("Fantastic movie!,good")
 ```
 
-L'argument optionnel `revision` peut être passé pour exécuter une opération sur un commit spécifique en précisant la branche, le tag, ou un hash de commit.
+L'argument optionnel `revision` peut être passé pour exécuter une opération sur un commit spécifique en précisant la branche, le tag, ou le hash de commit.
 
-A la différence des fonction native de Python `open`, la fonction `open` de `fsspec` est en mode binaire par défaut, `"rb"`. Ceci signifie que vous devez explicitement définir le mode à `"r"` pour lire et `"w"` pour écrire en mode texte. Les modes `"a"` et `"ab"` ne sont pas encore supportés.
+À la différence des fonction natives de Python `open`, la fonction `open` de `fsspec` est en mode binaire par défaut, `"rb"`. Ceci signifie que vous devez explicitement définir le mode à `"r"` pour lire et `"w"` pour écrire en mode texte. Les modes `"a"` et `"ab"` ne sont pas encore supportés.
 
 ## Intégrations
 
@@ -98,7 +98,7 @@ Un workflow similaire peut-être utilisé pour les dataframes [Dask](https://doc
 
 ## Authentification
 
-Souvent, vous devrez être connecté avec un compte Hugging Face pour intéragir avec le Hub. Consultez la section [connexion](../quick-start#login) de la documentation pour en apprendre plus sur les méthodes d'authentifications sur le Hub.
+Souvent, vous devrez être connecté avec un compte Hugging Face pour intéragir avec le Hub. Consultez la section [connexion](../quick-start#login) de la documentation pour en apprendre plus sur les méthodes d'authentification sur le Hub.
 
 Il est aussi possible de se connecter par le code en passant l'agument `token` à [`HfFileSystem`]:
 
