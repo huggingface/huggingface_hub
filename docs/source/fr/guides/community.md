@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Intéragisser avec les discussions et les pull requests
+# Intéragir avec les discussions et les pull requests
 
 La librairie `huggingface_hub` fournir une interface Python pour intéragir avec les discussions et les pull requests du Hub.
 Consultez [la page de documentation dédiée](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
@@ -11,7 +11,7 @@ fonctionnent en arrière plan.
 
 ## Récupérer les discussions et les pull requests depuis le Hub
 
-La classe `HfApi` vous permet de récupérer des discussions et des pulls requests d'un dépôt en particulier:
+La classe `HfApi` vous permet de récupérer des discussions et des pulls requests d'un dépôt:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -78,7 +78,7 @@ DiscussionWithDetails(
 ```
 
 [`HfApi.get_discussion_details`] renvoie un objet [`DiscuccionWithDetails`], qui est une sous-classe de [`Discussion`]
-avec des informations plus détaillées sur la discussion ou la pull request. Les informations incluent tous les commentaires,
+contenant des informations plus détaillées sur la discussion ou la pull request. Ces informations contiennent tous les commentaires,
 les changements de statut, et les changements de nom de la discussion via [`DiscussionWithDetails.events`].
 
 En cas de pull request, vous pouvez récupérer la différence des versions git avec [`DiscussionWithDetails.diff`]. Tous les
@@ -87,12 +87,12 @@ commits de la pull request sont listés dans [`DiscussionWithDetails.events`].
 
 ## Créer et changer une discussion ou une pull request par le code
 
-La classe [`HfApi`] fournit aussi des manière de créer et d'éditer des discussions et 
+La classe [`HfApi`] fournit aussi des méthodes pour créer et d'éditer des discussions et 
 des pull requests. Vous aurez besoin d'un [token d'authentification](https://huggingface.co/docs/hub/security-tokens)
-pour créer et modifier des discussions ou des pull requests.
+pour créer et modifier ces dernières.
 
 La manière la plus simple de proposer des changements sur un dépôt du Hub est d'utiliser l'API [`create_commit`]:
-fixez simplement le paramètre `create_pr` à `True`. Ce paramètre est aussi disponible avec d'autres méthodes
+mettez simplement le paramètre `create_pr` à `True`. Ce paramètre est aussi disponible avec d'autres méthodes
 autour de [`create_commit`] telles que:
 
     * [`upload_file`]
@@ -133,13 +133,13 @@ DiscussionWithDetails(...)
 DiscussionWithDetails(..., is_pull_request=True)
 ```
 
-La gestion des pull requests et des discussions peut être réalisée entièrement avec la classe [`HfApi`]. Par exemple:
+La gestion des pull requests et des discussions peut être réalisée entièrement avec la classe [`HfApi`]. Par exemple, en utilisant:
 
-    * [`comment_discussion`] to add comments
-    * [`edit_discussion_comment`] to edit comments
-    * [`rename_discussion`] to rename a Discussion or Pull Request 
-    * [`change_discussion_status`] to open or close a Discussion / Pull Request 
-    * [`merge_pull_request`] to merge a Pull Request 
+    * [`comment_discussion`] pour ajouter des commentaires
+    * [`edit_discussion_comment`] pour modifier des commentaires
+    * [`rename_discussion`] pour renommer une discussion ou un pull request 
+    * [`change_discussion_status`] pour ouvrir ou fermer une discussion ou une pull request 
+    * [`merge_pull_request`] pour merge une pull request
 
 
 Consultez la page de documentation [`HfApi`] pour une référence exhaustive de toutes les méthodes disponibles.
