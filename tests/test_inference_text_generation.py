@@ -20,6 +20,7 @@ from huggingface_hub.inference._text_generation import (
     OverloadedError,
     TextGenerationParameters,
     TextGenerationRequest,
+    TextGenerationStreamResponse,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._text_generation import (
@@ -105,6 +106,35 @@ class TestTextGenerationTypes(unittest.TestCase):
             TextGenerationRequest(
                 inputs="test", parameters=TextGenerationParameters(best_of=2, do_sample=True), stream=True
             )
+
+    def test_streaming_response_validation(self):
+        """
+        Regression test for #2005.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2005
+        """
+        json_payload_latest = {
+            "index": 97,
+            "token": {"id": 264, "text": " a", "logprob": -0.0003259182, "special": False},
+            "generated_text": None,
+            "details": None,
+        }
+        TextGenerationStreamResponse(**json_payload_latest)
+
+        json_payload_older_had_no_index = {
+            "token": {"id": 264, "text": " a", "logprob": -0.0003259182, "special": False},
+            "generated_text": None,
+            "details": None,
+        }
+        TextGenerationStreamResponse(**json_payload_older_had_no_index)
+
+        json_payload_without_required_field_token = {
+            "index": 97,
+            "generated_text": None,
+            "details": None,
+        }
+        with self.assertRaises((ValidationError, TypeError)):
+            TextGenerationStreamResponse(**json_payload_without_required_field_token)
 
 
 class TestTextGenerationErrors(unittest.TestCase):
