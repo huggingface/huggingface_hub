@@ -1,4 +1,5 @@
 import datetime
+import io
 import unittest
 from typing import Optional
 from unittest.mock import patch
@@ -6,7 +7,7 @@ from unittest.mock import patch
 import fsspec
 import pytest
 
-from huggingface_hub.hf_file_system import HfFileSystem
+from huggingface_hub.hf_file_system import HfFileSystem, HfFileSystemFile, HfFileSystemStreamFile
 from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -152,7 +153,23 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_read_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
+            self.assertIsInstance(f, io.TextIOWrapper)
+            self.assertIsInstance(f.buffer, HfFileSystemFile)
             self.assertEqual(f.read(), "dummy text data")
+
+    def test_stream_file(self):
+        with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
+            self.assertIsInstance(f, HfFileSystemStreamFile)
+            self.assertEqual(f.read(), b"dummy binary data")
+
+    def test_stream_file_retry(self):
+        with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
+            self.assertIsInstance(f, HfFileSystemStreamFile)
+            self.assertEqual(f.read(6), b"dummy ")
+            # Simulate that streaming fails mid-way
+            f.response.raw.read = None
+            self.assertEqual(f.read(6), b"binary")
+            self.assertIsNotNone(f.response.raw.read)  # a new connection has been created
 
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
