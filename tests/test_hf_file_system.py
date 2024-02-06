@@ -1,4 +1,5 @@
 import datetime
+import io
 import unittest
 from typing import Optional
 from unittest.mock import patch
@@ -152,7 +153,8 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_read_file(self):
         with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
-            self.assertIsInstance(f, HfFileSystemFile)
+            self.assertIsInstance(f, io.TextIOWrapper)
+            self.assertIsInstance(f.buffer, HfFileSystemFile)
             self.assertEqual(f.read(), "dummy text data")
 
     def test_stream_file(self):
