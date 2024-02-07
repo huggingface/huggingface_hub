@@ -36,7 +36,6 @@ from typing import (
     Literal,
     Optional,
     Tuple,
-    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -130,7 +129,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_method
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -268,12 +267,16 @@ class BlobSecurityInfo(dict):
         self.update(asdict(self))
 
 
-class TransformersInfo(TypedDict, total=False):
+@dataclass
+class TransformersInfo(dict):
     auto_model: str
-    custom_class: Optional[str]
+    custom_class: Optional[str] = None
     # possible `pipeline_tag` values: https://github.com/huggingface/huggingface.js/blob/3ee32554b8620644a6287e786b2a83bf5caf559c/packages/tasks/src/pipelines.ts#L72
-    pipeline_tag: Optional[str]
-    processor: Optional[str]
+    pipeline_tag: Optional[str] = None
+    processor: Optional[str] = None
+
+    def __post_init__(self):  # hack to make TransformersInfo backward compatible
+        self.update(asdict(self))
 
 
 @dataclass
@@ -3259,6 +3262,9 @@ class HfApi:
                 raise
 
     @validate_hf_hub_args
+    @_deprecate_arguments(
+        version="0.24.0", deprecated_args=("organization", "name"), custom_message="Use `repo_id` instead."
+    )
     def update_repo_visibility(
         self,
         repo_id: str,

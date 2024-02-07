@@ -505,7 +505,9 @@ def http_get(
         total=total,
         initial=resume_size,
         desc=displayed_filename,
-        disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
+        disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
+        # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+        # see https://github.com/huggingface/huggingface_hub/pull/2000
     ) as progress:
         if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
@@ -1300,11 +1302,14 @@ def hf_hub_download(
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
-            # Useful for lfs blobs that are stored on a CDN.
+            #
+            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
+            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
             if metadata.location != url:
                 url_to_download = metadata.location
-                # Remove authorization header when downloading a LFS blob
-                headers.pop("authorization", None)
+                if urlparse(url).netloc != urlparse(url_to_download).netloc:
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
