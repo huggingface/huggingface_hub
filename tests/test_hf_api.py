@@ -2674,8 +2674,8 @@ class ActivityApiTest(unittest.TestCase):
 
     def test_list_likes_repos_auth_and_explicit_user(self) -> None:
         # User is explicit even if auth
-        likes = self.api.list_liked_repos(user="__DUMMY_DATASETS_SERVER_USER__", token=TOKEN)
-        self.assertEqual(likes.user, "__DUMMY_DATASETS_SERVER_USER__")
+        likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
+        self.assertEqual(likes.user, OTHER_USER)
 
     def test_list_repo_likers(self) -> None:
         # Create a repo + like
