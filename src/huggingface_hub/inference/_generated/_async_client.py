@@ -1089,7 +1089,7 @@ class AsyncInferenceClient:
                 Set of attributes to classify.
             model (`str`, *optional*):
                 The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                a deployed Inference Endpoint. If not provided, the default recommended tabular classification model will be used.
                 Defaults to None.
 
         Returns:
@@ -1135,7 +1135,7 @@ class AsyncInferenceClient:
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
             model (`str`, *optional*):
                 The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
+                a deployed Inference Endpoint. If not provided, the default recommended tabular regression model will be used.
                 Defaults to None.
 
         Returns:
