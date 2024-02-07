@@ -129,7 +129,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_method
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -3262,6 +3262,9 @@ class HfApi:
                 raise
 
     @validate_hf_hub_args
+    @_deprecate_arguments(
+        version="0.24.0", deprecated_args=("organization", "name"), custom_message="Use `repo_id` instead."
+    )
     def update_repo_visibility(
         self,
         repo_id: str,
