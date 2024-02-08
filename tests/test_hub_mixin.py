@@ -4,7 +4,7 @@ import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, TypeVar, Union
+from typing import Dict, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -22,10 +22,12 @@ class ConfigAsDataclass:
     foo: int = 10
     bar: str = "baz"
 
+
 CONFIG_AS_DATACLASS = ConfigAsDataclass(foo=20, bar="qux")
 CONFIG_AS_DICT = {"foo": 20, "bar": "qux"}
 
-class BaseModel():
+
+class BaseModel:
     def _save_pretrained(self, save_directory: Path) -> None:
         return
 
@@ -45,21 +47,26 @@ class DummyModelNoConfig(BaseModel, ModelHubMixin):
     def __init__(self):
         pass
 
+
 class DummyModelConfigAsDataclass(BaseModel, ModelHubMixin):
     def __init__(self, config: ConfigAsDataclass):
         pass
+
 
 class DummyModelConfigAsDict(BaseModel, ModelHubMixin):
     def __init__(self, config: Dict):
         pass
 
+
 class DummyModelConfigAsOptionalDataclass(BaseModel, ModelHubMixin):
     def __init__(self, config: Optional[ConfigAsDataclass] = None):
         pass
 
+
 class DummyModelConfigAsOptionalDict(BaseModel, ModelHubMixin):
     def __init__(self, config: Optional[Dict] = None):
         pass
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
@@ -72,7 +79,7 @@ class HubMixinTest(unittest.TestCase):
         """
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
-    def assert_valid_config_json(self) ->None:
+    def assert_valid_config_json(self) -> None:
         # config.json saved correctly
         with open(self.cache_dir / "config.json") as f:
             assert json.load(f) == CONFIG_AS_DICT
@@ -205,7 +212,12 @@ class HubMixinTest(unittest.TestCase):
             assert json.load(f) == CONFIG_AS_DICT
 
         # from_pretrained with correct serialization
-        from_pretrained_kwargs = {"pretrained_model_name_or_path":repo_id, 'cache_dir':self.cache_dir, "api_endpoint": ENDPOINT_STAGING, "token": TOKEN}
+        from_pretrained_kwargs = {
+            "pretrained_model_name_or_path": repo_id,
+            "cache_dir": self.cache_dir,
+            "api_endpoint": ENDPOINT_STAGING,
+            "token": TOKEN,
+        }
         for cls in (DummyModelConfigAsDataclass, DummyModelConfigAsOptionalDataclass):
             assert cls.from_pretrained(**from_pretrained_kwargs).config == CONFIG_AS_DATACLASS
 
