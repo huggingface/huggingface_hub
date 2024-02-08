@@ -91,7 +91,7 @@ class ModelHubMixin:
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
-        instance = super(cls.__class__, cls).__new__(cls)
+        instance = super().__new__(cls)
 
         # Set `config` attribute if not already set by the subclass
         if instance.config is None:
