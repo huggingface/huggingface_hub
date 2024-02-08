@@ -67,7 +67,7 @@ class CommonKerasTest(unittest.TestCase):
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
 
-class HubMixingTestKeras(CommonKerasTest):
+class HubMixinTestKeras(CommonKerasTest):
     def test_save_pretrained(self):
         model = DummyModel()
         model(model.dummy_inputs)
@@ -115,7 +115,7 @@ class HubMixingTestKeras(CommonKerasTest):
         model(model.dummy_inputs)
 
         model.push_to_hub(
-            repo_id=repo_id, api_endpoint=ENDPOINT_STAGING, token=TOKEN, config={"num": 7, "act": "gelu_fast"}
+            repo_id=repo_id, token=TOKEN, config={"num": 7, "act": "gelu_fast"}
         )
 
         # Test model id exists

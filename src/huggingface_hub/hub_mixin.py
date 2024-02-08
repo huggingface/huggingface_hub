@@ -31,10 +31,80 @@ class ModelHubMixin:
     To integrate your framework, your model class must inherit from this class. Custom logic for saving/loading models
     have to be overwritten in  [`_from_pretrained`] and [`_save_pretrained`]. [`PyTorchModelHubMixin`] is a good example
     of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
+
+    Example:
+
+    ```python
+    >>> from dataclasses import dataclass
+    >>> from huggingface_hub import ModelHubMixin
+
+    # Define your model configuration (optional)
+    >>> @dataclass
+    ... class Config:
+    ...     foo: int = 512
+    ...     bar: str = "cpu"
+
+    # Inherit from ModelHubMixin (and optionally from your framework's model class)
+    >>> class MyCustomModel(ModelHubMixin):
+    ...     def __init__(self, config: Config):
+    ...         # define how to initialize your model
+    ...         super().__init__()
+    ...         ...
+    ...
+    ...     def _save_pretrained(self, save_directory: Path) -> None:
+    ...         # define how to serialize your model
+    ...         ...
+    ...
+    ...     @classmethod
+    ...     def from_pretrained(
+    ...         cls: Type[T],
+    ...         pretrained_model_name_or_path: Union[str, Path],
+    ...         *,
+    ...         force_download: bool = False,
+    ...         resume_download: bool = False,
+    ...         proxies: Optional[Dict] = None,
+    ...         token: Optional[Union[str, bool]] = None,
+    ...         cache_dir: Optional[Union[str, Path]] = None,
+    ...         local_files_only: bool = False,
+    ...         revision: Optional[str] = None,
+    ...         **model_kwargs,
+    ...     ) -> T:
+    ...         # define how to deserialize your model
+    ...         ...
+
+    >>> model = MyCustomModel(config=Config(foo=256, bar="gpu"))
+
+    # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+
+    # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+
+    # Download and initialize weights from the Hub
+    >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
+    >>> reloaded_model.config
+    Config(foo=256, bar="gpu")
+    ```
     """
 
     config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
+
+    def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
+        instance = super(cls.__class__, cls).__new__(cls)
+
+        # Set `config` attribute if not already set by the subclass
+        if instance.config is None:
+            if "config" in kwargs:
+                instance.config = kwargs["config"]
+            elif len(args) > 0:
+                sig = inspect.signature(cls.__init__)
+                parameters = list(sig.parameters)[1:]  # remove `self`
+                for key, value in zip(parameters, args):
+                    if key == "config":
+                        instance.config = value
+                        break
+        return instance
 
     def save_pretrained(
         self,
@@ -69,7 +139,7 @@ class ModelHubMixin:
 
         # save config (if provided)
         if config is None:
-            config = getattr(self, "config", None)
+            config = self.config
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
@@ -342,15 +412,20 @@ class PyTorchModelHubMixin(ModelHubMixin):
     Example:
 
     ```python
+    >>> from dataclasses import dataclass
     >>> import torch
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
+    >>> @dataclass
+    ... class Config:
+    ...     hidden_size: int = 512
+    ...     vocab_size: int = 30000
 
     >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-    ...     def __init__(self):
+    ...     def __init__(self, config: Config):
     ...         super().__init__()
-    ...         self.param = nn.Parameter(torch.rand(3, 4))
+    ...         self.param = nn.Parameter(torch.rand(config.hidden_size, config.vocab_size))
     ...         self.linear = nn.Linear(4, 5)
 
     ...     def forward(self, x):
