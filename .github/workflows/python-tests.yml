@@ -118,7 +118,7 @@ jobs:
             ;;
 
             torch)
-              eval "$PYTEST ../tests/test_hubmixin*"
+              eval "$PYTEST ../tests/test_hub_mixin*"
             ;;
 
           esac
