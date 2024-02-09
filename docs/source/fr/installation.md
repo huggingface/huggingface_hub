@@ -97,7 +97,7 @@ et que vous avez besoin de tester rapidement des changements dans le code. Pour 
 # Commencez par cloner le dépôt en local
 git clone https://github.com/huggingface/huggingface_hub.git
 
-# Ensuite, installez avec le flag -e
+# Ensuite, installez-le avec le flag -e
 cd huggingface_hub
 pip install -e .
 ```
