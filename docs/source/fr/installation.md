@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Avant de commmencer l'installation, vous allez avoir besoin de préparer votre environnement
+Avant de commmencer, vous allez avoir besoin de préparer votre environnement
 en installant les packages appropriés.
 
 `huggingface_hub` est testée sur **Python 3.8+**.
