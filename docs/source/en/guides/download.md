@@ -196,7 +196,6 @@ To enable it:
    (e.g. `pip install huggingface_hub[hf_transfer]`).
 2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-
 <Tip warning={true}>
 
 `hf_transfer` is a power user tool!
