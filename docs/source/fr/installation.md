@@ -39,7 +39,7 @@ Maintenant, vous êtes prêts à installer `hugginface_hub` [depuis PyPi](https:
 pip install --upgrade huggingface_hub
 ```
 
-Une fois l'installation finie, [vérifiez](#check-installation) que tout marche correctement.
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ### Installation des dépendances optionnelles
 
