@@ -48,22 +48,21 @@ avoir besoin d'un fichier local qui doit être constamment synchronisé.
 
 En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offre des fonctionnalités
 additionnelles, telles que la capacité de gérer des dépôts, le téléchargement des fichiers
-en utilisant le cache pour une réutilisation plus efficace, la recherche dans le Hub pour trouver
+dans le cache (permettant une réutilisation), la recherche dans le Hub pour trouver
 des dépôts et des métadonnées, l'accès aux fonctionnalités de communautés telles que, les dicussions,
-les pull requests, les commentaires, et la configuration de spaces et de secrets.
+les pull requests et les commentaires.
 
 ## Quelle méthode utiliser et quand ?
 
-En général, **L'approche basée sur HTTP est la méthode recommandée** pour l'utilisation d'`huggingface_hub`.
+En général, **l'approche HTTP est la méthode recommandée** pour utiliser `huggingface_hub`
 [`HfApi`] permet de pull et push des changements, de travailler avec les pull requests, les tags et les branches, d'intéragir avec les discussions
-et bien plus encore. Depuis la sortie  `0.16`, les méthodes basées sur HTTP peuvent aussi tourner en arrière plan, ce qui était le
-dernier gros avantage  de la classe [`Repository`] sur [`HfApi`].
+et bien plus encore. Depuis la version `0.16`, les méthodes HTTP-based peuvent aussi être exécutées en arrière-plan, ce qui constituait le
+dernier gros avantage  de la classe [`Repository`].
 
 Toutefois, certaines commandes restent indisponibles en utilisant [`HfApi`].
 Peut être que certaines ne le seront jamais, mais nous essayons toujours de réduire le fossé entre ces deux approches.
 Si votre cas d'usage n'est pas couvert, nous serions ravis de vous aider. Pour cela, ouvrez 
-[une issue sur Github](https://github.com/huggingface/huggingface_hub)! Nous sommes prêt à entendre tout type de retour nous permettant de construire
+[une issue sur Github](https://github.com/huggingface/huggingface_hub)! Nous écoutons tous les retours nous permettant de construire
 l'écosystème 🤗 avec les utilisateurs et pour les utilisateurs.
 
-Cette préférence pour l'approche basé sur [`HfApi`] au détriment de celle basée sur [`Repository`] ne signifie pas que le versioning git disparaitra
-du Hub Hugging Face. Il sera toujours possible d'utiliser les commandes `git` en local lorsque c'est pertinent.
+Cette préférence pour l'approche basée sur [`HfApi`] plutôt que [`Repository`] ne signifie pas que les dépôts stopperons d'être versionnés avec git sur le Hugging Face Hub. Il sera toujours possible d'utiliser les commandes `git` en local lorsque nécessaire.

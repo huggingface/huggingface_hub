@@ -2,13 +2,13 @@
 rendered properly in your Markdown viewer.
 -->
 
-# La librairie client 🤗 Hub 
+# Un client pour le Hugging Face Hub 
 
-La librairie `huggingface_hub` vous permet d'intéragir avec le
-[Hub Hugging Face](https://hf.co), une plateforme de machine learning
-pour les créateurs et les collaborateurs. Découvrez des modèles pré-
+La librairie `huggingface_hub` vous permet d'interagir avec le
+[Hugging Face Hub](https://hf.co), une plateforme de machine learning
+pour créer et collaborer. Découvrez des modèles pré-
 entrainés et des datasets pour vos projets ou jouez avec des centraines
-d'applications machine learning hébergées sur le Hub. Vous pouvez aussi
+d'applications hébergées sur le Hub. Vous pouvez aussi
 créer et partager vos propres modèles et datasets avec la communauté.
 La librairie `huggingface_hub` offre une manière simple de faire toutes
 ces choses avec Python.
