@@ -15,7 +15,7 @@ Il est fortement recommandé d'installer `huggingface_hub` dans un [environnemen
 Si vous n'êtes pas familier avec les environnements virtuels Python, suivez ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des plusieurs projets en parallèle
 afin d'éviter les problèmes de compatibilité entre les différentes dépendances.
 
-Commencez par créer un environnement virtuel dans le chemin de votre projet:
+Commencez par créer un environnement virtuel à l'emplacement de votre projet:
 
 ```bash
 python -m venv .env
