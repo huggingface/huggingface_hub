@@ -63,7 +63,7 @@ Voici une liste des dépendances optionnelles dans `huggingface_hub`:
 
 
 
-### Installation depuis la source
+### Installation depuis le code source
 
 Dans certains cas, il est intéressant d'installer `huggingface_hub` directement depuis le code source.
 Ceci vous permet d'utiliser la version `main`, contenant les dernières mises à jour, plutôt que
