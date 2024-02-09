@@ -53,8 +53,7 @@ Toutes les contributions au projet `huggingface_hub` sont les bienvenues et valo
 pouvez également aider à améliorer la documentation en vérifiant qu'elle est exacte et
 à jour, répondre à des questions sur des issues, et demander de nouvelles fonctionnalités
 qui amélioreront la librairie. Regardez le [guide de contribution](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md)
-pour en savoir plus sur comment lancer une nouvelle issue ou une demande de nouvelle
-fonctionnalité, comment faire un pull request et comment tester vos contributions pour
-vérifier que tout fonctionne comme prévu.
+pour en savoir plus sur comment commencer à travailler sur une issue, comment faire une pull request et comment tester vos contributions pour
+vérifier que vos modifications fonctionnent comme prévu.
 
 Les contributeurs doivent aussi respecter notre [code de conduite](https://github.com/huggingface/huggingface_hub/blob/main/CODE_OF_CONDUCT.md) (en anglais) pour créer un espace collaboratif inclusif et bienveillant envers tout le monde.
