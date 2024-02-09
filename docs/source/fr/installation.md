@@ -117,7 +117,7 @@ Si vous avez plutôt l'habitude d'utiliser conda, vous pouvez installer `hugging
 conda install -c conda-forge huggingface_hub
 ```
 
-Une fois finie, [vérifiez l'installation](#check-installation). 
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ## Vérification de l'installation
 
