@@ -90,8 +90,8 @@ Une fois l'installation terminée, rendez-vous à la section [vérification](#ve
 
 ### Installation éditable
 
-L'installation depuis le code source vous permet de mettre en place une [installation éditable](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Cette installation est plus avancée et sert surtout si vous comptez contribuer à `huggingface_hub`
-et que vous avez besoin de tester des changements dans le code. Vous devez cloner une copie locale de `huggingface_hub` sur votre machine.
+L'installation depuis le code source vous permet de mettre en place une [installation éditable](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Cette installation sert surtout si vous comptez contribuer à `huggingface_hub`
+et que vous avez besoin de tester rapidement des changements dans le code. Pour cela, vous devez cloner le projet `huggingface_hub` sur votre machine.
 
 ```bash
 #D'abord, clonez le dépôt en local
