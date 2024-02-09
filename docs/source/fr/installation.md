@@ -86,7 +86,7 @@ Lorsque vous installez depuis le code source, vous pouvez préciser la branche d
 pip install git+https://github.com/huggingface/huggingface_hub@ma-branche
 ```
 
-Une fois finie, [vérifiez l'installation](#check-installation).
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ### Installation éditable
 
