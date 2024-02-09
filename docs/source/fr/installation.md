@@ -102,7 +102,6 @@ cd huggingface_hub
 pip install -e .
 ```
 
-Ces commandes lieront le dossier dans lequel vous avez cloné le dépôt et vos chemins de librairies Python.
 Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt en
 plus des chemins de librairie classiques. Par exemple, si vos packages Python sont installés dans
 `./.venv/lib/python3.11/site-packages/`, Python regardera aussi dans le dossier que vous avez
