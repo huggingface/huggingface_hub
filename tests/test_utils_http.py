@@ -11,7 +11,13 @@ import requests
 from requests import ConnectTimeout, HTTPError
 
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.utils._http import configure_http_backend, get_session, http_backoff
+from huggingface_hub.utils._http import (
+    OfflineModeIsEnabled,
+    configure_http_backend,
+    get_session,
+    http_backoff,
+    reset_sessions,
+)
 
 
 URL = "https://www.google.com"
@@ -232,6 +238,19 @@ class TestConfigureSession(unittest.TestCase):
 
         # Check sessions are different
         self.assertNotEqual(repr(main_session), child_session)
+
+
+class OfflineModeSessionTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        reset_sessions()
+        return super().tearDown()
+
+    @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)
+    def test_offline_mode(self):
+        configure_http_backend()
+        session = get_session()
+        with self.assertRaises(OfflineModeIsEnabled):
+            session.get("https://huggingface.co")
 
 
 class TestUniqueRequestId(unittest.TestCase):

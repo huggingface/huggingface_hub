@@ -41,7 +41,9 @@ extras["inference"] = [
 extras["torch"] = [
     "torch",
 ]
-
+extras["hf_transfer"] = [
+    "hf_transfer>=0.1.4",  # Pin for progress bars
+]
 extras["fastai"] = [
     "toml",
     "fastai>=2.4",
@@ -63,6 +65,7 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
+        "pytest-rerunfailures",  # to rerun flaky tests in CI
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
@@ -91,13 +94,6 @@ extras["quality"] = [
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
-
-extras["docs"] = extras["all"] + [
-    # CI builds documentation using doc builder from source
-    "hf-doc-builder @ git+https://github.com/huggingface/doc-builder@main",
-    "watchdog",
-]
-
 
 setup(
     name="huggingface_hub",

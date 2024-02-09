@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contain helper class to retrieve/store token from/to local cache."""
-import os
 import warnings
 from pathlib import Path
 from typing import Optional
 
 from .. import constants
+from ._token import get_token
 
 
 class HfFolder:
@@ -26,6 +26,8 @@ class HfFolder:
     # Private attribute. Will be removed in v0.15
     _old_path_token = Path(constants._OLD_HF_TOKEN_PATH)
 
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.login` instead.")
     @classmethod
     def save_token(cls, token: str) -> None:
         """
@@ -41,17 +43,15 @@ class HfFolder:
         cls.path_token.parent.mkdir(parents=True, exist_ok=True)
         cls.path_token.write_text(token)
 
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.get_token` instead.")
     @classmethod
     def get_token(cls) -> Optional[str]:
         """
         Get token or None if not existent.
 
-        Note that a token can be also provided using the `HF_TOKEN` environment variable.
-
-        Token is saved in the huggingface home folder. You can configure it by setting
-        the `HF_HOME` environment variable. Previous location was `~/.huggingface/token`.
-        If token is found in old location but not in new location, it is copied there first.
-        For more details, see https://github.com/huggingface/huggingface_hub/issues/1232.
+        This method is deprecated in favor of [`huggingface_hub.get_token`] but is kept for backward compatibility.
+        Its behavior is the same as [`huggingface_hub.get_token`].
 
         Returns:
             `str` or `None`: The token, `None` if it doesn't exist.
@@ -62,22 +62,10 @@ class HfFolder:
         except Exception:  # if not possible (e.g. PermissionError), do not raise
             pass
 
-        # 1. Is it set by environment variable ?
-        token: Optional[str] = os.environ.get("HF_TOKEN")
-        if token is None:  # Ensure backward compatibility but doesn't have priority
-            token = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-        if token is not None:
-            token = token.replace("\r", "").replace("\n", "").strip()
-            return token
+        return get_token()
 
-        # 2. Is it set in token path ?
-        try:
-            token = cls.path_token.read_text()
-            token = token.replace("\r", "").replace("\n", "").strip()
-            return token
-        except FileNotFoundError:
-            return None
-
+    # TODO: deprecate when adapted in transformers/datasets/gradio
+    # @_deprecate_method(version="1.0", message="Use `huggingface_hub.logout` instead.")
     @classmethod
     def delete_token(cls) -> None:
         """

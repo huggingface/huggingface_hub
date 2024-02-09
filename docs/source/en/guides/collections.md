@@ -39,7 +39,7 @@ CollectionItem(
   item_object_id='651446103cd773a050bf64c2',
   item_id='TheBloke/U-Amethyst-20B-AWQ',
   item_type='model',
-  position=88, 
+  position=88,
   note=None
 )
 ```

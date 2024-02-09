@@ -273,10 +273,10 @@ def dump_environment_info() -> Dict[str, Any]:
     - `diffusers` (https://github.com/huggingface/diffusers/blob/main/src/diffusers/commands/env.py)
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
-    from huggingface_hub import HfFolder, whoami
+    from huggingface_hub import get_token, whoami
     from huggingface_hub.utils import list_credential_helpers
 
-    token = HfFolder().get_token()
+    token = get_token()
 
     # Generic machine info
     info: Dict[str, Any] = {
@@ -296,7 +296,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Running in Google Colab ?"] = "Yes" if is_google_colab() else "No"
 
     # Login info
-    info["Token path ?"] = HfFolder().path_token
+    info["Token path ?"] = constants.HF_TOKEN_PATH
     info["Has saved token ?"] = token is not None
     if token is not None:
         try:

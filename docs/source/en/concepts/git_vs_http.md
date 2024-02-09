@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Git vs HTTP paradigm
 
-The `huggingface_hub` library is a library for interacting with the Hugging Face Hub, which is a 
+The `huggingface_hub` library is a library for interacting with the Hugging Face Hub, which is a
 collections of git-based repositories (models, datasets or Spaces). There are two main
 ways to access the Hub using `huggingface_hub`.
 

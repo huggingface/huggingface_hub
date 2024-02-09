@@ -26,7 +26,6 @@ from huggingface_hub import _SUBMOD_ATTRS
 
 
 INIT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" / "__init__.py"
-SETUP_CFG_PATH = Path(__file__).parents[1] / "setup.cfg"
 
 IF_TYPE_CHECKING_LINE = "\nif TYPE_CHECKING:  # pragma: no cover\n"
 SUBMOD_ATTRS_PATTERN = re.compile("_SUBMOD_ATTRS = {[^}]+}")  # match the all dict

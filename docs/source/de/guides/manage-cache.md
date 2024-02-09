@@ -6,8 +6,8 @@ rendered properly in your Markdown viewer.
 
 ## Caching verstehen
 
-Das Hugging Face Hub Cache-System wurde entwickelt, um der zentrale Cache zu sein, 
-der zwischen Bibliotheken geteilt wird, welche vom Hub abhängen. Es wurde in v0.8.0 aktualisiert, 
+Das Hugging Face Hub Cache-System wurde entwickelt, um der zentrale Cache zu sein,
+der zwischen Bibliotheken geteilt wird, welche vom Hub abhängen. Es wurde in v0.8.0 aktualisiert,
 um das erneute Herunterladen von Dateien zwischen Revisionen zu verhindern.
 
 Das Cache-System ist wie folgt aufgebaut:
@@ -19,12 +19,12 @@ Das Cache-System ist wie folgt aufgebaut:
 ├─ <SPACES>
 ```
 
-Der `<CACHE_DIR>` ist normalerweise das Home-Verzeichnis Ihres Benutzers. Es kann jedoch mit dem 
-`cache_dir`-Argument in allen Methoden oder durch Angabe der Umgebungsvariablen 
+Der `<CACHE_DIR>` ist normalerweise das Home-Verzeichnis Ihres Benutzers. Es kann jedoch mit dem
+`cache_dir`-Argument in allen Methoden oder durch Angabe der Umgebungsvariablen
 `HF_HOME` oder `HF_HUB_CACHE` angepasst werden.
 
-Modelle, Datensätze und Räume teilen eine gemeinsame Wurzel. 
-Jedes dieser Repositories enthält den Repository-Typ, den Namensraum (Organisation oder Benutzername), 
+Modelle, Datensätze und Räume teilen eine gemeinsame Wurzel.
+Jedes dieser Repositories enthält den Repository-Typ, den Namensraum (Organisation oder Benutzername),
 falls vorhanden, und den Repository-Namen:
 
 ```
@@ -37,9 +37,9 @@ falls vorhanden, und den Repository-Namen:
 ├─ spaces--dalle-mini--dalle-mini
 ```
 
-Innerhalb dieser Ordner werden nun alle Dateien vom Hub heruntergeladen. Das Caching stellt sicher, 
+Innerhalb dieser Ordner werden nun alle Dateien vom Hub heruntergeladen. Das Caching stellt sicher,
 dass eine Datei nicht zweimal heruntergeladen wird, wenn sie bereits existiert und nicht aktualisiert wurde;
-wurde sie jedoch aktualisiert und Sie fordern die neueste Datei an, wird die neueste Datei heruntergeladen 
+wurde sie jedoch aktualisiert und Sie fordern die neueste Datei an, wird die neueste Datei heruntergeladen
 (während die vorherige Datei intakt bleibt, falls Sie sie erneut benötigen).
 
 Um dies zu erreichen, enthalten alle Ordner dasselbe Grundgerüst:
@@ -57,13 +57,13 @@ Jeder Ordner ist so gestaltet, dass er das Folgende enthält:
 
 ### Refs
 
-Der Ordner `refs` enthält Dateien, die die neueste Revision des gegebenen Verweises anzeigen. 
-Zum Beispiel, wenn wir zuvor eine Datei aus dem `main`-Branch eines Repositories abgerufen haben, 
+Der Ordner `refs` enthält Dateien, die die neueste Revision des gegebenen Verweises anzeigen.
+Zum Beispiel, wenn wir zuvor eine Datei aus dem `main`-Branch eines Repositories abgerufen haben,
 wird der Ordner `refs` eine Datei namens `main` enthalten, die selbst den Commit-Identifikator der aktuellen HEAD-Branch enthält.
 
 Wenn der neueste Commit von `main` den Identifikator `aaaaaa` hat, dann enthält er `aaaaaa`.
 
-Wenn derselbe Zweig mit einem neuen Commit aktualisiert wird, der den Identifikator `bbbbbb` hat, 
+Wenn derselbe Zweig mit einem neuen Commit aktualisiert wird, der den Identifikator `bbbbbb` hat,
 wird das erneute Herunterladen einer Datei von diesem Verweis die Datei `refs/main` aktualisieren, um `bbbbbb` zu enthalten.
 
 ### Blobs
@@ -72,13 +72,13 @@ Der Ordner `blobs` enthält die tatsächlichen Dateien, die wir heruntergeladen 
 
 ### Snapshots
 
-Der Ordner `snapshots` enthält Symlinks zu den oben erwähnten Blobs. 
+Der Ordner `snapshots` enthält Symlinks zu den oben erwähnten Blobs.
 Er besteht selbst aus mehreren Ordnern: einem pro bekannter Revision!
 
-In der obigen Erklärung hatten wir zunächst eine Datei von der Revision `aaaaaa` abgerufen, bevor wir eine Datei 
+In der obigen Erklärung hatten wir zunächst eine Datei von der Revision `aaaaaa` abgerufen, bevor wir eine Datei
 von der Revision `bbbbbb` abgerufen haben. In dieser Situation hätten wir jetzt zwei Ordner im Ordner `snapshots`: `aaaaaa` und `bbbbbb`.
 
-In jedem dieser Ordner leben Symlinks, die die Namen der Dateien haben, die wir heruntergeladen haben. 
+In jedem dieser Ordner leben Symlinks, die die Namen der Dateien haben, die wir heruntergeladen haben.
 Wenn wir zum Beispiel die Datei `README.md` in der Revision `aaaaaa` heruntergeladen hätten, hätten wir den folgenden Pfad:
 
 ```
@@ -87,30 +87,30 @@ Wenn wir zum Beispiel die Datei `README.md` in der Revision `aaaaaa` heruntergel
 
 Diese `README.md`-Datei ist tatsächlich ein Symlink, der auf den Blob verweist, der den Hash der Datei hat.
 
-Durch das Erstellen des Grundgerüsts auf diese Weise ermöglichen wir den Mechanismus der Dateifreigabe: 
+Durch das Erstellen des Grundgerüsts auf diese Weise ermöglichen wir den Mechanismus der Dateifreigabe:
 Wenn dieselbe Datei in der Revision `bbbbbb` abgerufen wurde, hätte sie denselben Hash und die Datei müsste nicht erneut heruntergeladen werden.
 
 ### .no_exist (fortgeschritten)
 
-Zusätzlich zu den Ordnern `blobs`, `refs` und `snapshots` könnten Sie in Ihrem Cache auch einen `.no_exist` Ordner finden. 
-Dieser Ordner hält fest, welche Dateien Sie einmal versucht haben herunterzuladen, die jedoch nicht auf dem Hub vorhanden sind. 
+Zusätzlich zu den Ordnern `blobs`, `refs` und `snapshots` könnten Sie in Ihrem Cache auch einen `.no_exist` Ordner finden.
+Dieser Ordner hält fest, welche Dateien Sie einmal versucht haben herunterzuladen, die jedoch nicht auf dem Hub vorhanden sind.
 Seine Struktur ist dieselbe wie der `snapshots` Ordner mit einem Unterordner pro bekannter Revision:
 
 ```
 <CACHE_DIR>/<REPO_NAME>/.no_exist/aaaaaa/config_that_does_not_exist.json
 ```
 
-Im Gegensatz zum `snapshots` Ordner handelt es sich bei den Dateien um einfache leere Dateien (keine Symlinks). 
-In diesem Beispiel existiert die Datei `"config_that_does_not_exist.json"` nicht auf dem Hub für die Revision `"aaaaaa"`. 
+Im Gegensatz zum `snapshots` Ordner handelt es sich bei den Dateien um einfache leere Dateien (keine Symlinks).
+In diesem Beispiel existiert die Datei `"config_that_does_not_exist.json"` nicht auf dem Hub für die Revision `"aaaaaa"`.
 Da dieser Ordner nur leere Dateien speichert, ist sein Speicherplatzverbrauch vernachlässigbar.
 
-Sie fragen sich jetzt vielleicht, warum diese Information überhaupt relevant ist? 
-In einigen Fällen versucht ein Framework, optionale Dateien für ein Modell zu laden. 
-Das Speichern der Nicht-Existenz optionaler Dateien beschleunigt das Laden eines Modells, da 1 HTTP-Anfrage pro möglicher optionaler Datei gespart wird. 
-Dies ist zum Beispiel bei `transformers` der Fall, wo jeder Tokenizer zusätzliche Dateien unterstützen kann. Beim ersten Laden des Tokenizers 
+Sie fragen sich jetzt vielleicht, warum diese Information überhaupt relevant ist?
+In einigen Fällen versucht ein Framework, optionale Dateien für ein Modell zu laden.
+Das Speichern der Nicht-Existenz optionaler Dateien beschleunigt das Laden eines Modells, da 1 HTTP-Anfrage pro möglicher optionaler Datei gespart wird.
+Dies ist zum Beispiel bei `transformers` der Fall, wo jeder Tokenizer zusätzliche Dateien unterstützen kann. Beim ersten Laden des Tokenizers
 auf Ihrem Gerät wird im Cache gespeichert, welche optionalen Dateien vorhanden sind (und welche nicht), um die Ladezeit bei den nächsten Initialisierungen zu beschleunigen.
 
-Um zu testen, ob eine Datei lokal im Cache gespeichert ist (ohne eine HTTP-Anfrage zu senden), können Sie die [`try_to_load_from_cache`] Hilfsfunktion verwenden. 
+Um zu testen, ob eine Datei lokal im Cache gespeichert ist (ohne eine HTTP-Anfrage zu senden), können Sie die [`try_to_load_from_cache`] Hilfsfunktion verwenden.
 Sie gibt entweder den Dateipfad zurück (falls vorhanden und im Cache gespeichert), das Objekt `_CACHED_NO_EXIST` (wenn die Nicht-Existenz im Cache gespeichert ist)
 oder `None` (wenn wir es nicht wissen).
 
@@ -153,21 +153,21 @@ In der Praxis sollte Ihr Cache folgendermaßen aussehen:
 
 ### Einschränkungen
 
-Um ein effizientes Cache-System zu haben, verwendet `huggingface-hub` Symlinks. Allerdings 
-werden Symlinks nicht auf allen Maschinen unterstützt. Dies ist eine bekannte Einschränkung, 
-insbesondere bei Windows. Wenn dies der Fall ist, verwendet `huggingface_hub` nicht das `blobs/` Verzeichnis, 
-sondern speichert die Dateien direkt im `snapshots/` Verzeichnis. Dieser Workaround ermöglicht es den Nutzern, 
-Dateien vom Hub auf genau die gleiche Weise herunterzuladen und zu cachen. 
-Auch Werkzeuge zur Überprüfung und Löschung des Caches (siehe unten) werden unterstützt. 
-Allerdings ist das Cache-System weniger effizient, da eine einzelne Datei möglicherweise mehrmals heruntergeladen wird, 
+Um ein effizientes Cache-System zu haben, verwendet `huggingface-hub` Symlinks. Allerdings
+werden Symlinks nicht auf allen Maschinen unterstützt. Dies ist eine bekannte Einschränkung,
+insbesondere bei Windows. Wenn dies der Fall ist, verwendet `huggingface_hub` nicht das `blobs/` Verzeichnis,
+sondern speichert die Dateien direkt im `snapshots/` Verzeichnis. Dieser Workaround ermöglicht es den Nutzern,
+Dateien vom Hub auf genau die gleiche Weise herunterzuladen und zu cachen.
+Auch Werkzeuge zur Überprüfung und Löschung des Caches (siehe unten) werden unterstützt.
+Allerdings ist das Cache-System weniger effizient, da eine einzelne Datei möglicherweise mehrmals heruntergeladen wird,
 wenn mehrere Revisionen des gleichen Repos heruntergeladen werden.
 
-Wenn Sie von dem Symlink-basierten Cache-System auf einem Windows-Gerät profitieren möchten, 
-müssen Sie entweder den [Entwicklermodus aktivieren](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) 
+Wenn Sie von dem Symlink-basierten Cache-System auf einem Windows-Gerät profitieren möchten,
+müssen Sie entweder den [Entwicklermodus aktivieren](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
 oder Python als Administrator ausführen.
 
-Wenn Symlinks nicht unterstützt werden, wird dem Nutzer eine Warnmeldung angezeigt, um ihn darauf hinzuweisen, 
-dass er eine eingeschränkte Version des Cache-Systems verwendet. Diese Warnung kann durch Setzen der 
+Wenn Symlinks nicht unterstützt werden, wird dem Nutzer eine Warnmeldung angezeigt, um ihn darauf hinzuweisen,
+dass er eine eingeschränkte Version des Cache-Systems verwendet. Diese Warnung kann durch Setzen der
 Umgebungsvariable `HF_HUB_DISABLE_SYMLINKS_WARNING` auf true deaktiviert werden.
 
 ## Assets zwischenspeichern
@@ -179,8 +179,8 @@ vorverarbeitete Daten, Protokolle,...). Um diese Dateien, die als `assets` bezei
 kann man [`cached_assets_path`] verwenden. Dieser kleine Helfer generiert Pfade im HF-Cache auf eine einheitliche Weise,
 basierend auf dem Namen der anfragenden Bibliothek und optional auf einem Namensraum und einem Unterordnernamen.
 Das Ziel ist, dass jede nachgelagerte Bibliothek ihre Assets auf ihre eigene Weise verwaltet
-(z.B. keine Regelung über die Struktur), solange sie im richtigen Assets-Ordner bleibt. 
-Diese Bibliotheken können dann die Werkzeuge von `huggingface_hub` nutzen, um den Cache zu verwalten, 
+(z.B. keine Regelung über die Struktur), solange sie im richtigen Assets-Ordner bleibt.
+Diese Bibliotheken können dann die Werkzeuge von `huggingface_hub` nutzen, um den Cache zu verwalten,
 insbesondere um Teile der Assets über einen CLI-Befehl zu scannen und zu löschen.
 
 ```py
@@ -192,7 +192,7 @@ something_path = assets_path / "something.json" # Machen Sie, was Sie möchten, 
 
 <Tip>
 
-[`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend. 
+[`cached_assets_path`] ist der empfohlene Weg, um Assets zu speichern, ist jedoch nicht verpflichtend.
 Wenn Ihre Bibliothek bereits ihren eigenen Cache verwendet, können Sie diesen gerne nutzen!
 
 </Tip>
@@ -234,19 +234,19 @@ In der Praxis sollte Ihr Assets-Cache wie der folgende Verzeichnisbaum aussehen:
 
 ## Cache scannen
 
-Derzeit werden zwischengespeicherte Dateien nie aus Ihrem lokalen Verzeichnis gelöscht: 
-Wenn Sie eine neue Revision eines Zweiges herunterladen, werden vorherige Dateien aufbewahrt, 
-falls Sie sie wieder benötigen. Daher kann es nützlich sein, Ihr Cache-Verzeichnis zu scannen, 
-um zu erfahren, welche Repos und Revisionen den meisten Speicherplatz beanspruchen. 
+Derzeit werden zwischengespeicherte Dateien nie aus Ihrem lokalen Verzeichnis gelöscht:
+Wenn Sie eine neue Revision eines Zweiges herunterladen, werden vorherige Dateien aufbewahrt,
+falls Sie sie wieder benötigen. Daher kann es nützlich sein, Ihr Cache-Verzeichnis zu scannen,
+um zu erfahren, welche Repos und Revisionen den meisten Speicherplatz beanspruchen.
 `huggingface_hub` bietet einen Helfer dafür, der über `huggingface-cli` oder in einem Python-Skript verwendet werden kann.
 
 ### Cache vom Terminal aus scannen
 
-Die einfachste Möglichkeit, Ihr HF-Cache-System zu scannen, besteht darin, den Befehl `scan-cache` 
-aus dem `huggingface-cli`-Tool zu verwenden. Dieser Befehl scannt den Cache und gibt einen Bericht 
+Die einfachste Möglichkeit, Ihr HF-Cache-System zu scannen, besteht darin, den Befehl `scan-cache`
+aus dem `huggingface-cli`-Tool zu verwenden. Dieser Befehl scannt den Cache und gibt einen Bericht
 mit Informationen wie Repo-ID, Repo-Typ, Speicherverbrauch, Referenzen und vollständigen lokalen Pfad aus.
 
-Im folgenden Ausschnitt wird ein Scan-Bericht in einem Ordner angezeigt, in dem 4 Modelle und 2 Datensätze 
+Im folgenden Ausschnitt wird ein Scan-Bericht in einem Ordner angezeigt, in dem 4 Modelle und 2 Datensätze
 gecached sind.
 
 
@@ -265,12 +265,12 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-Um einen detaillierteren Bericht zu erhalten, verwenden Sie die Option `--verbose`. 
-Für jedes Repository erhalten Sie eine Liste aller heruntergeladenen Revisionen. 
-Wie oben erläutert, werden Dateien, die sich zwischen 2 Revisionen nicht ändern, 
-dank der symbolischen Links geteilt. Das bedeutet, dass die Größe des Repositorys 
-auf der Festplatte voraussichtlich kleiner ist als die Summe der Größe jeder einzelnen Revision. 
-Zum Beispiel hat hier `bert-base-cased` 2 Revisionen von 1,4G und 1,5G, 
+Um einen detaillierteren Bericht zu erhalten, verwenden Sie die Option `--verbose`.
+Für jedes Repository erhalten Sie eine Liste aller heruntergeladenen Revisionen.
+Wie oben erläutert, werden Dateien, die sich zwischen 2 Revisionen nicht ändern,
+dank der symbolischen Links geteilt. Das bedeutet, dass die Größe des Repositorys
+auf der Festplatte voraussichtlich kleiner ist als die Summe der Größe jeder einzelnen Revision.
+Zum Beispiel hat hier `bert-base-cased` 2 Revisionen von 1,4G und 1,5G,
 aber der gesamte Festplattenspeicher beträgt nur 1,9G.
 
 ```text
@@ -295,8 +295,8 @@ Got 1 warning(s) while scanning. Use -vvv to print details.
 
 #### Grep-Beispiel
 
-Da die Ausgabe im Tabellenformat erfolgt, können Sie sie mit `grep`-ähnlichen Tools kombinieren, 
-um die Einträge zu filtern. Hier ein Beispiel, um nur Revisionen vom Modell "t5-small" 
+Da die Ausgabe im Tabellenformat erfolgt, können Sie sie mit `grep`-ähnlichen Tools kombinieren,
+um die Einträge zu filtern. Hier ein Beispiel, um nur Revisionen vom Modell "t5-small"
 auf einem Unix-basierten Gerät zu filtern.
 
 ```text
@@ -308,7 +308,7 @@ t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5  
 
 ### Den Cache von Python aus scannen
 
-Für eine erweiterte Nutzung verwenden Sie [`scan_cache_dir`], welches das von dem CLI-Tool 
+Für eine erweiterte Nutzung verwenden Sie [`scan_cache_dir`], welches das von dem CLI-Tool
 aufgerufene Python-Dienstprogramm ist.
 
 Sie können es verwenden, um einen detaillierten Bericht zu erhalten, der um 4 Datenklassen herum strukturiert ist:
@@ -464,19 +464,19 @@ Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 
 #### Ohne TUI
 
-Wie bereits erwähnt, befindet sich der TUI-Modus derzeit in der Beta-Phase und ist optional. 
+Wie bereits erwähnt, befindet sich der TUI-Modus derzeit in der Beta-Phase und ist optional.
 Es könnte sein, dass er auf Ihrem Gerät nicht funktioniert oder dass Sie ihn nicht als praktisch finden.
 
-Ein anderer Ansatz besteht darin, das Flag `--disable-tui` zu verwenden. Der Vorgang ähnelt sehr dem vorherigen, 
-da Sie aufgefordert werden, die Liste der zu löschenden Revisionen manuell zu überprüfen. 
-Dieser manuelle Schritt findet jedoch nicht direkt im Terminal statt, sondern in einer temporären Datei, 
+Ein anderer Ansatz besteht darin, das Flag `--disable-tui` zu verwenden. Der Vorgang ähnelt sehr dem vorherigen,
+da Sie aufgefordert werden, die Liste der zu löschenden Revisionen manuell zu überprüfen.
+Dieser manuelle Schritt findet jedoch nicht direkt im Terminal statt, sondern in einer temporären Datei,
 die ad hoc generiert wird und die Sie manuell bearbeiten können.
 
-Diese Datei enthält alle erforderlichen Anweisungen im Kopfteil. Öffnen Sie sie in Ihrem bevorzugten Texteditor. 
-Um eine Revision auszuwählen/abzuwählen, kommentieren Sie sie einfach mit einem `#` aus oder ein. 
-Sobald die manuelle Überprüfung abgeschlossen ist und die Datei bearbeitet wurde, können Sie sie speichern. 
-Gehen Sie zurück zu Ihrem Terminal und drücken Sie `<Enter>`. Standardmäßig wird berechnet, 
-wie viel Speicherplatz mit der aktualisierten Revisionsliste freigegeben würde. 
+Diese Datei enthält alle erforderlichen Anweisungen im Kopfteil. Öffnen Sie sie in Ihrem bevorzugten Texteditor.
+Um eine Revision auszuwählen/abzuwählen, kommentieren Sie sie einfach mit einem `#` aus oder ein.
+Sobald die manuelle Überprüfung abgeschlossen ist und die Datei bearbeitet wurde, können Sie sie speichern.
+Gehen Sie zurück zu Ihrem Terminal und drücken Sie `<Enter>`. Standardmäßig wird berechnet,
+wie viel Speicherplatz mit der aktualisierten Revisionsliste freigegeben würde.
 Sie können die Datei weiter bearbeiten oder mit `"y"` bestätigen.
 
 ```sh
@@ -526,7 +526,7 @@ Beispiel für eine Befehlsdatei:
 
 ### Cache aus Python leeren
 
-Für mehr Flexibilität können Sie auch die Methode [`~HFCacheInfo.delete_revisions`] programmatisch verwenden. 
+Für mehr Flexibilität können Sie auch die Methode [`~HFCacheInfo.delete_revisions`] programmatisch verwenden.
 Hier ist ein einfaches Beispiel. Siehe Referenz für Details.
 
 ```py

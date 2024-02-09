@@ -1063,16 +1063,17 @@ class InferenceClient:
         )
         return _bytes_to_dict(response)  # type: ignore
 
-    def tabular_classification(self, table: Dict[str, Any], *, model: str) -> List[str]:
+    def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
             table (`Dict[str, Any]`):
                 Set of attributes to classify.
-            model (`str`):
-                The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint.
+            model (`str`, *optional*):
+                The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended tabular classification model will be used.
+                Defaults to None.
 
         Returns:
             `List`: a list of labels, one per row in the initial table.
@@ -1107,16 +1108,17 @@ class InferenceClient:
         response = self.post(json={"table": table}, model=model, task="tabular-classification")
         return _bytes_to_list(response)
 
-    def tabular_regression(self, table: Dict[str, Any], *, model: str) -> List[float]:
+    def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
         Args:
             table (`Dict[str, Any]`):
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
-            model (`str`):
-                The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint.
+            model (`str`, *optional*):
+                The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended tabular regression model will be used.
+                Defaults to None.
 
         Returns:
             `List`: a list of predicted numerical target values.
@@ -1483,7 +1485,7 @@ class InferenceClient:
         # Remove some parameters if not a TGI server
         if not _is_tgi_server(model):
             ignored_parameters = []
-            for key in "watermark", "stop", "details", "decoder_input_details":
+            for key in "watermark", "stop", "details", "decoder_input_details", "best_of":
                 if payload["parameters"][key] is not None:
                     ignored_parameters.append(key)
                 del payload["parameters"][key]

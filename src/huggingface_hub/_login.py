@@ -16,14 +16,14 @@ import os
 import subprocess
 from functools import partial
 from getpass import getpass
+from pathlib import Path
 from typing import Optional
 
+from . import constants
 from .commands._cli_utils import ANSI
-from .commands.delete_cache import _ask_for_confirmation_no_tui
-from .hf_api import get_token_permission
 from .utils import (
-    HfFolder,
     capture_output,
+    get_token,
     is_google_colab,
     is_notebook,
     list_credential_helpers,
@@ -32,6 +32,7 @@ from .utils import (
     set_git_credential,
     unset_git_credential,
 )
+from .utils._token import _get_token_from_environment, _get_token_from_google_colab
 
 
 logger = logging.get_logger(__name__)
@@ -101,7 +102,7 @@ def login(
     if token is not None:
         if not add_to_git_credential:
             print(
-                "Token will not been saved to git credential helper. Pass"
+                "Token has not been saved to git credential helper. Pass"
                 " `add_to_git_credential=True` if you want to set the git"
                 " credential as well."
             )
@@ -117,12 +118,31 @@ def logout() -> None:
 
     Token is deleted from the machine and removed from git credential.
     """
-    token = HfFolder.get_token()
-    if token is None:
+    if get_token() is None:
         print("Not logged in!")
         return
-    HfFolder.delete_token()
+
+    # Delete token from git credentials
     unset_git_credential()
+
+    # Delete token file
+    try:
+        Path(constants.HF_TOKEN_PATH).unlink()
+    except FileNotFoundError:
+        pass
+
+    # Check if still logged in
+    if _get_token_from_google_colab() is not None:
+        raise EnvironmentError(
+            "You are automatically logged in using a Google Colab secret.\n"
+            "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
+        )
+    if _get_token_from_environment() is not None:
+        raise EnvironmentError(
+            "Token has been deleted from your machine but you are still logged in.\n"
+            "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
+        )
+
     print("Successfully logged out.")
 
 
@@ -152,8 +172,10 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
         print("User is already logged in.")
         return
 
+    from .commands.delete_cache import _ask_for_confirmation_no_tui
+
     print(_HF_LOGO_ASCII)
-    if HfFolder.get_token() is not None:
+    if get_token() is not None:
         print(
             "    A token is already saved on your machine. Run `huggingface-cli"
             " whoami` to get more information or `huggingface-cli logout` if you want"
@@ -164,7 +186,7 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     print("    To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
-    token = getpass("Token: ")
+    token = getpass("Enter your token (input will not be visible): ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
     _login(token=token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
@@ -273,6 +295,8 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 
 
 def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
+    from .hf_api import get_token_permission  # avoid circular import
+
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token, not an organization token.")
 
@@ -296,8 +320,11 @@ def _login(token: str, add_to_git_credential: bool, write_permission: bool = Fal
         else:
             print("Token has not been saved to git credential helper.")
 
-    HfFolder.save_token(token)
-    print(f"Your token has been saved to {HfFolder.path_token}")
+    # Save token
+    path = Path(constants.HF_TOKEN_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(token)
+    print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
     print("Login successful")
 
 
@@ -311,6 +338,8 @@ def _current_token_okay(write_permission: bool = False):
     Returns:
         `bool`: `True` if the current token is valid, `False` otherwise.
     """
+    from .hf_api import get_token_permission  # avoid circular import
+
     permission = get_token_permission()
     if permission is None or (write_permission and permission != "write"):
         return False

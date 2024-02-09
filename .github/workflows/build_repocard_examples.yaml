@@ -24,7 +24,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .
-          pip install Jinja2          
+          pip install Jinja2
 
       # Push cards
       - name: Push cards

@@ -45,13 +45,41 @@ options:
   -h, --help            show this help message and exit
 ```
 
-If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide. 
+If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide.
 
 <Tip>
 
 The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `huggingface-cli upload --help` provides more information on how to upload files using the CLI.
 
 </Tip>
+
+### Alternative install
+
+#### Using pkgx
+
+[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
+
+```bash
+>>> pkgx install huggingface-cli
+```
+
+Or you can run huggingface-cli directly:
+
+```bash
+>>> pkgx huggingface-cli --help
+```
+
+Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+
+#### Using Homebrew
+
+You can also install the CLI using [Homebrew](https://brew.sh/):
+
+```bash
+>>> brew install huggingface-cli
+```
+
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
 
 ## huggingface-cli login
 
@@ -73,8 +101,8 @@ _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|    
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
 To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Token: 
-Add token as git credential? (Y/n) 
+Token:
+Add token as git credential? (Y/n)
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
@@ -85,19 +113,21 @@ Alternatively, if you want to log-in without being prompted, you can pass the to
 
 ```bash
 # Or using an environment variable
->>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential 
+>>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
+For more details about authentication, check out [this section](../quick-start#authentication).
+
 ## huggingface-cli whoami
 
 If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
 
 ```bash
-huggingface-cli whoami                                                                     
+huggingface-cli whoami
 Wauplin
 orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ```
@@ -296,7 +326,7 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 
 ### Upload multiple files
 
-To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`: 
+To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)

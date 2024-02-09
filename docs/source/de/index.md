@@ -29,7 +29,7 @@ In der [Kurzanleitung](quick-start) der `huggingface_hub` Bibliothek erfahren Si
   <p class="text-gray-700">Umfassende und technische Beschreibung der Klassen und Methoden von huggingface_hub.</p>
 </a> -->
 
-<!-- 
+<!--
 <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./tutorials/overview"
   ><div class="w-full text-center bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Tutorials</div>
   <p class="text-gray-700">Learn the basics and become familiar with using huggingface_hub to programmatically interact with the 🤗 Hub!</p>

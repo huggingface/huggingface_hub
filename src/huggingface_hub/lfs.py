@@ -26,12 +26,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
 from urllib.parse import unquote
 
-from requests.auth import HTTPBasicAuth
-
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
 from huggingface_hub.utils import get_session
 
-from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, tqdm, validate_hf_hub_args
+from .utils import (
+    build_hf_headers,
+    hf_raise_for_status,
+    http_backoff,
+    logging,
+    tqdm,
+    validate_hf_hub_args,
+)
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -149,15 +154,8 @@ def post_lfs_batch_info(
     }
     if revision is not None:
         payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
-    resp = get_session().post(
-        batch_url,
-        headers=LFS_HEADERS,
-        json=payload,
-        auth=HTTPBasicAuth(
-            "access_token",
-            get_token_to_send(token or True),  # type: ignore  # Token must be provided or retrieved
-        ),
-    )
+    headers = {**LFS_HEADERS, **build_hf_headers(token=token or True)}  # Token must be provided or retrieved
+    resp = get_session().post(batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
 
@@ -236,7 +234,7 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
         _validate_lfs_action(verify_action)
         verify_resp = get_session().post(
             verify_action["href"],
-            auth=HTTPBasicAuth(username="USER", password=get_token_to_send(token or True)),  # type: ignore
+            headers=build_hf_headers(token=token or True),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
         hf_raise_for_status(verify_resp)
@@ -411,7 +409,10 @@ def _upload_parts_hf_transfer(
     desc = operation.path_in_repo
     if len(desc) > 40:
         desc = f"(…){desc[-40:]}"
-    disable = bool(logger.getEffectiveLevel() == logging.NOTSET)
+
+    # set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+    # see https://github.com/huggingface/huggingface_hub/pull/2000
+    disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
 
     with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
         try:

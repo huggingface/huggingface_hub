@@ -15,8 +15,8 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import (
-    HfFolder,
     SoftTemporaryDirectory,
+    get_token,
     logging,
     run_subprocess,
     tqdm,
@@ -527,7 +527,7 @@ class Repository:
         else:
             # if `True` -> explicit use of the cached token
             # if `None` -> implicit use of the cached token
-            self.huggingface_token = HfFolder.get_token()
+            self.huggingface_token = get_token()
 
         if clone_from is not None:
             self.clone_from(repo_url=clone_from)

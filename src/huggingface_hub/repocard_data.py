@@ -1,10 +1,12 @@
 import copy
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from huggingface_hub.utils import yaml_dump
+from huggingface_hub.utils import logging, yaml_dump
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -253,6 +255,10 @@ class ModelCardData(CardData):
         tags (`List[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
+        base_model (`str` or `List[str]`, *optional*):
+            The identifier of the base model from which the model derives. This is applicable for example if your model is a
+            fine-tune or adapter of an existing model. The value must be the ID of a model on the Hub (or a list of IDs
+            if your model derives from multiple models). Defaults to None.
         datasets (`List[str]`, *optional*):
             List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
@@ -295,6 +301,7 @@ class ModelCardData(CardData):
         license: Optional[str] = None,
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        base_model: Optional[Union[str, List[str]]] = None,
         datasets: Optional[List[str]] = None,
         metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
@@ -306,6 +313,7 @@ class ModelCardData(CardData):
         self.license = license
         self.library_name = library_name
         self.tags = tags
+        self.base_model = base_model
         self.datasets = datasets
         self.metrics = metrics
         self.eval_results = eval_results
@@ -319,7 +327,7 @@ class ModelCardData(CardData):
                 self.eval_results = eval_results
             except (KeyError, TypeError) as error:
                 if ignore_metadata_errors:
-                    warnings.warn("Invalid model-index. Not loading eval results into CardData.")
+                    logger.warning("Invalid model-index. Not loading eval results into CardData.")
                 else:
                     raise ValueError(
                         f"Invalid `model_index` in metadata cannot be parsed: {error.__class__} {error}. Pass"

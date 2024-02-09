@@ -75,7 +75,7 @@ class DatasetFilter:
 
     Args:
         author (`str`, *optional*):
-            A string or list of strings that can be used to identify datasets on
+            A string that can be used to identify datasets on
             the Hub by the original uploader (author or organization), such as
             `facebook` or `huggingface`.
         benchmark (`str` or `List`, *optional*):
