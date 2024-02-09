@@ -71,10 +71,10 @@ d'utiliser la dernière version stable. La version `main` est utile pour rester 
 derniers développements, par exemple si un bug est corrigé depuis la dernière version officielle
 mais que la nouvelle version n'a pas encore été faite.
 
-Toutefois, cela signifie que la version `main` pourrait ne pas être stable. Nous travaillons
-afin de rendre la version `main` optionnelle, et la pluspart des problèmes sont résolus
-en quelques heure ou en une journée. Si vous avez un problème, ouvrez une issue afin que
-nous puissions la régler encore plus vite !
+Toutefois, cela signifie que la version `main` peut ne pas être stable. Nous travaillons
+afin de rendre la version `main` aussi stable que possible, et la plupart des problèmes sont résolus
+en quelques heures ou jours. Si vous avez un problème, ouvrez une issue afin que
+nous puissions la régler au plus vite !
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub
