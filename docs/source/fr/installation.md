@@ -80,9 +80,7 @@ nous puissions la régler au plus vite !
 pip install git+https://github.com/huggingface/huggingface_hub
 ```
 
-Lorsque vous faites l'installation depuis le code source, vous pouvez aussi préciser une 
-branche spécifique. C'est utile si vous voulez tester une nouvelle fonctionnalité ou un
-nouveau bug-fix qui n'a pas encore été merge:
+Lorsque vous installez depuis le code source, vous pouvez préciser la branche depuis laquelle installer. Cela permet de tester une nouvelle fonctionnalité ou un bug-fix qui n'a pas encore été merge:
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub@ma-branche
