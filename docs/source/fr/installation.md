@@ -94,7 +94,7 @@ L'installation depuis le code source vous permet de mettre en place une [install
 et que vous avez besoin de tester rapidement des changements dans le code. Pour cela, vous devez cloner le projet `huggingface_hub` sur votre machine.
 
 ```bash
-#D'abord, clonez le dépôt en local
+# Commencez par cloner le dépôt en local
 git clone https://github.com/huggingface/huggingface_hub.git
 
 # Ensuite, installez avec le flag -e
