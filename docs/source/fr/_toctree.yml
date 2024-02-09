@@ -3,7 +3,7 @@
     - local: index
       title: Home
     - local: quick-start
-      title: Quickstart
+      title: Introduction rapide
     - local: installation
       title: Installation
 - title: "Guides"
