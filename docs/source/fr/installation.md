@@ -68,8 +68,8 @@ Voici une liste des dépendances optionnelles dans `huggingface_hub`:
 Dans certains cas, il est intéressant d'installer `huggingface_hub` directement depuis le code source.
 Ceci vous permet d'utiliser la version `main`, contenant les dernières mises à jour, plutôt que
 d'utiliser la dernière version stable. La version `main` est utile pour rester à jour sur les
-derniers développements, par exemple si un bug est réglé depuis la dernière sortie officielle
-mais que la nouvelle sortie n'a pas encore été faite.
+derniers développements, par exemple si un bug est corrigé depuis la dernière version officielle
+mais que la nouvelle version n'a pas encore été faite.
 
 Toutefois, cela signifie que la version `main` pourrait ne pas être stable. Nous travaillons
 afin de rendre la version `main` optionnelle, et la pluspart des problèmes sont résolus
