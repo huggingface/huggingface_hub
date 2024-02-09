@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Avant de commmencer l'installation, vous allez avoir besoin de préparer votre environnement
+Avant de commmencer, vous allez avoir besoin de préparer votre environnement
 en installant les packages appropriés.
 
 `huggingface_hub` est testée sur **Python 3.8+**.
@@ -12,10 +12,10 @@ en installant les packages appropriés.
 ## Installation avec pip
 
 Il est fortement recommandé d'installer `huggingface_hub` dans un [environnement virtuel](https://docs.python.org/3/library/venv.html).
-Si vous êtes familier avec les environnements virtuels Python, regardez plutôt ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des projets différents
-et éviter les problèmes de compatibilité entre les différetnes dépendances.
+Si vous n'êtes pas familier avec les environnements virtuels Python, suivez ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des plusieurs projets en parallèle
+afin d'éviter les problèmes de compatibilité entre les différentes dépendances.
 
-Commencez par créer un environnement virtuel dans le chemin de votre projet:
+Commencez par créer un environnement virtuel à l'emplacement de votre projet:
 
 ```bash
 python -m venv .env
@@ -39,7 +39,7 @@ Maintenant, vous êtes prêts à installer `hugginface_hub` [depuis PyPi](https:
 pip install --upgrade huggingface_hub
 ```
 
-Une fois l'installation finie, [vérifiez](#check-installation) que tout marche correctement.
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ### Installation des dépendances optionnelles
 
@@ -63,48 +63,45 @@ Voici une liste des dépendances optionnelles dans `huggingface_hub`:
 
 
 
-### Installation depuis la source
+### Installation depuis le code source
 
 Dans certains cas, il est intéressant d'installer `huggingface_hub` directement depuis le code source.
 Ceci vous permet d'utiliser la version `main`, contenant les dernières mises à jour, plutôt que
 d'utiliser la dernière version stable. La version `main` est utile pour rester à jour sur les
-derniers développements, par exemple si un bug est réglé depuis la dernière sortie officielle
-mais que la nouvelle sortie n'a pas encore été faite.
+derniers développements, par exemple si un bug est corrigé depuis la dernière version officielle
+mais que la nouvelle version n'a pas encore été faite.
 
-Toutefois, cela signifie que la version `main` pourrait ne pas être stable. Nous travaillons
-afin de rendre la version `main` optionnelle, et la pluspart des problèmes sont résolus
-en quelques heure ou en une journée. Si vous avez un problème, ouvrez une issue afin que
-nous puissions la régler encore plus vite !
+Toutefois, cela signifie que la version `main` peut ne pas être stable. Nous travaillons
+afin de rendre la version `main` aussi stable que possible, et la plupart des problèmes sont résolus
+en quelques heures ou jours. Si vous avez un problème, ouvrez une issue afin que
+nous puissions la régler au plus vite !
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub
 ```
 
-Lorsque vous faites l'installation depuis le code source, vous pouvez aussi préciser une 
-branche spécifique. C'est utile si vous voulez tester une nouvelle fonctionnalité ou un
-nouveau bug-fix qui n'a pas encore été merge:
+Lorsque vous installez depuis le code source, vous pouvez préciser la branche depuis laquelle installer. Cela permet de tester une nouvelle fonctionnalité ou un bug-fix qui n'a pas encore été merge:
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub@ma-branche
 ```
 
-Une fois finie, [vérifiez l'installation](#check-installation).
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ### Installation éditable
 
-L'installation depuis le code source vous permet de mettre en place une [installation éditable](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Cette installation est plus avancée et sert surtout si vous comptez contribuer à `huggingface_hub`
-et que vous avez besoin de tester des changements dans le code. Vous devez cloner une copie locale de `huggingface_hub` sur votre machine.
+L'installation depuis le code source vous permet de mettre en place une [installation éditable](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs). Cette installation sert surtout si vous comptez contribuer à `huggingface_hub`
+et que vous avez besoin de tester rapidement des changements dans le code. Pour cela, vous devez cloner le projet `huggingface_hub` sur votre machine.
 
 ```bash
-#D'abord, clonez le dépôt en local
+# Commencez par cloner le dépôt en local
 git clone https://github.com/huggingface/huggingface_hub.git
 
-# Ensuite, installez avec le flag -e
+# Ensuite, installez-le avec le flag -e
 cd huggingface_hub
 pip install -e .
 ```
 
-Ces commandes lieront le dossier dans lequel vous avez cloné le dépôt et vos chemins de librairies Python.
 Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt en
 plus des chemins de librairie classiques. Par exemple, si vos packages Python sont installés dans
 `./.venv/lib/python3.11/site-packages/`, Python regardera aussi dans le dossier que vous avez
@@ -119,7 +116,7 @@ Si vous avez plutôt l'habitude d'utiliser conda, vous pouvez installer `hugging
 conda install -c conda-forge huggingface_hub
 ```
 
-Une fois finie, [vérifiez l'installation](#check-installation). 
+Une fois l'installation terminée, rendez-vous à la section [vérification](#verification-de-l-installation) pour s'assurer que tout fonctionne correctement.
 
 ## Vérification de l'installation
 
