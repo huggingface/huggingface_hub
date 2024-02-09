@@ -12,7 +12,7 @@ en installant les packages appropriés.
 ## Installation avec pip
 
 Il est fortement recommandé d'installer `huggingface_hub` dans un [environnement virtuel](https://docs.python.org/3/library/venv.html).
-Si vous êtes familier avec les environnements virtuels Python, regardez plutôt ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des projets différents
+Si vous n'êtes pas familier avec les environnements virtuels Python, suivez ce [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/). Un environnement virtuel sera utile lorsque vous devrez gérer des plusieurs projets en parallèle
 et éviter les problèmes de compatibilité entre les différetnes dépendances.
 
 Commencez par créer un environnement virtuel dans le chemin de votre projet:
