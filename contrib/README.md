@@ -26,7 +26,7 @@ Tests must be ran individually for each dependent library. Here is an example to
 Before running tests, a virtual env must be setup for each contrib library. To do so, run:
 
 ```sh
-# Run setup in parallel to save time 
+# Run setup in parallel to save time
 make contrib_setup -j4
 ```
 

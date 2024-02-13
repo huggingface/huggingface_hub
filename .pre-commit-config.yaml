@@ -1,14 +1,18 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v4.5.0
     hooks:
       - id: check-yaml
-        exclude: .github/conda/meta.yaml
+        exclude: .github/conda/meta.yaml|tests/cassettes/
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-case-conflict
       - id: check-merge-conflict
   - repo: https://github.com/charliermarsh/ruff-pre-commit # https://github.com/charliermarsh/ruff#usage
-    rev: 'v0.1.3'
+    rev: v0.1.13
     hooks:
       - id: ruff
+  - repo: https://github.com/pappasam/toml-sort
+    rev: v0.23.1
+    hooks:
+      - id: toml-sort-fix

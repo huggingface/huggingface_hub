@@ -9,7 +9,7 @@ development to easily version projects when working collaboratively. This guide 
 repositories on the Hub, especially:
 
 - Create and delete a repository.
-- Manage branches and tags. 
+- Manage branches and tags.
 - Rename your repository.
 - Update your repository visibility.
 - Manage a local copy of your repository.
@@ -108,7 +108,7 @@ You can create new branch and tags using [`create_branch`] and [`create_tag`]:
 >>> create_branch("Matthijs/speecht5-tts-demo", repo_type="space", branch="handle-dog-speaker")
 
 # Create a tag on a Dataset repo from `v0.1-release` branch
->>> create_branch("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
+>>> create_tag("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
 ```
 
 You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag.
@@ -130,7 +130,7 @@ GitRefs(
          GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
    ]
 )
-``` 
+```
 
 ## Change repository settings
 

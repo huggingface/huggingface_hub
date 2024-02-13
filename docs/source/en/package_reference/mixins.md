@@ -36,6 +36,3 @@ how to integrate any ML framework with the Hub.
 [[autodoc]] from_pretrained_fastai
 
 [[autodoc]] push_to_hub_fastai
-
-
-

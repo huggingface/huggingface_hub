@@ -36,7 +36,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import SpaceHardware, SpaceStage, SpaceStorage
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -56,7 +56,6 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
-    HfApi,
     MetricInfo,
     ModelInfo,
     RepoSibling,
@@ -120,6 +119,14 @@ large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
 WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo")
 LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
 LARGE_FILE_18MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.pdf"
+
+INVALID_MODELCARD = """
+---
+model-index: foo
+---
+
+This is a modelcard with an invalid metadata section.
+"""
 
 
 class HfApiCommonTest(unittest.TestCase):
@@ -968,6 +975,40 @@ class CommitApiTest(HfApiCommonTest):
         # No LFS files uploaded during commit
         self.assertTrue(any("No LFS files to upload." in log for log in debug_logs.output))
 
+    @use_tmp_repo()
+    def test_commit_modelcard_invalid_metadata(self, repo_url: RepoUrl) -> None:
+        with patch.object(self._api, "preupload_lfs_files") as mock:
+            with self.assertRaisesRegex(ValueError, "Invalid metadata in README.md"):
+                self._api.create_commit(
+                    repo_id=repo_url.repo_id,
+                    operations=[
+                        CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=INVALID_MODELCARD.encode()),
+                        CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                        CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+                    ],
+                    commit_message="Test commit",
+                )
+
+        # Failed early => no LFS files uploaded
+        mock.assert_not_called()
+
+    @use_tmp_repo()
+    def test_commit_modelcard_empty_metadata(self, repo_url: RepoUrl) -> None:
+        modelcard = "This is a modelcard without metadata"
+        with self.assertWarnsRegex(UserWarning, "Warnings while validating metadata in README.md"):
+            commit = self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                operations=[
+                    CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=modelcard.encode()),
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                    CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content"),
+                ],
+                commit_message="Test commit",
+            )
+
+        # Commit still happened correctly
+        assert isinstance(commit, CommitInfo)
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
     @classmethod
@@ -1642,7 +1683,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
         Example data from https://huggingface.co/Waynehillsdev/Waynehills-STT-doogie-server.
         """
-        with self.assertWarnsRegex(UserWarning, "Invalid model-index"):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             model = ModelInfo(
                 **{
                     "_id": "621ffdc036468d709f1751d8",
@@ -1675,6 +1716,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
                 }
             )
             self.assertIsNone(model.card_data.eval_results)
+        self.assertTrue(any("Invalid model-index" in log for log in warning_logs.output))
 
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
@@ -2471,6 +2513,13 @@ class HfApiDiscussionsTest(HfApiCommonTest):
             list([d.num for d in discussions_generator]), [self.discussion.num, self.pull_request.num]
         )
 
+    @with_production_testing
+    def test_get_repo_discussion_pagination(self):
+        discussions = list(
+            HfApi().get_repo_discussions(repo_id="HuggingFaceH4/open_llm_leaderboard", repo_type="space")
+        )
+        assert len(discussions) > 50
+
     def test_get_discussion_details(self):
         retrieved = self._api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
         self.assertEqual(retrieved, self.discussion)
@@ -2625,8 +2674,8 @@ class ActivityApiTest(unittest.TestCase):
 
     def test_list_likes_repos_auth_and_explicit_user(self) -> None:
         # User is explicit even if auth
-        likes = self.api.list_liked_repos(user="__DUMMY_DATASETS_SERVER_USER__", token=TOKEN)
-        self.assertEqual(likes.user, "__DUMMY_DATASETS_SERVER_USER__")
+        likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
+        self.assertEqual(likes.user, OTHER_USER)
 
     def test_list_repo_likers(self) -> None:
         # Create a repo + like
@@ -2687,7 +2736,7 @@ class TestSquashHistory(HfApiCommonTest):
         self.assertEqual(squashed_branch_commits[0].title, "Super-squash branch 'v0.1' using huggingface_hub")
 
 
-@pytest.mark.usefixtures("fx_production_space")
+@pytest.mark.vcr
 class TestSpaceAPIProduction(unittest.TestCase):
     """
     Testing Space API is not possible on staging. Tests are run against production
@@ -2697,6 +2746,37 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
     repo_id: str
     api: HfApi
+
+    _BASIC_APP_PY_TEMPLATE = """
+import gradio as gr
+
+
+def greet(name):
+    return "Hello " + name + "!!"
+
+iface = gr.Interface(fn=greet, inputs="text", outputs="text")
+iface.launch()
+""".encode()
+
+    def setUp(self):
+        super().setUp()
+
+        # If generating new VCR => use personal token and REMOVE IT from the VCR
+        self.repo_id = "user/tmp_test_space"  # no need to be unique as it's a VCRed test
+        self.api = HfApi(token="hf_fake_token", endpoint="https://huggingface.co")
+
+        # Create a Space
+        self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
+        self.api.upload_file(
+            path_or_fileobj=self._BASIC_APP_PY_TEMPLATE,
+            repo_id=self.repo_id,
+            repo_type="space",
+            path_in_repo="app.py",
+        )
+
+    def tearDown(self):
+        self.api.delete_repo(repo_id=self.repo_id, repo_type="space")
+        super().tearDown()
 
     def test_manage_secrets(self) -> None:
         # Add 3 secrets
@@ -2769,7 +2849,6 @@ class TestSpaceAPIProduction(unittest.TestCase):
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
-    @unittest.skip("Too flaky to run in CI")
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -2790,7 +2869,7 @@ class TestSpaceAPIProduction(unittest.TestCase):
 
         # Restart
         self.api.restart_space(self.repo_id)
-        time.sleep(5.0)
+        time.sleep(0.5)
         runtime_after_restart = self.api.get_space_runtime(self.repo_id)
         self.assertNotEqual(runtime_after_restart.stage, SpaceStage.PAUSED)
 

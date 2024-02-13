@@ -27,7 +27,7 @@ import requests
 from requests import Response
 
 import huggingface_hub.file_download
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, RepoUrl
 from huggingface_hub.constants import (
     CONFIG_NAME,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -58,9 +58,11 @@ from huggingface_hub.utils import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SoftTemporaryDirectory,
+    get_session,
+    hf_raise_for_status,
 )
 
-from .testing_constants import ENDPOINT_STAGING, PRODUCTION_TOKEN, TOKEN
+from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_PINNED_SHA1,
@@ -74,6 +76,7 @@ from .testing_utils import (
     expect_deprecation,
     offline,
     repo_name,
+    use_tmp_repo,
     with_production_testing,
     xfail_on_windows,
 )
@@ -130,6 +133,58 @@ class TestDiskUsageWarning(unittest.TestCase):
             warnings.simplefilter("always")
             _check_disk_space(expected_size=self.expected_size, target_dir="/path/to/not_existent_path")
             assert len(w) == 0
+
+
+class StagingDownloadTests(unittest.TestCase):
+    _api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    @use_tmp_repo()
+    def test_download_from_a_gated_repo_with_hf_hub_download(self, repo_url: RepoUrl) -> None:
+        """Checks `hf_hub_download` outputs error on gated repo.
+
+        Regression test for #1121.
+        https://github.com/huggingface/huggingface_hub/pull/1121
+
+        Cannot test on staging as dynamically setting a gated repo doesn't work there.
+        """
+        # Set repo as gated
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{repo_url.repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(),
+        )
+        hf_raise_for_status(response)
+
+        # Cannot download file as repo is gated
+        with SoftTemporaryDirectory() as tmpdir:
+            with self.assertRaisesRegex(
+                GatedRepoError, "Access to model .* is restricted and you are not in the authorized list"
+            ):
+                hf_hub_download(
+                    repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
+                )
+
+    @use_tmp_repo()
+    def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
+        """Regression test for #1999.
+
+        See https://github.com/huggingface/huggingface_hub/pull/1999.
+        """
+        repo_id_before = repo_url.repo_id
+        repo_id_after = repo_url.repo_id + "_renamed"
+
+        # Make private + rename + upload regular file
+        self._api.update_repo_visibility(repo_id_before, private=True)
+        self._api.upload_file(repo_id=repo_id_before, path_in_repo="file.txt", path_or_fileobj=b"content")
+        self._api.move_repo(repo_id_before, repo_id_after)
+
+        # Download from private renamed repo
+        path = self._api.hf_hub_download(repo_id_before, filename="file.txt")
+        with open(path) as f:
+            self.assertEqual(f.read(), "content")
+
+        # Move back (so that auto-cleanup works)
+        self._api.move_repo(repo_id_after, repo_id_before)
 
 
 @with_production_testing
@@ -675,31 +730,6 @@ class CachedDownloadTests(unittest.TestCase):
                 token=None,
                 cache_dir=cache_dir,
             )
-
-    @with_production_testing
-    def test_download_from_a_gated_repo_with_hf_hub_download(self):
-        """Checks `hf_hub_download` outputs error on gated repo.
-
-        Regression test for #1121.
-        https://github.com/huggingface/huggingface_hub/pull/1121
-
-        Cannot test on staging as dynamically setting a gated repo doesn't work there.
-        """
-        if not PRODUCTION_TOKEN:  # No need to test in contrib PRs (when secret is not set)
-            return
-        # Cannot download file as repo is gated
-        with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaisesRegex(
-                GatedRepoError,
-                "Access to model .* is restricted and you are not in the authorized list",
-            ):
-                hf_hub_download(
-                    # Starcoder is gated on production
-                    repo_id="bigcode/starcoder",
-                    filename=".gitattributes",
-                    token=PRODUCTION_TOKEN,
-                    cache_dir=tmpdir,
-                )
 
     @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):

@@ -20,7 +20,7 @@
     <p>
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README.md">English</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_de.md">Deutsch</a> |
-        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_hi.md">हिंदी</a> | 
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_hi.md">हिंदी</a> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_ko.md">한국어</a> |
         <b>中文（简体）</b>
     <p>

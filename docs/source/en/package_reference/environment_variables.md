@@ -137,7 +137,18 @@ You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally dis
 
 Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 
-By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions. Although these are reliable and versatile, they may not be the most efficient choice for machines with high bandwidth. [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to maximize the bandwidth used by dividing large files into smaller parts and transferring them simultaneously using multiple threads. This approach can potentially double the transfer speed. To use `hf_transfer`, you need to install it separately [from PyPI](https://pypi.org/project/hf-transfer/) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions.
+Although these are reliable and versatile,
+they may not be the most efficient choice for machines with high bandwidth.
+[`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
+maximize the bandwidth used by dividing large files into smaller parts
+and transferring them simultaneously using multiple threads.
+This approach can potentially double the transfer speed.
+To use `hf_transfer`:
+
+1. Specify the `hf_transfer` extra when installing `huggingface_hub`
+   (e.g. `pip install huggingface_hub[hf_transfer]`).
+2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
 
@@ -171,7 +182,7 @@ See [no-color.org](https://no-color.org/).
 Used only when `HF_HOME` is not set!
 
 This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
-on linux machines. 
+on linux machines.
 
 If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
 of `"~/.cache/huggingface"`.

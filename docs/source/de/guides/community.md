@@ -107,9 +107,9 @@ Das Verwalten von Pull-Requests und Diskussionen kann vollständig mit der [`HfA
 
     * [`comment_discussion`] zum Hinzufügen von Kommentaren
     * [`edit_discussion_comment`] zum Bearbeiten von Kommentaren
-    * [`rename_discussion`] zum Umbenennen einer Diskussion oder eines Pull-Requests 
+    * [`rename_discussion`] zum Umbenennen einer Diskussion oder eines Pull-Requests
     * [`change_discussion_status`] zum Öffnen oder Schließen einer Diskussion / eines Pull-Requests
-    * [`merge_pull_request`] zum Zusammenführen eines Pull-Requests 
+    * [`merge_pull_request`] zum Zusammenführen eines Pull-Requests
 
 Besuchen Sie die [`HfApi`]-Dokumentationsseite für eine vollständige Übersicht aller verfügbaren Methoden.
 

@@ -18,7 +18,7 @@ Take a look at these guides to learn how to use huggingface_hub to solve real-wo
         How to create a repository on the Hub? How to configure it? How to interact with it?
       </p>
     </a>
-    
+
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg"
        href="./download">
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
