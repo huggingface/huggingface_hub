@@ -1,14 +1,14 @@
 # Inference Endpoints
 
-Inference Endpoints fournit une solution viable pour la production et sécurisée pour déployer facilement n'importe quel modèle `transformers`, `sentence-transformers`, et `diffusers` sur une infrastructure dédiée et capable d'autoscaling gérée par Hugging Face. Un endpoint d'inférence est construit à partir d'un modèle du [Hub](https://huggingface.co/models).
+Inference Endpoints fournit une solution sécurisée viable pour la production pour déployer facilement n'importe quel modèle `transformers`, `sentence-transformers`, et `diffusers` sur une infrastructure dédiée et scalable gérée par Hugging Face. Un inference endpoint est construit à partir d'un modèle du [Hub](https://huggingface.co/models).
 Dans ce guide, nous apprendront comment gérer les endpoints d'inférence par le code en utilisant `huggingface_hub`. Pour plus d'informations sur le produit lui même, consultez sa [documentation officielle](https://huggingface.co/docs/inference-endpoints/index).
 
-Ce guide postule que vous avez installé `huggingface_hub` correctement et que votre machine est connectée. Consultez le [guide quick start](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart) si ce n'est pas le cas. La version la plus ancienne supportant l'API d'inference endpoints est `v0.19.0`.
+Ce guide suppose que vous avez installé `huggingface_hub` correctement et que votre machine est connectée. Consultez le [guide quick start](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart) si ce n'est pas le cas. La version la plus ancienne supportant l'API d'inference endpoints est `v0.19.0`.
 
 
-## Créez un endpoint d'inférence
+## Créez un inference endpoint
 
-La première étape pour créer un endpoint d'inférence est d'utiliser [`create_inference_endpoint`]:
+La première étape pour créer un inference endpoint est d'utiliser [`create_inference_endpoint`]:
 
 ```py
 >>> from huggingface_hub import create_inference_endpoint
@@ -27,7 +27,7 @@ La première étape pour créer un endpoint d'inférence est d'utiliser [`create
 ... )
 ```
 
-Dans cet exemple, nous avons créé un endpoint d'inférence de type `protected` qui a pour nom `"my-endpoint-name"`, il utilise [gpt2](https://huggingface.co/gpt2) pour faire de la génération de texte (`text-generation`). Le type `protected` signfie que votre token sera demandé pour accéder à l'API. Nous aurons aussi besoin de fournir des informations supplémentaires pour préciser le hardware nécessaire, tel que le provider, la région, l'accélérateur, le type d'instance et la taille. Vous pouvez consulter la liste des ressources disponibles [ici](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Par ailleurs, vous pouvez aussi créer un endpoint d'inférence manuellement en utilisant l'[interface web](https://ui.endpoints.huggingface.co/new) si c'est plus pratique pour vous. Consultez ce [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced)  pour des détails sur les paramètres avancés et leur utilisation.
+Dans cet exemple, nous avons créé un inference endpoint de type `protected` qui a pour nom `"my-endpoint-name"`, il utilise [gpt2](https://huggingface.co/gpt2) pour faire de la génération de texte (`text-generation`). Le type `protected` signfie que votre token sera demandé pour accéder à l'API. Il faudra aussi fournir des informations supplémentaires pour préciser le hardware nécessaire, telles que le provider, la région, l'accélérateur, le type d'instance et la taille. Vous pouvez consulter la liste des ressources disponibles [ici](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Par ailleurs, vous pouvez aussi créer un inference endpoint manuellement en utilisant l'[interface web](https://ui.endpoints.huggingface.co/new) si c'est plus pratique pour vous. Consultez ce [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced)  pour des détails sur les paramètres avancés et leur utilisation.
 
 La valeur renvoyée par [`create_inference_endpoint`] est un objet [`InferenceEndpoint`]: 
 
@@ -36,18 +36,18 @@ La valeur renvoyée par [`create_inference_endpoint`] est un objet [`InferenceEn
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-C'est une dataclass qui a des informations sur l'endpoitn. Vous pouvez avoir accès à des attributs importants tels que `name`, `repository`, `status`, `task`, `created_at`, `updated_at`, etc. (respectivement le nom, le dépôt d'origine, le statut, la tâche assignée, la date de création et la date de dernière modification). Si vous en avez besoin, vous pouvez aussi avoir accès à la réponse brute du serveur avec `endpoint.raw`.
+C'est une dataclass qui contient des informations sur l'endpoint. Vous pouvez avoir accès à des attributs importants tels que `name`, `repository`, `status`, `task`, `created_at`, `updated_at`, etc. (respectivement le nom, le dépôt d'origine, le statut, la tâche assignée, la date de création et la date de dernière modification). Si vous en avez besoin, vous pouvez aussi avoir accès à la réponse brute du serveur avec `endpoint.raw`.
 
-Une fois que votre endpoint d'inférence est créé, vous pouvez le retrouver sur votre [dashboard personnel](https://ui.endpoints.huggingface.co/).
+Une fois que votre inference endpoint est créé, vous pouvez le retrouver sur votre [dashboard personnel](https://ui.endpoints.huggingface.co/).
 
 ![](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/inference_endpoints_created.png)
 
 #### Utiliser une image personnalisée
 
-Par défaut, l'endpoint d'inférence est construit à partir d'une image docker fournie par Hugging Face. Cependant, i lest possible de préciser n'importe quelle image docker en utilisant le paramètre `custom_image`. Un cas d'usage fréquent est l'utilisation des LLM avec le framework [text-generation-inference](https://github.com/huggingface/text-generation-inference). On peut le faire ainsi:
+Par défaut, l'inference endpoint est construit à partir d'une image docker fournie par Hugging Face. Cependant, il est possible de préciser n'importe quelle image docker en utilisant le paramètre `custom_image`. Un cas d'usage fréquent est l'utilisation des LLM avec le framework [text-generation-inference](https://github.com/huggingface/text-generation-inference). On peut le faire ainsi:
 
 ```python
-# Créé un endpoint d'inférence utilisant le modèle Zephyr-7b-beta sur une TGI
+# Créé un inference endpoint utilisant le modèle Zephyr-7b-beta sur une TGI
 >>> from huggingface_hub import create_inference_endpoint
 >>> endpoint = create_inference_endpoint(
 ...     "aws-zephyr-7b-beta-0486",
@@ -77,12 +77,12 @@ La valeur à passer dans `custom_image` est un dictionnaire contenant un url ver
 
 ### Obtenir ou lister tous les endpoints d"inférence existants
 
-Dans certains cas, vous aurez besoin de gérer les endpoints d'inférence précédemment créés. Si vous connaissez leur nom, vous pouvez les récupérer en utilisant [`get_inference_endpoint`], qui renvoie un objet [`INferenceEndpoint`]. Sinon, vous pouvez utiliser [`list_inference_endpoints`] pour récupérer une liste de tous les endpoints d'inférence. Les deux méthodes acceptent en paramètre optionnel `namespace`. Vous pouvez mettre en `namespace`  n'importe quelle organisation dont vous faites partie. Si vous ne renseignez pas ce paramètre, votre nom d'utilisateur sera utilisé par défaut.
+Dans certains cas, vous aurez besoin de gérer les endpoints d'inférence précédemment créés. Si vous connaissez leur nom, vous pouvez les récupérer en utilisant [`get_inference_endpoint`], qui renvoie un objet [`InferenceEndpoint`]. Sinon, vous pouvez utiliser [`list_inference_endpoints`] pour récupérer une liste de tous les endpoints d'inférence. Les deux méthodes acceptent en paramètre optionnel `namespace`. Vous pouvez mettre en `namespace` n'importe quelle organisation dont vous faites partie. Si vous ne renseignez pas ce paramètre, votre nom d'utilisateur sera utilisé par défaut.
 
 ```py
 >>> from huggingface_hub import get_inference_endpoint, list_inference_endpoints
 
-# Obtiens un endpoint
+# Obtient un endpoint
 >>> get_inference_endpoint("my-endpoint-name")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 
@@ -95,24 +95,24 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 [InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
 ```
 
-## Vérifier le statu de déploiement
+## Vérifier le statut de déploiement
 
-Dans le reste de ce guide, nous supposons que nous possèdons un objet [`InferenceEndpoint`] appelé `endpoint`. Vous avez peut-être remarqué que l'endpoint a un attribut `status` de type [`InferenceEndpointStatus`]. Lorsque l'endpoint d'inférence est déployé et accessible, le statut est `"running"` et l'attribut `url` est défini:
+Dans le reste de ce guide, nous supposons que nous possèdons un objet [`InferenceEndpoint`] appelé `endpoint`. Vous avez peut-être remarqué que l'endpoint a un attribut `status` de type [`InferenceEndpointStatus`]. Lorsque l'inference endpoint est déployé et accessible, le statut est `"running"` et l'attribut `url` est défini:
 
 ```py
 >>> endpoint
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-Avant d'atteindre l'état `"running"`, l'endpoint d'inférence passe généralement par une phase `"initializing"` ou `"pending"`. Vous pouvez récupérer le nouvel état de l'endpoint en lançant [`~InferenceEndpoint.fetch`]. Comme toutes les autres méthodes d'[`InferenceEndpoint`] qui envoient une requête vers le serveur, les attributs internes d'`endpoint` sont mutés sur place:
+Avant d'atteindre l'état `"running"`, l'inference endpoint passe généralement par une phase `"initializing"` ou `"pending"`. Vous pouvez récupérer le nouvel état de l'endpoint en lançant [`~InferenceEndpoint.fetch`]. Comme toutes les autres méthodes d'[`InferenceEndpoint`] qui envoient une requête vers le serveur, les attributs internes d'`endpoint` sont mutés:
 
 ```py
 >>> endpoint.fetch()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-Aulieu de récupérer le statut de l'endpoint d'inférence lorsque vous attendez qu'il soit lancé, vous pouvez directement appeler
-[`~InferenceEndpoint.wait`]. Cet helper prend en entrée les paramètres `timeout` et `fetch_every` (en secondes) et bloquera le thread jusqu'à ce que l'endpoint d'inférence soit déployé. Les valeurs par défaut sont respectivement `None` (pas de timeout) et `5` secondes.
+Aulieu de récupérer le statut de l'inference endpoint lorsque vous attendez qu'il soit lancé, vous pouvez directement appeler
+[`~InferenceEndpoint.wait`]. Cet helper prend en entrée les paramètres `timeout` et `fetch_every` (en secondes) et bloquera le thread jusqu'à ce que l'inference endpoint soit déployé. Les valeurs par défaut sont respectivement `None` (pas de timeout) et `5` secondes.
 
 ```py
 # Endpoint en attente
@@ -124,21 +124,21 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
 huggingface_hub._inference_endpoints.InferenceEndpointTimeoutError: Timeout while waiting for Inference Endpoint to be deployed.
 
-# Attend plus
+# Attend plus longtemps
 >>> endpoint.wait()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-Si `timeout` est définit et que l'endpoint d'inférence prend trop de temps à charger, une erreur [`InferenceEndpointTimeouError`] est levée.
+Si `timeout` est définit et que l'inference endpoint prend trop de temps à charger, une erreur [`InferenceEndpointTimeouError`] est levée.
 
-## Lancez des inférences
+## Lancer des inférences
 
-Une fois que votre endpoint d'inférence est fonctionnel, vous pouvez enfin faire de l'inférence avec!
+Une fois que votre inference endpoint est fonctionnel, vous pouvez enfin faire de l'inférence!
 
 [`InferenceEndpoint`] a deux propriétés `client` et `async_client` qui renvoient respectivement des objets [`InferenceClient`] et [`AsyncInferenceClient`].
 
 ```py
-# Lancez un tâche de génération de texte:
+# Lance un tâche de génération de texte:
 >>> endpoint.client.text_generation("I am")
 ' not a fan of the idea of a "big-budget" movie. I think it\'s a'
 
@@ -146,7 +146,7 @@ Une fois que votre endpoint d'inférence est fonctionnel, vous pouvez enfin fair
 >>> await endpoint.async_client.text_generation("I am")
 ```
 
-Si l'endpoint d'inférence n'est pas opérationnel, une exception [`InferenceEndpointError`] est levée:
+Si l'inference endpoint n'est pas opérationnel, une exception [`InferenceEndpointError`] est levée:
 
 ```py
 >>> endpoint.client
@@ -158,21 +158,21 @@ Pour plus de détails sur l'utilisation d'[`InferenceClient`], consultez le [gui
 ## Gérer les cycles de vie
 
 
-Maintenant que nous avons vu comment créer un endpoint d'inférence et faire de l'inférence avec, regardons comment gérer son cycle de vie.
+Maintenant que nous avons vu comment créer un inference endpoint et faire de l'inférence avec, regardons comment gérer son cycle de vie.
 
 <Tip>
 
-Dans cette section, nous verrons des méthodes telles que [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] et [`~InferenceEndpoint.delete`]. Toutes ces méthodes sont des alias ajoutés à [`InferenceEndpoint`]. Si vous préférez, vous pouvez aussi utiliser les méthodes génériques définies dans `HfApi`: [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`], and [`delete_inference_endpoint`].
+Dans cette section, nous verrons des méthodes telles que [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] et [`~InferenceEndpoint.delete`]. Toutes ces méthodes sont des alias ajoutés à [`InferenceEndpoint`]. Si vous le préférez, vous pouvez aussi utiliser les méthodes génériques définies dans `HfApi`: [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`], et [`delete_inference_endpoint`].
 
 </Tip>
 
 ### Mettre en pause ou scale à zéro
 
-Pour réduire les coûts lorsque votre endpoint d'inférence n'est pas utilisé, vous pouvez choisir soit de le mettre en pause en utilisant [`~InferenceEndpoint.pause`] ou de réaliser un scaling à zéro en utilisant [`~InferenceEndpoint.scale_to_zero`].
+Pour réduire les coûts lorsque votre inference endpoint n'est pas utilisé, vous pouvez choisir soit de le mettre en pause en utilisant [`~InferenceEndpoint.pause`] ou de réaliser un scaling à zéro en utilisant [`~InferenceEndpoint.scale_to_zero`].
 
 <Tip>
 
-Un endpoint d'inférence qui est *en pause* ou *scalé à zéro* ne coute rien. La différence entre ces deux méthodes est qu'un endpoint *en pause* doit être *relancé* explicitement en utilisant [`~InferenceEndpoint.resume`]. A l'opposé, un endpoint *scalé à zéro* sera automatiquement lancé si un appel d'inférence est fait, avec un délai de "cold start" (temps de démarrage des instances) additionnel. Un endpoint d'inférence peut aussi être configuré pour scale à zero automatiquement après une certaine durée d'inactivité.
+Un inference endpoint qui est *en pause* ou *scalé à zéro* ne coute rien. La différence entre ces deux méthodes est qu'un endpoint *en pause* doit être *relancé* explicitement en utilisant [`~InferenceEndpoint.resume`]. A l'opposé, un endpoint *scalé à zéro* sera automatiquement lancé si un appel d'inférence est fait, avec un délai de "cold start" (temps de démarrage des instances) additionnel. Un inference endpoint peut aussi être configuré pour scale à zero automatiquement après une certaine durée d'inactivité.
 
 </Tip>
 
@@ -193,7 +193,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ### Mettre à jour le modèle ou le hardware de l'endpoint
 
-Dans certains cas, vous aurez besoin de mettre à jour votre endpoint d'inférence sans en créer de nouveau. Vous avez le choix entre mettre à jour le modèle hébergé par l'endpoint ou le hardware utilisé pour faire tourner le modèle. Vous pouvez faire ça en utilisant [`~InferenceEndpoint.update`]:
+Dans certains cas, vous aurez besoin de mettre à jour votre inference endpoint sans en créer de nouveau. Vous avez le choix entre mettre à jour le modèle hébergé par l'endpoint ou le hardware utilisé pour faire tourner le modèle. Vous pouvez le faire en utilisant [`~InferenceEndpoint.update`]:
 
 ```py
 # Change le modèle utilisé
@@ -211,18 +211,18 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ### Supprimer un endpoint
 
-Si vous n'utilisez plus un endpoint d'inférence, vous pouvez simplement appeler la méthode [`~InferenceEndpoint.delete()`].
+Si vous n'utilisez plus un inference endpoint, vous pouvez simplement appeler la méthode [`~InferenceEndpoint.delete()`].
 
 <Tip warning={true}>
 
-Cette action est irréversible et supprimera complètement l'endpoint, dont sa configuration, ses logs et ses métriques. Vous ne pouvez pas retrouver un endpoint d'inférence supprimé.
+Cette action est irréversible et supprimera complètement l'endpoint, dont sa configuration, ses logs et ses métriques. Vous ne pouvez pas retrouver un inference endpoint supprimé.
 
 </Tip>
 
 
 ## Exemple de A à Z
 
-Un cas d'usage typique d'Hugging Face pour les endpoints d'inférence est des gérer une liste de tâche d'un coup pour limiter les coûts en infrastructure. Vous pouvez automatiser ce processus en utilisant ce que nous avons vu dans ce guide:
+Un cas d'usage typique d'Hugging Face pour les endpoints d'inférence est de gérer une liste de tâche d'un coup pour limiter les coûts en infrastructure. Vous pouvez automatiser ce processus en utilisant ce que nous avons vu dans ce guide:
 
 ```py
 >>> import asyncio
@@ -243,7 +243,7 @@ Un cas d'usage typique d'Hugging Face pour les endpoints d'inférence est des g�
 >>> endpoint.pause()
 ```
 
-Ou si votre endpoint d'inférence existe et est en pause:
+Ou si votre inference endpoint existe et est en pause:
 
 ```py
 >>> import asyncio
