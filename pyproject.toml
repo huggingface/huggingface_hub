@@ -40,11 +40,11 @@ exclude = [
     "dist",
     "venv",
 ]
+line-length = 119
 # Ignored rules:
 # "E501" -> line length violation
-ignore = ["E501"]
-line-length = 119
-select = ["E", "F", "I", "W"]
+lint.ignore = ["E501"]
+lint.select = ["E", "F", "I", "W"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["huggingface_hub"]

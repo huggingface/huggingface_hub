@@ -95,6 +95,15 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item["score"], float)
             self.assertIsInstance(item["label"], str)
 
+    def test_audio_to_audio(self) -> None:
+        output = self.client.audio_to_audio(self.audio_file)
+        assert isinstance(output, list)
+        assert len(output) > 0
+        for item in output:
+            assert isinstance(item["label"], str)
+            assert isinstance(item["blob"], bytes)
+            assert item["content-type"] == "audio/flac"
+
     def test_automatic_speech_recognition(self) -> None:
         output = self.client.automatic_speech_recognition(self.audio_file)
         self.assertEqual(output, "A MAN SAID TO THE UNIVERSE SIR I EXIST")
