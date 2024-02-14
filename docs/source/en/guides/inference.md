@@ -121,6 +121,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | Domain | Task                           | Supported    | Documentation                             |
 |--------|--------------------------------|--------------|------------------------------------|
 | Audio | [Audio Classification](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
+| Audio | [Audio-to-Audio](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
 | | [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
 | | [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
 | Computer Vision | [Image Classification](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
