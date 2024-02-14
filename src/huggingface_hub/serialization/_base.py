@@ -1,24 +1,35 @@
-import re
-from typing import Any, Dict, List, Optional, Tuple, TypeVar
-
-from .utils._runtime import is_numpy_available, is_tf_available, is_torch_available
+# Copyright 2024 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains helpers to split tensors into shards."""
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 
 TensorT = TypeVar("TensorT")
+TensorSizeFn_T = Callable[[TensorT], int]
+StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-#############################
-# Framework-agnostic helper #
-#############################
+MAX_SHARD_SIZE = 5_000_000
+FILENAME_PATTERN = "model{suffix}.safetensors"
 
 
 def split_state_dict_into_shards(
     state_dict: Dict[str, TensorT],
-    max_shard_size: int = 5_000_000,
-    # Examples for filename_pattern:
-    # - "model{suffix}.safetensors"
-    # - "pytorch_model{suffix}.bin"
-    # - "tf_model{suffix}.h5"
-    filename_pattern: str = "model{suffix}.safetensors",
+    *,
+    get_tensor_size: TensorSizeFn_T,
+    filename_pattern: str = FILENAME_PATTERN,
+    max_shard_size: int = MAX_SHARD_SIZE,
+    get_storage_id: StorageIDFn_T = lambda tensor: None,
 ) -> Tuple[Dict[str, Dict[str, TensorT]], Optional[Dict]]:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -36,7 +47,7 @@ def split_state_dict_into_shards(
     </Tip>
 
     Args:
-        state_dict (`Dict[str, torch.Tensor]`):
+        state_dict (`Dict[str, Tensor]`):
             The state dictionary to save.
         max_shard_size (`int` or `str`, *optional*):
             The maximum size of each shard, in bytes. Defaults to 5GB.
@@ -44,6 +55,12 @@ def split_state_dict_into_shards(
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
             Defaults to `"model{suffix}.safetensors"`.
+        get_tensor_size (`Callable[[Tensor], int]`):
+            A function that returns the size of a tensor in bytes.
+        get_storage_id (`Callable[[Tensor], Optional[Any]]`, *optional*):
+            A function that returns a unique identifier to a tensor storage. Multiple different tensors can share the
+            same underlying storage. This identifier is guaranteed to be unique and constant for this tensor's storage
+            during its lifetime. Two tensor storages with non-overlapping lifetimes may have the same id.
     """
     storage_id_to_shard_id: Dict[Any, int] = {}
 
@@ -59,14 +76,14 @@ def split_state_dict_into_shards(
             continue
 
         # If a `tensor` shares the same underlying storage as another tensor, we put `tensor` in the same `block`
-        storage_id = _get_storage_id(tensor)
+        storage_id = get_storage_id(tensor)
         if storage_id is not None and storage_id in storage_id_to_shard_id:
             shard_id = storage_id_to_shard_id[storage_id]
             shard_list[shard_id][key] = tensor
             continue
 
         # Compute tensor size
-        tensor_size = _get_tensor_size(tensor)
+        tensor_size = get_tensor_size(tensor)
 
         # If this tensor is bigger than the maximal size, we put it in its own shard
         if tensor_size > max_shard_size:
@@ -113,71 +130,47 @@ def split_state_dict_into_shards(
     return (filename_to_tensors, index)
 
 
-##############################
-# Framework-specific helpers #
-##############################
+# ##############################
+# # Framework-specific helpers #
+# ##############################
 
 
-def _get_storage_id(tensor: TensorT) -> Any:
-    """
-    Returns the storage id of `tensor` if it has one, else `None`.
-
-    Storage id is used to determine if two tensors share the same underlying storage.
-    When that's the case, we put them in the same shard.
-    """
-    if is_torch_available():
-        # TODO: implement this for torch (see https://github.com/huggingface/transformers/blob/74d9d0cebb0263a3f8ab9c280569170cc74651d0/src/transformers/pytorch_utils.py#L283)
-        pass
-    return None
+# def get_storage_id(tensor: TensorT) -> Any:
+#     return _get_framework_helpers(tensor).get_storage_id(tensor)
 
 
-def _get_tensor_size(tensor: TensorT) -> int:
-    """
-    Returns the size (in bytes) occupied by `tensor`.
-
-    Supports PyTorch, TensorFlow and Numpy tensors.
-    """
-    if is_torch_available():
-        import torch
-
-        if isinstance(tensor, torch.Tensor):
-            return tensor.numel() * tensor.element_size()
-
-    if is_tf_available():
-        import tensorflow as tf
-
-        if isinstance(tensor, tf.Tensor):
-            return tensor.numpy().size * _dtype_byte_size_tf(tensor.dtype)
-
-    if is_numpy_available():
-        import numpy as np
-
-        if isinstance(tensor, np.ndarray):
-            return tensor.nbytes
-
-    raise ValueError(f"Unknown tensor type. Only Torch, TensorFlow and Numpy are supported, not {type(tensor)}")
+# def get_tensor_size(tensor: TensorT) -> int:
+#     return _get_framework_helpers(tensor).get_tensor_size(tensor)
 
 
-def _dtype_byte_size_tf(dtype) -> float:
-    """
-    Returns the size (in bytes) occupied by one parameter of type `dtype`.
+# def _get_framework_helpers(tensor: TensorT):
+#     """
+#     Returns framework-specific helpers depending on the tensor type.
 
-    Taken from https://github.com/huggingface/transformers/blob/74d9d0cebb0263a3f8ab9c280569170cc74651d0/src/transformers/modeling_tf_utils.py#L608.
-    NOTE: why not `tensor.numpy().nbytes`?
+#     Supports PyTorch, TensorFlow and Numpy.
+#     """
+#     if is_torch_available():
+#         import torch
 
-    Example:
+#         if isinstance(tensor, torch.Tensor):
+#             from . import _pytorch_helpers
 
-    ```py
-    >>> dtype_byte_size(tf.float32)
-    4
-    ```
-    """
-    import tensorflow as tf
+#             return _pytorch_helpers
 
-    if dtype == tf.bool:
-        return 1 / 8
-    bit_search = re.search(r"[^\d](\d+)$", dtype.name)
-    if bit_search is None:
-        raise ValueError(f"`dtype` is not a valid dtype: {dtype}.")
-    bit_size = int(bit_search.groups()[0])
-    return bit_size // 8
+#     if is_tf_available():
+#         import tensorflow as tf
+
+#         if isinstance(tensor, tf.Tensor):
+#             from . import _tensorflow_helpers
+
+#             return _tensorflow_helpers
+
+#     if is_numpy_available():
+#         import numpy as np
+
+#         if isinstance(tensor, np.ndarray):
+#             from . import _numpy_helpers
+
+#             return _numpy_helpers
+
+#     raise ValueError(f"Unknown tensor type. Only Torch, TensorFlow and Numpy are supported, not '{type(tensor)}'.")

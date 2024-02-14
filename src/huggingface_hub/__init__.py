@@ -290,6 +290,12 @@ _SUBMOD_ATTRS = {
     "repository": [
         "Repository",
     ],
+    "serialization": [
+        "split_numpy_state_dict_into_shards",
+        "split_state_dict_into_shards",
+        "split_tf_state_dict_into_shards",
+        "split_torch_state_dict_into_shards",
+    ],
     "utils": [
         "CacheNotFound",
         "CachedFileInfo",
@@ -633,6 +639,11 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
+    from .serialization import (
+        split_numpy_state_dict_into_shards,  # noqa: F401
+        split_tf_state_dict_into_shards,  # noqa: F401
+        split_torch_state_dict_into_shards,  # noqa: F401
+    )
     from .utils import (
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
