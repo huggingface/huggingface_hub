@@ -333,7 +333,7 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> audio_output = client.audio_to_audio("audio.flac")
-        >>> for i, item in enumerate(output):
+        >>> for i, item in enumerate(audio_output):
         >>>     with open(f"output_{i}.flac", "wb") as f:
                     f.write(item["blob"])
         ```

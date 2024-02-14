@@ -330,7 +330,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> audio_output = await client.audio_to_audio("audio.flac")
-        >>> async for i, item in enumerate(output):
+        >>> async for i, item in enumerate(audio_output):
         >>>     with open(f"output_{i}.flac", "wb") as f:
                     f.write(item["blob"])
         ```
