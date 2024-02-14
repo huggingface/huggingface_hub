@@ -72,9 +72,6 @@ _SUBMOD_ATTRS = {
         "MultiCommitException",
         "plan_multi_commits",
     ],
-    "_shards": [
-        "split_state_dict_into_shards",
-    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -433,7 +430,6 @@ if TYPE_CHECKING:  # pragma: no cover
         MultiCommitException,  # noqa: F401
         plan_multi_commits,  # noqa: F401
     )
-    from ._shards import split_state_dict_into_shards  # noqa: F401
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
         SpaceHardware,  # noqa: F401
@@ -641,6 +637,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .repository import Repository  # noqa: F401
     from .serialization import (
         split_numpy_state_dict_into_shards,  # noqa: F401
+        split_state_dict_into_shards,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
     )
