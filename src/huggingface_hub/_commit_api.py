@@ -17,6 +17,7 @@ from tqdm.contrib.concurrent import thread_map
 from huggingface_hub import get_session
 
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
+from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     EntryNotFoundError,
@@ -531,7 +532,7 @@ def _fetch_files_to_copy(
 ) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
     """
     Fetch information about the files to copy.
-    
+
     For LFS files, we only need their metadata (file size and sha256) while for regular files
     we need to download the raw content from the Hub.
 
@@ -582,7 +583,7 @@ def _fetch_files_to_copy(
                     # TODO: (optimization) download regular files to copy concurrently
                     headers = build_hf_headers(token=token)
                     url = hf_hub_url(
-                        endpoint=endpoint
+                        endpoint=endpoint,
                         repo_type=repo_type,
                         repo_id=repo_id,
                         revision=src_revision or revision,
