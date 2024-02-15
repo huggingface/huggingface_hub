@@ -577,7 +577,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         except:  # noqa: E722
             return False
 
-    def url(self, path):
+    def url(self, path: str) -> str:
         """Get the HTTP URL of the given path"""
         resolved_path = self.resolve_path(path)
         url = hf_hub_url(
@@ -587,7 +587,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             revision=resolved_path.revision,
             endpoint=self.endpoint,
         )
-        url = url.replace("/resolve/", "/tree/", 1) if self.isdir(path) else url
+        if self.isdir(path) 
+            url = url.replace("/resolve/", "/tree/", 1)
         return url
 
     @property
@@ -756,7 +757,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self.loc += len(out)
         return out
 
-    def url(self):
+    def url(self) -> str:
         return self.fs.url(self.path)
 
     def __del__(self):
