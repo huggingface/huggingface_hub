@@ -1538,8 +1538,13 @@ class HfApi:
                 params = self._unpack_model_filter(filter)
             else:
                 params = self._build_filter_query(
-                    author=author, library=library, language=language, model_name=model_name,
-                    task=task, trained_dataset=trained_dataset, tags=tags
+                    author=author,
+                    library=library,
+                    language=language,
+                    model_name=model_name,
+                    task=task,
+                    trained_dataset=trained_dataset,
+                    tags=tags,
                 )
 
                 if isinstance(filter, str):
@@ -1637,12 +1642,15 @@ class HfApi:
         return query_dict
 
     def _build_filter_query(
-            self,
-            author: Optional[str] = None, library: Optional[Union[str, List[str]]] = None,
-            language: Optional[Union[str, List[str]]] = None, model_name: Optional[str] = None,
-            task: Optional[Union[str, List[str]]] = None, trained_dataset: Optional[Union[str, List[str]]] = None,
-            tags: Optional[Union[str, List[str]]] = None
-    ) -> Dict[str, Union[str, Tuple[str, ...]]]:
+        self,
+        author: Optional[str] = None,
+        library: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        model_name: Optional[str] = None,
+        task: Optional[Union[str, List[str]]] = None,
+        trained_dataset: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
+    ) -> Dict[str, Any]:
         """
         Builds a filter query for the list_models methods.
         """
@@ -1659,15 +1667,12 @@ class HfApi:
 
         # Handling library
         if library:
-            filter_list.extend(
-                [library] if isinstance(library, str) else library
-            )
+            filter_list.extend([library] if isinstance(
+                library, str) else library)
 
         # Handling tasks
         if task:
-            filter_list.extend(
-                [task] if isinstance(task, str) else task
-            )
+            filter_list.extend([task] if isinstance(task, str) else task)
 
         # Handling trained_dataset
         if trained_dataset:
@@ -1680,17 +1685,14 @@ class HfApi:
 
         # Handling language
         if language:
-            filter_list.extend(
-                [language] if isinstance(language, str) else language
-            )
+            filter_list.extend([language] if isinstance(
+                language, str) else language)
 
         # Handling tags
         if tags:
-            filter_list.extend(
-                [tags] if isinstance(tags, str) else tags
-            )
+            filter_list.extend([tags] if isinstance(tags, str) else tags)
 
-        query_dict: Dict[str, Union[str, Tuple[str, ...]]] = {}
+        query_dict: Dict[str, Any] = {}
 
         if model_str:
             query_dict["search"] = model_str
