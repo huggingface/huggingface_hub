@@ -899,12 +899,11 @@ class CommitApiTest(HfApiCommonTest):
                 CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs Copy (1).bin"),
             ],
         )
-        with self.assertRaises(NotImplementedError):
-            self._api.create_commit(
-                repo_id=repo_id,
-                commit_message="Copy regular file.",
-                operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file Copy.txt")],
-            )
+        self._api.create_commit(
+            repo_id=repo_id,
+            commit_message="Copy regular file.",
+            operations=[CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file Copy.txt")],
+        )
         with self.assertRaises(EntryNotFoundError):
             self._api.create_commit(
                 repo_id=repo_id,
@@ -917,6 +916,7 @@ class CommitApiTest(HfApiCommonTest):
         # Check repo files
         repo_files = self._api.list_repo_files(repo_id=repo_id)
         self.assertIn("file.txt", repo_files)
+        self.assertIn("file Copy.txt", repo_files)
         self.assertIn("lfs.bin", repo_files)
         self.assertIn("lfs Copy.bin", repo_files)
         self.assertIn("lfs Copy (1).bin", repo_files)
