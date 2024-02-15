@@ -75,7 +75,7 @@ class DatasetFilter:
     matter.
 
     <Tip warning={true}>
-        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_datasets`]
+        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_datasets`].
     </Tip>
 
     Args:
@@ -241,7 +241,7 @@ class ModelFilter:
 
     def __post_init__(self):
         warnings.warn(
-            "ModelFilter is being and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
+            "ModelFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
             FutureWarning,
             stacklevel=2,
         )
