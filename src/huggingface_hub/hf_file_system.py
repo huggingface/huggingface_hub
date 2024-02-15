@@ -667,7 +667,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 path=self.resolved_path.unresolve(),
             )
 
-    def url(self):
+    def url(self) -> str:
         return self.fs.url(self.path)
 
 
