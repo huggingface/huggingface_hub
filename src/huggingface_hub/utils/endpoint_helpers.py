@@ -15,6 +15,7 @@ with the aim for a user-friendly interface.
 """
 import math
 import re
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -40,7 +41,8 @@ def _is_emission_within_treshold(model_info: "ModelInfo", minimum_threshold: flo
         `bool`: Whether the model's emission is within the given threshold.
     """
     if minimum_threshold is None and maximum_threshold is None:
-        raise ValueError("Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
+        raise ValueError(
+            "Both `minimum_threshold` and `maximum_threshold` cannot both be `None`")
     if minimum_threshold is None:
         minimum_threshold = -1
     if maximum_threshold is None:
@@ -107,6 +109,9 @@ class DatasetFilter:
             the Hub by the specific task such as `speech_emotion_recognition` or
             `paraphrase`.
 
+    Note:
+        The DatasetFilter class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.
+
     Examples:
 
     ```py
@@ -151,6 +156,13 @@ class DatasetFilter:
     task_categories: Optional[Union[str, List[str]]] = None
     task_ids: Optional[Union[str, List[str]]] = None
 
+    def __post_init__(self):
+        warnings.warn(
+            "DatasetFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
 
 @dataclass
 class ModelFilter:
@@ -183,6 +195,10 @@ class ModelFilter:
             A string tag or a list of string tags of the trained dataset for a
             model on the Hub.
 
+    Note:
+        The ModelFilter class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.
+
+    Examples:
 
     ```python
     >>> from huggingface_hub import ModelFilter
@@ -221,3 +237,10 @@ class ModelFilter:
     task: Optional[Union[str, List[str]]] = None
     trained_dataset: Optional[Union[str, List[str]]] = None
     tags: Optional[Union[str, List[str]]] = None
+
+    def __post_init__(self):
+        warnings.warn(
+            "ModelFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
