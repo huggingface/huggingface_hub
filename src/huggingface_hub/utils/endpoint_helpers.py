@@ -74,6 +74,10 @@ class DatasetFilter:
     compatible with the REST API. For all parameters capitalization does not
     matter.
 
+    <Tip warning={true}>
+        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_datasets`]
+    </Tip>
+
     Args:
         author (`str`, *optional*):
             A string that can be used to identify datasets on
@@ -107,9 +111,6 @@ class DatasetFilter:
             A string or list of strings that can be used to identify datasets on
             the Hub by the specific task such as `speech_emotion_recognition` or
             `paraphrase`.
-
-    Note:
-        The DatasetFilter class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.
 
     Examples:
 
@@ -157,7 +158,7 @@ class DatasetFilter:
 
     def __post_init__(self):
         warnings.warn(
-            "DatasetFilter is being deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
+            "DatasetFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
             category=FutureWarning,
             stacklevel=2,
         )
@@ -169,6 +170,10 @@ class ModelFilter:
     A class that converts human-readable model search parameters into ones
     compatible with the REST API. For all parameters capitalization does not
     matter.
+
+    <Tip warning={true}>
+        The `ModelFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_models`].
+    </Tip>
 
     Args:
         author (`str`, *optional*):
@@ -193,9 +198,6 @@ class ModelFilter:
         trained_dataset (`str` or `List`, *optional*):
             A string tag or a list of string tags of the trained dataset for a
             model on the Hub.
-
-    Note:
-        The ModelFilter class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.
 
     Examples:
 
@@ -239,7 +241,7 @@ class ModelFilter:
 
     def __post_init__(self):
         warnings.warn(
-            "ModelFilter is being deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
+            "ModelFilter is being and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
             FutureWarning,
             stacklevel=2,
         )
