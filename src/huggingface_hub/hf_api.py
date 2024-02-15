@@ -1519,9 +1519,9 @@ class HfApi:
                 )
 
                 if isinstance(filter, str):
-                    params.update({"filter": params.get("filter", ()) + (filter,)})
-                elif isinstance(filter, (Iterable)):
-                    params.update({"filter": params.get("filter", ()) + tuple(filter)})
+                    params.update({"filter": params.get("filter", set()).add(filter)})
+                else:
+                    params.update({"filter": params.get("filter", set()).update(filter)})
 
             params.update({"full": True})
         if author is not None:
@@ -1660,7 +1660,7 @@ class HfApi:
         if model_str:
             query_dict["search"] = model_str
         if filter_list:
-            query_dict["filter"] = tuple(filter_list)
+            query_dict["filter"] = set(filter_list)
 
         return query_dict
 
@@ -1806,7 +1806,10 @@ class HfApi:
                     task_ids=task_ids,
                 )
 
-                params.update({"filter": params.get("filter", ()) + (filter,)})
+                if isinstance(filter, str):
+                    params.update({"filter": params.get("filter", set()).add(filter)})
+                else:
+                    params.update({"filter": params.get("filter", set()).update(filter)})
         if author is not None:
             params.update({"author": author})
         if search is not None:
@@ -1916,7 +1919,7 @@ class HfApi:
         if dataset_str:
             query_dict["search"] = dataset_str
         if filter_list:
-            query_dict["filter"] = tuple(filter_list)
+            query_dict["filter"] = set(filter_list)
 
         return query_dict
 
