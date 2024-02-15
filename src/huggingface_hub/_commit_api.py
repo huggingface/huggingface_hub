@@ -528,12 +528,12 @@ def _fetch_files_to_copy(
     token: Optional[str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]]:
+) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
     """
-    Requests the Hub files to be copied.
-
-    Contrary to regular files, we just need to return the information about LFS files
-    to be able to copy them (in particular their sha256).
+    Fetch information about the files to copy.
+    
+    For LFS files, we only need their metadata (file size and sha256) while for regular files
+    we need to download the raw content from the Hub.
 
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
@@ -549,9 +549,9 @@ def _fetch_files_to_copy(
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, io.IOBase]]]`
+    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
         Key is the file path and revision of the file to copy.
-        Value is the file-like object or the file information as a RepoFile.
+        Value is the raw content as bytes (for regular files) or the file information as a RepoFile (for LFS files).
 
     Raises:
         [`~utils.HfHubHTTPError`]
@@ -562,7 +562,7 @@ def _fetch_files_to_copy(
     from .hf_api import HfApi, RepoFolder
 
     hf_api = HfApi(endpoint=endpoint, token=token)
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]] = {}
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
@@ -579,17 +579,18 @@ def _fetch_files_to_copy(
                 if src_repo_file.lfs:
                     files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
                 else:
-                    from .hf_file_system import HfFileSystem, HfFileSystemResolvedPath
-
-                    resolved_path = HfFileSystemResolvedPath(
+                    # TODO: (optimization) download regular files to copy concurrently
+                    headers = build_hf_headers(token=token)
+                    url = hf_hub_url(
+                        endpoint=endpoint
                         repo_type=repo_type,
                         repo_id=repo_id,
                         revision=src_revision or revision,
-                        path_in_repo=src_repo_file.path,
+                        filename=src_repo_file.path,
                     )
-                    files_to_copy[(src_repo_file.path, src_revision)] = HfFileSystem(
-                        endpoint=endpoint, token=token
-                    ).open(resolved_path.unresolve(), "rb")
+                    response = get_session().get(url, headers=headers)
+                    hf_raise_for_status(response)
+                    files_to_copy[(src_repo_file.path, src_revision)] = response.content
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
@@ -601,7 +602,7 @@ def _fetch_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", io.IOBase]],
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -664,11 +665,11 @@ def _prepare_commit_payload(
         # 2.d. Case copying a file or folder
         elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
-            if isinstance(file_to_copy, io.IOBase):
+            if isinstance(file_to_copy, bytes):
                 yield {
                     "key": "file",
                     "value": {
-                        "content": base64.b64encode(file_to_copy.read()).decode(),
+                        "content": base64.b64encode(file_to_copy).decode(),
                         "path": operation.path_in_repo,
                         "encoding": "base64",
                     },
@@ -684,7 +685,7 @@ def _prepare_commit_payload(
                 }
             else:
                 raise ValueError(
-                    "Malformed files_to_copy (should be file like objects or RepoFile objects with LFS info."
+                    "Malformed files_to_copy (should be raw file content as bytes or RepoFile objects with LFS info."
                 )
         # 2.e. Never expected to happen
         else:
