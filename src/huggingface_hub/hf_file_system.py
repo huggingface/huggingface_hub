@@ -587,7 +587,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             revision=resolved_path.revision,
             endpoint=self.endpoint,
         )
-        if self.isdir(path) 
+        if self.isdir(path):
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
