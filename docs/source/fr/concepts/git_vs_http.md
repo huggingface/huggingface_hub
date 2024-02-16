@@ -25,7 +25,7 @@ L'avantage principal de [`Repository`] est que cette méthode permet de garder u
 copie en local du dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
 car cette copie locale doit être mise à jour et maintenue constamment. C'est une méthode
 analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
-et push les changement lorsqu'il travaille sur une fonctionnalité.
+et push les changements lorsqu'il travaille sur une nouvelle fonctionnalité.
 Toutefois, dans le contexte du machine learning, elle n'est pas toujours pertinente car
 les utilisateurs ont parfois juste besoin d'avoir
 les poids des modèles pour l'inférence ou de convertir ces poids d'un format à un autre sans avoir à cloner
