@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Paradigme Git vs HTTP
+# Git ou HTTP?
 
 `huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
 qui est une collection de dépots Git (modèles, datasets ou spaces).
