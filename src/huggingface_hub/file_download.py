@@ -50,6 +50,7 @@ from .utils import (
     FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
+    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SoftTemporaryDirectory,
@@ -361,28 +362,11 @@ def http_user_agent(
     )
 
 
-class OfflineModeIsEnabled(ConnectionError):
-    pass
-
-
-def _raise_if_offline_mode_is_enabled(msg: Optional[str] = None):
-    """Raise a OfflineModeIsEnabled error (subclass of ConnectionError) if
-    HF_HUB_OFFLINE is True."""
-    if constants.HF_HUB_OFFLINE:
-        raise OfflineModeIsEnabled(
-            "Offline mode is enabled." if msg is None else "Offline mode is enabled. " + str(msg)
-        )
-
-
 def _request_wrapper(
     method: HTTP_METHOD_T, url: str, *, follow_relative_redirects: bool = False, **params
 ) -> requests.Response:
-    """Wrapper around requests methods to add several features.
-
-    What it does:
-    1. Ensure offline mode is disabled (env variable `HF_HUB_OFFLINE` not set to 1). If enabled, a
-       `OfflineModeIsEnabled` exception is raised.
-    2. Follow relative redirects if `follow_relative_redirects=True` even when `allow_redirection=False`.
+    """Wrapper around requests methods to follow relative redirects if `follow_relative_redirects=True` even when
+    `allow_redirection=False`.
 
     Args:
         method (`str`):
@@ -396,10 +380,7 @@ def _request_wrapper(
         **params (`dict`, *optional*):
             Params to pass to `requests.request`.
     """
-    # 1. Check online mode
-    _raise_if_offline_mode_is_enabled(f"Tried to reach {url}")
-
-    # 2. Force relative redirection
+    # Recursively follow relative redirects
     if follow_relative_redirects:
         response = _request_wrapper(
             method=method,
@@ -433,18 +414,38 @@ def http_get(
     url: str,
     temp_file: BinaryIO,
     *,
-    proxies=None,
+    proxies: Optional[Dict] = None,
     resume_size: float = 0,
     headers: Optional[Dict[str, str]] = None,
     expected_size: Optional[int] = None,
+    displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
-):
+) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
 
     If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely a
     transient error (network outage?). We log a warning message and try to resume the download a few times before
     giving up. The method gives up after 5 attempts if no new data has being received from the server.
+
+    Args:
+        url (`str`):
+            The URL of the file to download.
+        temp_file (`BinaryIO`):
+            The file-like object where to save the file.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to `requests.request`.
+        resume_size (`float`, *optional*):
+            The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
+            positive number, the download will resume at the given position.
+        headers (`dict`, *optional*):
+            Dictionary of HTTP Headers to send with the request.
+        expected_size (`int`, *optional*):
+            The expected size of the file to download. If set, the download will raise an error if the size of the
+            received content is different from the expected one.
+        displayed_filename (`str`, *optional*):
+            The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
+            not set, the filename is guessed from the URL or the `Content-Disposition` header.
     """
     hf_transfer = None
     if HF_HUB_ENABLE_HF_TRANSFER:
@@ -477,21 +478,22 @@ def http_get(
     #       If the file is compressed, the number of bytes in the saved file will be higher than 'total'.
     total = resume_size + int(content_length) if content_length is not None else None
 
-    displayed_name = url
-    content_disposition = r.headers.get("Content-Disposition")
-    if content_disposition is not None:
-        match = HEADER_FILENAME_PATTERN.search(content_disposition)
-        if match is not None:
-            # Means file is on CDN
-            displayed_name = match.groupdict()["filename"]
+    if displayed_filename is None:
+        displayed_filename = url
+        content_disposition = r.headers.get("Content-Disposition")
+        if content_disposition is not None:
+            match = HEADER_FILENAME_PATTERN.search(content_disposition)
+            if match is not None:
+                # Means file is on CDN
+                displayed_filename = match.groupdict()["filename"]
 
     # Truncate filename if too long to display
-    if len(displayed_name) > 40:
-        displayed_name = f"(…){displayed_name[-40:]}"
+    if len(displayed_filename) > 40:
+        displayed_filename = f"(…){displayed_filename[-40:]}"
 
     consistency_error_message = (
         f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_name}).\nWe are sorry for the inconvenience. Please retry download and"
+        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry download and"
         " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
         " know by opening an issue on https://github.com/huggingface/huggingface_hub."
     )
@@ -502,8 +504,10 @@ def http_get(
         unit_scale=True,
         total=total,
         initial=resume_size,
-        desc=displayed_name,
-        disable=bool(logger.getEffectiveLevel() == logging.NOTSET),
+        desc=displayed_filename,
+        disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
+        # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+        # see https://github.com/huggingface/huggingface_hub/pull/2000
     ) as progress:
         if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
@@ -1298,11 +1302,14 @@ def hf_hub_download(
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
-            # Useful for lfs blobs that are stored on a CDN.
+            #
+            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
+            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
             if metadata.location != url:
                 url_to_download = metadata.location
-                # Remove authorization header when downloading a LFS blob
-                headers.pop("authorization", None)
+                if urlparse(url).netloc != urlparse(url_to_download).netloc:
+                    # Remove authorization header when downloading a LFS blob
+                    headers.pop("authorization", None)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
             # Actually raise for those subclasses of ConnectionError
             raise
@@ -1336,6 +1343,10 @@ def hf_hub_download(
             head_call_error = error
             pass
 
+    assert (
+        local_files_only or etag is not None or head_call_error is not None
+    ), "etag is empty due to uncovered problems"
+
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
     # 2. we don't have a connection
@@ -1349,9 +1360,14 @@ def hf_hub_download(
     if etag is None:
         # In those cases, we cannot force download.
         if force_download:
-            raise ValueError(
-                "We have no connection or you passed local_files_only, so force_download is not an accepted option."
-            )
+            if local_files_only:
+                raise ValueError("Cannot pass 'force_download=True' and 'local_files_only=True' at the same time.")
+            elif isinstance(head_call_error, OfflineModeIsEnabled):
+                raise ValueError(
+                    "Cannot pass 'force_download=True' when offline mode is enabled."
+                ) from head_call_error
+            else:
+                raise ValueError("Force download failed due to the above error.") from head_call_error
 
         # Try to get "commit_hash" from "revision"
         commit_hash = None
@@ -1383,7 +1399,7 @@ def hf_hub_download(
                 " hf.co look-ups and downloads online, set 'local_files_only' to False."
             )
         elif isinstance(head_call_error, RepositoryNotFoundError) or isinstance(head_call_error, GatedRepoError):
-            # Repo not found => let's raise the actual error
+            # Repo not found or gated => let's raise the actual error
             raise head_call_error
         else:
             # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
@@ -1436,6 +1452,8 @@ def hf_hub_download(
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
             # Even if returning early like here, the lock will be released.
+            if local_dir is not None:
+                return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
             return pointer_path
 
         if resume_download:
@@ -1478,6 +1496,7 @@ def hf_hub_download(
                 resume_size=resume_size,
                 headers=headers,
                 expected_size=expected_size,
+                displayed_filename=filename,
             )
 
         if local_dir is None:

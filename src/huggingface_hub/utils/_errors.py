@@ -1,9 +1,25 @@
+import re
 from typing import Optional
 
 from requests import HTTPError, Response
 
-from ..constants import INFERENCE_ENDPOINTS_ENDPOINT
 from ._fixes import JSONDecodeError
+
+
+REPO_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https://(hub-ci.)?huggingface.co
+        (
+            # on /api/repo_type/repo_id
+            /api/(models|datasets|spaces)/(.+)
+            |
+            # or /repo_id/resolve/revision/...
+            /(.+)/resolve/(.+)
+        )
+    """,
+    flags=re.VERBOSE,
+)
 
 
 class FileMetadataError(OSError):
@@ -138,6 +154,24 @@ class GatedRepoError(RepositoryNotFoundError):
     """
 
 
+class DisabledRepoError(HfHubHTTPError):
+    """
+    Raised when trying to access a repository that has been disabled by its author.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import dataset_info
+    >>> dataset_info("laion/laion-art")
+    (...)
+    huggingface_hub.utils._errors.DisabledRepoError: 403 Client Error. (Request ID: Root=1-659fc3fa-3031673e0f92c71a2260dbe2;bc6f4dfb-b30a-4862-af0a-5cfe827610d8)
+
+    Cannot access repository for url https://huggingface.co/api/datasets/laion/laion-art.
+    Access to this resource is disabled.
+    ```
+    """
+
+
 class RevisionNotFoundError(HfHubHTTPError):
     """
     Raised when trying to access a hf.co URL with a valid repository but an invalid
@@ -176,7 +210,7 @@ class EntryNotFoundError(HfHubHTTPError):
 
 class LocalEntryNotFoundError(EntryNotFoundError, FileNotFoundError, ValueError):
     """
-    Raised when trying to access a file that is not on the disk when network is
+    Raised when trying to access a file or snapshot that is not on the disk when network is
     disabled or unavailable (connection issue). The entry may exist on the Hub.
 
     Note: `ValueError` type is to ensure backward compatibility.
@@ -270,6 +304,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
         response.raise_for_status()
     except HTTPError as e:
         error_code = response.headers.get("X-Error-Code")
+        error_message = response.headers.get("X-Error-Message")
 
         if error_code == "RevisionNotFound":
             message = f"{response.status_code} Client Error." + "\n\n" + f"Revision Not Found for url: {response.url}."
@@ -285,25 +320,22 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise GatedRepoError(message, response) from e
 
-        elif (
-            response.status_code == 401
-            and response.request.url is not None
-            and "/api/collections" in response.request.url
-        ):
-            # Collection not found. We don't raise a custom error for this.
-            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
-            pass
+        elif error_message == "Access to this resource is disabled.":
+            message = (
+                f"{response.status_code} Client Error."
+                + "\n\n"
+                + f"Cannot access repository for url {response.url}."
+                + "\n"
+                + "Access to this resource is disabled."
+            )
+            raise DisabledRepoError(message, response) from e
 
-        elif (
+        elif error_code == "RepoNotFound" or (
             response.status_code == 401
+            and response.request is not None
             and response.request.url is not None
-            and INFERENCE_ENDPOINTS_ENDPOINT in response.request.url
+            and REPO_API_REGEX.search(response.request.url) is not None
         ):
-            # Not enough permission to list Inference Endpoints from this org. We don't raise a custom error for this.
-            # This prevent from raising a misleading `RepositoryNotFoundError` (see below).
-            pass
-
-        elif error_code == "RepoNotFound" or response.status_code == 401:
             # 401 is misleading as it is returned for:
             #    - private and gated repos if user is not authenticated
             #    - missing repos

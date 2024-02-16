@@ -1,9 +1,12 @@
 import unittest
 
+import pytest
 from requests.models import PreparedRequest, Response
 
 from huggingface_hub.utils._errors import (
+    REPO_API_REGEX,
     BadRequestError,
+    DisabledRepoError,
     EntryNotFoundError,
     HfHubHTTPError,
     RepositoryNotFoundError,
@@ -23,12 +26,36 @@ class TestErrorUtils(unittest.TestCase):
         self.assertEqual(context.exception.response.status_code, 404)
         self.assertIn("Request ID: 123", str(context.exception))
 
-    def test_hf_raise_for_status_repo_not_found_without_error_code(self) -> None:
+    def test_hf_raise_for_status_disabled_repo(self) -> None:
+        response = Response()
+        response.headers = {"X-Error-Message": "Access to this resource is disabled.", "X-Request-Id": 123}
+
+        response.status_code = 403
+        with self.assertRaises(DisabledRepoError) as context:
+            hf_raise_for_status(response)
+
+        self.assertEqual(context.exception.response.status_code, 403)
+        self.assertIn("Request ID: 123", str(context.exception))
+
+    def test_hf_raise_for_status_401_repo_url(self) -> None:
         response = Response()
         response.headers = {"X-Request-Id": 123}
         response.status_code = 401
         response.request = PreparedRequest()
+        response.request.url = "https://huggingface.co/api/models/username/reponame"
         with self.assertRaisesRegex(RepositoryNotFoundError, "Repository Not Found") as context:
+            hf_raise_for_status(response)
+
+        self.assertEqual(context.exception.response.status_code, 401)
+        self.assertIn("Request ID: 123", str(context.exception))
+
+    def test_hf_raise_for_status_401_not_repo_url(self) -> None:
+        response = Response()
+        response.headers = {"X-Request-Id": 123}
+        response.status_code = 401
+        response.request = PreparedRequest()
+        response.request.url = "https://huggingface.co/api/collections"
+        with self.assertRaises(HfHubHTTPError) as context:
             hf_raise_for_status(response)
 
         self.assertEqual(context.exception.response.status_code, 401)
@@ -239,3 +266,44 @@ class TestHfHubHTTPError(unittest.TestCase):
             "this is a message\n\nError message duplicated in headers and body.",
         )
         self.assertEqual(error.server_message, "Error message duplicated in headers and body.")
+
+
+@pytest.mark.parametrize(
+    ("url", "should_match"),
+    [
+        # Listing endpoints => False
+        ("https://huggingface.co/api/models", False),
+        ("https://huggingface.co/api/datasets", False),
+        ("https://huggingface.co/api/spaces", False),
+        # Create repo endpoint => False
+        ("https://huggingface.co/api/repos/create", False),
+        # Collection endpoints => False
+        ("https://huggingface.co/api/collections", False),
+        ("https://huggingface.co/api/collections/foo/bar", False),
+        # Repo endpoints => True
+        ("https://huggingface.co/api/models/repo_id", True),
+        ("https://huggingface.co/api/datasets/repo_id", True),
+        ("https://huggingface.co/api/spaces/repo_id", True),
+        ("https://huggingface.co/api/models/username/repo_name/refs/main", True),
+        ("https://huggingface.co/api/datasets/username/repo_name/refs/main", True),
+        ("https://huggingface.co/api/spaces/username/repo_name/refs/main", True),
+        # Inference Endpoint => False
+        ("https://api.endpoints.huggingface.cloud/v2/endpoint/namespace", False),
+        # Staging Endpoint => True
+        ("https://hub-ci.huggingface.co/api/models/repo_id", True),
+        ("https://hub-ci.huggingface.co/api/datasets/repo_id", True),
+        ("https://hub-ci.huggingface.co/api/spaces/repo_id", True),
+        # /resolve Endpoint => True
+        ("https://huggingface.co/gpt2/resolve/main/README.md", True),
+        ("https://huggingface.co/datasets/google/fleurs/resolve/revision/README.md", True),
+        # Regression tests
+        ("https://huggingface.co/bert-base/resolve/main/pytorch_model.bin", True),
+        ("https://hub-ci.huggingface.co/__DUMMY_USER__/repo-1470b5/resolve/main/file.txt", True),
+    ],
+)
+def test_repo_api_regex(url: str, should_match: bool) -> None:
+    """Test the regex used to match repo API URLs."""
+    if should_match:
+        assert REPO_API_REGEX.match(url)
+    else:
+        assert REPO_API_REGEX.match(url) is None

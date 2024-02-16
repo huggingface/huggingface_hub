@@ -73,7 +73,7 @@ if this package is installed. Therefore, we recommend installing it (`pip instal
 for a better user experience.
 
 You can find below the dataclasses used to validate data and in particular [`~huggingface_hub.inference._text_generation.TextGenerationParameters`] (input),
-[`~huggingface_hub.inference._text_generation.TextGenerationResponse`] (output) and 
+[`~huggingface_hub.inference._text_generation.TextGenerationResponse`] (output) and
 [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`] (streaming output).
 
 [[autodoc]] huggingface_hub.inference._text_generation.TextGenerationParameters
@@ -106,4 +106,3 @@ whenever possible. Check out [this guide](../guides/inference#legacy-inferenceap
     - __init__
     - __call__
     - all
-

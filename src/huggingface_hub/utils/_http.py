@@ -27,6 +27,7 @@ from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest
 
+from .. import constants
 from . import logging
 from ._typing import HTTP_METHOD_T
 
@@ -38,6 +39,10 @@ logger = logging.get_logger(__name__)
 # If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
 X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
+
+
+class OfflineModeIsEnabled(ConnectionError):
+    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
 
 
 class UniqueRequestIdAdapter(HTTPAdapter):
@@ -68,10 +73,21 @@ class UniqueRequestIdAdapter(HTTPAdapter):
             raise
 
 
+class OfflineAdapter(HTTPAdapter):
+    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        raise OfflineModeIsEnabled(
+            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+        )
+
+
 def _default_backend_factory() -> requests.Session:
     session = requests.Session()
-    session.mount("http://", UniqueRequestIdAdapter())
-    session.mount("https://", UniqueRequestIdAdapter())
+    if constants.HF_HUB_OFFLINE:
+        session.mount("http://", OfflineAdapter())
+        session.mount("https://", OfflineAdapter())
+    else:
+        session.mount("http://", UniqueRequestIdAdapter())
+        session.mount("https://", UniqueRequestIdAdapter())
     return session
 
 

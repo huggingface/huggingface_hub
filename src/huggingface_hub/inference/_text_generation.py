@@ -451,6 +451,8 @@ class TextGenerationStreamResponse:
     Args:
         token (`Token`):
             The generated token.
+        index (`Optional[int]`, *optional*):
+            The token index within the stream. Optional to support older clients that omit it.
         generated_text (`Optional[str]`, *optional*):
             The complete generated text. Only available when the generation is finished.
         details (`Optional[StreamDetails]`, *optional*):
@@ -459,6 +461,9 @@ class TextGenerationStreamResponse:
 
     # Generated token
     token: Token
+    # The token index within the stream
+    # Optional to support  older clients that omit it.
+    index: Optional[int] = None
     # Complete generated text
     # Only available when the generation is finished
     generated_text: Optional[str] = None

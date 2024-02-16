@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
+import requests
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -13,8 +14,17 @@ from .constants import (
     REPO_TYPES,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
-from .hf_api import HfApi
-from .utils import filter_repo_objects, logging, validate_hf_hub_args
+from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
+from .utils import (
+    GatedRepoError,
+    LocalEntryNotFoundError,
+    OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    filter_repo_objects,
+    logging,
+    validate_hf_hub_args,
+)
 from .utils import tqdm as hf_tqdm
 
 
@@ -157,37 +167,97 @@ def snapshot_download(
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # if we have no internet connection we will look for an
-    # appropriate folder in the cache
-    # If the specified revision is a commit hash, look inside "snapshots".
-    # If the specified revision is a branch or tag, look inside "refs".
-    if local_files_only:
+    repo_info: Union[ModelInfo, DatasetInfo, SpaceInfo, None] = None
+    api_call_error: Optional[Exception] = None
+    if not local_files_only:
+        # try/except logic to handle different errors => taken from `hf_hub_download`
+        try:
+            # if we have internet connection we want to list files to download
+            api = HfApi(
+                library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint
+            )
+            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+            # Actually raise for those subclasses of ConnectionError
+            raise
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            OfflineModeIsEnabled,
+        ) as error:
+            # Internet connection is down
+            # => will try to use local files only
+            api_call_error = error
+            pass
+        except RevisionNotFoundError:
+            # The repo was found but the revision doesn't exist on the Hub (never existed or got deleted)
+            raise
+        except requests.HTTPError as error:
+            # Multiple reasons for an http error:
+            # - Repository is private and invalid/missing token sent
+            # - Repository is gated and invalid/missing token sent
+            # - Hub is down (error 500 or 504)
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
+            api_call_error = error
+            pass
+
+    # At this stage, if `repo_info` is None it means either:
+    # - internet connection is down
+    # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
+    # - repo is private/gated and invalid/missing token sent
+    # - Hub is down
+    # => let's look if we can find the appropriate folder in the cache:
+    #    - if the specified revision is a commit hash, look inside "snapshots".
+    #    - f the specified revision is a branch or tag, look inside "refs".
+    if repo_info is None:
+        # Try to get which commit hash corresponds to the specified revision
+        commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
-            # retrieve commit_hash from file
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
+            if os.path.exists(ref_path):
+                # retrieve commit_hash from refs file
+                with open(ref_path) as f:
+                    commit_hash = f.read()
 
-        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+        # Try to locate snapshot folder for this commit hash
+        if commit_hash is not None:
+            snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+            if os.path.exists(snapshot_folder):
+                # Snapshot folder exists => let's return it
+                # (but we can't check if all the files are actually there)
+                return snapshot_folder
 
-        if os.path.exists(snapshot_folder):
-            return snapshot_folder
+        # If we couldn't find the appropriate folder on disk, raise an error.
+        if local_files_only:
+            raise LocalEntryNotFoundError(
+                "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
+                "outgoing traffic has been disabled. To enable repo look-ups and downloads online, pass "
+                "'local_files_only=False' as input."
+            )
+        elif isinstance(api_call_error, OfflineModeIsEnabled):
+            raise LocalEntryNotFoundError(
+                "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
+                "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
+                "'HF_HUB_OFFLINE=0' as environment variable."
+            ) from api_call_error
+        elif isinstance(api_call_error, RepositoryNotFoundError) or isinstance(api_call_error, GatedRepoError):
+            # Repo not found => let's raise the actual error
+            raise api_call_error
+        else:
+            # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
+            raise LocalEntryNotFoundError(
+                "An error happened while trying to locate the files on the Hub and we cannot find the appropriate"
+                " snapshot folder for the specified revision on the local disk. Please check your internet connection"
+                " and try again."
+            ) from api_call_error
 
-        raise ValueError(
-            "Cannot find an appropriate cached snapshot folder for the specified"
-            " revision on the local disk and outgoing traffic has been disabled. To"
-            " enable repo look-ups and downloads online, set 'local_files_only' to"
-            " False."
-        )
-
-    # if we have internet connection we retrieve the correct folder name from the huggingface api
-    api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint)
-    repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+    # At this stage, internet connection is up and running
+    # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
-
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],

@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.20.0.dev0"
+__version__ = "0.21.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -150,9 +150,11 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "User",
         "UserLikes",
+        "accept_access_request",
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "cancel_access_request",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -191,7 +193,9 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
+        "grant_access",
         "like",
+        "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
         "list_files_info",
@@ -199,6 +203,8 @@ _SUBMOD_ATTRS = {
         "list_liked_repos",
         "list_metrics",
         "list_models",
+        "list_pending_access_requests",
+        "list_rejected_access_requests",
         "list_repo_commits",
         "list_repo_files",
         "list_repo_likers",
@@ -212,6 +218,7 @@ _SUBMOD_ATTRS = {
         "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
+        "reject_access_request",
         "rename_discussion",
         "repo_exists",
         "repo_info",
@@ -238,6 +245,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystem",
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
+        "HfFileSystemStreamFile",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -292,6 +300,7 @@ _SUBMOD_ATTRS = {
         "configure_http_backend",
         "dump_environment_info",
         "get_session",
+        "get_token",
         "logging",
         "scan_cache_dir",
     ],
@@ -489,9 +498,11 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
+        accept_access_request,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        cancel_access_request,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -530,7 +541,9 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
+        grant_access,  # noqa: F401
         like,  # noqa: F401
+        list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
         list_files_info,  # noqa: F401
@@ -538,6 +551,8 @@ if TYPE_CHECKING:  # pragma: no cover
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
+        list_pending_access_requests,  # noqa: F401
+        list_rejected_access_requests,  # noqa: F401
         list_repo_commits,  # noqa: F401
         list_repo_files,  # noqa: F401
         list_repo_likers,  # noqa: F401
@@ -551,6 +566,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
@@ -577,6 +593,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystem,  # noqa: F401
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
+        HfFileSystemStreamFile,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
@@ -625,6 +642,7 @@ if TYPE_CHECKING:  # pragma: no cover
         configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
         get_session,  # noqa: F401
+        get_token,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
     )

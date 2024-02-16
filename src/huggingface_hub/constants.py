@@ -115,7 +115,11 @@ HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
 # Opt-out from telemetry requests
-HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") or os.environ.get("DISABLE_TELEMETRY"))
+HF_HUB_DISABLE_TELEMETRY = (
+    _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable
+    or _is_true(os.environ.get("DISABLE_TELEMETRY"))
+    or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
+)
 
 # In the past, token was stored in a hardcoded location
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
@@ -128,6 +132,7 @@ if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it

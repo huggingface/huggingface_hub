@@ -36,8 +36,8 @@
       title: (번역 중) Webhooks server
 - title: "(번역 중) 개념 가이드"
   sections:
-    - local: in_translation
-      title: (번역 중) Git vs HTTP paradigm
+    - local: concepts/git_vs_http
+      title: Git 대 HTTP 패러다임
 - title: "(번역 중) 라이브러리 레퍼런스"
   sections:
     - local: in_translation

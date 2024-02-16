@@ -97,7 +97,7 @@ code as before, changing only the `model` parameter:
 
 Calls made with the [`InferenceClient`] can be authenticated using a [User Access Token](https://huggingface.co/docs/hub/security-tokens).
 By default, it will use the token saved on your machine if you are logged in (check out
-[how to login](https://huggingface.co/docs/huggingface_hub/quick-start#login)). If you are not logged in, you can pass
+[how to authenticate](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)). If you are not logged in, you can pass
 your token as an instance parameter:
 
 ```python
@@ -130,7 +130,7 @@ has a simple API that supports the most common tasks. Here is a list of the curr
 | | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
 | | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
 | | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] 
+| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`]
 | | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
 | NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
 | | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
