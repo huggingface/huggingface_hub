@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Git ou HTTP?
 
-`huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
+`huggingface_hub` est une librairie qui permet d'intéragir avec le Hugging Face Hub,
 qui est une collection de dépots Git (modèles, datasets ou spaces).
 Il y a deux manières principales pour accéder au Hub en utilisant `huggingface_hub`.
 
