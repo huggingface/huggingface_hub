@@ -43,7 +43,7 @@
 - title: "Concepts"
   sections:
     - local: concepts/git_vs_http
-      title: Le paradigme Git vs HTTP
+      title: Git ou HTTP?
 - title: "Référence"
   sections:
     - local: package_reference/overview
