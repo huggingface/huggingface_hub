@@ -33,7 +33,7 @@ tout le dépôt.
 
 <Tip warning={true}>
 
-[`Repository`] est maintenant deprecated et remplacé par les alternatives basées sur l'HTTP. Étant donné son adoption massive par les utilisateurs,
+[`Repository`] est maintenant obsolète et remplacée par les alternatives basées sur des requêtes HTTP. Étant donné son adoption massive par les utilisateurs,
 la suppression complète de [`Repository`] ne sera faite que pour la version `v1.0`.
 
 </Tip>
