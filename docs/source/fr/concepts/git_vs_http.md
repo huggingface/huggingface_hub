@@ -38,7 +38,7 @@ la suppression complète de [`Repository`] ne sera faite que pour la version `v1
 
 </Tip>
 
-## HfApi: Un client HTTP flexible et pratique
+## HfApi: Un client HTTP plus flexible
 
 La classe [`HfApi`] a été développée afin de fournir une alternative aux dépôts git locaux,
 qui peuvent être peu pratiques à maintenir, en particulier lors de l'utilisation de gros modèles ou de datasets volumineux.
