@@ -5,7 +5,7 @@ from fastapi import Request
 
 from huggingface_hub.utils import capture_output, is_gradio_available
 
-from .testing_utils import require_webhooks
+from .testing_utils import requires
 
 
 if is_gradio_available():
@@ -95,7 +95,7 @@ def test_deserialize_payload_example_without_comment() -> None:
     assert payload.comment is None
 
 
-@require_webhooks
+@requires("gradio")
 class TestWebhooksServerDontRun(unittest.TestCase):
     def test_add_webhook_implicit_path(self):
         # Test adding a webhook
@@ -133,7 +133,7 @@ class TestWebhooksServerDontRun(unittest.TestCase):
                 pass
 
 
-@require_webhooks
+@requires("gradio")
 class TestWebhooksServerRun(unittest.TestCase):
     HEADERS_VALID_SECRET = {"x-webhook-secret": "my_webhook_secret"}
     HEADERS_WRONG_SECRET = {"x-webhook-secret": "wrong_webhook_secret"}

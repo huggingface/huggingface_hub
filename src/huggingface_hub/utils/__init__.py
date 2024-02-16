@@ -78,6 +78,7 @@ from ._runtime import (
     is_jinja_available,
     is_notebook,
     is_numpy_available,
+    is_package_available,
     is_pillow_available,
     is_pydantic_available,
     is_pydot_available,

@@ -12,25 +12,12 @@ from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, requires
 
 
 if is_torch_available():
     import torch.nn as nn
 
-
-def require_torch(test_case):
-    """
-    Decorator marking a test that requires PyTorch.
-    These tests are skipped when PyTorch isn't installed.
-    """
-    if not is_torch_available():
-        return unittest.skip("test requires PyTorch")(test_case)
-    else:
-        return test_case
-
-
-if is_torch_available():
     CONFIG = {"num": 10, "act": "gelu_fast"}
 
     class DummyModel(nn.Module, PyTorchModelHubMixin):
@@ -46,7 +33,7 @@ else:
     DummyModel = None
 
 
-@require_torch
+@requires("torch")
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixingTest(unittest.TestCase):
     cache_dir: Path

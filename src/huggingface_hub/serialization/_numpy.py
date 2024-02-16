@@ -1,6 +1,20 @@
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+# Copyright 2024 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains numpy-specific helpers."""
+from typing import TYPE_CHECKING, Dict
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, split_state_dict_into_shards
+from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards
 
 
 if TYPE_CHECKING:
@@ -12,7 +26,7 @@ def split_numpy_state_dict_into_shards(
     *,
     filename_pattern: str = FILENAME_PATTERN,
     max_shard_size: int = MAX_SHARD_SIZE,
-) -> Tuple[Dict[str, Dict[str, "np.ndarray"]], Optional[Dict]]:
+) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
 
@@ -37,6 +51,9 @@ def split_numpy_state_dict_into_shards(
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
             Defaults to `"model{suffix}.safetensors"`.
+
+    Returns:
+        [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
     """
     return split_state_dict_into_shards(
         state_dict,

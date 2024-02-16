@@ -14,9 +14,9 @@
 """Contains pytorch-specific helpers."""
 import importlib
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, split_state_dict_into_shards
+from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards
 
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ def split_torch_state_dict_into_shards(
     *,
     filename_pattern: str = FILENAME_PATTERN,
     max_shard_size: int = MAX_SHARD_SIZE,
-) -> Tuple[Dict[str, Dict[str, "torch.Tensor"]], Optional[Dict]]:
+) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
 
@@ -53,6 +53,9 @@ def split_torch_state_dict_into_shards(
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
             Defaults to `"model{suffix}.safetensors"`.
+
+    Returns:
+        [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
     """
     return split_state_dict_into_shards(
         state_dict,
@@ -63,7 +66,7 @@ def split_torch_state_dict_into_shards(
     )
 
 
-def get_storage_id(tensor: "torch.Tensor") -> Tuple[torch.device, int, int]:
+def get_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
     """
     Return unique identifier to a tensor storage.
 
@@ -128,26 +131,6 @@ def storage_ptr(tensor: "torch.Tensor") -> int:
             return 0
 
 
-# Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344
-# torch.float8 formats require 2.1; we do not support these dtypes on earlier versions
-_float8_e4m3fn = getattr(torch, "float8_e4m3fn", None)
-_float8_e5m2 = getattr(torch, "float8_e5m2", None)
-_SIZE = {
-    torch.int64: 8,
-    torch.float32: 4,
-    torch.int32: 4,
-    torch.bfloat16: 2,
-    torch.float16: 2,
-    torch.int16: 2,
-    torch.uint8: 1,
-    torch.int8: 1,
-    torch.bool: 1,
-    torch.float64: 8,
-    _float8_e4m3fn: 1,
-    _float8_e5m2: 1,
-}
-
-
 def get_storage_size(tensor: "torch.Tensor") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L31C1-L41C59
@@ -157,8 +140,33 @@ def get_storage_size(tensor: "torch.Tensor") -> int:
     except AttributeError:
         # Fallback for torch==1.10
         try:
-            return tensor.storage().size() * _SIZE[tensor.dtype]
+            return tensor.storage().size() * _get_dtype_size(tensor.dtype)
         except NotImplementedError:
             # Fallback for meta storage
             # On torch >=2.0 this is the tensor size
-            return tensor.nelement() * _SIZE[tensor.dtype]
+            return tensor.nelement() * _get_dtype_size(tensor.dtype)
+
+
+@lru_cache()
+def _get_dtype_size(dtype: "torch.dtype") -> int:
+    """
+    Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344
+    """
+    # torch.float8 formats require 2.1; we do not support these dtypes on earlier versions
+    _float8_e4m3fn = getattr(torch, "float8_e4m3fn", None)
+    _float8_e5m2 = getattr(torch, "float8_e5m2", None)
+    _SIZE = {
+        torch.int64: 8,
+        torch.float32: 4,
+        torch.int32: 4,
+        torch.bfloat16: 2,
+        torch.float16: 2,
+        torch.int16: 2,
+        torch.uint8: 1,
+        torch.int8: 1,
+        torch.bool: 1,
+        torch.float64: 8,
+        _float8_e4m3fn: 1,
+        _float8_e5m2: 1,
+    }
+    return _SIZE[dtype]

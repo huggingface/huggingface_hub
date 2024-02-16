@@ -288,6 +288,7 @@ _SUBMOD_ATTRS = {
         "Repository",
     ],
     "serialization": [
+        "StateDictSplit",
         "split_numpy_state_dict_into_shards",
         "split_state_dict_into_shards",
         "split_tf_state_dict_into_shards",
@@ -636,6 +637,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .repository import Repository  # noqa: F401
     from .serialization import (
+        StateDictSplit,  # noqa: F401
         split_numpy_state_dict_into_shards,  # noqa: F401
         split_state_dict_into_shards,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401

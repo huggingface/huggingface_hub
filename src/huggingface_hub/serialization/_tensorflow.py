@@ -13,9 +13,9 @@
 # limitations under the License.
 """Contains tensorflow-specific helpers."""
 import re
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict
 
-from ._base import MAX_SHARD_SIZE, split_state_dict_into_shards
+from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards
 
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ def split_tf_state_dict_into_shards(
     *,
     filename_pattern: str = "tf_model{suffix}.h5",
     max_shard_size: int = MAX_SHARD_SIZE,
-) -> Tuple[Dict[str, Dict[str, "tf.Tensor"]], Optional[Dict]]:
+) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
 
@@ -52,6 +52,9 @@ def split_tf_state_dict_into_shards(
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
             Defaults to `"tf_model{suffix}.h5"`.
+
+    Returns:
+        [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
     """
     return split_state_dict_into_shards(
         state_dict,
