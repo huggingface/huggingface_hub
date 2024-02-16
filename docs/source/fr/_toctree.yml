@@ -73,7 +73,7 @@
     - local: package_reference/cache
       title: Système de cache
     - local: package_reference/cards
-      title: Repo Cards et données des Repo Card
+      title: Repo Cards et metadata
     - local: package_reference/space_runtime
       title: Space runtime
     - local: package_reference/collections
