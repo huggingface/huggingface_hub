@@ -56,6 +56,31 @@ def split_torch_state_dict_into_shards(
 
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
+
+    Example:
+    ```py
+    >>> import json
+    >>> import os
+    >>> from safetensors.torch import save_file as safe_save_file
+    >>> from huggingface_hub import split_torch_state_dict_into_shards
+
+    >>> def save_state_dict(state_dict: Dict[str, torch.Tensor], save_directory: str):
+    ...     state_dict_split = split_torch_state_dict_into_shards(state_dict)
+    ...     for filename, tensors in state_dict_split.filename_to_tensors.values():
+    ...         shard = {tensor: state_dict[tensor] for tensor in tensors}
+    ...         safe_save_file(
+    ...             shard,
+    ...             os.path.join(save_directory, filename),
+    ...             metadata={"format": "pt"},
+    ...         )
+    ...     if state_dict_split.is_sharded:
+    ...         index = {
+    ...             "metadata": state_dict_split.metadata,
+    ...             "weight_map": state_dict_split.tensor_to_filename,
+    ...         }
+    ...         with open(os.path.join(save_directory, "model.safetensors.index.json"), "w") as f:
+    ...             f.write(json.dumps(index, indent=2))
+    ```
     """
     return split_state_dict_into_shards(
         state_dict,
