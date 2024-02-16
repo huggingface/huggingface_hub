@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Paradigme Git vs HTTP
+# Git ou HTTP?
 
 `huggingface_hub` est une librairie qui permet d'intéragir avec le Hub Hugging Face,
 qui est une collection de dépots Git (modèles, datasets ou spaces).
@@ -14,18 +14,18 @@ les avantages et les inconvénients de ces deux méthodes.
 
 ## Repository: L'approche hstorique basée sur git
 
-Au début, `huggingface_hub` était principalement construit autour de la classe [`Repository`]. Elle fournit des
+Initialement, `huggingface_hub` était principalement construite autour de la classe [`Repository`]. Elle fournit des
 wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git commit"`, `"git push"`,
 `"git tag"`, `"git checkout"`, etc.
 
 Cette librairie permet aussi de définir les données d'identification et de suivre les fichiers volumineux, qui sont souvent utilisés dans les dépôts Git de machine learning. De plus, la librairie vous permet d'exécuter ses
 méthodes en arrière-plan, ce qui la rend utile pour upload des données pendant l'entrainement des modèles.
 
-L'avantage principal de l'utilisation de [`Repository`] est que cette méthode permet de garder une
-copie en local de tout le dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
+L'avantage principal de [`Repository`] est que cette méthode permet de garder une
+copie en local du dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
 car cette copie locale doit être mise à jour et maintenue constamment. C'est une méthode
 analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
-et push les changement lorsqu'il travaille sur une fonctionnalité.
+et push les changements lorsqu'il travaille sur une nouvelle fonctionnalité.
 Toutefois, dans le contexte du machine learning, elle n'est pas toujours pertinente car
 les utilisateurs ont parfois juste besoin d'avoir
 les poids des modèles pour l'inférence ou de convertir ces poids d'un format à un autre sans avoir à cloner
@@ -33,23 +33,23 @@ tout le dépôt.
 
 <Tip warning={true}>
 
-[`Repository`] est maintenant deprecated et remplacé par les alternatives basées sur l'HTTP. Étant donné son adoption massive par les utilisateurs,
+[`Repository`] est maintenant obsolète et remplacée par les alternatives basées sur des requêtes HTTP. Étant donné son adoption massive par les utilisateurs,
 la suppression complète de [`Repository`] ne sera faite que pour la version `v1.0`.
 
 </Tip>
 
-## HfApi: Un client HTTP flexible et pratique
+## HfApi: Un client HTTP plus flexible
 
 La classe [`HfApi`] a été développée afin de fournir une alternative aux dépôts git locaux,
 qui peuvent être peu pratiques à maintenir, en particulier lors de l'utilisation de gros modèles ou de datasets volumineux.
 La classe [`HfApi`]  offre les mêmes fonctionnalités que les approches basées sur Git,
-telles que le téléchargement et le push de fichier ainsi que la création de branches et de tags, mais sans
+telles que le téléchargement et le push de fichiers ainsi que la création de branches et de tags, mais sans
 avoir besoin d'un fichier local qui doit être constamment synchronisé.
 
 En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offre des fonctionnalités
-additionnelles, telles que la capacité de gérer des dépôts, le téléchargement des fichiers
+additionnelles, telles que la capacité à gérer des dépôts, le téléchargement des fichiers
 dans le cache (permettant une réutilisation), la recherche dans le Hub pour trouver
-des dépôts et des métadonnées, l'accès aux fonctionnalités de communautés telles que, les dicussions,
+des dépôts et des métadonnées, l'accès aux fonctionnalités communautaires telles que, les discussions,
 les pull requests et les commentaires.
 
 ## Quelle méthode utiliser et quand ?
