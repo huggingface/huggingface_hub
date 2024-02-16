@@ -22,7 +22,7 @@ Cette librairie permet aussi de définir les données d'identification et de sui
 méthodes en arrière-plan, ce qui la rend utile pour upload des données pendant l'entrainement des modèles.
 
 L'avantage principal de [`Repository`] est que cette méthode permet de garder une
-copie en local de tout le dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
+copie en local du dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
 car cette copie locale doit être mise à jour et maintenue constamment. C'est une méthode
 analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
 et push les changement lorsqu'il travaille sur une fonctionnalité.
