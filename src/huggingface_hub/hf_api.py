@@ -1628,12 +1628,6 @@ class HfApi:
         *,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
-        search: Optional[str] = None,
-        sort: Union[Literal["last_modified"], str, None] = None,
-        direction: Optional[Literal[-1]] = None,
-        limit: Optional[int] = None,
-        full: Optional[bool] = None,
-        token: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
         dataset_name: Optional[str] = None,
         language_creators: Optional[Union[str, List[str]]] = None,
@@ -1642,6 +1636,12 @@ class HfApi:
         size_categories: Optional[Union[str, List[str]]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
+        search: Optional[str] = None,
+        sort: Optional[Union[Literal["last_modified"], str]] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        full: Optional[bool] = None,
+        token: Optional[str] = None,
     ) -> Iterable[DatasetInfo]:
         """
         List datasets hosted on the Huggingface Hub, given some filters.
@@ -1652,26 +1652,6 @@ class HfApi:
                 datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
-            search (`str`, *optional*):
-                A string that will be contained in the returned datasets.
-            sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible
-                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
-            direction (`Literal[-1]` or `int`, *optional*):
-                Direction in which to sort. The value `-1` sorts by descending
-                order while all other values sort by ascending order.
-            limit (`int`, *optional*):
-                The limit on the number of datasets fetched. Leaving this option
-                to `None` fetches all datasets.
-            full (`bool`, *optional*):
-                Whether to fetch all dataset data, including the `last_modified`,
-                the `card_data` and  the files. Can contain useful information such as the
-                PapersWithCode ID.
-            token (`bool` or `str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
-                If `None` or `True` and machine is logged in (through `huggingface-cli login`
-                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
-                If `False`, token is not sent in the request header.
             benchmark (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by their official benchmark.
@@ -1700,6 +1680,26 @@ class HfApi:
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the specific task such as `speech_emotion_recognition` or
                 `paraphrase`.
+            search (`str`, *optional*):
+                A string that will be contained in the returned datasets.
+            sort (`Literal["last_modified"]` or `str`, *optional*):
+                The key with which to sort the resulting datasets. Possible
+                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
+            direction (`Literal[-1]` or `int`, *optional*):
+                Direction in which to sort. The value `-1` sorts by descending
+                order while all other values sort by ascending order.
+            limit (`int`, *optional*):
+                The limit on the number of datasets fetched. Leaving this option
+                to `None` fetches all datasets.
+            full (`bool`, *optional*):
+                Whether to fetch all dataset data, including the `last_modified`,
+                the `card_data` and  the files. Can contain useful information such as the
+                PapersWithCode ID.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
 
         Returns:
             `Iterable[DatasetInfo]`: an iterable of [`huggingface_hub.hf_api.DatasetInfo`] objects.
@@ -1746,31 +1746,44 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
+        dataset_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
+        filter_list = []
+
         if filter is not None:
             if isinstance(filter, DatasetFilter):
                 params = self._unpack_dataset_filter(filter)
             else:
-                params = self._build_dataset_filter(
-                    author=author,
-                    benchmark=benchmark,
-                    dataset_name=dataset_name,
-                    language_creators=language_creators,
-                    language=language,
-                    multilinguality=multilinguality,
-                    size_categories=size_categories,
-                    task_categories=task_categories,
-                    task_ids=task_ids,
-                )
+                params.update({"filter": filter})
 
-                if isinstance(filter, str):
-                    params.update({"filter": params.get("filter", set()).add(filter)})
-                else:
-                    params.update({"filter": params.get("filter", set()).update(filter)})
-        if author is not None:
+        # Build the filter list
+        if author:
+            dataset_str = f"{author}/"
             params.update({"author": author})
-        if search is not None:
+        if dataset_name:
+            dataset_str += dataset_name
+
+        for attr in (
+            benchmark,
+            language_creators,
+            language,
+            multilinguality,
+            size_categories,
+            task_categories,
+            task_ids,
+        ):
+            if attr:
+                if not isinstance(attr, (list, tuple)):
+                    attr = [attr]
+                for data in attr:
+                    if not data.startswith(f"{attr}:"):
+                        data = f"{attr}:{data}"
+                    filter_list.append(data)
+        if dataset_str:
+            params.update({"search": dataset_str})
+
+        if search:
             params.update({"search": search})
         if sort is not None:
             params.update({"sort": "lastModified" if sort == "last_modified" else sort})
@@ -1780,6 +1793,11 @@ class HfApi:
             params.update({"limit": limit})
         if full:
             params.update({"full": True})
+
+        filter_value = params.get("filter", [])
+        if filter_value:
+            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
+        params.update({"filter": filter_list})
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -1828,57 +1846,6 @@ class HfApi:
         if dataset_str is not None:
             query_dict["search"] = dataset_str
         query_dict["filter"] = tuple(filter_list)
-        return query_dict
-
-    def _build_dataset_filter(
-        self,
-        author: Optional[str] = None,
-        benchmark: Optional[Union[str, List[str]]] = None,
-        dataset_name: Optional[str] = None,
-        language_creators: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        multilinguality: Optional[Union[str, List[str]]] = None,
-        size_categories: Optional[Union[str, List[str]]] = None,
-        task_categories: Optional[Union[str, List[str]]] = None,
-        task_ids: Optional[Union[str, List[str]]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Builds a filter query for the list_datasets methods.
-        """
-
-        dataset_str = ""
-
-        if author:
-            dataset_str = f"{author}/"
-
-        if dataset_name:
-            dataset_str += dataset_name
-
-        filter_list: List[str] = []
-
-        for attr in (
-            benchmark,
-            language_creators,
-            language,
-            multilinguality,
-            size_categories,
-            task_categories,
-            task_ids,
-        ):
-            if attr:
-                if not isinstance(attr, (list, tuple)):
-                    attr = [attr]
-                for data in attr:
-                    if not data.startswith(f"{attr}:"):
-                        data = f"{attr}:{data}"
-                    filter_list.append(data)
-
-        query_dict: Dict[str, Any] = {}
-        if dataset_str:
-            query_dict["search"] = dataset_str
-        if filter_list:
-            query_dict["filter"] = set(filter_list)
-
         return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
