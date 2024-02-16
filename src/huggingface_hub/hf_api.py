@@ -340,8 +340,7 @@ class CommitInfo(str):
     pr_num: Optional[str] = field(init=False)
 
     # legacy url for `str` compatibility (ex: url to uploaded file, url to uploaded folder, url to PR, etc.)
-    # type: ignore  # defaults to `commit_url`
-    _url: str = field(repr=False, default=None)
+    _url: str = field(repr=False, default=None)  # type: ignore  # defaults to `commit_url`
 
     def __new__(cls, *args, commit_url: str, _url: Optional[str] = None, **kwargs):
         return str.__new__(cls, _url or commit_url)
@@ -3818,8 +3817,7 @@ class HfApi:
             revision=unquoted_revision,  # first-class methods take unquoted revision
             create_pr=create_pr,
             num_threads=num_threads,
-            # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
-            free_memory=False,
+            free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
         files_to_copy = _fetch_files_to_copy(
             copies=copies,
@@ -8521,8 +8519,7 @@ def _prepare_upload_folder_additions(
     # List files from folder
     relpath_to_abspath = {
         path.relative_to(folder_path).as_posix(): path
-        # sorted to be deterministic
-        for path in sorted(folder_path.glob("**/*"))
+        for path in sorted(folder_path.glob("**/*"))  # sorted to be deterministic
         if path.is_file()
     }
 
@@ -8531,8 +8528,7 @@ def _prepare_upload_folder_additions(
     prefix = f"{path_in_repo.strip('/')}/" if path_in_repo else ""
     return [
         CommitOperationAdd(
-            # absolute path on disk
-            path_or_fileobj=relpath_to_abspath[relpath],
+            path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
             path_in_repo=prefix + relpath,  # "absolute" path in repo
         )
         for relpath in filter_repo_objects(
