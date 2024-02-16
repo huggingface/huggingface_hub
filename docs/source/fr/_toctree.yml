@@ -55,7 +55,7 @@
     - local: package_reference/repository
       title: Gérer les dépôts locaux et en ligne
     - local: package_reference/hf_api
-      title: API Hugging Face Hub
+      title: Hugging Face Hub API
     - local: package_reference/file_download
       title: Téléchargement des fichiers
     - local: package_reference/mixins
