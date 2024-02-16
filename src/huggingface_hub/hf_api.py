@@ -1380,6 +1380,12 @@ class HfApi:
         *,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        library: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        model_name: Optional[str] = None,
+        task: Optional[Union[str, List[str]]] = None,
+        trained_dataset: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["last_modified"], str, None] = None,
@@ -1389,12 +1395,6 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        model_name: Optional[str] = None,
-        task: Optional[Union[str, List[str]]] = None,
-        trained_dataset: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
         pipeline_tag: Optional[str] = None,
     ) -> Iterable[ModelInfo]:
         """
@@ -1407,6 +1407,24 @@ class HfApi:
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
+            library (`str` or `List`, *optional*):
+                A string or list of strings of foundational libraries models were
+                originally trained from, such as pytorch, tensorflow, or allennlp.
+            language (`str` or `List`, *optional*):
+                A string or list of strings of languages, both by name and country
+                code, such as "en" or "English"
+            model_name (`str`, *optional*):
+                A string that contain complete or partial names for models on the
+                Hub, such as "bert" or "bert-base-cased"
+            task (`str` or `List`, *optional*):
+                A string or list of strings of tasks models were designed for, such
+                as: "fill-mask" or "automatic-speech-recognition"
+            trained_dataset (`str` or `List`, *optional*):
+                A string tag or a list of string tags of the trained dataset for a
+                model on the Hub.
+            tags (`str` or `List`, *optional*):
+                A string tag or a list of tags to filter models on the Hub by, such
+                as `text-generation` or `spacy`.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             emissions_thresholds (`Tuple`, *optional*):
@@ -1437,24 +1455,6 @@ class HfApi:
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
-            library (`str` or `List`, *optional*):
-                A string or list of strings of foundational libraries models were
-                originally trained from, such as pytorch, tensorflow, or allennlp.
-            language (`str` or `List`, *optional*):
-                A string or list of strings of languages, both by name and country
-                code, such as "en" or "English"
-            model_name (`str`, *optional*):
-                A string that contain complete or partial names for models on the
-                Hub, such as "bert" or "bert-base-cased"
-            task (`str` or `List`, *optional*):
-                A string or list of strings of tasks models were designed for, such
-                as: "fill-mask" or "automatic-speech-recognition"
-            trained_dataset (`str` or `List`, *optional*):
-                A string tag or a list of string tags of the trained dataset for a
-                model on the Hub.
-            tags (`str` or `List`, *optional*):
-                A string tag or a list of tags to filter models on the Hub by, such
-                as `text-generation` or `spacy`.
             pipeline_tag (`str`, *optional*):
                 A string pipeline tag to filter models on the Hub by, such as `summarization`
 
@@ -1500,32 +1500,44 @@ class HfApi:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
+        model_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
+        filter_list = []
 
         if filter is not None:
             if isinstance(filter, ModelFilter):
                 params = self._unpack_model_filter(filter)
             else:
-                params = self._build_model_filter(
-                    author=author,
-                    library=library,
-                    language=language,
-                    model_name=model_name,
-                    task=task,
-                    trained_dataset=trained_dataset,
-                    tags=tags,
-                )
-
-                if isinstance(filter, str):
-                    params.update({"filter": params.get("filter", set()).add(filter)})
-                else:
-                    params.update({"filter": params.get("filter", set()).update(filter)})
+                params.update({"filter": filter})
 
             params.update({"full": True})
-        if author is not None:
+
+        # Build the filter list
+        if author:
+            model_str = f"{author}/"
             params.update({"author": author})
-        if search is not None:
+        if model_name:
+            model_str += model_name
+        if library:
+            filter_list.extend([library] if isinstance(library, str) else library)
+        if task:
+            filter_list.extend([task] if isinstance(task, str) else task)
+        if trained_dataset:
+            if not isinstance(trained_dataset, (list, tuple)):
+                trained_dataset = [trained_dataset]
+            for dataset in trained_dataset:
+                if not dataset.startswith("dataset:"):
+                    dataset = f"dataset:{dataset}"
+                filter_list.append(dataset)
+        if language:
+            filter_list.extend([language] if isinstance(language, str) else language)
+        if tags:
+            filter_list.extend([tags] if isinstance(tags, str) else tags)
+        if model_str:
+            params.update({"search": model_str})
+
+        if search:
             params.update({"search": search})
         if sort is not None:
             params.update({"sort": "lastModified" if sort == "last_modified" else sort})
@@ -1544,6 +1556,11 @@ class HfApi:
             params.update({"cardData": True})
         if pipeline_tag:
             params.update({"pipeline_tag": pipeline_tag})
+
+        filter_value = params.get("filter", [])
+        if filter_value:
+            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
+        params.update({"filter": filter_list})
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -1603,64 +1620,6 @@ class HfApi:
         elif isinstance(model_filter.language, str):
             filter_list.append(model_filter.language)
         query_dict["filter"] = tuple(filter_list)
-        return query_dict
-
-    def _build_model_filter(
-        self,
-        author: Optional[str] = None,
-        library: Optional[Union[str, List[str]]] = None,
-        language: Optional[Union[str, List[str]]] = None,
-        model_name: Optional[str] = None,
-        task: Optional[Union[str, List[str]]] = None,
-        trained_dataset: Optional[Union[str, List[str]]] = None,
-        tags: Optional[Union[str, List[str]]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Builds a filter query for the list_models methods.
-        """
-        model_str = ""
-        filter_list: List[str] = []
-
-        # Handling author
-        if author:
-            model_str = f"{author}/"
-
-        # Handling model_name
-        if model_name:
-            model_str += model_name
-
-        # Handling library
-        if library:
-            filter_list.extend([library] if isinstance(library, str) else library)
-
-        # Handling tasks
-        if task:
-            filter_list.extend([task] if isinstance(task, str) else task)
-
-        # Handling trained_dataset
-        if trained_dataset:
-            if not isinstance(trained_dataset, (list, tuple)):
-                trained_dataset = [trained_dataset]
-            for dataset in trained_dataset:
-                if not dataset.startswith("dataset:"):
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-
-        # Handling language
-        if language:
-            filter_list.extend([language] if isinstance(language, str) else language)
-
-        # Handling tags
-        if tags:
-            filter_list.extend([tags] if isinstance(tags, str) else tags)
-
-        query_dict: Dict[str, Any] = {}
-
-        if model_str:
-            query_dict["search"] = model_str
-        if filter_list:
-            query_dict["filter"] = set(filter_list)
-
         return query_dict
 
     @validate_hf_hub_args
