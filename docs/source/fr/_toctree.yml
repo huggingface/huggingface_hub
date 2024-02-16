@@ -81,4 +81,4 @@
     - local: package_reference/tensorboard
       title: Logger Tensorboard
     - local: package_reference/webhooks_server
-      title: Serveur Webhook
+      title: Webhooks
