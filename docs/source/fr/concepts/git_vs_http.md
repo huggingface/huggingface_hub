@@ -43,7 +43,7 @@ la suppression complète de [`Repository`] ne sera faite que pour la version `v1
 La classe [`HfApi`] a été développée afin de fournir une alternative aux dépôts git locaux,
 qui peuvent être peu pratiques à maintenir, en particulier lors de l'utilisation de gros modèles ou de datasets volumineux.
 La classe [`HfApi`]  offre les mêmes fonctionnalités que les approches basées sur Git,
-telles que le téléchargement et le push de fichier ainsi que la création de branches et de tags, mais sans
+telles que le téléchargement et le push de fichiers ainsi que la création de branches et de tags, mais sans
 avoir besoin d'un fichier local qui doit être constamment synchronisé.
 
 En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offre des fonctionnalités
