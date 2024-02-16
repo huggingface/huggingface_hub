@@ -40,7 +40,7 @@
       title: Intégrer une librairie
     - local: guides/webhooks_server
       title: Webhooks
-- title: "Guides conceptuels"
+- title: "Concepts"
   sections:
     - local: concepts/git_vs_http
       title: Le paradigme Git vs HTTP
