@@ -71,7 +71,7 @@
     - local: package_reference/community
       title: Discussions et Pull Requests
     - local: package_reference/cache
-      title: Référence au système de cache
+      title: Système de cache
     - local: package_reference/cards
       title: Repo Cards et données des Repo Card
     - local: package_reference/space_runtime
