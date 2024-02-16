@@ -47,7 +47,7 @@ telles que le téléchargement et le push de fichiers ainsi que la création de 
 avoir besoin d'un fichier local qui doit être constamment synchronisé.
 
 En plus des fonctionnalités déjà fournies par `git`, La classe [`HfApi`] offre des fonctionnalités
-additionnelles, telles que la capacité de gérer des dépôts, le téléchargement des fichiers
+additionnelles, telles que la capacité à gérer des dépôts, le téléchargement des fichiers
 dans le cache (permettant une réutilisation), la recherche dans le Hub pour trouver
 des dépôts et des métadonnées, l'accès aux fonctionnalités de communautés telles que, les dicussions,
 les pull requests et les commentaires.
