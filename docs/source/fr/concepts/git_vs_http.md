@@ -21,7 +21,7 @@ wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git
 Cette librairie permet aussi de définir les données d'identification et de suivre les fichiers volumineux, qui sont souvent utilisés dans les dépôts Git de machine learning. De plus, la librairie vous permet d'exécuter ses
 méthodes en arrière-plan, ce qui la rend utile pour upload des données pendant l'entrainement des modèles.
 
-L'avantage principal de l'utilisation de [`Repository`] est que cette méthode permet de garder une
+L'avantage principal de [`Repository`] est que cette méthode permet de garder une
 copie en local de tout le dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
 car cette copie locale doit être mise à jour et maintenue constamment. C'est une méthode
 analogue au développement de logiciel classique où chaque développeur maintient sa propre copie locale
