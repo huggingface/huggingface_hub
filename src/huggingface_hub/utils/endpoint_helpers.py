@@ -75,7 +75,7 @@ class DatasetFilter:
     matter.
 
     <Tip warning={true}>
-        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_datasets`].
+        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_datasets`].
     </Tip>
 
     Args:
@@ -160,7 +160,6 @@ class DatasetFilter:
         warnings.warn(
             "DatasetFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
             category=FutureWarning,
-            stacklevel=2,
         )
 
 
@@ -172,7 +171,7 @@ class ModelFilter:
     matter.
 
     <Tip warning={true}>
-        The `ModelFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the [`list_models`].
+        The `ModelFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_models`].
     </Tip>
 
     Args:
@@ -243,5 +242,4 @@ class ModelFilter:
         warnings.warn(
             "ModelFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
             FutureWarning,
-            stacklevel=2,
         )
