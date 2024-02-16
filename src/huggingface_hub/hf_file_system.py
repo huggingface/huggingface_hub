@@ -443,7 +443,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
 
-        if same_repo and self.info(path1, revision=resolved_path1.revision)["lfs"] is not None:
+        if same_repo:
             commit_message = f"Copy {path1} to {path2}"
             self._api.create_commit(
                 repo_id=resolved_path1.repo_id,
@@ -577,6 +577,20 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         except:  # noqa: E722
             return False
 
+    def url(self, path: str) -> str:
+        """Get the HTTP URL of the given path"""
+        resolved_path = self.resolve_path(path)
+        url = hf_hub_url(
+            resolved_path.repo_id,
+            resolved_path.path_in_repo,
+            repo_type=resolved_path.repo_type,
+            revision=resolved_path.revision,
+            endpoint=self.endpoint,
+        )
+        if self.isdir(path):
+            url = url.replace("/resolve/", "/tree/", 1)
+        return url
+
     @property
     def transaction(self):
         """A context within which files are committed together upon exit
@@ -652,6 +666,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
@@ -739,6 +756,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 raise
         self.loc += len(out)
         return out
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):

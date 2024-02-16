@@ -52,7 +52,7 @@ from ._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
     CommitOperationDelete,
-    _fetch_lfs_files_to_copy,
+    _fetch_files_to_copy,
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_lfs_files,
@@ -3821,7 +3821,7 @@ class HfApi:
             # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
             free_memory=False,
         )
-        files_to_copy = _fetch_lfs_files_to_copy(
+        files_to_copy = _fetch_files_to_copy(
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,
