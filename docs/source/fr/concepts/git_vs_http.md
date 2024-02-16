@@ -14,7 +14,7 @@ les avantages et les inconvénients de ces deux méthodes.
 
 ## Repository: L'approche hstorique basée sur git
 
-Au début, `huggingface_hub` était principalement construit autour de la classe [`Repository`]. Elle fournit des
+Initialement, `huggingface_hub` était principalement construite autour de la classe [`Repository`]. Elle fournit des
 wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git commit"`, `"git push"`,
 `"git tag"`, `"git checkout"`, etc.
 
