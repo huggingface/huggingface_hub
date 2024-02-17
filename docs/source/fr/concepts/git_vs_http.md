@@ -18,8 +18,7 @@ Initialement, `huggingface_hub` était principalement construite autour de la cl
 wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git commit"`, `"git push"`,
 `"git tag"`, `"git checkout"`, etc.
 
-Cette librairie permet aussi de définir les données d'identification et de suivre les fichiers volumineux, qui sont souvent utilisés dans les dépôts Git de machine learning. De plus, la librairie vous permet d'exécuter ses
-méthodes en arrière-plan, ce qui la rend utile pour upload des données pendant l'entrainement des modèles.
+Cette librairie permet aussi de gérer l'authentification et les fichiers volumineux, souvent présents dans les dépôts Git de machine learning. De plus, ses méthodes sont exécutables en arrière-plan, ce qui est utile pour upload des données durant l'entrainement d'un modèle.
 
 L'avantage principal de [`Repository`] est que cette méthode permet de garder une
 copie en local du dépot Git sur votre machine. Cela peut aussi devenir un désavantage,
