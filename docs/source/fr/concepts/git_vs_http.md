@@ -12,7 +12,7 @@ La première approche, basée sur Git, appelée approche "git-based", est rendue
 Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" , consiste à faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminons
 les avantages et les inconvénients de ces deux méthodes.
 
-## Repository: L'approche hstorique basée sur git
+## Repository: l'approche historique basée sur git
 
 Initialement, `huggingface_hub` était principalement construite autour de la classe [`Repository`]. Elle fournit des
 wrappers Python pour les commandes `git` usuelles, telles que `"git add"`, `"git commit"`, `"git push"`,
