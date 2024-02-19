@@ -15,6 +15,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
+from .. import logging
+
 
 TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
@@ -22,6 +24,8 @@ StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
 MAX_SHARD_SIZE = 5_000_000
 FILENAME_PATTERN = "model{suffix}.safetensors"
+
+logger = logging.get_logger(__file__)
 
 
 @dataclass
@@ -39,9 +43,9 @@ def split_state_dict_into_shards(
     state_dict: Dict[str, TensorT],
     *,
     get_tensor_size: TensorSizeFn_T,
+    get_storage_id: StorageIDFn_T = lambda tensor: None,
     filename_pattern: str = FILENAME_PATTERN,
     max_shard_size: int = MAX_SHARD_SIZE,
-    get_storage_id: StorageIDFn_T = lambda tensor: None,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -61,18 +65,18 @@ def split_state_dict_into_shards(
     Args:
         state_dict (`Dict[str, Tensor]`):
             The state dictionary to save.
-        max_shard_size (`int` or `str`, *optional*):
-            The maximum size of each shard, in bytes. Defaults to 5GB.
-        filename_pattern (`str`, *optional*):
-            The pattern to generate the files names in which the model will be saved. Pattern must be a string that
-            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
-            Defaults to `"model{suffix}.safetensors"`.
         get_tensor_size (`Callable[[Tensor], int]`):
             A function that returns the size of a tensor in bytes.
         get_storage_id (`Callable[[Tensor], Optional[Any]]`, *optional*):
             A function that returns a unique identifier to a tensor storage. Multiple different tensors can share the
             same underlying storage. This identifier is guaranteed to be unique and constant for this tensor's storage
             during its lifetime. Two tensor storages with non-overlapping lifetimes may have the same id.
+        filename_pattern (`str`, *optional*):
+            The pattern to generate the files names in which the model will be saved. Pattern must be a string that
+            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
+            Defaults to `"model{suffix}.safetensors"`.
+        max_shard_size (`int` or `str`, *optional*):
+            The maximum size of each shard, in bytes. Defaults to 5GB.
 
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
@@ -88,6 +92,7 @@ def split_state_dict_into_shards(
         # when bnb serialization is used the weights in the state dict can be strings
         # check: https://github.com/huggingface/transformers/pull/24416 for more details
         if isinstance(tensor, str):
+            logger.info("Skipping tensor %s as it is a string (bnb serialization)", key)
             continue
 
         # If a `tensor` shares the same underlying storage as another tensor, we put `tensor` in the same `block`

@@ -46,12 +46,12 @@ def split_tf_state_dict_into_shards(
     Args:
         state_dict (`Dict[str, Tensor]`):
             The state dictionary to save.
-        max_shard_size (`int` or `str`, *optional*):
-            The maximum size of each shard, in bytes. Defaults to 5GB.
         filename_pattern (`str`, *optional*):
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
             Defaults to `"tf_model{suffix}.h5"`.
+        max_shard_size (`int` or `str`, *optional*):
+            The maximum size of each shard, in bytes. Defaults to 5GB.
 
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
