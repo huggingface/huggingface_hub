@@ -25,7 +25,7 @@ def _as_int(value: Optional[str]) -> Optional[int]:
 
 # Constants for file downloads
 
-PYTORCH_WEIGHTS_NAME = "pytorch_model.bin"
+PYTORCH_WEIGHTS_NAME = "pytorch_model.safetensors"
 TF2_WEIGHTS_NAME = "tf_model.h5"
 TF_WEIGHTS_NAME = "model.ckpt"
 FLAX_WEIGHTS_NAME = "flax_model.msgpack"

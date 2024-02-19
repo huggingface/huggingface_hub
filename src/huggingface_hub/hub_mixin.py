@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+from safetensors import safe_open
+from safetensors.torch import save_file
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
@@ -325,7 +327,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        torch.save(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+        save_file(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
 
     @classmethod
     def _from_pretrained(
@@ -361,7 +363,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
             )
         model = cls(**model_kwargs)
 
-        state_dict = torch.load(model_file, map_location=torch.device(map_location))
+        state_dict = {}
+        with safe_open(model_file, framework="pt", device=map_location) as f:
+            for k in f.keys():
+                state_dict[k] = f.get_tensor(k)
+
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
 

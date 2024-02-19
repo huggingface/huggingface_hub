@@ -61,15 +61,25 @@ class HubMixingTest(unittest.TestCase):
     def test_save_pretrained_basic(self):
         DummyModel().save_pretrained(self.cache_dir)
         files = os.listdir(self.cache_dir)
-        self.assertTrue("pytorch_model.bin" in files)
+        self.assertTrue("pytorch_model.safetensors" in files)
         self.assertEqual(len(files), 1)
 
     def test_save_pretrained_with_config(self):
         DummyModel().save_pretrained(self.cache_dir, config=CONFIG)
         files = os.listdir(self.cache_dir)
         self.assertTrue("config.json" in files)
-        self.assertTrue("pytorch_model.bin" in files)
+        self.assertTrue("pytorch_model.safetensors" in files)
         self.assertEqual(len(files), 2)
+
+    def test_save_as_safetensors(self):
+        DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
+        modelFile = self.cache_dir / "pytorch_model.safetensors"
+        # check for safetensors header to ensure we are saving the model in safetensors format
+        # while an implementation detail, assert as this has safety implications
+        # https://github.com/huggingface/safetensors?tab=readme-ov-file#format
+        with open(modelFile, "rb") as f:
+            self.assertEqual(f.read(8), b"\x80\x00\x00\x00\x00\x00\x00\x00")
+
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
