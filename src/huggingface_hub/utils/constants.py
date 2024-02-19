@@ -1,0 +1,5 @@
+WEIGHTS_NAME = "pytorch_model.bin"
+WEIGHTS_INDEX_NAME = "pytorch_model.bin.index.json"
+SAFE_WEIGHTS_NAME = "model.safetensors"
+SAFE_WEIGHTS_INDEX_NAME = "model.safetensors.index.json"
+CONFIG_NAME = "config.json"
