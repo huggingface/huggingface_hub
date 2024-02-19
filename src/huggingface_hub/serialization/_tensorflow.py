@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains tensorflow-specific helpers."""
+import math
 import re
 from typing import TYPE_CHECKING, Dict
 
@@ -65,7 +66,9 @@ def split_tf_state_dict_into_shards(
 
 
 def get_tensor_size(tensor: "tf.Tensor") -> int:
-    return tensor.numpy().size * _dtype_byte_size_tf(tensor.dtype)
+    # Return `math.ceil` since dtype byte size can be a float (e.g., 0.125 for tf.bool).
+    # Better to overestimate than underestimate.
+    return math.ceil(tensor.numpy().size * _dtype_byte_size_tf(tensor.dtype))
 
 
 def _dtype_byte_size_tf(dtype) -> float:
@@ -75,7 +78,7 @@ def _dtype_byte_size_tf(dtype) -> float:
     NOTE: why not `tensor.numpy().nbytes`?
     Example:
     ```py
-    >>> dtype_byte_size(tf.float32)
+    >>> _dtype_byte_size(tf.float32)
     4
     ```
     """
