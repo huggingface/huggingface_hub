@@ -75,7 +75,9 @@ class DatasetFilter:
     matter.
 
     <Tip warning={true}>
+
         The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_datasets`].
+
     </Tip>
 
     Args:
@@ -171,7 +173,9 @@ class ModelFilter:
     matter.
 
     <Tip warning={true}>
+
         The `ModelFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_models`].
+
     </Tip>
 
     Args:
