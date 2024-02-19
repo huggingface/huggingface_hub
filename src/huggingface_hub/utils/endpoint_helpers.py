@@ -160,7 +160,7 @@ class DatasetFilter:
 
     def __post_init__(self):
         warnings.warn(
-            "DatasetFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
+            "'DatasetFilter' is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
             category=FutureWarning,
         )
 
@@ -244,6 +244,6 @@ class ModelFilter:
 
     def __post_init__(self):
         warnings.warn(
-            "ModelFilter is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
+            "'ModelFilter' is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
             FutureWarning,
         )
