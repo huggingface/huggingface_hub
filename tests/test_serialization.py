@@ -105,7 +105,7 @@ def test_tensor_same_storage():
 def test_get_tensor_size_numpy():
     import numpy as np
 
-    assert get_tensor_size_numpy(np.array([1, 2, 3, 4, 5])) == 5 * 8
+    assert get_tensor_size_numpy(np.array([1, 2, 3, 4, 5], dtype=np.float64)) == 5 * 8
     assert get_tensor_size_numpy(np.array([1, 2, 3, 4, 5], dtype=np.float16)) == 5 * 2
 
 
@@ -113,7 +113,7 @@ def test_get_tensor_size_numpy():
 def test_get_tensor_size_tensorflow():
     import tensorflow as tf
 
-    assert get_tensor_size_tensorflow(tf.constant([1, 2, 3, 4, 5])) == 5 * 4
+    assert get_tensor_size_tensorflow(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
     assert get_tensor_size_tensorflow(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
 
 
@@ -121,5 +121,5 @@ def test_get_tensor_size_tensorflow():
 def test_get_tensor_size_torch():
     import torch
 
-    assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5])) == 5 * 8
+    assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
     assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
