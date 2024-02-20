@@ -2,7 +2,8 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Un client pour le Hugging Face Hub 
+# Un client Python pour le Hugging Face Hub 
+
 
 La librairie `huggingface_hub` vous permet d'interagir avec le
 [Hugging Face Hub](https://hf.co), une plateforme de machine learning

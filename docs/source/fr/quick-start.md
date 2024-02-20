@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Démarrage rapide
 
-Le [Hub Hugging Face](https://huggingface.co/) est le meilleur endroit pour partager des
+Le [Hugging Face Hub](https://huggingface.co/) est le meilleur endroit pour partager des
 modèles de machine learning, des démos, des datasets et des métriques. La librairie
 `huggingface_hub` vous aide à intéragir avec le Hub sans sortir de votre environnement de
 développement. Vous pouvez: créer et gérer des dépôts facilement, télécharger et upload des
