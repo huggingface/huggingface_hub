@@ -54,7 +54,7 @@ Pour plus de détails et d'options, consultez la réference de l'API pour [`hf_h
 
 ## Connexion
 
-Dans la plupart des cas, vous devez être connectés avec un compte Hugging Face pour intéragir
+Dans la plupart des cas, vous devez être connectés avec un compte Hugging Face pour interagir
 avec le Hub: pour télécharger des dépôts privés, upload des fichiers, créer des pull
 requests...
 [Créez un compte](https://huggingface.co/join) si vous n'en avez pas déjà un et connectez
@@ -82,7 +82,7 @@ un script:
 Il est aussi possible de se connecter automatiquement sans qu'on vous demande votre token en
 passant le token dans [`login`] de cette manière: `login(token="hf_xxx")`. Si vous choisissez
 cette méthode, faites attention lorsque vous partagez votre code source. Une bonne pratique est
-de charger le token depuis un trousseau sécurisé aulieu de l'enregistrer en clair dans votre
+de charger le token depuis un trousseau sécurisé au lieu de l'enregistrer en clair dans votre
 codebase/notebook.
 
 Vous ne pouvez être connecté qu'à un seul compte à la fois. Si vous connectez votre machine à un autre compte,

@@ -4,12 +4,12 @@ rendered properly in your Markdown viewer.
 
 # Git ou HTTP?
 
-`huggingface_hub` est une librairie qui permet d'intéragir avec le Hugging Face Hub,
+`huggingface_hub` est une librairie qui permet d'interagir avec le Hugging Face Hub,
 qui est une collection de dépots Git (modèles, datasets ou spaces).
 Il y a deux manières principales pour accéder au Hub en utilisant `huggingface_hub`.
 
 La première approche, basée sur Git, appelée approche "git-based", est rendue possible par la classe [`Repository`].
-Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour intéragir avec le Hub. La deuxième option, appelée approche "HTTP-based" , consiste à faire des requêtes HTTP en utilisant le client [`HfApi`]. Éxaminons
+Cette méthode utilise un wrapper autour de la commande `git` avec des fonctionnalités supplémentaires conçues pour interagir avec le Hub. La deuxième option, appelée approche "HTTP-based" , consiste à faire des requêtes HTTP en utilisant le client [`HfApi`]. Examinons
 les avantages et les inconvénients de ces deux méthodes.
 
 ## Repository: l'approche historique basée sur git
