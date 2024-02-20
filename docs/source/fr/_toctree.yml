@@ -3,7 +3,7 @@
     - local: index
       title: Home
     - local: quick-start
-      title: Introduction rapide
+      title: Démarrage rapide
     - local: installation
       title: Installation
 - title: "Concepts"
