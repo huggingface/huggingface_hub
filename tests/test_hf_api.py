@@ -1737,7 +1737,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_author_and_name(self):
         f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
         datasets = list(self._api.list_datasets(filter=f))
@@ -1745,21 +1745,21 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("huggingface" in datasets[0].author)
         self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_benchmark(self):
         f = DatasetFilter(benchmark="raft")
         datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("benchmark:raft" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_language_creator(self):
         f = DatasetFilter(language_creators="crowdsourced")
         datasets = list(self._api.list_datasets(filter=f))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_language_only(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(language="en"), limit=100))
         self.assertGreater(len(datasets), 0)
@@ -1770,25 +1770,25 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("language:en" in datasets[0].tags)
         self.assertTrue("language:fr" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_multilinguality(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_size_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_task_categories(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
         self.assertGreater(len(datasets), 0)
         self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
 
-    @expect_deprecation
+    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_task_ids(self):
         datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
         self.assertGreater(len(datasets), 0)
@@ -1866,25 +1866,25 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(metrics[0], MetricInfo)
         self.assertTrue(any(metric.description for metric in metrics))
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_by_author(self):
         models = list(self._api.list_models(filter=ModelFilter(author="muellerzr")))
         self.assertGreater(len(models), 0)
         self.assertTrue("muellerzr" in models[0].modelId)
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
         models = list(self._api.list_models(filter=ModelFilter("facebook", model_name="bart-base")))
         self.assertTrue("facebook/bart-base" in models[0].modelId)
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_failing_filter_models_by_author_and_model_name(self):
         # Test we can search by an author and a name, but the model is not found
         models = list(self._api.list_models(filter=ModelFilter(author="muellerzr", model_name="testme")))
         self.assertEqual(len(models), 0)
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_with_library(self):
         models = list(
             self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow"))
@@ -1896,7 +1896,7 @@ class HfApiPublicProductionTest(unittest.TestCase):
         )
         self.assertGreater(len(models), 0)
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
         self.assertTrue("fill-mask" == models[0].pipeline_tag)
@@ -1905,13 +1905,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
         self.assertEqual(len(models), 0)
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
         res_fr = list(self._api.list_models(filter=ModelFilter(language="fr")))
         res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
         self.assertGreater(len(res_en), len(res_fr))
 
-    @expect_deprecation
+    @expect_deprecation("ModelFilter")
     def test_filter_models_with_tag(self):
         models = list(self._api.list_models(filter=ModelFilter(author="HuggingFaceBR4", tags=["tensorboard"])))
         self.assertTrue("HuggingFaceBR4" == models[0].author)
