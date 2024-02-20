@@ -56,6 +56,15 @@ from huggingface_hub.inference._common import (
     _open_as_binary,
     _set_as_non_tgi,
 )
+from huggingface_hub.inference._generated.types import (
+    AutomaticSpeechRecognitionOutput,
+    ClassificationOutput,
+    DocumentQuestionAnsweringOutputElement,
+    FillMaskOutputElement,
+    ObjectDetectionOutputElement,
+    QuestionAnsweringOutputElement,
+    TableQuestionAnsweringOutputElement,
+)
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
     TextGenerationRequest,
@@ -64,15 +73,10 @@ from huggingface_hub.inference._text_generation import (
     raise_text_generation_error,
 )
 from huggingface_hub.inference._types import (
-    AudioToAudioOutput,
-    ClassificationOutput,
-    ConversationalOutput,
-    FillMaskOutput,
-    ImageSegmentationOutput,
-    ObjectDetectionOutput,
-    QuestionAnsweringOutput,
-    TableQuestionAnsweringOutput,
-    TokenClassificationOutput,
+    AudioToAudioOutput,  # need custom parsing for audio
+    ConversationalOutput,  # soon to be removed
+    ImageSegmentationOutput,  # need custom parsing for mask images
+    TokenClassificationOutput,  # doesn't exist in generated types
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -295,7 +299,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-classification")
-        return _bytes_to_list(response)
+        return ClassificationOutput.from_data(response)
 
     async def audio_to_audio(
         self,
@@ -346,7 +350,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> str:
+    ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
 
@@ -376,7 +380,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
-        return _bytes_to_dict(response)["text"]
+        return AutomaticSpeechRecognitionOutput(response)
 
     async def conversational(
         self,
@@ -491,7 +495,7 @@ class AsyncInferenceClient:
         question: str,
         *,
         model: Optional[str] = None,
-    ) -> List[QuestionAnsweringOutput]:
+    ) -> List[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
 
@@ -525,7 +529,7 @@ class AsyncInferenceClient:
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         response = await self.post(json=payload, model=model, task="document-question-answering")
-        return _bytes_to_list(response)
+        return DocumentQuestionAnsweringOutputElement.from_data(response)
 
     async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
@@ -564,7 +568,7 @@ class AsyncInferenceClient:
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
-    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
+    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -603,7 +607,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
-        return _bytes_to_list(response)
+        return FillMaskOutputElement.from_data(response)
 
     async def image_classification(
         self,
@@ -640,7 +644,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=image, model=model, task="image-classification")
-        return _bytes_to_list(response)
+        return ClassificationOutput.from_data(response)
 
     async def image_segmentation(
         self,
@@ -902,7 +906,7 @@ class AsyncInferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ObjectDetectionOutput]:
+    ) -> List[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
 
@@ -920,7 +924,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
 
         Returns:
-            `List[ObjectDetectionOutput]`: A list of dictionaries containing the bounding boxes and associated attributes.
+            `List[ObjectDetectionOutputElement]`: A list of dictionaries containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -941,14 +945,11 @@ class AsyncInferenceClient:
         """
         # detect objects
         response = await self.post(data=image, model=model, task="object-detection")
-        output = _bytes_to_dict(response)
-        if not isinstance(output, list):
-            raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
-        return output
+        return ObjectDetectionOutputElement.from_data(response)
 
     async def question_answering(
         self, question: str, context: str, *, model: Optional[str] = None
-    ) -> QuestionAnsweringOutput:
+    ) -> QuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from a given text.
 
@@ -986,7 +987,7 @@ class AsyncInferenceClient:
             model=model,
             task="question-answering",
         )
-        return _bytes_to_dict(response)  # type: ignore
+        return QuestionAnsweringOutputElement.from_data(response)
 
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -1082,7 +1083,7 @@ class AsyncInferenceClient:
 
     async def table_question_answering(
         self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
-    ) -> TableQuestionAnsweringOutput:
+    ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
 
@@ -1124,7 +1125,7 @@ class AsyncInferenceClient:
             model=model,
             task="table-question-answering",
         )
-        return _bytes_to_dict(response)  # type: ignore
+        return TableQuestionAnsweringOutputElement.from_data(response)
 
     async def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
         """
@@ -1244,7 +1245,7 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="text-classification")
-        return _bytes_to_list(response)[0]
+        return ClassificationOutput.from_data(response)[0]
 
     @overload
     async def text_generation(  # type: ignore
@@ -1958,7 +1959,7 @@ class AsyncInferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return _bytes_to_list(response)
+        return ClassificationOutput.from_data(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
