@@ -36,20 +36,6 @@ class AudioToAudioOutput(TypedDict):
     blob: bytes
 
 
-class ClassificationOutput(TypedDict):
-    """Dictionary containing the output of a [`~InferenceClient.audio_classification`] and  [`~InferenceClient.image_classification`] task.
-
-    Args:
-        label (`str`):
-            The label predicted by the model.
-        score (`float`):
-            The score of the label predicted by the model.
-    """
-
-    label: str
-    score: float
-
-
 class ConversationalOutputConversation(TypedDict):
     """Dictionary containing the "conversation" part of a [`~InferenceClient.conversational`] task.
 

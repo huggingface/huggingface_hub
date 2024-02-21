@@ -260,13 +260,13 @@ _SUBMOD_ATTRS = {
     ],
     "inference._generated.types": [
         "AudioClassificationInput",
+        "AudioClassificationOutput",
         "AudioClassificationParameters",
         "AutomaticSpeechRecognitionInput",
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
         "BoundingBox",
-        "ClassificationOutput",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -279,6 +279,7 @@ _SUBMOD_ATTRS = {
         "FillMaskParameters",
         "GenerationParameters",
         "ImageClassificationInput",
+        "ImageClassificationOutput",
         "ImageClassificationParameters",
         "ImageSegmentationInput",
         "ImageSegmentationOutputElement",
@@ -309,6 +310,7 @@ _SUBMOD_ATTRS = {
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
         "TextClassificationInput",
+        "TextClassificationOutput",
         "TextClassificationParameters",
         "TextGenerationInput",
         "TextGenerationOutput",
@@ -330,6 +332,7 @@ _SUBMOD_ATTRS = {
         "TranslationInput",
         "TranslationOutput",
         "VideoClassificationInput",
+        "VideoClassificationOutput",
         "VideoClassificationParameters",
         "VisualQuestionAnsweringInput",
         "VisualQuestionAnsweringInputData",
@@ -337,9 +340,11 @@ _SUBMOD_ATTRS = {
         "VisualQuestionAnsweringParameters",
         "ZeroShotClassificationInput",
         "ZeroShotClassificationInputData",
+        "ZeroShotClassificationOutput",
         "ZeroShotClassificationParameters",
         "ZeroShotImageClassificationInput",
         "ZeroShotImageClassificationInputData",
+        "ZeroShotImageClassificationOutput",
         "ZeroShotImageClassificationParameters",
         "ZeroShotObjectDetectionInput",
         "ZeroShotObjectDetectionInputData",
@@ -693,13 +698,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
     from .inference._generated.types import (
         AudioClassificationInput,  # noqa: F401
+        AudioClassificationOutput,  # noqa: F401
         AudioClassificationParameters,  # noqa: F401
         AutomaticSpeechRecognitionInput,  # noqa: F401
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         BoundingBox,  # noqa: F401
-        ClassificationOutput,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -712,6 +717,7 @@ if TYPE_CHECKING:  # pragma: no cover
         FillMaskParameters,  # noqa: F401
         GenerationParameters,  # noqa: F401
         ImageClassificationInput,  # noqa: F401
+        ImageClassificationOutput,  # noqa: F401
         ImageClassificationParameters,  # noqa: F401
         ImageSegmentationInput,  # noqa: F401
         ImageSegmentationOutputElement,  # noqa: F401
@@ -742,6 +748,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
         TextClassificationInput,  # noqa: F401
+        TextClassificationOutput,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
         TextGenerationInput,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
@@ -763,6 +770,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
+        VideoClassificationOutput,  # noqa: F401
         VideoClassificationParameters,  # noqa: F401
         VisualQuestionAnsweringInput,  # noqa: F401
         VisualQuestionAnsweringInputData,  # noqa: F401
@@ -770,9 +778,11 @@ if TYPE_CHECKING:  # pragma: no cover
         VisualQuestionAnsweringParameters,  # noqa: F401
         ZeroShotClassificationInput,  # noqa: F401
         ZeroShotClassificationInputData,  # noqa: F401
+        ZeroShotClassificationOutput,  # noqa: F401
         ZeroShotClassificationParameters,  # noqa: F401
         ZeroShotImageClassificationInput,  # noqa: F401
         ZeroShotImageClassificationInputData,  # noqa: F401
+        ZeroShotImageClassificationOutput,  # noqa: F401
         ZeroShotImageClassificationParameters,  # noqa: F401
         ZeroShotObjectDetectionInput,  # noqa: F401
         ZeroShotObjectDetectionInputData,  # noqa: F401

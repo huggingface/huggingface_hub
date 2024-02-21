@@ -34,7 +34,7 @@ class ImageClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class ClassificationOutput(BaseInferenceType):
+class ImageClassificationOutput(BaseInferenceType):
     """Outputs of inference for the Image Classification task"""
 
     label: str

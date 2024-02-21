@@ -47,7 +47,7 @@ class ZeroShotClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class ClassificationOutput(BaseInferenceType):
+class ZeroShotClassificationOutput(BaseInferenceType):
     """Outputs of inference for the Zero Shot Classification task"""
 
     label: str

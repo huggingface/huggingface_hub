@@ -41,10 +41,6 @@ pip install --upgrade huggingface_hub[inference]
 
 For most tasks, the return value has a built-in type (string, list, image...). Here is a list for the more complex types.
 
-### ClassificationOutput
-
-[[autodoc]] huggingface_hub.inference._types.ClassificationOutput
-
 ### ConversationalOutputConversation
 
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutputConversation

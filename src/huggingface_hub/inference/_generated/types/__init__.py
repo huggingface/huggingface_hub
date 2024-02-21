@@ -3,7 +3,7 @@
 #
 # ruff: noqa: F401
 
-from .audio_classification import AudioClassificationInput, AudioClassificationParameters, ClassificationOutput
+from .audio_classification import AudioClassificationInput, AudioClassificationOutput, AudioClassificationParameters
 from .automatic_speech_recognition import (
     AutomaticSpeechRecognitionInput,
     AutomaticSpeechRecognitionOutput,
@@ -21,7 +21,7 @@ from .document_question_answering import (
 )
 from .feature_extraction import FeatureExtractionInput
 from .fill_mask import FillMaskInput, FillMaskOutputElement, FillMaskParameters
-from .image_classification import ImageClassificationInput, ImageClassificationParameters
+from .image_classification import ImageClassificationInput, ImageClassificationOutput, ImageClassificationParameters
 from .image_segmentation import ImageSegmentationInput, ImageSegmentationOutputElement, ImageSegmentationParameters
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, TargetSize
 from .image_to_text import ImageToTextInput, ImageToTextOutput, ImageToTextParameters
@@ -45,7 +45,7 @@ from .table_question_answering import (
     TableQuestionAnsweringOutputElement,
 )
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput
-from .text_classification import TextClassificationInput, TextClassificationParameters
+from .text_classification import TextClassificationInput, TextClassificationOutput, TextClassificationParameters
 from .text_generation import (
     PrefillToken,
     TextGenerationInput,
@@ -64,7 +64,7 @@ from .token_classification import (
     TokenClassificationParameters,
 )
 from .translation import TranslationInput, TranslationOutput
-from .video_classification import VideoClassificationInput, VideoClassificationParameters
+from .video_classification import VideoClassificationInput, VideoClassificationOutput, VideoClassificationParameters
 from .visual_question_answering import (
     VisualQuestionAnsweringInput,
     VisualQuestionAnsweringInputData,
@@ -74,11 +74,13 @@ from .visual_question_answering import (
 from .zero_shot_classification import (
     ZeroShotClassificationInput,
     ZeroShotClassificationInputData,
+    ZeroShotClassificationOutput,
     ZeroShotClassificationParameters,
 )
 from .zero_shot_image_classification import (
     ZeroShotImageClassificationInput,
     ZeroShotImageClassificationInputData,
+    ZeroShotImageClassificationOutput,
     ZeroShotImageClassificationParameters,
 )
 from .zero_shot_object_detection import (

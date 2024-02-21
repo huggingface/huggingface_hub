@@ -34,7 +34,7 @@ class TextClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class ClassificationOutput(BaseInferenceType):
+class TextClassificationOutput(BaseInferenceType):
     """Outputs of inference for the Text Classification task"""
 
     label: str

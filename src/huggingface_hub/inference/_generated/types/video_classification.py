@@ -38,7 +38,7 @@ class VideoClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class ClassificationOutput(BaseInferenceType):
+class VideoClassificationOutput(BaseInferenceType):
     """Outputs of inference for the Video Classification task"""
 
     label: str

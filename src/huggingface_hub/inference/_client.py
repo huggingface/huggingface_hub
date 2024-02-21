@@ -71,15 +71,19 @@ from huggingface_hub.inference._common import (
     _stream_text_generation_response,
 )
 from huggingface_hub.inference._generated.types import (
+    AudioClassificationOutput,
     AutomaticSpeechRecognitionOutput,
-    ClassificationOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
+    ImageClassificationOutput,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     TableQuestionAnsweringOutputElement,
+    TextClassificationOutput,
     TokenClassificationOutputElement,
     VisualQuestionAnsweringOutputElement,
+    ZeroShotClassificationOutput,
+    ZeroShotImageClassificationOutput,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -272,7 +276,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ClassificationOutput]:
+    ) -> List[AudioClassificationOutput]:
         """
         Perform audio classification on the provided audio content.
 
@@ -303,7 +307,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return ClassificationOutput.parse_obj_as_list(response)
+        return AudioClassificationOutput.parse_obj_as_list(response)
 
     def audio_to_audio(
         self,
@@ -567,7 +571,7 @@ class InferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ClassificationOutput]:
+    ) -> List[ImageClassificationOutput]:
         """
         Perform image classification on the given image using the specified model.
 
@@ -596,7 +600,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return ClassificationOutput.parse_obj_as_list(response)
+        return ImageClassificationOutput.parse_obj_as_list(response)
 
     def image_segmentation(
         self,
@@ -1150,7 +1154,7 @@ class InferenceClient:
         response = self.post(json={"table": table}, model=model, task="tabular-regression")
         return _bytes_to_list(response)
 
-    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[TextClassificationOutput]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1180,7 +1184,7 @@ class InferenceClient:
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-classification")
-        return ClassificationOutput.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutput.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
     def text_generation(  # type: ignore
@@ -1817,7 +1821,7 @@ class InferenceClient:
 
     def zero_shot_classification(
         self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    ) -> List[ZeroShotClassificationOutput]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
@@ -1884,15 +1888,15 @@ class InferenceClient:
             model=model,
             task="zero-shot-classification",
         )
-        output = _bytes_to_list(response)
+        output = _bytes_to_dict(response)
         return [
-            ClassificationOutput.parse_obj_as_instance({"label": label, "score": score})
+            ZeroShotClassificationOutput.parse_obj_as_instance({"label": label, "score": score})
             for label, score in zip(output["labels"], output["scores"])
         ]
 
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    ) -> List[ZeroShotImageClassificationOutput]:
         """
         Provide input image and text labels to predict text labels for the image.
 
@@ -1935,7 +1939,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return ClassificationOutput.parse_obj_as_list(response)
+        return ZeroShotImageClassificationOutput.parse_obj_as_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model

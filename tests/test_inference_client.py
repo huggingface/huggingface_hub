@@ -22,15 +22,17 @@ from PIL import Image
 
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
-    ClassificationOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
+    ImageClassificationOutput,
     InferenceClient,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     TableQuestionAnsweringOutputElement,
+    TextClassificationOutput,
     TokenClassificationOutputElement,
     VisualQuestionAnsweringOutputElement,
+    ZeroShotClassificationOutput,
     hf_hub_download,
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
@@ -227,11 +229,11 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
         assert output == [
-            ClassificationOutput(label="brassiere, bra, bandeau", score=0.1176738440990448),
-            ClassificationOutput(label="sombrero", score=0.0957278460264206),
-            ClassificationOutput(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
-            ClassificationOutput(label="bonnet, poke bonnet", score=0.06615243852138519),
-            ClassificationOutput(label="fur coat", score=0.06151164695620537),
+            ImageClassificationOutput(label="brassiere, bra, bandeau", score=0.1176738440990448),
+            ImageClassificationOutput(label="sombrero", score=0.0957278460264206),
+            ImageClassificationOutput(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
+            ImageClassificationOutput(label="bonnet, poke bonnet", score=0.06615243852138519),
+            ImageClassificationOutput(label="fur coat", score=0.06151164695620537),
         ]
 
     def test_image_segmentation(self) -> None:
@@ -346,8 +348,8 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_classification(self) -> None:
         output = self.client.text_classification("I like you")
         assert output == [
-            ClassificationOutput(label="POSITIVE", score=0.9998695850372314),
-            ClassificationOutput(label="NEGATIVE", score=0.0001304351753788069),
+            TextClassificationOutput(label="POSITIVE", score=0.9998695850372314),
+            TextClassificationOutput(label="NEGATIVE", score=0.0001304351753788069),
         ]
 
     def test_text_generation(self) -> None:
@@ -433,11 +435,11 @@ class InferenceClientVCRTest(InferenceClientTest):
             multi_label=True,
         )
         assert output == [
-            ClassificationOutput(label="scientific discovery", score=0.9829297661781311),
-            ClassificationOutput(label="space & cosmos", score=0.755190908908844),
-            ClassificationOutput(label="microbiology", score=0.0005462635890580714),
-            ClassificationOutput(label="archeology", score=0.00047131875180639327),
-            ClassificationOutput(label="robots", score=0.00030448526376858354),
+            ZeroShotClassificationOutput(label="scientific discovery", score=0.9829297661781311),
+            ZeroShotClassificationOutput(label="space & cosmos", score=0.755190908908844),
+            ZeroShotClassificationOutput(label="microbiology", score=0.0005462635890580714),
+            ZeroShotClassificationOutput(label="archeology", score=0.00047131875180639327),
+            ZeroShotClassificationOutput(label="robots", score=0.00030448526376858354),
         ]
 
     def test_zero_shot_image_classification(self) -> None:
