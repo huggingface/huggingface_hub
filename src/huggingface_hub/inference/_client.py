@@ -302,7 +302,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
+        return ClassificationOutput.parse_obj_as_list(response)
 
     def audio_to_audio(
         self,
@@ -381,7 +381,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
-        return AutomaticSpeechRecognitionOutput.from_data(response)  # type: ignore [return-value]
+        return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     def conversational(
         self,
@@ -483,7 +483,7 @@ class InferenceClient:
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         response = self.post(json=payload, model=model, task="document-question-answering")
-        return DocumentQuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
+        return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
@@ -559,7 +559,7 @@ class InferenceClient:
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="fill-mask")
-        return FillMaskOutputElement.from_data(response)  # type: ignore [return-value]
+        return FillMaskOutputElement.parse_obj_as_list(response)
 
     def image_classification(
         self,
@@ -595,7 +595,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
+        return ClassificationOutput.parse_obj_as_list(response)
 
     def image_segmentation(
         self,
@@ -886,7 +886,7 @@ class InferenceClient:
         """
         # detect objects
         response = self.post(data=image, model=model, task="object-detection")
-        return ObjectDetectionOutputElement.from_data(response)  # type: ignore [return-value]
+        return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     def question_answering(
         self, question: str, context: str, *, model: Optional[str] = None
@@ -927,7 +927,7 @@ class InferenceClient:
             model=model,
             task="question-answering",
         )
-        return QuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
+        return QuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -1062,7 +1062,7 @@ class InferenceClient:
             model=model,
             task="table-question-answering",
         )
-        return TableQuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
+        return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
     def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
         """
@@ -1179,7 +1179,7 @@ class InferenceClient:
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-classification")
-        return ClassificationOutput.from_data(response)[0]  # type: ignore [return-value]
+        return ClassificationOutput.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
     def text_generation(  # type: ignore
@@ -1881,7 +1881,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-classification",
         )
-        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
+        return ClassificationOutput.parse_obj_as_list(response)
 
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
@@ -1928,7 +1928,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
+        return ClassificationOutput.parse_obj_as_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
