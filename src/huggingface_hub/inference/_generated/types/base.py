@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Dict, List, Type, TypeVar, Union, get_args
 
 
 T = TypeVar("T", bound="BaseInferenceType")
@@ -91,8 +91,16 @@ class BaseInferenceType(dict):
     def __post_init__(self):
         self.update(asdict(self))
 
+    def __setitem__(self, __key: Any, __value: Any) -> None:
+        # Hacky way to keep dataclass values in sync when dict is updated
+        super().__setitem__(__key, __value)
+        if __key in self.__dataclass_fields__ and getattr(self, __key, None) != __value:
+            setattr(__key, __value)
+        return
 
-def is_optional(field):
-    # Check if a field is Optional
-    # Taken from https://stackoverflow.com/a/58841311
-    return get_origin(field) is Union and type(None) in get_args(field)
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        # Hacky way to keep dict values is sync when dataclass is updated
+        super().__setattr__(__name, __value)
+        if self.get(__name) != __value:
+            self[__name] = __value
+        return

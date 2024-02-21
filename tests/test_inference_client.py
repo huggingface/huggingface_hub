@@ -238,14 +238,14 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_image_segmentation(self) -> None:
         output = self.client.image_segmentation(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
+        assert isinstance(output, list)
+        assert len(output) > 0
         for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["mask"], Image.Image)
-            self.assertEqual(item["mask"].height, 512)
-            self.assertEqual(item["mask"].width, 512)
+            assert isinstance(item.score, float)
+            assert isinstance(item.label, str)
+            assert isinstance(item.mask, Image.Image)
+            assert item.mask.height == 512
+            assert item.mask.width == 512
 
     # ERROR 500 from server
     # Only during tests, not when running locally. Has to be investigated.

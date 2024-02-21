@@ -76,6 +76,7 @@ from huggingface_hub.inference._generated.types import (
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutput,
+    ImageSegmentationOutputElement,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     TableQuestionAnsweringOutputElement,
@@ -95,7 +96,6 @@ from huggingface_hub.inference._text_generation import (
 from huggingface_hub.inference._types import (
     AudioToAudioOutput,  # need custom parsing for audio
     ConversationalOutput,  # soon to be removed
-    ImageSegmentationOutput,  # need custom parsing for mask images
 )
 from huggingface_hub.utils import (
     BadRequestError,
@@ -607,7 +607,7 @@ class InferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ImageSegmentationOutput]:
+    ) -> List[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
 
@@ -644,13 +644,9 @@ class InferenceClient:
 
         # Segment
         response = self.post(data=image, model=model, task="image-segmentation")
-        output = _bytes_to_dict(response)
-
-        # Parse masks as PIL Image
-        if not isinstance(output, list):
-            raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
+        output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item["mask"] = _b64_to_image(item["mask"])
+            item.mask = _b64_to_image(item.mask)
         return output
 
     def image_to_image(
