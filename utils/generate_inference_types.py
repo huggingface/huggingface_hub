@@ -8,9 +8,10 @@ from typing import Dict, List, NoReturn
 from ruff.__main__ import find_ruff_bin
 
 
-INFERENCE_TYPES_FOLDER_PATH = (
-    Path(__file__).parents[1] / "src" / "huggingface_hub" / "inference" / "_generated" / "types"
-)
+huggingface_hub_folder_path = Path(__file__).parents[1] / "src" / "huggingface_hub"
+INFERENCE_TYPES_FOLDER_PATH = huggingface_hub_folder_path / "inference" / "_generated" / "types"
+MAIN_INIT_PY_FILE = huggingface_hub_folder_path / "__init__.py"
+
 
 IGNORE_FILES = [
     "__init__.py",
@@ -45,6 +46,16 @@ INIT_PY_HEADER = """
 from .base import BaseInferenceType
 """
 
+# Regex to add all dataclasses to ./src/huggingface_hub/__init__.py
+MAIN_INIT_PY_REGEX = re.compile(
+    r"""
+\"inference\._generated\.types\":\s*\[ # module name
+    (.*?) # all dataclasses listed
+\] # closing bracket
+""",
+    re.MULTILINE | re.VERBOSE | re.DOTALL,
+)
+
 
 def _inherit_from_base(content: str) -> str:
     content = content.replace(
@@ -77,6 +88,13 @@ def create_init_py(dataclasses: Dict[str, List[str]]):
         [f"from .{module} import {', '.join(dataclasses_list)}" for module, dataclasses_list in dataclasses.items()]
     )
     return content
+
+
+def add_dataclasses_to_main_init(content: str, dataclasses: Dict[str, List[str]]):
+    dataclasses_list = sorted({cls for classes in dataclasses.values() for cls in classes})
+    dataclasses_str = ", ".join(f"'{cls}'" for cls in dataclasses_list)
+
+    return MAIN_INIT_PY_REGEX.sub(f'"inference._generated.types": [{dataclasses_str}]', content)
 
 
 def format_source_code(code: str) -> str:
@@ -127,6 +145,21 @@ def check_inference_types(update: bool) -> NoReturn:
         else:
             print(
                 f"❌ Expected content mismatch in {init_py_file}. Please run `make inference_types_update` or `python utils/generate_inference_types.py --update`."
+            )
+            exit(1)
+
+    main_init_py_content = MAIN_INIT_PY_FILE.read_text()
+    updated_main_init_py_content = add_dataclasses_to_main_init(main_init_py_content, dataclasses)
+    updated_main_init_py_content = format_source_code(updated_main_init_py_content)
+    if main_init_py_content != updated_main_init_py_content:
+        if update:
+            MAIN_INIT_PY_FILE.write_text(updated_main_init_py_content)
+            print(
+                f"  {MAIN_INIT_PY_FILE} has been updated. Please make sure the changes are accurate and commit them."
+            )
+        else:
+            print(
+                f"❌ Expected content mismatch in {MAIN_INIT_PY_FILE}. Please run `make inference_types_update` or `python utils/generate_inference_types.py --update`."
             )
             exit(1)
 

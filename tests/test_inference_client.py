@@ -23,6 +23,7 @@ from PIL import Image
 from huggingface_hub import InferenceClient, hf_hub_download
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
+from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionOutput
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -106,7 +107,7 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_automatic_speech_recognition(self) -> None:
         output = self.client.automatic_speech_recognition(self.audio_file)
-        self.assertEqual(output, "A MAN SAID TO THE UNIVERSE SIR I EXIST")
+        assert output == AutomaticSpeechRecognitionOutput(text="A MAN SAID TO THE UNIVERSE SIR I EXIST", chunks=None)
 
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
