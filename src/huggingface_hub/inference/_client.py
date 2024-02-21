@@ -78,6 +78,8 @@ from huggingface_hub.inference._generated.types import (
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     TableQuestionAnsweringOutputElement,
+    TokenClassificationOutputElement,
+    VisualQuestionAnsweringOutputElement,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -90,7 +92,6 @@ from huggingface_hub.inference._types import (
     AudioToAudioOutput,  # need custom parsing for audio
     ConversationalOutput,  # soon to be removed
     ImageSegmentationOutput,  # need custom parsing for mask images
-    TokenClassificationOutput,  # doesn't exist in generated types
 )
 from huggingface_hub.utils import (
     BadRequestError,
@@ -1656,7 +1657,9 @@ class InferenceClient:
         """
         return self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
-    def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
+    def token_classification(
+        self, text: str, *, model: Optional[str] = None
+    ) -> List[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
@@ -1701,7 +1704,7 @@ class InferenceClient:
             model=model,
             task="token-classification",
         )
-        return _bytes_to_list(response)
+        return TokenClassificationOutputElement.parse_obj_as_list(response)
 
     def translation(
         self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
@@ -1774,7 +1777,7 @@ class InferenceClient:
         question: str,
         *,
         model: Optional[str] = None,
-    ) -> List[str]:
+    ) -> List[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
 
@@ -1810,7 +1813,7 @@ class InferenceClient:
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         response = self.post(json=payload, model=model, task="visual-question-answering")
-        return _bytes_to_list(response)
+        return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def zero_shot_classification(
         self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
@@ -1881,7 +1884,11 @@ class InferenceClient:
             model=model,
             task="zero-shot-classification",
         )
-        return ClassificationOutput.parse_obj_as_list(response)
+        output = _bytes_to_list(response)
+        return [
+            ClassificationOutput.parse_obj_as_instance({"label": label, "score": score})
+            for label, score in zip(output["labels"], output["scores"])
+        ]
 
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None

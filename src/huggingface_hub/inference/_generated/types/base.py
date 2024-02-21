@@ -75,11 +75,11 @@ class BaseInferenceType(dict):
             else:
                 other_values[key] = value
 
-        # Make all optional fields default to None
-        for key, field in cls.__dataclass_fields__.items():
+        # Make all missing fields default to None
+        # => ensure that dataclass initialization will never fail even if the server does not return all fields.
+        for key in cls.__dataclass_fields__:
             if key not in init_values:
-                if is_optional(field.type):
-                    init_values[key] = None
+                init_values[key] = None
 
         # Initialize dataclass with expected values
         item = cls(**init_values)

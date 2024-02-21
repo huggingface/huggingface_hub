@@ -20,10 +20,21 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub import (
+    AutomaticSpeechRecognitionOutput,
+    ClassificationOutput,
+    DocumentQuestionAnsweringOutputElement,
+    FillMaskOutputElement,
+    InferenceClient,
+    ObjectDetectionOutputElement,
+    QuestionAnsweringOutputElement,
+    TableQuestionAnsweringOutputElement,
+    TokenClassificationOutputElement,
+    VisualQuestionAnsweringOutputElement,
+    hf_hub_download,
+)
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionOutput
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -107,7 +118,10 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_automatic_speech_recognition(self) -> None:
         output = self.client.automatic_speech_recognition(self.audio_file)
-        assert output == AutomaticSpeechRecognitionOutput(text="A MAN SAID TO THE UNIVERSE SIR I EXIST", chunks=None)
+        assert output == AutomaticSpeechRecognitionOutput(
+            text="A MAN SAID TO THE UNIVERSE SIR I EXIST",
+            chunks=None,
+        )
 
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
@@ -142,7 +156,14 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_document_question_answering(self) -> None:
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
-        self.assertEqual(output, [{"answer": "$1,000,000,000"}])
+        self.assertEqual(
+            output,
+            [
+                DocumentQuestionAnsweringOutputElement(
+                    answer="$1,000,000,000", end=None, score=None, start=None, words=None
+                )
+            ],
+        )
 
     def test_feature_extraction_with_transformers(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
@@ -157,13 +178,43 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_fill_mask(self) -> None:
         model = "distilroberta-base"
         output = self.client.fill_mask("The goal of life is <mask>.", model=model)
-        self.assertIsInstance(output, list)
-        self.assertEqual(len(output[0]), 4)
-        self.assertIsInstance(output[0], dict)
-        self.assertEqual(
-            set(k for el in output for k in el.keys()),
-            {"score", "sequence", "token", "token_str"},
-        )
+        assert output == [
+            FillMaskOutputElement(
+                score=0.06897063553333282,
+                sequence="The goal of life is happiness.",
+                token=11098,
+                token_str=" happiness",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.06554922461509705,
+                sequence="The goal of life is immortality.",
+                token=45075,
+                token_str=" immortality",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.0323575921356678,
+                sequence="The goal of life is yours.",
+                token=14314,
+                token_str=" yours",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.02431388944387436,
+                sequence="The goal of life is liberation.",
+                token=22211,
+                token_str=" liberation",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.023767812177538872,
+                sequence="The goal of life is simplicity.",
+                token=25342,
+                token_str=" simplicity",
+                fill_mask_output_token_str=None,
+            ),
+        ]
 
     def test_get_recommended_model_has_recommendation(self) -> None:
         assert self.client.get_recommended_model("feature-extraction") == "facebook/bart-base"
@@ -175,11 +226,13 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+        assert output == [
+            ClassificationOutput(label="brassiere, bra, bandeau", score=0.1176738440990448),
+            ClassificationOutput(label="sombrero", score=0.0957278460264206),
+            ClassificationOutput(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
+            ClassificationOutput(label="bonnet, poke bonnet", score=0.06615243852138519),
+            ClassificationOutput(label="fur coat", score=0.06151164695620537),
+        ]
 
     def test_image_segmentation(self) -> None:
         output = self.client.image_segmentation(self.image_file)
@@ -208,26 +261,16 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_object_detection(self) -> None:
         output = self.client.object_detection(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["box"], dict)
-            self.assertIn("xmin", item["box"])
-            self.assertIn("ymin", item["box"])
-            self.assertIn("xmax", item["box"])
-            self.assertIn("ymax", item["box"])
+        assert output == [
+            ObjectDetectionOutputElement(
+                box={"xmin": 59, "ymin": 39, "xmax": 420, "ymax": 510}, label="person", score=0.9486683011054993
+            )
+        ]
 
     def test_question_answering(self) -> None:
         model = "deepset/roberta-base-squad2"
         output = self.client.question_answering(question="What is the meaning of life?", context="42", model=model)
-        self.assertIsInstance(output, dict)
-        self.assertGreater(len(output), 0)
-        self.assertIsInstance(output["score"], float)
-        self.assertIsInstance(output["start"], int)
-        self.assertIsInstance(output["end"], int)
-        self.assertEqual(output["answer"], "42")
+        assert output == QuestionAnsweringOutputElement(answer="42", end=2, score=1.4291124728060822e-08, start=0)
 
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(
@@ -296,20 +339,16 @@ class InferenceClientVCRTest(InferenceClientTest):
         }
         query = "How many stars does the transformers repository have?"
         output = self.client.table_question_answering(query=query, table=table)
-        self.assertEqual(type(output), dict)
-        self.assertEqual(len(output), 4)
-        self.assertEqual(
-            set(output.keys()),
-            {"aggregator", "answer", "cells", "coordinates"},
+        assert output == TableQuestionAnsweringOutputElement(
+            answer="AVERAGE > 36542", cells=["36542"], coordinates=[[0, 1]], aggregator="AVERAGE"
         )
 
     def test_text_classification(self) -> None:
         output = self.client.text_classification("I like you")
-        self.assertIsInstance(output, list)
-        self.assertEqual(len(output), 2)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+        assert output == [
+            ClassificationOutput(label="POSITIVE", score=0.9998695850372314),
+            ClassificationOutput(label="NEGATIVE", score=0.0001304351753788069),
+        ]
 
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
@@ -348,27 +387,24 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_token_classification(self) -> None:
         output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["entity_group"], str)
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["word"], str)
-            self.assertIsInstance(item["start"], int)
-            self.assertIsInstance(item["end"], int)
+        assert output == [
+            TokenClassificationOutputElement(
+                label=None, score=0.9991335868835449, end=31, entity_group="PER", start=11, word="Sarah Jessica Parker"
+            ),
+            TokenClassificationOutputElement(
+                label=None, score=0.9979913234710693, end=59, entity_group="PER", start=52, word="Jessica"
+            ),
+        ]
 
     def test_visual_question_answering(self) -> None:
         output = self.client.visual_question_answering(self.image_file, "Who's in the picture?")
-        self.assertEqual(
-            output,
-            [
-                {"score": 0.9386941194534302, "answer": "woman"},
-                {"score": 0.34311845898628235, "answer": "girl"},
-                {"score": 0.08407749235630035, "answer": "lady"},
-                {"score": 0.0507517009973526, "answer": "female"},
-                {"score": 0.01777094043791294, "answer": "man"},
-            ],
-        )
+        assert output == [
+            VisualQuestionAnsweringOutputElement(label=None, score=0.9386941194534302, answer="woman"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.34311845898628235, answer="girl"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.08407749235630035, answer="lady"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.0507517009973526, answer="female"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.01777094043791294, answer="man"),
+        ]
 
     def test_zero_shot_classification_single_label(self) -> None:
         output = self.client.zero_shot_classification(
@@ -396,16 +432,13 @@ class InferenceClientVCRTest(InferenceClientTest):
             labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
             multi_label=True,
         )
-        self.assertEqual(
-            output,
-            [
-                {"label": "scientific discovery", "score": 0.9829297661781311},
-                {"label": "space & cosmos", "score": 0.755190908908844},
-                {"label": "microbiology", "score": 0.0005462635890580714},
-                {"label": "archeology", "score": 0.00047131875180639327},
-                {"label": "robots", "score": 0.00030448526376858354},
-            ],
-        )
+        assert output == [
+            ClassificationOutput(label="scientific discovery", score=0.9829297661781311),
+            ClassificationOutput(label="space & cosmos", score=0.755190908908844),
+            ClassificationOutput(label="microbiology", score=0.0005462635890580714),
+            ClassificationOutput(label="archeology", score=0.00047131875180639327),
+            ClassificationOutput(label="robots", score=0.00030448526376858354),
+        ]
 
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
