@@ -43,7 +43,7 @@ class BoundingBox(BaseInferenceType):
 class ObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Object Detection task"""
 
-    box: Optional[BoundingBox]
+    box: Optional[BoundingBox] = None
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """
