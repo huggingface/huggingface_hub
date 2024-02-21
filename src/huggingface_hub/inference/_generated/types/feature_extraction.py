@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -13,5 +15,5 @@ class FeatureExtractionInput(BaseInferenceType):
 
     inputs: str
     """The text to get the embeddings of"""
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]]
     """Additional inference parameters"""

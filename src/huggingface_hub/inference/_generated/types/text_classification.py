@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Literal, Optional
 
@@ -16,8 +18,8 @@ class TextClassificationParameters(BaseInferenceType):
     Additional inference parameters for Text Classification
     """
 
-    function_to_apply: Optional["ClassificationOutputTransform"] = None
-    top_k: Optional[int] = None
+    function_to_apply: Optional["ClassificationOutputTransform"]
+    top_k: Optional[int]
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -27,7 +29,7 @@ class TextClassificationInput(BaseInferenceType):
 
     inputs: str
     """The text to classify"""
-    parameters: Optional[TextClassificationParameters] = None
+    parameters: Optional[TextClassificationParameters]
     """Additional inference parameters"""
 
 

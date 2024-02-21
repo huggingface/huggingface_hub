@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, List, Literal, Optional
 
@@ -16,11 +18,11 @@ class TokenClassificationParameters(BaseInferenceType):
     Additional inference parameters for Token Classification
     """
 
-    aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None
+    aggregation_strategy: Optional["TokenClassificationAggregationStrategy"]
     """The strategy used to fuse tokens based on model predictions"""
-    ignore_labels: Optional[List[str]] = None
+    ignore_labels: Optional[List[str]]
     """A list of labels to ignore"""
-    stride: Optional[int] = None
+    stride: Optional[int]
     """The number of overlapping tokens between chunks when splitting the input text."""
 
 
@@ -30,7 +32,7 @@ class TokenClassificationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[TokenClassificationParameters] = None
+    parameters: Optional[TokenClassificationParameters]
     """Additional inference parameters"""
 
 
@@ -41,11 +43,11 @@ class TokenClassificationOutputElement(BaseInferenceType):
     label: Any
     score: float
     """The associated score / probability"""
-    end: Optional[int] = None
+    end: Optional[int]
     """The character position in the input where this group ends."""
-    entity_group: Optional[str] = None
+    entity_group: Optional[str]
     """The predicted label for that group of tokens"""
-    start: Optional[int] = None
+    start: Optional[int]
     """The character position in the input where this group begins."""
-    word: Optional[str] = None
+    word: Optional[str]
     """The corresponding text"""

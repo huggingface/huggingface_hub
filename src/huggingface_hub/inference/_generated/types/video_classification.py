@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
@@ -16,12 +18,12 @@ class VideoClassificationParameters(BaseInferenceType):
     Additional inference parameters for Video Classification
     """
 
-    frame_sampling_rate: Optional[int] = None
+    frame_sampling_rate: Optional[int]
     """The sampling rate used to select frames from the video."""
-    function_to_apply: Optional["ClassificationOutputTransform"] = None
-    num_frames: Optional[int] = None
+    function_to_apply: Optional["ClassificationOutputTransform"]
+    num_frames: Optional[int]
     """The number of sampled frames to consider for classification."""
-    top_k: Optional[int] = None
+    top_k: Optional[int]
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -31,7 +33,7 @@ class VideoClassificationInput(BaseInferenceType):
 
     inputs: Any
     """The input video data"""
-    parameters: Optional[VideoClassificationParameters] = None
+    parameters: Optional[VideoClassificationParameters]
     """Additional inference parameters"""
 
 

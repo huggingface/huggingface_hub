@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -13,7 +15,7 @@ class ObjectDetectionParameters(BaseInferenceType):
     Additional inference parameters for Object Detection
     """
 
-    threshold: Optional[float] = None
+    threshold: Optional[float]
     """The probability necessary to make a prediction."""
 
 
@@ -23,7 +25,7 @@ class ObjectDetectionInput(BaseInferenceType):
 
     inputs: Any
     """The input image data"""
-    parameters: Optional[ObjectDetectionParameters] = None
+    parameters: Optional[ObjectDetectionParameters]
     """Additional inference parameters"""
 
 
@@ -43,7 +45,7 @@ class BoundingBox(BaseInferenceType):
 class ObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Object Detection task"""
 
-    box: Optional[BoundingBox] = None
+    box: BoundingBox
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """

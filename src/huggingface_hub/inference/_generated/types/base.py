@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Type, TypeVar, Union, get_args
+from typing import Dict, List, Type, TypeVar, Union, get_args, get_origin
 
 
 T = TypeVar("T", bound="BaseInferenceType")
@@ -35,7 +35,7 @@ class BaseInferenceType(dict):
         init_values = {}
         other_values = {}
         for key, value in data.items():
-            if key in cls.__dataclass_fields__:
+            if key in cls.__dataclass_fields__ and cls.__dataclass_fields__[key].init:
                 if isinstance(value, dict) or isinstance(value, list):
                     # Recursively parse nested dataclasses (if possible)
                     # `get_args` returns handle Union and Optional for us
@@ -53,6 +53,12 @@ class BaseInferenceType(dict):
             else:
                 other_values[key] = value
 
+        # Make all optional fields default to None
+        for key, field in cls.__dataclass_fields__.items():
+            if key not in init_values:
+                if is_optional(field.type):
+                    init_values[key] = None
+
         # Initialize dataclass with expected values
         item = cls(**init_values)
 
@@ -62,3 +68,9 @@ class BaseInferenceType(dict):
 
     def __post_init__(self):
         self.update(asdict(self))
+
+
+def is_optional(field):
+    # Check if a field is Optional
+    # Taken from https://stackoverflow.com/a/58841311
+    return get_origin(field) is Union and type(None) in get_args(field)

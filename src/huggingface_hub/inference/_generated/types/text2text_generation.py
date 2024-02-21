@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
@@ -16,11 +18,11 @@ class Text2TextGenerationParameters(BaseInferenceType):
     Additional inference parameters for Text2text Generation
     """
 
-    clean_up_tokenization_spaces: Optional[bool] = None
+    clean_up_tokenization_spaces: Optional[bool]
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[Dict[str, Any]] = None
+    generate_parameters: Optional[Dict[str, Any]]
     """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["Text2TextGenerationTruncationStrategy"] = None
+    truncation: Optional["Text2TextGenerationTruncationStrategy"]
     """The truncation strategy to use"""
 
 
@@ -30,7 +32,7 @@ class Text2TextGenerationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[Text2TextGenerationParameters] = None
+    parameters: Optional[Text2TextGenerationParameters]
     """Additional inference parameters"""
 
 
@@ -39,5 +41,5 @@ class Text2TextGenerationOutput(BaseInferenceType):
     """Outputs of inference for the Text2text Generation task"""
 
     generated_text: Any
-    text2_text_generation_output_generated_text: Optional[str] = None
+    text2_text_generation_output_generated_text: Optional[str]
     """The generated text."""

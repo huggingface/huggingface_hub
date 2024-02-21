@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -23,7 +25,7 @@ class VisualQuestionAnsweringParameters(BaseInferenceType):
     Additional inference parameters for Visual Question Answering
     """
 
-    top_k: Optional[int] = None
+    top_k: Optional[int]
     """The number of answers to return (will be chosen by order of likelihood). Note that we
     return less than topk answers if there are not enough options available within the
     context.
@@ -36,7 +38,7 @@ class VisualQuestionAnsweringInput(BaseInferenceType):
 
     inputs: VisualQuestionAnsweringInputData
     """One (image, question) pair to answer"""
-    parameters: Optional[VisualQuestionAnsweringParameters] = None
+    parameters: Optional[VisualQuestionAnsweringParameters]
     """Additional inference parameters"""
 
 
@@ -47,5 +49,5 @@ class VisualQuestionAnsweringOutputElement(BaseInferenceType):
     label: Any
     score: float
     """The associated score / probability"""
-    answer: Optional[str] = None
+    answer: Optional[str]
     """The answer to the question"""

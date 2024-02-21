@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -23,7 +25,7 @@ class TableQuestionAnsweringInput(BaseInferenceType):
 
     inputs: TableQuestionAnsweringInputData
     """One (table, question) pair to answer"""
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]]
     """Additional inference parameters"""
 
 
@@ -39,5 +41,5 @@ class TableQuestionAnsweringOutputElement(BaseInferenceType):
     """List of strings made up of the answer cell values."""
     coordinates: List[List[int]]
     """Coordinates of the cells of the answers."""
-    aggregator: Optional[str] = None
+    aggregator: Optional[str]
     """If the model has an aggregator, this returns the aggregator."""

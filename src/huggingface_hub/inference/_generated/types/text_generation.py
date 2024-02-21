@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import List, Literal, Optional
 
@@ -13,43 +15,43 @@ class TextGenerationParameters(BaseInferenceType):
     Additional inference parameters for Text Generation
     """
 
-    best_of: Optional[int] = None
+    best_of: Optional[int]
     """The number of sampling queries to run. Only the best one (in terms of total logprob) will
     be returned.
     """
-    decoder_input_details: Optional[bool] = None
+    decoder_input_details: Optional[bool]
     """Whether or not to output decoder input details"""
-    details: Optional[bool] = None
+    details: Optional[bool]
     """Whether or not to output details"""
-    do_sample: Optional[bool] = None
+    do_sample: Optional[bool]
     """Whether to use logits sampling instead of greedy decoding when generating new tokens."""
-    max_new_tokens: Optional[int] = None
+    max_new_tokens: Optional[int]
     """The maximum number of tokens to generate."""
-    repetition_penalty: Optional[float] = None
+    repetition_penalty: Optional[float]
     """The parameter for repetition penalty. A value of 1.0 means no penalty. See [this
     paper](https://hf.co/papers/1909.05858) for more details.
     """
-    return_full_text: Optional[bool] = None
+    return_full_text: Optional[bool]
     """Whether to prepend the prompt to the generated text."""
-    seed: Optional[int] = None
+    seed: Optional[int]
     """The random sampling seed."""
-    stop_sequences: Optional[List[str]] = None
+    stop_sequences: Optional[List[str]]
     """Stop generating tokens if a member of `stop_sequences` is generated."""
-    temperature: Optional[float] = None
+    temperature: Optional[float]
     """The value used to modulate the logits distribution."""
-    top_k: Optional[int] = None
+    top_k: Optional[int]
     """The number of highest probability vocabulary tokens to keep for top-k-filtering."""
-    top_p: Optional[float] = None
+    top_p: Optional[float]
     """If set to < 1, only the smallest set of most probable tokens with probabilities that add
     up to `top_p` or higher are kept for generation.
     """
-    truncate: Optional[int] = None
+    truncate: Optional[int]
     """Truncate input tokens to the given size."""
-    typical_p: Optional[float] = None
+    typical_p: Optional[float]
     """Typical Decoding mass. See [Typical Decoding for Natural Language
     Generation](https://hf.co/papers/2202.00666) for more information
     """
-    watermark: Optional[bool] = None
+    watermark: Optional[bool]
     """Watermarking with [A Watermark for Large Language Models](https://hf.co/papers/2301.10226)"""
 
 
@@ -59,7 +61,7 @@ class TextGenerationInput(BaseInferenceType):
 
     inputs: str
     """The text to initialize generation with"""
-    parameters: Optional[TextGenerationParameters] = None
+    parameters: Optional[TextGenerationParameters]
     """Additional inference parameters"""
 
 
@@ -95,7 +97,7 @@ class TextGenerationSequenceDetails(BaseInferenceType):
     prefill: List[PrefillToken]
     tokens: List[Token]
     """The generated tokens and associated details"""
-    seed: Optional[int] = None
+    seed: Optional[int]
     """The random seed used for generation"""
 
 
@@ -110,9 +112,9 @@ class TextGenerationOutputDetails(BaseInferenceType):
     prefill: List[PrefillToken]
     tokens: List[Token]
     """The generated tokens and associated details"""
-    best_of_sequences: Optional[List[TextGenerationSequenceDetails]] = None
+    best_of_sequences: Optional[List[TextGenerationSequenceDetails]]
     """Details about additional sequences when best_of is provided"""
-    seed: Optional[int] = None
+    seed: Optional[int]
     """The random seed used for generation"""
 
 
@@ -122,5 +124,5 @@ class TextGenerationOutput(BaseInferenceType):
 
     generated_text: str
     """The generated text"""
-    details: Optional[TextGenerationOutputDetails] = None
+    details: Optional[TextGenerationOutputDetails]
     """When enabled, details about the generation"""

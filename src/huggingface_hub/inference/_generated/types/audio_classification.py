@@ -1,5 +1,6 @@
 # Inference code generated from the JSON schema spec in @huggingface/tasks.
-# using src/scripts/inference-codegen
+#
+# Using ./src/scripts/inference-codegen
 #
 # See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
@@ -17,8 +18,8 @@ class AudioClassificationParameters(BaseInferenceType):
     Additional inference parameters for Audio Classification
     """
 
-    function_to_apply: Optional["ClassificationOutputTransform"] = None
-    top_k: Optional[int] = None
+    function_to_apply: Optional["ClassificationOutputTransform"]
+    top_k: Optional[int]
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -28,7 +29,7 @@ class AudioClassificationInput(BaseInferenceType):
 
     inputs: Any
     """The input audio data"""
-    parameters: Optional[AudioClassificationParameters] = None
+    parameters: Optional[AudioClassificationParameters]
     """Additional inference parameters"""
 
 

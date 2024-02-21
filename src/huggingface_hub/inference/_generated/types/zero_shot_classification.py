@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -23,11 +25,11 @@ class ZeroShotClassificationParameters(BaseInferenceType):
     Additional inference parameters for Zero Shot Classification
     """
 
-    hypothesis_template: Optional[str] = None
+    hypothesis_template: Optional[str]
     """The sentence used in conjunction with candidateLabels to attempt the text classification
     by replacing the placeholder with the candidate labels.
     """
-    multi_label: Optional[bool] = None
+    multi_label: Optional[bool]
     """Whether multiple candidate labels can be true. If false, the scores are normalized such
     that the sum of the label likelihoods for each sequence is 1. If true, the labels are
     considered independent and probabilities are normalized for each candidate.
@@ -40,7 +42,7 @@ class ZeroShotClassificationInput(BaseInferenceType):
 
     inputs: ZeroShotClassificationInputData
     """The input text data, with candidate labels"""
-    parameters: Optional[ZeroShotClassificationParameters] = None
+    parameters: Optional[ZeroShotClassificationParameters]
     """Additional inference parameters"""
 
 

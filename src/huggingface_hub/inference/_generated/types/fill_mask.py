@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
@@ -13,13 +15,13 @@ class FillMaskParameters(BaseInferenceType):
     Additional inference parameters for Fill Mask
     """
 
-    targets: Optional[List[str]] = None
+    targets: Optional[List[str]]
     """When passed, the model will limit the scores to the passed targets instead of looking up
     in the whole vocabulary. If the provided targets are not in the model vocab, they will be
     tokenized and the first resulting token will be used (with a warning, and that might be
     slower).
     """
-    top_k: Optional[int] = None
+    top_k: Optional[int]
     """When passed, overrides the number of predictions to return."""
 
 
@@ -29,7 +31,7 @@ class FillMaskInput(BaseInferenceType):
 
     inputs: str
     """The text with masked tokens"""
-    parameters: Optional[FillMaskParameters] = None
+    parameters: Optional[FillMaskParameters]
     """Additional inference parameters"""
 
 
@@ -44,5 +46,5 @@ class FillMaskOutputElement(BaseInferenceType):
     token: int
     """The predicted token id (to replace the masked one)."""
     token_str: Any
-    fill_mask_output_token_str: Optional[str] = None
+    fill_mask_output_token_str: Optional[str]
     """The predicted token (to replace the masked one)."""

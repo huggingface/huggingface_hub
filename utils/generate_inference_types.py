@@ -54,11 +54,6 @@ def _inherit_from_base(content: str) -> str:
     return content
 
 
-def _make_optional_fields_default_to_none(content: str) -> str:
-    content = OPTIONAL_FIELD_REGEX.sub(r": Optional[\1] = None", content)
-    return content
-
-
 def _delete_empty_lines(content: str) -> str:
     return "\n".join([line for line in content.split("\n") if line.strip()])
 
@@ -71,7 +66,6 @@ def _list_dataclasses(content: str) -> List[str]:
 def fix_inference_classes(content: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
-    content = _make_optional_fields_default_to_none(content)
     return content
 
 
@@ -111,7 +105,7 @@ def check_inference_types(update: bool) -> NoReturn:
         fixed_content = fix_inference_classes(content)
         formatted_content = format_source_code(fixed_content)
 
-        dataclasses[file.stem] = _list_dataclasses(content)
+        dataclasses[file.stem] = _list_dataclasses(formatted_content)
 
         if content != formatted_content:
             if update:

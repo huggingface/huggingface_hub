@@ -1,6 +1,8 @@
-# Inference code generated from the JSON schema spec in ./spec
+# Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using src/scripts/inference-codegen
+# Using ./src/scripts/inference-codegen
+#
+# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
@@ -16,13 +18,13 @@ class ImageSegmentationParameters(BaseInferenceType):
     Additional inference parameters for Image Segmentation
     """
 
-    mask_threshold: Optional[float] = None
+    mask_threshold: Optional[float]
     """Threshold to use when turning the predicted masks into binary values."""
-    overlap_mask_area_threshold: Optional[float] = None
+    overlap_mask_area_threshold: Optional[float]
     """Mask overlap threshold to eliminate small, disconnected segments."""
-    subtask: Optional["ImageSegmentationSubtask"] = None
+    subtask: Optional["ImageSegmentationSubtask"]
     """Segmentation task to be performed, depending on model capabilities."""
-    threshold: Optional[float] = None
+    threshold: Optional[float]
     """Probability threshold to filter out predicted masks."""
 
 
@@ -32,7 +34,7 @@ class ImageSegmentationInput(BaseInferenceType):
 
     inputs: Any
     """The input image data"""
-    parameters: Optional[ImageSegmentationParameters] = None
+    parameters: Optional[ImageSegmentationParameters]
     """Additional inference parameters"""
 
 
@@ -46,5 +48,5 @@ class ImageSegmentationOutputElement(BaseInferenceType):
     """The label of the predicted segment"""
     mask: Any
     """The corresponding mask as a black-and-white image"""
-    score: Optional[float] = None
+    score: Optional[float]
     """The score or confidence degreee the model has"""
