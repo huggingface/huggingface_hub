@@ -1,9 +1,9 @@
 import json
 from dataclasses import asdict, dataclass
-from typing import Dict, List, TypeVar, Union, get_args
+from typing import Dict, List, Type, TypeVar, Union, get_args
 
 
-T = TypeVar("T")
+T = TypeVar("T", bound="BaseInferenceType")
 
 
 @dataclass
@@ -11,20 +11,26 @@ class BaseInferenceType(dict):
     """Base class for all inference types."""
 
     @classmethod
-    def from_data(cls: T, data: Union[bytes, List, Dict]) -> Union[List[T], T]:
+    def from_data(cls: Type[T], data: Union[bytes, str, List, Dict]) -> Union[List[T], T]:
         """Parse server response as a dataclass.
 
         To enable future-compatibility, we want to handle cases where the server return more fields than expected.
         In such cases, we don't want to raise an error but still create the dataclass object. Remaining fields are
         added as dict attributes.
         """
-        # Parse server response (as bytes)
+        # Parse server response (from bytes)
         if isinstance(data, bytes):
-            data = json.loads(data.decode())
+            data = data.decode()
+        if isinstance(data, str):
+            data = json.loads(data)
 
         # If a list, parse each item individually
         if isinstance(data, List):
-            return [cls.from_data(d) for d in data]
+            return [cls.from_data(d) for d in data]  # type: ignore [misc]
+
+        # At this point, we expect a dict
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid data type: {type(data)}")
 
         init_values = {}
         other_values = {}

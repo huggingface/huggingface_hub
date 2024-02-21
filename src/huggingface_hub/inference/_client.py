@@ -302,7 +302,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return ClassificationOutput.from_data(response)
+        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
 
     def audio_to_audio(
         self,
@@ -381,7 +381,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
-        return AutomaticSpeechRecognitionOutput(response)
+        return AutomaticSpeechRecognitionOutput.from_data(response)  # type: ignore [return-value]
 
     def conversational(
         self,
@@ -444,50 +444,6 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)  # type: ignore
 
-    def visual_question_answering(
-        self,
-        image: ContentT,
-        question: str,
-        *,
-        model: Optional[str] = None,
-    ) -> List[str]:
-        """
-        Answering open-ended questions based on an image.
-
-        Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
-            question (`str`):
-                Question to be answered.
-            model (`str`, *optional*):
-                The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
-                Defaults to None.
-
-        Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
-
-        Raises:
-            `InferenceTimeoutError`:
-                If the model is unavailable or the request times out.
-            `HTTPError`:
-                If the request fails with an HTTP error status code other than HTTP 503.
-
-        Example:
-        ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.visual_question_answering(
-        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
-        ...     question="What is the animal doing?"
-        ... )
-        [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
-        ```
-        """
-        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        response = self.post(json=payload, model=model, task="visual-question-answering")
-        return _bytes_to_list(response)
-
     def document_question_answering(
         self,
         image: ContentT,
@@ -527,7 +483,7 @@ class InferenceClient:
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         response = self.post(json=payload, model=model, task="document-question-answering")
-        return DocumentQuestionAnsweringOutputElement.from_data(response)
+        return DocumentQuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
 
     def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
         """
@@ -603,7 +559,7 @@ class InferenceClient:
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="fill-mask")
-        return FillMaskOutputElement.from_data(response)
+        return FillMaskOutputElement.from_data(response)  # type: ignore [return-value]
 
     def image_classification(
         self,
@@ -639,7 +595,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return ClassificationOutput.from_data(response)
+        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
 
     def image_segmentation(
         self,
@@ -930,7 +886,7 @@ class InferenceClient:
         """
         # detect objects
         response = self.post(data=image, model=model, task="object-detection")
-        return ObjectDetectionOutputElement.from_data(response)
+        return ObjectDetectionOutputElement.from_data(response)  # type: ignore [return-value]
 
     def question_answering(
         self, question: str, context: str, *, model: Optional[str] = None
@@ -971,7 +927,7 @@ class InferenceClient:
             model=model,
             task="question-answering",
         )
-        return QuestionAnsweringOutputElement.from_data(response)
+        return QuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
 
     def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -1106,7 +1062,7 @@ class InferenceClient:
             model=model,
             task="table-question-answering",
         )
-        return TableQuestionAnsweringOutputElement.from_data(response)
+        return TableQuestionAnsweringOutputElement.from_data(response)  # type: ignore [return-value]
 
     def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
         """
@@ -1223,7 +1179,7 @@ class InferenceClient:
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-classification")
-        return ClassificationOutput.from_data(response)[0]
+        return ClassificationOutput.from_data(response)[0]  # type: ignore [return-value]
 
     @overload
     def text_generation(  # type: ignore
@@ -1812,6 +1768,50 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="translation")
         return _bytes_to_dict(response)[0]["translation_text"]
 
+    def visual_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Answering open-ended questions based on an image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            question (`str`):
+                Question to be answered.
+            model (`str`, *optional*):
+                The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+
+        Raises:
+            `InferenceTimeoutError`:
+                If the model is unavailable or the request times out.
+            `HTTPError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.visual_question_answering(
+        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
+        ...     question="What is the animal doing?"
+        ... )
+        [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
+        ```
+        """
+        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        response = self.post(json=payload, model=model, task="visual-question-answering")
+        return _bytes_to_list(response)
+
     def zero_shot_classification(
         self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
     ) -> List[ClassificationOutput]:
@@ -1881,8 +1881,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-classification",
         )
-        output = _bytes_to_dict(response)
-        return [{"label": label, "score": score} for label, score in zip(output["labels"], output["scores"])]
+        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
 
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
@@ -1929,7 +1928,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return ClassificationOutput.from_data(response)
+        return ClassificationOutput.from_data(response)  # type: ignore [return-value]
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
