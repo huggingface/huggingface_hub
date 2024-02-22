@@ -131,6 +131,16 @@ class HfFileSystemTests(unittest.TestCase):
         )
         self.assertIsNotNone(files[keys[0]]["last_commit"])
 
+    def test_url(self):
+        self.assertEqual(
+            self.hffs.url(self.hf_path + "/data/text_data.txt"),
+            f"{ENDPOINT_STAGING}/datasets/{self.repo_id}/resolve/main/data/text_data.txt",
+        )
+        self.assertEqual(
+            self.hffs.url(self.hf_path + "/data"),
+            f"{ENDPOINT_STAGING}/datasets/{self.repo_id}/tree/main/data",
+        )
+
     def test_file_type(self):
         self.assertTrue(
             self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")

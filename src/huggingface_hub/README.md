@@ -47,7 +47,7 @@ Internally, the library uses `hf_hub_url()` to return the URL to download the ac
 
 
 Parameters:
-- a `repo_id` (a user or organization name and a repo name seperated by a `/`, like `julien-c/EsperBERTo-small`)
+- a `repo_id` (a user or organization name and a repo name separated by a `/`, like `julien-c/EsperBERTo-small`)
 - a `filename` (like `pytorch_model.bin`)
 - an optional `subfolder`, corresponding to a folder inside the model repo
 - an optional `repo_type`, such as `dataset` or `space`

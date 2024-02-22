@@ -19,6 +19,23 @@ if TYPE_CHECKING:
     from PIL import Image
 
 
+class AudioToAudioOutput(TypedDict):
+    """Dictionary containing the output of a [`~InferenceClient.audio_to_audio`] task.
+
+    Args:
+        label (`str`):
+            The label of the audio file.
+        content-type (`str`):
+            The content type of audio file.
+        blob (`bytes`):
+            The audio file in byte format.
+    """
+
+    label: str
+    content_type: str
+    blob: bytes
+
+
 class ClassificationOutput(TypedDict):
     """Dictionary containing the output of a [`~InferenceClient.audio_classification`] and  [`~InferenceClient.image_classification`] task.
 
