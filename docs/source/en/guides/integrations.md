@@ -99,7 +99,7 @@ common to offer parameters like:
 - `revision`: to download from a specific branch
 - `cache_dir`: to cache files in a specific directory
 - `force_download`/`resume_download`/`local_files_only`: to reuse the cache or not
-- `api_endpoint`/`proxies`: configure HTTP session
+- `proxies`: configure HTTP session
 
 When pushing models, similar parameters are supported:
 - `commit_message`: custom commit message
@@ -108,7 +108,6 @@ When pushing models, similar parameters are supported:
 - `branch`: push to a branch instead of the `main` branch
 - `allow_patterns`/`ignore_patterns`: filter which files to upload
 - `token`
-- `api_endpoint`
 - ...
 
 All of these parameters can be added to the implementations we saw above and passed to the `huggingface_hub` methods.
@@ -149,30 +148,40 @@ are ready to go. You don't need to worry about stuff like repo creation, commits
 of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well
 documented and type annotated.
 
+As a bonus, [`ModelHubMixin`] handles the model configuration for you. In some cases, you have a `config` input parameter when initializing your class (dictionary or dataclass containing high-level settings). In such cases, the `config` value is automatically serialized into a `config.json` dictionary for you. When re-loading the model from the Hub, the configuration is correctly deserialized. Make sure to use type annotation if you want to deserialize it as a dataclass. The big advantage of having a `config.json` file in your model repository is that it automatically enables the analytics on the Hub (e.g. the "downloads" count).
+
 ### A concrete example: PyTorch
 
-A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a
-ready-to-use integration.
+A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a ready-to-use integration.
 
 #### How to use it?
 
 Here is how any user can load/save a PyTorch model from/to the Hub:
 
 ```python
+>>> from dataclasses import dataclass
 >>> import torch
 >>> import torch.nn as nn
 >>> from huggingface_hub import PyTorchModelHubMixin
 
+# 0. (optional) define a config class
+>>> @dataclass
+... class Config:
+...     hidden_size: int = 512
+...     vocab_size: int = 30000
+...     output_size: int = 4
+
 # 1. Define your Pytorch model exactly the same way you are used to
 >>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
-...     def __init__(self):
+...     def __init__(self, config: Config):
 ...         super().__init__()
-...         self.param = nn.Parameter(torch.rand(3, 4))
-...         self.linear = nn.Linear(4, 5)
+...         self.param = nn.Parameter(torch.rand(config.hidden_size, config.vocab_size))
+...         self.linear = nn.Linear(config.output_size, config.vocab_size)
 
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)
->>> model = MyModel()
+
+>>> model = MyModel(Config(hidden_size=128))
 
 # 2. (optional) Save model to local directory
 >>> model.save_pretrained("path/to/my-awesome-model")
@@ -182,6 +191,8 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 
 # 4. Initialize model from the Hub
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
+>>> model.config
+Config(hidden_size=128, vocab_size=30000, output_size=4)
 ```
 
 #### Implementation
@@ -283,3 +294,4 @@ ideas on how to handle integration. In any case, feel free to contact us if you 
 | Flexibility | Very flexible.<br>You fully control the implementation. | Less flexible.<br>Your framework must have a model class. |
 | Maintenance | More maintenance to add support for configuration, and new features. Might also require fixing issues reported by users. | Less maintenance as most of the interactions with the Hub are implemented in `huggingface_hub`. |
 | Documentation / Type annotation | To be written manually. | Partially handled by `huggingface_hub`. |
+| Download counter | To be handled manually. | Enabled by default if class has a `config` attribute. |
