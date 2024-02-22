@@ -119,8 +119,8 @@ jobs:
             ;;
 
             torch)
-              eval "$PYTEST ../tests/test_hubmixin*"
-              eval "$PYTEST ../tests/test_serialization.py"
+            eval "$PYTEST ../tests/test_hub_mixin*"
+            eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
           esac

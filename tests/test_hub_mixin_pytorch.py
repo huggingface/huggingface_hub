@@ -35,7 +35,7 @@ else:
 
 @requires("torch")
 @pytest.mark.usefixtures("fx_cache_dir")
-class HubMixingTest(unittest.TestCase):
+class PytorchHubMixinTest(unittest.TestCase):
     cache_dir: Path
 
     @classmethod
@@ -140,7 +140,7 @@ class HubMixingTest(unittest.TestCase):
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
-        DummyModel().push_to_hub(repo_id=repo_id, api_endpoint=ENDPOINT_STAGING, token=TOKEN, config=CONFIG)
+        DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
         # Test model id exists
         model_info = self._api.model_info(repo_id)

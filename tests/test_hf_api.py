@@ -1718,6 +1718,10 @@ class HfApiPublicProductionTest(unittest.TestCase):
             self.assertIsNone(model.card_data.eval_results)
         self.assertTrue(any("Invalid model-index" in log for log in warning_logs.output))
 
+    def test_model_info_with_widget_data(self):
+        info = self._api.model_info("HuggingFaceH4/zephyr-7b-beta")
+        assert info.widget_data is not None
+
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
         expected_files = [

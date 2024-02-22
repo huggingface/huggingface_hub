@@ -675,7 +675,7 @@ class ModelInfo:
             ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
         )
 
-        self.widget_data = kwargs.pop("widget_data", None)
+        self.widget_data = kwargs.pop("widgetData", None)
         self.model_index = kwargs.pop("model-index", None) or kwargs.pop("model_index", None)
         self.config = kwargs.pop("config", None)
         transformers_info = kwargs.pop("transformersInfo", None) or kwargs.pop("transformers_info", None)

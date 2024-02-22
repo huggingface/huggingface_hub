@@ -1,13 +1,19 @@
+import inspect
 import json
 import os
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
 from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils._deprecation import _deprecate_arguments
 
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 if is_torch_available():
     import torch  # type: ignore
@@ -25,16 +31,89 @@ class ModelHubMixin:
     To integrate your framework, your model class must inherit from this class. Custom logic for saving/loading models
     have to be overwritten in  [`_from_pretrained`] and [`_save_pretrained`]. [`PyTorchModelHubMixin`] is a good example
     of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
+
+    Example:
+
+    ```python
+    >>> from dataclasses import dataclass
+    >>> from huggingface_hub import ModelHubMixin
+
+    # Define your model configuration (optional)
+    >>> @dataclass
+    ... class Config:
+    ...     foo: int = 512
+    ...     bar: str = "cpu"
+
+    # Inherit from ModelHubMixin (and optionally from your framework's model class)
+    >>> class MyCustomModel(ModelHubMixin):
+    ...     def __init__(self, config: Config):
+    ...         # define how to initialize your model
+    ...         super().__init__()
+    ...         ...
+    ...
+    ...     def _save_pretrained(self, save_directory: Path) -> None:
+    ...         # define how to serialize your model
+    ...         ...
+    ...
+    ...     @classmethod
+    ...     def from_pretrained(
+    ...         cls: Type[T],
+    ...         pretrained_model_name_or_path: Union[str, Path],
+    ...         *,
+    ...         force_download: bool = False,
+    ...         resume_download: bool = False,
+    ...         proxies: Optional[Dict] = None,
+    ...         token: Optional[Union[str, bool]] = None,
+    ...         cache_dir: Optional[Union[str, Path]] = None,
+    ...         local_files_only: bool = False,
+    ...         revision: Optional[str] = None,
+    ...         **model_kwargs,
+    ...     ) -> T:
+    ...         # define how to deserialize your model
+    ...         ...
+
+    >>> model = MyCustomModel(config=Config(foo=256, bar="gpu"))
+
+    # Save model weights to local directory
+    >>> model.save_pretrained("my-awesome-model")
+
+    # Push model weights to the Hub
+    >>> model.push_to_hub("my-awesome-model")
+
+    # Download and initialize weights from the Hub
+    >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
+    >>> reloaded_model.config
+    Config(foo=256, bar="gpu")
+    ```
     """
+
+    config: Optional[Union[dict, "DataclassInstance"]] = None
+    # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
+
+    def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
+        instance = super().__new__(cls)
+
+        # Set `config` attribute if not already set by the subclass
+        if instance.config is None:
+            if "config" in kwargs:
+                instance.config = kwargs["config"]
+            elif len(args) > 0:
+                sig = inspect.signature(cls.__init__)
+                parameters = list(sig.parameters)[1:]  # remove `self`
+                for key, value in zip(parameters, args):
+                    if key == "config":
+                        instance.config = value
+                        break
+        return instance
 
     def save_pretrained(
         self,
         save_directory: Union[str, Path],
         *,
-        config: Optional[dict] = None,
+        config: Optional[Union[dict, "DataclassInstance"]] = None,
         repo_id: Optional[str] = None,
         push_to_hub: bool = False,
-        **kwargs,
+        **push_to_hub_kwargs,
     ) -> Optional[str]:
         """
         Save weights in local directory.
@@ -42,8 +121,8 @@ class ModelHubMixin:
         Args:
             save_directory (`str` or `Path`):
                 Path to directory in which the model weights and configuration will be saved.
-            config (`dict`, *optional*):
-                Model configuration specified as a key/value dictionary.
+            config (`dict` or `DataclassInstance`, *optional*):
+                Model configuration specified as a key/value dictionary or a dataclass instance.
             push_to_hub (`bool`, *optional*, defaults to `False`):
                 Whether or not to push your model to the Huggingface Hub after saving it.
             repo_id (`str`, *optional*):
@@ -55,15 +134,20 @@ class ModelHubMixin:
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
 
-        # saving model weights/files
+        # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # saving config
-        if isinstance(config, dict):
-            (save_directory / CONFIG_NAME).write_text(json.dumps(config))
+        # save config (if provided)
+        if config is None:
+            config = self.config
+        if config is not None:
+            if is_dataclass(config):
+                config = asdict(config)  # type: ignore[arg-type]
+            (save_directory / CONFIG_NAME).write_text(json.dumps(config, indent=2))
 
+        # push to the Hub if required
         if push_to_hub:
-            kwargs = kwargs.copy()  # soft-copy to avoid mutating input
+            kwargs = push_to_hub_kwargs.copy()  # soft-copy to avoid mutating input
             if config is not None:  # kwarg for `push_to_hub`
                 kwargs["config"] = config
             if repo_id is None:
@@ -126,17 +210,17 @@ class ModelHubMixin:
             model_kwargs (`Dict`, *optional*):
                 Additional kwargs to pass to the model during initialization.
         """
-        model_id = pretrained_model_name_or_path
+        model_id = str(pretrained_model_name_or_path)
         config_file: Optional[str] = None
         if os.path.isdir(model_id):
             if CONFIG_NAME in os.listdir(model_id):
                 config_file = os.path.join(model_id, CONFIG_NAME)
             else:
                 logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
-        elif isinstance(model_id, str):
+        else:
             try:
                 config_file = hf_hub_download(
-                    repo_id=str(model_id),
+                    repo_id=model_id,
                     filename=CONFIG_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
@@ -146,15 +230,35 @@ class ModelHubMixin:
                     token=token,
                     local_files_only=local_files_only,
                 )
-            except HfHubHTTPError:
-                logger.info(f"{CONFIG_NAME} not found in HuggingFace Hub.")
+            except HfHubHTTPError as e:
+                logger.info(f"{CONFIG_NAME} not found on the HuggingFace Hub: {str(e)}")
 
+        config = None
         if config_file is not None:
+            # Read config
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            model_kwargs.update({"config": config})
 
-        return cls._from_pretrained(
+            # Check if class expect a `config` argument
+            init_parameters = inspect.signature(cls.__init__).parameters
+            if "config" in init_parameters:
+                # Check if `config` argument is a dataclass
+                config_annotation = init_parameters["config"].annotation
+                if config_annotation is inspect.Parameter.empty:
+                    pass  # no annotation
+                elif is_dataclass(config_annotation):
+                    config = config_annotation(**config)  # expect a dataclass
+                else:
+                    # if Optional/Union annotation => check if a dataclass is in the Union
+                    for _sub_annotation in get_args(config_annotation):
+                        if is_dataclass(_sub_annotation):
+                            config = _sub_annotation(**config)
+                            break
+
+                # Forward config to model initialization
+                model_kwargs["config"] = config
+
+        instance = cls._from_pretrained(
             model_id=str(model_id),
             revision=revision,
             cache_dir=cache_dir,
@@ -165,6 +269,13 @@ class ModelHubMixin:
             token=token,
             **model_kwargs,
         )
+
+        # Implicitly set the config as instance attribute if not already set by the class
+        # This way `config` will be available when calling `save_pretrained` or `push_to_hub`.
+        if config is not None and instance.config is None:
+            instance.config = config
+
+        return instance
 
     @classmethod
     def _from_pretrained(
@@ -215,21 +326,27 @@ class ModelHubMixin:
         """
         raise NotImplementedError
 
+    @_deprecate_arguments(
+        version="0.23.0",
+        deprecated_args=["api_endpoint"],
+        custom_message="Use `HF_ENDPOINT` environment variable instead.",
+    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
         repo_id: str,
         *,
-        config: Optional[dict] = None,
+        config: Optional[Union[dict, "DataclassInstance"]] = None,
         commit_message: str = "Push model using huggingface_hub.",
         private: bool = False,
-        api_endpoint: Optional[str] = None,
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
+        # TODO: remove once deprecated
+        api_endpoint: Optional[str] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -238,12 +355,11 @@ class ModelHubMixin:
         `delete_patterns` to delete existing remote files in the same commit. See [`upload_folder`] reference for more
         details.
 
-
         Args:
             repo_id (`str`):
                 ID of the repository to push to (example: `"username/my-model"`).
-            config (`dict`, *optional*):
-                Configuration object to be saved alongside the model weights.
+            config (`dict` or `DataclassInstance`, *optional*):
+                Model configuration specified as a key/value dictionary or a dataclass instance.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
@@ -296,16 +412,22 @@ class PyTorchModelHubMixin(ModelHubMixin):
     Example:
 
     ```python
+    >>> from dataclasses import dataclass
     >>> import torch
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
+    >>> @dataclass
+    ... class Config:
+    ...     hidden_size: int = 512
+    ...     vocab_size: int = 30000
+    ...     output_size: int = 4
 
     >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-    ...     def __init__(self):
+    ...     def __init__(self, config: Config):
     ...         super().__init__()
-    ...         self.param = nn.Parameter(torch.rand(3, 4))
-    ...         self.linear = nn.Linear(4, 5)
+    ...         self.param = nn.Parameter(torch.rand(config.hidden_size, config.vocab_size))
+    ...         self.linear = nn.Linear(config.output_size, config.vocab_size)
 
     ...     def forward(self, x):
     ...         return self.linear(x + self.param)
