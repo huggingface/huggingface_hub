@@ -95,7 +95,7 @@ class BaseInferenceType(dict):
         # Hacky way to keep dataclass values in sync when dict is updated
         super().__setitem__(__key, __value)
         if __key in self.__dataclass_fields__ and getattr(self, __key, None) != __value:
-            setattr(__key, __value)
+            self.__setattr__(__key, __value)
         return
 
     def __setattr__(self, __name: str, __value: Any) -> None:
