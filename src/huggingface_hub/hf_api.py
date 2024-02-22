@@ -5595,7 +5595,7 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if not (e.response.status_code == 409 and exist_ok):
+            if not (e.response.status_code in (400, 409) and exist_ok):
                 raise
 
     @validate_hf_hub_args
