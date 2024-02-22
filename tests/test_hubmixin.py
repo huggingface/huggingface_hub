@@ -108,6 +108,27 @@ class HubMixingTest(unittest.TestCase):
         from_pretrained_mock.assert_called_once()
         self.assertIs(model, from_pretrained_mock.return_value)
 
+    def pretend_file_download(self, **kwargs):
+        DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
+        return self.cache_dir / "model.safetensors"
+    
+    @patch.object(DummyModel, "_hf_hub_download")
+    def test_from_pretrained_model_from_hub_prefer_safetensor(self, hf_hub_download_mock: Mock) -> None:
+        hf_hub_download_mock.side_effect = self.pretend_file_download
+        model = DummyModel.from_pretrained("namespace/repo_name")
+        hf_hub_download_mock.assert_called_once_with(
+            repo_id="namespace/repo_name",
+            filename="model.safetensors",
+            revision=None,
+            cache_dir=None,
+            force_download=False,
+            proxies=None,
+            resume_download=False,
+            token=None,
+            local_files_only=False
+        )
+        self.assertIsNotNone(model)
+
     @patch.object(DummyModel, "_from_pretrained")
     def test_from_pretrained_model_id_and_revision(self, from_pretrained_mock: Mock) -> None:
         """Regression test for #1313.

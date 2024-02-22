@@ -350,9 +350,9 @@ class PyTorchModelHubMixin(ModelHubMixin):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
         else:
-            model_file = hf_hub_download(
+            model_file = cls._hf_hub_download(
                 repo_id=model_id,
-                filename=PYTORCH_WEIGHTS_NAME,
+                filename=SAFETENSORS_SINGLE_FILE,
                 revision=revision,
                 cache_dir=cache_dir,
                 force_download=force_download,
@@ -372,3 +372,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
         model.eval()  # type: ignore
 
         return model
+    
+    def _hf_hub_download(*args, **kwargs):
+        return hf_hub_download(*args, **kwargs)
+            
+    
