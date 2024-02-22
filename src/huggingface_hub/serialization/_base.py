@@ -22,7 +22,7 @@ TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
 StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-MAX_SHARD_SIZE = 5_000_000
+MAX_SHARD_SIZE = 5_000_000_000  # 5GB
 FILENAME_PATTERN = "model{suffix}.safetensors"
 
 logger = logging.get_logger(__file__)
