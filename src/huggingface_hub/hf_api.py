@@ -2457,24 +2457,67 @@ class HfApi:
         Returns:
             True if the repository exists, False otherwise.
 
-        <Tip>
-
         Examples:
             ```py
             >>> from huggingface_hub import repo_exists
-            >>> repo_exists("huggingface/transformers")
+            >>> repo_exists("google/gemma-7b")
             True
-            >>> repo_exists("huggingface/not-a-repo")
+            >>> repo_exists("google/not-a-repo")
             False
             ```
-
-        </Tip>
         """
         try:
             self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
         except GatedRepoError:
             return True  # we don't have access but it exists
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def revision_exists(
+        self,
+        repo_id: str,
+        revision: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a specific revision exists on a repo on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`):
+                The revision of the repository to check.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository and the revision exists, False otherwise.
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import revision_exists
+            >>> revision_exists("google/gemma-7b", "float16")
+            True
+            >>> revision_exists("google/gemma-7b", "not-a-revision")
+            False
+            ```
+        """
+        try:
+            self.repo_info(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
+            return True
+        except RevisionNotFoundError:
+            return False
         except RepositoryNotFoundError:
             return False
 
@@ -2512,8 +2555,6 @@ class HfApi:
         Returns:
             True if the file exists, False otherwise.
 
-        <Tip>
-
         Examples:
             ```py
             >>> from huggingface_hub import file_exists
@@ -2524,8 +2565,6 @@ class HfApi:
             >>> file_exists("bigcode/not-a-repo", "config.json")
             False
             ```
-
-        </Tip>
         """
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
@@ -8493,6 +8532,7 @@ list_spaces = api.list_spaces
 space_info = api.space_info
 
 repo_exists = api.repo_exists
+revision_exists = api.revision_exists
 file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files

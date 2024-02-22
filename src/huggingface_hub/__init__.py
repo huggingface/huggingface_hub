@@ -227,6 +227,7 @@ _SUBMOD_ATTRS = {
         "request_space_storage",
         "restart_space",
         "resume_inference_endpoint",
+        "revision_exists",
         "run_as_future",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
@@ -582,6 +583,7 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
+        revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
