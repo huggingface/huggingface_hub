@@ -16,7 +16,7 @@ import importlib
 from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards
+from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
 
 if TYPE_CHECKING:
@@ -82,7 +82,7 @@ def split_torch_state_dict_into_shards(
     ...             f.write(json.dumps(index, indent=2))
     ```
     """
-    return split_state_dict_into_shards(
+    return split_state_dict_into_shards_factory(
         state_dict,
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,

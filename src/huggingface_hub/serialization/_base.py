@@ -39,7 +39,7 @@ class StateDictSplit:
         self.is_sharded = len(self.filename_to_tensors) > 1
 
 
-def split_state_dict_into_shards(
+def split_state_dict_into_shards_factory(
     state_dict: Dict[str, TensorT],
     *,
     get_tensor_size: TensorSizeFn_T,

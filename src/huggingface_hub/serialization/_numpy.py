@@ -14,7 +14,7 @@
 """Contains numpy-specific helpers."""
 from typing import TYPE_CHECKING, Dict
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards
+from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def split_numpy_state_dict_into_shards(
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
     """
-    return split_state_dict_into_shards(
+    return split_state_dict_into_shards_factory(
         state_dict,
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,

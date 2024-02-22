@@ -13,7 +13,7 @@
 # limitations under the License.
 # ruff: noqa: F401
 """Contains helpers to serialize tensors."""
-from ._base import StateDictSplit, split_state_dict_into_shards
+from ._base import StateDictSplit, split_state_dict_into_shards_factory
 from ._numpy import split_numpy_state_dict_into_shards
 from ._tensorflow import split_tf_state_dict_into_shards
 from ._torch import split_torch_state_dict_into_shards
