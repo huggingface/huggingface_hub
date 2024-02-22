@@ -1,4 +1,4 @@
-from huggingface_hub.serialization import split_state_dict_into_shards
+from huggingface_hub.serialization import split_state_dict_into_shards_factory
 from huggingface_hub.serialization._numpy import get_tensor_size as get_tensor_size_numpy
 from huggingface_hub.serialization._tensorflow import get_tensor_size as get_tensor_size_tensorflow
 from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_size_torch
@@ -24,7 +24,7 @@ def _dummy_get_tensor_size(item):
 
 
 def test_single_shard():
-    state_dict_split = split_state_dict_into_shards(
+    state_dict_split = split_state_dict_into_shards_factory(
         DUMMY_STATE_DICT,
         get_storage_id=_dummy_get_storage_id,
         get_tensor_size=_dummy_get_tensor_size,
@@ -47,7 +47,7 @@ def test_single_shard():
 
 
 def test_multiple_shards():
-    state_dict_split = split_state_dict_into_shards(
+    state_dict_split = split_state_dict_into_shards_factory(
         DUMMY_STATE_DICT,
         get_storage_id=_dummy_get_storage_id,
         get_tensor_size=_dummy_get_tensor_size,
@@ -74,7 +74,7 @@ def test_multiple_shards():
 
 
 def test_tensor_same_storage():
-    state_dict_split = split_state_dict_into_shards(
+    state_dict_split = split_state_dict_into_shards_factory(
         {
             "layer_1": [1],
             "layer_2": [2],
