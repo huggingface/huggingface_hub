@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 import unittest
 from pathlib import Path
 from typing import TypeVar
@@ -8,8 +9,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
-from huggingface_hub.hub_mixin import PyTorchModelHubMixin
-from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
+from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
+from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
+from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available, EntryNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
@@ -17,6 +19,7 @@ from .testing_utils import repo_name
 
 if is_torch_available():
     import torch.nn as nn
+    import torch
 
 
 def require_torch(test_case):
@@ -119,6 +122,46 @@ class HubMixingTest(unittest.TestCase):
         hf_hub_download_mock.assert_called_once_with(
             repo_id="namespace/repo_name",
             filename="model.safetensors",
+            revision=None,
+            cache_dir=None,
+            force_download=False,
+            proxies=None,
+            resume_download=False,
+            token=None,
+            local_files_only=False
+        )
+        self.assertIsNotNone(model)
+
+    def pretend_file_download_fallback(self, **kwargs):
+        if kwargs.get("filename") == "model.safetensors":
+            raise EntryNotFoundError("not found")
+        
+        with open(self.cache_dir / PYTORCH_WEIGHTS_NAME, "wb") as f:
+            class TestMixin(ModelHubMixin):
+                def _save_pretrained(self, save_directory: Path) -> None:
+                    torch.save(DummyModel().state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+
+            TestMixin().save_pretrained(self.cache_dir)
+        return self.cache_dir / PYTORCH_WEIGHTS_NAME
+    
+    @patch.object(DummyModel, "_hf_hub_download")
+    def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:
+        hf_hub_download_mock.side_effect = self.pretend_file_download_fallback
+        model = DummyModel.from_pretrained("namespace/repo_name")
+        hf_hub_download_mock.assert_any_call(
+            repo_id="namespace/repo_name",
+            filename="model.safetensors",
+            revision=None,
+            cache_dir=None,
+            force_download=False,
+            proxies=None,
+            resume_download=False,
+            token=None,
+            local_files_only=False
+        )
+        hf_hub_download_mock.assert_any_call(
+            repo_id="namespace/repo_name",
+            filename="pytorch_model.bin",
             revision=None,
             cache_dir=None,
             force_download=False,
