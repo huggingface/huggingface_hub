@@ -181,7 +181,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)
 
->>> model = MyModel(Config())
+>>> model = MyModel(Config(hidden_size=128))
 
 # 2. (optional) Save model to local directory
 >>> model.save_pretrained("path/to/my-awesome-model")
@@ -192,7 +192,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 # 4. Initialize model from the Hub
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 >>> model.config
-Config(hidden_size=512, vocab_size=30000, output_size=4)
+Config(hidden_size=128, vocab_size=30000, output_size=4)
 ```
 
 #### Implementation
