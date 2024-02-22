@@ -5,7 +5,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
 from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
@@ -327,7 +327,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_file(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+        save_file(model_to_save.state_dict(), save_directory / SAFETENSORS_SINGLE_FILE)
 
     @classmethod
     def _from_pretrained(
@@ -348,7 +348,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         """Load Pytorch pretrained weights and return the loaded model."""
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
-            model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
+            model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
         else:
             model_file = hf_hub_download(
                 repo_id=model_id,
