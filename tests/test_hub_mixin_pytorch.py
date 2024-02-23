@@ -11,7 +11,7 @@ import pytest
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_torch_available
+from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_torch_available, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, requires
@@ -99,14 +99,16 @@ class PytorchHubMixinTest(unittest.TestCase):
         self.assertIs(model, from_pretrained_mock.return_value)
 
     def pretend_file_download(self, **kwargs):
-        DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
+        if kwargs.get("filename") == "config.json":
+            raise HfHubHTTPError("no config")
+        DummyModel().save_pretrained(self.cache_dir)
         return self.cache_dir / "model.safetensors"
 
-    @patch.object(DummyModel, "_hf_hub_download")
+    @patch("huggingface_hub.hf_hub_download")
     def test_from_pretrained_model_from_hub_prefer_safetensor(self, hf_hub_download_mock: Mock) -> None:
         hf_hub_download_mock.side_effect = self.pretend_file_download
         model = DummyModel.from_pretrained("namespace/repo_name")
-        hf_hub_download_mock.assert_called_once_with(
+        hf_hub_download_mock.assert_any_call(
             repo_id="namespace/repo_name",
             filename="model.safetensors",
             revision=None,
@@ -120,7 +122,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         self.assertIsNotNone(model)
 
     def pretend_file_download_fallback(self, **kwargs):
-        if kwargs.get("filename") == "model.safetensors":
+        filename = kwargs.get("filename")
+        if filename == "model.safetensors" or filename == "config.json":
             raise EntryNotFoundError("not found")
 
         class TestMixin(ModelHubMixin):
@@ -130,7 +133,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         TestMixin().save_pretrained(self.cache_dir)
         return self.cache_dir / PYTORCH_WEIGHTS_NAME
 
-    @patch.object(DummyModel, "_hf_hub_download")
+    @patch("huggingface_hub.file_download.hf_hub_download")
     def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:
         hf_hub_download_mock.side_effect = self.pretend_file_download_fallback
         model = DummyModel.from_pretrained("namespace/repo_name")
