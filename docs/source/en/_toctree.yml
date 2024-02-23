@@ -82,3 +82,5 @@
       title: TensorBoard logger
     - local: package_reference/webhooks_server
       title: Webhooks server
+    - local: package_reference/serialization
+      title: Serialization

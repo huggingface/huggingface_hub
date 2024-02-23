@@ -170,6 +170,12 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
         self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
         self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
 
+    def test_revision_exists(self):
+        assert self._api.revision_exists(self.repo_id, "main")
+        assert not self._api.revision_exists(self.repo_id, "revision-that-does-not-exist")  # missing revision
+        assert not self._api.revision_exists(self.repo_id, "main", token=False)  # private repo
+        assert not self._api.revision_exists("repo-that-does-not-exist", "main")  # missing repo
+
     @patch("huggingface_hub.file_download.ENDPOINT", "https://hub-ci.huggingface.co")
     @patch(
         "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",

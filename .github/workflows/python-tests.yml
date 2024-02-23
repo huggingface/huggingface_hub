@@ -115,10 +115,12 @@ jobs:
               # Cannot be on same line since '_tf*' checks if tensorflow is NOT imported by default
               eval "$PYTEST ../tests/test_tf*"
               eval "$PYTEST ../tests/test_keras*"
+              eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
             torch)
-              eval "$PYTEST ../tests/test_hubmixin*"
+            eval "$PYTEST ../tests/test_hub_mixin*"
+            eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
           esac

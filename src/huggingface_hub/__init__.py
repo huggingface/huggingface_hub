@@ -227,6 +227,7 @@ _SUBMOD_ATTRS = {
         "request_space_storage",
         "restart_space",
         "resume_inference_endpoint",
+        "revision_exists",
         "run_as_future",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
@@ -378,6 +379,13 @@ _SUBMOD_ATTRS = {
     ],
     "repository": [
         "Repository",
+    ],
+    "serialization": [
+        "StateDictSplit",
+        "split_numpy_state_dict_into_shards",
+        "split_state_dict_into_shards_factory",
+        "split_tf_state_dict_into_shards",
+        "split_torch_state_dict_into_shards",
     ],
     "utils": [
         "CacheNotFound",
@@ -667,6 +675,7 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
+        revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
@@ -813,6 +822,13 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
+    from .serialization import (
+        StateDictSplit,  # noqa: F401
+        split_numpy_state_dict_into_shards,  # noqa: F401
+        split_state_dict_into_shards_factory,  # noqa: F401
+        split_tf_state_dict_into_shards,  # noqa: F401
+        split_torch_state_dict_into_shards,  # noqa: F401
+    )
     from .utils import (
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
