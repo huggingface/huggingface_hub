@@ -3,17 +3,27 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
-from safetensors import safe_open
-from safetensors.torch import save_file
-
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
-from .file_download import hf_hub_download, is_torch_available
+from .file_download import hf_hub_download
 from .hf_api import HfApi
-from .utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils import (
+    EntryNotFoundError,
+    HfHubHTTPError,
+    SoftTemporaryDirectory,
+    is_safetensors_available,
+    is_torch_available,
+    logging,
+    validate_hf_hub_args,
+)
 
 
 if is_torch_available():
     import torch  # type: ignore
+
+if is_safetensors_available():
+    from safetensors import safe_open
+    from safetensors.torch import save_file
+
 
 logger = logging.get_logger(__name__)
 

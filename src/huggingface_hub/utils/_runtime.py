@@ -229,6 +229,11 @@ def get_torch_version() -> str:
     return _get_version("torch")
 
 
+# Safetensors
+def is_safetensors_available() -> bool:
+    return _is_available("safetensors")
+
+
 # Shell-related helpers
 try:
     # Set to `True` if script is running in a Google Colab notebook.
