@@ -4,6 +4,7 @@
 # ruff: noqa: F401
 
 from .audio_classification import AudioClassificationInput, AudioClassificationOutput, AudioClassificationParameters
+from .audio_to_audio import AudioToAudioInput, AudioToAudioOutputElement
 from .automatic_speech_recognition import (
     AutomaticSpeechRecognitionInput,
     AutomaticSpeechRecognitionOutput,

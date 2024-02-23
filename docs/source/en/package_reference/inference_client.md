@@ -49,10 +49,6 @@ For most tasks, the return value has a built-in type (string, list, image...). H
 
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutput
 
-### ImageSegmentationOutput
-
-[[autodoc]] huggingface_hub.inference._types.ImageSegmentationOutput
-
 ### ModelStatus
 
 [[autodoc]] huggingface_hub.inference._common.ModelStatus

@@ -12,29 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import TYPE_CHECKING, List, TypedDict
+
+from typing import List, TypedDict
 
 
-if TYPE_CHECKING:
-    from PIL import Image
-
-
-class AudioToAudioOutput(TypedDict):
-    """Dictionary containing the output of a [`~InferenceClient.audio_to_audio`] task.
-
-    Args:
-        label (`str`):
-            The label of the audio file.
-        content-type (`str`):
-            The content type of audio file.
-        blob (`bytes`):
-            The audio file in byte format.
-    """
-
-    label: str
-    content_type: str
-    blob: bytes
-
+# Legacy types
+# Types are now generated from the JSON schema spec in @huggingface/tasks.
+# See ./src/huggingface_hub/inference/_generated/types
 
 class ConversationalOutputConversation(TypedDict):
     """Dictionary containing the "conversation" part of a [`~InferenceClient.conversational`] task.
@@ -65,21 +49,3 @@ class ConversationalOutput(TypedDict):
     conversation: ConversationalOutputConversation
     generated_text: str
     warnings: List[str]
-
-
-class ImageSegmentationOutput(TypedDict):
-    """Dictionary containing information about a [`~InferenceClient.image_segmentation`] task. In practice, image segmentation returns a
-    list of `ImageSegmentationOutput` with 1 item per mask.
-
-    Args:
-        label (`str`):
-            The label corresponding to the mask.
-        mask (`Image`):
-            An Image object representing the mask predicted by the model.
-        score (`float`):
-            The score associated with the label for this mask.
-    """
-
-    label: str
-    mask: "Image"
-    score: float

@@ -58,6 +58,7 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.inference._generated.types import (
     AudioClassificationOutput,
+    AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -80,7 +81,6 @@ from huggingface_hub.inference._text_generation import (
     raise_text_generation_error,
 )
 from huggingface_hub.inference._types import (
-    AudioToAudioOutput,  # need custom parsing for audio
     ConversationalOutput,  # soon to be removed
 )
 from huggingface_hub.utils import (
@@ -311,7 +311,7 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[AudioToAudioOutput]:
+    ) -> List[AudioToAudioOutputElement]:
         """
         Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
 
@@ -345,9 +345,9 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-to-audio")
-        audio_output = _bytes_to_list(response)
+        audio_output = AudioToAudioOutputElement.parse_obj_as_list(response)
         for item in audio_output:
-            item["blob"] = base64.b64decode(item["blob"])
+            item.blob = base64.b64decode(item.blob)
         return audio_output
 
     async def automatic_speech_recognition(
@@ -646,8 +646,6 @@ class AsyncInferenceClient:
         [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
         ```
         """
-
-        # Segment
         response = await self.post(data=image, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:

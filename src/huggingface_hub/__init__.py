@@ -263,6 +263,8 @@ _SUBMOD_ATTRS = {
         "AudioClassificationInput",
         "AudioClassificationOutput",
         "AudioClassificationParameters",
+        "AudioToAudioInput",
+        "AudioToAudioOutputElement",
         "AutomaticSpeechRecognitionInput",
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
@@ -709,6 +711,8 @@ if TYPE_CHECKING:  # pragma: no cover
         AudioClassificationInput,  # noqa: F401
         AudioClassificationOutput,  # noqa: F401
         AudioClassificationParameters,  # noqa: F401
+        AudioToAudioInput,  # noqa: F401
+        AudioToAudioOutputElement,  # noqa: F401
         AutomaticSpeechRecognitionInput,  # noqa: F401
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
