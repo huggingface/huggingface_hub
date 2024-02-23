@@ -1,3 +1,4 @@
+import inspect
 import json
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Type, TypeVar, Union, get_args
@@ -59,18 +60,24 @@ class BaseInferenceType(dict):
         for key, value in data.items():
             if key in cls.__dataclass_fields__ and cls.__dataclass_fields__[key].init:
                 if isinstance(value, dict) or isinstance(value, list):
-                    # Recursively parse nested dataclasses (if possible)
+                    field_type = cls.__dataclass_fields__[key].type
+
+                    # if `field_type` is a `BaseInferenceType`, parse it
+                    if inspect.isclass(field_type) and issubclass(field_type, BaseInferenceType):
+                        value = field_type.parse_obj(value)
+
+                    # otherwise, recursively parse nested dataclasses (if possible)
                     # `get_args` returns handle Union and Optional for us
-                    expected_types = get_args(cls.__dataclass_fields__[key].type)
-                    for expected_type in expected_types:
-                        if getattr(expected_type, "_name", None) == "List":
-                            expected_type = get_args(expected_type)[0]  # assume same type for all items in the list
-                        if issubclass(expected_type, BaseInferenceType):
-                            if isinstance(value, dict):
+                    else:
+                        expected_types = get_args(field_type)
+                        for expected_type in expected_types:
+                            if getattr(expected_type, "_name", None) == "List":
+                                expected_type = get_args(expected_type)[
+                                    0
+                                ]  # assume same type for all items in the list
+                            if inspect.isclass(expected_type) and issubclass(expected_type, BaseInferenceType):
                                 value = expected_type.parse_obj(value)
-                            elif isinstance(value, list):
-                                value = [expected_type.parse_obj(v) for v in value]
-                            break
+                                break
                 init_values[key] = value
             else:
                 other_values[key] = value
