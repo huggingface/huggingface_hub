@@ -137,7 +137,7 @@ class BaseInferenceType(dict):
     def __getitem__(self, __key: Any) -> Any:
         warnings.warn(
             f"Accessing '{self.__class__.__name__}' values through dict is deprecated and "
-            "will be removed from version '1.0'. Use dataclass attributes instead.",
+            "will be removed from version '0.25'. Use dataclass attributes instead.",
             FutureWarning,
         )
         return super().__getitem__(__key)

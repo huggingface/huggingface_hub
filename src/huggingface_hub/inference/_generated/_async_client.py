@@ -286,7 +286,7 @@ class AsyncInferenceClient:
                 audio classification will be used.
 
         Returns:
-            `List[Dict]`: The classification output containing the predicted label and its confidence.
+            `List[AudioClassificationOutput]`: The classification output containing the predicted label and its confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -300,7 +300,11 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.audio_classification("audio.flac")
-        [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
+        [
+            AudioClassificationOutput(score=0.4976358711719513, label='hap'),
+            AudioClassificationOutput(score=0.3677836060523987, label='neu'),
+            ...
+        ]
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-classification")
@@ -325,7 +329,7 @@ class AsyncInferenceClient:
                 audio_to_audio will be used.
 
         Returns:
-            `List[Dict]`: A list of dictionary where each index contains audios label, content-type, and audio content in blob.
+            `List[AudioToAudioOutputElement]`: A list of items containing audios label, content-type, and audio content in blob.
 
         Raises:
             `InferenceTimeoutError`:
@@ -341,7 +345,7 @@ class AsyncInferenceClient:
         >>> audio_output = await client.audio_to_audio("audio.flac")
         >>> async for i, item in enumerate(audio_output):
         >>>     with open(f"output_{i}.flac", "wb") as f:
-                    f.write(item["blob"])
+                    f.write(item.blob)
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-to-audio")
@@ -367,7 +371,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
 
         Returns:
-            str: The transcribed text.
+            [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -380,7 +384,7 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> await client.automatic_speech_recognition("hello_world.flac")
+        >>> await client.automatic_speech_recognition("hello_world.flac").text
         "hello world"
         ```
         """
@@ -470,7 +474,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label, associated probability, word ids, and page number.
+            `List[DocumentQuestionAnsweringOutputElement]`: a list of items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -484,7 +488,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
-        [{'score': 0.42515629529953003, 'answer': 'us-001', 'start': 16, 'end': 16}]
+        [DocumentQuestionAnsweringOutputElement(score=0.42515629529953003, answer='us-001', start=16, end=16)]
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
@@ -541,7 +545,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            `List[FillMaskOutputElement]`: a list of fill mask output dictionaries containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
@@ -556,14 +560,10 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.fill_mask("The goal of life is <mask>.")
-        [{'score': 0.06897063553333282,
-        'token': 11098,
-        'token_str': ' happiness',
-        'sequence': 'The goal of life is happiness.'},
-        {'score': 0.06554922461509705,
-        'token': 45075,
-        'token_str': ' immortality',
-        'sequence': 'The goal of life is immortality.'}]
+        [
+            FillMaskOutputElement(score=0.06897063553333282, token=11098, token_str=' happiness', sequence='The goal of life is happiness.'),
+            FillMaskOutputElement(score=0.06554922461509705, token=45075, token_str=' immortality', sequence='The goal of life is immortality.')
+        ]
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
@@ -586,7 +586,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+            `List[ImageClassificationOutput]`: a list of items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -600,7 +600,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
-        [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
+        [ImageClassificationOutput(score=0.9779096841812134, label='Blenheim spaniel'), ...]
         ```
         """
         response = await self.post(data=image, model=model, task="image-classification")
@@ -629,7 +629,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
 
         Returns:
-            `List[Dict]`: A list of dictionaries containing the segmented masks and associated attributes.
+            `List[ImageSegmentationOutputElement]`: A list of items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -643,7 +643,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.image_segmentation("cat.jpg"):
-        [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
+        [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
         response = await self.post(data=image, model=model, task="image-segmentation")
@@ -878,7 +878,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
 
         Returns:
-            `List[ObjectDetectionOutputElement]`: A list of dictionaries containing the bounding boxes and associated attributes.
+            `List[ObjectDetectionOutputElement]`: A list of items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -894,7 +894,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.object_detection("people.jpg"):
-        [{"score":0.9486683011054993,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}}, ... ]
+        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=BoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         # detect objects
@@ -917,7 +917,7 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint.
 
         Returns:
-            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
+            `QuestionAnsweringOutputElement`: an question answering output containing the score, start index, end index, and answer.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -931,7 +931,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
-        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        QuestionAnsweringOutputElement(score=0.9326562285423279, start=11, end=16, answer='Clara')
         ```
         """
 
@@ -1052,7 +1052,7 @@ class AsyncInferenceClient:
                 Hub or a URL to a deployed Inference Endpoint.
 
         Returns:
-            `Dict`: a dictionary of table question answering output containing the answer, coordinates, cells and the aggregator used.
+            `TableQuestionAnsweringOutputElement`: a table question answering output containing the answer, coordinates, cells and the aggregator used.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1068,7 +1068,7 @@ class AsyncInferenceClient:
         >>> query = "How many stars does the transformers repository have?"
         >>> table = {"Repository": ["Transformers", "Datasets", "Tokenizers"], "Stars": ["36542", "4512", "3934"]}
         >>> await client.table_question_answering(table, query, model="google/tapas-base-finetuned-wtq")
-        {'answer': 'AVERAGE > 36542', 'coordinates': [[0, 1]], 'cells': ['36542'], 'aggregator': 'AVERAGE'}
+        TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
         response = await self.post(
@@ -1181,7 +1181,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+            `List[TextClassificationOutput]`: a list of items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1195,7 +1195,10 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.text_classification("I like you")
-        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
+        [
+            TextClassificationOutput(label='POSITIVE', score=0.9998695850372314),
+            TextClassificationOutput(label='NEGATIVE', score=0.0001304351753788069),
+        ]
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="text-classification")
@@ -1696,7 +1699,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+            `List[TokenClassificationOutputElement]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1710,16 +1713,22 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        [{'entity_group': 'PER',
-        'score': 0.9971321225166321,
-        'word': 'Sarah Jessica Parker',
-        'start': 11,
-        'end': 31},
-        {'entity_group': 'PER',
-        'score': 0.9773476123809814,
-        'word': 'Jessica',
-        'start': 52,
-        'end': 59}]
+        [
+            TokenClassificationOutputElement(
+                entity_group='PER',
+                score=0.9971321225166321,
+                word='Sarah Jessica Parker',
+                start=11,
+                end=31,
+            ),
+            TokenClassificationOutputElement(
+                entity_group='PER',
+                score=0.9773476123809814,
+                word='Jessica',
+                start=52,
+                end=59,
+            )
+        ]
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
@@ -1817,7 +1826,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+            `List[VisualQuestionAnsweringOutputElement]`: a list of items containing the predicted label and associated probability.
 
         Raises:
             `InferenceTimeoutError`:
@@ -1834,7 +1843,10 @@ class AsyncInferenceClient:
         ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
         ...     question="What is the animal doing?"
         ... )
-        [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
+        [
+            VisualQuestionAnsweringOutputElement(score=0.778609573841095, answer='laying down'),
+            VisualQuestionAnsweringOutputElement(score=0.6957435607910156, answer='sitting'),
+        ]
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
@@ -1859,7 +1871,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotClassificationOutput]`: List of classification outputs containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1880,19 +1892,19 @@ class AsyncInferenceClient:
         >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
         >>> await client.zero_shot_classification(text, labels)
         [
-            {"label": "scientific discovery", "score": 0.7961668968200684},
-            {"label": "space & cosmos", "score": 0.18570658564567566},
-            {"label": "microbiology", "score": 0.00730885099619627},
-            {"label": "archeology", "score": 0.006258360575884581},
-            {"label": "robots", "score": 0.004559356719255447},
+            ZeroShotClassificationOutput(label='scientific discovery', score=0.7961668968200684),
+            ZeroShotClassificationOutput(label='space & cosmos', score=0.18570658564567566),
+            ZeroShotClassificationOutput(label='microbiology', score=0.00730885099619627),
+            ZeroShotClassificationOutput(label='archeology', score=0.006258360575884581),
+            ZeroShotClassificationOutput(label='robots', score=0.004559356719255447),
         ]
         >>> await client.zero_shot_classification(text, labels, multi_label=True)
         [
-            {"label": "scientific discovery", "score": 0.9829297661781311},
-            {"label": "space & cosmos", "score": 0.755190908908844},
-            {"label": "microbiology", "score": 0.0005462635890580714},
-            {"label": "archeology", "score": 0.00047131875180639327},
-            {"label": "robots", "score": 0.00030448526376858354},
+            ZeroShotClassificationOutput(label='scientific discovery', score=0.9829297661781311),
+            ZeroShotClassificationOutput(label='space & cosmos', score=0.755190908908844),
+            ZeroShotClassificationOutput(label='microbiology', score=0.0005462635890580714),
+            ZeroShotClassificationOutput(label='archeology', score=0.00047131875180639327),
+            ZeroShotClassificationOutput(label='robots', score=0.00030448526376858354),
         ]
         ```
         """
@@ -1933,7 +1945,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotImageClassificationOutput]`: List of classification outputs containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1951,7 +1963,7 @@ class AsyncInferenceClient:
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
         ...     labels=["dog", "cat", "horse"],
         ... )
-        [{"label": "dog", "score": 0.956}, ...]
+        [ZeroShotImageClassificationOutput(label='dog', score=0.956),...]
         ```
         """
         # Raise ValueError if input is less than 2 labels
