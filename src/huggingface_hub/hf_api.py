@@ -675,7 +675,7 @@ class ModelInfo:
             ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
         )
 
-        self.widget_data = kwargs.pop("widget_data", None)
+        self.widget_data = kwargs.pop("widgetData", None)
         self.model_index = kwargs.pop("model-index", None) or kwargs.pop("model_index", None)
         self.config = kwargs.pop("config", None)
         transformers_info = kwargs.pop("transformersInfo", None) or kwargs.pop("transformers_info", None)
@@ -1380,6 +1380,12 @@ class HfApi:
         *,
         filter: Union[ModelFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        library: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        model_name: Optional[str] = None,
+        task: Optional[Union[str, List[str]]] = None,
+        trained_dataset: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
         sort: Union[Literal["last_modified"], str, None] = None,
@@ -1389,6 +1395,7 @@ class HfApi:
         cardData: bool = False,
         fetch_config: bool = False,
         token: Optional[Union[bool, str]] = None,
+        pipeline_tag: Optional[str] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1400,6 +1407,24 @@ class HfApi:
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
+            library (`str` or `List`, *optional*):
+                A string or list of strings of foundational libraries models were
+                originally trained from, such as pytorch, tensorflow, or allennlp.
+            language (`str` or `List`, *optional*):
+                A string or list of strings of languages, both by name and country
+                code, such as "en" or "English"
+            model_name (`str`, *optional*):
+                A string that contain complete or partial names for models on the
+                Hub, such as "bert" or "bert-base-cased"
+            task (`str` or `List`, *optional*):
+                A string or list of strings of tasks models were designed for, such
+                as: "fill-mask" or "automatic-speech-recognition"
+            trained_dataset (`str` or `List`, *optional*):
+                A string tag or a list of string tags of the trained dataset for a
+                model on the Hub.
+            tags (`str` or `List`, *optional*):
+                A string tag or a list of tags to filter models on the Hub by, such
+                as `text-generation` or `spacy`.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
             emissions_thresholds (`Tuple`, *optional*):
@@ -1430,6 +1455,9 @@ class HfApi:
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
                 or [`~huggingface_hub.login`]), token will be retrieved from the cache.
                 If `False`, token is not sent in the request header.
+            pipeline_tag (`str`, *optional*):
+                A string pipeline tag to filter models on the Hub by, such as `summarization`
+
 
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
@@ -1472,17 +1500,44 @@ class HfApi:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
+        model_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
+        filter_list = []
+
         if filter is not None:
             if isinstance(filter, ModelFilter):
                 params = self._unpack_model_filter(filter)
             else:
                 params.update({"filter": filter})
+
             params.update({"full": True})
-        if author is not None:
+
+        # Build the filter list
+        if author:
+            model_str = f"{author}/"
             params.update({"author": author})
-        if search is not None:
+        if model_name:
+            model_str += model_name
+        if library:
+            filter_list.extend([library] if isinstance(library, str) else library)
+        if task:
+            filter_list.extend([task] if isinstance(task, str) else task)
+        if trained_dataset:
+            if not isinstance(trained_dataset, (list, tuple)):
+                trained_dataset = [trained_dataset]
+            for dataset in trained_dataset:
+                if not dataset.startswith("dataset:"):
+                    dataset = f"dataset:{dataset}"
+                filter_list.append(dataset)
+        if language:
+            filter_list.extend([language] if isinstance(language, str) else language)
+        if tags:
+            filter_list.extend([tags] if isinstance(tags, str) else tags)
+        if model_str:
+            params.update({"search": model_str})
+
+        if search:
             params.update({"search": search})
         if sort is not None:
             params.update({"sort": "lastModified" if sort == "last_modified" else sort})
@@ -1499,6 +1554,13 @@ class HfApi:
             params.update({"config": True})
         if cardData:
             params.update({"cardData": True})
+        if pipeline_tag:
+            params.update({"pipeline_tag": pipeline_tag})
+
+        filter_value = params.get("filter", [])
+        if filter_value:
+            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
+        params.update({"filter": filter_list})
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -1518,21 +1580,21 @@ class HfApi:
         model_str = ""
 
         # Handling author
-        if model_filter.author is not None:
+        if model_filter.author:
             model_str = f"{model_filter.author}/"
 
         # Handling model_name
-        if model_filter.model_name is not None:
+        if model_filter.model_name:
             model_str += model_filter.model_name
 
         filter_list: List[str] = []
 
         # Handling tasks
-        if model_filter.task is not None:
+        if model_filter.task:
             filter_list.extend([model_filter.task] if isinstance(model_filter.task, str) else model_filter.task)
 
         # Handling dataset
-        if model_filter.trained_dataset is not None:
+        if model_filter.trained_dataset:
             if not isinstance(model_filter.trained_dataset, (list, tuple)):
                 model_filter.trained_dataset = [model_filter.trained_dataset]
             for dataset in model_filter.trained_dataset:
@@ -1551,7 +1613,7 @@ class HfApi:
             filter_list.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
 
         query_dict: Dict[str, Any] = {}
-        if model_str is not None:
+        if model_str:
             query_dict["search"] = model_str
         if isinstance(model_filter.language, list):
             filter_list.extend(model_filter.language)
@@ -1566,8 +1628,16 @@ class HfApi:
         *,
         filter: Union[DatasetFilter, str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        benchmark: Optional[Union[str, List[str]]] = None,
+        dataset_name: Optional[str] = None,
+        language_creators: Optional[Union[str, List[str]]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        multilinguality: Optional[Union[str, List[str]]] = None,
+        size_categories: Optional[Union[str, List[str]]] = None,
+        task_categories: Optional[Union[str, List[str]]] = None,
+        task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["last_modified"], str, None] = None,
+        sort: Optional[Union[Literal["last_modified"], str]] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
         full: Optional[bool] = None,
@@ -1582,6 +1652,34 @@ class HfApi:
                 datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
+            benchmark (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by their official benchmark.
+            dataset_name (`str`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by its name, such as `SQAC` or `wikineural`
+            language_creators (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub with how the data was curated, such as `crowdsourced` or
+                `machine_generated`.
+            language (`str` or `List`, *optional*):
+                A string or list of strings representing a two-character language to
+                filter datasets by on the Hub.
+            multilinguality (`str` or `List`, *optional*):
+                A string or list of strings representing a filter for datasets that
+                contain multiple languages.
+            size_categories (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the size of the dataset such as `100K<n<1M` or
+                `1M<n<10M`.
+            task_categories (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the designed task, such as `audio_classification` or
+                `named_entity_recognition`.
+            task_ids (`str` or `List`, *optional*):
+                A string or list of strings that can be used to identify datasets on
+                the Hub by the specific task such as `speech_emotion_recognition` or
+                `paraphrase`.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
@@ -1648,16 +1746,44 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
+        dataset_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
+        filter_list = []
+
         if filter is not None:
             if isinstance(filter, DatasetFilter):
                 params = self._unpack_dataset_filter(filter)
             else:
                 params.update({"filter": filter})
-        if author is not None:
+
+        # Build the filter list
+        if author:
+            dataset_str = f"{author}/"
             params.update({"author": author})
-        if search is not None:
+        if dataset_name:
+            dataset_str += dataset_name
+
+        for attr in (
+            benchmark,
+            language_creators,
+            language,
+            multilinguality,
+            size_categories,
+            task_categories,
+            task_ids,
+        ):
+            if attr:
+                if not isinstance(attr, (list, tuple)):
+                    attr = [attr]
+                for data in attr:
+                    if not data.startswith(f"{attr}:"):
+                        data = f"{attr}:{data}"
+                    filter_list.append(data)
+        if dataset_str:
+            params.update({"search": dataset_str})
+
+        if search:
             params.update({"search": search})
         if sort is not None:
             params.update({"sort": "lastModified" if sort == "last_modified" else sort})
@@ -1667,6 +1793,11 @@ class HfApi:
             params.update({"limit": limit})
         if full:
             params.update({"full": True})
+
+        filter_value = params.get("filter", [])
+        if filter_value:
+            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
+        params.update({"filter": filter_list})
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -1683,11 +1814,11 @@ class HfApi:
         dataset_str = ""
 
         # Handling author
-        if dataset_filter.author is not None:
+        if dataset_filter.author:
             dataset_str = f"{dataset_filter.author}/"
 
         # Handling dataset_name
-        if dataset_filter.dataset_name is not None:
+        if dataset_filter.dataset_name:
             dataset_str += dataset_filter.dataset_name
 
         filter_list = []
@@ -2326,24 +2457,67 @@ class HfApi:
         Returns:
             True if the repository exists, False otherwise.
 
-        <Tip>
-
         Examples:
             ```py
             >>> from huggingface_hub import repo_exists
-            >>> repo_exists("huggingface/transformers")
+            >>> repo_exists("google/gemma-7b")
             True
-            >>> repo_exists("huggingface/not-a-repo")
+            >>> repo_exists("google/not-a-repo")
             False
             ```
-
-        </Tip>
         """
         try:
             self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
             return True
         except GatedRepoError:
             return True  # we don't have access but it exists
+        except RepositoryNotFoundError:
+            return False
+
+    @validate_hf_hub_args
+    def revision_exists(
+        self,
+        repo_id: str,
+        revision: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
+        """
+        Checks if a specific revision exists on a repo on the Hugging Face Hub.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated
+                by a `/`.
+            revision (`str`):
+                The revision of the repository to check.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if getting repository info from a dataset or a space,
+                `None` or `"model"` if getting repository info from a model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+                If `None` or `True` and machine is logged in (through `huggingface-cli login`
+                or [`~huggingface_hub.login`]), token will be retrieved from the cache.
+                If `False`, token is not sent in the request header.
+
+        Returns:
+            True if the repository and the revision exists, False otherwise.
+
+        Examples:
+            ```py
+            >>> from huggingface_hub import revision_exists
+            >>> revision_exists("google/gemma-7b", "float16")
+            True
+            >>> revision_exists("google/gemma-7b", "not-a-revision")
+            False
+            ```
+        """
+        try:
+            self.repo_info(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
+            return True
+        except RevisionNotFoundError:
+            return False
         except RepositoryNotFoundError:
             return False
 
@@ -2381,8 +2555,6 @@ class HfApi:
         Returns:
             True if the file exists, False otherwise.
 
-        <Tip>
-
         Examples:
             ```py
             >>> from huggingface_hub import file_exists
@@ -2393,8 +2565,6 @@ class HfApi:
             >>> file_exists("bigcode/not-a-repo", "config.json")
             False
             ```
-
-        </Tip>
         """
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
@@ -8362,6 +8532,7 @@ list_spaces = api.list_spaces
 space_info = api.space_info
 
 repo_exists = api.repo_exists
+revision_exists = api.revision_exists
 file_exists = api.file_exists
 repo_info = api.repo_info
 list_repo_files = api.list_repo_files

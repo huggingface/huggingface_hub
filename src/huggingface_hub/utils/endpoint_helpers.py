@@ -15,6 +15,7 @@ with the aim for a user-friendly interface.
 """
 import math
 import re
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -72,6 +73,12 @@ class DatasetFilter:
     A class that converts human-readable dataset search parameters into ones
     compatible with the REST API. For all parameters capitalization does not
     matter.
+
+    <Tip warning={true}>
+
+        The `DatasetFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_datasets`].
+
+    </Tip>
 
     Args:
         author (`str`, *optional*):
@@ -151,6 +158,12 @@ class DatasetFilter:
     task_categories: Optional[Union[str, List[str]]] = None
     task_ids: Optional[Union[str, List[str]]] = None
 
+    def __post_init__(self):
+        warnings.warn(
+            "'DatasetFilter' is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_datasets` method.",
+            category=FutureWarning,
+        )
+
 
 @dataclass
 class ModelFilter:
@@ -158,6 +171,12 @@ class ModelFilter:
     A class that converts human-readable model search parameters into ones
     compatible with the REST API. For all parameters capitalization does not
     matter.
+
+    <Tip warning={true}>
+
+        The `ModelFilter` class is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to [`list_models`].
+
+    </Tip>
 
     Args:
         author (`str`, *optional*):
@@ -183,6 +202,7 @@ class ModelFilter:
             A string tag or a list of string tags of the trained dataset for a
             model on the Hub.
 
+    Examples:
 
     ```python
     >>> from huggingface_hub import ModelFilter
@@ -221,3 +241,9 @@ class ModelFilter:
     task: Optional[Union[str, List[str]]] = None
     trained_dataset: Optional[Union[str, List[str]]] = None
     tags: Optional[Union[str, List[str]]] = None
+
+    def __post_init__(self):
+        warnings.warn(
+            "'ModelFilter' is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter parameters as keyword arguments directly to the `list_models` method.",
+            FutureWarning,
+        )
