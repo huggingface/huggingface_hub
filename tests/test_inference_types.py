@@ -53,6 +53,11 @@ def test_parse_from_list():
     assert instances[0].bar == "baz"
 
 
+def test_parse_from_unexpected_type():
+    with pytest.raises(ValueError):
+        DummyType.parse_obj(42)
+
+
 def test_parse_as_instance_success():
     instance = DummyType.parse_obj_as_instance(DUMMY_AS_DICT)
     assert isinstance(instance, DummyType)
