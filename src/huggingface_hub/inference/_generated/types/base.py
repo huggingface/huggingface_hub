@@ -136,10 +136,12 @@ class BaseInferenceType(dict):
 
     def __getitem__(self, __key: Any) -> Any:
         warnings.warn(
-            f"Accessing '{self.__class__.__name__}' values through dict is deprecated and will be removed from version '1.0'. Use dataclass attributes instead.",
+            f"Accessing '{self.__class__.__name__}' values through dict is deprecated and "
+            "will be removed from version '1.0'. Use dataclass attributes instead.",
             FutureWarning,
         )
         return super().__getitem__(__key)
+
 
 def normalize_key(key: str) -> str:
     # e.g "content-type" -> "content_type", "Accept" -> "accept"

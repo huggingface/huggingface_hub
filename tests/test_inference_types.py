@@ -21,6 +21,7 @@ class DummyNestedType(BaseInferenceType):
     items: List[DummyType]
     maybe_items: Optional[List[DummyType]] = None
 
+
 DUMMY_AS_DICT = {"foo": 42, "bar": "baz"}
 DUMMY_AS_STR = json.dumps(DUMMY_AS_DICT)
 DUMMY_AS_BYTES = DUMMY_AS_STR.encode()
@@ -122,6 +123,7 @@ def test_fields_kept_in_sync():
     instance["foo"] = 44
     assert instance.foo == 44
     assert instance["foo"] == 44
+
 
 def test_normalize_keys():
     # all fields are normalized in the dataclasses (by convention)
