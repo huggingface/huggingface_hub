@@ -38,6 +38,7 @@ _CANDIDATES = {
     "pillow": {"Pillow"},
     "pydantic": {"pydantic"},
     "pydot": {"pydot"},
+    "safetensors": {"safetensors"},
     "tensorboard": {"tensorboardX"},
     "tensorflow": (
         "tensorflow",
@@ -231,7 +232,7 @@ def get_torch_version() -> str:
 
 # Safetensors
 def is_safetensors_available() -> bool:
-    return _is_available("safetensors")
+    return is_package_available("safetensors")
 
 
 # Shell-related helpers
