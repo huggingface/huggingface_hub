@@ -1,5 +1,6 @@
 import json
 import os
+import struct
 import unittest
 from pathlib import Path
 from typing import TypeVar
@@ -67,7 +68,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         # while an implementation detail, assert as this has safety implications
         # https://github.com/huggingface/safetensors?tab=readme-ov-file#format
         with open(modelFile, "rb") as f:
-            self.assertEqual(f.read(8), b"\x80\x00\x00\x00\x00\x00\x00\x00")
+            header_size = struct.unpack("<Q", f.read(8))[0]
+            self.assertEqual(header_size, 128)
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
