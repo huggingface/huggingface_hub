@@ -106,17 +106,17 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+            self.assertIsInstance(item.score, float)
+            self.assertIsInstance(item.label, str)
 
     def test_audio_to_audio(self) -> None:
         output = self.client.audio_to_audio(self.audio_file)
         assert isinstance(output, list)
         assert len(output) > 0
         for item in output:
-            assert isinstance(item["label"], str)
-            assert isinstance(item["blob"], bytes)
-            assert item["content-type"] == "audio/flac"
+            assert isinstance(item.label, str)
+            assert isinstance(item.blob, bytes)
+            assert item.content_type == "audio/flac"
 
     def test_automatic_speech_recognition(self) -> None:
         output = self.client.automatic_speech_recognition(self.audio_file)
@@ -447,8 +447,8 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item.label, str)
+            self.assertIsInstance(item.score, float)
 
     def test_unprocessable_entity_error(self) -> None:
         with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):

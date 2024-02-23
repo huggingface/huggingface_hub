@@ -20,6 +20,7 @@ from typing import List, TypedDict
 # Types are now generated from the JSON schema spec in @huggingface/tasks.
 # See ./src/huggingface_hub/inference/_generated/types
 
+
 class ConversationalOutputConversation(TypedDict):
     """Dictionary containing the "conversation" part of a [`~InferenceClient.conversational`] task.
 

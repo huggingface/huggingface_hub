@@ -1,3 +1,17 @@
+# Copyright 2024 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Contains a base class for all inference types."""
 import inspect
 import json
 import warnings
@@ -10,7 +24,13 @@ T = TypeVar("T", bound="BaseInferenceType")
 
 @dataclass
 class BaseInferenceType(dict):
-    """Base class for all inference types."""
+    """Base class for all inference types.
+
+    Object is a dataclass and a dict for backward compatibility but plan is to remove the dict part in the future.
+
+    Handle parsing from dict, list and json strings in a permissive way to ensure future-compatibility (e.g. all fields
+    are made optional, and non-expected fields are added as dict attributes).
+    """
 
     @classmethod
     def parse_obj_as_list(cls: Type[T], data: Union[bytes, str, List, Dict]) -> List[T]:
@@ -59,6 +79,7 @@ class BaseInferenceType(dict):
         init_values = {}
         other_values = {}
         for key, value in data.items():
+            key = normalize_key(key)
             if key in cls.__dataclass_fields__ and cls.__dataclass_fields__[key].init:
                 if isinstance(value, dict) or isinstance(value, list):
                     field_type = cls.__dataclass_fields__[key].type
@@ -119,3 +140,7 @@ class BaseInferenceType(dict):
             FutureWarning,
         )
         return super().__getitem__(__key)
+
+def normalize_key(key: str) -> str:
+    # e.g "content-type" -> "content_type", "Accept" -> "accept"
+    return key.replace("-", "_").replace(" ", "_").lower()
