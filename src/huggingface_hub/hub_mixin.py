@@ -1,14 +1,15 @@
 import json
 import os
 from pathlib import Path
+from typing import Dict, List, Optional, Type, TypeVar, Union
+
 from safetensors import safe_open
 from safetensors.torch import save_file
-from typing import Dict, List, Optional, Type, TypeVar, Union
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download, is_torch_available
 from .hf_api import HfApi
-from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args, EntryNotFoundError
+from .utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
 if is_torch_available():
@@ -346,10 +347,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """Load Pytorch pretrained weights and return the loaded model."""
+        model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
-            return cls.load_as_safetensor(cls, model_file, model_kwargs, map_location, strict)
+            return cls.load_as_safetensor(model, model_file, map_location, strict)
         else:
             try:
                 model_file = cls._hf_hub_download(
@@ -363,8 +365,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     token=token,
                     local_files_only=local_files_only,
                 )
-                return cls.load_as_safetensor(cls, model_file, model_kwargs, map_location, strict)
-            except EntryNotFoundError as http_error:
+                return cls.load_as_safetensor(model, model_file, map_location, strict)
+            except EntryNotFoundError:
                 model_file = cls._hf_hub_download(
                     repo_id=model_id,
                     filename=PYTORCH_WEIGHTS_NAME,
@@ -376,17 +378,17 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     token=token,
                     local_files_only=local_files_only,
                 )
-                return cls.load_as_pickle(cls, model_file, model_kwargs, map_location, strict)
-    
-    def load_as_pickle(cls, model_file, model_kwargs, map_location, strict):
-        model = cls(**model_kwargs)
+                return cls.load_as_pickle(model, model_file, map_location, strict)
+
+    @classmethod
+    def load_as_pickle(cls, model, model_file, map_location, strict):
         state_dict = torch.load(model_file, map_location=torch.device(map_location))
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model
 
-    def load_as_safetensor(cls, model_file, model_kwargs, map_location, strict):
-        model = cls(**model_kwargs)
+    @classmethod
+    def load_as_safetensor(cls, model, model_file, map_location, strict):
         state_dict = {}
         with safe_open(model_file, framework="pt", device=map_location) as f:
             for k in f.keys():
@@ -394,8 +396,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model
-    
+
     def _hf_hub_download(*args, **kwargs):
         return hf_hub_download(*args, **kwargs)
-            
-    

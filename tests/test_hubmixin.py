@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 import unittest
 from pathlib import Path
 from typing import TypeVar
@@ -11,15 +10,15 @@ import pytest
 from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available, EntryNotFoundError
+from huggingface_hub.utils import EntryNotFoundError, SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name
 
 
 if is_torch_available():
-    import torch.nn as nn
     import torch
+    import torch.nn as nn
 
 
 def require_torch(test_case):
@@ -83,7 +82,6 @@ class HubMixingTest(unittest.TestCase):
         with open(modelFile, "rb") as f:
             self.assertEqual(f.read(8), b"\x80\x00\x00\x00\x00\x00\x00\x00")
 
-
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
         save_directory = self.cache_dir / repo_id
@@ -114,7 +112,7 @@ class HubMixingTest(unittest.TestCase):
     def pretend_file_download(self, **kwargs):
         DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
         return self.cache_dir / "model.safetensors"
-    
+
     @patch.object(DummyModel, "_hf_hub_download")
     def test_from_pretrained_model_from_hub_prefer_safetensor(self, hf_hub_download_mock: Mock) -> None:
         hf_hub_download_mock.side_effect = self.pretend_file_download
@@ -128,22 +126,21 @@ class HubMixingTest(unittest.TestCase):
             proxies=None,
             resume_download=False,
             token=None,
-            local_files_only=False
+            local_files_only=False,
         )
         self.assertIsNotNone(model)
 
     def pretend_file_download_fallback(self, **kwargs):
         if kwargs.get("filename") == "model.safetensors":
             raise EntryNotFoundError("not found")
-        
-        with open(self.cache_dir / PYTORCH_WEIGHTS_NAME, "wb") as f:
-            class TestMixin(ModelHubMixin):
-                def _save_pretrained(self, save_directory: Path) -> None:
-                    torch.save(DummyModel().state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
 
-            TestMixin().save_pretrained(self.cache_dir)
+        class TestMixin(ModelHubMixin):
+            def _save_pretrained(self, save_directory: Path) -> None:
+                torch.save(DummyModel().state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+
+        TestMixin().save_pretrained(self.cache_dir)
         return self.cache_dir / PYTORCH_WEIGHTS_NAME
-    
+
     @patch.object(DummyModel, "_hf_hub_download")
     def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:
         hf_hub_download_mock.side_effect = self.pretend_file_download_fallback
@@ -157,7 +154,7 @@ class HubMixingTest(unittest.TestCase):
             proxies=None,
             resume_download=False,
             token=None,
-            local_files_only=False
+            local_files_only=False,
         )
         hf_hub_download_mock.assert_any_call(
             repo_id="namespace/repo_name",
@@ -168,7 +165,7 @@ class HubMixingTest(unittest.TestCase):
             proxies=None,
             resume_download=False,
             token=None,
-            local_files_only=False
+            local_files_only=False,
         )
         self.assertIsNotNone(model)
 
