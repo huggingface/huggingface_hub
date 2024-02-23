@@ -1,5 +1,6 @@
 import inspect
 import json
+import warnings
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Type, TypeVar, Union, get_args
 
@@ -111,3 +112,10 @@ class BaseInferenceType(dict):
         if self.get(__name) != __value:
             self[__name] = __value
         return
+
+    def __getitem__(self, __key: Any) -> Any:
+        warnings.warn(
+            f"Accessing '{self.__class__.__name__}' values through dict is deprecated and will be removed from version '1.0'. Use dataclass attributes instead.",
+            FutureWarning,
+        )
+        return super().__getitem__(__key)
