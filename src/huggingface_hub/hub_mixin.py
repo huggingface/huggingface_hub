@@ -483,7 +483,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
-            return cls.load_as_safetensor(model, model_file, map_location, strict)
+            return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
             try:
                 model_file = cls._hf_hub_download(
@@ -497,7 +497,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     token=token,
                     local_files_only=local_files_only,
                 )
-                return cls.load_as_safetensor(model, model_file, map_location, strict)
+                return cls._load_as_safetensor(model, model_file, map_location, strict)
             except EntryNotFoundError:
                 model_file = cls._hf_hub_download(
                     repo_id=model_id,
@@ -510,17 +510,17 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     token=token,
                     local_files_only=local_files_only,
                 )
-                return cls.load_as_pickle(model, model_file, map_location, strict)
+                return cls._load_as_pickle(model, model_file, map_location, strict)
 
     @classmethod
-    def load_as_pickle(cls, model, model_file, map_location, strict):
+    def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
         state_dict = torch.load(model_file, map_location=torch.device(map_location))
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model
 
     @classmethod
-    def load_as_safetensor(cls, model, model_file, map_location, strict):
+    def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
         state_dict = {}
         with safe_open(model_file, framework="pt", device=map_location) as f:
             for k in f.keys():
