@@ -44,6 +44,6 @@ class TranslationOutput(BaseInferenceType):
     Outputs of inference for the Text2text Generation task
     """
 
-    generated_text: Any
-    translation_output_generated_text: Optional[str]
-    """The generated text."""
+    translation_text: Any
+    translation_output_translation_text: Optional[str]
+    """The translated text."""

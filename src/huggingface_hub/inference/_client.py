@@ -78,11 +78,14 @@ from huggingface_hub.inference._generated.types import (
     FillMaskOutputElement,
     ImageClassificationOutput,
     ImageSegmentationOutputElement,
+    ImageToTextOutput,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
+    SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutput,
     TokenClassificationOutputElement,
+    TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutput,
     ZeroShotImageClassificationOutput,
@@ -290,7 +293,7 @@ class InferenceClient:
                 audio classification will be used.
 
         Returns:
-            `List[AudioClassificationOutput]`: The classification output containing the predicted label and its confidence.
+            `List[AudioClassificationOutput]`: List of [`AudioClassificationOutput`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -332,7 +335,7 @@ class InferenceClient:
                 audio_to_audio will be used.
 
         Returns:
-            `List[AudioToAudioOutputElement]`: A list of items containing audios label, content-type, and audio content in blob.
+            `List[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
 
         Raises:
             `InferenceTimeoutError`:
@@ -474,7 +477,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[DocumentQuestionAnsweringOutputElement]`: a list of items containing the predicted label, associated probability, word ids, and page number.
+            `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -543,7 +546,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[FillMaskOutputElement]`: a list of fill mask output dictionaries containing the predicted label, associated
+            `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
@@ -583,7 +586,7 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
         Returns:
-            `List[ImageClassificationOutput]`: a list of items containing the predicted label and associated probability.
+            `List[ImageClassificationOutput]`: a list of [`ImageClassificationOutput`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -625,7 +628,7 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
 
         Returns:
-            `List[ImageSegmentationOutputElement]`: A list of items containing the segmented masks and associated attributes.
+            `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -731,7 +734,7 @@ class InferenceClient:
         response = self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
-    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
+    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
         """
         Takes an input image and return text.
 
@@ -746,7 +749,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `str`: The generated text.
+            [`ImageToTextOutput`]: The generated text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -765,7 +768,7 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-to-text")
-        return _bytes_to_dict(response)[0]["generated_text"]
+        return ImageToTextOutput.parse_obj_as_instance(response)
 
     def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
@@ -865,7 +868,7 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
 
         Returns:
-            `List[ObjectDetectionOutputElement]`: A list of items containing the bounding boxes and associated attributes.
+            `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -903,7 +906,7 @@ class InferenceClient:
                 a deployed Inference Endpoint.
 
         Returns:
-            `QuestionAnsweringOutputElement`: an question answering output containing the score, start index, end index, and answer.
+            `[QuestionAnsweringOutputElement`]: an question answering output containing the score, start index, end index, and answer.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -981,7 +984,7 @@ class InferenceClient:
         *,
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
-    ) -> str:
+    ) -> SummarizationOutput:
         """
         Generate a summary of a given text using a specified model.
 
@@ -996,7 +999,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `str`: The generated summary text.
+            [`SummarizationOutput`]: The generated summary text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1009,14 +1012,14 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.summarization("The Eiffel tower...")
-        'The Eiffel tower is one of the most famous landmarks in the world....'
+        SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
         response = self.post(json=payload, model=model, task="summarization")
-        return _bytes_to_dict(response)[0]["summary_text"]
+        return SummarizationOutput.parse_obj_as_list(response)[0]
 
     def table_question_answering(
         self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
@@ -1035,7 +1038,7 @@ class InferenceClient:
                 Hub or a URL to a deployed Inference Endpoint.
 
         Returns:
-            `TableQuestionAnsweringOutputElement`: a table question answering output containing the answer, coordinates, cells and the aggregator used.
+            [`TableQuestionAnsweringOutputElement`]: a table question answering output containing the answer, coordinates, cells and the aggregator used.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1161,7 +1164,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[TextClassificationOutput]`: a list of items containing the predicted label and associated probability.
+            `List[TextClassificationOutput]`: a list of [`TextClassificationOutput`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1674,7 +1677,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[TokenClassificationOutputElement]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+            `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1715,7 +1718,7 @@ class InferenceClient:
 
     def translation(
         self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
-    ) -> str:
+    ) -> TranslationOutput:
         """
         Convert text from one language to another.
 
@@ -1738,7 +1741,7 @@ class InferenceClient:
                 Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.
 
         Returns:
-            `str`: The generated translated text.
+            [`TranslationOutput`]: The generated translated text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1755,7 +1758,7 @@ class InferenceClient:
         >>> client.translation("My name is Wolfgang and I live in Berlin")
         'Mein Name ist Wolfgang und ich lebe in Berlin.'
         >>> client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
-        "Je m'appelle Wolfgang et je vis à Berlin."
+        TranslationOutput(translation_text='Je m\'appelle Wolfgang et je vis à Berlin.')
         ```
 
         Specifying languages:
@@ -1776,7 +1779,7 @@ class InferenceClient:
         if src_lang and tgt_lang:
             payload["parameters"] = {"src_lang": src_lang, "tgt_lang": tgt_lang}
         response = self.post(json=payload, model=model, task="translation")
-        return _bytes_to_dict(response)[0]["translation_text"]
+        return TranslationOutput.parse_obj_as_list(response)[0]
 
     def visual_question_answering(
         self,
@@ -1799,7 +1802,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[VisualQuestionAnsweringOutputElement]`: a list of items containing the predicted label and associated probability.
+            `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             `InferenceTimeoutError`:
@@ -1843,7 +1846,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[ZeroShotClassificationOutput]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotClassificationOutput]`: List of [`ZeroShotClassificationOutput`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1916,7 +1919,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[ZeroShotImageClassificationOutput]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotImageClassificationOutput]`: List of [`ZeroShotImageClassificationOutput`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:

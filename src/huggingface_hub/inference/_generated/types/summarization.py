@@ -44,6 +44,6 @@ class SummarizationOutput(BaseInferenceType):
     Outputs of inference for the Text2text Generation task
     """
 
-    generated_text: Any
-    summarization_output_generated_text: Optional[str]
+    summary_text: Any
+    summarization_output_summary_text: Optional[str]
     """The generated text."""

@@ -28,9 +28,11 @@ from huggingface_hub import (
     InferenceClient,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
+    SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutput,
     TokenClassificationOutputElement,
+    TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutput,
     hf_hub_download,
@@ -296,11 +298,12 @@ class InferenceClientVCRTest(InferenceClientTest):
             " metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure"
             " in France after the Millau Viaduct."
         )
-        self.assertEqual(
-            summary,
-            "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is"
-            " square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower"
-            " surpassed the Washington Monument to become the tallest man-made structure in the world.",
+        assert summary == SummarizationOutput.parse_obj(
+            {
+                "summary_text": "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is"
+                " square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower"
+                " surpassed the Washington Monument to become the tallest man-made structure in the world.",
+            }
         )
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
@@ -373,13 +376,13 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_translation(self) -> None:
         output = self.client.translation("Hello world")
-        self.assertEqual(output, "Hallo Welt")
+        assert output == TranslationOutput(translation_text="Hallo Welt", translation_output_translation_text=None)
 
     def test_translation_with_source_and_target_language(self) -> None:
         output_with_langs = self.client.translation(
             "Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX"
         )
-        self.assertIsInstance(output_with_langs, str)
+        assert isinstance(output_with_langs, TranslationOutput)
 
         with self.assertRaises(ValueError):
             self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX")
