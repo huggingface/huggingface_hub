@@ -920,7 +920,7 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint.
 
         Returns:
-            `[QuestionAnsweringOutputElement`]: an question answering output containing the score, start index, end index, and answer.
+            [`QuestionAnsweringOutputElement`]: an question answering output containing the score, start index, end index, and answer.
 
         Raises:
             [`InferenceTimeoutError`]:
