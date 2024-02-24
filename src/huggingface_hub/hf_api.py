@@ -1497,7 +1497,6 @@ class HfApi:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
         path = f"{self.endpoint}/api/models"
-        model_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
         filter_list = []
@@ -1512,10 +1511,9 @@ class HfApi:
 
         # Build the filter list
         if author:
-            model_str = f"{author}/"
             params.update({"author": author})
         if model_name:
-            model_str += model_name
+            params.update({"search": model_name})
         if library:
             filter_list.extend([library] if isinstance(library, str) else library)
         if task:
@@ -1531,8 +1529,6 @@ class HfApi:
             filter_list.extend([language] if isinstance(language, str) else language)
         if tags:
             filter_list.extend([tags] if isinstance(tags, str) else tags)
-        if model_str:
-            params.update({"search": model_str})
 
         if search:
             params.update({"search": search})
