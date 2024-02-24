@@ -1474,9 +1474,6 @@ class HfApi:
 
         >>> # List only the text classification models
         >>> api.list_models(filter="text-classification")
-        >>> # Using the `ModelFilter`
-        >>> filt = ModelFilter(task="text-classification")
-
 
         >>> # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
