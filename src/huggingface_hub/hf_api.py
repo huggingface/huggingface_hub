@@ -1710,16 +1710,12 @@ class HfApi:
 
         >>> # List only the text classification datasets
         >>> api.list_datasets(filter="task_categories:text-classification")
-        >>> # Using the `DatasetFilter`
-        >>> filt = DatasetFilter(task_categories="text-classification")
 
 
         >>> # List only the datasets in russian for language modeling
         >>> api.list_datasets(
         ...     filter=("language:ru", "task_ids:language-modeling")
         ... )
-        >>> # Using the `DatasetFilter`
-        >>> filt = DatasetFilter(language="ru", task_ids="language-modeling")
 
         >>> api.list_datasets(filter=filt)
         ```
@@ -1739,7 +1735,6 @@ class HfApi:
         ```
         """
         path = f"{self.endpoint}/api/datasets"
-        dataset_str = ""
         headers = self._build_hf_headers(token=token)
         params = {}
         filter_list = []
@@ -1752,10 +1747,9 @@ class HfApi:
 
         # Build the filter list
         if author:
-            dataset_str = f"{author}/"
             params.update({"author": author})
         if dataset_name:
-            dataset_str += dataset_name
+            params.update({"search": dataset_name})
 
         for attr in (
             benchmark,
@@ -1773,8 +1767,6 @@ class HfApi:
                     if not data.startswith(f"{attr}:"):
                         data = f"{attr}:{data}"
                     filter_list.append(data)
-        if dataset_str:
-            params.update({"search": dataset_str})
 
         if search:
             params.update({"search": search})
