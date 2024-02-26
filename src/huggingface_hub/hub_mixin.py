@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
-import huggingface_hub
+from .file_download import hf_hub_download
 from .hf_api import HfApi
 from .utils import (
     EntryNotFoundError,
@@ -232,7 +232,7 @@ class ModelHubMixin:
                 logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
         else:
             try:
-                config_file = huggingface_hub.hf_hub_download(
+                config_file = hf_hub_download(
                     repo_id=model_id,
                     filename=CONFIG_NAME,
                     revision=revision,
@@ -486,7 +486,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
             return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
             try:
-                model_file = huggingface_hub.hf_hub_download(
+                model_file = hf_hub_download(
                     repo_id=model_id,
                     filename=SAFETENSORS_SINGLE_FILE,
                     revision=revision,
@@ -499,7 +499,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 )
                 return cls._load_as_safetensor(model, model_file, map_location, strict)
             except EntryNotFoundError:
-                model_file = huggingface_hub.hf_hub_download(
+                model_file = hf_hub_download(
                     repo_id=model_id,
                     filename=PYTORCH_WEIGHTS_NAME,
                     revision=revision,
@@ -522,7 +522,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
         state_dict = {}
-        with safe_open(model_file, framework="pt", device=map_location) as f:
+        with safe_open(model_file, framework="pt", device=map_location) as f:  # type: ignore [attr-defined]
             for k in f.keys():
                 state_dict[k] = f.get_tensor(k)
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
