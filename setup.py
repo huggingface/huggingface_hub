@@ -38,7 +38,10 @@ extras["inference"] = [
     "pydantic>1.1,<2.0; python_version=='3.8'",
 ]
 
-extras["torch"] = ["torch", "safetensors"]
+extras["torch"] = [
+    "torch",
+    "safetensors",
+]
 extras["hf_transfer"] = [
     "hf_transfer>=0.1.4",  # Pin for progress bars
 ]
