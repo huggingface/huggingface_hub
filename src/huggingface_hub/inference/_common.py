@@ -84,8 +84,9 @@ class ModelStatus:
             backend. Loadable models are automatically loaded when the user first
             requests inference on the endpoint. This means it is transparent for the
             user to load a model, except that the first call takes longer to complete.
-        compute_type (`str`):
-            The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
+        compute_type (`Dict`):
+            Information about the compute resource the model is using or will use, such as 'gpu' type and number of
+            replicas.
         framework (`str`):
             The name of the framework that the model was built with, such as 'transformers'
             or 'text-generation-inference'.
@@ -93,7 +94,7 @@ class ModelStatus:
 
     loaded: bool
     state: str
-    compute_type: str
+    compute_type: Dict
     framework: str
 
 
