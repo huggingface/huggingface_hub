@@ -82,6 +82,7 @@ from ._runtime import (
     is_pillow_available,
     is_pydantic_available,
     is_pydot_available,
+    is_safetensors_available,
     is_tensorboard_available,
     is_tf_available,
     is_torch_available,
