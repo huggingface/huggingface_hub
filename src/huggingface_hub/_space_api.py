@@ -138,8 +138,8 @@ class SpaceVariable:
             Variable value. Example: `"the_model_repo_id"`.
         description (`str` or None):
             Description of the variable. Example: `"Model Repo ID of the implemented model"`.
-        updatedAt (`datetime`):
-            datetime of the last update of the variable (if any).
+        updatedAt (`datetime` or None):
+            datetime of the last update of the variable (if the variable has been updated at least once).
     """
 
     key: str
