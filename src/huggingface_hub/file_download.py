@@ -76,8 +76,6 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_method
-from .utils._headers import _http_user_agent
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.insecure_hashlib import sha256
@@ -345,21 +343,6 @@ def filename_to_url(
     etag = metadata["etag"]
 
     return url, etag
-
-
-@_deprecate_method(version="0.22.0", message="Use `huggingface_hub.utils.build_hf_headers` instead.")
-def http_user_agent(
-    *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
-) -> str:
-    """Deprecated in favor of [`build_hf_headers`]."""
-    return _http_user_agent(
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-    )
 
 
 def _request_wrapper(
