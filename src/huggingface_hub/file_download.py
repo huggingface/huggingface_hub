@@ -861,7 +861,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     By default, it will try to create a symlink using a relative path. Relative paths have 2 advantages:
     - If the cache_folder is moved (example: back-up on a shared drive), relative paths within the cache folder will
-      not brake.
+      not break.
     - Relative paths seems to be better handled on Windows. Issue was reported 3 times in less than a week when
       changing from relative to absolute paths. See https://github.com/huggingface/huggingface_hub/issues/1398,
       https://github.com/huggingface/diffusers/issues/2729 and https://github.com/huggingface/transformers/pull/22228.
@@ -882,7 +882,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     cache, the file is duplicated on the disk.
 
     In case symlinks are not supported, a warning message is displayed to the user once when loading `huggingface_hub`.
-    The warning message can be disable with the `DISABLE_SYMLINKS_WARNING` environment variable.
+    The warning message can be disabled with the `DISABLE_SYMLINKS_WARNING` environment variable.
     """
     try:
         os.remove(dst)
