@@ -1,8 +1,8 @@
 # Inference code generated from the JSON schema spec in @huggingface/tasks.
 #
-# Using ./src/scripts/inference-codegen
-#
-# See https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
+# See:
+#   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
+#   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
 from typing import Any, Dict, Literal, Optional
 
