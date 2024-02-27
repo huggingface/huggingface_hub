@@ -216,7 +216,7 @@ async def test_get_status_loaded_model() -> None:
     model_status = await AsyncInferenceClient().get_model_status("bigscience/bloom")
     assert model_status.loaded is True
     assert model_status.state == "Loaded"
-    assert model_status.compute_type == "gpu"
+    assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
     assert model_status.framework == "text-generation-inference"
 
 

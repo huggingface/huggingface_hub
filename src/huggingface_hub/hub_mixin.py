@@ -5,10 +5,18 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
 
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME
-from .file_download import hf_hub_download, is_torch_available
+from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
+from .file_download import hf_hub_download
 from .hf_api import HfApi
-from .utils import HfHubHTTPError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils import (
+    EntryNotFoundError,
+    HfHubHTTPError,
+    SoftTemporaryDirectory,
+    is_safetensors_available,
+    is_torch_available,
+    logging,
+    validate_hf_hub_args,
+)
 from .utils._deprecation import _deprecate_arguments
 
 
@@ -17,6 +25,11 @@ if TYPE_CHECKING:
 
 if is_torch_available():
     import torch  # type: ignore
+
+if is_safetensors_available():
+    from safetensors import safe_open
+    from safetensors.torch import save_file
+
 
 logger = logging.get_logger(__name__)
 
@@ -447,7 +460,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        torch.save(model_to_save.state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+        save_file(model_to_save.state_dict(), save_directory / SAFETENSORS_SINGLE_FILE)
 
     @classmethod
     def _from_pretrained(
@@ -466,25 +479,52 @@ class PyTorchModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """Load Pytorch pretrained weights and return the loaded model."""
+        model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
-            model_file = os.path.join(model_id, PYTORCH_WEIGHTS_NAME)
+            model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
+            return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
-            model_file = hf_hub_download(
-                repo_id=model_id,
-                filename=PYTORCH_WEIGHTS_NAME,
-                revision=revision,
-                cache_dir=cache_dir,
-                force_download=force_download,
-                proxies=proxies,
-                resume_download=resume_download,
-                token=token,
-                local_files_only=local_files_only,
-            )
-        model = cls(**model_kwargs)
+            try:
+                model_file = hf_hub_download(
+                    repo_id=model_id,
+                    filename=SAFETENSORS_SINGLE_FILE,
+                    revision=revision,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    token=token,
+                    local_files_only=local_files_only,
+                )
+                return cls._load_as_safetensor(model, model_file, map_location, strict)
+            except EntryNotFoundError:
+                model_file = hf_hub_download(
+                    repo_id=model_id,
+                    filename=PYTORCH_WEIGHTS_NAME,
+                    revision=revision,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    token=token,
+                    local_files_only=local_files_only,
+                )
+                return cls._load_as_pickle(model, model_file, map_location, strict)
 
+    @classmethod
+    def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
         state_dict = torch.load(model_file, map_location=torch.device(map_location))
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
+        return model
 
+    @classmethod
+    def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        state_dict = {}
+        with safe_open(model_file, framework="pt", device=map_location) as f:  # type: ignore [attr-defined]
+            for k in f.keys():
+                state_dict[k] = f.get_tensor(k)
+        model.load_state_dict(state_dict, strict=strict)  # type: ignore
+        model.eval()  # type: ignore
         return model
