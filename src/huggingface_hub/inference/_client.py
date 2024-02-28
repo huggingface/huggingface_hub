@@ -71,24 +71,24 @@ from huggingface_hub.inference._common import (
     _stream_text_generation_response,
 )
 from huggingface_hub.inference._generated.types import (
-    AudioClassificationOutput,
+    AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
-    ImageClassificationOutput,
+    ImageClassificationOutputElement,
     ImageSegmentationOutputElement,
     ImageToTextOutput,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
-    TextClassificationOutput,
+    TextClassificationOutputElement,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
-    ZeroShotClassificationOutput,
-    ZeroShotImageClassificationOutput,
+    ZeroShotClassificationOutputElement,
+    ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
@@ -279,7 +279,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[AudioClassificationOutput]:
+    ) -> List[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
 
@@ -293,7 +293,7 @@ class InferenceClient:
                 audio classification will be used.
 
         Returns:
-            `List[AudioClassificationOutput]`: List of [`AudioClassificationOutput`] items containing the predicted labels and their confidence.
+            `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -307,14 +307,14 @@ class InferenceClient:
         >>> client = InferenceClient()
         >>> client.audio_classification("audio.flac")
         [
-            AudioClassificationOutput(score=0.4976358711719513, label='hap'),
-            AudioClassificationOutput(score=0.3677836060523987, label='neu'),
+            AudioClassificationOutputElement(score=0.4976358711719513, label='hap'),
+            AudioClassificationOutputElement(score=0.3677836060523987, label='neu'),
             ...
         ]
         ```
         """
         response = self.post(data=audio, model=model, task="audio-classification")
-        return AudioClassificationOutput.parse_obj_as_list(response)
+        return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     def audio_to_audio(
         self,
@@ -574,7 +574,7 @@ class InferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ImageClassificationOutput]:
+    ) -> List[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
 
@@ -586,7 +586,7 @@ class InferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
         Returns:
-            `List[ImageClassificationOutput]`: a list of [`ImageClassificationOutput`] items containing the predicted label and associated probability.
+            `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -599,11 +599,11 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
-        [ImageClassificationOutput(score=0.9779096841812134, label='Blenheim spaniel'), ...]
+        [ImageClassificationOutputElement(score=0.9779096841812134, label='Blenheim spaniel'), ...]
         ```
         """
         response = self.post(data=image, model=model, task="image-classification")
-        return ImageClassificationOutput.parse_obj_as_list(response)
+        return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     def image_segmentation(
         self,
@@ -1151,7 +1151,7 @@ class InferenceClient:
         response = self.post(json={"table": table}, model=model, task="tabular-regression")
         return _bytes_to_list(response)
 
-    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[TextClassificationOutput]:
+    def text_classification(self, text: str, *, model: Optional[str] = None) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1164,7 +1164,7 @@ class InferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[TextClassificationOutput]`: a list of [`TextClassificationOutput`] items containing the predicted label and associated probability.
+            `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1178,13 +1178,13 @@ class InferenceClient:
         >>> client = InferenceClient()
         >>> client.text_classification("I like you")
         [
-            TextClassificationOutput(label='POSITIVE', score=0.9998695850372314),
-            TextClassificationOutput(label='NEGATIVE', score=0.0001304351753788069),
+            TextClassificationOutputElement(label='POSITIVE', score=0.9998695850372314),
+            TextClassificationOutputElement(label='NEGATIVE', score=0.0001304351753788069),
         ]
         ```
         """
         response = self.post(json={"inputs": text}, model=model, task="text-classification")
-        return TextClassificationOutput.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
     def text_generation(  # type: ignore
@@ -1830,7 +1830,7 @@ class InferenceClient:
 
     def zero_shot_classification(
         self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
-    ) -> List[ZeroShotClassificationOutput]:
+    ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
@@ -1846,7 +1846,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[ZeroShotClassificationOutput]`: List of [`ZeroShotClassificationOutput`] items containing the predicted labels and their confidence.
+            `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1866,19 +1866,19 @@ class InferenceClient:
         >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
         >>> client.zero_shot_classification(text, labels)
         [
-            ZeroShotClassificationOutput(label='scientific discovery', score=0.7961668968200684),
-            ZeroShotClassificationOutput(label='space & cosmos', score=0.18570658564567566),
-            ZeroShotClassificationOutput(label='microbiology', score=0.00730885099619627),
-            ZeroShotClassificationOutput(label='archeology', score=0.006258360575884581),
-            ZeroShotClassificationOutput(label='robots', score=0.004559356719255447),
+            ZeroShotClassificationOutputElement(label='scientific discovery', score=0.7961668968200684),
+            ZeroShotClassificationOutputElement(label='space & cosmos', score=0.18570658564567566),
+            ZeroShotClassificationOutputElement(label='microbiology', score=0.00730885099619627),
+            ZeroShotClassificationOutputElement(label='archeology', score=0.006258360575884581),
+            ZeroShotClassificationOutputElement(label='robots', score=0.004559356719255447),
         ]
         >>> client.zero_shot_classification(text, labels, multi_label=True)
         [
-            ZeroShotClassificationOutput(label='scientific discovery', score=0.9829297661781311),
-            ZeroShotClassificationOutput(label='space & cosmos', score=0.755190908908844),
-            ZeroShotClassificationOutput(label='microbiology', score=0.0005462635890580714),
-            ZeroShotClassificationOutput(label='archeology', score=0.00047131875180639327),
-            ZeroShotClassificationOutput(label='robots', score=0.00030448526376858354),
+            ZeroShotClassificationOutputElement(label='scientific discovery', score=0.9829297661781311),
+            ZeroShotClassificationOutputElement(label='space & cosmos', score=0.755190908908844),
+            ZeroShotClassificationOutputElement(label='microbiology', score=0.0005462635890580714),
+            ZeroShotClassificationOutputElement(label='archeology', score=0.00047131875180639327),
+            ZeroShotClassificationOutputElement(label='robots', score=0.00030448526376858354),
         ]
         ```
         """
@@ -1899,13 +1899,13 @@ class InferenceClient:
         )
         output = _bytes_to_dict(response)
         return [
-            ZeroShotClassificationOutput.parse_obj_as_instance({"label": label, "score": score})
+            ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
             for label, score in zip(output["labels"], output["scores"])
         ]
 
     def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
-    ) -> List[ZeroShotImageClassificationOutput]:
+    ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
 
@@ -1919,7 +1919,7 @@ class InferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[ZeroShotImageClassificationOutput]`: List of [`ZeroShotImageClassificationOutput`] items containing the predicted labels and their confidence.
+            `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1936,7 +1936,7 @@ class InferenceClient:
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
         ...     labels=["dog", "cat", "horse"],
         ... )
-        [ZeroShotImageClassificationOutput(label='dog', score=0.956),...]
+        [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
         # Raise ValueError if input is less than 2 labels
@@ -1948,7 +1948,7 @@ class InferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return ZeroShotImageClassificationOutput.parse_obj_as_list(response)
+        return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model

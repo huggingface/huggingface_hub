@@ -42,7 +42,7 @@ class ZeroShotImageClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class ZeroShotImageClassificationOutput(BaseInferenceType):
+class ZeroShotImageClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Zero Shot Image Classification task"""
 
     label: str

@@ -24,7 +24,7 @@ from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
-    ImageClassificationOutput,
+    ImageClassificationOutputElement,
     InferenceClient,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
@@ -231,11 +231,11 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
         assert output == [
-            ImageClassificationOutput(label="brassiere, bra, bandeau", score=0.1176738440990448),
-            ImageClassificationOutput(label="sombrero", score=0.0957278460264206),
-            ImageClassificationOutput(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
-            ImageClassificationOutput(label="bonnet, poke bonnet", score=0.06615243852138519),
-            ImageClassificationOutput(label="fur coat", score=0.06151164695620537),
+            ImageClassificationOutputElement(label="brassiere, bra, bandeau", score=0.1176738440990448),
+            ImageClassificationOutputElement(label="sombrero", score=0.0957278460264206),
+            ImageClassificationOutputElement(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
+            ImageClassificationOutputElement(label="bonnet, poke bonnet", score=0.06615243852138519),
+            ImageClassificationOutputElement(label="fur coat", score=0.06151164695620537),
         ]
 
     def test_image_segmentation(self) -> None:

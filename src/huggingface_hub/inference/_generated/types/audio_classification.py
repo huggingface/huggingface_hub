@@ -34,7 +34,7 @@ class AudioClassificationInput(BaseInferenceType):
 
 
 @dataclass
-class AudioClassificationOutput(BaseInferenceType):
+class AudioClassificationOutputElement(BaseInferenceType):
     """Outputs for Audio Classification inference"""
 
     label: str

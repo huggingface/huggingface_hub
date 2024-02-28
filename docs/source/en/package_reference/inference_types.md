@@ -21,7 +21,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.AudioClassificationInput
 
-[[autodoc]] huggingface_hub.AudioClassificationOutput
+[[autodoc]] huggingface_hub.AudioClassificationOutputElement
 
 [[autodoc]] huggingface_hub.AudioClassificationParameters
 
@@ -89,7 +89,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ImageClassificationInput
 
-[[autodoc]] huggingface_hub.ImageClassificationOutput
+[[autodoc]] huggingface_hub.ImageClassificationOutputElement
 
 [[autodoc]] huggingface_hub.ImageClassificationParameters
 
@@ -195,7 +195,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.TextClassificationInput
 
-[[autodoc]] huggingface_hub.TextClassificationOutput
+[[autodoc]] huggingface_hub.TextClassificationOutputElement
 
 [[autodoc]] huggingface_hub.TextClassificationParameters
 
@@ -279,7 +279,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.VideoClassificationInput
 
-[[autodoc]] huggingface_hub.VideoClassificationOutput
+[[autodoc]] huggingface_hub.VideoClassificationOutputElement
 
 [[autodoc]] huggingface_hub.VideoClassificationParameters
 
@@ -303,7 +303,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationInputData
 
-[[autodoc]] huggingface_hub.ZeroShotClassificationOutput
+[[autodoc]] huggingface_hub.ZeroShotClassificationOutputElement
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationParameters
 
@@ -315,7 +315,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationInputData
 
-[[autodoc]] huggingface_hub.ZeroShotImageClassificationOutput
+[[autodoc]] huggingface_hub.ZeroShotImageClassificationOutputElement
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationParameters
 

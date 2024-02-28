@@ -119,13 +119,16 @@ def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
     for cls in SHARED_CLASSES:
         cls_definition = f"\nclass {cls}"
         if cls_definition in content:
-            # Very hacky way to build "AudioClassificationOutput" instead of "ClassificationOutput"
+            # Very hacky way to build "AudioClassificationOutputElement" instead of "ClassificationOutput"
             new_cls_definition = "\nclass " + "".join(part.capitalize() for part in module_name.split("_"))
             if "Classification" in new_cls_definition:
                 # to avoid "ClassificationClassificationOutput"
                 new_cls_definition += cls.removeprefix("Classification")
             else:
                 new_cls_definition += cls
+            if new_cls_definition.endswith("ClassificationOutput"):
+                # to get "AudioClassificationOutputElement"
+                new_cls_definition += "Element"
             content = content.replace(cls_definition, new_cls_definition)
     return content
 
