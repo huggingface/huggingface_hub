@@ -51,11 +51,11 @@ class TestErrorUtils(unittest.TestCase):
 
     def test_hf_raise_for_status_403_wrong_token_scope(self) -> None:
         response = Response()
-        response.headers = {"X-Request-Id": 123}
+        response.headers = {"X-Request-Id": 123, "X-Error-Message": "specific error message"}
         response.status_code = 403
         response.request = PreparedRequest()
         response.request.url = "https://huggingface.co/api/repos/create"
-        expected_message_part = "make sure you have a token with the `write` role"
+        expected_message_part = "403 Forbidden: specific error message"
         with self.assertRaisesRegex(HfHubHTTPError, expected_message_part) as context:
             hf_raise_for_status(response)
 
