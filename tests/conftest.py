@@ -1,6 +1,5 @@
 import os
 import shutil
-from pathlib import Path
 from typing import Generator
 
 import pytest
@@ -30,7 +29,7 @@ def fx_cache_dir(request: SubRequest) -> Generator[None, None, None]:
     ```
     """
     with SoftTemporaryDirectory() as cache_dir:
-        request.cls.cache_dir = Path(cache_dir).resolve()
+        request.cls.cache_dir = cache_dir
         yield
         # TemporaryDirectory is not super robust on Windows when a git repository is
         # cloned in it. See https://www.scivision.dev/python-tempfile-permission-error-windows/.

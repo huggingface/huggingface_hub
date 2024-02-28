@@ -40,7 +40,7 @@ def SoftTemporaryDirectory(
     prefix: Optional[str] = None,
     dir: Optional[Union[Path, str]] = None,
     **kwargs,
-) -> Generator[str, None, None]:
+) -> Generator[Path, None, None]:
     """
     Context manager to create a temporary directory and safely delete it.
 
@@ -52,7 +52,7 @@ def SoftTemporaryDirectory(
     See https://www.scivision.dev/python-tempfile-permission-error-windows/.
     """
     tmpdir = tempfile.TemporaryDirectory(prefix=prefix, suffix=suffix, dir=dir, **kwargs)
-    yield tmpdir.name
+    yield Path(tmpdir.name).resolve()
 
     try:
         # First once with normal cleanup
