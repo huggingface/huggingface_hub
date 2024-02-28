@@ -557,7 +557,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
-            self.info(path, expand_info=False, **kwargs)
+            self.info(path, **{**kwargs, "expand_info": False})
             return True
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?

@@ -17,9 +17,8 @@ class TestYamlDump(unittest.TestCase):
 
 class TestTemporaryDirectory(unittest.TestCase):
     def test_temporary_directory(self) -> None:
-        with SoftTemporaryDirectory(prefix="prefix", suffix="suffix") as tmpdir:
-            self.assertIsInstance(tmpdir, str)
-            path = Path(tmpdir)
+        with SoftTemporaryDirectory(prefix="prefix", suffix="suffix") as path:
+            self.assertIsInstance(path, Path)
             self.assertTrue(path.name.startswith("prefix"))
             self.assertTrue(path.name.endswith("suffix"))
             self.assertTrue(path.is_dir())
