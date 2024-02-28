@@ -357,6 +357,17 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise BadRequestError(message, response=response) from e
 
+        elif response.status_code == 403:
+            message = (
+                    f"{response.status_code} Client Error."
+                    + "\n\n"
+                    + f"Bad request for {endpoint_name} endpoint:" if endpoint_name is not None else "Bad request:"
+                    + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
+                    + "\nIf you are trying to create or update content,"
+                    + "make sure you have a token with the `write` role."
+            )
+            raise BadRequestError(message, response=response) from e
+
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
         raise HfHubHTTPError(str(e), response=response) from e
