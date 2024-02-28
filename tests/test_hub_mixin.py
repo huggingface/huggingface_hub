@@ -141,7 +141,11 @@ class HubMixinTest(unittest.TestCase):
         self.assert_valid_config_json()
 
     def test_init_accepts_kwargs_no_config(self):
-        # __init__ accepts **kwargs but no config file exists => ok
+        """
+        Test that if `__init__` accepts **kwargs and config file doesn't exist then no 'config' kwargs is passed.
+
+        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        """
         model = DummyModelWithKwargs()
         model.save_pretrained(self.cache_dir)
         with patch.object(
@@ -151,7 +155,11 @@ class HubMixinTest(unittest.TestCase):
             assert "config" not in from_pretrained_mock.call_args_list[0].kwargs
 
     def test_init_accepts_kwargs_with_config(self):
-        # __init__ accepts **kwargs and a config file exists => must be forwarded
+        """
+        Test that if `__init__` accepts **kwargs and config file exists then the 'config' kwargs is passed.
+
+        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        """
         model = DummyModelWithKwargs()
         model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
         with patch.object(
