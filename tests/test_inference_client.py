@@ -30,11 +30,11 @@ from huggingface_hub import (
     QuestionAnsweringOutputElement,
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
-    TextClassificationOutput,
+    TextClassificationOutputElement,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
-    ZeroShotClassificationOutput,
+    ZeroShotClassificationOutputElement,
     hf_hub_download,
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
@@ -351,8 +351,8 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_text_classification(self) -> None:
         output = self.client.text_classification("I like you")
         assert output == [
-            TextClassificationOutput(label="POSITIVE", score=0.9998695850372314),
-            TextClassificationOutput(label="NEGATIVE", score=0.0001304351753788069),
+            TextClassificationOutputElement(label="POSITIVE", score=0.9998695850372314),
+            TextClassificationOutputElement(label="NEGATIVE", score=0.0001304351753788069),
         ]
 
     def test_text_generation(self) -> None:
@@ -438,11 +438,11 @@ class InferenceClientVCRTest(InferenceClientTest):
             multi_label=True,
         )
         assert output == [
-            ZeroShotClassificationOutput(label="scientific discovery", score=0.9829297661781311),
-            ZeroShotClassificationOutput(label="space & cosmos", score=0.755190908908844),
-            ZeroShotClassificationOutput(label="microbiology", score=0.0005462635890580714),
-            ZeroShotClassificationOutput(label="archeology", score=0.00047131875180639327),
-            ZeroShotClassificationOutput(label="robots", score=0.00030448526376858354),
+            ZeroShotClassificationOutputElement(label="scientific discovery", score=0.9829297661781311),
+            ZeroShotClassificationOutputElement(label="space & cosmos", score=0.755190908908844),
+            ZeroShotClassificationOutputElement(label="microbiology", score=0.0005462635890580714),
+            ZeroShotClassificationOutputElement(label="archeology", score=0.00047131875180639327),
+            ZeroShotClassificationOutputElement(label="robots", score=0.00030448526376858354),
         ]
 
     def test_zero_shot_image_classification(self) -> None:
