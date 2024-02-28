@@ -2012,10 +2012,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("wikipedia" in space.id.lower())
 
     def test_list_spaces_sort_and_direction(self):
-        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1))
-        spaces_ascending_likes = list(self._api.list_spaces(sort="likes"))
-        self.assertGreater(spaces_descending_likes[0].likes, spaces_descending_likes[1].likes)
-        self.assertLess(spaces_ascending_likes[-2].likes, spaces_ascending_likes[-1].likes)
+        # Descending order => first item has more likes than second
+        spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
+        assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
+
+        # Ascending order => first items have 0 likes
+        spaces_ascending_likes = list(self._api.list_spaces(sort="likes", limit=100))
+        assert spaces_ascending_likes[0].likes == 0
 
     def test_list_spaces_limit(self):
         spaces = list(self._api.list_spaces(limit=5))
@@ -2030,17 +2033,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertTrue("wikipedia" in getattr(spaces[0], "datasets", []))
 
     def test_list_spaces_linked(self):
-        spaces = list(self._api.list_spaces(linked=True))
-        self.assertTrue(any((getattr(space, "models", None) is not None) for space in spaces))
-        self.assertTrue(any((getattr(space, "datasets", None) is not None) for space in spaces))
-        self.assertTrue(
-            any((getattr(space, "models", None) is not None) and getattr(space, "datasets", None) is not None)
-            for space in spaces
-        )
-        self.assertTrue(
-            all((getattr(space, "models", None) is not None) or getattr(space, "datasets", None) is not None)
-            for space in spaces
-        )
+        space_id = "HuggingFaceH4/open_llm_leaderboard"
+
+        spaces = list(self._api.list_spaces(search=space_id))
+        assert spaces[0].models is None
+        assert spaces[0].datasets is None
+
+        spaces = list(self._api.list_spaces(search=space_id, linked=True))
+        assert len(spaces) == 1
+        assert spaces[0].models is not None
+        assert spaces[0].datasets is not None
 
     def test_get_paths_info(self):
         paths_info = self._api.get_paths_info(
