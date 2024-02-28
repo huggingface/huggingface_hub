@@ -91,13 +91,13 @@ jobs:
 
             "Repository only")
               # Run repo tests concurrently
-              PYTEST="$PYTEST ../tests -k 'TestRepository' -n4"
+              PYTEST="$PYTEST ../tests -k 'TestRepository' -n auto"
               echo $PYTEST
               eval $PYTEST
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository'"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository' -n auto"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -156,7 +156,6 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install .[testing]
-        # sudo apt install -y libsndfile1-dev
 
       # Easy debugging if CI is broken
       - name: Pip freeze
@@ -165,7 +164,7 @@ jobs:
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
+        run: python -m pytest -n auto --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
