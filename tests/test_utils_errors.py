@@ -56,7 +56,7 @@ class TestErrorUtils(unittest.TestCase):
         response.request = PreparedRequest()
         response.request.url = "https://huggingface.co/api/repos/create"
         expected_message_part = "make sure you have a token with the `write` role"
-        with self.assertRaisesRegex(BadRequestError, expected_message_part) as context:
+        with self.assertRaisesRegex(HfHubHTTPError, expected_message_part) as context:
             hf_raise_for_status(response)
 
         self.assertEqual(context.exception.response.status_code, 403)

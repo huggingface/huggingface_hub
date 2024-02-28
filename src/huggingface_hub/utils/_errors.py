@@ -366,7 +366,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
                 + "\nIf you are trying to create or update content,"
                 + "make sure you have a token with the `write` role."
             )
-            raise BadRequestError(message, response=response) from e
+            raise HfHubHTTPError(message, response=response) from e
 
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
