@@ -82,6 +82,10 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_glob(self):
         self.assertEqual(
+            self.hffs.glob(self.hf_path + "/.gitattributes"),
+            [self.hf_path + "/.gitattributes"],
+        )
+        self.assertEqual(
             sorted(self.hffs.glob(self.hf_path + "/*")),
             sorted([self.hf_path + "/.gitattributes", self.hf_path + "/data"]),
         )
