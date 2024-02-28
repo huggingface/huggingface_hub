@@ -359,10 +359,8 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         elif response.status_code == 403:
             message = (
-                f"{response.status_code} Client Error." + "\n\n" + f"Bad request for {endpoint_name} endpoint:"
-                if endpoint_name is not None
-                else "Bad request:"
-                + "\nPlease make sure you specified the correct `repo_id` and `repo_type`."
+                f"\n\n{response.status_code} Forbidden: {error_message}."
+                + f"\nCannot access content at: {response.url}."
                 + "\nIf you are trying to create or update content,"
                 + "make sure you have a token with the `write` role."
             )
