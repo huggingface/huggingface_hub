@@ -216,9 +216,10 @@ class TestUploadCommand(unittest.TestCase):
     @patch("huggingface_hub.commands.upload.HfApi.create_repo")
     def test_upload_folder_mock(self, create_mock: Mock, upload_mock: Mock, repo_info_mock: Mock) -> None:
         with SoftTemporaryDirectory() as cache_dir:
+            cache_path = cache_dir.absolute().as_posix()
             cmd = UploadCommand(
                 self.parser.parse_args(
-                    ["upload", "my-model", cache_dir, ".", "--private", "--include", "*.json", "--delete", "*.json"]
+                    ["upload", "my-model", cache_path, ".", "--private", "--include", "*.json", "--delete", "*.json"]
                 )
             )
             cmd.run()
@@ -227,7 +228,7 @@ class TestUploadCommand(unittest.TestCase):
                 repo_id="my-model", repo_type="model", exist_ok=True, private=True, space_sdk=None
             )
             upload_mock.assert_called_once_with(
-                folder_path=cache_dir,
+                folder_path=cache_path,
                 path_in_repo=".",
                 repo_id=create_mock.return_value.repo_id,
                 repo_type="model",
