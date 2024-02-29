@@ -259,6 +259,100 @@ _SUBMOD_ATTRS = {
     "inference._generated._async_client": [
         "AsyncInferenceClient",
     ],
+    "inference._generated.types": [
+        "AudioClassificationInput",
+        "AudioClassificationOutputElement",
+        "AudioClassificationParameters",
+        "AudioToAudioInput",
+        "AudioToAudioOutputElement",
+        "AutomaticSpeechRecognitionInput",
+        "AutomaticSpeechRecognitionOutput",
+        "AutomaticSpeechRecognitionOutputChunk",
+        "AutomaticSpeechRecognitionParameters",
+        "BoundingBox",
+        "DepthEstimationInput",
+        "DepthEstimationOutput",
+        "DocumentQuestionAnsweringInput",
+        "DocumentQuestionAnsweringInputData",
+        "DocumentQuestionAnsweringOutputElement",
+        "DocumentQuestionAnsweringParameters",
+        "FeatureExtractionInput",
+        "FillMaskInput",
+        "FillMaskOutputElement",
+        "FillMaskParameters",
+        "GenerationParameters",
+        "ImageClassificationInput",
+        "ImageClassificationOutputElement",
+        "ImageClassificationParameters",
+        "ImageSegmentationInput",
+        "ImageSegmentationOutputElement",
+        "ImageSegmentationParameters",
+        "ImageToImageInput",
+        "ImageToImageOutput",
+        "ImageToImageParameters",
+        "ImageToTextInput",
+        "ImageToTextOutput",
+        "ImageToTextParameters",
+        "ObjectDetectionInput",
+        "ObjectDetectionOutputElement",
+        "ObjectDetectionParameters",
+        "PrefillToken",
+        "QuestionAnsweringInput",
+        "QuestionAnsweringInputData",
+        "QuestionAnsweringOutputElement",
+        "QuestionAnsweringParameters",
+        "SentenceSimilarityInput",
+        "SentenceSimilarityInputData",
+        "SummarizationInput",
+        "SummarizationOutput",
+        "TableQuestionAnsweringInput",
+        "TableQuestionAnsweringInputData",
+        "TableQuestionAnsweringOutputElement",
+        "TargetSize",
+        "Text2TextGenerationInput",
+        "Text2TextGenerationOutput",
+        "Text2TextGenerationParameters",
+        "TextClassificationInput",
+        "TextClassificationOutputElement",
+        "TextClassificationParameters",
+        "TextGenerationInput",
+        "TextGenerationOutput",
+        "TextGenerationOutputDetails",
+        "TextGenerationParameters",
+        "TextGenerationSequenceDetails",
+        "TextToAudioInput",
+        "TextToAudioOutput",
+        "TextToAudioParameters",
+        "TextToImageInput",
+        "TextToImageOutput",
+        "TextToImageParameters",
+        "TextToSpeechInput",
+        "TextToSpeechOutput",
+        "Token",
+        "TokenClassificationInput",
+        "TokenClassificationOutputElement",
+        "TokenClassificationParameters",
+        "TranslationInput",
+        "TranslationOutput",
+        "VideoClassificationInput",
+        "VideoClassificationOutputElement",
+        "VideoClassificationParameters",
+        "VisualQuestionAnsweringInput",
+        "VisualQuestionAnsweringInputData",
+        "VisualQuestionAnsweringOutputElement",
+        "VisualQuestionAnsweringParameters",
+        "ZeroShotClassificationInput",
+        "ZeroShotClassificationInputData",
+        "ZeroShotClassificationOutputElement",
+        "ZeroShotClassificationParameters",
+        "ZeroShotImageClassificationInput",
+        "ZeroShotImageClassificationInputData",
+        "ZeroShotImageClassificationOutputElement",
+        "ZeroShotImageClassificationParameters",
+        "ZeroShotObjectDetectionInput",
+        "ZeroShotObjectDetectionInputData",
+        "ZeroShotObjectDetectionOutputElement",
+    ],
     "inference_api": [
         "InferenceApi",
     ],
@@ -613,6 +707,100 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceTimeoutError,  # noqa: F401
     )
     from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
+    from .inference._generated.types import (
+        AudioClassificationInput,  # noqa: F401
+        AudioClassificationOutputElement,  # noqa: F401
+        AudioClassificationParameters,  # noqa: F401
+        AudioToAudioInput,  # noqa: F401
+        AudioToAudioOutputElement,  # noqa: F401
+        AutomaticSpeechRecognitionInput,  # noqa: F401
+        AutomaticSpeechRecognitionOutput,  # noqa: F401
+        AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
+        AutomaticSpeechRecognitionParameters,  # noqa: F401
+        BoundingBox,  # noqa: F401
+        DepthEstimationInput,  # noqa: F401
+        DepthEstimationOutput,  # noqa: F401
+        DocumentQuestionAnsweringInput,  # noqa: F401
+        DocumentQuestionAnsweringInputData,  # noqa: F401
+        DocumentQuestionAnsweringOutputElement,  # noqa: F401
+        DocumentQuestionAnsweringParameters,  # noqa: F401
+        FeatureExtractionInput,  # noqa: F401
+        FillMaskInput,  # noqa: F401
+        FillMaskOutputElement,  # noqa: F401
+        FillMaskParameters,  # noqa: F401
+        GenerationParameters,  # noqa: F401
+        ImageClassificationInput,  # noqa: F401
+        ImageClassificationOutputElement,  # noqa: F401
+        ImageClassificationParameters,  # noqa: F401
+        ImageSegmentationInput,  # noqa: F401
+        ImageSegmentationOutputElement,  # noqa: F401
+        ImageSegmentationParameters,  # noqa: F401
+        ImageToImageInput,  # noqa: F401
+        ImageToImageOutput,  # noqa: F401
+        ImageToImageParameters,  # noqa: F401
+        ImageToTextInput,  # noqa: F401
+        ImageToTextOutput,  # noqa: F401
+        ImageToTextParameters,  # noqa: F401
+        ObjectDetectionInput,  # noqa: F401
+        ObjectDetectionOutputElement,  # noqa: F401
+        ObjectDetectionParameters,  # noqa: F401
+        PrefillToken,  # noqa: F401
+        QuestionAnsweringInput,  # noqa: F401
+        QuestionAnsweringInputData,  # noqa: F401
+        QuestionAnsweringOutputElement,  # noqa: F401
+        QuestionAnsweringParameters,  # noqa: F401
+        SentenceSimilarityInput,  # noqa: F401
+        SentenceSimilarityInputData,  # noqa: F401
+        SummarizationInput,  # noqa: F401
+        SummarizationOutput,  # noqa: F401
+        TableQuestionAnsweringInput,  # noqa: F401
+        TableQuestionAnsweringInputData,  # noqa: F401
+        TableQuestionAnsweringOutputElement,  # noqa: F401
+        TargetSize,  # noqa: F401
+        Text2TextGenerationInput,  # noqa: F401
+        Text2TextGenerationOutput,  # noqa: F401
+        Text2TextGenerationParameters,  # noqa: F401
+        TextClassificationInput,  # noqa: F401
+        TextClassificationOutputElement,  # noqa: F401
+        TextClassificationParameters,  # noqa: F401
+        TextGenerationInput,  # noqa: F401
+        TextGenerationOutput,  # noqa: F401
+        TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationParameters,  # noqa: F401
+        TextGenerationSequenceDetails,  # noqa: F401
+        TextToAudioInput,  # noqa: F401
+        TextToAudioOutput,  # noqa: F401
+        TextToAudioParameters,  # noqa: F401
+        TextToImageInput,  # noqa: F401
+        TextToImageOutput,  # noqa: F401
+        TextToImageParameters,  # noqa: F401
+        TextToSpeechInput,  # noqa: F401
+        TextToSpeechOutput,  # noqa: F401
+        Token,  # noqa: F401
+        TokenClassificationInput,  # noqa: F401
+        TokenClassificationOutputElement,  # noqa: F401
+        TokenClassificationParameters,  # noqa: F401
+        TranslationInput,  # noqa: F401
+        TranslationOutput,  # noqa: F401
+        VideoClassificationInput,  # noqa: F401
+        VideoClassificationOutputElement,  # noqa: F401
+        VideoClassificationParameters,  # noqa: F401
+        VisualQuestionAnsweringInput,  # noqa: F401
+        VisualQuestionAnsweringInputData,  # noqa: F401
+        VisualQuestionAnsweringOutputElement,  # noqa: F401
+        VisualQuestionAnsweringParameters,  # noqa: F401
+        ZeroShotClassificationInput,  # noqa: F401
+        ZeroShotClassificationInputData,  # noqa: F401
+        ZeroShotClassificationOutputElement,  # noqa: F401
+        ZeroShotClassificationParameters,  # noqa: F401
+        ZeroShotImageClassificationInput,  # noqa: F401
+        ZeroShotImageClassificationInputData,  # noqa: F401
+        ZeroShotImageClassificationOutputElement,  # noqa: F401
+        ZeroShotImageClassificationParameters,  # noqa: F401
+        ZeroShotObjectDetectionInput,  # noqa: F401
+        ZeroShotObjectDetectionInputData,  # noqa: F401
+        ZeroShotObjectDetectionOutputElement,  # noqa: F401
+    )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401

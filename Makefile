@@ -19,6 +19,12 @@ style:
 	python utils/check_static_imports.py --update
 	python utils/generate_async_inference_client.py --update
 
+inference_types_check:
+	python utils/generate_inference_types.py
+
+inference_types_update:
+	python utils/generate_inference_types.py --update
+
 repocard:
 	python utils/push_repocard_examples.py
 

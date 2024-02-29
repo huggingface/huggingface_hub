@@ -60,6 +60,8 @@
       title: Downloading files
     - local: package_reference/mixins
       title: Mixins & serialization methods
+    - local: package_reference/inference_types
+      title: Inference Types
     - local: package_reference/inference_client
       title: Inference Client
     - local: package_reference/inference_endpoints
