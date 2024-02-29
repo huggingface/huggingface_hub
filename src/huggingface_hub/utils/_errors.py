@@ -357,6 +357,15 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise BadRequestError(message, response=response) from e
 
+        elif response.status_code == 403:
+            message = (
+                f"\n\n{response.status_code} Forbidden: {error_message}."
+                + f"\nCannot access content at: {response.url}."
+                + "\nIf you are trying to create or update content,"
+                + "make sure you have a token with the `write` role."
+            )
+            raise HfHubHTTPError(message, response=response) from e
+
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
         raise HfHubHTTPError(str(e), response=response) from e
