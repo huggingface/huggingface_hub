@@ -1917,9 +1917,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
-        res_fr = list(self._api.list_models(filter=ModelFilter(language="fr")))
-        res_en = list(self._api.list_models(filter=ModelFilter(language="en")))
-        self.assertGreater(len(res_en), len(res_fr))
+        for language in ["en", "fr", "zh"]:
+            for model in self._api.list_models(filter=ModelFilter(language=language), limit=5):
+                assert language in model.tags
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_with_tag(self):

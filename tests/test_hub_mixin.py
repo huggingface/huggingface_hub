@@ -38,8 +38,11 @@ class BaseModel:
         **kwargs,
     ) -> "BaseModel":
         # Little hack but in practice NO-ONE is creating 5 inherited classes for their framework :D
-        if inspect.signature(cls.__init__).parameters.get("config"):
+        init_parameters = inspect.signature(cls.__init__).parameters
+        if init_parameters.get("config"):
             return cls(config=kwargs.get("config"))
+        if init_parameters.get("kwargs"):
+            return cls(**kwargs)
         return cls()
 
 
@@ -65,6 +68,11 @@ class DummyModelConfigAsOptionalDataclass(BaseModel, ModelHubMixin):
 
 class DummyModelConfigAsOptionalDict(BaseModel, ModelHubMixin):
     def __init__(self, config: Optional[Dict] = None):
+        pass
+
+
+class DummyModelWithKwargs(BaseModel, ModelHubMixin):
+    def __init__(self, **kwargs):
         pass
 
 
@@ -131,6 +139,34 @@ class HubMixinTest(unittest.TestCase):
         model = DummyModelConfigAsOptionalDict()
         model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
         self.assert_valid_config_json()
+
+    def test_init_accepts_kwargs_no_config(self):
+        """
+        Test that if `__init__` accepts **kwargs and config file doesn't exist then no 'config' kwargs is passed.
+
+        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        """
+        model = DummyModelWithKwargs()
+        model.save_pretrained(self.cache_dir)
+        with patch.object(
+            DummyModelWithKwargs, "_from_pretrained", return_value=DummyModelWithKwargs()
+        ) as from_pretrained_mock:
+            model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
+            assert "config" not in from_pretrained_mock.call_args_list[0].kwargs
+
+    def test_init_accepts_kwargs_with_config(self):
+        """
+        Test that if `__init__` accepts **kwargs and config file exists then the 'config' kwargs is passed.
+
+        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        """
+        model = DummyModelWithKwargs()
+        model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
+        with patch.object(
+            DummyModelWithKwargs, "_from_pretrained", return_value=DummyModelWithKwargs()
+        ) as from_pretrained_mock:
+            model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
+            assert "config" in from_pretrained_mock.call_args_list[0].kwargs
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
