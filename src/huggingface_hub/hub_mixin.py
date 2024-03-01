@@ -1,13 +1,14 @@
 import inspect
 import json
 import os
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
 from .hf_api import HfApi
+from .repocard import ModelCard, ModelCardData
 from .utils import (
     EntryNotFoundError,
     HfHubHTTPError,
@@ -35,6 +36,26 @@ logger = logging.get_logger(__name__)
 
 # Generic variable that is either ModelHubMixin or a subclass thereof
 T = TypeVar("T", bound="ModelHubMixin")
+
+DEFAULT_MODEL_CARD = """
+---
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
+---
+
+This model has been pushed to the Hub using **{{ library_name }}**:
+- Repo: {{ repo_url | default("[More Information Needed]", true) }}
+- Docs: {{ docs_url | default("[More Information Needed]", true) }}
+"""
+
+
+@dataclass
+class LibraryInfo:
+    library_name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    repo_url: Optional[str] = None
+    docs_url: Optional[str] = None
 
 
 class ModelHubMixin:
@@ -103,6 +124,29 @@ class ModelHubMixin:
     config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
 
+    library_name: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+    def __init_subclass__(
+        cls,
+        library_name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        repo_url: Optional[str] = None,
+        docs_url: Optional[str] = None,
+    ) -> None:
+        super().__init_subclass__()
+
+        tags = tags or []
+        tags.append("model_hub_mixin")
+
+        # Will be reused when creating modelcard
+        cls._library_info = LibraryInfo(
+            library_name=library_name,
+            tags=tags,
+            repo_url=repo_url,
+            docs_url=docs_url,
+        )
+
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
         instance = super().__new__(cls)
 
@@ -157,6 +201,11 @@ class ModelHubMixin:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
             (save_directory / CONFIG_NAME).write_text(json.dumps(config, indent=2))
+
+        # save model card
+        model_card_path = save_directory / "README.md"
+        if not model_card_path.exists():  # do not overwrite if already exists
+            self._generate_model_card().save(save_directory / "README.md")
 
         # push to the Hub if required
         if push_to_hub:
@@ -418,6 +467,13 @@ class ModelHubMixin:
                 delete_patterns=delete_patterns,
             )
 
+    def _generate_model_card(self, *args, **kwargs) -> ModelCard:
+        card = ModelCard.from_template(
+            card_data=ModelCardData(**asdict(self._library_info)),
+            template_str=DEFAULT_MODEL_CARD,
+        )
+        return card
+
 
 class PyTorchModelHubMixin(ModelHubMixin):
     """
@@ -459,6 +515,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
     >>> model = MyModel.from_pretrained("username/my-awesome-model")
     ```
     """
+
+    def __init_subclass__(cls, *args, tags: Optional[List[str]] = None, **kwargs) -> None:
+        tags = tags or []
+        tags.append("pytorch_model_hub_mixin")
+        return super().__init_subclass__(*args, tags=tags, **kwargs)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
