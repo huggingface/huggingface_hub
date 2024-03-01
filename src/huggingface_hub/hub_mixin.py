@@ -3,7 +3,7 @@ import json
 import os
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypeVar, Union, get_args
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
@@ -103,20 +103,68 @@ class ModelHubMixin:
     config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
 
+    _init_parameters: Dict[str, inspect.Parameter]
+    _jsonable_default_values: Dict[str, Any]
+
+    def __init_subclass__(cls) -> None:
+        """Inspect __init__ signature only once when subclassing."""
+        super().__init_subclass__()
+        cls._init_parameters = dict(inspect.signature(cls.__init__).parameters)
+        cls._jsonable_default_values = {
+            param.name: param.default
+            for param in cls._init_parameters.values()
+            if param.default is not inspect.Parameter.empty and _is_jsonable(param.default)
+        }
+
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
+        """Create a new instance of the class and handle config.
+
+        3 cases:
+        - If `self.config` is already set, do nothing.
+        - If `config` is passed as a dataclass, set it as `self.config`.
+        - Otherwise, build `self.config` from default values and passed values.
+        """
         instance = super().__new__(cls)
 
-        # Set `config` attribute if not already set by the subclass
-        if instance.config is None:
-            if "config" in kwargs:
-                instance.config = kwargs["config"]
-            elif len(args) > 0:
-                sig = inspect.signature(cls.__init__)
-                parameters = list(sig.parameters)[1:]  # remove `self`
-                for key, value in zip(parameters, args):
-                    if key == "config":
-                        instance.config = value
-                        break
+        # If `config` is already set, return early
+        if instance.config is not None:
+            return instance
+
+        # Infer passed values
+        passed_values = {
+            **{
+                key: value
+                for key, value in zip(
+                    # Skip `self` and `config` parameters
+                    list(cls._init_parameters)[1:],
+                    args,
+                )
+            },
+            **kwargs,
+        }
+
+        # If config passed as dataclass => set it and return early
+        if is_dataclass(passed_values.get("config")):
+            instance.config = passed_values["config"]
+            return instance
+
+        # Otherwise, build config from default + passed values
+        init_config = {
+            # default values
+            **cls._jsonable_default_values,
+            # passed values
+            **{key: value for key, value in passed_values.items() if _is_jsonable(value)},
+        }
+        init_config.pop("config", {})
+
+        # Populate `init_config` with provided config
+        provided_config = passed_values.get("config")
+        if isinstance(provided_config, dict):
+            init_config.update(provided_config)
+
+        # Set `config` attribute and return
+        if init_config != {}:
+            instance.config = init_config
         return instance
 
     def save_pretrained(
@@ -246,32 +294,37 @@ class ModelHubMixin:
             except HfHubHTTPError as e:
                 logger.info(f"{CONFIG_NAME} not found on the HuggingFace Hub: {str(e)}")
 
+        # Read config
         config = None
         if config_file is not None:
-            # Read config
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
 
-            # Check if class expect a `config` argument
-            init_parameters = inspect.signature(cls.__init__).parameters
-            if "config" in init_parameters:
+            # Populate model_kwargs from config
+            for param in cls._init_parameters.values():
+                if param.name not in model_kwargs and param.name in config:
+                    model_kwargs[param.name] = config[param.name]
+
+            # Check if `config` argument is a dataclass
+            if "config" in cls._init_parameters:
                 # Check if `config` argument is a dataclass
-                config_annotation = init_parameters["config"].annotation
+                config_annotation = cls._init_parameters["config"].annotation
                 if config_annotation is inspect.Parameter.empty:
                     pass  # no annotation
                 elif is_dataclass(config_annotation):
-                    config = config_annotation(**config)  # expect a dataclass
+                    config = _load_dataclass(config_annotation, config)
                 else:
                     # if Optional/Union annotation => check if a dataclass is in the Union
                     for _sub_annotation in get_args(config_annotation):
                         if is_dataclass(_sub_annotation):
-                            config = _sub_annotation(**config)
+                            config = _load_dataclass(_sub_annotation, config)
                             break
 
                 # Forward config to model initialization
                 model_kwargs["config"] = config
-            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in init_parameters.values()):
-                # If __init__ accepts **kwargs, let's forward the config as well (as a dict)
+
+            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._init_parameters.values()):
+                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
                 model_kwargs["config"] = config
 
         instance = cls._from_pretrained(
@@ -288,7 +341,7 @@ class ModelHubMixin:
 
         # Implicitly set the config as instance attribute if not already set by the class
         # This way `config` will be available when calling `save_pretrained` or `push_to_hub`.
-        if config is not None and instance.config is None:
+        if config is not None and (instance.config is None or instance.config == {}):
             instance.config = config
 
         return instance
@@ -428,26 +481,19 @@ class PyTorchModelHubMixin(ModelHubMixin):
     Example:
 
     ```python
-    >>> from dataclasses import dataclass
     >>> import torch
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
-    >>> @dataclass
-    ... class Config:
-    ...     hidden_size: int = 512
-    ...     vocab_size: int = 30000
-    ...     output_size: int = 4
-
     >>> class MyModel(nn.Module, PyTorchModelHubMixin):
-    ...     def __init__(self, config: Config):
+    ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
     ...         super().__init__()
     ...         self.param = nn.Parameter(torch.rand(config.hidden_size, config.vocab_size))
     ...         self.linear = nn.Linear(config.output_size, config.vocab_size)
 
     ...     def forward(self, x):
     ...         return self.linear(x + self.param)
-    >>> model = MyModel()
+    >>> model = MyModel(hidden_size=256)
 
     # Save model weights to local directory
     >>> model.save_pretrained("my-awesome-model")
@@ -457,6 +503,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     # Download and initialize weights from the Hub
     >>> model = MyModel.from_pretrained("username/my-awesome-model")
+    >>> model.hidden_size
+    256
     ```
     """
 
@@ -531,3 +579,22 @@ class PyTorchModelHubMixin(ModelHubMixin):
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model
+
+
+def _load_dataclass(datacls: Type["DataclassInstance"], data: dict) -> "DataclassInstance":
+    """Load a dataclass instance from a dictionary.
+
+    Fields not expected by the dataclass are ignored.
+    """
+    return datacls(**{k: v for k, v in data.items() if k in datacls.__dataclass_fields__})
+
+
+def _is_jsonable(x: Any) -> bool:
+    """Check if an object is json serializable."""
+    # Taken from https://stackoverflow.com/a/42033176
+    # TODO: find a more suitable way to check if an object is json serializable?
+    try:
+        json.dumps(x)
+        return True
+    except:  # noqa: E722
+        return False
