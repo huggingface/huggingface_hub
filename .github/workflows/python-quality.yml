@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade uv
-          uv pip install ".[dev]"
+          uv pip install "huggingface_hub[dev] @ ."
       - run: ruff check tests src contrib # linter
       - run: ruff format --check tests src contrib # formatter
       - run: python utils/check_contrib_list.py

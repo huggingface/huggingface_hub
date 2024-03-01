@@ -48,7 +48,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade uv
-          uv pip install ".[testing]"
+          uv pip install "huggingface_hub[testing] @ ."
 
           case "${{ matrix.test_name }}" in
 
@@ -63,13 +63,13 @@ jobs:
               ;;
 
             fastai | torch)
-              uv pip install .[${{ matrix.test_name }}]
+              uv pip install "huggingface_hub[${{ matrix.test_name }}] @ ."
               ;;
 
             tensorflow)
               sudo apt update
               sudo apt install -y graphviz
-              uv pip install .[tensorflow]
+              uv pip install "huggingface_hub[tensorflow] @ ."
               ;;
 
           esac
@@ -152,7 +152,7 @@ jobs:
       - name: Configure and install dependencies
         run: |
           pip install --upgrade uv
-          uv pip install ".[testing]"
+          uv pip install "huggingface_hub[testing] @ ."
 
       # Easy debugging if CI is broken
       - name: Pip freeze
