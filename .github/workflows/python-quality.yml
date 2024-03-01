@@ -30,6 +30,7 @@ jobs:
           pip install --upgrade uv
           uv venv
           source .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV  # See https://stackoverflow.com/a/74669486
 
       - name: Install dependencies
         run: uv pip install "huggingface_hub[dev] @ ."

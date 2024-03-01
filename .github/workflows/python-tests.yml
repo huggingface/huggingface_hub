@@ -50,6 +50,7 @@ jobs:
           pip install --upgrade uv
           uv venv
           source .venv/bin/activate
+          echo PATH=$PATH >> $GITHUB_ENV  # See https://stackoverflow.com/a/74669486
 
       # Install dependencies
       - name: Install dependencies
@@ -160,6 +161,7 @@ jobs:
           pip install --upgrade uv
           uv venv
           .venv\Scripts\activate
+          echo PATH=$PATH >> $env:GITHUB_ENV  # See https://stackoverflow.com/a/74669486
 
       # Install dependencies
       - name: Install dependencies
