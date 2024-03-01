@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contain tests for `HfFolder` utility."""
+
 import os
 import unittest
 from uuid import uuid4

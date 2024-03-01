@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle paths in Huggingface Hub."""
+
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union

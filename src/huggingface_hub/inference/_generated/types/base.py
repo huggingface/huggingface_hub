@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a base class for all inference types."""
+
 import inspect
 import json
 import warnings

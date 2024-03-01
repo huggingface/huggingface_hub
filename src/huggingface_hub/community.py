@@ -4,6 +4,7 @@ Data structures to interact with Discussions and Pull Requests on the Hub.
 See [the Discussions and Pull Requests guide](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
 for more information on Pull Requests, Discussions, and the community tab.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Literal, Optional, Union

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities used by both the sync and async inference clients."""
+
 import base64
 import io
 import json
@@ -163,13 +164,15 @@ def _first_or_none(items: List[Any]) -> Optional[Any]:
 
 
 @overload
-def _open_as_binary(content: ContentT) -> ContextManager[BinaryT]:
-    ...  # means "if input is not None, output is not None"
+def _open_as_binary(
+    content: ContentT,
+) -> ContextManager[BinaryT]: ...  # means "if input is not None, output is not None"
 
 
 @overload
-def _open_as_binary(content: Literal[None]) -> ContextManager[Literal[None]]:
-    ...  # means "if input is None, output is None"
+def _open_as_binary(
+    content: Literal[None],
+) -> ContextManager[Literal[None]]: ...  # means "if input is None, output is None"
 
 
 @contextmanager  # type: ignore

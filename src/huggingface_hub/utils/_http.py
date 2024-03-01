@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
+
 import io
 import os
 import threading

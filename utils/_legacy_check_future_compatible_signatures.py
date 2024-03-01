@@ -27,6 +27,7 @@ What is NOT done correctly:
 just before the method implementation)
 2. `#type: ignore` must be adjusted in the first stub (if multiline definition)
 """
+
 import argparse
 import inspect
 import os

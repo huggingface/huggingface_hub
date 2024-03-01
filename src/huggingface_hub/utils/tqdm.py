@@ -54,6 +54,7 @@ Example:
        do_something()
     ```
 """
+
 import io
 import warnings
 from contextlib import contextmanager

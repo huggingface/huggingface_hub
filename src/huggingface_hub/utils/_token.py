@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains an helper to get the token from machine (env variable, secret or config file)."""
+
 import os
 import warnings
 from pathlib import Path

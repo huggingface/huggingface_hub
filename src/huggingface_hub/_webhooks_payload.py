@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
+
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel
