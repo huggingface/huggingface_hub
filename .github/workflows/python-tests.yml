@@ -85,7 +85,8 @@ jobs:
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="../.venv/bin/python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
+          source ../venv/bin/activate
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -166,7 +167,9 @@ jobs:
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: .venv\Scripts\python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
+        run: |
+          .venv\Scripts\activate
+          python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
