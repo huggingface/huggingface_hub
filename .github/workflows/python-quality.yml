@@ -23,10 +23,16 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - name: Install dependencies
+
+      # Setup venv
+      - name: Setup venv + uv
         run: |
           pip install --upgrade uv
-          uv pip install "huggingface_hub[dev] @ ."
+          uv venv
+          source .venv/bin/activate
+
+      - name: Install dependencies
+        run: uv pip install "huggingface_hub[dev] @ ."
       - run: ruff check tests src contrib # linter
       - run: ruff format --check tests src contrib # formatter
       - run: python utils/check_contrib_list.py

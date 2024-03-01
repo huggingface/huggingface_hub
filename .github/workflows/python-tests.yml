@@ -44,10 +44,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      - name: Setup venv + uv
         run: |
           pip install --upgrade uv
+          uv venv
+          source .venv/bin/activate
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
           uv pip install "huggingface_hub[testing] @ ."
 
           case "${{ matrix.test_name }}" in
@@ -148,11 +154,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      - name: Setup venv + uv
         run: |
           pip install --upgrade uv
-          uv pip install "huggingface_hub[testing] @ ."
+          uv venv
+          .venv\Scripts\activate
+
+      # Install dependencies
+      - name: Install dependencies
+        run: uv pip install "huggingface_hub[testing] @ ."
 
       # Easy debugging if CI is broken
       - name: Pip freeze
