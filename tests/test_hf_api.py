@@ -2766,9 +2766,7 @@ class TestSquashHistory(HfApiCommonTest):
 @pytest.mark.vcr
 class TestSpaceAPIProduction(unittest.TestCase):
     """
-    Testing Space API is not possible on staging. Tests are run against production
-    server using a token stored under `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment
-    variable. Tests requiring hardware are mocked to spare some resources.
+    Testing Space API is not possible on staging. We use VCR-ed to mimic server requests.
     """
 
     repo_id: str
