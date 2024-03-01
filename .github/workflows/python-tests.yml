@@ -45,8 +45,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       # Setup venv
-      # TODO: remove this once uv is available in the default environment
-      # See https://github.com/astral-sh/uv/pull/2000
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
       - name: Setup venv + uv
         run: |
           pip install --upgrade uv
@@ -153,8 +152,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       # Setup venv
-      # TODO: remove this once uv is available in the default environment
-      # See https://github.com/astral-sh/uv/pull/2000
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
       - name: Setup venv + uv
         run: |
           pip install --upgrade uv
