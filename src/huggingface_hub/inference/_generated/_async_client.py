@@ -1230,8 +1230,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1254,8 +1253,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> TextGenerationResponse:
-        ...
+    ) -> TextGenerationResponse: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1278,8 +1276,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> AsyncIterable[str]:
-        ...
+    ) -> AsyncIterable[str]: ...
 
     @overload
     async def text_generation(
@@ -1302,8 +1299,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> AsyncIterable[TextGenerationStreamResponse]:
-        ...
+    ) -> AsyncIterable[TextGenerationStreamResponse]: ...
 
     async def text_generation(
         self,

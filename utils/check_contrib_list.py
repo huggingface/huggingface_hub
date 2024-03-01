@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a tool to list contrib test suites automatically."""
+
 import argparse
 import re
 from pathlib import Path

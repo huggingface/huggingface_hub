@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contain helper class to retrieve/store token from/to local cache."""
+
 import warnings
 from pathlib import Path
 from typing import Optional

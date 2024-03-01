@@ -42,6 +42,7 @@ Usage:
     # Schedule commits every 30 minutes
     huggingface-cli upload Wauplin/my-cool-model --every=30
 """
+
 import os
 import time
 import warnings

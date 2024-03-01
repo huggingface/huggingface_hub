@@ -20,6 +20,7 @@ Usage:
     huggingface-cli scan-cache -vvv
     huggingface-cli scan-cache --dir ~/.cache/huggingface/hub
 """
+
 import time
 from argparse import Namespace, _SubParsersAction
 from typing import Optional
