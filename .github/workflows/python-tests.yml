@@ -81,10 +81,6 @@ jobs:
 
           esac
 
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: .venv/bin/pip freeze
-
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -166,10 +162,6 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: uv pip install "huggingface_hub[testing] @ ."
-
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: .venv\Scripts\pip freeze
 
       # Run tests
       - name: Run tests
