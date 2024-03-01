@@ -22,6 +22,7 @@ return types + uses streaming requests on demand). Tests are mostly duplicates f
 For completeness we also run a test on a simple task (`test_async_sentence_similarity`) and assume all other tasks
 work as well.
 """
+
 import asyncio
 import inspect
 

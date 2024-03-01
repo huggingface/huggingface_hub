@@ -35,6 +35,7 @@ Usage:
     # Download to local dir
     huggingface-cli download gpt2 --local-dir=./models/gpt2
 """
+
 import warnings
 from argparse import Namespace, _SubParsersAction
 from typing import List, Literal, Optional, Union

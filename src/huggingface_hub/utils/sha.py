@@ -1,4 +1,5 @@
 """Utilities to efficiently compute the SHA 256 hash of a bunch of bytes."""
+
 from typing import BinaryIO, Optional
 
 from .insecure_hashlib import sha256

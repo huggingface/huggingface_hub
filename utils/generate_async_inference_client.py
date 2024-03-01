@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a tool to generate `src/huggingface_hub/inference/_generated/_async_client.py`."""
+
 import argparse
 import os
 import re

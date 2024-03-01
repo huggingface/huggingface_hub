@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a tool to reformat static imports in `huggingface_hub.__init__.py`."""
+
 import argparse
 import os
 import re

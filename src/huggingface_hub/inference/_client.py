@@ -1207,8 +1207,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> str:
-        ...
+    ) -> str: ...
 
     @overload
     def text_generation(  # type: ignore
@@ -1231,8 +1230,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> TextGenerationResponse:
-        ...
+    ) -> TextGenerationResponse: ...
 
     @overload
     def text_generation(  # type: ignore
@@ -1255,8 +1253,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[str]:
-        ...
+    ) -> Iterable[str]: ...
 
     @overload
     def text_generation(
@@ -1279,8 +1276,7 @@ class InferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> Iterable[TextGenerationStreamResponse]:
-        ...
+    ) -> Iterable[TextGenerationStreamResponse]: ...
 
     def text_generation(
         self,

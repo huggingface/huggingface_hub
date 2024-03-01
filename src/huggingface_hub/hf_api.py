@@ -3556,8 +3556,7 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo:
-        ...
+    ) -> CommitInfo: ...
 
     @overload
     def create_commit(
@@ -3574,8 +3573,7 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]:
-        ...
+    ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
     @future_compatible
@@ -4291,8 +4289,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo:
-        ...
+    ) -> CommitInfo: ...
 
     @overload
     def upload_file(
@@ -4309,8 +4306,7 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]:
-        ...
+    ) -> Future[CommitInfo]: ...
 
     @validate_hf_hub_args
     @future_compatible
@@ -4498,8 +4494,7 @@ class HfApi:
         multi_commits: Literal[False] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo:
-        ...
+    ) -> CommitInfo: ...
 
     @overload
     def upload_folder(  # type: ignore
@@ -4544,8 +4539,7 @@ class HfApi:
         multi_commits: Literal[False] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]:
-        ...
+    ) -> Future[CommitInfo]: ...
 
     @overload
     def upload_folder(

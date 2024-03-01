@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to manage Git credentials."""
+
 import re
 import subprocess
 from typing import List, Optional
