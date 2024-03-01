@@ -47,8 +47,8 @@ jobs:
       # Install dependencies
       - name: Configure and install dependencies
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
+          pip install --upgrade uv
+          uv pip install ".[testing]"
 
           case "${{ matrix.test_name }}" in
 
@@ -63,13 +63,13 @@ jobs:
               ;;
 
             fastai | torch)
-              pip install .[${{ matrix.test_name }}]
+              uv pip install .[${{ matrix.test_name }}]
               ;;
 
             tensorflow)
               sudo apt update
               sudo apt install -y graphviz
-              pip install .[tensorflow]
+              uv pip install .[tensorflow]
               ;;
 
           esac
@@ -151,8 +151,8 @@ jobs:
       # Install dependencies
       - name: Configure and install dependencies
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
+          pip install --upgrade uv
+          uv pip install ".[testing]"
 
       # Easy debugging if CI is broken
       - name: Pip freeze
