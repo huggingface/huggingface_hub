@@ -265,14 +265,3 @@ And the following will only run the tests that include `tag` in their name:
 ```bash
 $ python -m pytest ./tests -k tag
 ```
-
-#### A corner case: testing Spaces
-
-Fully testing Spaces is not possible on staging. We need to use the production environment
- for it (e.g huggingface.co). To do so, a personal User Access Token has to be set as
- `HUGGINGFACE_PRODUCTION_USER_TOKEN` environment variable, specifically for these tests.
- This value is configured in the Github CI but you need to set it on your machine to run
- the tests locally. The token requires write permission and a credit card must be set on
- your account.
-
- Note that if the token is not find, the related tests are skipped.
