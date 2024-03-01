@@ -1,4 +1,5 @@
 import copy
+import errno
 import fnmatch
 import inspect
 import io
@@ -913,6 +914,12 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         # Permission error means src and dst are not in the same volume (e.g. destination path has been provided
         # by the user via `local_dir`. Let's test symlink support there)
         _support_symlinks = are_symlinks_supported(abs_dst_folder)
+    except OSError as e:
+        # OS error (errno=30) means that the commonpath is readonly on Linux/MacOS.
+        if e.errno == errno.EROFS:
+            _support_symlinks = are_symlinks_supported(abs_dst_folder)
+        else:
+            raise
 
     # Symlinks are supported => let's create a symlink.
     if _support_symlinks:
