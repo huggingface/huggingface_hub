@@ -124,8 +124,7 @@ class ModelHubMixin:
     config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
 
-    library_name: Optional[str] = None
-    tags: Optional[List[str]] = None
+    library_info: LibraryInfo
 
     def __init_subclass__(
         cls,
@@ -140,7 +139,7 @@ class ModelHubMixin:
         tags.append("model_hub_mixin")
 
         # Will be reused when creating modelcard
-        cls._library_info = LibraryInfo(
+        cls.library_info = LibraryInfo(
             library_name=library_name,
             tags=tags,
             repo_url=repo_url,
@@ -469,7 +468,7 @@ class ModelHubMixin:
 
     def _generate_model_card(self, *args, **kwargs) -> ModelCard:
         card = ModelCard.from_template(
-            card_data=ModelCardData(**asdict(self._library_info)),
+            card_data=ModelCardData(**asdict(self.library_info)),
             template_str=DEFAULT_MODEL_CARD,
         )
         return card
@@ -519,7 +518,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def __init_subclass__(cls, *args, tags: Optional[List[str]] = None, **kwargs) -> None:
         tags = tags or []
         tags.append("pytorch_model_hub_mixin")
-        return super().__init_subclass__(*args, tags=tags, **kwargs)
+        kwargs["tags"] = tags
+        return super().__init_subclass__(*args, **kwargs)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
