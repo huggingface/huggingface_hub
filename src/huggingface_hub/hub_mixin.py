@@ -28,7 +28,7 @@ if is_torch_available():
 
 if is_safetensors_available():
     from safetensors import safe_open
-    from safetensors.torch import save_file
+    from safetensors.torch import save_model
 
 
 logger = logging.get_logger(__name__)
@@ -463,7 +463,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_file(model_to_save.state_dict(), save_directory / SAFETENSORS_SINGLE_FILE)
+        save_model(model_to_save.state_dict(), save_directory / SAFETENSORS_SINGLE_FILE)
 
     @classmethod
     def _from_pretrained(
