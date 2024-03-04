@@ -14,10 +14,21 @@
 """Contains pytorch-specific helpers."""
 
 import importlib
+import json
+import os
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Tuple
 
+from ..utils import is_safetensors_available, is_torch_available
 from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
+
+
+if is_torch_available():
+    import torch  # type: ignore
+
+if is_safetensors_available():
+    from safetensors.torch import save_file
 
 
 if TYPE_CHECKING:
@@ -198,3 +209,21 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
         _float8_e5m2: 1,
     }
     return _SIZE[dtype]
+
+
+def save_torch_state_dict(state_dict: Dict[str, torch.Tensor], save_directory: Path):
+    state_dict_split = split_torch_state_dict_into_shards(state_dict)
+    for filename, tensors in state_dict_split.filename_to_tensors.values():
+        shard = {tensor: state_dict[tensor] for tensor in tensors}
+        save_file(
+            shard,
+            os.path.join(save_directory, filename),
+            metadata={"format": "pt"},
+        )
+    if state_dict_split.is_sharded:
+        index = {
+            "metadata": state_dict_split.metadata,
+            "weight_map": state_dict_split.tensor_to_filename,
+        }
+        with open(os.path.join(save_directory, "model.safetensors.index.json"), "w") as f:
+            f.write(json.dumps(index, indent=2))
