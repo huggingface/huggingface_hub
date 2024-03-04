@@ -463,7 +463,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model(model_to_save.state_dict(), save_directory / SAFETENSORS_SINGLE_FILE)
+        save_model(model_to_save, save_directory / SAFETENSORS_SINGLE_FILE)
 
     @classmethod
     def _from_pretrained(
