@@ -44,11 +44,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
+      - name: Setup venv + uv
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
+          pip install --upgrade uv
+          uv venv
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          uv pip install "huggingface_hub[testing] @ ."
 
           case "${{ matrix.test_name }}" in
 
@@ -63,25 +69,22 @@ jobs:
               ;;
 
             fastai | torch)
-              pip install .[${{ matrix.test_name }}]
+              uv pip install "huggingface_hub[${{ matrix.test_name }}] @ ."
               ;;
 
             tensorflow)
               sudo apt update
               sudo apt install -y graphviz
-              pip install .[tensorflow]
+              uv pip install "huggingface_hub[tensorflow] @ ."
               ;;
 
           esac
-
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: pip freeze
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
+          source ../.venv/bin/activate
           PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
@@ -148,20 +151,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
+      - name: Setup venv + uv
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
+          pip install --upgrade uv
+          uv venv
 
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: pip freeze
+      # Install dependencies
+      - name: Install dependencies
+        run: uv pip install "huggingface_hub[testing] @ ."
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
+        run: |
+          ..\.venv\Scripts\activate
+          python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
