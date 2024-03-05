@@ -51,15 +51,12 @@ class PytorchHubMixinTest(unittest.TestCase):
     def test_save_pretrained_basic(self):
         DummyModel().save_pretrained(self.cache_dir)
         files = os.listdir(self.cache_dir)
-        self.assertTrue("model.safetensors" in files)
-        self.assertEqual(len(files), 1)
+        assert set(files) == {"README.md", "model.safetensors"}
 
     def test_save_pretrained_with_config(self):
         DummyModel().save_pretrained(self.cache_dir, config=CONFIG)
         files = os.listdir(self.cache_dir)
-        self.assertTrue("config.json" in files)
-        self.assertTrue("model.safetensors" in files)
-        self.assertEqual(len(files), 2)
+        assert set(files) == {"README.md", "config.json", "model.safetensors"}
 
     def test_save_as_safetensors(self):
         DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
