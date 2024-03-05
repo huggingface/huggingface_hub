@@ -27,8 +27,8 @@ if is_torch_available():
     import torch  # type: ignore
 
 if is_safetensors_available():
-    from safetensors import safe_open
-    from safetensors.torch import save_model
+    from safetensors.torch import load_model as load_model_as_safetensor
+    from safetensors.torch import save_model as save_model_as_safetensor
 
 
 logger = logging.get_logger(__name__)
@@ -463,7 +463,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model(model_to_save, save_directory / SAFETENSORS_SINGLE_FILE)
+        save_model_as_safetensor(model_to_save, str(save_directory / SAFETENSORS_SINGLE_FILE))
 
     @classmethod
     def _from_pretrained(
@@ -524,10 +524,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
-        state_dict = {}
-        with safe_open(model_file, framework="pt", device=map_location) as f:  # type: ignore [attr-defined]
-            for k in f.keys():
-                state_dict[k] = f.get_tensor(k)
-        model.load_state_dict(state_dict, strict=strict)  # type: ignore
-        model.eval()  # type: ignore
+        if map_location != "cpu":
+            logger.warning(
+                f"Loading model weights on '{map_location}' is not supported by `PytorchHubMixin`."
+                " Loading on CPU instead. Loading on other devices is planned to be supported in future releases."
+                " See https://github.com/huggingface/huggingface_hub/pull/2086 for more details."
+            )
+        load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
         return model
