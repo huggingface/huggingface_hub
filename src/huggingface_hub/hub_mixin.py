@@ -524,11 +524,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
         if map_location != "cpu":
+            # TODO: remove this once https://github.com/huggingface/safetensors/pull/449 is merged.
             logger.warning(
-                f"Loading model weights on '{map_location}' is not supported by `PytorchHubMixin`."
-                " Loading on CPU instead. Loading on other devices is planned to be supported in future releases."
+                "Loading model weights on other devices than 'cpu' is not supported natively."
+                " This means that the model is loaded on 'cpu' first and then copied to the device."
+                " This leads to a slower loading time."
+                " Support for loading directly on other devices is planned to be added in future releases."
                 " See https://github.com/huggingface/huggingface_hub/pull/2086 for more details."
             )
-        load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
+            model.to(map_location)  # type: ignore [attr-defined]
         return model
