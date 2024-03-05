@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, ModelCard, hf_hub_download
 from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, is_torch_available
@@ -28,6 +28,14 @@ if is_torch_available():
             super().__init__()
             self.config = kwargs.pop("config", None)
             self.l1 = nn.Linear(2, 2)
+
+        def forward(self, x):
+            return self.l1(x)
+
+    class DummyModelWithTags(nn.Module, PyTorchModelHubMixin, tags=["tag1", "tag2"], library_name="my-dummy-lib"):
+        def __init__(self, linear_layer: int = 4):
+            super().__init__()
+            self.l1 = nn.Linear(linear_layer, linear_layer)
 
         def forward(self, x):
             return self.l1(x)
@@ -231,3 +239,14 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
+
+    def test_generate_model_card(self):
+        model = DummyModelWithTags()
+        card = model.generate_model_card()
+        assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+
+        model.save_pretrained(self.cache_dir)
+        card_reloaded = ModelCard.load(self.cache_dir / "README.md")
+
+        assert str(card) == str(card_reloaded)
+        assert card.data == card_reloaded.data

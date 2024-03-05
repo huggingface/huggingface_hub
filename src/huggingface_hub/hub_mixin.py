@@ -204,7 +204,7 @@ class ModelHubMixin:
         # save model card
         model_card_path = save_directory / "README.md"
         if not model_card_path.exists():  # do not overwrite if already exists
-            self._generate_model_card().save(save_directory / "README.md")
+            self.generate_model_card().save(save_directory / "README.md")
 
         # push to the Hub if required
         if push_to_hub:
@@ -466,7 +466,7 @@ class ModelHubMixin:
                 delete_patterns=delete_patterns,
             )
 
-    def _generate_model_card(self, *args, **kwargs) -> ModelCard:
+    def generate_model_card(self, *args, **kwargs) -> ModelCard:
         card = ModelCard.from_template(
             card_data=ModelCardData(**asdict(self.library_info)),
             template_str=DEFAULT_MODEL_CARD,

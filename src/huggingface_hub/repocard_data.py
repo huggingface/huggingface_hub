@@ -309,10 +309,17 @@ class ModelCardData(CardData):
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
+        unique_tags = tags
+        if tags is not None:
+            unique_tags = []  # make tags unique + keep order explicitly
+            for tag in tags:
+                if tag not in unique_tags:
+                    unique_tags.append(tag)
+
         self.language = language
         self.license = license
         self.library_name = library_name
-        self.tags = tags
+        self.tags = unique_tags
         self.base_model = base_model
         self.datasets = datasets
         self.metrics = metrics
