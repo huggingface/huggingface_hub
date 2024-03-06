@@ -48,18 +48,11 @@ class ModelHubMixin:
     Example:
 
     ```python
-    >>> from dataclasses import dataclass
     >>> from huggingface_hub import ModelHubMixin
-
-    # Define your model configuration (optional)
-    >>> @dataclass
-    ... class Config:
-    ...     foo: int = 512
-    ...     bar: str = "cpu"
 
     # Inherit from ModelHubMixin (and optionally from your framework's model class)
     >>> class MyCustomModel(ModelHubMixin):
-    ...     def __init__(self, config: Config):
+    ...     def __init__(self, size: int = 512, device: str = "cpu"):
     ...         # define how to initialize your model
     ...         super().__init__()
     ...         ...
@@ -85,7 +78,7 @@ class ModelHubMixin:
     ...         # define how to deserialize your model
     ...         ...
 
-    >>> model = MyCustomModel(config=Config(foo=256, bar="gpu"))
+    >>> model = MyCustomModel(size=256, device="gpu")
 
     # Save model weights to local directory
     >>> model.save_pretrained("my-awesome-model")
@@ -96,7 +89,7 @@ class ModelHubMixin:
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
     >>> reloaded_model.config
-    Config(foo=256, bar="gpu")
+    {"size": 256, "device": "gpu"}
     ```
     """
 
