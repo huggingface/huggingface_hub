@@ -12,6 +12,7 @@ from .utils import (
     EntryNotFoundError,
     HfHubHTTPError,
     SoftTemporaryDirectory,
+    is_jsonable,
     is_safetensors_available,
     is_torch_available,
     logging,
@@ -106,7 +107,7 @@ class ModelHubMixin:
         cls._jsonable_default_values = {
             param.name: param.default
             for param in cls._init_parameters.values()
-            if param.default is not inspect.Parameter.empty and _is_jsonable(param.default)
+            if param.default is not inspect.Parameter.empty and is_jsonable(param.default)
         }
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
@@ -146,7 +147,7 @@ class ModelHubMixin:
             # default values
             **cls._jsonable_default_values,
             # passed values
-            **{key: value for key, value in passed_values.items() if _is_jsonable(value)},
+            **{key: value for key, value in passed_values.items() if is_jsonable(value)},
         }
         init_config.pop("config", {})
 
@@ -585,14 +586,3 @@ def _load_dataclass(datacls: Type["DataclassInstance"], data: dict) -> "Dataclas
     Fields not expected by the dataclass are ignored.
     """
     return datacls(**{k: v for k, v in data.items() if k in datacls.__dataclass_fields__})
-
-
-def _is_jsonable(x: Any) -> bool:
-    """Check if an object is json serializable."""
-    # Taken from https://stackoverflow.com/a/42033176
-    # TODO: find a more suitable way to check if an object is json serializable?
-    try:
-        json.dumps(x)
-        return True
-    except:  # noqa: E722
-        return False
