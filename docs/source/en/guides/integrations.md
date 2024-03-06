@@ -148,7 +148,7 @@ are ready to go. You don't need to worry about stuff like repo creation, commits
 of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well
 documented and type annotated.
 
-As a bonus, [`ModelHubMixin`] handles the model configuration for you. In some cases, you have a `config` input parameter when initializing your class (dictionary or dataclass containing high-level settings). In such cases, the `config` value is automatically serialized into a `config.json` dictionary for you. When re-loading the model from the Hub, the configuration is correctly deserialized. Make sure to use type annotation if you want to deserialize it as a dataclass. The big advantage of having a `config.json` file in your model repository is that it automatically enables the analytics on the Hub (e.g. the "downloads" count).
+As a bonus, [`ModelHubMixin`] handles the model configuration for you. If your `__init__` method expects a `config` input, it will be automatically saved in the repo when calling `save_pretrained` and reloaded correctly by `load_pretrained`. Moreover, if the `config` input parameter is annotated with dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you. Finally, all jsonable values passed at initialization will be also stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it. The big advantage of having a `config.json` file in your model repository is that it automatically enables the analytics on the Hub (e.g. the "downloads" count).
 
 ### A concrete example: PyTorch
 
@@ -159,29 +159,27 @@ A good example of what we saw above is [`PyTorchModelHubMixin`], our integration
 Here is how any user can load/save a PyTorch model from/to the Hub:
 
 ```python
->>> from dataclasses import dataclass
 >>> import torch
 >>> import torch.nn as nn
 >>> from huggingface_hub import PyTorchModelHubMixin
 
-# 0. (optional) define a config class
->>> @dataclass
-... class Config:
-...     hidden_size: int = 512
-...     vocab_size: int = 30000
-...     output_size: int = 4
 
-# 1. Define your Pytorch model exactly the same way you are used to
+# Define your Pytorch model exactly the same way you are used to
 >>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
-...     def __init__(self, config: Config):
+...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
 ...         super().__init__()
-...         self.param = nn.Parameter(torch.rand(config.hidden_size, config.vocab_size))
-...         self.linear = nn.Linear(config.output_size, config.vocab_size)
+...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
+...         self.linear = nn.Linear(output_size, vocab_size)
 
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)
 
->>> model = MyModel(Config(hidden_size=128))
+# 1. Create model
+>>> model = MyModel(hidden_size=128)
+
+# Config is automatically created based on input + default values
+>>> model.config
+{"hidden_size": 128, "vocab_size": 30000, "output_size": 4}
 
 # 2. (optional) Save model to local directory
 >>> model.save_pretrained("path/to/my-awesome-model")
@@ -189,10 +187,10 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 # 3. Push model weights to the Hub
 >>> model.push_to_hub("my-awesome-model")
 
-# 4. Initialize model from the Hub
+# 4. Initialize model from the Hub => config has been preserved
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 >>> model.config
-Config(hidden_size=128, vocab_size=30000, output_size=4)
+{"hidden_size": 128, "vocab_size": 30000, "output_size": 4}
 ```
 
 #### Implementation
@@ -211,25 +209,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
 2. Implement the `_save_pretrained` method:
 
 ```py
-from huggingface_hub import ModelCard, ModelCardData
+from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
    (...)
 
-   def _save_pretrained(self, save_directory: Path):
-      """Generate Model Card and save weights from a Pytorch model to a local directory."""
-      model_card = ModelCard.from_template(
-         card_data=ModelCardData(
-            license='mit',
-            library_name="pytorch",
-            ...
-         ),
-         model_summary=...,
-         model_type=...,
-         ...
-      )
-      (save_directory / "README.md").write_text(str(model))
-      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
+    def _save_pretrained(self, save_directory: Path) -> None:
+        """Save weights from a Pytorch model to a local directory."""
+        save_model_as_safetensor(self.module, str(save_directory / SAFETENSORS_SINGLE_FILE))
+
 ```
 
 3. Implement the `_from_pretrained` method:
@@ -255,13 +243,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
       **model_kwargs,
    ):
       """Load Pytorch pretrained weights and return the loaded model."""
-      if os.path.isdir(model_id): # Can either be a local directory
-         print("Loading weights from local directory")
-         model_file = os.path.join(model_id, "pytorch_model.bin")
-      else: # Or a model on the Hub
-         model_file = hf_hub_download( # Download from the hub, passing same input args
+        model = cls(**model_kwargs)
+        if os.path.isdir(model_id):
+            print("Loading weights from local directory")
+            model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
+            return cls._load_as_safetensor(model, model_file, map_location, strict)
+
+         model_file = hf_hub_download(
             repo_id=model_id,
-            filename="pytorch_model.bin",
+            filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
@@ -269,14 +259,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
-         )
-
-      # Load model and return - custom logic depending on your framework
-      model = cls(**model_kwargs)
-      state_dict = torch.load(model_file, map_location=torch.device(map_location))
-      model.load_state_dict(state_dict, strict=strict)
-      model.eval()
-      return model
+            )
+         return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
