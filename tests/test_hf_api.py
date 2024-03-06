@@ -1545,12 +1545,12 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
     @use_tmp_repo()
     def test_delete_branch_on_missing_branch_fails(self, repo_url: RepoUrl) -> None:
         """Test `delete_branch` fails on missing branch."""
-        with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
+        with self.assertRaisesRegex(HfHubHTTPError, "Invalid rev id"):
             self._api.delete_branch(repo_url.repo_id, branch="cool-branch")
 
         # Using a tag instead of branch -> fails
         self._api.create_tag(repo_url.repo_id, tag="cool-tag")
-        with self.assertRaisesRegex(HfHubHTTPError, "Reference does not exist"):
+        with self.assertRaisesRegex(HfHubHTTPError, "Invalid rev id"):
             self._api.delete_branch(repo_url.repo_id, branch="cool-tag")
 
     @use_tmp_repo()
