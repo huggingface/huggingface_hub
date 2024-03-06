@@ -298,3 +298,33 @@ class PytorchHubMixinTest(unittest.TestCase):
         reloaded_new_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
         assert reloaded_new_model.not_jsonable == 123
         assert reloaded_new_model.config["not_jsonable"] == 123
+
+    def test_save_model_with_shared_tensors(self):
+        """
+        Regression test for #2086. Shared tensors should be saved correctly.
+
+        See https://github.com/huggingface/huggingface_hub/pull/2086 for more details.
+        """
+
+        class ModelWithSharedTensors(nn.Module, PyTorchModelHubMixin):
+            def __init__(self):
+                super().__init__()
+                self.a = nn.Linear(100, 100)
+                self.b = self.a
+
+            def forward(self, x):
+                return self.b(self.a(x))
+
+        # Save and reload model
+        model = ModelWithSharedTensors()
+        model.save_pretrained(self.cache_dir)
+        reloaded = ModelWithSharedTensors.from_pretrained(self.cache_dir)
+
+        # Linear layers should share weights and biases in memory
+        state_dict = reloaded.state_dict()
+        a_weight_ptr = state_dict["a.weight"].storage().data_ptr()
+        b_weight_ptr = state_dict["b.weight"].storage().data_ptr()
+        a_bias_ptr = state_dict["a.bias"].storage().data_ptr()
+        b_bias_ptr = state_dict["b.bias"].storage().data_ptr()
+        assert a_weight_ptr == b_weight_ptr
+        assert a_bias_ptr == b_bias_ptr
