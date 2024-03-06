@@ -299,7 +299,7 @@ class ModelHubMixin:
                 if param.name not in model_kwargs and param.name in config:
                     model_kwargs[param.name] = config[param.name]
 
-            # Check if `config` argument is a dataclass
+            # Check if `config` argument was passed at init
             if "config" in cls._init_parameters:
                 # Check if `config` argument is a dataclass
                 config_annotation = cls._init_parameters["config"].annotation

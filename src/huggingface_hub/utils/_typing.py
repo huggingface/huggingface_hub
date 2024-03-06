@@ -31,7 +31,7 @@ def is_jsonable(obj: Any) -> bool:
     This is a weak check, as it does not check for the actual JSON serialization, but only for the types of the object.
     It works correctly for basic use cases but do not guarantee an exhaustive check.
 
-    Object is considered to be json serializable if:
+    Object is considered to be recursively json serializable if:
     - it is an instance of int, float, str, bool, or NoneType
     - it is a list or tuple and all its items are json serializable
     - it is a dict and all its keys are strings and all its values are json serializable
