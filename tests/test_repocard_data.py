@@ -233,6 +233,10 @@ class ModelCardDataTest(unittest.TestCase):
                 source_name="Open LLM Leaderboard",
             )
 
+    def test_model_card_unique_tags(self):
+        data = ModelCardData(tags=["tag2", "tag1", "tag2", "tag3"])
+        assert data.tags == ["tag2", "tag1", "tag3"]
+
 
 class DatasetCardDataTest(unittest.TestCase):
     def test_train_eval_index_keys_updated(self):

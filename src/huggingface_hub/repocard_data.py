@@ -312,7 +312,7 @@ class ModelCardData(CardData):
         self.language = language
         self.license = license
         self.library_name = library_name
-        self.tags = tags
+        self.tags = _to_unique_list(tags)
         self.base_model = base_model
         self.datasets = datasets
         self.metrics = metrics
@@ -507,7 +507,7 @@ class SpaceCardData(CardData):
         self.duplicated_from = duplicated_from
         self.models = models
         self.datasets = datasets
-        self.tags = tags
+        self.tags = _to_unique_list(tags)
         super().__init__(**kwargs)
 
 
@@ -717,3 +717,13 @@ def eval_results_to_model_index(model_name: str, eval_results: List[EvalResult])
         }
     ]
     return _remove_none(model_index)
+
+
+def _to_unique_list(tags: Optional[List[str]]) -> Optional[List[str]]:
+    if tags is None:
+        return tags
+    unique_tags = []  # make tags unique + keep order explicitly
+    for tag in tags:
+        if tag not in unique_tags:
+            unique_tags.append(tag)
+    return unique_tags

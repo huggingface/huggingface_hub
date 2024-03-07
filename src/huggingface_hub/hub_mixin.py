@@ -1,13 +1,14 @@
 import inspect
 import json
 import os
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
 from .hf_api import HfApi
+from .repocard import ModelCard, ModelCardData
 from .utils import (
     EntryNotFoundError,
     HfHubHTTPError,
@@ -37,6 +38,26 @@ logger = logging.get_logger(__name__)
 # Generic variable that is either ModelHubMixin or a subclass thereof
 T = TypeVar("T", bound="ModelHubMixin")
 
+DEFAULT_MODEL_CARD = """
+---
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
+---
+
+This model has been pushed to the Hub using **{{ library_name }}**:
+- Repo: {{ repo_url | default("[More Information Needed]", true) }}
+- Docs: {{ docs_url | default("[More Information Needed]", true) }}
+"""
+
+
+@dataclass
+class LibraryInfo:
+    library_name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    repo_url: Optional[str] = None
+    docs_url: Optional[str] = None
+
 
 class ModelHubMixin:
     """
@@ -51,8 +72,15 @@ class ModelHubMixin:
     ```python
     >>> from huggingface_hub import ModelHubMixin
 
-    # Inherit from ModelHubMixin (and optionally from your framework's model class)
-    >>> class MyCustomModel(ModelHubMixin):
+    # Inherit from ModelHubMixin
+    >>> class MyCustomModel(
+    ...         ModelHubMixin,
+    ...         library_name="my-library",
+    ...         tags=["x-custom-tag"],
+    ...         repo_url="https://github.com/huggingface/my-cool-library",
+    ...         docs_url="https://huggingface.co/docs/my-cool-library",
+    ...         # ^ optional metadata to generate model card
+    ...     ):
     ...     def __init__(self, size: int = 512, device: str = "cpu"):
     ...         # define how to initialize your model
     ...         super().__init__()
@@ -91,18 +119,46 @@ class ModelHubMixin:
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
     >>> reloaded_model.config
     {"size": 256, "device": "gpu"}
+
+    # Model card has been correctly populated
+    >>> from huggingface_hub import ModelCard
+    >>> card = ModelCard.load("username/my-awesome-model")
+    >>> card.data.tags
+    ["x-custom-tag", "pytorch_model_hub_mixin", "model_hub_mixin"]
+    >>> card.data.library_name
+    "my-library"
     ```
     """
 
     config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
-
+    library_info: LibraryInfo
+    # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _init_parameters: Dict[str, inspect.Parameter]
     _jsonable_default_values: Dict[str, Any]
+    # ^ internal values to handle config
 
-    def __init_subclass__(cls) -> None:
-        """Inspect __init__ signature only once when subclassing."""
+    def __init_subclass__(
+        cls,
+        library_name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        repo_url: Optional[str] = None,
+        docs_url: Optional[str] = None,
+    ) -> None:
+        """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
+
+        # Will be reused when creating modelcard
+        tags = tags or []
+        tags.append("model_hub_mixin")
+        cls.library_info = LibraryInfo(
+            library_name=library_name,
+            tags=tags,
+            repo_url=repo_url,
+            docs_url=docs_url,
+        )
+
+        # Inspect __init__ signature to handle config
         cls._init_parameters = dict(inspect.signature(cls.__init__).parameters)
         cls._jsonable_default_values = {
             param.name: param.default
@@ -199,6 +255,11 @@ class ModelHubMixin:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
             (save_directory / CONFIG_NAME).write_text(json.dumps(config, sort_keys=True, indent=2))
+
+        # save model card
+        model_card_path = save_directory / "README.md"
+        if not model_card_path.exists():  # do not overwrite if already exists
+            self.generate_model_card().save(save_directory / "README.md")
 
         # push to the Hub if required
         if push_to_hub:
@@ -468,6 +529,13 @@ class ModelHubMixin:
                 delete_patterns=delete_patterns,
             )
 
+    def generate_model_card(self, *args, **kwargs) -> ModelCard:
+        card = ModelCard.from_template(
+            card_data=ModelCardData(**asdict(self.library_info)),
+            template_str=DEFAULT_MODEL_CARD,
+        )
+        return card
+
 
 class PyTorchModelHubMixin(ModelHubMixin):
     """
@@ -482,7 +550,14 @@ class PyTorchModelHubMixin(ModelHubMixin):
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
-    >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+    >>> class MyModel(
+    ...         nn.Module,
+    ...         PyTorchModelHubMixin,
+    ...         library_name="keras-nlp",
+    ...         repo_url="https://github.com/keras-team/keras-nlp",
+    ...         docs_url="https://keras.io/keras_nlp/",
+    ...         # ^ optional metadata to generate model card
+    ...     ):
     ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
     ...         super().__init__()
     ...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
@@ -504,6 +579,12 @@ class PyTorchModelHubMixin(ModelHubMixin):
     256
     ```
     """
+
+    def __init_subclass__(cls, *args, tags: Optional[List[str]] = None, **kwargs) -> None:
+        tags = tags or []
+        tags.append("pytorch_model_hub_mixin")
+        kwargs["tags"] = tags
+        return super().__init_subclass__(*args, **kwargs)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
