@@ -14,11 +14,12 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
+    "minijinja>=1.0",
+    "packaging>=20.9",
+    "pyyaml>=5.1",
     "requests",
     "tqdm>=4.42.1",
-    "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
-    "packaging>=20.9",
 ]
 
 extras = {}

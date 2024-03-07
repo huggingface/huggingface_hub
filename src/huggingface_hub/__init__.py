@@ -723,6 +723,10 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         BoundingBox,  # noqa: F401
+        ChatCompletionInput,  # noqa: F401
+        ChatCompletionOutput,  # noqa: F401
+        Choice,  # noqa: F401
+        ChoiceMessage,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -746,6 +750,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        MessageElement,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
