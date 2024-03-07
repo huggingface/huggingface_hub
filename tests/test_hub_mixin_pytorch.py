@@ -53,6 +53,10 @@ if is_torch_available():
             self.num_classes = num_classes
             self.state = state
             self.not_jsonable = not_jsonable
+else:
+    DummyModel = None
+    DummyModelWithTags = None
+    DummyModelNoConfig = None
 
 
 @requires("torch")
