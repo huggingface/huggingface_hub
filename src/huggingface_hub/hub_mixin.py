@@ -198,7 +198,7 @@ class ModelHubMixin:
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
-            (save_directory / CONFIG_NAME).write_text(json.dumps(config, indent=2))
+            (save_directory / CONFIG_NAME).write_text(json.dumps(config, sort_keys=True, indent=2))
 
         # push to the Hub if required
         if push_to_hub:
