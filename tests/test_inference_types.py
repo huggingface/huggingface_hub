@@ -6,7 +6,7 @@ from typing import List, Optional
 import pytest
 
 import huggingface_hub.inference._generated.types as types
-from huggingface_hub.inference._generated.types import BaseInferenceType
+from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionParameters, BaseInferenceType
 
 from .testing_utils import expect_deprecation
 
@@ -155,3 +155,9 @@ def test_optional_are_set_to_none():
                 assert (
                     parameter.default is inspect.Parameter.empty
                 ), f"Parameter {parameter} of {_type} should not have a default"
+
+
+def test_none_inferred():
+    # Doing this should not fail with
+    # TypeError: __init__() missing 2 required positional arguments: 'generate' and 'return_timestamps'
+    AutomaticSpeechRecognitionParameters()
