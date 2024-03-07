@@ -40,10 +40,7 @@ class TranslationInput(BaseInferenceType):
 
 @dataclass
 class TranslationOutput(BaseInferenceType):
-    """Outputs for Translation inference
-    Outputs of inference for the Text2text Generation task
-    """
+    """Outputs of inference for the Translation task"""
 
-    translation_text: Any
-    translation_output_translation_text: Optional[str]
+    translation_text: str
     """The translated text."""
