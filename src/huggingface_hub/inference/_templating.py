@@ -77,7 +77,6 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, bool, None])
     if tokenizer_config.get("chat_template") is None:
         raise TemplateError(f"Chat template not found in tokenizer_config for model '{model_id}'.")
     chat_template = tokenizer_config["chat_template"]
-    print(chat_template)
     if not isinstance(chat_template, str):
         raise TemplateError(f"Chat template must be a string, not '{type(chat_template)}' (model: {model_id}).")
 
