@@ -3,12 +3,12 @@ import os
 import struct
 import unittest
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi, ModelCard, hf_hub_download
 from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, is_torch_available
@@ -16,6 +16,8 @@ from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTempor
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, requires
 
+
+DUMMY_OBJECT = object()
 
 if is_torch_available():
     import torch
@@ -32,8 +34,29 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
+    class DummyModelWithTags(nn.Module, PyTorchModelHubMixin, tags=["tag1", "tag2"], library_name="my-dummy-lib"):
+        def __init__(self, linear_layer: int = 4):
+            super().__init__()
+            self.l1 = nn.Linear(linear_layer, linear_layer)
+
+        def forward(self, x):
+            return self.l1(x)
+
+    class DummyModelNoConfig(nn.Module, PyTorchModelHubMixin):
+        def __init__(
+            self,
+            num_classes: int = 42,
+            state: str = "layernorm",
+            not_jsonable: Any = DUMMY_OBJECT,
+        ):
+            super().__init__()
+            self.num_classes = num_classes
+            self.state = state
+            self.not_jsonable = not_jsonable
 else:
     DummyModel = None
+    DummyModelWithTags = None
+    DummyModelNoConfig = None
 
 
 @requires("torch")
@@ -51,15 +74,12 @@ class PytorchHubMixinTest(unittest.TestCase):
     def test_save_pretrained_basic(self):
         DummyModel().save_pretrained(self.cache_dir)
         files = os.listdir(self.cache_dir)
-        self.assertTrue("model.safetensors" in files)
-        self.assertEqual(len(files), 1)
+        assert set(files) == {"README.md", "model.safetensors"}
 
     def test_save_pretrained_with_config(self):
         DummyModel().save_pretrained(self.cache_dir, config=CONFIG)
         files = os.listdir(self.cache_dir)
-        self.assertTrue("config.json" in files)
-        self.assertTrue("model.safetensors" in files)
-        self.assertEqual(len(files), 2)
+        assert set(files) == {"README.md", "config.json", "model.safetensors"}
 
     def test_save_as_safetensors(self):
         DummyModel().save_pretrained(self.cache_dir, config=TOKEN)
@@ -234,6 +254,66 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
+
+    def test_generate_model_card(self):
+        model = DummyModelWithTags()
+        card = model.generate_model_card()
+        assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+
+        model.save_pretrained(self.cache_dir)
+        card_reloaded = ModelCard.load(self.cache_dir / "README.md")
+
+        assert str(card) == str(card_reloaded)
+        assert card.data == card_reloaded.data
+
+    def test_load_no_config(self):
+        config_file = self.cache_dir / "config.json"
+
+        # Test creating model => auto-generated config
+        model = DummyModelNoConfig(num_classes=50)
+        assert model.config == {"num_classes": 50, "state": "layernorm"}
+
+        # Test saving model => auto-generated config is saved
+        model.save_pretrained(self.cache_dir)
+        assert config_file.exists()
+        assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "layernorm"}
+
+        # Reload model => config is reloaded
+        reloaded = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded.num_classes == 50
+        assert reloaded.state == "layernorm"
+        assert reloaded.config == {"num_classes": 50, "state": "layernorm"}
+
+        # Reload model with custom config => custom config is used
+        reloaded_with_default = DummyModelNoConfig.from_pretrained(self.cache_dir, state="other")
+        assert reloaded_with_default.num_classes == 50
+        assert reloaded_with_default.state == "other"
+        assert reloaded_with_default.config == {"num_classes": 50, "state": "other"}
+
+        reloaded_with_default.save_pretrained(self.cache_dir)
+        assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "other"}
+
+    def test_save_with_non_jsonable_config(self):
+        # Save with a non-jsonable value
+        my_object = object()
+        model = DummyModelNoConfig(not_jsonable=my_object)
+        assert model.not_jsonable is my_object
+        assert "not_jsonable" not in model.config
+
+        # Reload with default value
+        model.save_pretrained(self.cache_dir)
+        reloaded_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded_model.not_jsonable is DUMMY_OBJECT
+        assert "not_jsonable" not in model.config
+
+        # If jsonable value passed by user, it's saved in the config
+        new_model = DummyModelNoConfig(not_jsonable=123)
+        new_model.save_pretrained(self.cache_dir)
+        assert new_model.config["not_jsonable"] == 123
+
+        reloaded_new_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded_new_model.not_jsonable == 123
+        assert reloaded_new_model.config["not_jsonable"] == 123
 
     def test_save_model_with_shared_tensors(self):
         """

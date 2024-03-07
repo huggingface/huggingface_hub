@@ -178,6 +178,15 @@ DUMMY_MODELCARD_EMPTY_METADATA = """
 Some cool dataset card.
 """
 
+DUMMY_MODEL_CARD_TEMPLATE = """
+---
+{{ card_data }}
+---
+
+Custom template passed as a string.
+{{ repo_url | default("[More Information Needed]", true) }}
+"""
+
 
 def require_jinja(test_case):
     """
@@ -586,7 +595,8 @@ class RepoCardTest(TestCaseWithHfApi):
         )
 
     @require_jinja
-    def test_repo_card_from_custom_template(self):
+    def test_repo_card_from_custom_template_path(self):
+        # Template is passed as a path (not a raw string)
         template_path = SAMPLE_CARDS_DIR / "sample_template.md"
         card = RepoCard.from_template(
             card_data=CardData(
@@ -604,6 +614,15 @@ class RepoCardTest(TestCaseWithHfApi):
             card.text.endswith("asdf"),
             "Custom template didn't set jinja variable correctly",
         )
+
+    @require_jinja
+    def test_repo_card_from_custom_template_string(self):
+        # Template is passed as a raw string (not a path)
+        card = RepoCard.from_template(
+            card_data=CardData(language="en", license="mit"),
+            template_str=DUMMY_MODEL_CARD_TEMPLATE,
+        )
+        assert "Custom template passed as a string." in str(card)
 
     def test_repo_card_data_must_be_dict(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_card_data.md"

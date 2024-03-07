@@ -294,6 +294,7 @@ class RepoCard:
         cls,
         card_data: CardData,
         template_path: Optional[str] = None,
+        template_str: Optional[str] = None,
         **template_kwargs,
     ):
         """Initialize a RepoCard from a template. By default, it uses the default template.
@@ -322,7 +323,12 @@ class RepoCard:
 
         kwargs = card_data.to_dict().copy()
         kwargs.update(template_kwargs)  # Template_kwargs have priority
-        template = jinja2.Template(Path(template_path or cls.default_template_path).read_text())
+
+        if template_path is not None:
+            template_str = Path(template_path).read_text()
+        if template_str is None:
+            template_str = Path(cls.default_template_path).read_text()
+        template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
 
@@ -337,6 +343,7 @@ class ModelCard(RepoCard):
         cls,
         card_data: ModelCardData,
         template_path: Optional[str] = None,
+        template_str: Optional[str] = None,
         **template_kwargs,
     ):
         """Initialize a ModelCard from a template. By default, it uses the default template, which can be found here:
@@ -404,7 +411,7 @@ class ModelCard(RepoCard):
 
             ```
         """
-        return super().from_template(card_data, template_path, **template_kwargs)
+        return super().from_template(card_data, template_path, template_str, **template_kwargs)
 
 
 class DatasetCard(RepoCard):
@@ -417,6 +424,7 @@ class DatasetCard(RepoCard):
         cls,
         card_data: DatasetCardData,
         template_path: Optional[str] = None,
+        template_str: Optional[str] = None,
         **template_kwargs,
     ):
         """Initialize a DatasetCard from a template. By default, it uses the default template, which can be found here:
@@ -468,7 +476,7 @@ class DatasetCard(RepoCard):
 
             ```
         """
-        return super().from_template(card_data, template_path, **template_kwargs)
+        return super().from_template(card_data, template_path, template_str, **template_kwargs)
 
 
 class SpaceCard(RepoCard):
