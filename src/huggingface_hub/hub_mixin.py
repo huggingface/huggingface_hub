@@ -317,7 +317,10 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._init_parameters.values()):
+            elif (
+                "kwargs" in cls._init_parameters
+                and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
+            ):
                 # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
                 model_kwargs["config"] = config
 
