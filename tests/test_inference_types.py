@@ -1,9 +1,11 @@
+import inspect
 import json
 from dataclasses import dataclass
 from typing import List, Optional
 
 import pytest
 
+import huggingface_hub.inference._generated.types as types
 from huggingface_hub.inference._generated.types import BaseInferenceType
 
 from .testing_utils import expect_deprecation
@@ -138,3 +140,18 @@ def test_normalize_keys():
     assert isinstance(instance.maybe_items, list)
     assert len(instance.maybe_items) == 1
     assert isinstance(instance.maybe_items[0], DummyType)
+
+
+def test_optional_are_set_to_none():
+    _types = {v for v in types.__dict__.values() if inspect.isclass(v) and issubclass(v, types.BaseInferenceType)}
+    for _type in _types:
+        parameters = inspect.signature(_type).parameters
+        for parameter in parameters.values():
+            if "Optional" in str(parameter.annotation) or (
+                "Union" in str(parameter.annotation) and "NoneType" in str(parameter.annotation)
+            ):
+                assert parameter.default is None, f"Parameter {parameter} of {_type} should be set to None"
+            else:
+                assert (
+                    parameter.default is inspect.Parameter.empty
+                ), f"Parameter {parameter} of {_type} should not have a default"

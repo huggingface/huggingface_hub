@@ -15,13 +15,13 @@ class FillMaskParameters(BaseInferenceType):
     Additional inference parameters for Fill Mask
     """
 
-    targets: Optional[List[str]]
+    targets: Optional[List[str]] = None
     """When passed, the model will limit the scores to the passed targets instead of looking up
     in the whole vocabulary. If the provided targets are not in the model vocab, they will be
     tokenized and the first resulting token will be used (with a warning, and that might be
     slower).
     """
-    top_k: Optional[int]
+    top_k: Optional[int] = None
     """When passed, overrides the number of predictions to return."""
 
 
@@ -31,7 +31,7 @@ class FillMaskInput(BaseInferenceType):
 
     inputs: str
     """The text with masked tokens"""
-    parameters: Optional[FillMaskParameters]
+    parameters: Optional[FillMaskParameters] = None
     """Additional inference parameters"""
 
 
@@ -46,5 +46,5 @@ class FillMaskOutputElement(BaseInferenceType):
     token: int
     """The predicted token id (to replace the masked one)."""
     token_str: Any
-    fill_mask_output_token_str: Optional[str]
+    fill_mask_output_token_str: Optional[str] = None
     """The predicted token (to replace the masked one)."""

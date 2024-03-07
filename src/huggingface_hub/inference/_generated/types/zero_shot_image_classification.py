@@ -25,7 +25,7 @@ class ZeroShotImageClassificationParameters(BaseInferenceType):
     Additional inference parameters for Zero Shot Image Classification
     """
 
-    hypothesis_template: Optional[str]
+    hypothesis_template: Optional[str] = None
     """The sentence used in conjunction with candidateLabels to attempt the text classification
     by replacing the placeholder with the candidate labels.
     """
@@ -37,7 +37,7 @@ class ZeroShotImageClassificationInput(BaseInferenceType):
 
     inputs: ZeroShotImageClassificationInputData
     """The input image data, with candidate labels"""
-    parameters: Optional[ZeroShotImageClassificationParameters]
+    parameters: Optional[ZeroShotImageClassificationParameters] = None
     """Additional inference parameters"""
 
 
