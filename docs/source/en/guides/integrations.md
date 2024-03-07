@@ -143,12 +143,11 @@ your library, you should:
     model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you
-are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All
-of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well
-documented and type annotated.
+The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well documented and type annotated.
 
 As a bonus, [`ModelHubMixin`] handles the model configuration for you. If your `__init__` method expects a `config` input, it will be automatically saved in the repo when calling `save_pretrained` and reloaded correctly by `load_pretrained`. Moreover, if the `config` input parameter is annotated with dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you. Finally, all jsonable values passed at initialization will be also stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it. The big advantage of having a `config.json` file in your model repository is that it automatically enables the analytics on the Hub (e.g. the "downloads" count).
+
+Finally, [`ModelHubMixin`] handles generating a model card for you. When inheriting from [`ModelHubMixin`], you can define metadata such as `library_name`, `tags`, `repo_url` and `docs_url`. Those fields will be reused to populate the modelcard of any model that use your class. This is very practical to make all models using your library easily searchable on the Hub and to provide some resource links for users landing on the Hub. If you want to extend the modelcard template, you can override the [`~ModelHubMixin.generate_model_card`] method.
 
 ### A concrete example: PyTorch
 
@@ -165,7 +164,15 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 
 
 # Define your Pytorch model exactly the same way you are used to
->>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
+>>> class MyModel(
+...         nn.Module,
+...         PyTorchModelHubMixin, # multiple inheritance
+...         library_name="keras-nlp",
+...         tags=["keras"],
+...         repo_url="https://github.com/keras-team/keras-nlp",
+...         docs_url="https://keras.io/keras_nlp/",
+...         # ^ optional metadata to generate model card
+...     ):
 ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
 ...         super().__init__()
 ...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
@@ -191,6 +198,14 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
 >>> model.config
 {"hidden_size": 128, "vocab_size": 30000, "output_size": 4}
+
+# Model card has been correctly populated
+>>> from huggingface_hub import ModelCard
+>>> card = ModelCard.load("username/my-awesome-model")
+>>> card.data.tags
+["keras", "pytorch_model_hub_mixin", "model_hub_mixin"]
+>>> card.data.library_name
+"keras-nlp"
 ```
 
 #### Implementation

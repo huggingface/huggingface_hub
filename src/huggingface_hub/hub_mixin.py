@@ -72,8 +72,15 @@ class ModelHubMixin:
     ```python
     >>> from huggingface_hub import ModelHubMixin
 
-    # Inherit from ModelHubMixin (and optionally from your framework's model class)
-    >>> class MyCustomModel(ModelHubMixin):
+    # Inherit from ModelHubMixin
+    >>> class MyCustomModel(
+    ...         ModelHubMixin,
+    ...         library_name="my-library",
+    ...         tags=["x-custom-tag"],
+    ...         repo_url="https://github.com/huggingface/my-cool-library",
+    ...         docs_url="https://huggingface.co/docs/my-cool-library",
+    ...         # ^ optional metadata to generate model card
+    ...     ):
     ...     def __init__(self, size: int = 512, device: str = "cpu"):
     ...         # define how to initialize your model
     ...         super().__init__()
@@ -112,6 +119,14 @@ class ModelHubMixin:
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
     >>> reloaded_model.config
     {"size": 256, "device": "gpu"}
+
+    # Model card has been correctly populated
+    >>> from huggingface_hub import ModelCard
+    >>> card = ModelCard.load("username/my-awesome-model")
+    >>> card.data.tags
+    ["x-custom-tag", "pytorch_model_hub_mixin", "model_hub_mixin"]
+    >>> card.data.library_name
+    "my-library"
     ```
     """
 
@@ -532,7 +547,14 @@ class PyTorchModelHubMixin(ModelHubMixin):
     >>> import torch.nn as nn
     >>> from huggingface_hub import PyTorchModelHubMixin
 
-    >>> class MyModel(nn.Module, PyTorchModelHubMixin):
+    >>> class MyModel(
+    ...         nn.Module,
+    ...         PyTorchModelHubMixin,
+    ...         library_name="keras-nlp",
+    ...         repo_url="https://github.com/keras-team/keras-nlp",
+    ...         docs_url="https://keras.io/keras_nlp/",
+    ...         # ^ optional metadata to generate model card
+    ...     ):
     ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
     ...         super().__init__()
     ...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
