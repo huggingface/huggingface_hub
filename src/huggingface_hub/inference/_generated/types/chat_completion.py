@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
 from .base import BaseInferenceType
 
@@ -13,7 +13,7 @@ Role = Literal["system", "user", "assistant"]
 
 
 @dataclass
-class MessageElement(BaseInferenceType):
+class ChatCompletionInputMessageElement(BaseInferenceType):
     role: "Role"
     """The role of the messages author, in this case system.
     The role of the messages author, in this case user.
@@ -39,7 +39,7 @@ class ChatCompletionInput(BaseInferenceType):
     """The maximum number of tokens that can be generated in the chat completion. The total
     length of input tokens and generated tokens is limited by the model's context length.
     """
-    messages: Optional[List[MessageElement]]
+    messages: Optional[List[ChatCompletionInputMessageElement]]
     model: Optional[str]
     """ID of the model to use. See the model endpoint compatibility table for details on which
     models work with the Chat API.
@@ -67,33 +67,27 @@ class ChatCompletionInput(BaseInferenceType):
 
 
 @dataclass
-class ChoiceMessage(BaseInferenceType):
+class ChatCompletionOutputChoiceMessage(BaseInferenceType):
     content: str
     """The content of the chat completion message."""
 
 
 @dataclass
-class Choice(BaseInferenceType):
+class ChatCompletionOutputChoice(BaseInferenceType):
     finish_reason: str
     """The reason the model stopped generating tokens."""
     index: int
     """The index of the choice in the list of choices."""
-    message: ChoiceMessage
+    message: ChatCompletionOutputChoiceMessage
 
 
 @dataclass
 class ChatCompletionOutput(BaseInferenceType):
     """Outputs for Chat Completion inference"""
 
-    choices: List[Choice]
+    choices: List[ChatCompletionOutputChoice]
     """A list of chat completion choices."""
     created: int
     """The Unix timestamp (in seconds) of when the chat completion was created."""
-    id: str
-    """A unique identifier for the chat completion."""
     model: str
     """The model used for the chat completion."""
-    object: Any
-    system_fingerprint: str
-    """This fingerprint represents the backend configuration that the model runs with."""
-    usage: Any

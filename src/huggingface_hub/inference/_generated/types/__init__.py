@@ -17,7 +17,13 @@ from .automatic_speech_recognition import (
     GenerationParameters,
 )
 from .base import BaseInferenceType
-from .chat_completion import ChatCompletionInput, ChatCompletionOutput, Choice, ChoiceMessage, MessageElement
+from .chat_completion import (
+    ChatCompletionInput,
+    ChatCompletionInputMessageElement,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+)
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
     DocumentQuestionAnsweringInput,

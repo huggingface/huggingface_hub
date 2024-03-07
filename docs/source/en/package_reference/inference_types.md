@@ -53,13 +53,13 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInput
 
+[[autodoc]] huggingface_hub.ChatCompletionInputMessageElement
+
 [[autodoc]] huggingface_hub.ChatCompletionOutput
 
-[[autodoc]] huggingface_hub.Choice
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoice
 
-[[autodoc]] huggingface_hub.ChoiceMessage
-
-[[autodoc]] huggingface_hub.MessageElement
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoiceMessage
 
 
 

@@ -17,43 +17,15 @@
 # and https://github.com/huggingface/text-generation-inference/tree/main/clients/python)
 #
 # Changes compared to original implementation:
-# - use pydantic.dataclasses instead of BaseModel
-# - default to Python's dataclasses if Pydantic is not installed (same implementation but no validation)
+# - use Python's dataclasses (e.g. no validation on output)
 # - added default values for all parameters (not needed in BaseModel but dataclasses yes)
-# - integrated in `huggingface_hub.InferenceClient``
+# - integrated in `huggingface_hub.InferenceClient`
 # - added `stream: bool` and `details: bool` in the `text_generation` method instead of having different methods for each use case
-import warnings
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, NoReturn, Optional
 
 from requests import HTTPError
-
-from ..utils import is_pydantic_available
-
-
-if is_pydantic_available():
-    from pydantic import validator as pydantic_validator
-    from pydantic.dataclasses import dataclass
-
-    def validator(*args, **kwargs):
-        # Pydantic v1's `@validator` is deprecated in favor of `@field_validator`. In order to support both pydantic v1
-        # and v2 without changing the logic, we catch the warning message in pydantic v2 and ignore it. If we want to
-        # support pydantic v3 in the future, we will drop support for pydantic v1 and use `pydantic.field_validator`
-        # correctly.
-        #
-        # Related:
-        # - https://docs.pydantic.dev/latest/migration/#changes-to-validators
-        # - https://github.com/huggingface/huggingface_hub/pull/1837
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message="Pydantic V1 style `@validator` validators are deprecated.")
-            return pydantic_validator(*args, **kwargs)
-else:
-    # No validation if Pydantic is not installed
-    from dataclasses import dataclass  # type: ignore
-
-    def validator(x):  # type: ignore
-        return lambda y: y
 
 
 @dataclass
@@ -131,67 +103,6 @@ class TextGenerationParameters:
     # Get decoder input token logprobs and ids
     decoder_input_details: bool = False
 
-    @validator("best_of")
-    def valid_best_of(cls, field_value, values):
-        if field_value is not None:
-            if field_value <= 0:
-                raise ValueError("`best_of` must be strictly positive")
-            if field_value > 1 and values["seed"] is not None:
-                raise ValueError("`seed` must not be set when `best_of` is > 1")
-            sampling = (
-                values["do_sample"]
-                | (values["temperature"] is not None)
-                | (values["top_k"] is not None)
-                | (values["top_p"] is not None)
-                | (values["typical_p"] is not None)
-            )
-            if field_value > 1 and not sampling:
-                raise ValueError("you must use sampling when `best_of` is > 1")
-
-        return field_value
-
-    @validator("repetition_penalty")
-    def valid_repetition_penalty(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError("`repetition_penalty` must be strictly positive")
-        return v
-
-    @validator("seed")
-    def valid_seed(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("`seed` must be positive")
-        return v
-
-    @validator("temperature")
-    def valid_temp(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError("`temperature` must be strictly positive")
-        return v
-
-    @validator("top_k")
-    def valid_top_k(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError("`top_k` must be strictly positive")
-        return v
-
-    @validator("top_p")
-    def valid_top_p(cls, v):
-        if v is not None and (v <= 0 or v >= 1.0):
-            raise ValueError("`top_p` must be > 0.0 and < 1.0")
-        return v
-
-    @validator("truncate")
-    def valid_truncate(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError("`truncate` must be strictly positive")
-        return v
-
-    @validator("typical_p")
-    def valid_typical_p(cls, v):
-        if v is not None and (v <= 0 or v >= 1.0):
-            raise ValueError("`typical_p` must be > 0.0 and < 1.0")
-        return v
-
 
 @dataclass
 class TextGenerationRequest:
@@ -214,24 +125,9 @@ class TextGenerationRequest:
     # Whether to stream output tokens
     stream: bool = False
 
-    @validator("inputs")
-    def valid_input(cls, v):
-        if not v:
-            raise ValueError("`inputs` cannot be empty")
-        return v
-
-    @validator("stream")
-    def valid_best_of_stream(cls, field_value, values):
-        parameters = values["parameters"]
-        if parameters is not None and parameters.best_of is not None and parameters.best_of > 1 and field_value:
-            raise ValueError("`best_of` != 1 is not supported when `stream` == True")
-        return field_value
-
     def __post_init__(self):
-        if not is_pydantic_available():
-            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
-            if self.parameters is not None and isinstance(self.parameters, dict):
-                self.parameters = TextGenerationParameters(**self.parameters)
+        if self.parameters is not None and isinstance(self.parameters, dict):
+            self.parameters = TextGenerationParameters(**self.parameters)
 
 
 # Decoder input tokens
@@ -332,13 +228,10 @@ class BestOfSequence:
     tokens: List[Token] = field(default_factory=lambda: [])
 
     def __post_init__(self):
-        if not is_pydantic_available():
-            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
-            self.prefill = [
-                InputToken(**input_token) if isinstance(input_token, dict) else input_token
-                for input_token in self.prefill
-            ]
-            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+        self.prefill = [
+            InputToken(**input_token) if isinstance(input_token, dict) else input_token for input_token in self.prefill
+        ]
+        self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
 
 
 # `generate` details
@@ -376,18 +269,15 @@ class Details:
     best_of_sequences: Optional[List[BestOfSequence]] = None
 
     def __post_init__(self):
-        if not is_pydantic_available():
-            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
-            self.prefill = [
-                InputToken(**input_token) if isinstance(input_token, dict) else input_token
-                for input_token in self.prefill
+        self.prefill = [
+            InputToken(**input_token) if isinstance(input_token, dict) else input_token for input_token in self.prefill
+        ]
+        self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
+        if self.best_of_sequences is not None:
+            self.best_of_sequences = [
+                BestOfSequence(**best_of_sequence) if isinstance(best_of_sequence, dict) else best_of_sequence
+                for best_of_sequence in self.best_of_sequences
             ]
-            self.tokens = [Token(**token) if isinstance(token, dict) else token for token in self.tokens]
-            if self.best_of_sequences is not None:
-                self.best_of_sequences = [
-                    BestOfSequence(**best_of_sequence) if isinstance(best_of_sequence, dict) else best_of_sequence
-                    for best_of_sequence in self.best_of_sequences
-                ]
 
 
 # `generate` return value
@@ -411,10 +301,8 @@ class TextGenerationResponse:
     details: Optional[Details] = None
 
     def __post_init__(self):
-        if not is_pydantic_available():
-            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
-            if self.details is not None and isinstance(self.details, dict):
-                self.details = Details(**self.details)
+        if self.details is not None and isinstance(self.details, dict):
+            self.details = Details(**self.details)
 
 
 # `generate_stream` details
@@ -472,12 +360,10 @@ class TextGenerationStreamResponse:
     details: Optional[StreamDetails] = None
 
     def __post_init__(self):
-        if not is_pydantic_available():
-            # If pydantic is not installed, we need to instantiate the nested dataclasses manually
-            if isinstance(self.token, dict):
-                self.token = Token(**self.token)
-            if self.details is not None and isinstance(self.details, dict):
-                self.details = StreamDetails(**self.details)
+        if isinstance(self.token, dict):
+            self.token = Token(**self.token)
+        if self.details is not None and isinstance(self.details, dict):
+            self.details = StreamDetails(**self.details)
 
 
 # TEXT GENERATION ERRORS

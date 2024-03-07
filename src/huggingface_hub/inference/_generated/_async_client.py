@@ -60,6 +60,9 @@ from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -76,6 +79,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
+from huggingface_hub.inference._templating import render_chat_prompt
 from huggingface_hub.inference._text_generation import (
     TextGenerationParameters,
     TextGenerationRequest,
@@ -134,6 +138,7 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
+        self.token: Union[str, bool, None] = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -394,6 +399,101 @@ class AsyncInferenceClient:
         response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[str] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> ChatCompletionOutput:
+        """
+        A method for completing conversations using a specified language model.
+
+        Args:
+            messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
+                Conversation history consisting of roles and content pairs.
+            model (Optional[`str`], optional):
+                Unique identifier of the model to use for inference.
+                Defaults to None.
+            frequency_penalty (`float`, optional):
+                Penalizes new tokens based on their existing frequency
+                in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
+            max_tokens (`int`, optional):
+                Maximum number of tokens allowed in the response. Defaults to 20.
+            seed (Optional[`int`], optional):
+                Seed for reproducible control flow. Defaults to None.
+            stop (Optional[`str`], optional):
+                Up to four strings which trigger the end of the response.
+                Defaults to None.
+            stream (`bool`, optional):
+                Enable realtime streaming of responses. Defaults to False.
+            temperature (`float`, optional):
+                Controls randomness of the generations. Lower values ensure
+                less random completions. Range: [0, 2]. Defaults to 1.0.
+            top_p (`float`, optional):
+                Fraction of the most likely next words to sample from.
+                Must be between 0 and 1. Defaults to 1.0.
+
+        Returns:
+            [`ChatCompletionOutput`]: An item containing the generated response.
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.chat_completion(...)
+        """
+        # determine model
+        model = model or self.model or self.get_recommended_model("text-generation")
+
+        # TODO: add support when model is a URL
+        assert not model.startswith("https://") and not model.startswith("http://")
+
+        # fetch chat template + tokens
+        prompt = render_chat_prompt(model_id=model, token=self.token, messages=messages)
+
+        # generate response
+        response = self.text_generation(
+            prompt=prompt,
+            details=True,
+            stream=False,
+            model=model,
+            max_new_tokens=max_tokens,
+            seed=seed,
+            stop_sequences=stop,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        # TODO: handle stream=True
+        assert isinstance(response, TextGenerationResponse)
+
+        return ChatCompletionOutput(
+            created=int(time.time()),
+            model=model,
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason=response.details.finish_reason,  # type: ignore
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content=response.generated_text,
+                    ),
+                )
+            ],
+        )
+
     async def conversational(
         self,
         text: str,
@@ -415,10 +515,10 @@ class AsyncInferenceClient:
                 A list of strings corresponding to the earlier replies from the user. Should be the same length as
                 `generated_responses`. Defaults to None.
             parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the conversational task. Defaults to None. For more details about the available
+                Additional parameters async for the conversational task. Defaults to None. For more details about the available
                 parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
             model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                The model to use async for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
 
@@ -433,7 +533,6 @@ class AsyncInferenceClient:
 
         Example:
         ```py
-        # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> output = await client.conversational("Hi, who are you?")
@@ -1326,9 +1425,6 @@ class AsyncInferenceClient:
         """
         Given a prompt, generate the following text.
 
-        It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
-        early failures.
-
         API endpoint is supposed to run with the `text-generation-inference` backend (TGI). This backend is the
         go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
         default `transformers` + `api-inference` solution is still in use. Both approaches have very similar APIs, but
@@ -1477,9 +1573,6 @@ class AsyncInferenceClient:
         )
         ```
         """
-        # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
-        # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
-
         if decoder_input_details and not details:
             warnings.warn(
                 "`decoder_input_details=True` has been passed to the server but `details=False` is set meaning that"
