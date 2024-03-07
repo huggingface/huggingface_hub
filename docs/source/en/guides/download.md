@@ -144,7 +144,7 @@ repo. For example if `filename="data/train.csv"` and `local_dir="path/to/folder"
   - If `local_dir_use_symlinks=True` is set, all files are symlinked for an optimal disk space optimization. This is
     for example useful when downloading a huge dataset with thousands of small files.
   - Finally, if you don't want symlinks at all you can disable them (`local_dir_use_symlinks=False`). The cache directory
-    will still be used to check wether the file is already cached or not. If already cached, the file is **duplicated**
+    will still be used to check whether the file is already cached or not. If already cached, the file is **duplicated**
     from the cache (i.e. saves bandwidth but increases disk usage). If the file is not already cached, it will be
     downloaded and moved directly to the local dir. This means that if you need to reuse it somewhere else later, it
     will be **re-downloaded**.

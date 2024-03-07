@@ -1211,7 +1211,6 @@ def hf_hub_download(
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
-    os.makedirs(storage_folder, exist_ok=True)
 
     # cross platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))

@@ -3,7 +3,7 @@ import os
 import struct
 import unittest
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,6 +16,8 @@ from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTempor
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, requires
 
+
+DUMMY_OBJECT = object()
 
 if is_torch_available():
     import torch
@@ -40,8 +42,17 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-else:
-    DummyModel = None
+    class DummyModelNoConfig(nn.Module, PyTorchModelHubMixin):
+        def __init__(
+            self,
+            num_classes: int = 42,
+            state: str = "layernorm",
+            not_jsonable: Any = DUMMY_OBJECT,
+        ):
+            super().__init__()
+            self.num_classes = num_classes
+            self.state = state
+            self.not_jsonable = not_jsonable
 
 
 @requires("torch")
@@ -250,3 +261,82 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         assert str(card) == str(card_reloaded)
         assert card.data == card_reloaded.data
+
+    def test_load_no_config(self):
+        config_file = self.cache_dir / "config.json"
+
+        # Test creating model => auto-generated config
+        model = DummyModelNoConfig(num_classes=50)
+        assert model.config == {"num_classes": 50, "state": "layernorm"}
+
+        # Test saving model => auto-generated config is saved
+        model.save_pretrained(self.cache_dir)
+        assert config_file.exists()
+        assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "layernorm"}
+
+        # Reload model => config is reloaded
+        reloaded = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded.num_classes == 50
+        assert reloaded.state == "layernorm"
+        assert reloaded.config == {"num_classes": 50, "state": "layernorm"}
+
+        # Reload model with custom config => custom config is used
+        reloaded_with_default = DummyModelNoConfig.from_pretrained(self.cache_dir, state="other")
+        assert reloaded_with_default.num_classes == 50
+        assert reloaded_with_default.state == "other"
+        assert reloaded_with_default.config == {"num_classes": 50, "state": "other"}
+
+        reloaded_with_default.save_pretrained(self.cache_dir)
+        assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "other"}
+
+    def test_save_with_non_jsonable_config(self):
+        # Save with a non-jsonable value
+        my_object = object()
+        model = DummyModelNoConfig(not_jsonable=my_object)
+        assert model.not_jsonable is my_object
+        assert "not_jsonable" not in model.config
+
+        # Reload with default value
+        model.save_pretrained(self.cache_dir)
+        reloaded_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded_model.not_jsonable is DUMMY_OBJECT
+        assert "not_jsonable" not in model.config
+
+        # If jsonable value passed by user, it's saved in the config
+        new_model = DummyModelNoConfig(not_jsonable=123)
+        new_model.save_pretrained(self.cache_dir)
+        assert new_model.config["not_jsonable"] == 123
+
+        reloaded_new_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
+        assert reloaded_new_model.not_jsonable == 123
+        assert reloaded_new_model.config["not_jsonable"] == 123
+
+    def test_save_model_with_shared_tensors(self):
+        """
+        Regression test for #2086. Shared tensors should be saved correctly.
+
+        See https://github.com/huggingface/huggingface_hub/pull/2086 for more details.
+        """
+
+        class ModelWithSharedTensors(nn.Module, PyTorchModelHubMixin):
+            def __init__(self):
+                super().__init__()
+                self.a = nn.Linear(100, 100)
+                self.b = self.a
+
+            def forward(self, x):
+                return self.b(self.a(x))
+
+        # Save and reload model
+        model = ModelWithSharedTensors()
+        model.save_pretrained(self.cache_dir)
+        reloaded = ModelWithSharedTensors.from_pretrained(self.cache_dir)
+
+        # Linear layers should share weights and biases in memory
+        state_dict = reloaded.state_dict()
+        a_weight_ptr = state_dict["a.weight"].storage().data_ptr()
+        b_weight_ptr = state_dict["b.weight"].storage().data_ptr()
+        a_bias_ptr = state_dict["a.bias"].storage().data_ptr()
+        b_bias_ptr = state_dict["b.bias"].storage().data_ptr()
+        assert a_weight_ptr == b_weight_ptr
+        assert a_bias_ptr == b_bias_ptr
