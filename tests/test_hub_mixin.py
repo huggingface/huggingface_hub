@@ -76,6 +76,16 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
+class DummyModelWithKwargsInjectConfig(BaseModel, ModelHubMixin, inject_config_in_kwargs=True):
+    def __init__(self, **kwargs):
+        pass
+
+
+class DummyModelWithKwargsInjectConfigAsKwargs(BaseModel, ModelHubMixin, inject_config_values_in_kwargs=True):
+    def __init__(self, **kwargs):
+        pass
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -156,29 +166,30 @@ class HubMixinTest(unittest.TestCase):
 
     def test_init_accepts_kwargs_with_config(self):
         """
-        Test that if `__init__` accepts **kwargs and config file exists then the 'config' kwargs is passed.
+        Test that if `inject_config_in_kwargs=True` and config file exists then the 'config' kwarg is passed.
 
-        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        Regression test.
+        See https://github.com/huggingface/huggingface_hub/pull/2058.
+        And https://github.com/huggingface/huggingface_hub/pull/2099.
         """
-        model = DummyModelWithKwargs()
+        model = DummyModelWithKwargsInjectConfig()
         model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
         with patch.object(
-            DummyModelWithKwargs, "_from_pretrained", return_value=DummyModelWithKwargs()
+            DummyModelWithKwargsInjectConfig, "_from_pretrained", return_value=DummyModelWithKwargsInjectConfig()
         ) as from_pretrained_mock:
-            model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
-            assert "config" in from_pretrained_mock.call_args_list[0].kwargs
+            DummyModelWithKwargsInjectConfig.from_pretrained(self.cache_dir)
+        assert "config" in from_pretrained_mock.call_args_list[0].kwargs
 
     def test_init_accepts_kwargs_save_and_load(self):
-        model = DummyModelWithKwargs(something="else")
+        model = DummyModelWithKwargsInjectConfigAsKwargs(something="else")
         model.save_pretrained(self.cache_dir)
         assert model.config == {"something": "else"}
 
-        with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
-            DummyModelWithKwargs.from_pretrained(self.cache_dir)
+        with patch.object(DummyModelWithKwargsInjectConfigAsKwargs, "__init__", return_value=None) as init_call_mock:
+            DummyModelWithKwargsInjectConfigAsKwargs.from_pretrained(self.cache_dir)
 
         # 'something' is passed to __init__ both as kwarg and in config.
         init_kwargs = init_call_mock.call_args_list[0].kwargs
-        assert init_kwargs["config"] == {"something": "else"}
         assert init_kwargs["something"] == "else"
 
     def test_save_pretrained_with_push_to_hub(self):

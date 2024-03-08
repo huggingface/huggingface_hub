@@ -136,14 +136,21 @@ class ModelHubMixin:
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _init_parameters: Dict[str, inspect.Parameter]
     _jsonable_default_values: Dict[str, Any]
+    _inject_config_in_kwargs: bool
+    _inject_config_values_in_kwargs: bool
     # ^ internal values to handle config
 
     def __init_subclass__(
         cls,
+        *,
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
+        # If True, `config=config` will be injected in __init__.py
+        inject_config_in_kwargs: bool = False,
+        # If True, config values will be injected in __init__.py as kwargs
+        inject_config_values_in_kwargs: bool = False,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -165,6 +172,10 @@ class ModelHubMixin:
             for param in cls._init_parameters.values()
             if param.default is not inspect.Parameter.empty and is_jsonable(param.default)
         }
+
+        # Class-level config
+        cls._inject_config_in_kwargs = inject_config_in_kwargs
+        cls._inject_config_values_in_kwargs = inject_config_values_in_kwargs
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
         """Create a new instance of the class and handle config.
@@ -378,15 +389,14 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            elif (
-                "kwargs" in cls._init_parameters
-                and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
-            ):
-                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict) + individual values
-                model_kwargs["config"] = config
-                for key, value in config.items():
-                    if key not in model_kwargs:
-                        model_kwargs[key] = value
+            else:
+                # Inject config in kwargs if required by the class
+                if cls._inject_config_in_kwargs:
+                    model_kwargs["config"] = config
+                if cls._inject_config_values_in_kwargs:
+                    for key, value in config.items():
+                        if key not in model_kwargs:
+                            model_kwargs[key] = value
 
         instance = cls._from_pretrained(
             model_id=str(model_id),
