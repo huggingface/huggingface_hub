@@ -364,7 +364,7 @@ def _upload_lfs_files(
             revision=revision,
             endpoint=endpoint,
             headers=headers,
-            token=None,
+            token=None,  # already passed in 'headers'
         )
 
         # If at least 1 error, we do not retrieve information for other chunks
