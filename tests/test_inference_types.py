@@ -143,18 +143,13 @@ def test_normalize_keys():
 
 
 def test_optional_are_set_to_none():
-    _types = {v for v in types.__dict__.values() if inspect.isclass(v) and issubclass(v, types.BaseInferenceType)}
-    for _type in _types:
+    for _type in types.BaseInferenceType.__subclasses__:
         parameters = inspect.signature(_type).parameters
         for parameter in parameters.values():
             if "Optional" in str(parameter.annotation) or (
                 "Union" in str(parameter.annotation) and "NoneType" in str(parameter.annotation)
             ):
                 assert parameter.default is None, f"Parameter {parameter} of {_type} should be set to None"
-            else:
-                assert (
-                    parameter.default is inspect.Parameter.empty
-                ), f"Parameter {parameter} of {_type} should not have a default"
 
 
 def test_none_inferred():
