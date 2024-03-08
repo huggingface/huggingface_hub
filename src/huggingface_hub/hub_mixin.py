@@ -382,8 +382,11 @@ class ModelHubMixin:
                 "kwargs" in cls._init_parameters
                 and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
             ):
-                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
+                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict) + individual values
                 model_kwargs["config"] = config
+                for key, value in config.items():
+                    if key not in model_kwargs:
+                        model_kwargs[key] = value
 
         instance = cls._from_pretrained(
             model_id=str(model_id),

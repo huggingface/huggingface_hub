@@ -168,6 +168,19 @@ class HubMixinTest(unittest.TestCase):
             model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
             assert "config" in from_pretrained_mock.call_args_list[0].kwargs
 
+    def test_init_accepts_kwargs_save_and_load(self):
+        model = DummyModelWithKwargs(something="else")
+        model.save_pretrained(self.cache_dir)
+        assert model.config == {"something": "else"}
+
+        with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
+            DummyModelWithKwargs.from_pretrained(self.cache_dir)
+
+        # 'something' is passed to __init__ both as kwarg and in config.
+        init_kwargs = init_call_mock.call_args_list[0].kwargs
+        assert init_kwargs["config"] == {"something": "else"}
+        assert init_kwargs["something"] == "else"
+
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
         save_directory = self.cache_dir / repo_id
