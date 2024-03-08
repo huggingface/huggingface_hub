@@ -158,6 +158,7 @@ def test_optional_are_set_to_none():
 
 
 def test_none_inferred():
+    """Regression test for https://github.com/huggingface/huggingface_hub/pull/2095"""
     # Doing this should not fail with
     # TypeError: __init__() missing 2 required positional arguments: 'generate' and 'return_timestamps'
     AutomaticSpeechRecognitionParameters()
