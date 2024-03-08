@@ -39,7 +39,9 @@ def main():
 
     # Let's go
     args = parser.parse_args()
-
+    # Convert repo_id to lower case. fix case issues causing cache invalidation
+    if hasattr(args, "repo_id"):
+        args.repo_id = args.repo_id.lower()
     if not hasattr(args, "func"):
         parser.print_help()
         exit(1)
