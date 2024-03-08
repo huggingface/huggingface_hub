@@ -67,6 +67,24 @@ class ModelHubMixin:
     have to be overwritten in  [`_from_pretrained`] and [`_save_pretrained`]. [`PyTorchModelHubMixin`] is a good example
     of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
 
+    When inheriting from [`ModelHubMixin`], you can define class-level attributes. These attributes are not passed to
+    `__init__` but to the class definition itself. This is useful to define metadata about the library integrating
+    [`ModelHubMixin`].
+
+    Args:
+        library_name (`str`, *optional*):
+            Name of the library integrating ModelHubMixin. Used to generate model card.
+        tags (`List[str]`, *optional*):
+            Tags to be added to the model card. Used to generate model card.
+        repo_url (`str`, *optional*):
+            URL of the library repository. Used to generate model card.
+        docs_url (`str`, *optional*):
+            URL of the library documentation. Used to generate model card.
+        inject_config_in_kwargs (`bool`, *optional*, defaults to `False`):
+            If True, `config=config` will be injected in `_from_pretrained`.
+        inject_config_values_in_kwargs (`bool`, *optional*, defaults to `False`):
+            If True, config values will be injected in `_from_pretrained` as kwargs.
+
     Example:
 
     ```python
