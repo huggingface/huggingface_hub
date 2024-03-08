@@ -76,12 +76,12 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
-class DummyModelWithKwargsInjectConfig(BaseModel, ModelHubMixin, inject_config_in_kwargs=True):
+class DummyModelWithKwargsInjectConfig(BaseModel, ModelHubMixin, config_inject_mode="as_config"):
     def __init__(self, **kwargs):
         pass
 
 
-class DummyModelWithKwargsInjectConfigAsKwargs(BaseModel, ModelHubMixin, inject_config_values_in_kwargs=True):
+class DummyModelWithKwargsInjectConfigAsKwargs(BaseModel, ModelHubMixin, config_inject_mode="as_kwargs"):
     def __init__(self, **kwargs):
         pass
 
@@ -166,7 +166,7 @@ class HubMixinTest(unittest.TestCase):
 
     def test_init_accepts_kwargs_with_config(self):
         """
-        Test that if `inject_config_in_kwargs=True` and config file exists then the 'config' kwarg is passed.
+        Test that if `config_inject_mode="as_kwargs"` and config file exists then the 'config' kwarg is passed.
 
         Regression test.
         See https://github.com/huggingface/huggingface_hub/pull/2058.
