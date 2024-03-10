@@ -471,8 +471,24 @@ class KerasModelHubMixin(ModelHubMixin):
             )
         else:
             storage_folder = model_id
+    
+        files = os.listdir(storage_folder)
+        modelFileName = None
+        nbModel = 0
+        for file in files :
+          if file.endswith(".keras"):
+            modelFileName = file
+            nbModel +=1
+        
+        if modelFileName==None:
+          raise ValueError("Repository does not have model that ends with .keras!!!")
 
-        model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+        if nbModel > 1:
+          raise ValueError("Too many models!!!")
+
+        modelPath = storage_folder + '/' + modelFileName
+
+        model = tf.keras.models.load_model(modelPath, **model_kwargs)
 
         # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
         model.config = cfg
