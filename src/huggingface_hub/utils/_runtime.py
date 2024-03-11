@@ -19,9 +19,10 @@ import platform
 import sys
 import warnings
 from functools import wraps
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 from .. import __version__, constants
+from ._typing import CallableT
 
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
@@ -150,7 +151,7 @@ def get_keras_version() -> str:
     return _get_version("keras")
 
 
-def require_keras_2(fn: Callable) -> None:
+def require_keras_2(fn: CallableT) -> CallableT:
     @wraps(fn)
     def _inner(*args, **kwargs):
         if not is_keras_available():
@@ -164,7 +165,7 @@ def require_keras_2(fn: Callable) -> None:
             )
         return fn(*args, **kwargs)
 
-    return _inner
+    return _inner  # type: ignore [return-value]
 
 
 # Numpy
