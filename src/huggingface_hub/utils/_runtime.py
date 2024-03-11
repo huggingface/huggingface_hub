@@ -18,7 +18,8 @@ import importlib.metadata
 import platform
 import sys
 import warnings
-from typing import Any, Dict
+from functools import wraps
+from typing import Any, Callable, Dict
 
 from .. import __version__, constants
 
@@ -35,6 +36,7 @@ _CANDIDATES = {
     "graphviz": {"graphviz"},
     "hf_transfer": {"hf_transfer"},
     "jinja": {"Jinja2"},
+    "keras": {"keras"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
     "pydantic": {"pydantic"},
@@ -137,6 +139,32 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# keras
+def is_keras_available() -> bool:
+    return is_package_available("keras")
+
+
+def get_keras_version() -> str:
+    return _get_version("keras")
+
+
+def require_keras_2(fn: Callable) -> None:
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        if not is_keras_available():
+            raise ImportError(
+                f"Cannot use '{fn.__name__}': Keras is not available." " Please install it with `pip install keras`."
+            )
+        if get_keras_version().startswith("3."):
+            raise ImportError(
+                f"Cannot use '{fn.__name__}': Keras 3.x is not supported."
+                " Please save models manually and upload them using `upload_folder` or `huggingface-cli upload`."
+            )
+        return fn(*args, **kwargs)
+
+    return _inner
 
 
 # Numpy
@@ -322,6 +350,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Torch"] = get_torch_version()
     info["Jinja2"] = get_jinja_version()
     info["Graphviz"] = get_graphviz_version()
+    info["keras"] = get_keras_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()

@@ -18,6 +18,7 @@ from huggingface_hub.utils import (
 from .constants import CONFIG_NAME
 from .hf_api import HfApi
 from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils._runtime import require_keras_2
 
 
 logger = logging.get_logger(__name__)
@@ -128,6 +129,7 @@ def _create_model_card(
     readme_path.write_text(model_card)
 
 
+@require_keras_2
 def save_pretrained_keras(
     model,
     save_directory: Union[str, Path],
@@ -213,6 +215,7 @@ def save_pretrained_keras(
     tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
+@require_keras_2
 def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
     r"""
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
@@ -272,6 +275,7 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
     return KerasModelHubMixin.from_pretrained(*args, **kwargs)
 
 
+@require_keras_2
 @validate_hf_hub_args
 def push_to_hub_keras(
     model,
@@ -434,6 +438,7 @@ class KerasModelHubMixin(ModelHubMixin):
         save_pretrained_keras(self, save_directory)
 
     @classmethod
+    @require_keras_2
     def _from_pretrained(
         cls,
         model_id,
