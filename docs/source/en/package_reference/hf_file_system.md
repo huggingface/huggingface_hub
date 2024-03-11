@@ -12,4 +12,7 @@ The `HfFileSystem` class provides a pythonic file interface to the Hugging Face 
 
 [[autodoc]] HfFileSystem
     - __init__
+    - rm
+    - find
+    - glob
     - all
