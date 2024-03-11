@@ -248,7 +248,7 @@ class ModelHubMixin:
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # save config (if provided)
+        # save config (if provided and if not serialized yet in `_save_pretrained`)
         if config is None:
             config = self.config
         if config is not None:
