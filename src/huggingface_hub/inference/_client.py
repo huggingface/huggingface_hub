@@ -68,6 +68,7 @@ from huggingface_hub.inference._common import (
     _open_as_binary,
     _set_as_non_tgi,
     _stream_text_generation_response,
+    raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
@@ -95,9 +96,6 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._templating import render_chat_prompt
-from huggingface_hub.inference._text_generation import (
-    raise_text_generation_error,
-)
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )

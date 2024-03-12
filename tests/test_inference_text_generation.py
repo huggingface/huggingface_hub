@@ -10,14 +10,14 @@ import pytest
 from requests import HTTPError
 
 from huggingface_hub import InferenceClient, PrefillToken
-from huggingface_hub.inference._common import _NON_TGI_SERVERS
-from huggingface_hub.inference._text_generation import (
+from huggingface_hub.inference._common import (
+    _NON_TGI_SERVERS,
     GenerationError,
     IncompleteGenerationError,
     OverloadedError,
     raise_text_generation_error,
 )
-from huggingface_hub.inference._text_generation import (
+from huggingface_hub.inference._common import (
     ValidationError as TextGenerationValidationError,
 )
 

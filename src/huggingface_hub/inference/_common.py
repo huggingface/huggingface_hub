@@ -32,6 +32,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    NoReturn,
     Optional,
     Set,
     Union,
@@ -50,7 +51,6 @@ from ..utils import (
     is_pillow_available,
 )
 from ._generated.types import TextGenerationStreamOutput
-from ._text_generation import _parse_text_generation_error
 
 
 if TYPE_CHECKING:
@@ -330,3 +330,74 @@ def _set_as_non_tgi(model: Optional[str]) -> None:
 
 def _is_tgi_server(model: Optional[str]) -> bool:
     return model not in _NON_TGI_SERVERS
+
+
+# TEXT GENERATION ERRORS
+# ----------------------
+# Text-generation errors are parsed separately to handle as much as possible the errors returned by the text generation
+# inference project (https://github.com/huggingface/text-generation-inference).
+# ----------------------
+
+
+class TextGenerationError(HTTPError):
+    """Generic error raised if text-generation went wrong."""
+
+
+# Text Generation Inference Errors
+class ValidationError(TextGenerationError):
+    """Server-side validation error."""
+
+
+class GenerationError(TextGenerationError):
+    pass
+
+
+class OverloadedError(TextGenerationError):
+    pass
+
+
+class IncompleteGenerationError(TextGenerationError):
+    pass
+
+
+class UnknownError(TextGenerationError):
+    pass
+
+
+def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
+    """
+    Try to parse text-generation-inference error message and raise HTTPError in any case.
+
+    Args:
+        error (`HTTPError`):
+            The HTTPError that have been raised.
+    """
+    # Try to parse a Text Generation Inference error
+
+    try:
+        # Hacky way to retrieve payload in case of aiohttp error
+        payload = getattr(http_error, "response_error_payload", None) or http_error.response.json()
+        error = payload.get("error")
+        error_type = payload.get("error_type")
+    except Exception:  # no payload
+        raise http_error
+
+    # If error_type => more information than `hf_raise_for_status`
+    if error_type is not None:
+        exception = _parse_text_generation_error(error, error_type)
+        raise exception from http_error
+
+    # Otherwise, fallback to default error
+    raise http_error
+
+
+def _parse_text_generation_error(error: Optional[str], error_type: Optional[str]) -> TextGenerationError:
+    if error_type == "generation":
+        return GenerationError(error)  # type: ignore
+    if error_type == "incomplete_generation":
+        return IncompleteGenerationError(error)  # type: ignore
+    if error_type == "overloaded":
+        return OverloadedError(error)  # type: ignore
+    if error_type == "validation":
+        return ValidationError(error)  # type: ignore
+    return UnknownError(error)  # type: ignore

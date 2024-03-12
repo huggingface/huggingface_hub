@@ -31,8 +31,8 @@ from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
 from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError, PrefillToken
+from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _is_tgi_server
-from huggingface_hub.inference._text_generation import ValidationError as TextGenerationValidationError
 
 
 @pytest.fixture(autouse=True)
