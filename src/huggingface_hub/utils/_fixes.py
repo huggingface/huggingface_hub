@@ -85,7 +85,7 @@ def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, N
     yield lock
 
     try:
-        return lock._release()
+        return lock.release()
     except OSError:
         try:
             Path(lock_file).unlink()
