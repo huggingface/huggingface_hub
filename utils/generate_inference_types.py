@@ -134,6 +134,17 @@ def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
     return content
 
 
+def _make_optional_fields_default_to_none(content: str):
+    lines = []
+    for line in content.split("\n"):
+        if "Optional[" in line and not line.endswith("None"):
+            line += " = None"
+
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
 def _list_dataclasses(content: str) -> List[str]:
     """List all dataclasses defined in the module."""
     return INHERITED_DATACLASS_REGEX.findall(content)
@@ -143,6 +154,7 @@ def fix_inference_classes(content: str, module_name: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
     content = _fix_naming_for_shared_classes(content, module_name)
+    content = _make_optional_fields_default_to_none(content)
     return content
 
 

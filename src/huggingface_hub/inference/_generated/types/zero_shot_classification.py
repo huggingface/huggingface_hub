@@ -25,11 +25,11 @@ class ZeroShotClassificationParameters(BaseInferenceType):
     Additional inference parameters for Zero Shot Classification
     """
 
-    hypothesis_template: Optional[str]
+    hypothesis_template: Optional[str] = None
     """The sentence used in conjunction with candidateLabels to attempt the text classification
     by replacing the placeholder with the candidate labels.
     """
-    multi_label: Optional[bool]
+    multi_label: Optional[bool] = None
     """Whether multiple candidate labels can be true. If false, the scores are normalized such
     that the sum of the label likelihoods for each sequence is 1. If true, the labels are
     considered independent and probabilities are normalized for each candidate.
@@ -42,7 +42,7 @@ class ZeroShotClassificationInput(BaseInferenceType):
 
     inputs: ZeroShotClassificationInputData
     """The input text data, with candidate labels"""
-    parameters: Optional[ZeroShotClassificationParameters]
+    parameters: Optional[ZeroShotClassificationParameters] = None
     """Additional inference parameters"""
 
 
