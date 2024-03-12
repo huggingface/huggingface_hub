@@ -23,6 +23,9 @@ from .chat_completion import (
     ChatCompletionOutput,
     ChatCompletionOutputChoice,
     ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (

@@ -61,6 +61,12 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionOutputChoiceMessage
 
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDelta
+
 
 
 ## depth_estimation
