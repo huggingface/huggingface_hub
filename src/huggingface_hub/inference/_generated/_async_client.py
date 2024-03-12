@@ -407,7 +407,7 @@ class AsyncInferenceClient:
         stream: bool = False,
         max_tokens: int = 20,
         seed: Optional[int] = None,
-        stop: Optional[str] = None,
+        stop: Optional[Union[List[str], str]] = None,
         temperature: float = 1.0,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput:
@@ -465,6 +465,7 @@ class AsyncInferenceClient:
         prompt = render_chat_prompt(model_id=model, token=self.token, messages=messages)
 
         # generate response
+        stop_sequences = [stop] if isinstance(stop, str) else stop
         response = self.text_generation(
             prompt=prompt,
             details=True,
@@ -472,7 +473,7 @@ class AsyncInferenceClient:
             model=model,
             max_new_tokens=max_tokens,
             seed=seed,
-            stop_sequences=stop,
+            stop_sequences=stop_sequences,
             temperature=temperature,
             top_p=top_p,
         )

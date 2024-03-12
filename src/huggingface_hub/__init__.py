@@ -271,7 +271,7 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionParameters",
         "BoundingBox",
         "ChatCompletionInput",
-        "ChatCompletionInputMessageElement",
+        "ChatCompletionInputMessage",
         "ChatCompletionOutput",
         "ChatCompletionOutputChoice",
         "ChatCompletionOutputChoiceMessage",
@@ -724,7 +724,7 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         BoundingBox,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
-        ChatCompletionInputMessageElement,  # noqa: F401
+        ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputChoice,  # noqa: F401
         ChatCompletionOutputChoiceMessage,  # noqa: F401

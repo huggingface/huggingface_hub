@@ -19,7 +19,7 @@ from .automatic_speech_recognition import (
 from .base import BaseInferenceType
 from .chat_completion import (
     ChatCompletionInput,
-    ChatCompletionInputMessageElement,
+    ChatCompletionInputMessage,
     ChatCompletionOutput,
     ChatCompletionOutputChoice,
     ChatCompletionOutputChoiceMessage,

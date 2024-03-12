@@ -53,7 +53,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInput
 
-[[autodoc]] huggingface_hub.ChatCompletionInputMessageElement
+[[autodoc]] huggingface_hub.ChatCompletionInputMessage
 
 [[autodoc]] huggingface_hub.ChatCompletionOutput
 
