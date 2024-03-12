@@ -9,13 +9,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from requests import HTTPError
 
-from huggingface_hub import InferenceClient
+from huggingface_hub import InferenceClient, PrefillToken
 from huggingface_hub.inference._common import _NON_TGI_SERVERS
 from huggingface_hub.inference._text_generation import (
-    FinishReason,
     GenerationError,
     IncompleteGenerationError,
-    InputToken,
     OverloadedError,
     raise_text_generation_error,
 )
@@ -70,11 +68,11 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = self.client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
         assert len(response.details.prefill) == 1
-        assert response.details.prefill[0] == InputToken(id=0, text="<pad>", logprob=None)
+        assert response.details.prefill[0] == PrefillToken(id=0, text="<pad>", logprob=None)
         assert len(response.details.tokens) == 1
         assert response.details.tokens[0].id == 3
         assert response.details.tokens[0].text == " "
@@ -103,7 +101,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = responses[0]
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
 
@@ -116,7 +114,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = responses[0]
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
 

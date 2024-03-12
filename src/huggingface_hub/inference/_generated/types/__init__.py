@@ -64,12 +64,15 @@ from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationO
 from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
 from .text_generation import (
     PrefillToken,
+    TextGenerationDetails,
     TextGenerationInput,
     TextGenerationOutput,
     TextGenerationOutputDetails,
     TextGenerationParameters,
-    TextGenerationSequenceDetails,
-    Token,
+    TextGenerationStreamDetails,
+    TextGenerationStreamOutput,
+    TextGenerationStreamOutputToken,
+    TokenElement,
 )
 from .text_to_audio import TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters

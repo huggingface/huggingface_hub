@@ -23,7 +23,6 @@ import base64
 import logging
 import time
 import warnings
-from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -73,6 +72,8 @@ from huggingface_hub.inference._generated.types import (
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
+    TextGenerationOutput,
+    TextGenerationStreamOutput,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
@@ -81,10 +82,6 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.inference._templating import render_chat_prompt
 from huggingface_hub.inference._text_generation import (
-    TextGenerationParameters,
-    TextGenerationRequest,
-    TextGenerationResponse,
-    TextGenerationStreamResponse,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._types import (
@@ -479,11 +476,10 @@ class AsyncInferenceClient:
         )
 
         # TODO: handle stream=True
-        assert isinstance(response, TextGenerationResponse)
+        assert isinstance(response, TextGenerationOutput)
 
         return ChatCompletionOutput(
             created=int(time.time()),
-            model=model,
             choices=[
                 ChatCompletionOutputChoice(
                     finish_reason=response.details.finish_reason,  # type: ignore
@@ -1353,7 +1349,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> TextGenerationResponse: ...
+    ) -> TextGenerationOutput: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1399,7 +1395,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> AsyncIterable[TextGenerationStreamResponse]: ...
+    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
 
     async def text_generation(
         self,
@@ -1422,7 +1418,7 @@ class AsyncInferenceClient:
         typical_p: Optional[float] = None,
         watermark: bool = False,
         decoder_input_details: bool = False,
-    ) -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
 
@@ -1483,12 +1479,12 @@ class AsyncInferenceClient:
                 into account. Defaults to `False`.
 
         Returns:
-            `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`:
+            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
-            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
-            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`]
+            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
+            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 
         Raises:
             `ValidationError`:
@@ -1526,23 +1522,23 @@ class AsyncInferenceClient:
 
         # Case 3: get more details about the generation process.
         >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
-        TextGenerationResponse(
+        TextGenerationOutput(
             generated_text='100% open source and built to be easy to use.',
-            details=Details(
-                finish_reason=<FinishReason.Length: 'length'>,
+            details=TextGenerationDetails(
+                finish_reason='length',
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    InputToken(id=487, text='The', logprob=None),
-                    InputToken(id=53789, text=' hugging', logprob=-13.171875),
+                    PrefillToken(id=487, text='The', logprob=None),
+                    PrefillToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    InputToken(id=204, text=' ', logprob=-7.0390625)
+                    PrefillToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
-                    Token(id=1425, text='100', logprob=-1.0175781, special=False),
-                    Token(id=16, text='%', logprob=-0.0463562, special=False),
+                    TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
+                    TokenElement(id=16, text='%', logprob=-0.0463562, special=False),
                     (...)
-                    Token(id=25, text='.', logprob=-0.5703125, special=False)
+                    TokenElement(id=25, text='.', logprob=-0.5703125, special=False)
                 ],
                 best_of_sequences=None
             )
@@ -1553,24 +1549,24 @@ class AsyncInferenceClient:
         >>> async for details in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
         ...     print(details)
         ...
-        TextGenerationStreamResponse(token=Token(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(
+        TextGenerationStreamOutput(token=TokenElement(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(
             id=25,
             text='.',
             logprob=-0.5703125,
             special=False),
             generated_text='100% open source and built to be easy to use.',
-            details=StreamDetails(finish_reason=<FinishReason.Length: 'length'>, generated_tokens=12, seed=None)
+            details=TextGenerationStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
         ```
         """
@@ -1581,34 +1577,42 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
-        # Validate parameters
-        parameters = TextGenerationParameters(
-            best_of=best_of,
-            details=details,
-            do_sample=do_sample,
-            max_new_tokens=max_new_tokens,
-            repetition_penalty=repetition_penalty,
-            return_full_text=return_full_text,
-            seed=seed,
-            stop=stop_sequences if stop_sequences is not None else [],
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            truncate=truncate,
-            typical_p=typical_p,
-            watermark=watermark,
-            decoder_input_details=decoder_input_details,
-        )
-        request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
-        payload = asdict(request)
+        # Build payload
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "best_of": best_of,
+                "decoder_input_details": decoder_input_details,
+                "details": details,
+                "do_sample": do_sample,
+                "max_new_tokens": max_new_tokens,
+                "repetition_penalty": repetition_penalty,
+                "return_full_text": return_full_text,
+                "seed": seed,
+                "stop": stop_sequences if stop_sequences is not None else [],
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p,
+                "truncate": truncate,
+                "typical_p": typical_p,
+                "watermark": watermark,
+            },
+            "stream": False,
+        }
 
         # Remove some parameters if not a TGI server
         if not _is_tgi_server(model):
+            parameters: Dict = payload["parameters"]  # type: ignore [assignment]
+
+            # `stop` is named `stop_sequences` on transformers-based server
+            parameters["stop_sequences"] = parameters["stop"]
+            del parameters["stop"]
+
             ignored_parameters = []
-            for key in "watermark", "stop", "details", "decoder_input_details", "best_of":
-                if payload["parameters"][key] is not None:
+            for key in "watermark", "details", "decoder_input_details", "best_of":
+                if parameters[key] is not None:
                     ignored_parameters.append(key)
-                del payload["parameters"][key]
+                del parameters[key]
             if len(ignored_parameters) > 0:
                 warnings.warn(
                     "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
@@ -1662,7 +1666,7 @@ class AsyncInferenceClient:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
         data = _bytes_to_dict(bytes_output)[0]
-        return TextGenerationResponse(**data) if details else data["generated_text"]
+        return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(
         self,

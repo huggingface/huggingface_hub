@@ -30,9 +30,8 @@ import pytest
 from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
-from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError
+from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError, PrefillToken
 from huggingface_hub.inference._common import _is_tgi_server
-from huggingface_hub.inference._text_generation import FinishReason, InputToken
 from huggingface_hub.inference._text_generation import ValidationError as TextGenerationValidationError
 
 
@@ -59,11 +58,11 @@ async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> 
     response = await tgi_client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
 
     assert response.generated_text == ""
-    assert response.details.finish_reason == FinishReason.Length
+    assert response.details.finish_reason == "length"
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
     assert len(response.details.prefill) == 1
-    assert response.details.prefill[0] == InputToken(id=0, text="<pad>", logprob=None)
+    assert response.details.prefill[0] == PrefillToken(id=0, text="<pad>", logprob=None)
     assert len(response.details.tokens) == 1
     assert response.details.tokens[0].id == 3
     assert response.details.tokens[0].text == " "
@@ -137,7 +136,7 @@ async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClie
     response = responses[0]
 
     assert response.generated_text == ""
-    assert response.details.finish_reason == FinishReason.Length
+    assert response.details.finish_reason == "length"
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
 

@@ -320,11 +320,14 @@ _SUBMOD_ATTRS = {
         "TextClassificationInput",
         "TextClassificationOutputElement",
         "TextClassificationParameters",
+        "TextGenerationDetails",
         "TextGenerationInput",
         "TextGenerationOutput",
         "TextGenerationOutputDetails",
         "TextGenerationParameters",
-        "TextGenerationSequenceDetails",
+        "TextGenerationStreamDetails",
+        "TextGenerationStreamOutput",
+        "TextGenerationStreamOutputToken",
         "TextToAudioInput",
         "TextToAudioOutput",
         "TextToAudioParameters",
@@ -333,10 +336,10 @@ _SUBMOD_ATTRS = {
         "TextToImageParameters",
         "TextToSpeechInput",
         "TextToSpeechOutput",
-        "Token",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
+        "TokenElement",
         "TranslationInput",
         "TranslationOutput",
         "VideoClassificationInput",
@@ -773,11 +776,14 @@ if TYPE_CHECKING:  # pragma: no cover
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
+        TextGenerationDetails,  # noqa: F401
         TextGenerationInput,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
         TextGenerationParameters,  # noqa: F401
-        TextGenerationSequenceDetails,  # noqa: F401
+        TextGenerationStreamDetails,  # noqa: F401
+        TextGenerationStreamOutput,  # noqa: F401
+        TextGenerationStreamOutputToken,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
         TextToAudioParameters,  # noqa: F401
@@ -786,10 +792,10 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
-        Token,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
+        TokenElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         VideoClassificationInput,  # noqa: F401

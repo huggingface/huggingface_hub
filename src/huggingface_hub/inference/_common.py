@@ -49,7 +49,8 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ._text_generation import TextGenerationStreamResponse, _parse_text_generation_error
+from ._generated.types import TextGenerationStreamOutput
+from ._text_generation import _parse_text_generation_error
 
 
 if TYPE_CHECKING:
@@ -256,7 +257,7 @@ def _bytes_to_image(content: bytes) -> "Image":
 
 def _stream_text_generation_response(
     bytes_output_as_lines: Iterable[bytes], details: bool
-) -> Union[Iterable[str], Iterable[TextGenerationStreamResponse]]:
+) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
     # Parse ServerSentEvents
     for byte_payload in bytes_output_as_lines:
         # Skip line
@@ -273,13 +274,13 @@ def _stream_text_generation_response(
             if json_payload.get("error") is not None:
                 raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
             # Or parse token payload
-            output = TextGenerationStreamResponse(**json_payload)
+            output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
             yield output.token.text if not details else output
 
 
 async def _async_stream_text_generation_response(
     bytes_output_as_lines: AsyncIterable[bytes], details: bool
-) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
     # Parse ServerSentEvents
     async for byte_payload in bytes_output_as_lines:
         # Skip line
@@ -296,7 +297,7 @@ async def _async_stream_text_generation_response(
             if json_payload.get("error") is not None:
                 raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
             # Or parse token payload
-            output = TextGenerationStreamResponse(**json_payload)
+            output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
             yield output.token.text if not details else output
 
 
