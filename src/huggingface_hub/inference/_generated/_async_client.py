@@ -517,7 +517,8 @@ class AsyncInferenceClient:
                 response, TextGenerationOutput
             ), "Expected 'Iterable[TextGenerationStreamOutput]' since 'stream=True'"
             async for item in response:
-                if item.details is None:  # means generation is not finished
+                if item.details is None:
+                    # new token generated => return delta
                     yield ChatCompletionStreamOutput(
                         choices=[
                             ChatCompletionStreamOutputChoice(
@@ -531,7 +532,8 @@ class AsyncInferenceClient:
                         ],
                         created=created,
                     )
-                else:  # means generation is finished
+                else:
+                    # generation is completed => return finish reason
                     yield ChatCompletionStreamOutput(
                         choices=[
                             ChatCompletionStreamOutputChoice(

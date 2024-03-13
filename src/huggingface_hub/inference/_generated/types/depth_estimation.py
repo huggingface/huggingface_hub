@@ -15,7 +15,7 @@ class DepthEstimationInput(BaseInferenceType):
 
     inputs: Any
     """The input image data"""
-    parameters: Optional[Dict[str, Any]]
+    parameters: Optional[Dict[str, Any]] = None
     """Additional inference parameters"""
 
 

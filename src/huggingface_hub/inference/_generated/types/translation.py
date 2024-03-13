@@ -18,11 +18,11 @@ class Text2TextGenerationParameters(BaseInferenceType):
     Additional inference parameters for Text2text Generation
     """
 
-    clean_up_tokenization_spaces: Optional[bool]
+    clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[Dict[str, Any]]
+    generate_parameters: Optional[Dict[str, Any]] = None
     """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["Text2TextGenerationTruncationStrategy"]
+    truncation: Optional["Text2TextGenerationTruncationStrategy"] = None
     """The truncation strategy to use"""
 
 
@@ -34,7 +34,7 @@ class TranslationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[Text2TextGenerationParameters]
+    parameters: Optional[Text2TextGenerationParameters] = None
     """Additional inference parameters"""
 
 

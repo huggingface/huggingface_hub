@@ -15,7 +15,7 @@ class ObjectDetectionParameters(BaseInferenceType):
     Additional inference parameters for Object Detection
     """
 
-    threshold: Optional[float]
+    threshold: Optional[float] = None
     """The probability necessary to make a prediction."""
 
 
@@ -25,7 +25,7 @@ class ObjectDetectionInput(BaseInferenceType):
 
     inputs: Any
     """The input image data"""
-    parameters: Optional[ObjectDetectionParameters]
+    parameters: Optional[ObjectDetectionParameters] = None
     """Additional inference parameters"""
 
 
