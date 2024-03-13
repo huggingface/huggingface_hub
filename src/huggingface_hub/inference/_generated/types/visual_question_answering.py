@@ -25,7 +25,7 @@ class VisualQuestionAnsweringParameters(BaseInferenceType):
     Additional inference parameters for Visual Question Answering
     """
 
-    top_k: Optional[int]
+    top_k: Optional[int] = None
     """The number of answers to return (will be chosen by order of likelihood). Note that we
     return less than topk answers if there are not enough options available within the
     context.
@@ -38,7 +38,7 @@ class VisualQuestionAnsweringInput(BaseInferenceType):
 
     inputs: VisualQuestionAnsweringInputData
     """One (image, question) pair to answer"""
-    parameters: Optional[VisualQuestionAnsweringParameters]
+    parameters: Optional[VisualQuestionAnsweringParameters] = None
     """Additional inference parameters"""
 
 
@@ -49,5 +49,5 @@ class VisualQuestionAnsweringOutputElement(BaseInferenceType):
     label: Any
     score: float
     """The associated score / probability"""
-    answer: Optional[str]
+    answer: Optional[str] = None
     """The answer to the question"""
