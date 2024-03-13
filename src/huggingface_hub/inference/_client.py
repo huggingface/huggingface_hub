@@ -77,6 +77,9 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionOutput,
     ChatCompletionOutputChoice,
     ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -395,6 +398,34 @@ class InferenceClient:
         response = self.post(data=audio, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
+    @overload
+    def chat_completion(  # type: ignore
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[False] = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> ChatCompletionOutput: ...
+
+    @overload
+    def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[True] = True,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> Iterable[ChatCompletionStreamOutput]: ...
+
     def chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -406,7 +437,7 @@ class InferenceClient:
         stop: Optional[Union[List[str], str]] = None,
         temperature: float = 1.0,
         top_p: Optional[float] = None,
-    ) -> ChatCompletionOutput:
+    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
 
@@ -436,7 +467,10 @@ class InferenceClient:
                 Must be between 0 and 1. Defaults to 1.0.
 
         Returns:
-            [`ChatCompletionOutput`]: An item containing the generated response.
+            `Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]`:
+            Generated text returned from the server:
+            - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default)
+            - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`]
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -449,6 +483,7 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.chat_completion(...)
+        # TODO: complete example
         """
         # determine model
         model = model or self.model or self.get_recommended_model("text-generation")
@@ -464,7 +499,7 @@ class InferenceClient:
         response = self.text_generation(
             prompt=prompt,
             details=True,
-            stream=False,
+            stream=stream,
             model=model,
             max_new_tokens=max_tokens,
             seed=seed,
@@ -473,21 +508,55 @@ class InferenceClient:
             top_p=top_p,
         )
 
-        # TODO: handle stream=True
-        assert isinstance(response, TextGenerationOutput)
+        created = int(time.time())
 
-        return ChatCompletionOutput(
-            created=int(time.time()),
-            choices=[
-                ChatCompletionOutputChoice(
-                    finish_reason=response.details.finish_reason,  # type: ignore
-                    index=0,
-                    message=ChatCompletionOutputChoiceMessage(
-                        content=response.generated_text,
-                    ),
-                )
-            ],
-        )
+        if stream:
+            # TODO: handle stream=True
+            assert not isinstance(
+                response, TextGenerationOutput
+            ), "Expected 'Iterable[TextGenerationStreamOutput]' since 'stream=True'"
+            for item in response:
+                if item.details is None:
+                    # new token generated => return delta
+                    yield ChatCompletionStreamOutput(
+                        choices=[
+                            ChatCompletionStreamOutputChoice(
+                                delta=ChatCompletionStreamOutputDelta(
+                                    role="assistant",
+                                    content=item.token.text,
+                                ),
+                                finish_reason=None,
+                                index=0,
+                            )
+                        ],
+                        created=created,
+                    )
+                else:
+                    # generation is completed => return finish reason
+                    yield ChatCompletionStreamOutput(
+                        choices=[
+                            ChatCompletionStreamOutputChoice(
+                                delta=ChatCompletionStreamOutputDelta(),
+                                finish_reason=item.details.finish_reason,
+                                index=0,
+                            )
+                        ],
+                        created=created,
+                    )
+        else:
+            assert isinstance(response, TextGenerationOutput), "Expected 'TextGenerationOutput' since 'stream=False'"
+            return ChatCompletionOutput(
+                created=created,
+                choices=[
+                    ChatCompletionOutputChoice(
+                        finish_reason=response.details.finish_reason,  # type: ignore
+                        index=0,
+                        message=ChatCompletionOutputChoiceMessage(
+                            content=response.generated_text,
+                        ),
+                    )
+                ],
+            )
 
     def conversational(
         self,
@@ -1350,7 +1419,7 @@ class InferenceClient:
     ) -> Iterable[str]: ...
 
     @overload
-    def text_generation(
+    def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -1371,6 +1440,29 @@ class InferenceClient:
         typical_p: Optional[float] = None,
         watermark: bool = False,
     ) -> Iterable[TextGenerationStreamOutput]: ...
+
+    @overload
+    def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Literal[True] = ...,
+        stream: bool = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
 
     def text_generation(
         self,

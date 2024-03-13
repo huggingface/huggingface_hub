@@ -302,6 +302,10 @@ def _adapt_text_generation_to_async(code: str) -> str:
         ") -> Iterable[TextGenerationStreamOutput]:", ") -> AsyncIterable[TextGenerationStreamOutput]:"
     )
     code = code.replace(
+        ") -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]:",
+        ") -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]:",
+    )
+    code = code.replace(
         ") -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:",
         ") -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:",
     )

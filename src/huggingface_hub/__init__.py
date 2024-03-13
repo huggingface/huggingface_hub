@@ -734,6 +734,9 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputChoice,  # noqa: F401
         ChatCompletionOutputChoiceMessage,  # noqa: F401
+        ChatCompletionStreamOutput,  # noqa: F401
+        ChatCompletionStreamOutputChoice,  # noqa: F401
+        ChatCompletionStreamOutputDelta,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
