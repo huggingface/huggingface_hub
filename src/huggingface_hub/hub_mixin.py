@@ -180,18 +180,23 @@ class ModelHubMixin:
         # all new serialization methods will have this tag by default
         # if default is not present in config it means we are using the pervious seralization method
         # and will be delt with differently
-        cls._init_params = {"huggingface_hub_version": get_hf_hub_version()}
+        cls._init_params = {}
         # if using args
         if args != ():
-            index = min(param_names_in_descendant_init_method.index("args") + 1, len(args))
-            cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
-            if len(args) >= param_names_in_descendant_init_method.index("args") + 1:
-                cls._init_params.update({"args": args[param_names_in_descendant_init_method.index("args") :]})
+            if "args" not in param_names_in_descendant_init_method:
+                index = min(len(param_names_in_descendant_init_method), len(args))
+                cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
+            if "args" in param_names_in_descendant_init_method : 
+                index = min(param_names_in_descendant_init_method.index("args") + 1, len(args))
+                cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
+                if len(args) >= param_names_in_descendant_init_method.index("args") + 1:
+                    cls._init_params.update({"args": args[param_names_in_descendant_init_method.index("args") :]})
         if kwargs != {}:
             # add kwargs as normal params in the config.json
             cls._init_params.update(kwargs)
         if param_names_in_descendant_init_method == ["config"]:
-            cls._init_params = kwargs["config"]
+            cls._init_params = cls._init_params["config"]
+        cls._init_params.update({"huggingface_hub_version": get_hf_hub_version()})
         return super().__new__(cls)
 
     def save_pretrained(
@@ -603,7 +608,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
             if param_names_in_descendant_init_method == ["config"]:
                 model_kwargs = {"config": model_kwargs}
             # unpack only the parameters in the
-            elif "args" in model_kwargs:
+            if "args" in model_kwargs:
                 args = []
                 for param in param_names_in_descendant_init_method:
                     args.append(model_kwargs.pop(param))
