@@ -20,6 +20,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._deprecation import _deprecate_arguments
+from .utils._runtime import get_hf_hub_version
 
 
 if TYPE_CHECKING:
@@ -168,54 +169,30 @@ class ModelHubMixin:
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
         """Create a new instance of the class and handle config.
-
+        using "huggingface_hub_version" as a parameter to check which version of the library we are using
         3 cases:
-        - If `self.config` is already set, do nothing.
-        - If `config` is passed as a dataclass, set it as `self.config`.
-        - Otherwise, build `self.config` from default values and passed values.
+        - If no parameters we save only "huggingface_hub_version"
+        - If only `config` is passed as a parameter we save it directly
+        - Otherwise, we save each parameter in its own key
         """
-        instance = super().__new__(cls)
-
-        # If `config` is already set, return early
-        if instance.config is not None:
-            return instance
-
-        # Infer passed values
-        passed_values = {
-            **{
-                key: value
-                for key, value in zip(
-                    # Skip `self` and `config` parameters
-                    list(cls._init_parameters)[1:],
-                    args,
-                )
-            },
-            **kwargs,
-        }
-
-        # If config passed as dataclass => set it and return early
-        if is_dataclass(passed_values.get("config")):
-            instance.config = passed_values["config"]
-            return instance
-
-        # Otherwise, build config from default + passed values
-        init_config = {
-            # default values
-            **cls._jsonable_default_values,
-            # passed values
-            **{key: value for key, value in passed_values.items() if is_jsonable(value)},
-        }
-        init_config.pop("config", {})
-
-        # Populate `init_config` with provided config
-        provided_config = passed_values.get("config")
-        if isinstance(provided_config, dict):
-            init_config.update(provided_config)
-
-        # Set `config` attribute and return
-        if init_config != {}:
-            instance.config = init_config
-        return instance
+        # any new model serializing will use this
+        param_names_in_descendant_init_method = cls.get_init_params_from_last_descendant()
+        # all new serialization methods will have this tag by default
+        # if default is not present in config it means we are using the pervious seralization method
+        # and will be delt with differently
+        cls._init_params = {"huggingface_hub_version": get_hf_hub_version()}
+        # if using args
+        if args != ():
+            index = min(param_names_in_descendant_init_method.index("args") + 1, len(args))
+            cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
+            if len(args) >= param_names_in_descendant_init_method.index("args") + 1:
+                cls._init_params.update({"args": args[param_names_in_descendant_init_method.index("args") :]})
+        if kwargs != {}:
+            # add kwargs as normal params in the config.json
+            cls._init_params.update(kwargs)
+        if param_names_in_descendant_init_method == ["config"]:
+            cls._init_params = kwargs["config"]
+        return super().__new__(cls)
 
     def save_pretrained(
         self,
@@ -248,9 +225,9 @@ class ModelHubMixin:
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # save config (if provided)
+        # save config with `huggingface_hub_version`
         if config is None:
-            config = self.config
+            config = self._init_params
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
@@ -281,6 +258,12 @@ class ModelHubMixin:
                 Path to directory in which the model weights and configuration will be saved.
         """
         raise NotImplementedError
+
+    @classmethod
+    def get_init_params_from_last_descendant(cls: Type[T]):
+        """returns parameters in the __init__ method of the last descendant"""
+        init_params = list(dict(inspect.signature(cls.mro()[0].__init__).parameters).keys())
+        return init_params[1:]  # get rid of self
 
     @classmethod
     @validate_hf_hub_args
@@ -354,36 +337,40 @@ class ModelHubMixin:
         if config_file is not None:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
+            if "huggingface_hub_version" in config:
+                # if we are using the new serialization
+                model_kwargs = config
+            else:
+                # if we are using the previous serialization
+                # Populate model_kwargs from config
+                for param in cls._init_parameters.values():
+                    if param.name not in model_kwargs and param.name in config:
+                        model_kwargs[param.name] = config[param.name]
 
-            # Populate model_kwargs from config
-            for param in cls._init_parameters.values():
-                if param.name not in model_kwargs and param.name in config:
-                    model_kwargs[param.name] = config[param.name]
+                # Check if `config` argument was passed at init
+                if "config" in cls._init_parameters:
+                    # Check if `config` argument is a dataclass
+                    config_annotation = cls._init_parameters["config"].annotation
+                    if config_annotation is inspect.Parameter.empty:
+                        pass  # no annotation
+                    elif is_dataclass(config_annotation):
+                        config = _load_dataclass(config_annotation, config)
+                    else:
+                        # if Optional/Union annotation => check if a dataclass is in the Union
+                        for _sub_annotation in get_args(config_annotation):
+                            if is_dataclass(_sub_annotation):
+                                config = _load_dataclass(_sub_annotation, config)
+                                break
 
-            # Check if `config` argument was passed at init
-            if "config" in cls._init_parameters:
-                # Check if `config` argument is a dataclass
-                config_annotation = cls._init_parameters["config"].annotation
-                if config_annotation is inspect.Parameter.empty:
-                    pass  # no annotation
-                elif is_dataclass(config_annotation):
-                    config = _load_dataclass(config_annotation, config)
-                else:
-                    # if Optional/Union annotation => check if a dataclass is in the Union
-                    for _sub_annotation in get_args(config_annotation):
-                        if is_dataclass(_sub_annotation):
-                            config = _load_dataclass(_sub_annotation, config)
-                            break
+                    # Forward config to model initialization
+                    model_kwargs["config"] = config
 
-                # Forward config to model initialization
-                model_kwargs["config"] = config
-
-            elif (
-                "kwargs" in cls._init_parameters
-                and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
-            ):
-                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
-                model_kwargs["config"] = config
+                elif (
+                    "kwargs" in cls._init_parameters
+                    and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
+                ):
+                    # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
+                    model_kwargs["config"] = config
 
         instance = cls._from_pretrained(
             model_id=str(model_id),
@@ -608,9 +595,29 @@ class PyTorchModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """Load Pytorch pretrained weights and return the loaded model."""
-        model = cls(**model_kwargs)
+
+        if "hugginggface_hub_version" in model_kwargs:
+            # new serialization
+            model_kwargs.pop("hugginggface_hub_version")
+            param_names_in_descendant_init_method = cls.get_init_params_from_last_descendant()
+            # case where there is only config parameter
+            if param_names_in_descendant_init_method == ["config"]:
+                model_kwargs = {"config": model_kwargs}
+            # unpack only the parameters in the
+            elif "args" in model_kwargs:
+                args = []
+                for param in param_names_in_descendant_init_method:
+                    args.append(model_kwargs.pop(param))
+                    if param == "args":
+                        # no need to unpack the kwargs
+                        break
+                model = cls(*args, **model_kwargs)
+            else:
+                model = cls(**model_kwargs)
+        else:
+            # old serialization
+            model = cls(**model_kwargs)
         if os.path.isdir(model_id):
-            print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
