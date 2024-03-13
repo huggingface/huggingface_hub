@@ -25,7 +25,7 @@ class ZeroShotObjectDetectionInput(BaseInferenceType):
 
     inputs: ZeroShotObjectDetectionInputData
     """The input image data, with candidate labels"""
-    parameters: Optional[Dict[str, Any]]
+    parameters: Optional[Dict[str, Any]] = None
     """Additional inference parameters"""
 
 

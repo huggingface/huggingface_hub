@@ -18,8 +18,8 @@ class AudioClassificationParameters(BaseInferenceType):
     Additional inference parameters for Audio Classification
     """
 
-    function_to_apply: Optional["ClassificationOutputTransform"]
-    top_k: Optional[int]
+    function_to_apply: Optional["ClassificationOutputTransform"] = None
+    top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -29,7 +29,7 @@ class AudioClassificationInput(BaseInferenceType):
 
     inputs: Any
     """The input audio data"""
-    parameters: Optional[AudioClassificationParameters]
+    parameters: Optional[AudioClassificationParameters] = None
     """Additional inference parameters"""
 
 

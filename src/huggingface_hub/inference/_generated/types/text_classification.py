@@ -18,8 +18,8 @@ class TextClassificationParameters(BaseInferenceType):
     Additional inference parameters for Text Classification
     """
 
-    function_to_apply: Optional["ClassificationOutputTransform"]
-    top_k: Optional[int]
+    function_to_apply: Optional["ClassificationOutputTransform"] = None
+    top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -29,7 +29,7 @@ class TextClassificationInput(BaseInferenceType):
 
     inputs: str
     """The text to classify"""
-    parameters: Optional[TextClassificationParameters]
+    parameters: Optional[TextClassificationParameters] = None
     """Additional inference parameters"""
 
 
