@@ -483,6 +483,7 @@ class AsyncInferenceClient:
         >>> client = AsyncInferenceClient()
         >>> await client.chat_completion(...)
         # TODO: complete example
+        ```
         """
         # determine model
         model = model or self.model or self.get_recommended_model("text-generation")
@@ -547,10 +548,10 @@ class AsyncInferenceClient:
                 A list of strings corresponding to the earlier replies from the user. Should be the same length as
                 `generated_responses`. Defaults to None.
             parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters async for the conversational task. Defaults to None. For more details about the available
+                Additional parameters for the conversational task. Defaults to None. For more details about the available
                 parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
             model (`str`, *optional*):
-                The model to use async for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
 
@@ -565,6 +566,7 @@ class AsyncInferenceClient:
 
         Example:
         ```py
+        # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> output = await client.conversational("Hi, who are you?")
@@ -1655,7 +1657,7 @@ class AsyncInferenceClient:
                 "typical_p": typical_p,
                 "watermark": watermark,
             },
-            "stream": False,
+            "stream": stream,
         }
 
         # Remove some parameters if not a TGI server

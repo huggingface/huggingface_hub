@@ -483,6 +483,7 @@ class InferenceClient:
         >>> client = InferenceClient()
         >>> client.chat_completion(...)
         # TODO: complete example
+        ```
         """
         # determine model
         model = model or self.model or self.get_recommended_model("text-generation")
@@ -1631,7 +1632,7 @@ class InferenceClient:
                 "typical_p": typical_p,
                 "watermark": watermark,
             },
-            "stream": False,
+            "stream": stream,
         }
 
         # Remove some parameters if not a TGI server
