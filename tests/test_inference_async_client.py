@@ -161,22 +161,21 @@ def test_sync_vs_async_signatures() -> None:
     async_client = AsyncInferenceClient()
 
     # Some methods have to be tested separately.
-    special_methods = ["post", "text_generation"]
+    special_methods = ["post", "text_generation", "chat_completion"]
 
     # Post: this is not automatically tested. No need to test its signature separately.
 
-    # Text-generation: return type changes from Iterable[...] to AsyncIterable[...] but input parameters are the same
-    sync_method = getattr(client, "text_generation")
-    assert not inspect.iscoroutinefunction(sync_method)
-    async_method = getattr(async_client, "text_generation")
-    assert inspect.iscoroutinefunction(async_method)
+    # text-generation/chat-completion: return type changes from Iterable[...] to AsyncIterable[...] but input parameters are the same
+    for name in ["text_generation", "chat_completion"]:
+        sync_method = getattr(client, name)
+        assert not inspect.iscoroutinefunction(sync_method)
+        async_method = getattr(async_client, name)
+        assert inspect.iscoroutinefunction(async_method)
 
-    sync_sig = inspect.signature(sync_method)
-    async_sig = inspect.signature(async_method)
-    assert sync_sig.parameters == async_sig.parameters
-    assert sync_sig.return_annotation != async_sig.return_annotation
-
-    [name for name in dir(client) if (not name.startswith("_")) and inspect.ismethod(getattr(client, name))]
+        sync_sig = inspect.signature(sync_method)
+        async_sig = inspect.signature(async_method)
+        assert sync_sig.parameters == async_sig.parameters
+        assert sync_sig.return_annotation != async_sig.return_annotation
 
     # Check that all methods are consistent between InferenceClient and AsyncInferenceClient
     for name in dir(client):

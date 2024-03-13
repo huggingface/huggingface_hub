@@ -18,6 +18,7 @@ import base64
 import io
 import json
 import logging
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,7 +51,12 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ._generated.types import TextGenerationStreamOutput
+from ._generated.types import (
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
+    TextGenerationStreamOutput,
+)
 
 
 if TYPE_CHECKING:
@@ -258,47 +264,92 @@ def _bytes_to_image(content: bytes) -> "Image":
 def _stream_text_generation_response(
     bytes_output_as_lines: Iterable[bytes], details: bool
 ) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
+    """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
     for byte_payload in bytes_output_as_lines:
-        # Skip line
-        if byte_payload == b"\n":
-            continue
-
-        payload = byte_payload.decode("utf-8")
-
-        # Event data
-        if payload.startswith("data:"):
-            # Decode payload
-            json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Either an error as being returned
-            if json_payload.get("error") is not None:
-                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
-            # Or parse token payload
-            output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
-            yield output.token.text if not details else output
+        output = _format_text_generation_stream_output(byte_payload, details)
+        if output is not None:
+            yield output
 
 
 async def _async_stream_text_generation_response(
     bytes_output_as_lines: AsyncIterable[bytes], details: bool
 ) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
+    """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
     async for byte_payload in bytes_output_as_lines:
-        # Skip line
-        if byte_payload == b"\n":
-            continue
+        output = _format_text_generation_stream_output(byte_payload, details)
+        if output is not None:
+            yield output
 
-        payload = byte_payload.decode("utf-8")
 
-        # Event data
-        if payload.startswith("data:"):
-            # Decode payload
-            json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Either an error as being returned
-            if json_payload.get("error") is not None:
-                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
-            # Or parse token payload
-            output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
-            yield output.token.text if not details else output
+def _format_text_generation_stream_output(
+    byte_payload: bytes, details: bool
+) -> Optional[Union[str, TextGenerationStreamOutput]]:
+    if not byte_payload.startswith(b"data:"):
+        return None  # empty line
+
+    # Decode payload
+    payload = byte_payload.decode("utf-8")
+    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+
+    # Either an error as being returned
+    if json_payload.get("error") is not None:
+        raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
+
+    # Or parse token payload
+    output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
+    return output.token.text if not details else output
+
+
+def _stream_chat_completion_response(
+    text_generation_output: Iterable[TextGenerationStreamOutput],
+) -> Iterable[ChatCompletionStreamOutput]:
+    """Used in `InferenceClient.chat_completion`."""
+    created = int(time.time())
+    for item in text_generation_output:
+        yield _format_chat_completion_stream_output(item, created)
+
+
+async def _async_stream_chat_completion_response(
+    text_generation_output: AsyncIterable[TextGenerationStreamOutput],
+) -> AsyncIterable[ChatCompletionStreamOutput]:
+    """Used in `AsyncInferenceClient.chat_completion`."""
+    created = int(time.time())
+    async for item in text_generation_output:
+        yield _format_chat_completion_stream_output(item, created)
+
+
+def _format_chat_completion_stream_output(
+    item: TextGenerationStreamOutput, created: int
+) -> ChatCompletionStreamOutput:
+    if item.details is None:
+        # new token generated => return delta
+        return ChatCompletionStreamOutput(
+            choices=[
+                ChatCompletionStreamOutputChoice(
+                    delta=ChatCompletionStreamOutputDelta(
+                        role="assistant",
+                        content=item.token.text,
+                    ),
+                    finish_reason=None,
+                    index=0,
+                )
+            ],
+            created=created,
+        )
+    else:
+        # generation is completed => return finish reason
+        return ChatCompletionStreamOutput(
+            choices=[
+                ChatCompletionStreamOutputChoice(
+                    delta=ChatCompletionStreamOutputDelta(),
+                    finish_reason=item.details.finish_reason,
+                    index=0,
+                )
+            ],
+            created=created,
+        )
 
 
 async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:

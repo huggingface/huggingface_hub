@@ -67,6 +67,7 @@ from huggingface_hub.inference._common import (
     _is_tgi_server,
     _open_as_binary,
     _set_as_non_tgi,
+    _stream_chat_completion_response,
     _stream_text_generation_response,
     raise_text_generation_error,
 )
@@ -78,8 +79,6 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionOutputChoice,
     ChatCompletionOutputChoiceMessage,
     ChatCompletionStreamOutput,
-    ChatCompletionStreamOutputChoice,
-    ChatCompletionStreamOutputDelta,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -496,7 +495,7 @@ class InferenceClient:
 
         # generate response
         stop_sequences = [stop] if isinstance(stop, str) else stop
-        response = self.text_generation(
+        text_generation_output = self.text_generation(
             prompt=prompt,
             details=True,
             stream=stream,
@@ -511,52 +510,21 @@ class InferenceClient:
         created = int(time.time())
 
         if stream:
-            # TODO: handle stream=True
-            assert not isinstance(
-                response, TextGenerationOutput
-            ), "Expected 'Iterable[TextGenerationStreamOutput]' since 'stream=True'"
-            for item in response:
-                if item.details is None:
-                    # new token generated => return delta
-                    yield ChatCompletionStreamOutput(
-                        choices=[
-                            ChatCompletionStreamOutputChoice(
-                                delta=ChatCompletionStreamOutputDelta(
-                                    role="assistant",
-                                    content=item.token.text,
-                                ),
-                                finish_reason=None,
-                                index=0,
-                            )
-                        ],
-                        created=created,
-                    )
-                else:
-                    # generation is completed => return finish reason
-                    yield ChatCompletionStreamOutput(
-                        choices=[
-                            ChatCompletionStreamOutputChoice(
-                                delta=ChatCompletionStreamOutputDelta(),
-                                finish_reason=item.details.finish_reason,
-                                index=0,
-                            )
-                        ],
-                        created=created,
-                    )
-        else:
-            assert isinstance(response, TextGenerationOutput), "Expected 'TextGenerationOutput' since 'stream=False'"
-            return ChatCompletionOutput(
-                created=created,
-                choices=[
-                    ChatCompletionOutputChoice(
-                        finish_reason=response.details.finish_reason,  # type: ignore
-                        index=0,
-                        message=ChatCompletionOutputChoiceMessage(
-                            content=response.generated_text,
-                        ),
-                    )
-                ],
-            )
+            return _stream_chat_completion_response(text_generation_output)  # type: ignore [arg-type]
+
+        assert isinstance(text_generation_output, TextGenerationOutput), "stream=False => expect TextGenerationOutput"
+        return ChatCompletionOutput(
+            created=created,
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason=text_generation_output.details.finish_reason,  # type: ignore
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content=text_generation_output.generated_text,
+                    ),
+                )
+            ],
+        )
 
     def conversational(
         self,

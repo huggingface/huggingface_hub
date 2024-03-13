@@ -28,7 +28,6 @@ from typing import (
     Any,
     AsyncIterable,
     Dict,
-    Iterable,
     List,
     Literal,
     Optional,
@@ -44,6 +43,7 @@ from huggingface_hub.inference._common import (
     ContentT,
     InferenceTimeoutError,
     ModelStatus,
+    _async_stream_chat_completion_response,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -65,8 +65,6 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionOutputChoice,
     ChatCompletionOutputChoiceMessage,
     ChatCompletionStreamOutput,
-    ChatCompletionStreamOutputChoice,
-    ChatCompletionStreamOutputDelta,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -424,7 +422,7 @@ class AsyncInferenceClient:
         stop: Optional[Union[List[str], str]] = None,
         temperature: float = 1.0,
         top_p: Optional[float] = None,
-    ) -> Iterable[ChatCompletionStreamOutput]: ...
+    ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
 
     async def chat_completion(
         self,
@@ -437,7 +435,7 @@ class AsyncInferenceClient:
         stop: Optional[Union[List[str], str]] = None,
         temperature: float = 1.0,
         top_p: Optional[float] = None,
-    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
 
@@ -497,7 +495,7 @@ class AsyncInferenceClient:
 
         # generate response
         stop_sequences = [stop] if isinstance(stop, str) else stop
-        response = self.text_generation(
+        text_generation_output = await self.text_generation(
             prompt=prompt,
             details=True,
             stream=stream,
@@ -512,52 +510,21 @@ class AsyncInferenceClient:
         created = int(time.time())
 
         if stream:
-            # TODO: handle stream=True
-            assert not isinstance(
-                response, TextGenerationOutput
-            ), "Expected 'Iterable[TextGenerationStreamOutput]' since 'stream=True'"
-            async for item in response:
-                if item.details is None:
-                    # new token generated => return delta
-                    yield ChatCompletionStreamOutput(
-                        choices=[
-                            ChatCompletionStreamOutputChoice(
-                                delta=ChatCompletionStreamOutputDelta(
-                                    role="assistant",
-                                    content=item.token.text,
-                                ),
-                                finish_reason=None,
-                                index=0,
-                            )
-                        ],
-                        created=created,
-                    )
-                else:
-                    # generation is completed => return finish reason
-                    yield ChatCompletionStreamOutput(
-                        choices=[
-                            ChatCompletionStreamOutputChoice(
-                                delta=ChatCompletionStreamOutputDelta(),
-                                finish_reason=item.details.finish_reason,
-                                index=0,
-                            )
-                        ],
-                        created=created,
-                    )
-        else:
-            assert isinstance(response, TextGenerationOutput), "Expected 'TextGenerationOutput' since 'stream=False'"
-            return ChatCompletionOutput(
-                created=created,
-                choices=[
-                    ChatCompletionOutputChoice(
-                        finish_reason=response.details.finish_reason,  # type: ignore
-                        index=0,
-                        message=ChatCompletionOutputChoiceMessage(
-                            content=response.generated_text,
-                        ),
-                    )
-                ],
-            )
+            return _async_stream_chat_completion_response(text_generation_output)  # type: ignore [arg-type]
+
+        assert isinstance(text_generation_output, TextGenerationOutput), "stream=False => expect TextGenerationOutput"
+        return ChatCompletionOutput(
+            created=created,
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason=text_generation_output.details.finish_reason,  # type: ignore
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content=text_generation_output.generated_text,
+                    ),
+                )
+            ],
+        )
 
     async def conversational(
         self,
