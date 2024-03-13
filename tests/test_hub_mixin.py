@@ -76,14 +76,18 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
-class DummyModelWithKwargsInjectConfig(BaseModel, ModelHubMixin, config_inject_mode="as_config"):
-    def __init__(self, **kwargs):
-        pass
+class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
+    def _save_pretrained(self, save_directory: Path) -> None:
+        return
 
-
-class DummyModelWithKwargsInjectConfigAsKwargs(BaseModel, ModelHubMixin, config_inject_mode="as_kwargs"):
-    def __init__(self, **kwargs):
-        pass
+    @classmethod
+    def _from_pretrained(
+        cls,
+        model_id: Union[str, Path],
+        config: Optional[Dict] = None,
+        **kwargs,
+    ) -> "BaseModel":
+        return cls(**kwargs)
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -172,21 +176,23 @@ class HubMixinTest(unittest.TestCase):
         See https://github.com/huggingface/huggingface_hub/pull/2058.
         And https://github.com/huggingface/huggingface_hub/pull/2099.
         """
-        model = DummyModelWithKwargsInjectConfig()
+        model = DummyModelFromPretrainedExpectsConfig()
         model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
         with patch.object(
-            DummyModelWithKwargsInjectConfig, "_from_pretrained", return_value=DummyModelWithKwargsInjectConfig()
+            DummyModelFromPretrainedExpectsConfig,
+            "_from_pretrained",
+            return_value=DummyModelFromPretrainedExpectsConfig(),
         ) as from_pretrained_mock:
-            DummyModelWithKwargsInjectConfig.from_pretrained(self.cache_dir)
+            DummyModelFromPretrainedExpectsConfig.from_pretrained(self.cache_dir)
         assert "config" in from_pretrained_mock.call_args_list[0].kwargs
 
     def test_init_accepts_kwargs_save_and_load(self):
-        model = DummyModelWithKwargsInjectConfigAsKwargs(something="else")
+        model = DummyModelWithKwargs(something="else")
         model.save_pretrained(self.cache_dir)
         assert model.config == {"something": "else"}
 
-        with patch.object(DummyModelWithKwargsInjectConfigAsKwargs, "__init__", return_value=None) as init_call_mock:
-            DummyModelWithKwargsInjectConfigAsKwargs.from_pretrained(self.cache_dir)
+        with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
+            DummyModelWithKwargs.from_pretrained(self.cache_dir)
 
         # 'something' is passed to __init__ both as kwarg and in config.
         init_kwargs = init_call_mock.call_args_list[0].kwargs

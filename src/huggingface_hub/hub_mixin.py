@@ -3,7 +3,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type, TypeVar, Union, get_args
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union, get_args
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
@@ -37,7 +37,6 @@ logger = logging.get_logger(__name__)
 
 # Generic variable that is either ModelHubMixin or a subclass thereof
 T = TypeVar("T", bound="ModelHubMixin")
-CONFIG_INJECT_MODE_T = Literal["auto", "as_config", "as_kwargs"]
 
 DEFAULT_MODEL_CARD = """
 ---
@@ -81,11 +80,6 @@ class ModelHubMixin:
             URL of the library repository. Used to generate model card.
         docs_url (`str`, *optional*):
             URL of the library documentation. Used to generate model card.
-        config_inject_mode (`Literal["auto", "as_config", "as_kwargs"]`, *optional*, defaults to `"auto"`):
-            How to handle config injection in `from_pretrained`:
-            - if `"auto"`, config is passed if expected as parameter by `__init__`
-            - if `"as_config"`, config is always passed as `config=config`
-            - if `"as_kwargs"`, config values are always passed as kwargs
 
     Example:
 
@@ -156,7 +150,7 @@ class ModelHubMixin:
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _init_parameters: Dict[str, inspect.Parameter]
     _jsonable_default_values: Dict[str, Any]
-    _config_inject_mode: CONFIG_INJECT_MODE_T
+    _inject_config_in_from_pretrained: bool
     # ^ internal values to handle config
 
     def __init_subclass__(
@@ -166,11 +160,6 @@ class ModelHubMixin:
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
-        config_inject_mode: CONFIG_INJECT_MODE_T = "auto",
-        # ^ how to handle config injection in `from_pretrained`
-        #   if "auto", config is passed if expected as parameter by `__init__`
-        #   if "as_config", config is always passed as `config=config`
-        #   if "as_kwargs", config values are always passed as kwargs
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -192,9 +181,7 @@ class ModelHubMixin:
             for param in cls._init_parameters.values()
             if param.default is not inspect.Parameter.empty and is_jsonable(param.default)
         }
-
-        # Class-level config
-        cls._config_inject_mode = config_inject_mode
+        cls._inject_config_in_from_pretrained = "config" in inspect.signature(cls._from_pretrained).parameters
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
         """Create a new instance of the class and handle config.
@@ -408,12 +395,14 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            elif cls._config_inject_mode == "as_config":
-                model_kwargs["config"] = config
-            elif cls._config_inject_mode == "as_kwargs":
+            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._init_parameters.values()):
                 for key, value in config.items():
                     if key not in model_kwargs:
                         model_kwargs[key] = value
+
+            # Finally, also inject if `_from_pretrained` expects it
+            if cls._inject_config_in_from_pretrained:
+                model_kwargs["config"] = config
 
         instance = cls._from_pretrained(
             model_id=str(model_id),
