@@ -595,10 +595,9 @@ class PyTorchModelHubMixin(ModelHubMixin):
         **model_kwargs,
     ):
         """Load Pytorch pretrained weights and return the loaded model."""
-
-        if "hugginggface_hub_version" in model_kwargs:
+        if "huggingface_hub_version" in model_kwargs:
             # new serialization
-            model_kwargs.pop("hugginggface_hub_version")
+            model_kwargs.pop("huggingface_hub_version")
             param_names_in_descendant_init_method = cls.get_init_params_from_last_descendant()
             # case where there is only config parameter
             if param_names_in_descendant_init_method == ["config"]:
