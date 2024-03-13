@@ -186,7 +186,7 @@ class ModelHubMixin:
             if "args" not in param_names_in_descendant_init_method:
                 index = min(len(param_names_in_descendant_init_method), len(args))
                 cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
-            if "args" in param_names_in_descendant_init_method : 
+            if "args" in param_names_in_descendant_init_method:
                 index = min(param_names_in_descendant_init_method.index("args") + 1, len(args))
                 cls._init_params.update(dict(zip(param_names_in_descendant_init_method[:index], args[:index])))
                 if len(args) >= param_names_in_descendant_init_method.index("args") + 1:
