@@ -1564,10 +1564,10 @@ class InferenceClient:
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    PrefillToken(id=487, text='The', logprob=None),
-                    PrefillToken(id=53789, text=' hugging', logprob=-13.171875),
+                    TextGenerationPrefillToken(id=487, text='The', logprob=None),
+                    TextGenerationPrefillToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    PrefillToken(id=204, text=' ', logprob=-7.0390625)
+                    TextGenerationPrefillToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
                     TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
