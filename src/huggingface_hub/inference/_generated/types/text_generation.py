@@ -108,9 +108,10 @@ class TextGenerationOutputSequenceDetails(BaseInferenceType):
 
 @dataclass
 class TextGenerationOutputDetails(BaseInferenceType):
-    """Details about the generation, when enabled."""
+    """When enabled, details about the generation"""
 
     finish_reason: "TextGenerationFinishReason"
+    """The reason why the generation was stopped."""
     generated_tokens: int
     """The number of generated tokens"""
     prefill: List[TextGenerationPrefillToken]
@@ -131,6 +132,7 @@ class TextGenerationOutput(BaseInferenceType):
     generated_text: str
     """The generated text"""
     details: Optional[TextGenerationOutputDetails] = None
+    """When enabled, details about the generation"""
 
 
 @dataclass
@@ -138,6 +140,7 @@ class TextGenerationStreamDetails(BaseInferenceType):
     """Generation details. Only available when the generation is finished."""
 
     finish_reason: "TextGenerationFinishReason"
+    """The reason why the generation was stopped."""
     generated_tokens: int
     """The number of generated tokens"""
     seed: int
