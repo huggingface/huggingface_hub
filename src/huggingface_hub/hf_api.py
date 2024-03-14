@@ -2567,20 +2567,20 @@ class HfApi:
         ######## DB EDIT ########
         i = 0
         while True:
-        try:
+            try:
                 if token is None:
-                        token = self.token
+                    token = self.token
                 get_hf_file_metadata(url, token=token)
                 return True
-        except requests.exceptions.ConnectionError:
+            except requests.exceptions.ConnectionError:
                 if i < 3:
-                        i += 1
-                        continue
+                    i += 1
+                    continue
                 else:
-                        raise
-        except GatedRepoError: # raise specifically on gated repo
+                    raise
+            except GatedRepoError: # raise specifically on gated repo
                 raise
-        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+            except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
                 return False
         ######## DB EDIT ########
 
