@@ -304,7 +304,6 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
-        "PrefillToken",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -323,14 +322,15 @@ _SUBMOD_ATTRS = {
         "TextClassificationInput",
         "TextClassificationOutputElement",
         "TextClassificationParameters",
-        "TextGenerationDetails",
         "TextGenerationInput",
         "TextGenerationOutput",
         "TextGenerationOutputDetails",
+        "TextGenerationOutputSequenceDetails",
+        "TextGenerationOutputToken",
         "TextGenerationParameters",
+        "TextGenerationPrefillToken",
         "TextGenerationStreamDetails",
         "TextGenerationStreamOutput",
-        "TextGenerationStreamOutputToken",
         "TextToAudioInput",
         "TextToAudioOutput",
         "TextToAudioParameters",
@@ -342,7 +342,6 @@ _SUBMOD_ATTRS = {
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
-        "TokenElement",
         "TranslationInput",
         "TranslationOutput",
         "VideoClassificationInput",
@@ -763,7 +762,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
-        PrefillToken,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -782,14 +780,15 @@ if TYPE_CHECKING:  # pragma: no cover
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
-        TextGenerationDetails,  # noqa: F401
         TextGenerationInput,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationOutputSequenceDetails,  # noqa: F401
+        TextGenerationOutputToken,  # noqa: F401
         TextGenerationParameters,  # noqa: F401
+        TextGenerationPrefillToken,  # noqa: F401
         TextGenerationStreamDetails,  # noqa: F401
         TextGenerationStreamOutput,  # noqa: F401
-        TextGenerationStreamOutputToken,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
         TextToAudioParameters,  # noqa: F401
@@ -801,7 +800,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
-        TokenElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         VideoClassificationInput,  # noqa: F401

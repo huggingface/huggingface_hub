@@ -223,25 +223,23 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_generation
 
-[[autodoc]] huggingface_hub.PrefillToken
-
-[[autodoc]] huggingface_hub.TextGenerationDetails
-
 [[autodoc]] huggingface_hub.TextGenerationInput
 
 [[autodoc]] huggingface_hub.TextGenerationOutput
 
 [[autodoc]] huggingface_hub.TextGenerationOutputDetails
 
+[[autodoc]] huggingface_hub.TextGenerationOutputSequenceDetails
+
+[[autodoc]] huggingface_hub.TextGenerationOutputToken
+
 [[autodoc]] huggingface_hub.TextGenerationParameters
+
+[[autodoc]] huggingface_hub.TextGenerationPrefillToken
 
 [[autodoc]] huggingface_hub.TextGenerationStreamDetails
 
 [[autodoc]] huggingface_hub.TextGenerationStreamOutput
-
-[[autodoc]] huggingface_hub.TextGenerationStreamOutputToken
-
-[[autodoc]] huggingface_hub.TokenElement
 
 
 

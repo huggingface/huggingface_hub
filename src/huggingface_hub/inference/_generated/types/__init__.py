@@ -66,16 +66,15 @@ from .table_question_answering import (
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput
 from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
 from .text_generation import (
-    PrefillToken,
-    TextGenerationDetails,
     TextGenerationInput,
     TextGenerationOutput,
     TextGenerationOutputDetails,
+    TextGenerationOutputSequenceDetails,
+    TextGenerationOutputToken,
     TextGenerationParameters,
+    TextGenerationPrefillToken,
     TextGenerationStreamDetails,
     TextGenerationStreamOutput,
-    TextGenerationStreamOutputToken,
-    TokenElement,
 )
 from .text_to_audio import TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters

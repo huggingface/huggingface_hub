@@ -369,6 +369,10 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # default API with a warning message. We remember for each model if it's a TGI server
 # or not using `_NON_TGI_SERVERS` global variable.
 #
+# In addition, TGI servers have a built-in API route for chat-completion, which is not
+# available on the default API. We use this route to provide a more consistent behavior
+# when available.
+#
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
