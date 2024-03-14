@@ -2,6 +2,6 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Overview
+# Overview[[overview]]
 
-This section contains an exhaustive and technical description of `huggingface_hub` classes and methods.
+이 섹션에는 `huggingface_hub` 클래스와 메서드에 대한 상세하고 기술적인 설명이 포함되어 있습니다.
