@@ -30,9 +30,21 @@ import pytest
 from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
-from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError, TextGenerationPrefillToken
+from huggingface_hub import (
+    AsyncInferenceClient,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
+    InferenceClient,
+    InferenceTimeoutError,
+    TextGenerationPrefillToken,
+)
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _is_tgi_server
+
+from .test_inference_client import CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
+from .testing_utils import with_production_testing
 
 
 @pytest.fixture(autouse=True)
@@ -140,6 +152,48 @@ async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClie
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
 
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_async_chat_completion_no_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
+    assert isinstance(output.created, int)
+    assert output == ChatCompletionOutput(
+        choices=[
+            ChatCompletionOutputChoice(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a subfield of machine learning that"
+                ),
+            )
+        ],
+        created=output.created,
+    )
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_async_chat_completion_with_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10, stream=True)
+
+    all_items = [item async for item in output]
+    generated_text = ""
+    for item in all_items[:-1]: # all but last item
+        assert isinstance(item, ChatCompletionStreamOutput)
+        assert len(item.choices) == 1
+        generated_text += item.choices[0].delta.content
+    last_item = all_items[-1]
+
+    assert generated_text == 'Deep learning is a subfield of machine learning'
+
+    # Last item has a finish reason but no role/content delta
+    assert last_item.choices[0].finish_reason == "length"
+    assert last_item.choices[0].delta.role is None
+    assert last_item.choices[0].delta.content is None
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
