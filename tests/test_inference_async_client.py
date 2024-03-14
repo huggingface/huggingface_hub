@@ -43,7 +43,7 @@ from huggingface_hub import (
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _is_tgi_server
 
-from .test_inference_client import CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
+from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 from .testing_utils import with_production_testing
 
 
@@ -155,7 +155,6 @@ async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClie
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
-@with_production_testing
 async def test_async_chat_completion_no_stream() -> None:
     async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
@@ -173,10 +172,28 @@ async def test_async_chat_completion_no_stream() -> None:
         created=output.created,
     )
 
-
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @with_production_testing
+async def test_async_chat_completion_not_tgi_no_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETE_NON_TGI_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
+    assert isinstance(output.created, int)
+    assert output == ChatCompletionOutput(
+        choices=[
+            ChatCompletionOutputChoice(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a subfield of machine learning that"
+                ),
+            )
+        ],
+        created=output.created,
+    )
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
 async def test_async_chat_completion_with_stream() -> None:
     async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10, stream=True)

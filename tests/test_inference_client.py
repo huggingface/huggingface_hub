@@ -80,6 +80,7 @@ CHAT_COMPLETION_MESSAGES = [
     {"role": "system", "content": "You are a helpful assistant."},
     {"role": "user", "content": "What is deep learning?"},
 ]
+CHAT_COMPLETE_NON_TGI_MODEL = "microsoft/DialoGPT-small"
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -188,8 +189,26 @@ class InferenceClientVCRTest(InferenceClientTest):
         generated_text = "".join(
             item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
         )
-        expected_text = 'Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to'
+        expected_text = "Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to"
         assert generated_text == expected_text
+
+    def test_chat_completion_with_non_tgi(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETE_NON_TGI_MODEL,
+            stream=False,
+            max_tokens=20,
+        )
+        assert output == ChatCompletionOutput(
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason="unk", # <- specific to models served with transformers (not possible to get details)
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(content="Deep learning is a thing."),
+                )
+            ],
+            created=output.created,
+        )
 
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
