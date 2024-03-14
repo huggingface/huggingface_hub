@@ -2,21 +2,19 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Create and share Model Cards
+# 모델 카드 생성 및 공유
 
-The `huggingface_hub` library provides a Python interface to create, share, and update Model Cards.
-Visit [the dedicated documentation page](https://huggingface.co/docs/hub/models-cards)
-for a deeper view of what Model Cards on the Hub are, and how they work under the hood.
+`huggingface_hub` 라이브러리는 모델 카드를 만들고 공유하고 업데이트하는 파이썬 인터페이스를 제공합니다. 허브의 모델 카드가 무엇인지, 그리고 후드 아래에서 어떻게 작동하는지에 대한 자세한 내용은 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
 
 <Tip>
-
-[New (beta)! Try our experimental Model Card Creator App](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
+[새로운 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 </Tip>
 
-## Load a Model Card from the Hub
+## 허브에서 모델 카드 불러오기
 
-To load an existing card from the Hub, you can use the [`ModelCard.load`] function. Here, we'll load the card from [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans).
+Hub에서 기존 카드를 불러오려면 [`ModelCard.load`] 기능을 사용하면 됩니다. 여기서는 [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans)에서 카드를 불러옵니다.
+
 
 ```python
 from huggingface_hub import ModelCard
@@ -24,16 +22,17 @@ from huggingface_hub import ModelCard
 card = ModelCard.load('nateraw/vit-base-beans')
 ```
 
-This card has some helpful attributes that you may want to access/leverage:
-  - `card.data`: Returns a [`ModelCardData`] instance with the model card's metadata. Call `.to_dict()` on this instance to get the representation as a dictionary.
-  - `card.text`: Returns the text of the card, *excluding the metadata header*.
-  - `card.content`: Returns the text content of the card, *including the metadata header*.
+이 카드에는 접근하거나 활용할 수 있는 몇 가지 유용한 속성이 있습니다:
 
-## Create Model Cards
+  - `card.data`: 모델 카드의 메타데이터와 함께 [`ModelCardData`] 인스턴스를 반환합니다. 이 인스턴스에 `.to_dict()`를 호출하여 표현을 사전으로 가져옵니다.
+  - `card.text`: *메타데이터 헤더를 제외*한 카드의 텍스트를 반환합니다.
+  - `card.content`: *메타데이터 헤더를 포함*한 카드의 텍스트 콘텐츠를 반환합니다.
 
-### From Text
+## 모델 카드 만들기
 
-To initialize a Model Card from text, just pass the text content of the card to the `ModelCard` on init.
+### 텍스트에서 생성
+
+텍스트로부터 모델 카드를 시작하려면, 카드의 텍스트 내용을 초기화 시 `ModelCard`에 전달하면 됩니다.
 
 ```python
 content = """
@@ -42,17 +41,17 @@ language: en
 license: mit
 ---
 
-# My Model Card
+# 내 모델 카드
 """
 
 card = ModelCard(content)
 card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
 ```
+ 
+이 작업을 수행하는 또 다른 방법은 f-strings를 사용하는 것입니다. 다음 예에서 우리는:
 
-Another way you might want to do this is with f-strings. In the following example, we:
-
-- Use [`ModelCardData.to_yaml`] to convert metadata we defined to YAML so we can use it to insert the YAML block in the model card.
-- Show how you might use a template variable via Python f-strings.
+- 우리가 정의한 메타데이터를 YAML로 변환하기 위해 [`ModelCardData.to_yaml`]을 사용하므로 모델 카드에 YAML 블록을 삽입하는 데 사용할 수 있습니다.
+- Python f-strings를 통해 템플릿 변수를 사용할 방법을 보여줍니다
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library='timm')
@@ -63,16 +62,16 @@ content = f"""
 { card_data.to_yaml() }
 ---
 
-# My Model Card
+# 내 모델 카드
 
-This model created by [@{example_template_var}](https://github.com/{example_template_var})
+이 모델은 [@{example_template_var}](https://github.com/ {example_template_var})에 의해 생성되었습니다
 """
 
 card = ModelCard(content)
 print(card)
 ```
 
-The above example would leave us with a card that looks like this:
+위 예시는 다음과 같은 모습의 카드를 남깁니다:
 
 ```
 ---
@@ -81,47 +80,47 @@ license: mit
 library: timm
 ---
 
-# My Model Card
+# 내 모델 카드
 
 This model created by [@nateraw](https://github.com/nateraw)
 ```
 
-### From a Jinja Template
+### 진자 템플릿으로부터
 
-If you have `Jinja2` installed, you can create Model Cards from a jinja template file. Let's see a basic example:
+Jinja2가 설치되어 있으면, Jinja 템플릿 파일에서 모델 카드를 만들 수 있습니다. 기본적인 예를 살펴보겠습니다:
 
 ```python
 from pathlib import Path
 
 from huggingface_hub import ModelCard, ModelCardData
 
-# Define your jinja template
+# jinja 템플릿 정의
 template_text = """
 ---
 {{ card_data }}
 ---
 
-# Model Card for MyCoolModel
+# 마이쿨 모델용 모델 카드
 
-This model does this and that.
+이 모델은 이것과 저것을 합니다.
 
-This model was created by [@{{ author }}](https://hf.co/{{author}}).
-""".strip()
+이 모델은 [[@{{ author }}](https://hf.co/{{author}})에 의해 생성되었습니다.
+""".strip() 
 
-# Write the template to a file
+# 템플릿을 파일에 쓰기
 Path('custom_template.md').write_text(template_text)
 
-# Define card metadata
+# 카드 메타데이터 정의
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
 
-# Create card from template, passing it any jinja template variables you want.
-# In our case, we'll pass author
+# 템플릿에서 카드를 만들고 원하는 진자 템플릿 변수를 전달합니다.
+# 우리의 경우에는 작성자를 전달하겠습니다.
 card = ModelCard.from_template(card_data, template_path='custom_template.md', author='nateraw')
 card.save('my_model_card_1.md')
 print(card)
 ```
 
-The resulting card's markdown looks like this:
+결과 카드의 마크다운은 다음과 같습니다:
 
 ```
 ---
@@ -130,14 +129,14 @@ license: mit
 library_name: keras
 ---
 
-# Model Card for MyCoolModel
+# 마이쿨 모델용 모델 카드
 
-This model does this and that.
+이 모델은 이것과 저것을 합니다.
 
-This model was created by [@nateraw](https://hf.co/nateraw).
+이 모델은 [@nateraw](https://hf.co/nateraw)에 의해 생성되었습니다.
 ```
 
-If you update any card.data, it'll reflect in the card itself.
+카드 데이터를 업데이트하면 카드 자체에 반영됩니다.
 
 ```
 card.data.library_name = 'timm'
@@ -146,7 +145,7 @@ card.data.license = 'apache-2.0'
 print(card)
 ```
 
-Now, as you can see, the metadata header has been updated:
+이제 보시다시피 메타데이터 헤더가 업데이트되었습니다:
 
 ```
 ---
@@ -155,22 +154,22 @@ license: apache-2.0
 library_name: timm
 ---
 
-# Model Card for MyCoolModel
+# 마이쿨 모델용 모델 카드
 
-This model does this and that.
+이 모델은 이것과 저것을 합니다.
 
-This model was created by [@nateraw](https://hf.co/nateraw).
+이 모델은 [@nateraw](https://hf.co/nateraw)에 의해 생성되었습니다.
 ```
 
-As you update the card data, you can validate the card is still valid against the Hub by calling [`ModelCard.validate`]. This ensures that the card passes any validation rules set up on the Hugging Face Hub.
+카드 데이터를 업데이트할 때 [`ModelCard.validate`]로 전화하여 Hub에 대해 카드가 여전히 유효한지 확인할 수 있습니다. 이렇게 하면 Hugging Face Hub에 설정된 모든 유효성 검사 규칙을 통과할 수 있습니다.
 
-### From the Default Template
+### 기본 템플릿으로부터
 
-Instead of using your own template, you can also use the [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), which is a fully featured model card with tons of sections you may want to fill out. Under the hood, it uses [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) to fill out a template file.
+템플릿을 사용하는 대신 [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), 를 사용할 수도 있습니다. 이것은 여러분이 작성하고 싶은 수많은 섹션이 있는 완전한 기능을 갖춘 모델 카드입니다. 후드 아래에는 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
 
 <Tip>
 
-Note that you will have to have Jinja2 installed to use `from_template`. You can do so with `pip install Jinja2`.
+`from_template`를 사용하려면 jinja2를 설치해야 합니다. `pip install Jinja2`를 사용하면 됩니다.
 
 </Tip>
 
@@ -187,11 +186,11 @@ card.save('my_model_card_2.md')
 print(card)
 ```
 
-## Share Model Cards
+## 모델 카드 공유하기
 
-If you're authenticated with the Hugging Face Hub (either by using `huggingface-cli login` or [`login`]), you can push cards to the Hub by simply calling [`ModelCard.push_to_hub`]. Let's take a look at how to do that...
+Hugging Face Hub로 인증받은 경우(`huggingface-cli login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 허브에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
 
-First, we'll create a new repo called 'hf-hub-modelcards-pr-test' under the authenticated user's namespace:
+먼저 인증된 사용자의 네임스페이스 아래에 'hf-hub-modelcards-pr-test'라는 새로운 레포를 만듭니다:
 
 ```python
 from huggingface_hub import whoami, create_repo
@@ -201,7 +200,7 @@ repo_id = f'{user}/hf-hub-modelcards-pr-test'
 url = create_repo(repo_id, exist_ok=True)
 ```
 
-Then, we'll create a card from the default template (same as the one defined in the section above):
+그런 다음 기본 템플릿에서 카드를 만듭니다(위 섹션에서 정의한 것과 동일):
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
@@ -214,64 +213,59 @@ card = ModelCard.from_template(
 )
 ```
 
-Finally, we'll push that up to the hub
+마지막으로 이를 허브로 푸시하겠습니다.
 
 ```python
 card.push_to_hub(repo_id)
 ```
 
-You can check out the resulting card [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/blob/main/README.md).
+결과 카드는 [여기](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/blob/main/README.md)에서 확인할 수 있습니다.
 
-If you instead wanted to push a card as a pull request, you can just say `create_pr=True` when calling `push_to_hub`:
+풀 요청으로 카드를 푸시하고 싶다면 `push_to_hub`를 호출할 때 `create_pr=True`라고 말하면 됩니다.
 
 ```python
 card.push_to_hub(repo_id, create_pr=True)
 ```
 
-A resulting PR created from this command can be seen [here](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3).
+이 명령으로 생성된 결과 PR은 [여기](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3)에서 볼 수 있습니다.
 
-## Update metadata
+## 메타데이터 업데이트
 
-In this section we will see what metadata are in repo cards and how to update them.
+이 섹션에서는 레포 카드에 있는 메타데이터와 업데이트 방법을 확인합니다.
 
-`metadata` refers to a hash map (or key value) context that provides some high-level information about a model, dataset or Space. That information can include details such as the model's `pipeline type`, `model_id` or `model_description`. For more detail you can take a look to these guides: [Model Card](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [Dataset Card](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) and [Spaces Settings](https://huggingface.co/docs/hub/spaces-settings#spaces-settings).
-Now lets see some examples on how to update those metadata.
+`메타데이터`는 모델, 데이터셋, 스페이스에 대한 높은 수준의 정보를 제공하는 해시맵(또는 키 값) 컨텍스트를 말합니다. 모델의 `pipeline type`, `model_id` 또는 `model_desc` 설명 등의 정보가 포함될 수 있습니다. 자세한 내용은 [모델 카드](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [데이터셋 카드](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) 및 [스페이스 설정](https://huggingface.co/docs/hub/spaces-settings#spaces-settings) 을 참조하십시오. 이제 메타데이터를 업데이트하는 방법에 대한 몇 가지 예를 살펴보겠습니다.
 
 
-Let's start with a first example:
+첫 번째 예부터 살펴보겠습니다:
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
 ```
 
-With these two lines of code you will update the metadata to set a new `pipeline_tag`.
+두 줄의 코드를 사용하면 메타데이터를 업데이트하여 새로운 `파이프라인_태그'`를 설정할 수 있습니다.
 
-By default, you cannot update a key that is already existing on the card. If you want to do so, you must pass
-`overwrite=True` explicitly:
-
+기본적으로 카드에 이미 존재하는 키는 업데이트할 수 없습니다. 그렇게 하려면 `overwrite=True`를 명시적으로 전달해야 합니다.
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
 ```
 
-It often happen that you want to suggest some changes to a repository
-on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owners to
-review and merge your suggestions.
+쓰기 권한이 없는 저장소에 일부 변경 사항을 제안하려는 경우가 종종 있습니다. 소유자가 귀하의 제안을 검토하고 병합할 수 있도록 해당 저장소에 PR을 생성하면 됩니다.
 
 ```python
 >>> from huggingface_hub import metadata_update
 >>> metadata_update("someone/model", {"pipeline_tag": "text-classification"}, create_pr=True)
 ```
 
-## Include Evaluation Results
+## 평가 결과 포함하기
 
-To include evaluation results in the metadata `model-index`, you can pass an [`EvalResult`] or a list of `EvalResult` with your associated evaluation results. Under the hood it'll create the `model-index` when you call `card.data.to_dict()`. For more information on how this works, you can check out [this section of the Hub docs](https://huggingface.co/docs/hub/models-cards#evaluation-results).
+메타데이터 `모델-인덱스`에 평가 결과를 포함하려면 관련 평가 결과와 함께 [EvalResult] 또는 `EvalResult` 목록을 전달하면 됩니다. 후드 아래에 `card.data.to _dict()`를 호출하면 `모델-인덱스`가 생성됩니다. 자세한 내용은 [Hub 문서의 이 섹션](https://huggingface.co/docs/hub/models-cards#evaluation-results)을 참조하십시오.
 
 <Tip>
 
-Note that using this function requires you to include the `model_name` attribute in [`ModelCardData`].
+이 기능을 사용하려면 ['ModelCardData']에 `model_name` 속성을 포함해야 합니다.
 
 </Tip>
 
@@ -293,7 +287,7 @@ card = ModelCard.from_template(card_data)
 print(card.data)
 ```
 
-The resulting `card.data` should look like this:
+결과 `card.data`는 다음과 같이 보여야 합니다:
 
 ```
 language: en
@@ -311,7 +305,7 @@ model-index:
       value: 0.7
 ```
 
-If you have more than one evaluation result you'd like to share, just pass a list of `EvalResult`:
+`EvalResult`: 공유하고 싶은 평가 결과가 둘 이상 있는 경우 `EvalResults` 목록을 전달하기만 하면 됩니다:
 
 ```python
 card_data = ModelCardData(
@@ -338,8 +332,7 @@ card_data = ModelCardData(
 card = ModelCard.from_template(card_data)
 card.data
 ```
-
-Which should leave you with the following `card.data`:
+그러면 다음 `card.data`가 남게 됩니다:
 
 ```
 language: en
