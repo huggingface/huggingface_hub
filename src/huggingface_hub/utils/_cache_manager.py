@@ -665,9 +665,14 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             refs_by_hash[commit_hash].add(ref_name)
 
+    # List of OS-created helper files that need to be ignored
+    FILES_TO_IGNORE = [".DS_Store"]
     # Scan snapshots directory
     cached_revisions: Set[CachedRevisionInfo] = set()
     for revision_path in snapshots_path.iterdir():
+        # Ignore OS-created helper files
+        if revision_path.name in FILES_TO_IGNORE:
+            continue
         if revision_path.is_file():
             raise CorruptedCacheException(f"Snapshots folder corrupted. Found a file: {revision_path}")
 
