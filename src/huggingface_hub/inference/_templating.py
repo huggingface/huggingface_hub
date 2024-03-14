@@ -58,11 +58,11 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, bool, None])
     Returns:
         `Callable`: A callable that takes a list of messages and returns the rendered chat prompt.
     """
-    from huggingface_hub.hf_api import model_info
+    from huggingface_hub.hf_api import HfApi
 
     # 1. fetch config from API
     try:
-        config = model_info(model_id, token=token).config
+        config = HfApi(token=token).model_info(model_id).config
     except RepositoryNotFoundError as e:
         raise TemplateError(f"Cannot render chat template: model '{model_id}' not found.") from e
     except HfHubHTTPError as e:

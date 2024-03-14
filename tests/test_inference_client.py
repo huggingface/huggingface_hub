@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,6 +23,10 @@ from PIL import Image
 
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -69,6 +74,12 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
+
+CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+CHAT_COMPLETION_MESSAGES = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is deep learning?"},
+]
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -126,6 +137,59 @@ class InferenceClientVCRTest(InferenceClientTest):
             text="A MAN SAID TO THE UNIVERSE SIR I EXIST",
             chunks=None,
         )
+
+    def test_chat_completion_no_stream(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETION_MODEL,
+            stream=False,
+        )
+        assert isinstance(output, ChatCompletionOutput)
+        assert output.created < time.time()
+        assert output.choices == [
+            ChatCompletionOutputChoice(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a subfield of machine learning that uses artificial neural networks with multiple layers to learn and"
+                ),
+            )
+        ]
+
+    def test_chat_completion_with_stream(self) -> None:
+        output = list(
+            self.client.chat_completion(
+                messages=CHAT_COMPLETION_MESSAGES,
+                model=CHAT_COMPLETION_MODEL,
+                stream=True,
+                max_tokens=20,
+            )
+        )
+
+        assert isinstance(output, list)
+        assert all(isinstance(item, ChatCompletionStreamOutput) for item in output)
+        created = output[0].created
+        assert all(item.created == created for item in output)  # all tokens share the same timestamp
+
+        # All items except the last one have a single choice with role/content delta
+        for item in output[:-1]:
+            assert len(item.choices) == 1
+            assert item.choices[0].finish_reason is None
+            assert item.choices[0].index == 0
+            assert item.choices[0].delta.role == "assistant"
+            assert item.choices[0].delta.content is not None
+
+        # Last item has a finish reason but no role/content delta
+        assert output[-1].choices[0].finish_reason == "length"
+        assert output[-1].choices[0].delta.role is None
+        assert output[-1].choices[0].delta.content is None
+
+        # Reconstruct generated text
+        generated_text = "".join(
+            item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
+        )
+        expected_text = "Deep learning is a subfield of machine learning that uses artificial neural networks with multiple layers to learn"
+        assert generated_text == expected_text
 
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
