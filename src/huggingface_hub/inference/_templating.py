@@ -44,7 +44,7 @@ def render_chat_prompt(
 
 
 @lru_cache  # TODO: lru_cache for raised exceptions
-def _fetch_and_compile_template(*, model_id: str, token: Union[str, bool, None]) -> Callable:
+def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Callable:
     """Fetch and compile a model's chat template.
 
     Method is cached to avoid fetching the same model's config multiple times.

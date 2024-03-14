@@ -301,11 +301,19 @@ def _adapt_text_generation_to_async(code: str) -> str:
         "return self.text_generation",
         "return await self.text_generation",
     )
+    code = code.replace(
+        "return self.chat_completion",
+        "return await self.chat_completion",
+    )
 
     # Update return types: Iterable -> AsyncIterable
     code = code.replace(
         ") -> Iterable[str]:",
         ") -> AsyncIterable[str]:",
+    )
+    code = code.replace(
+        ") -> Union[bytes, Iterable[bytes]]:",
+        ") -> Union[bytes, AsyncIterable[bytes]]:",
     )
     code = code.replace(
         ") -> Iterable[TextGenerationStreamOutput]:",
@@ -390,8 +398,11 @@ def _use_async_streaming_util(code: str) -> str:
         "_async_stream_text_generation_response",
     )
     code = code.replace(
-        "_stream_chat_completion_response",
-        "_async_stream_chat_completion_response",
+        "_stream_chat_completion_response_from_text_generation",
+        "_async_stream_chat_completion_response_from_text_generation",
+    )
+    code = code.replace(
+        "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
     )
     return code
 

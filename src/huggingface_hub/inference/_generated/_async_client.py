@@ -35,6 +35,7 @@ from typing import (
     overload,
 )
 
+from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
@@ -43,7 +44,8 @@ from huggingface_hub.inference._common import (
     ContentT,
     InferenceTimeoutError,
     ModelStatus,
-    _async_stream_chat_completion_response,
+    _async_stream_chat_completion_response_from_bytes,
+    _async_stream_chat_completion_response_from_text_generation,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -52,8 +54,10 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _fetch_recommended_models,
     _import_numpy,
+    _is_chat_completion_server,
     _is_tgi_server,
     _open_as_binary,
+    _set_as_non_chat_completion_server,
     _set_as_non_tgi,
     raise_text_generation_error,
 )
@@ -129,13 +133,13 @@ class AsyncInferenceClient:
     def __init__(
         self,
         model: Optional[str] = None,
-        token: Union[str, bool, None] = None,
+        token: Optional[str] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
-        self.token: Union[str, bool, None] = token
+        self.token: Optional[str] = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -154,8 +158,18 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[False] = ...,
-    ) -> bytes:
-        pass
+    ) -> bytes: ...
+
+    @overload
+    async def post(  # type: ignore[misc]
+        self,
+        *,
+        json: Optional[Union[str, Dict, List]] = None,
+        data: Optional[ContentT] = None,
+        model: Optional[str] = None,
+        task: Optional[str] = None,
+        stream: Literal[True] = ...,
+    ) -> AsyncIterable[bytes]: ...
 
     @overload
     async def post(
@@ -165,9 +179,8 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]:
-        pass
+        stream: bool = False,
+    ) -> Union[bytes, AsyncIterable[bytes]]: ...
 
     async def post(
         self,
@@ -411,7 +424,7 @@ class AsyncInferenceClient:
     ) -> ChatCompletionOutput: ...
 
     @overload
-    async def chat_completion(
+    async def chat_completion(  # type: ignore
         self,
         messages: List[Dict[str, str]],
         *,
@@ -423,6 +436,20 @@ class AsyncInferenceClient:
         temperature: float = 1.0,
         top_p: Optional[float] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
+
+    @overload
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
         self,
@@ -488,11 +515,79 @@ class AsyncInferenceClient:
         # determine model
         model = model or self.model or self.get_recommended_model("text-generation")
 
-        # TODO: add support when model is a URL
-        assert not model.startswith("https://") and not model.startswith("http://")
+        if _is_chat_completion_server(model):
+            # First, let's consider the server has a `/v1/chat/completions` endpoint.
+            # If that's the case, we don't have to render the chat template client-side.
+            model_url = self._resolve_url(model) + "/v1/chat/completions"
+
+            try:
+                data = await self.post(
+                    model=model_url,
+                    json=dict(
+                        model="tgi",  # random string
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        top_p=top_p,
+                        stream=stream,
+                    ),
+                    stream=stream,
+                )
+            except HTTPError:
+                # Let's consider the server is not a chat completion server.
+                # Then we call again `chat_completion` which will render the chat template client side.
+                # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                _set_as_non_chat_completion_server(model)
+                return await self.chat_completion(
+                    messages=messages,
+                    model=model,
+                    stream=stream,
+                    max_tokens=max_tokens,
+                    seed=seed,
+                    stop=stop,
+                    temperature=temperature,
+                    top_p=top_p,
+                )
+
+            if stream:
+                return _async_stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
+
+            return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+
+        # At this point, we know the server is not a chat completion server.
+        # We need to render the chat template client side based on the information we can fetch from
+        # the Hub API.
+
+        model_id = None
+        if model.startswith(("http://", "https://")):
+            # If URL, we need to know which model is served. This is not always possible.
+            # A workaround is to list the user Inference Endpoints and check if one of them correspond to the model URL.
+            # If not, we raise an error.
+            # TODO: fix when we have a proper API for this (at least for Inference Endpoints)
+            # TODO: what if Sagemaker URL?
+            # TODO: what if Azure URL?
+            from ..hf_api import HfApi
+
+            for endpoint in HfApi(token=self.token).list_inference_endpoints("*"):
+                if endpoint.url == model:
+                    model_id = endpoint.repository
+                    break
+        else:
+            model_id = model
+
+        if model_id is None:
+            # If we don't have the model ID, we can't fetch the chat template.
+            # We raise an error.
+            raise ValueError(
+                "Request can't be processed as the model ID can't be inferred from model URL. "
+                "This is needed to fetch the chat template from the Hub since the model is not "
+                "served with a Chat-completion API."
+            )
 
         # fetch chat template + tokens
-        prompt = render_chat_prompt(model_id=model, token=self.token, messages=messages)
+        prompt = render_chat_prompt(model_id=model_id, token=self.token, messages=messages)
 
         # generate response
         stop_sequences = [stop] if isinstance(stop, str) else stop
@@ -511,21 +606,34 @@ class AsyncInferenceClient:
         created = int(time.time())
 
         if stream:
-            return _async_stream_chat_completion_response(text_generation_output)  # type: ignore [arg-type]
+            return _async_stream_chat_completion_response_from_text_generation(text_generation_output)  # type: ignore [arg-type]
 
-        assert isinstance(text_generation_output, TextGenerationOutput), "stream=False => expect TextGenerationOutput"
-        return ChatCompletionOutput(
-            created=created,
-            choices=[
-                ChatCompletionOutputChoice(
-                    finish_reason=text_generation_output.details.finish_reason,  # type: ignore
-                    index=0,
-                    message=ChatCompletionOutputChoiceMessage(
-                        content=text_generation_output.generated_text,
-                    ),
-                )
-            ],
-        )
+        if isinstance(text_generation_output, TextGenerationOutput):
+            return ChatCompletionOutput(
+                created=created,
+                choices=[
+                    ChatCompletionOutputChoice(
+                        finish_reason=text_generation_output.details.finish_reason,  # type: ignore
+                        index=0,
+                        message=ChatCompletionOutputChoiceMessage(
+                            content=text_generation_output.generated_text,
+                        ),
+                    )
+                ],
+            )
+        else:
+            return ChatCompletionOutput(
+                created=created,
+                choices=[
+                    ChatCompletionOutputChoice(
+                        finish_reason="unk",  # type: ignore
+                        index=0,
+                        message=ChatCompletionOutputChoiceMessage(
+                            content=text_generation_output,  # type: ignore[arg-type]
+                        ),
+                    )
+                ],
+            )
 
     async def conversational(
         self,
@@ -1664,12 +1772,8 @@ class AsyncInferenceClient:
         if not _is_tgi_server(model):
             parameters: Dict = payload["parameters"]  # type: ignore [assignment]
 
-            # `stop` is named `stop_sequences` on transformers-based server
-            parameters["stop_sequences"] = parameters["stop"]
-            del parameters["stop"]
-
             ignored_parameters = []
-            for key in "watermark", "details", "decoder_input_details", "best_of":
+            for key in "watermark", "details", "decoder_input_details", "best_of", "stop":
                 if parameters[key] is not None:
                     ignored_parameters.append(key)
                 del parameters[key]
@@ -1725,7 +1829,7 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]
+        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
         return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(

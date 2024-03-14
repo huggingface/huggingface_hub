@@ -302,25 +302,25 @@ def _format_text_generation_stream_output(
     return output.token.text if not details else output
 
 
-def _stream_chat_completion_response(
+def _stream_chat_completion_response_from_text_generation(
     text_generation_output: Iterable[TextGenerationStreamOutput],
 ) -> Iterable[ChatCompletionStreamOutput]:
     """Used in `InferenceClient.chat_completion`."""
     created = int(time.time())
     for item in text_generation_output:
-        yield _format_chat_completion_stream_output(item, created)
+        yield _format_chat_completion_stream_output_from_text_generation(item, created)
 
 
-async def _async_stream_chat_completion_response(
+async def _async_stream_chat_completion_response_from_text_generation(
     text_generation_output: AsyncIterable[TextGenerationStreamOutput],
 ) -> AsyncIterable[ChatCompletionStreamOutput]:
     """Used in `AsyncInferenceClient.chat_completion`."""
     created = int(time.time())
     async for item in text_generation_output:
-        yield _format_chat_completion_stream_output(item, created)
+        yield _format_chat_completion_stream_output_from_text_generation(item, created)
 
 
-def _format_chat_completion_stream_output(
+def _format_chat_completion_stream_output_from_text_generation(
     item: TextGenerationStreamOutput, created: int
 ) -> ChatCompletionStreamOutput:
     if item.details is None:
@@ -350,6 +350,38 @@ def _format_chat_completion_stream_output(
             ],
             created=created,
         )
+
+
+def _stream_chat_completion_response_from_bytes(
+    bytes_lines: Iterable[bytes],
+) -> Iterable[ChatCompletionStreamOutput]:
+    """Used in `InferenceClient.chat_completion` if model is served with TGI."""
+    for item in bytes_lines:
+        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        if output is not None:
+            yield output
+
+
+async def _async_stream_chat_completion_response_from_bytes(
+    bytes_lines: AsyncIterable[bytes],
+) -> AsyncIterable[ChatCompletionStreamOutput]:
+    """Used in `AsyncInferenceClient.chat_completion`."""
+    async for item in bytes_lines:
+        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        if output is not None:
+            yield output
+
+
+def _format_chat_completion_stream_output_from_text_generation_from_bytes(
+    byte_payload: bytes,
+) -> Optional[ChatCompletionStreamOutput]:
+    if not byte_payload.startswith(b"data:"):
+        return None  # empty line
+
+    # Decode payload
+    payload = byte_payload.decode("utf-8")
+    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
 async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
@@ -385,6 +417,18 @@ def _set_as_non_tgi(model: Optional[str]) -> None:
 
 def _is_tgi_server(model: Optional[str]) -> bool:
     return model not in _NON_TGI_SERVERS
+
+
+_NON_CHAT_COMPLETION_SERVER: Set[str] = set()
+
+
+def _set_as_non_chat_completion_server(model: str) -> None:
+    print("Set as non chat completion", model)
+    _NON_CHAT_COMPLETION_SERVER.add(model)
+
+
+def _is_chat_completion_server(model: str) -> bool:
+    return model not in _NON_CHAT_COMPLETION_SERVER
 
 
 # TEXT GENERATION ERRORS
