@@ -172,6 +172,7 @@ async def test_async_chat_completion_no_stream() -> None:
         created=output.created,
     )
 
+
 @pytest.mark.vcr
 @pytest.mark.asyncio
 @with_production_testing
@@ -191,6 +192,7 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
         ],
         created=output.created,
     )
+
 
 @pytest.mark.vcr
 @pytest.mark.asyncio

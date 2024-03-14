@@ -202,7 +202,7 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert output == ChatCompletionOutput(
             choices=[
                 ChatCompletionOutputChoice(
-                    finish_reason="unk", # <- specific to models served with transformers (not possible to get details)
+                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
                     index=0,
                     message=ChatCompletionOutputChoiceMessage(content="Deep learning is a thing."),
                 )

@@ -570,7 +570,7 @@ class AsyncInferenceClient:
             # TODO: what if Azure URL?
             from ..hf_api import HfApi
 
-            for endpoint in HfApi(token=self.token).list_inference_endpoints("*"):
+            for endpoint in HfApi(token=self.token).list_inference_endpoints():
                 if endpoint.url == model:
                     model_id = endpoint.repository
                     break
