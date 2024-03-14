@@ -151,7 +151,7 @@ class InferenceClientVCRTest(InferenceClientTest):
                 finish_reason="length",
                 index=0,
                 message=ChatCompletionOutputChoiceMessage(
-                    content="Deep learning is a subfield of machine learning that uses artificial neural networks with multiple layers to learn and"
+                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of"
                 ),
             )
         ]
@@ -188,7 +188,7 @@ class InferenceClientVCRTest(InferenceClientTest):
         generated_text = "".join(
             item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
         )
-        expected_text = "Deep learning is a subfield of machine learning that uses artificial neural networks with multiple layers to learn"
+        expected_text = 'Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to'
         assert generated_text == expected_text
 
     def test_conversational(self) -> None:

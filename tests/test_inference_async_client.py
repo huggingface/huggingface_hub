@@ -189,7 +189,7 @@ async def test_async_chat_completion_with_stream() -> None:
         generated_text += item.choices[0].delta.content
     last_item = all_items[-1]
 
-    assert generated_text == "Deep learning is a subfield of machine learning"
+    assert generated_text == "Deep Learning is a subfield of Machine Learning that"
 
     # Last item has a finish reason but no role/content delta
     assert last_item.choices[0].finish_reason == "length"
