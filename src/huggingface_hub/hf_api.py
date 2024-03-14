@@ -2564,25 +2564,25 @@ class HfApi:
        #except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
        #    return False
 
-	######## DB EDIT ########
-	i = 0
-	while True:
-		try:
-			if token is None:
-				token = self.token
-			get_hf_file_metadata(url, token=token)
-			return True
-		except requests.exceptions.ConnectionError:
-			if i < 3:
-				i += 1
-				continue
-			else:
-				raise
-		except GatedRepoError: # raise specifically on gated repo
-			raise
-		except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
-			return False
-	######## DB EDIT ########
+        ######## DB EDIT ########
+        i = 0
+        while True:
+        try:
+                if token is None:
+                        token = self.token
+                get_hf_file_metadata(url, token=token)
+                return True
+        except requests.exceptions.ConnectionError:
+                if i < 3:
+                        i += 1
+                        continue
+                else:
+                        raise
+        except GatedRepoError: # raise specifically on gated repo
+                raise
+        except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
+                return False
+        ######## DB EDIT ########
 
     @validate_hf_hub_args
     @_deprecate_method(version="0.23", message="Use `list_repo_tree` and `get_paths_info` instead.")
