@@ -33,6 +33,7 @@ REPO_TYPE_T = Literal["model", "dataset", "space"]
 # List of OS-created helper files that need to be ignored
 FILES_TO_IGNORE = [".DS_Store"]
 
+
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
 
