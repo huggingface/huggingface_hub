@@ -30,6 +30,8 @@ logger = logging.get_logger(__name__)
 
 REPO_TYPE_T = Literal["model", "dataset", "space"]
 
+# List of OS-created helper files that need to be ignored
+FILES_TO_IGNORE = [".DS_Store"]
 
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
@@ -665,8 +667,6 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
             refs_by_hash[commit_hash].add(ref_name)
 
-    # List of OS-created helper files that need to be ignored
-    FILES_TO_IGNORE = [".DS_Store"]
     # Scan snapshots directory
     cached_revisions: Set[CachedRevisionInfo] = set()
     for revision_path in snapshots_path.iterdir():
