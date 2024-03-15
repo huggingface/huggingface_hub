@@ -82,6 +82,8 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
+    _HF_DEFAULT_ENDPOINT,
+    _HF_DEFAULT_STAGING_ENDPOINT,
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
@@ -182,6 +184,12 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             If `repo_type` is unknown.
     """
     input_hf_id = hf_id
+
+    # check if a proxy has been set => if yes, update the returned URL to use the proxy
+    for default_endpoint in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+        if default_endpoint != ENDPOINT and default_endpoint in hf_id:
+            hf_id = hf_id.replace(default_endpoint, ENDPOINT)
+
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
