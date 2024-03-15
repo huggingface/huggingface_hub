@@ -35,7 +35,6 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
@@ -535,7 +534,7 @@ class AsyncInferenceClient:
                     ),
                     stream=stream,
                 )
-            except HTTPError:
+            except _import_aiohttp().ClientResponseError:
                 # Let's consider the server is not a chat completion server.
                 # Then we call again `chat_completion` which will render the chat template client side.
                 # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)

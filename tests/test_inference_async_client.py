@@ -183,11 +183,9 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
     assert output == ChatCompletionOutput(
         choices=[
             ChatCompletionOutputChoice(
-                finish_reason="length",
+                finish_reason="unk",  # Non-TGI => cannot know the finish reason
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
-                    content="Deep learning is a subfield of machine learning that"
-                ),
+                message=ChatCompletionOutputChoiceMessage(content="Deep learning is a thing."),
             )
         ],
         created=output.created,
