@@ -1,14 +1,19 @@
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Union
 
-from minijinja import Environment
-from minijinja import TemplateError as MiniJinjaTemplateError
-
-from ..utils import HfHubHTTPError, RepositoryNotFoundError
+from ..utils import HfHubHTTPError, RepositoryNotFoundError, is_minijinja_available
 
 
 class TemplateError(Exception):
     """Any error raised while trying to fetch or render a chat template."""
+
+
+def _import_minijinja():
+    if not is_minijinja_available():
+        raise ImportError("Cannot render template. Please install minijinja using `pip install minijinja`.")
+    import minijinja  # noqa: F401
+
+    return minijinja
 
 
 def render_chat_prompt(
@@ -35,11 +40,12 @@ def render_chat_prompt(
     Raises:
         `TemplateError`: If there's any issue while fetching, compiling or rendering the chat template.
     """
+    minijinja = _import_minijinja()
     template = _fetch_and_compile_template(model_id=model_id, token=token)
 
     try:
         return template(messages=messages, add_generation_prompt=add_generation_prompt, **kwargs)
-    except MiniJinjaTemplateError as e:
+    except minijinja.TemplateError as e:
         raise TemplateError(f"Error while trying to render chat prompt for model '{model_id}': {e}") from e
 
 
@@ -59,6 +65,8 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Ca
         `Callable`: A callable that takes a list of messages and returns the rendered chat prompt.
     """
     from huggingface_hub.hf_api import HfApi
+
+    minijinja = _import_minijinja()
 
     # 1. fetch config from API
     try:
@@ -89,9 +97,9 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Ca
                 special_tokens[key] = value.get("content")
 
     # 3. compile template and return
-    env = Environment()
+    env = minijinja.Environment()
     try:
         env.add_template("chat_template", chat_template)
-    except MiniJinjaTemplateError as e:
+    except minijinja.TemplateError as e:
         raise TemplateError(f"Error while trying to compile chat template for model '{model_id}': {e}") from e
     return lambda **kwargs: env.render_template("chat_template", **kwargs, **special_tokens)

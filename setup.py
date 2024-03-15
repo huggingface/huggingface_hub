@@ -14,7 +14,6 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
-    "minijinja>=1.0",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "requests",
@@ -25,12 +24,12 @@ install_requires = [
 extras = {}
 
 extras["cli"] = [
-    "InquirerPy==0.3.4",
-    # Note: installs `prompt-toolkit` in the background
+    "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
 ]
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
+    "minijinja>=1.0",  # for chat-completion if not TGI-served
 ]
 
 extras["torch"] = [
