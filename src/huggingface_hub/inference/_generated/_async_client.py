@@ -493,8 +493,8 @@ class AsyncInferenceClient:
         Returns:
             `Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]`:
             Generated text returned from the server:
-            - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default)
-            - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`]
+            - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
+            - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -506,9 +506,29 @@ class AsyncInferenceClient:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> await client.chat_completion(...)
-        # TODO: complete example
+        >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+        >>> client = AsyncInferenceClient("HuggingFaceH4/zephyr-7b-beta")
+        >>> await client.chat_completion(messages, max_tokens=100)
+        ChatCompletionOutput(
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason='eos_token',
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content='The capital of France is Paris. The official name of the city is "Ville de Paris" (City of Paris) and the name of the country\'s governing body, which is located in Paris, is "La République française" (The French Republic). \nI hope that helps! Let me know if you need any further information.'
+                    )
+                )
+            ],
+            created=1710498360
+        )
+
+        >>> async for token in await client.chat_completion(messages, max_tokens=10, stream=True):
+        ...     print(token)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content='The', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        (...)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=None, role=None), index=0, finish_reason='length')], created=1710498504)
         ```
         """
         # determine model
