@@ -2,36 +2,25 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Run Inference on servers
+# Run Inference on servers[[Run Inference on servers]]
 
-Inference is the process of using a trained model to make predictions on new data. As this process can be compute-intensive,
-running on a dedicated server can be an interesting option. The `huggingface_hub` library provides an easy way to call a
-service that runs inference for hosted models. There are several services you can connect to:
-- [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
-on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and
-prototype AI products.
-- [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index): a product to easily deploy models to production.
-Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
+추론은 훈련된 모델을 사용하여 새 데이터에 대한 예측을 수행하는 과정입니다. 이 과정은 계산이 많이 필요할 수 있으므로, 전용 서버에서 실행하는 것이 흥미로운 옵션이 될 수 있습니다. huggingface_hub 라이브러리는 호스팅된 모델에 대한 추론을 실행하는 서비스를 호출하는 간편한 방법을 제공합니다. 다음과 같은 여러 서비스에 연결할 수 있습니다:
+- [추론 API](https://huggingface.co/docs/api-inference/index): Hugging Face의 인프라에서 가속화된 추론을 실행할 수 있는 서비스로 무료로 제공됩니다. 이 서비스는 빠르게 시작하고 다양한 모델을 테스트하며 AI 제품의 프로토타입을 만드는 빠른 방법입니다.
+- [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index): 모델을 제품 환경에 쉽게 배포할 수 있는 제품입니다. Hugging Face에서 전용, 완전 관리되는 인프라에서 추론을 실행합니다.
 
-These services can be called with the [`InferenceClient`] object. It acts as a replacement for the legacy
-[`InferenceApi`] client, adding specific support for tasks and handling inference on both
-[Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
-Learn how to migrate to the new client in the [Legacy InferenceAPI client](#legacy-inferenceapi-client) section.
+이러한 서비스들은 [InferenceClient] 객체를 사용하여 호출할 수 있습니다. 이는 이전의 [InferenceApi] 클라이언트를 대체하는 역할을 하며, 작업에 대한 특별한 지원을 추가하고 [추론 API](https://huggingface.co/docs/api-inference/index) 및 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)에서 추론을 처리합니다. 새 클라이언트로의 마이그레이션에 대한 자세한 내용은 [이전 추론API 클라이언트](#legacy-inferenceapi-client) 섹션을 참조하세요.
 
 <Tip>
 
-[`InferenceClient`] is a Python client making HTTP calls to our APIs. If you want to make the HTTP calls directly using
-your preferred tool (curl, postman,...), please refer to the [Inference API](https://huggingface.co/docs/api-inference/index)
-or to the [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) documentation pages.
+[`InferenceClient`]는 우리 API에 HTTP 호출을 수행하는 Python 클라이언트입니다. 원하는 경우 HTTP 호출을 직접 만들어 사용하려면 (curl, postman 등) [추론 API](https://huggingface.co/docs/api-inference/index) 또는 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index) 문서 페이지를 참조하세요.
 
-For web development, a [JS client](https://huggingface.co/docs/huggingface.js/inference/README) has been released.
-If you are interested in game development, you might have a look at our [C# project](https://github.com/huggingface/unity-api).
+웹 개발을 위해 [JS 클라이언트](https://huggingface.co/docs/huggingface.js/inference/README)가 출시되었습니다. 게임 개발에 관심이 있다면 [C# 프로젝트](https://github.com/huggingface/unity-api)를 살펴보세요.
 
 </Tip>
 
-## Getting started
+## 시작하기
 
-Let's get started with a text-to-image task:
+텍스트에서 이미지로의 작업을 시작해보겠습니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -41,22 +30,17 @@ Let's get started with a text-to-image task:
 >>> image.save("astronaut.png")
 ```
 
-We initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want
-to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
-example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
-file.
+우리는 기본 매개변수로 [`InferenceClient`]를 초기화했습니다. 알아두어야 할 것은 원하는 [작업](#supported-tasks)입니다. 기본적으로 클라이언트는 추론 API에 연결하고 작업을 완료할 모델을 선택합니다. 예제에서는 텍스트 프롬프트에서 이미지를 생성했습니다. 반환된 값은 파일로 저장할 수 있는 `PIL.Image` 객체입니다.
 
 <Tip warning={true}>
 
-The API is designed to be simple. Not all parameters and options are available or described for the end user. Check out
-[this page](https://huggingface.co/docs/api-inference/detailed_parameters) if you are interested in learning more about
-all the parameters available for each task.
+API는 간단하게 설계되었습니다. 모든 매개변수와 옵션이 최종 사용자를 위해 사용 가능하거나 설명되어 있는 것은 아닙니다. 각 작업에 대해 사용 가능한 모든 매개변수에 대해 자세히 알아보려면 [이 페이지](https://huggingface.co/docs/api-inference/detailed_parameters)를 확인하세요.
 
 </Tip>
 
-### Using a specific model
+### 특정 모델 사용하기
 
-What if you want to use a specific model? You can specify it either as a parameter or directly at an instance level:
+특정 모델을 사용하고 싶다면 어떻게 해야 할까요? 매개변수로 직접 지정하거나 인스턴스 수준에서 직접 지정할 수 있습니다:
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -70,20 +54,13 @@ What if you want to use a specific model? You can specify it either as a paramet
 
 <Tip>
 
-There are more than 200k models on the Hugging Face Hub! Each task in the [`InferenceClient`] comes with a recommended
-model. Be aware that the HF recommendation can change over time without prior notice. Therefore it is best to explicitly
-set a model once you are decided. Also, in most cases you'll be interested in finding a model specific to _your_ needs.
-Visit the [Models](https://huggingface.co/models) page on the Hub to explore your possibilities.
+Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceClient`]의 각 작업에는 추천되는 모델이 포함되어 있습니다. HF의 추천은 사전 고지 없이 시간이 지남에 따라 변경될 수 있음을 유의하십시오. 따라서 결정한 후에는 명시적으로 모델을 설정하는 것이 가장 좋습니다. 또한 대부분의 경우 자신의 필요에 맞는 모델을 찾는 것이 관심사일 것입니다. 허브의 [모델](https://huggingface.co/models) 페이지를 방문하여 가능성을 탐색하세요.
 
 </Tip>
 
-### Using a specific URL
+### 특정 URL 사용하기
 
-The examples we saw above use the free-hosted Inference API. This proves to be very useful for prototyping
-and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
-That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
-any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
-code as before, changing only the `model` parameter:
+위에서 본 예제들은 무료 호스팅된 추론 API를 사용합니다. 이는 프로토타입을 위해 매우 유용하며 빠르게 테스트할 수 있습니다. 모델을 프로덕션 환경에 배포할 준비가 되면 전용 인프라를 사용해야 합니다. 그것이 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)가 필요한 이유입니다. 이를 사용하면 모든 모델을 배포하고 개인 API로 노출시킬 수 있습니다. 한 번 배포되면 이전과 완전히 동일한 코드를 사용하여 연결할 수 있는 URL을 얻게 됩니다. `model` 매개변수만 변경하면 됩니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -93,12 +70,9 @@ code as before, changing only the `model` parameter:
 >>> client.text_to_image(..., model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
 ```
 
-### Authentication
+### 인증
 
-Calls made with the [`InferenceClient`] can be authenticated using a [User Access Token](https://huggingface.co/docs/hub/security-tokens).
-By default, it will use the token saved on your machine if you are logged in (check out
-[how to authenticate](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)). If you are not logged in, you can pass
-your token as an instance parameter:
+[`InferenceClient`]로 수행된 호출은 [사용자 액세스 토큰](https://huggingface.co/docs/hub/security-tokens)을 사용하여 인증할 수 있습니다. 기본적으로 로그인한 경우 기기에 저장된 토큰을 사용합니다 (인증 방법을 확인하세요). 로그인하지 않은 경우 인스턴스 매개변수로 토큰을 전달할 수 있습니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -107,61 +81,57 @@ your token as an instance parameter:
 
 <Tip>
 
-Authentication is NOT mandatory when using the Inference API. However, authenticated users get a higher free-tier to
-play with the service. Token is also mandatory if you want to run inference on your private models or on private
-endpoints.
+추론 API를 사용할 때 인증은 필수가 아닙니다. 그러나 인증된 사용자는 서비스를 사용하여 놀 수 있는 더 높은 무료 티어를 받습니다. 토큰은 개인 모델이나 개인 엔드포인트에서 추론을 실행하려면 필수입니다.
 
 </Tip>
 
-## Supported tasks
+## 지원되는 작업
 
-[`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models. It
-has a simple API that supports the most common tasks. Here is a list of the currently supported tasks:
+[`InferenceClient`]의 목표는 Hugging Face 모델에서 추론을 실행하기 위한 가장 쉬운 인터페이스를 제공하는 것입니다. 이는 가장 일반적인 작업을 지원하는 간단한 API를 가지고 있습니다. 현재 지원되는 작업 목록은 다음과 같습니다:
 
-| Domain | Task                           | Supported    | Documentation                             |
+| 도메인 | 작업                           | 지원 여부    | 문서                             |
 |--------|--------------------------------|--------------|------------------------------------|
-| Audio | [Audio Classification](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
-| Audio | [Audio-to-Audio](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
-| | [Automatic Speech Recognition](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
-| | [Text-to-Speech](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
-| Computer Vision | [Image Classification](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
-| | [Image Segmentation](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
-| | [Image-to-Image](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
-| | [Image-to-Text](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
-| | [Object Detection](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
-| | [Text-to-Image](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
-| | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
-| Multimodal | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`]
-| | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
-| NLP | [Conversational](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
-| | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
-| | [Fill Mask](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
-| | [Question Answering](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`]
-| | [Sentence Similarity](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
-| | [Summarization](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
-| | [Table Question Answering](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
-| | [Text Classification](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
-| | [Text Generation](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
-| | [Token Classification](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
-| | [Translation](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
-| | [Zero Shot Classification](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
-| Tabular | [Tabular Classification](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
-| | [Tabular Regression](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
+| 오디오 | [오디오 분류](https://huggingface.co/tasks/audio-classification)           | ✅ | [`~InferenceClient.audio_classification`] |
+| 오디오 | [오디오 대 오디오](https://huggingface.co/tasks/audio-to-audio)           | ✅ | [`~InferenceClient.audio_to_audio`] |
+| | [자동 음성 인식](https://huggingface.co/tasks/automatic-speech-recognition)   | ✅ | [`~InferenceClient.automatic_speech_recognition`] |
+| | [텍스트 대 음성](https://huggingface.co/tasks/text-to-speech)                 | ✅ | [`~InferenceClient.text_to_speech`] |
+| 컴퓨터 비전 | [이미지 분류](https://huggingface.co/tasks/image-classification)           | ✅ | [`~InferenceClient.image_classification`] |
+| | [이미지 세분화](https://huggingface.co/tasks/image-segmentation)             | ✅ | [`~InferenceClient.image_segmentation`] |
+| | [이미지 대 이미지](https://huggingface.co/tasks/image-to-image)                 | ✅ | [`~InferenceClient.image_to_image`] |
+| | [이미지 대 텍스트](https://huggingface.co/tasks/image-to-text)                  | ✅ | [`~InferenceClient.image_to_text`] |
+| | [객체 감지](https://huggingface.co/tasks/object-detection)            | ✅ | [`~InferenceClient.object_detection`] |
+| | [텍스트 대 이미지](https://huggingface.co/tasks/text-to-image)                  | ✅ | [`~InferenceClient.text_to_image`] |
+| | [제로 샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification)                  | ✅ | [`~InferenceClient.zero_shot_image_classification`] |
+| 멀티모달 | [문서 질문 응답](https://huggingface.co/tasks/document-question-answering) | ✅ | [`~InferenceClient.document_question_answering`] |
+| | [시각적 질문 응답](https://huggingface.co/tasks/visual-question-answering)      | ✅ | [`~InferenceClient.visual_question_answering`] |
+| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                 | ✅ | [`~InferenceClient.conversational`] |
+| | [특성 추출](https://huggingface.co/tasks/feature-extraction)             | ✅ | [`~InferenceClient.feature_extraction`] |
+| | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                      | ✅ | [`~InferenceClient.fill_mask`] |
+| | [질문 응답](https://huggingface.co/tasks/question-answering)             | ✅ | [`~InferenceClient.question_answering`] |
+| | [문장 유사도](https://huggingface.co/tasks/sentence-similarity)            | ✅ | [`~InferenceClient.sentence_similarity`] |
+| | [요약](https://huggingface.co/tasks/summarization)                  | ✅ | [`~InferenceClient.summarization`] |
+| | [테이블 질문 응답](https://huggingface.co/tasks/table-question-answering)       | ✅ | [`~InferenceClient.table_question_answering`] |
+| | [텍스트 분류](https://huggingface.co/tasks/text-classification)            | ✅ | [`~InferenceClient.text_classification`] |
+| | [텍스트 생성](https://huggingface.co/tasks/text-generation)   | ✅ | [`~InferenceClient.text_generation`] |
+| | [토큰 분류](https://huggingface.co/tasks/token-classification)           | ✅ | [`~InferenceClient.token_classification`] |
+| | [번역](https://huggingface.co/tasks/translation)       | ✅ | [`~InferenceClient.translation`] |
+| | [제로 샷 분류](https://huggingface.co/tasks/zero-shot-classification)       | ✅ | [`~InferenceClient.zero_shot_classification`] |
+| 타블로 | [타블로 작업 분류](https://huggingface.co/tasks/tabular-classification)         | ✅ | [`~InferenceClient.tabular_classification`] |
+| | [타블로 회귀](https://huggingface.co/tasks/tabular-regression)             | ✅ | [`~InferenceClient.tabular_regression`] |
 
 <Tip>
 
-Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task, how to use them, and the
-most popular models for each task.
+각 작업에 대해 더 자세히 알고 싶거나 사용 방법 및 각 작업에 대한 가장 인기 있는 모델을 알아보려면 [Tasks](https://huggingface.co/tasks) 페이지를 확인하세요.
 
 </Tip>
 
-## Custom requests
+## 사용자 정의 요청
 
-However, it is not always possible to cover all use cases. For custom requests, the [`InferenceClient.post`] method
-gives you the flexibility to send any request to the Inference API. For example, you can specify how to parse the inputs
-and outputs. In the example below, the generated image is returned as raw bytes instead of parsing it as a `PIL Image`.
-This can be helpful if you don't have `Pillow` installed in your setup and just care about the binary content of the
-image. [`InferenceClient.post`] is also useful to handle tasks that are not yet officially supported.
+그러나 모든 사용 사례를 항상 다루기는 어렵습니다. 사용자 정의 요청의 경우, [`InferenceClient.post`] 메서드를 사용하여
+Inference API로 모든 요청을 보낼 수 있습니다. 예를 들어, 입력 및 출력을 어떻게 구문 분석할지 지정할 수 있습니다.
+아래 예시에서 생성된 이미지는 `PIL Image`로 구문 분석하는 대신 원시 바이트로 반환됩니다.
+이는 설치된 `Pillow`이 없고 이미지의 이진 콘텐츠에만 관심이 있는 경우에 유용합니다.
+[`InferenceClient.post`]는 아직 공식적으로 지원되지 않는 작업을 처리하는 데도 유용합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -171,10 +141,10 @@ image. [`InferenceClient.post`] is also useful to handle tasks that are not yet 
 b'...'
 ```
 
-## Async client
+## 비동기 클라이언트
 
-An async version of the client is also provided, based on `asyncio` and `aiohttp`. You can either install `aiohttp`
-directly or use the `[inference]` extra:
+`asyncio`와 `aiohttp`를 기반으로 한 클라이언트의 비동기 버전도 제공됩니다. `aiohttp`를 직접 설치하거나
+`[inference]` 추가 옵션을 사용할 수 있습니다:
 
 ```sh
 pip install --upgrade huggingface_hub[inference]
@@ -182,8 +152,8 @@ pip install --upgrade huggingface_hub[inference]
 # pip install aiohttp
 ```
 
-After installation all async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are
-strictly the same as the sync-only version.
+설치 후 모든 비동기 API 엔드포인트는 [`AsyncInferenceClient`]를 통해 사용할 수 있습니다. 초기화 및 API는
+동기 전용 버전과 엄격히 동일합니다.
 
 ```py
 # Code must be run in a asyncio concurrent context.
@@ -199,22 +169,21 @@ strictly the same as the sync-only version.
  a platform for sharing and discussing ML-related content.
 ```
 
-For more information about the `asyncio` module, please refer to the [official documentation](https://docs.python.org/3/library/asyncio.html).
+`asyncio` 모듈에 대한 자세한 정보는 [공식 문서](https://docs.python.org/3/library/asyncio.html)를 참조하세요.
 
-## Advanced tips
+## 고급 팁
 
-In the above section, we saw the main aspects of [`InferenceClient`]. Let's dive into some more advanced tips.
+위 섹션에서는 [`InferenceClient`]의 주요 측면을 살펴보았습니다. 이제 몇 가지 고급 팁에 대해 자세히 알아보겠습니다.
 
-### Timeout
+### 타임아웃
 
-When doing inference, there are two main causes for a timeout:
-- The inference process takes a long time to complete.
-- The model is not available, for example when Inference API is loading it for the first time.
+추론을 수행할 때 타임아웃이 발생하는 주요 원인은 두 가지입니다:
+- 추론 프로세스가 완료되는 데 오랜 시간이 걸립니다.
+- 모델이 사용 불가능한 경우, 예를 들어 Inference API가 처음으로 로드하는 경우.
 
-[`InferenceClient`] has a global `timeout` parameter to handle those two aspects. By default, it is set to `None`,
-meaning that the client will wait indefinitely for the inference to complete. If you want more control in your workflow,
-you can set it to a specific value in seconds. If the timeout delay expires, an [`InferenceTimeoutError`] is raised.
-You can catch it and handle it in your code:
+[`InferenceClient`]에는 이 두 가지 측면을 처리하기 위한 전역 `timeout` 매개변수가 있습니다. 기본적으로 `None`으로 설정되어 있으며,
+이는 클라이언트가 추론이 완료될 때까지 무기한으로 기다리게 합니다. 워크플로우에서 더 많은 제어를 원하는 경우 특정한 값으로 설정할 수 있습니다.
+타임아웃 딜레이가 만료되면 [`InferenceTimeoutError`]가 발생합니다. 이를 catch하여 코드에서 처리할 수 있습니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient, InferenceTimeoutError
@@ -225,15 +194,13 @@ You can catch it and handle it in your code:
 ...     print("Inference timed out after 30s.")
 ```
 
-### Binary inputs
+### 이진 입력
 
-Some tasks require binary inputs, for example, when dealing with images or audio files. In this case, [`InferenceClient`]
-tries to be as permissive as possible and accept different types:
-- raw `bytes`
-- a file-like object, opened as binary (`with open("audio.flac", "rb") as f: ...`)
-- a path (`str` or `Path`) pointing to a local file
-- a URL (`str`) pointing to a remote file (e.g. `https://...`). In this case, the file will be downloaded locally before
-sending it to the Inference API.
+일부 작업에는 이미지 또는 오디오 파일을 처리할 때와 같이 이진 입력이 필요한 경우가 있습니다. 이 경우 [`InferenceClient`]는 가능한 한 관대하게 작동하여 다양한 유형을 허용합니다:
+- 원시 `bytes`
+- 이진으로 열린 파일과 유사한 객체 (`with open("audio.flac", "rb") as f: ...`)
+- 로컬 파일을 가리키는 경로 (`str` 또는 `Path`)
+- 원격 파일을 가리키는 URL (`str`) (예: `https://...`). 이 경우 파일은 Inference API로 전송되기 전에 로컬로 다운로드됩니다.
 
 ```py
 >>> from huggingface_hub import InferenceClient
@@ -242,32 +209,32 @@ sending it to the Inference API.
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
 ```
 
-## Legacy InferenceAPI client
+## 레거시 InferenceAPI 클라이언트
 
-[`InferenceClient`] acts as a replacement for the legacy [`InferenceApi`] client. It adds specific support for tasks and
-handles inference on both [Inference API](https://huggingface.co/docs/api-inference/index) and [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index).
+[`InferenceClient`]는 레거시 [`InferenceApi`] 클라이언트의 대체품으로 작동합니다. 특정 작업에 대한 지원을 추가하고
+[Inference API](https://huggingface.co/docs/api-inference/index) 및 [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index)에서 추론을 처리합니다.
 
-Here is a short guide to help you migrate from [`InferenceApi`] to [`InferenceClient`].
+아래는 [`InferenceApi`]에서 [`InferenceClient`]로 마이그레이션하는 데 도움이 되는 간단한 가이드입니다.
 
-### Initialization
+### 초기화
 
-Change from
+변경 전부터
 
 ```python
 >>> from huggingface_hub import InferenceApi
 >>> inference = InferenceApi(repo_id="bert-base-uncased", token=API_TOKEN)
 ```
 
-to
+변경 후로 변경합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
 ```
 
-### Run on a specific task
+### 특정 작업에서 실행하기
 
-Change from
+변경 전부터
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -275,7 +242,7 @@ Change from
 >>> inference(...)
 ```
 
-to
+변경 후로 변경합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -285,14 +252,13 @@ to
 
 <Tip>
 
-This is the recommended way to adapt your code to [`InferenceClient`]. It lets you benefit from the task-specific
-methods like `feature_extraction`.
+이것은 코드를 [`InferenceClient`]에 맞게 조정하는 권장 방법입니다. 이렇게 하면 `feature_extraction`과 같은 작업별 메서드의 이점을 누릴 수 있습니다.
 
 </Tip>
 
-### Run custom request
+### 사용자 정의 요청 실행
 
-Change from
+변경 전부터
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -301,7 +267,7 @@ Change from
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-to
+변경 후로 변경합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -311,9 +277,9 @@ to
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-### Run with parameters
+### 매개변수와 함께 실행하기
 
-Change from
+변경 전부터
 
 ```python
 >>> from huggingface_hub import InferenceApi
@@ -324,7 +290,7 @@ Change from
 {'sequence': 'Hi, I recently bought a device from your company but it is not working as advertised and I would like to get reimbursed!', 'labels': ['refund', 'faq', 'legal'], 'scores': [0.9378499388694763, 0.04914155602455139, 0.013008488342165947]}
 ```
 
-to
+변경 후로 변경합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
