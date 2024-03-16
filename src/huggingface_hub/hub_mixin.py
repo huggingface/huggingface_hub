@@ -189,9 +189,16 @@ class ModelHubMixin:
                     list(cls._init_parameters)[1:],
                     args,
                 )
-            },
-            **kwargs,
+            }
         }
+        for key, value in kwargs.items():
+            if key in cls._init_parameters.keys():
+                passed_values[key] = value
+            else:
+                if "kwargs" not in passed_values.keys():
+                    passed_values["kwargs"] = {key: value}
+                else:
+                    passed_values["kwargs"][key] = value
 
         # If config passed as dataclass => set it and return early
         if is_dataclass(passed_values.get("config")):
@@ -359,6 +366,8 @@ class ModelHubMixin:
             for param in cls._init_parameters.values():
                 if param.name not in model_kwargs and param.name in config:
                     model_kwargs[param.name] = config[param.name]
+                if "kwargs" in config:
+                    model_kwargs.update(config["kwargs"])
 
             # Check if `config` argument was passed at init
             if "config" in cls._init_parameters:
@@ -382,8 +391,9 @@ class ModelHubMixin:
                 "kwargs" in cls._init_parameters
                 and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
             ):
-                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
-                model_kwargs["config"] = config
+                # 2. If __init__ accepts **kwargs, let's forward the kwargs field as well (as a dict)
+                if "kwargs" in config:
+                    model_kwargs.update(config["kwargs"])
 
         instance = cls._from_pretrained(
             model_id=str(model_id),
