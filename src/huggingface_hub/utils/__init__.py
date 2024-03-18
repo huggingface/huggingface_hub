@@ -43,7 +43,7 @@ from ._errors import (
     hf_raise_for_status,
 )
 from ._experimental import experimental
-from ._fixes import SoftTemporaryDirectory, yaml_dump
+from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import LocalTokenNotFoundError, build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
