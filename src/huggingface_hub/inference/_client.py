@@ -638,32 +638,28 @@ class InferenceClient:
             return _stream_chat_completion_response_from_text_generation(text_generation_output)  # type: ignore [arg-type]
 
         if isinstance(text_generation_output, TextGenerationOutput):
-            return ChatCompletionOutput(
-                created=created,
-                choices=[
-                    ChatCompletionOutputChoice(
-                        finish_reason=text_generation_output.details.finish_reason,  # type: ignore
-                        index=0,
-                        message=ChatCompletionOutputChoiceMessage(
-                            content=text_generation_output.generated_text,
-                        ),
-                    )
-                ],
-            )
+            # General use case => format ChatCompletionOutput from text generation details
+            content: str = text_generation_output.generated_text
+            finish_reason: str = text_generation_output.details.finish_reason  # type: ignore[union-attr]
         else:
-            return ChatCompletionOutput(
-                created=created,
-                choices=[
-                    ChatCompletionOutputChoice(
-                        finish_reason="unk",  # type: ignore
-                        index=0,
-                        message=ChatCompletionOutputChoiceMessage(
-                            content=text_generation_output,  # type: ignore[arg-type]
-                            role="assistant",
-                        ),
-                    )
-                ],
-            )
+            # Corner case: if server doesn't support details (e.g. if not a TGI server), we only receive an output string.
+            # In such a case, `finish_reason` is set to `"unk"`.
+            content = text_generation_output  # type: ignore[assignment]
+            finish_reason = "unk"
+
+        return ChatCompletionOutput(
+            created=created,
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason=finish_reason,  # type: ignore
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content=content,
+                        role="assistant",
+                    ),
+                )
+            ],
+        )
 
     def conversational(
         self,
@@ -676,6 +672,13 @@ class InferenceClient:
     ) -> ConversationalOutput:
         """
         Generate conversational responses based on the given input text (i.e. chat with the API).
+
+        <Tip warning={true}>
+
+        [`InferenceClient.conversational`] API is deprecated and will be removed in a future release. Please use
+        [`InferenceClient.chat_completion`] instead.
+
+        </Tip>
 
         Args:
             text (`str`):
@@ -716,6 +719,11 @@ class InferenceClient:
         ... )
         ```
         """
+        warnings.warn(
+            "`InferenceClient.conversational` is deprecated and will be removed starting from huggingface_hub>=0.25. "
+            "Please you the more appropriate `InferenceClient.chat_completion` API instead.",
+            FutureWarning,
+        )
         payload: Dict[str, Any] = {"inputs": {"text": text}}
         if generated_responses is not None:
             payload["inputs"]["generated_responses"] = generated_responses
