@@ -24,7 +24,7 @@ rendered properly in your Markdown viewer.
 [...]
 ```
 
-`HfApi.get_repo_토론`은 작성자, 유형(풀 리퀘스트 또는 토론) 및 상태(`공개` 또는 `비공개`)별로 필터링을 지원합니다:
+`HfApi.get_repo_discussion`은 작성자, 유형(풀 리퀘스트 또는 토론) 및 상태(`열림` 또는 `닫힘`)별로 필터링을 지원합니다:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -39,14 +39,14 @@ rendered properly in your Markdown viewer.
 # 19 - Add Flax weights by ArthurZ, pr: True
 ```
 
-`HfApi.get_repo_discussions`는 [`토론`] 객체를 생성하는 [제너레이터](https://docs.python.org/3.7/howto/functional.html#generators)를 반환합니다. 모든 토론을 단일 목록으로 가져오려면 실행합니다:
+`HfApi.get_repo_discussions`는 [`Discussion`] 객체를 생성하는 [제너레이터](https://docs.python.org/3.7/howto/functional.html#generators)를 반환합니다. 모든 토론들을 하나의 목록으로 가져오려면 다음을 실행합니다:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
 >>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
 ```
 
-[`HfApi.get_repo_discussions`]가 반환하는 [`토론`] 객체에는 토론 또는 풀 리퀘스트에 대한 개략적인 개요가 포함되어 있습니다. [`HfApi.get_discussion_details`]를 사용하여 더 자세한 정보를 얻을 수도 있습니다:
+[`HfApi.get_repo_discussions`]가 반환하는 [`Discussion`] 객체에는 토론 또는 풀 리퀘스트에 대한 개략적인 개요가 포함되어 있습니다. [`HfApi.get_discussion_details`]를 사용하여 더 자세한 정보를 얻을 수도 있습니다:
 
 ```python
 >>> from huggingface_hub import get_discussion_details
@@ -72,17 +72,17 @@ DiscussionWithDetails(
 )
 ```
 
-[`HfApi.get_discussion_details`]는 토론 또는 풀 리퀘스트에 대한 자세한 정보가 포함된 [`토론`]의 하위 클래스인 [`DiscussionWithDetails`] 객체를 반환합니다. 정보에는 토론의 모든 댓글, 상태 변경 및 이름 변경이 [`DiscussionWithDetails.events`]를 통해 포함됩니다.
+[`HfApi.get_discussion_details`]는 토론 또는 풀 리퀘스트에 대한 자세한 정보가 포함된 [`Discussion`]의 하위 클래스인 [`DiscussionWithDetails`] 객체를 반환합니다. 해당 정보는 [`DiscussionWithDetails.events`]를 통해 토론의 모든 댓글, 상태 변경 및 이름 변경을 포함하고 있습니다.
 
 풀 리퀘스트의 경우, [`DiscussionWithDetails.diff`]를 통해 원시 git diff를 검색할 수 있습니다. 풀 리퀘스트의 모든 커밋은 [`DiscussionWithDetails.events`]에 나열됩니다.
 
 
-## 프로그래밍 방식으로 토론 또는 풀 리퀘스트를 만들고 편집하기[[create-and-edit-a-discussion-or-pull-request-programmatically]]
+## 프로그래밍 방식으로 토론 또는 풀 리퀘스트를 생성하고 수정하기[[create-and-edit-a-discussion-or-pull-request-programmatically]]
 
-[`HfApi`] 클래스는 토론 및 풀 리퀘스트를 만들고 편집하는 방법도 제공합니다.
-토론이나 풀 리퀘스트를 만들고 편집하려면 [액세스 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요합니다.
+[`HfApi`] 클래스는 토론 및 풀 리퀘스트를 생성하고 수정하는 방법도 제공합니다.
+토론이나 풀 리퀘스트를 만들고 편집하려면 [접근 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요합니다.
 
-허브의 리포지토리에 변경 사항을 제안하는 가장 간단한 방법은 [`create_commit`] API를 사용하는 것입니다. `create_pr` 매개변수를 `True`로 설정하기만 하면 됩니다. 이 매개변수는 [`create_commit`]을 래핑하는 다른 메서드에서도 사용할 수 있습니다:
+Hub의 리포지토리에 변경 사항을 제안하는 가장 간단한 방법은 [`create_commit`] API를 사용하는 것입니다. `create_pr` 매개변수를 `True`로 설정하기만 하면 됩니다. 이 매개변수는 [`create_commit`]을 래핑하는 다른 함수에서도 사용할 수 있습니다:
 
     * [`upload_file`]
     * [`upload_folder`]
@@ -100,7 +100,7 @@ DiscussionWithDetails(
 ... )
 ```
 
-리포지토리에 대한 토론(각각 풀 리퀘스트)을 만들려면 [`HfApi.create_discussion`](각각 [`HfApi.create_pull_request`])을 사용할 수도 있습니다.
+리포지토리에 대한 토론(또는 풀 리퀘스트)을 만들려면 [`HfApi.create_discussion`](또는 [`HfApi.create_pull_request`])을 사용할 수도 있습니다.
 이 방법으로 풀 리퀘스트를 열면 로컬에서 변경 작업을 해야 하는 경우에 유용할 수 있습니다. 이 방법으로 열린 풀 리퀘스트는 `"초안"` 모드가 됩니다.
 
 ```python
@@ -124,17 +124,17 @@ DiscussionWithDetails(..., is_pull_request=True)
 풀 리퀘스트 및 토론 관리는 전적으로 [`HfApi`] 클래스로 할 수 있습니다. 예를 들어:
 
     * 댓글을 추가하려면 [`comment_discussion`]
-    * [`edit_discussion_comment`]를 사용하여 댓글을 수정합니다.
-    * 토론 또는 풀 리퀘스트의 이름을 바꾸려면 [`rename_discussion`]을 사용합니다.
-    * 토론/풀 리퀘스트를 열거나 닫으려면 [`change_discussion_status`]를 사용합니다.
-    * [`merge_pull_request`]를 사용하여 풀 리퀘스트를 병합합니다.
+    * 댓글을 수정하려면 [`edit_discussion_comment`]
+    * 토론 또는 풀 리퀘스트의 이름을 바꾸려면 [`rename_discussion`]
+    * 토론/풀 리퀘스트를 열거나 닫으려면 [`change_discussion_status`]
+    * 풀 리퀘스트를 병합하려면 [`merge_pull_request`]를 사용합니다.
 
 
 사용 가능한 모든 메서드에 대한 전체 참조는 [`HfApi`] 문서 페이지를 참조하세요.
 
 ## 풀 리퀘스트에 변경 사항 푸시[[push-changes-to-a-pull-request]]
 
-*곧 출시됩니다!*
+*곧 공개됩니다!*
 
 ## 참고 항목[[see-also]]
 
