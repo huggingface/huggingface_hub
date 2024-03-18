@@ -165,7 +165,8 @@ async def test_async_chat_completion_no_stream() -> None:
                 finish_reason="length",
                 index=0,
                 message=ChatCompletionOutputChoiceMessage(
-                    content="Deep learning is a subfield of machine learning that"
+                    content="Deep learning is a subfield of machine learning that",
+                    role="assistant",
                 ),
             )
         ],
@@ -185,7 +186,10 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
             ChatCompletionOutputChoice(
                 finish_reason="unk",  # Non-TGI => cannot know the finish reason
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(content="Deep learning is a thing."),
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a thing.",
+                    role="assistant",
+                ),
             )
         ],
         created=output.created,

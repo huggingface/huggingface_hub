@@ -659,6 +659,7 @@ class AsyncInferenceClient:
                         index=0,
                         message=ChatCompletionOutputChoiceMessage(
                             content=text_generation_output,  # type: ignore[arg-type]
+                            role="assistant",
                         ),
                     )
                 ],

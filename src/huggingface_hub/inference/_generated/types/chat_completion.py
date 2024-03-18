@@ -9,15 +9,14 @@ from typing import List, Literal, Optional, Union
 from .base import BaseInferenceType
 
 
-Role = Literal["assistant", "system", "user"]
+ChatCompletionMessageRole = Literal["assistant", "system", "user"]
 
 
 @dataclass
 class ChatCompletionInputMessage(BaseInferenceType):
     content: str
     """The content of the message."""
-    role: "Role"
-    """The role of the messages author."""
+    role: "ChatCompletionMessageRole"
 
 
 @dataclass
@@ -53,6 +52,7 @@ ChatCompletionFinishReason = Literal["length", "eos_token", "stop_sequence"]
 class ChatCompletionOutputChoiceMessage(BaseInferenceType):
     content: str
     """The content of the chat completion message."""
+    role: "ChatCompletionMessageRole"
 
 
 @dataclass

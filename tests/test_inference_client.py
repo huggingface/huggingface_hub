@@ -152,7 +152,8 @@ class InferenceClientVCRTest(InferenceClientTest):
                 finish_reason="length",
                 index=0,
                 message=ChatCompletionOutputChoiceMessage(
-                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of"
+                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
+                    role="assistant",
                 ),
             )
         ]
@@ -204,7 +205,10 @@ class InferenceClientVCRTest(InferenceClientTest):
                 ChatCompletionOutputChoice(
                     finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(content="Deep learning is a thing."),
+                    message=ChatCompletionOutputChoiceMessage(
+                        content="Deep learning is a thing.",
+                        role="assistant",
+                    ),
                 )
             ],
             created=output.created,
