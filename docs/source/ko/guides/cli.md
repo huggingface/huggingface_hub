@@ -4,11 +4,11 @@ rendered properly in your Markdown viewer.
 
 # 명령줄 인터페이스 (CLI) [[command-line-interface]]
 
-`huggingface_hub` Python 패키지에는 `huggingface-cli`라는 내장 CLI가 함께 제공됩니다. 이 도구를 사용하면 터미널에서 직접 Hugging Face Hub와 상호 작용할 수 있습니다. 예를 들어 계정에 로그인하고, 저장소를 생성하고, 파일을 업로드 및 다운로드하는 등의 작업을 수행할 수 있습니다. 또한 머신을 구성하거나 캐시를 관리하는 데 유용한 기능도 제공합니다. 이 가이드에서는 CLI의 주요 기능과 사용 방법에 대해 살펴보겠습니다.
+`huggingface_hub` Python 패키지는 `huggingface-cli`라는 내장 CLI를 함께 제공합니다. 이 도구를 사용하면 터미널에서 Hugging Face Hub와 직접 상호 작용할 수 있습니다. 계정에 로그인하고, 저장소를 생성하고, 파일을 업로드 및 다운로드하는 등의 다양한 작업을 수행할 수 있습니다. 또한 머신을 구성하거나 캐시를 관리하는 데 유용한 기능도 제공합니다. 이 가이드에서 CLI의 주요 기능과 사용 방법에 대해 설명합니다.
 
 ## 시작하기 [[getting-started]]
 
-먼저 CLI를 설치해 보겠습니다:
+먼저, CLI를 설치해 보세요:
 
 ```
 >>> pip install -U "huggingface_hub[cli]"
@@ -16,11 +16,11 @@ rendered properly in your Markdown viewer.
 
 <Tip>
 
-위의 코드 스니펫에서는 특히 `delete-cache` 명령을 사용할 때 사용자 경험을 개선하기 위해 `[cli]` 추가 종속성도 설치했습니다.
+위의 코드에서 사용자 경험을 높이기 위해 `[cli]` 추가 종속성을 포함하였습니다. 이는 `delete-cache` 명령을 사용할 때 특히 유용합니다.
 
 </Tip>
 
-설치가 완료되면 CLI가 제대로 설정되었는지 확인할 수 있습니다:
+설치가 완료되면, CLI가 올바르게 설정되었는지 확인할 수 있습니다:
 
 ```
 >>> huggingface-cli --help
@@ -45,31 +45,31 @@ options:
   -h, --help            show this help message and exit
 ```
 
-CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목록이 표시됩니다. `command not found: huggingface-cli`와 같은 오류 메시지가 표시되면 [설치](../installation) 가이드를 참조하세요.
+CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목록이 출력됩니다. `command not found: huggingface-cli`와 같은 오류 메시지가 표시된다면 [설치](../installation) 가이드를 확인하세요.
 
 <Tip>
 
-`--help` 옵션은 명령에 대한 자세한 정보를 얻는 데 매우 편리합니다. 언제든지 사용 가능한 모든 옵션과 세부 정보를 나열하는 데 사용할 수 있습니다. 예를 들어 `huggingface-cli upload --help`는 CLI를 사용하여 파일을 업로드하는 방법에 대한 자세한 정보를 제공합니다.
+`--help` 옵션을 사용하면 명령어에 대한 자세한 정보를 쉽게 얻을 수 있습니다. 사용 가능한 모든 옵션과 그 세부 사항을 언제든지 확인할 수 있습니다. 예를 들어 `huggingface-cli upload --help`는 CLI를 사용하여 파일을 업로드하는 구체적인 방법을 알려줍니다.
 
 </Tip>
 
-### 대체 설치 방법 [[alternative-install]]
+### 다른 설치 방법 [[alternative-install]]
 
 #### pkgx 사용하기 [[using-pkgx]]
 
-[Pkgx](https://pkgx.sh)는 어디서나 실행 가능한 빠른 크로스 플랫폼 패키지 매니저입니다. 다음과 같이 pkgx를 사용하여 huggingface-cli를 설치할 수 있습니다:
+[Pkgx](https://pkgx.sh)는 다양한 플랫폼에서 빠르게 작동하는 패키지 매니저입니다. 다음과 같이 pkgx를 사용하여 huggingface-cli를 설치할 수 있습니다:
 
 ```bash
 >>> pkgx install huggingface-cli
 ```
 
-또는 huggingface-cli를 직접 실행할 수도 있습니다:
+또는 pkgx를 통해 huggingface-cli를 직접 실행할 수도 있습니다:
 
 ```bash
 >>> pkgx huggingface-cli --help
 ```
 
-자세한 내용은 [여기](https://pkgx.dev/pkgs/huggingface.co/)에서 pkgx huggingface 페이지를 확인하세요.
+pkgx huggingface에 대한 자세한 내용은 [여기](https://pkgx.dev/pkgs/huggingface.co/)에서 확인할 수 있습니다.
 
 #### Homebrew 사용하기 [[using-homebrew]]
 
@@ -79,7 +79,7 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 >>> brew install huggingface-cli
 ```
 
-자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 Homebrew huggingface 페이지를 확인하세요.
+Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 확인할 수 있습니다.
 
 ## huggingface-cli login [[huggingface-cli-login]]
 
@@ -109,7 +109,7 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-또는 프롬프트 없이 로그인하려면 명령줄에서 토큰을 직접 전달할 수 있습니다. 보안을 강화하려면 명령 기록에 토큰을 붙여넣는 것을 피하기 위해 환경 변수로 토큰을 전달하는 것이 좋습니다.
+또는 프롬프트 없이 로그인하려면 명령줄에서 토큰을 직접 전달할 수 있습니다. 보안을 강화하려면 명령 기록에 토큰을 붙여넣는 것 대신, 환경 변수로 토큰을 전달하는 것이 좋습니다.
 
 ```bash
 # Or using an environment variable
@@ -124,7 +124,7 @@ Login successful
 
 ## huggingface-cli whoami [[huggingface-cli-whoami]]
 
-로그인 여부를 확인하려면 `huggingface-cli whoami`를 사용할 수 있습니다. 이 명령에는 옵션이 없으며 Hub에서 사용자 이름과 속한 조직을 간단히 출력합니다:
+로그인 여부를 확인하려면 `huggingface-cli whoami`를 사용하세요. 이 명령어에는 옵션이 없으며 Hub에서 사용자 이름과 속한 조직을 간단히 출력합니다:
 
 ```bash
 huggingface-cli whoami
@@ -326,7 +326,7 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 
 ### 여러 파일 업로드 [[upload-multiple-files]]
 
-전체 폴더를 업로드하지 않고 한 번에 폴더에서 여러 파일을 업로드하려면 `--include`와 `--exclude` 패턴을 사용하세요. 저장소에서 파일을 삭제하면서 새 파일을 업로드하는 `--delete` 옵션과 함께 사용할 수도 있습니다. 아래 예제에서는 원격 파일을 삭제하고 `/logs`의 파일을 제외한 모든 파일을 업로드하여 로컬 Space를 동기화합니다:
+전체 폴더를 업로드하지 않고 한 번에 폴더에서 여러 파일을 업로드하려면 `--include`와 `--exclude` 명령어를 사용해보세요. 저장소에서 파일을 삭제하면서 새 파일을 업로드하는 `--delete` 옵션과 함께 사용할 수도 있습니다. 아래 예제에서는 원격 파일을 삭제하고 `/logs`의 파일을 제외한 모든 파일을 업로드하여 로컬 Space를 동기화합니다:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)
