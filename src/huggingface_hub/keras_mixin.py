@@ -24,6 +24,7 @@ from .utils._typing import CallableT
 
 logger = logging.get_logger(__name__)
 
+keras = None
 if is_tf_available():
     # Depending on which version of TensorFlow is installed, we need to import
     # keras from the correct location.
@@ -188,9 +189,7 @@ def save_pretrained_keras(
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
     """
-    if is_tf_available():
-        pass
-    else:
+    if keras is None:
         raise ImportError("Called a Tensorflow-specific function but could not import it.")
 
     if not model.built:
@@ -479,9 +478,7 @@ class KerasModelHubMixin(ModelHubMixin):
                 TODO - Some args above aren't used since we are calling
                 snapshot_download instead of hf_hub_download.
         """
-        if is_tf_available():
-            pass
-        else:
+        if keras is None:
             raise ImportError("Called a TensorFlow-specific function but could not import it.")
 
         # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
