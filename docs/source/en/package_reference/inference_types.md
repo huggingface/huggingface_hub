@@ -113,7 +113,7 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ImageToImageParameters
 
-[[autodoc]] huggingface_hub.TargetSize
+[[autodoc]] huggingface_hub.ImageToImageTargetSize
 
 
 
@@ -131,7 +131,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## object_detection
 
-[[autodoc]] huggingface_hub.BoundingBox
+[[autodoc]] huggingface_hub.ObjectDetectionBoundingBox
 
 [[autodoc]] huggingface_hub.ObjectDetectionInput
 
@@ -163,11 +163,11 @@ This part of the lib is still under development and will be improved in future r
 
 ## summarization
 
+[[autodoc]] huggingface_hub.SummarizationGenerationParameters
+
 [[autodoc]] huggingface_hub.SummarizationInput
 
 [[autodoc]] huggingface_hub.SummarizationOutput
-
-[[autodoc]] huggingface_hub.Text2TextGenerationParameters
 
 
 
@@ -233,13 +233,13 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_to_image
 
-[[autodoc]] huggingface_hub.TargetSize
-
 [[autodoc]] huggingface_hub.TextToImageInput
 
 [[autodoc]] huggingface_hub.TextToImageOutput
 
 [[autodoc]] huggingface_hub.TextToImageParameters
+
+[[autodoc]] huggingface_hub.TextToImageTargetSize
 
 
 
@@ -255,7 +255,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## translation
 
-[[autodoc]] huggingface_hub.Text2TextGenerationParameters
+[[autodoc]] huggingface_hub.TranslationGenerationParameters
 
 [[autodoc]] huggingface_hub.TranslationInput
 
@@ -311,7 +311,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## zero_shot_object_detection
 
-[[autodoc]] huggingface_hub.BoundingBox
+[[autodoc]] huggingface_hub.ZeroShotObjectDetectionBoundingBox
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInput
 

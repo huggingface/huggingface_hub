@@ -9,11 +9,11 @@ from typing import Any, Dict, Literal, Optional
 from .base import BaseInferenceType
 
 
-Text2TextGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
+TranslationGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
 @dataclass
-class Text2TextGenerationParameters(BaseInferenceType):
+class TranslationGenerationParameters(BaseInferenceType):
     """Additional inference parameters
     Additional inference parameters for Text2text Generation
     """
@@ -22,7 +22,7 @@ class Text2TextGenerationParameters(BaseInferenceType):
     """Whether to clean up the potential extra spaces in the text output."""
     generate_parameters: Optional[Dict[str, Any]] = None
     """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["Text2TextGenerationTruncationStrategy"] = None
+    truncation: Optional["TranslationGenerationTruncationStrategy"] = None
     """The truncation strategy to use"""
 
 
@@ -34,7 +34,7 @@ class TranslationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[Text2TextGenerationParameters] = None
+    parameters: Optional[TranslationGenerationParameters] = None
     """Additional inference parameters"""
 
 

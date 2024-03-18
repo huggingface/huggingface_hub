@@ -80,7 +80,7 @@ class TextToAudioParameters(BaseInferenceType):
     Additional inference parameters for Text To Audio
     """
 
-    generate: Optional[GenerationParameters] = None
+    generate: Optional[TextToAudioGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 

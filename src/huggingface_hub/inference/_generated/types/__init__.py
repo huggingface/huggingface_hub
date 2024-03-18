@@ -32,10 +32,10 @@ from .image_classification import (
     ImageClassificationParameters,
 )
 from .image_segmentation import ImageSegmentationInput, ImageSegmentationOutputElement, ImageSegmentationParameters
-from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, TargetSize
+from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, ImageToImageTargetSize
 from .image_to_text import ImageToTextGenerationParameters, ImageToTextInput, ImageToTextOutput, ImageToTextParameters
 from .object_detection import (
-    BoundingBox,
+    ObjectDetectionBoundingBox,
     ObjectDetectionInput,
     ObjectDetectionOutputElement,
     ObjectDetectionParameters,
@@ -47,13 +47,13 @@ from .question_answering import (
     QuestionAnsweringParameters,
 )
 from .sentence_similarity import SentenceSimilarityInput, SentenceSimilarityInputData
-from .summarization import SummarizationInput, SummarizationOutput, Text2TextGenerationParameters
+from .summarization import SummarizationGenerationParameters, SummarizationInput, SummarizationOutput
 from .table_question_answering import (
     TableQuestionAnsweringInput,
     TableQuestionAnsweringInputData,
     TableQuestionAnsweringOutputElement,
 )
-from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput
+from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
 from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
 from .text_generation import (
     PrefillToken,
@@ -65,13 +65,13 @@ from .text_generation import (
     Token,
 )
 from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
-from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters
+from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize
 from .token_classification import (
     TokenClassificationInput,
     TokenClassificationOutputElement,
     TokenClassificationParameters,
 )
-from .translation import TranslationInput, TranslationOutput
+from .translation import TranslationGenerationParameters, TranslationInput, TranslationOutput
 from .video_classification import (
     VideoClassificationInput,
     VideoClassificationOutputElement,
@@ -96,6 +96,7 @@ from .zero_shot_image_classification import (
     ZeroShotImageClassificationParameters,
 )
 from .zero_shot_object_detection import (
+    ZeroShotObjectDetectionBoundingBox,
     ZeroShotObjectDetectionInput,
     ZeroShotObjectDetectionInputData,
     ZeroShotObjectDetectionOutputElement,
