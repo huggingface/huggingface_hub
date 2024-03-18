@@ -24,7 +24,16 @@ from .utils._runtime import require_keras_2
 logger = logging.get_logger(__name__)
 
 if is_tf_available():
-    import tensorflow as tf  # type: ignore
+    # Depending on which version of TensorFlow is installed, we need to import
+    # keras from the correct location.
+    # See https://github.com/tensorflow/tensorflow/releases/tag/v2.16.1.
+    # Note: saving a keras model only works with Keras<3.0.
+    try:
+        import tf_keras as keras  # type: ignore
+    except ImportError:
+        import tensorflow as tf  # type: ignore
+
+        keras = tf.keras
 
 
 def _flatten_dict(dictionary, parent_key=""):
@@ -215,7 +224,6 @@ def save_pretrained_keras(
     tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
-@require_keras_2
 def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
     r"""
     Instantiate a pretrained Keras model from a pre-trained model from the Hub.
