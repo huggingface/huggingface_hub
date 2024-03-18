@@ -2,13 +2,13 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Command Line Interface (CLI)
+# 명령줄 인터페이스 (CLI) [[command-line-interface]]
 
-The `huggingface_hub` Python package comes with a built-in CLI called `huggingface-cli`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can login to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+`huggingface_hub` Python 패키지에는 `huggingface-cli`라는 내장 CLI가 함께 제공됩니다. 이 도구를 사용하면 터미널에서 직접 Hugging Face Hub와 상호 작용할 수 있습니다. 예를 들어 계정에 로그인하고, 저장소를 생성하고, 파일을 업로드 및 다운로드하는 등의 작업을 수행할 수 있습니다. 또한 머신을 구성하거나 캐시를 관리하는 데 유용한 기능도 제공합니다. 이 가이드에서는 CLI의 주요 기능과 사용 방법에 대해 살펴보겠습니다.
 
-## Getting started
+## 시작하기 [[getting-started]]
 
-First of all, let's install the CLI:
+먼저 CLI를 설치해 보겠습니다:
 
 ```
 >>> pip install -U "huggingface_hub[cli]"
@@ -16,11 +16,11 @@ First of all, let's install the CLI:
 
 <Tip>
 
-In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `delete-cache` command.
+위의 코드 스니펫에서는 특히 `delete-cache` 명령을 사용할 때 사용자 경험을 개선하기 위해 `[cli]` 추가 종속성도 설치했습니다.
 
 </Tip>
 
-Once installed, you can check that the CLI is correctly setup:
+설치가 완료되면 CLI가 제대로 설정되었는지 확인할 수 있습니다:
 
 ```
 >>> huggingface-cli --help
@@ -45,53 +45,53 @@ options:
   -h, --help            show this help message and exit
 ```
 
-If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide.
+CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목록이 표시됩니다. `command not found: huggingface-cli`와 같은 오류 메시지가 표시되면 [설치](../installation) 가이드를 참조하세요.
 
 <Tip>
 
-The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `huggingface-cli upload --help` provides more information on how to upload files using the CLI.
+`--help` 옵션은 명령에 대한 자세한 정보를 얻는 데 매우 편리합니다. 언제든지 사용 가능한 모든 옵션과 세부 정보를 나열하는 데 사용할 수 있습니다. 예를 들어 `huggingface-cli upload --help`는 CLI를 사용하여 파일을 업로드하는 방법에 대한 자세한 정보를 제공합니다.
 
 </Tip>
 
-### Alternative install
+### 대체 설치 방법 [[alternative-install]]
 
-#### Using pkgx
+#### pkgx 사용하기 [[using-pkgx]]
 
-[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
+[Pkgx](https://pkgx.sh)는 어디서나 실행 가능한 빠른 크로스 플랫폼 패키지 매니저입니다. 다음과 같이 pkgx를 사용하여 huggingface-cli를 설치할 수 있습니다:
 
 ```bash
 >>> pkgx install huggingface-cli
 ```
 
-Or you can run huggingface-cli directly:
+또는 huggingface-cli를 직접 실행할 수도 있습니다:
 
 ```bash
 >>> pkgx huggingface-cli --help
 ```
 
-Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+자세한 내용은 [여기](https://pkgx.dev/pkgs/huggingface.co/)에서 pkgx huggingface 페이지를 확인하세요.
 
-#### Using Homebrew
+#### Homebrew 사용하기 [[using-homebrew]]
 
-You can also install the CLI using [Homebrew](https://brew.sh/):
+[Homebrew](https://brew.sh/)를 사용하여 CLI를 설치할 수도 있습니다:
 
 ```bash
 >>> brew install huggingface-cli
 ```
 
-Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
+자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 Homebrew huggingface 페이지를 확인하세요.
 
-## huggingface-cli login
+## huggingface-cli login [[huggingface-cli-login]]
 
-In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
+많은 경우 Hub와 상호 작용하려면 (비공개 저장소 다운로드, 파일 업로드, PR 생성 등) Hugging Face 계정에 로그인해야 합니다. 이를 위해서는 [설정 페이지](https://huggingface.co/settings/tokens)에서 [사용자 액세스 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요합니다. 사용자 액세스 토큰은 Hub에 사용자의 신원을 인증하는 데 사용됩니다. 파일을 업로드하거나 콘텐츠를 수정하려면 쓰기 액세스 권한이 있는 토큰을 설정해야 합니다.
 
-Once you have your token, run the following command in your terminal:
+토큰이 있으면 터미널에서 다음 명령을 실행하세요:
 
 ```bash
 >>> huggingface-cli login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. Then you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+이 명령은 토큰을 입력하라는 메시지를 표시합니다. 토큰을 복사하여 붙여넣고 Enter 키를 누릅니다. 그런 다음 토큰을 git 자격 증명으로 저장할지 묻는 메시지가 표시됩니다. 로컬에서 `git`을 사용할 계획이라면 Enter 키를 다시 누릅니다(기본값은 yes). 마지막으로 Hub를 호출하여 토큰이 유효한지 확인하고 로컬에 저장합니다.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -109,7 +109,7 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-Alternatively, if you want to log-in without being prompted, you can pass the token directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
+또는 프롬프트 없이 로그인하려면 명령줄에서 토큰을 직접 전달할 수 있습니다. 보안을 강화하려면 명령 기록에 토큰을 붙여넣는 것을 피하기 위해 환경 변수로 토큰을 전달하는 것이 좋습니다.
 
 ```bash
 # Or using an environment variable
@@ -120,11 +120,11 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-For more details about authentication, check out [this section](../quick-start#authentication).
+인증에 대한 자세한 내용은 [이 섹션](../quick-start#authentication)을 확인하세요.
 
-## huggingface-cli whoami
+## huggingface-cli whoami [[huggingface-cli-whoami]]
 
-If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
+로그인 여부를 확인하려면 `huggingface-cli whoami`를 사용할 수 있습니다. 이 명령에는 옵션이 없으며 Hub에서 사용자 이름과 속한 조직을 간단히 출력합니다:
 
 ```bash
 huggingface-cli whoami
@@ -132,26 +132,26 @@ Wauplin
 orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ```
 
-If you are not logged in, an error message will be printed.
+로그인하지 않은 경우 오류 메시지가 출력됩니다.
 
-## huggingface-cli logout
+## huggingface-cli logout [[huggingface-cli-logout]]
 
-This commands logs you out. In practice, it will delete the token saved on your machine.
+이 명령은 로그아웃합니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
 
-This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
+`HF_TOKEN` 환경 변수를 사용하여 로그인한 경우 이 명령으로 로그아웃되지 않습니다([참조]((../package_reference/environment_variables#hftoken))). 이 경우 머신 구성에서 환경 변수 설정을 해제해야 합니다.
 
-## huggingface-cli download
+## huggingface-cli download [[huggingface-cli-download]]
 
 
-Use the `huggingface-cli download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
+`huggingface-cli download` 명령을 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. 내부적으로는 [다운로드](./download) 가이드에 설명된 것과 동일한 [`hf_hub_download`]와 [`snapshot_download`] 도우미를 사용하여 반환된 경로를 터미널에 출력합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
 
 ```bash
 huggingface-cli download --help
 ```
 
-### Download a single file
+### 단일 파일 다운로드 [[download-a-single-file]]
 
-To download a single file from a repo, simply provide the repo_id and filename as follow:
+저장소에서 단일 파일을 다운로드하려면 다음과 같이 repo_id와 파일 이름을 제공하세요:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json
@@ -160,11 +160,11 @@ downloading https://huggingface.co/gpt2/resolve/main/config.json to /home/waupli
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-The command will always print on the last line the path to the file on your local machine.
+이 명령은 항상 마지막 줄에 로컬 머신의 파일 경로를 출력합니다.
 
-### Download an entire repository
+### 전체 저장소 다운로드 [[download-an-entire-repository]]
 
-In some cases, you just want to download all the files from a repository. This can be done by just specifying the repo id:
+때로는 저장소의 모든 파일을 다운로드하고 싶을 때가 있습니다. 이는 repo id만 지정하면 수행할 수 있습니다:
 
 ```bash
 >>> huggingface-cli download HuggingFaceH4/zephyr-7b-beta
@@ -174,9 +174,9 @@ Fetching 23 files:   0%|                                                | 0/23 [
 /home/wauplin/.cache/huggingface/hub/models--HuggingFaceH4--zephyr-7b-beta/snapshots/3bac358730f8806e5c3dc7c7e19eb36e045bf720
 ```
 
-### Download multiple files
+### 여러 파일 다운로드 [[download-multiple-files]]
 
-You can also download a subset of the files from a repository with a single command. This can be done in two ways. If you already have a precise list of the files you want to download, you can simply provide them sequentially:
+저장소의 전체 폴더를 다운로드하지 않고 한 번에 여러 파일을 다운로드할 수도 있습니다. 이는 두 가지 방법으로 수행할 수 있습니다. 다운로드할 파일 목록이 이미 있다면 해당 파일을 순차적으로 제공하면 됩니다:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json model.safetensors
@@ -187,7 +187,7 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-The other approach is to provide patterns to filter which files you want to download using `--include` and `--exclude`. For example, if you want to download all safetensors files from [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), except the files in FP16 precision:
+`--include`와 `--exclude` 패턴을 제공하여 다운로드할 파일을 필터링할 수 있습니다. 예를 들어 [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)에서 FP16 정밀도의 파일을 제외한 모든 safetensors 파일을 다운로드하려면 다음과 같이 합니다:
 
 ```bash
 >>> huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 --include "*.safetensors" --exclude "*.fp16.*"*
@@ -198,9 +198,9 @@ Fetching 8 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--stabilityai--stable-diffusion-xl-base-1.0/snapshots/462165984030d82259a11f4367a4eed129e94a7b
 ```
 
-### Download a dataset or a Space
+### 데이터셋 또는 Space 다운로드 [[download-a-dataset-or-a-space]]
 
-The examples above show how to download from a model repository. To download a dataset or a Space, use the `--repo-type` option:
+위의 예제는 모델 저장소에서 다운로드하는 방법을 보여줍니다. 데이터셋이나 Space를 다운로드하려면 `--repo-type` 옵션을 사용하세요:
 
 ```bash
 # https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k
@@ -212,22 +212,22 @@ The examples above show how to download from a model repository. To download a d
 ...
 ```
 
-### Download a specific revision
+### 특정 리비전 다운로드 [[download-a-specific-revision]]
 
-The examples above show how to download from the latest commit on the main branch. To download from a specific revision (commit hash, branch name or tag), use the `--revision` option:
+위의 예제는 main 브랜치의 최신 커밋에서 다운로드하는 방법을 보여줍니다. 특정 리비전(커밋 해시, 브랜치 이름 또는 태그)에서 다운로드하려면 `--revision` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli download bigcode/the-stack --repo-type dataset --revision v1.1
 ...
 ```
 
-### Download to a local folder
+### 로컬 폴더에 다운로드 [[download-to-a-local-folder]]
 
-The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
+Hub에서 파일을 다운로드하는 권장(기본) 방법은 캐시 시스템을 사용하는 것입니다. 그러나 경우에 따라 파일을 다운로드하여 특정 폴더로 이동하려는 경우가 있습니다. 이는 git 명령이 제공하는 워크플로우에 더 가까운 방식으로 유용합니다. `--local_dir` 옵션을 사용하여 이를 수행할 수 있습니다.
 
 <Tip warning={true}>
 
-Downloading to a local directory comes with some downsides. Please check out the limitations in the [Download](./download#download-files-to-local-folder) guide before using `--local-dir`.
+로컬 디렉토리에 다운로드하면 몇 가지 단점이 있습니다. `--local-dir`를 사용하기 전에 [다운로드](./download#download-files-to-local-folder) 가이드에서 제한 사항을 확인하세요.
 
 </Tip>
 
@@ -237,9 +237,9 @@ Downloading to a local directory comes with some downsides. Please check out the
 ./model-00001-of-00002.safetensors
 ```
 
-### Specify cache directory
+### 캐시 디렉토리 지정 [[specify-cache-directory]]
 
-By default, all files will be download to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can also specify a custom cache using `--cache-dir`:
+기본적으로 모든 파일은 `HF_HOME` [환경 변수](../package_reference/environment_variables#hfhome)에 정의된 캐시 디렉토리에 다운로드됩니다. `--cache-dir`을 사용하여 사용자 지정 캐시를 지정할 수도 있습니다:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache
@@ -247,41 +247,41 @@ By default, all files will be download to the cache directory defined by the `HF
 ./path/to/cache/models--adept--fuyu-8b/snapshots/ddcacbcf5fdf9cc59ff01f6be6d6662624d9c745
 ```
 
-### Specify a token
+### 토큰 지정 [[specify-a-token]]
 
-To access private or gated repositories, you must use a token. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+비공개 또는 제한된 저장소에 액세스하려면 토큰을 사용해야 합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login` 사용)이 사용됩니다. 명시적으로 인증하려면 `--token` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json --token=hf_****
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-### Quiet mode
+### 자동 모드 [[quiet-mode]]
 
-By default, the `huggingface-cli download` command will be verbose. It will print details such as warning messages, information about the downloaded files, and progress bars. If you want to silence all of this, use the `--quiet` option. Only the last line (i.e. the path to the downloaded files) is printed. This can prove useful if you want to pass the output to another command in a script.
+기본적으로 `huggingface-cli download` 명령은 자세한 정보를 출력합니다. 경고 메시지, 다운로드된 파일에 대한 정보 및 진행률 표시줄과 같은 세부 정보를 출력합니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 마지막 줄(즉, 다운로드한 파일의 경로)만 출력됩니다. 이는 스크립트에서 다른 명령으로 출력을 전달하려는 경우 유용할 수 있습니다.
 
 ```bash
 >>> huggingface-cli download gpt2 --quiet
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-## huggingface-cli upload
+## huggingface-cli upload [[huggingface-cli-upload]]
 
-Use the `huggingface-cli upload` command to upload files to the Hub directly. Internally, it uses the same [`upload_file`] and [`upload_folder`] helpers described in the [Upload](./upload) guide. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
+`huggingface-cli upload` 명령을 사용하여 Hub로 직접 파일을 업로드할 수 있습니다. 내부적으로는 [업로드](./upload) 가이드에 설명된 것과 동일한 [`upload_file`]와 [`upload_folder`] 도우미를 사용합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
 
 ```bash
 >>> huggingface-cli upload --help
 ```
 
-### Upload an entire folder
+### 전체 폴더 업로드 [[upload-an-entire-folder]]
 
-The default usage for this command is:
+이 명령의 기본 사용법은 다음과 같습니다:
 
 ```bash
 # Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
 ```
 
-To upload the current directory at the root of the repo, use:
+저장소의 루트에 현재 디렉토리를 업로드하려면 다음을 사용하세요:
 
 ```bash
 >>> huggingface-cli upload my-cool-model . .
@@ -290,43 +290,43 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main/
 
 <Tip>
 
-If the repo doesn't exist yet, it will be created automatically.
+저장소가 아직 존재하지 않으면 자동으로 생성됩니다.
 
 </Tip>
 
-You can also upload a specific folder:
+특정 폴더를 업로드할 수도 있습니다:
 
 ```bash
 >>> huggingface-cli upload my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main/
 ```
 
-Finally, you can upload a folder to a specific destination on the repo:
+마지막으로 폴더를 저장소의 특정 대상으로 업로드할 수 있습니다:
 
 ```bash
 >>> huggingface-cli upload my-cool-model ./path/to/curated/data /data/train
 https://huggingface.co/Wauplin/my-cool-model/tree/main/data/train
 ```
 
-### Upload a single file
+### 단일 파일 업로드 [[upload-a-single-file]]
 
-You can also upload a single file by setting `local_path` to point to a file on your machine. If that's the case, `path_in_repo` is optional and will default to the name of your local file:
+`local_path`를 컴퓨터의 파일을 가리키도록 설정하여 단일 파일을 업로드할 수도 있습니다. 이 경우 `path_in_repo`는 선택 사항이며 로컬 파일 이름을 기본값으로 사용합니다:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 ```
 
-If you want to upload a single file to a specific directory, set `path_in_repo` accordingly:
+단일 파일을 특정 디렉토리에 업로드하려면 `path_in_repo`를 적절히 설정하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors /vae/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 ```
 
-### Upload multiple files
+### 여러 파일 업로드 [[upload-multiple-files]]
 
-To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`:
+전체 폴더를 업로드하지 않고 한 번에 폴더에서 여러 파일을 업로드하려면 `--include`와 `--exclude` 패턴을 사용하세요. 저장소에서 파일을 삭제하면서 새 파일을 업로드하는 `--delete` 옵션과 함께 사용할 수도 있습니다. 아래 예제에서는 원격 파일을 삭제하고 `/logs`의 파일을 제외한 모든 파일을 업로드하여 로컬 Space를 동기화합니다:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)
@@ -334,27 +334,27 @@ To upload multiple files from a folder at once without uploading the entire fold
 ...
 ```
 
-### Upload to a dataset or Space
+### 데이터셋 또는 Space에 업로드 [[upload-to-a-dataset-or-space]]
 
-To upload to a dataset or a Space, use the `--repo-type` option:
+데이터셋이나 Space에 업로드하려면 `--repo-type` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
 ...
 ```
 
-### Upload to an organization
+### 조직에 업로드 [[upload-to-an-organization]]
 
-To upload content to a repo owned by an organization instead of a personal repo, you must explicitly specify it in the `repo_id`:
+개인 저장소 대신 조직이 소유한 저장소에 콘텐츠를 업로드하려면 `repo_id`에 명시적으로 지정해야 합니다:
 
 ```bash
 >>> huggingface-cli upload MyCoolOrganization/my-cool-model . .
 https://huggingface.co/MyCoolOrganization/my-cool-model/tree/main/
 ```
 
-### Upload to a specific revision
+### 특정 리비전에 업로드 [[upload-to-a-specific-revision]]
 
-By default, files are uploaded to the `main` branch. If you want to upload files to another branch or reference, use the `--revision` option:
+기본적으로 파일은 `main` 브랜치에 업로드됩니다. 다른 브랜치나 참조에 파일을 업로드하려면 `--revision` 옵션을 사용하세요:
 
 ```bash
 # Upload files to a PR
@@ -362,11 +362,11 @@ By default, files are uploaded to the `main` branch. If you want to upload files
 ...
 ```
 
-**Note:** if `revision` does not exist and `--create-pr` is not set, a branch will be created automatically from the `main` branch.
+**참고:** `revision`이 존재하지 않고 `--create-pr`이 설정되지 않은 경우 `main` 브랜치에서 자동으로 브랜치가 생성됩니다.
 
-### Upload and create a PR
+### 업로드 및 PR 생성 [[upload-and-create-a-pr]]
 
-If you don't have the permission to push to a repo, you must open a PR and let the authors know about the changes you want to make. This can be done by setting the `--create-pr` option:
+저장소에 푸시할 권한이 없는 경우 PR을 열고 만들려는 변경 사항을 작성자에게 알려야 합니다. 이는 `--create-pr` 옵션을 설정하여 수행할 수 있습니다:
 
 ```bash
 # Create a PR and upload the files to it
@@ -374,18 +374,18 @@ If you don't have the permission to push to a repo, you must open a PR and let t
 https://huggingface.co/datasets/bigcode/the-stack/blob/refs%2Fpr%2F104/
 ```
 
-### Upload at regular intervals
+### 정기적으로 업로드 [[upload-at-regular-intervals]]
 
-In some cases, you might want to push regular updates to a repo. For example, this is useful if you're training a model and you want to upload the logs folder every 10 minutes. You can do this using the `--every` option:
+경우에 따라 저장소에 정기적으로 업데이트를 푸시하려 할 수 있습니다. 예를 들어 모델을 훈련하는 중이고 10분마다 로그 폴더를 업로드하려는 경우에 유용합니다. `--every` 옵션을 사용하여 이를 수행할 수 있습니다:
 
 ```bash
 # Upload new logs every 10 minutes
 huggingface-cli upload training-model logs/ --every=10
 ```
 
-### Specify a commit message
+### 커밋 메시지 지정 [[specify-a-commit-message]]
 
-Use the `--commit-message` and `--commit-description` to set a custom message and description for your commit instead of the default one
+`--commit-message`와 `--commit-description`을 사용하여 기본 메시지 대신 사용자 지정 메시지와 설명을 커밋에 설정하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%. Check tensorboard for more details."
@@ -393,9 +393,9 @@ Use the `--commit-message` and `--commit-description` to set a custom message an
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-### Specify a token
+### 토큰 지정 [[specify-a-token]]
 
-To upload files, you must use a token. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+파일을 업로드하려면 토큰을 사용해야 합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login` 사용)이 사용됩니다. 명시적으로 인증하려면 `--token` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --token=hf_****
@@ -403,18 +403,18 @@ To upload files, you must use a token. By default, the token saved locally (usin
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-### Quiet mode
+### 자동 모드 [[quiet-mode]]
 
-By default, the `huggingface-cli upload` command will be verbose. It will print details such as warning messages, information about the uploaded files, and progress bars. If you want to silence all of this, use the `--quiet` option. Only the last line (i.e. the URL to the uploaded files) is printed. This can prove useful if you want to pass the output to another command in a script.
+기본적으로 `huggingface-cli upload` 명령은 자세한 정보를 출력합니다. 경고 메시지, 업로드된 파일에 대한 정보 및 진행률 표시줄과 같은 세부 정보를 출력합니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 마지막 줄(즉, 업로드된 파일의 URL)만 출력됩니다. 이는 스크립트에서 다른 명령으로 출력을 전달하려는 경우 유용할 수 있습니다.
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --quiet
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-## huggingface-cli scan-cache
+## huggingface-cli scan-cache [[huggingface-cli-scan-cache]]
 
-Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `huggingface-cli scan-cache`:
+다운로드한 저장소와 디스크에서 차지하는 공간을 알고 싶다면 캐시 디렉토리를 스캔하는 것이 유용합니다. `huggingface-cli scan-cache`를 실행하여 이를 수행할 수 있습니다:
 
 ```bash
 >>> huggingface-cli scan-cache
@@ -431,15 +431,15 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-For more details about how to scan your cache directory, please refer to the [Manage your cache](./manage-cache#scan-cache-from-the-terminal) guide.
+캐시 디렉토리를 스캔하는 방법에 대한 자세한 내용은 [캐시 관리](./manage-cache#scan-cache-from-the-terminal) 가이드를 참조하세요.
 
-## huggingface-cli delete-cache
+## huggingface-cli delete-cache [[huggingface-cli-delete-cache]]
 
-`huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+`huggingface-cli delete-cache`는 더 이상 사용하지 않는 캐시 부분을 삭제하는 데 도움이 되는 도구입니다. 이는 디스크 공간을 절약하고 확보하는 데 유용합니다. 이 명령 사용에 대한 자세한 내용은 [캐시 관리](./manage-cache#clean-cache-from-the-terminal) 가이드를 참조하세요.
 
-## huggingface-cli env
+## huggingface-cli env [[huggingface-cli-env]]
 
-The `huggingface-cli env` command prints details about your machine setup. This is useful when you open an issue on [GitHub](https://github.com/huggingface/huggingface_hub) to help the maintainers investigate your problem.
+`huggingface-cli env` 명령은 머신 설정에 대한 세부 정보를 출력합니다. 이는 [GitHub](https://github.com/huggingface/huggingface_hub)에서 이슈를 열 때 관리자가 문제를 조사하는 데 도움이 되는 유용한 정보입니다.
 
 ```bash
 >>> huggingface-cli env
