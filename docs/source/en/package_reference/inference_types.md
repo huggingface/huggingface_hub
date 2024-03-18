@@ -243,18 +243,6 @@ This part of the lib is still under development and will be improved in future r
 
 
 
-## text_to_speech
-
-[[autodoc]] huggingface_hub.GenerationParameters
-
-[[autodoc]] huggingface_hub.TextToAudioParameters
-
-[[autodoc]] huggingface_hub.TextToSpeechInput
-
-[[autodoc]] huggingface_hub.TextToSpeechOutput
-
-
-
 ## token_classification
 
 [[autodoc]] huggingface_hub.TokenClassificationInput

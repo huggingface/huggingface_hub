@@ -66,7 +66,6 @@ from .text_generation import (
 )
 from .text_to_audio import TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters
-from .text_to_speech import TextToSpeechInput, TextToSpeechOutput
 from .token_classification import (
     TokenClassificationInput,
     TokenClassificationOutputElement,

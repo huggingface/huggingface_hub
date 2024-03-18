@@ -40,10 +40,7 @@ class SummarizationInput(BaseInferenceType):
 
 @dataclass
 class SummarizationOutput(BaseInferenceType):
-    """Outputs for Summarization inference
-    Outputs of inference for the Text2text Generation task
-    """
+    """Outputs of inference for the Summarization task"""
 
-    summary_text: Any
-    summarization_output_summary_text: Optional[str] = None
-    """The generated text."""
+    summary_text: str
+    """The summarized text."""

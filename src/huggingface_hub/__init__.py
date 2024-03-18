@@ -326,8 +326,6 @@ _SUBMOD_ATTRS = {
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToSpeechInput",
-        "TextToSpeechOutput",
         "Token",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
