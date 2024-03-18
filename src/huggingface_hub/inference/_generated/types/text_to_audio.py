@@ -13,7 +13,7 @@ EarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
-class GenerationParameters(BaseInferenceType):
+class TextToAudioGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process
     Ad-hoc parametrization of the text generation process
     """

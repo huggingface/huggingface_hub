@@ -37,6 +37,8 @@ This part of the lib is still under development and will be improved in future r
 
 ## automatic_speech_recognition
 
+[[autodoc]] huggingface_hub.AutomaticSpeechRecognitionGenerationParameters
+
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionInput
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionOutput
@@ -44,8 +46,6 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionOutputChunk
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionParameters
-
-[[autodoc]] huggingface_hub.GenerationParameters
 
 
 
@@ -119,7 +119,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## image_to_text
 
-[[autodoc]] huggingface_hub.GenerationParameters
+[[autodoc]] huggingface_hub.ImageToTextGenerationParameters
 
 [[autodoc]] huggingface_hub.ImageToTextInput
 
@@ -221,7 +221,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_to_audio
 
-[[autodoc]] huggingface_hub.GenerationParameters
+[[autodoc]] huggingface_hub.TextToAudioGenerationParameters
 
 [[autodoc]] huggingface_hub.TextToAudioInput
 

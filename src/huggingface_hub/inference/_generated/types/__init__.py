@@ -10,11 +10,11 @@ from .audio_classification import (
 )
 from .audio_to_audio import AudioToAudioInput, AudioToAudioOutputElement
 from .automatic_speech_recognition import (
+    AutomaticSpeechRecognitionGenerationParameters,
     AutomaticSpeechRecognitionInput,
     AutomaticSpeechRecognitionOutput,
     AutomaticSpeechRecognitionOutputChunk,
     AutomaticSpeechRecognitionParameters,
-    GenerationParameters,
 )
 from .base import BaseInferenceType
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
@@ -33,7 +33,7 @@ from .image_classification import (
 )
 from .image_segmentation import ImageSegmentationInput, ImageSegmentationOutputElement, ImageSegmentationParameters
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, TargetSize
-from .image_to_text import ImageToTextInput, ImageToTextOutput, ImageToTextParameters
+from .image_to_text import ImageToTextGenerationParameters, ImageToTextInput, ImageToTextOutput, ImageToTextParameters
 from .object_detection import (
     BoundingBox,
     ObjectDetectionInput,
@@ -64,7 +64,7 @@ from .text_generation import (
     TextGenerationSequenceDetails,
     Token,
 )
-from .text_to_audio import TextToAudioInput, TextToAudioOutput, TextToAudioParameters
+from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters
 from .token_classification import (
     TokenClassificationInput,

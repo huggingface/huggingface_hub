@@ -80,6 +80,7 @@ MAIN_INIT_PY_REGEX = re.compile(
 SHARED_CLASSES = [
     "ClassificationOutputTransform",
     "ClassificationOutput",
+    "GenerationParameters",
 ]
 
 REFERENCE_PACKAGE_CONTENT = """
