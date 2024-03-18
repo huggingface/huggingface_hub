@@ -46,7 +46,7 @@ from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFEREN
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -214,6 +214,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             created=output.created,
         )
 
+    @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
         self.assertEqual(
@@ -540,6 +541,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item.label, str)
             self.assertIsInstance(item.score, float)
 
+    @expect_deprecation("InferenceClient.conversational")
     def test_unprocessable_entity_error(self) -> None:
         with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
             self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
