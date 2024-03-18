@@ -12,8 +12,8 @@
       title: 개요
     - local: guides/download
       title: 파일 다운로드하기
-    - local: in_translation
-      title: (번역 중) Upload files
+    - local: guides/upload
+      title: 파일 업로드하기
     - local: in_translation
       title: (번역 중) HfFileSystem
     - local: in_translation
