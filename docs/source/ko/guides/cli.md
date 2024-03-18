@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # 명령줄 인터페이스 (CLI) [[command-line-interface]]
 
-`huggingface_hub` Python 패키지는 `huggingface-cli`라는 내장 CLI를 함께 제공합니다. 이 도구를 사용하면 터미널에서 Hugging Face Hub와 직접 상호 작용할 수 있습니다. 계정에 로그인하고, 저장소를 생성하고, 파일을 업로드 및 다운로드하는 등의 다양한 작업을 수행할 수 있습니다. 또한 머신을 구성하거나 캐시를 관리하는 데 유용한 기능도 제공합니다. 이 가이드에서 CLI의 주요 기능과 사용 방법에 대해 설명합니다.
+`huggingface_hub` Python 패키지는 `huggingface-cli`라는 내장 CLI를 함께 제공합니다. 이 도구를 사용하면 터미널에서 Hugging Face Hub와 직접 상호 작용할 수 있습니다. 계정에 로그인하고, 저장소를 생성하고, 파일을 업로드 및 다운로드하는 등의 다양한 작업을 수행할 수 있습니다. 또한 머신을 구성하거나 캐시를 관리하는 데 유용한 기능도 제공합니다. 이 가이드는 CLI의 주요 기능과 사용 방법에 대해 설명합니다.
 
 ## 시작하기 [[getting-started]]
 
@@ -83,15 +83,14 @@ Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.bre
 
 ## huggingface-cli login [[huggingface-cli-login]]
 
-많은 경우 Hub와 상호 작용하려면 (비공개 저장소 다운로드, 파일 업로드, PR 생성 등) Hugging Face 계정에 로그인해야 합니다. 이를 위해서는 [설정 페이지](https://huggingface.co/settings/tokens)에서 [사용자 액세스 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요합니다. 사용자 액세스 토큰은 Hub에 사용자의 신원을 인증하는 데 사용됩니다. 파일을 업로드하거나 콘텐츠를 수정하려면 쓰기 액세스 권한이 있는 토큰을 설정해야 합니다.
-
-토큰이 있으면 터미널에서 다음 명령을 실행하세요:
+Hugging Face Hub에 접근하는 대부분의 작업(비공개 저장소 액세스, 파일 업로드, PR 제출 등)을 위해서는 Hugging Face 계정에 로그인해야 합니다. 로그인을 하기 위해서 [설정 페이지](https://huggingface.co/settings/tokens)에서 생성한 [사용자 액세스 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요하며, 이 토큰은 Hub에서의 사용자 인증에 사용됩니다. 파일 업로드나 콘텐츠 수정을 위해선 쓰기 권한이 있는 토큰이 필요합니다.
+토큰을 받은 후에 터미널에서 다음 명령을 실행하세요:
 
 ```bash
 >>> huggingface-cli login
 ```
 
-이 명령은 토큰을 입력하라는 메시지를 표시합니다. 토큰을 복사하여 붙여넣고 Enter 키를 누릅니다. 그런 다음 토큰을 git 자격 증명으로 저장할지 묻는 메시지가 표시됩니다. 로컬에서 `git`을 사용할 계획이라면 Enter 키를 다시 누릅니다(기본값은 yes). 마지막으로 Hub를 호출하여 토큰이 유효한지 확인하고 로컬에 저장합니다.
+이 명령은 토큰을 입력하라는 메시지를 표시합니다. 토큰을 복사하여 붙여넣고 Enter 키를 입력합니다. 그런 다음 토큰을 git 자격 증명으로 저장할지 묻는 메시지가 표시됩니다. 로컬에서 `git`을 사용할 계획이라면 Enter 키를 입력합니다(기본값은 yes). 마지막으로 Hub에서 토큰의 유효성을 검증한 후 로컬에 저장합니다.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -109,7 +108,7 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-또는 프롬프트 없이 로그인하려면 명령줄에서 토큰을 직접 전달할 수 있습니다. 보안을 강화하려면 명령 기록에 토큰을 붙여넣는 것 대신, 환경 변수로 토큰을 전달하는 것이 좋습니다.
+프롬프트를 거치지 않고 바로 로그인하고 싶다면, 명령줄에서 토큰을 직접 입력할 수도 있습니다. 하지만 보안을 더욱 강화하기 위해서는 명령 기록에 토큰을 남기지 않고, 환경 변수를 통해 토큰을 전달하는 방법이 바람직합니다.
 
 ```bash
 # Or using an environment variable
@@ -120,11 +119,11 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-인증에 대한 자세한 내용은 [이 섹션](../quick-start#authentication)을 확인하세요.
+[이 단락](../quick-start#authentication)에서 인증에 대한 더 자세한 내용을 확인하세요.
 
 ## huggingface-cli whoami [[huggingface-cli-whoami]]
 
-로그인 여부를 확인하려면 `huggingface-cli whoami`를 사용하세요. 이 명령어에는 옵션이 없으며 Hub에서 사용자 이름과 속한 조직을 간단히 출력합니다:
+로그인 여부를 확인하기 위해 `huggingface-cli whoami` 명령어를 사용할 수 있습니다. 이 명령어는 옵션이 없으며, 간단하게 사용자 이름과  Hub 내에서 소속된 조직들을 출력합니다:
 
 ```bash
 huggingface-cli whoami
@@ -136,14 +135,14 @@ orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 
 ## huggingface-cli logout [[huggingface-cli-logout]]
 
-이 명령은 로그아웃합니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
+이 명령어를 사용하여 로그아웃할 수 있습니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
 
-`HF_TOKEN` 환경 변수를 사용하여 로그인한 경우 이 명령으로 로그아웃되지 않습니다([참조]((../package_reference/environment_variables#hftoken))). 이 경우 머신 구성에서 환경 변수 설정을 해제해야 합니다.
+하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조]((../package_reference/environment_variables#hftoken))). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거해야 합니다.
 
 ## huggingface-cli download [[huggingface-cli-download]]
 
 
-`huggingface-cli download` 명령을 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. 내부적으로는 [다운로드](./download) 가이드에 설명된 것과 동일한 [`hf_hub_download`]와 [`snapshot_download`] 도우미를 사용하여 반환된 경로를 터미널에 출력합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
+`huggingface-cli download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. 내부적으로는 [다운로드](./download) 가이드에 설명된 것과 동일한 [`hf_hub_download`]와 [`snapshot_download`] 도우미를 사용하여 반환된 경로를 터미널에 출력합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
 
 ```bash
 huggingface-cli download --help
@@ -294,7 +293,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main/
 
 </Tip>
 
-특정 폴더를 업로드할 수도 있습니다:
+다음과 같이 특정 폴더를 업로드할 수도 있습니다:
 
 ```bash
 >>> huggingface-cli upload my-cool-model ./models .
