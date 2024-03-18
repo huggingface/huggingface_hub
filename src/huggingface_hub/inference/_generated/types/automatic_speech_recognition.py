@@ -13,7 +13,7 @@ EarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
-class GenerationParameters(BaseInferenceType):
+class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process
     Ad-hoc parametrization of the text generation process
     """
@@ -80,7 +80,7 @@ class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     Additional inference parameters for Automatic Speech Recognition
     """
 
-    generate: Optional[GenerationParameters] = None
+    generate: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
     """Parametrization of the text generation process"""
     return_timestamps: Optional[bool] = None
     """Whether to output corresponding timestamps with the generated text"""

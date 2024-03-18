@@ -10,7 +10,7 @@ from .base import BaseInferenceType
 
 
 @dataclass
-class TargetSize(BaseInferenceType):
+class TextToImageTargetSize(BaseInferenceType):
     """The size in pixel of the output image"""
 
     height: int
@@ -35,7 +35,7 @@ class TextToImageParameters(BaseInferenceType):
     """
     scheduler: Optional[str] = None
     """For diffusion models. Override the scheduler with a compatible one"""
-    target_size: Optional[TargetSize] = None
+    target_size: Optional[TextToImageTargetSize] = None
     """The size in pixel of the output image"""
 
 

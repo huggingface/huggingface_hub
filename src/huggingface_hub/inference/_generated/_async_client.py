@@ -1176,7 +1176,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.object_detection("people.jpg"):
-        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=BoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
+        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         # detect objects
