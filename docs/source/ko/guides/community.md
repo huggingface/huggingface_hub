@@ -2,15 +2,14 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interact with Discussions and Pull Requests
+# 토론 및 풀 리퀘스트와 상호작용하기[[interact-with-discussions-and-pull-requests]]
 
-The `huggingface_hub` library provides a Python interface to interact with Pull Requests and Discussions on the Hub.
-Visit [the dedicated documentation page](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)
-for a deeper view of what Discussions and Pull Requests on the Hub are, and how they work under the hood.
+`huggingface_hub` 라이브러리는 허브의 풀 리퀘스트 및 토론과 상호작용할 수 있는 Python 인터페이스를 제공합니다.
+[전용 문서 페이지](https://huggingface.co/docs/hub/repositories-pull-requests-discussions)를 방문하여 Hub의 토론과 풀 리퀘스트가 무엇이고 어떻게 작동하는지 자세히 살펴보세요.
 
-## Retrieve Discussions and Pull Requests from the Hub
+## 허브에서 토론 및 풀 리퀘스트 가져오기[[retrieve-discussions-and-pull-requests-from-the-hub]]
 
-The `HfApi` class allows you to retrieve Discussions and Pull Requests on a given repo:
+`HfApi` 클래스를 사용하면 지정된 리포지토리에 대한 토론 및 풀 리퀘스트를 검색할 수 있습니다:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -25,7 +24,7 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 [...]
 ```
 
-`HfApi.get_repo_discussions` supports filtering by author, type (Pull Request or Discussion) and status (`open` or `closed`):
+`HfApi.get_repo_토론`은 작성자, 유형(풀 리퀘스트 또는 토론) 및 상태(`공개` 또는 `비공개`)별로 필터링을 지원합니다:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
@@ -40,16 +39,14 @@ The `HfApi` class allows you to retrieve Discussions and Pull Requests on a give
 # 19 - Add Flax weights by ArthurZ, pr: True
 ```
 
-`HfApi.get_repo_discussions` returns a [generator](https://docs.python.org/3.7/howto/functional.html#generators) that yields
-[`Discussion`] objects. To get all the Discussions in a single list, run:
+`HfApi.get_repo_discussions`는 [`토론`] 객체를 생성하는 [제너레이터](https://docs.python.org/3.7/howto/functional.html#generators)를 반환합니다. 모든 토론을 단일 목록으로 가져오려면 실행합니다:
 
 ```python
 >>> from huggingface_hub import get_repo_discussions
 >>> discussions_list = list(get_repo_discussions(repo_id="bert-base-uncased"))
 ```
 
-The [`Discussion`] object returned by [`HfApi.get_repo_discussions`] contains high-level overview of the
-Discussion or Pull Request. You can also get more detailed information using [`HfApi.get_discussion_details`]:
+[`HfApi.get_repo_discussions`]가 반환하는 [`토론`] 객체에는 토론 또는 풀 리퀘스트에 대한 개략적인 개요가 포함되어 있습니다. [`HfApi.get_discussion_details`]를 사용하여 더 자세한 정보를 얻을 수도 있습니다:
 
 ```python
 >>> from huggingface_hub import get_discussion_details
@@ -75,22 +72,17 @@ DiscussionWithDetails(
 )
 ```
 
-[`HfApi.get_discussion_details`] returns a [`DiscussionWithDetails`] object, which is a subclass of [`Discussion`]
-with more detailed information about the Discussion or Pull Request. Information includes all the comments, status changes,
-and renames of the Discussion via [`DiscussionWithDetails.events`].
+[`HfApi.get_discussion_details`]는 토론 또는 풀 리퀘스트에 대한 자세한 정보가 포함된 [`토론`]의 하위 클래스인 [`DiscussionWithDetails`] 객체를 반환합니다. 정보에는 토론의 모든 댓글, 상태 변경 및 이름 변경이 [`DiscussionWithDetails.events`]를 통해 포함됩니다.
 
-In case of a Pull Request, you can retrieve the raw git diff with [`DiscussionWithDetails.diff`]. All the commits of the
-Pull Request are listed in [`DiscussionWithDetails.events`].
+풀 리퀘스트의 경우, [`DiscussionWithDetails.diff`]를 통해 원시 git diff를 검색할 수 있습니다. 풀 리퀘스트의 모든 커밋은 [`DiscussionWithDetails.events`]에 나열됩니다.
 
 
-## Create and edit a Discussion or Pull Request programmatically
+## 프로그래밍 방식으로 토론 또는 풀 리퀘스트를 만들고 편집하기[[create-and-edit-a-discussion-or-pull-request-programmatically]]
 
-The [`HfApi`] class also offers ways to create and edit Discussions and Pull Requests.
-You will need an [access token](https://huggingface.co/docs/hub/security-tokens) to create and edit Discussions
-or Pull Requests.
+[`HfApi`] 클래스는 토론 및 풀 리퀘스트를 만들고 편집하는 방법도 제공합니다.
+토론이나 풀 리퀘스트를 만들고 편집하려면 [액세스 토큰](https://huggingface.co/docs/hub/security-tokens)이 필요합니다.
 
-The simplest way to propose changes on a repo on the Hub is via the [`create_commit`] API: just
-set the `create_pr` parameter to `True`. This parameter is also available on other methods that wrap [`create_commit`]:
+허브의 리포지토리에 변경 사항을 제안하는 가장 간단한 방법은 [`create_commit`] API를 사용하는 것입니다. `create_pr` 매개변수를 `True`로 설정하기만 하면 됩니다. 이 매개변수는 [`create_commit`]을 래핑하는 다른 메서드에서도 사용할 수 있습니다:
 
     * [`upload_file`]
     * [`upload_folder`]
@@ -108,8 +100,8 @@ set the `create_pr` parameter to `True`. This parameter is also available on oth
 ... )
 ```
 
-You can also use [`HfApi.create_discussion`] (respectively [`HfApi.create_pull_request`]) to create a Discussion (respectively a Pull Request) on a repo.
-Opening a Pull Request this way can be useful if you need to work on changes locally. Pull Requests opened this way will be in `"draft"` mode.
+리포지토리에 대한 토론(각각 풀 리퀘스트)을 만들려면 [`HfApi.create_discussion`](각각 [`HfApi.create_pull_request`])을 사용할 수도 있습니다.
+이 방법으로 풀 리퀘스트를 열면 로컬에서 변경 작업을 해야 하는 경우에 유용할 수 있습니다. 이 방법으로 열린 풀 리퀘스트는 `"초안"` 모드가 됩니다.
 
 ```python
 >>> from huggingface_hub import create_discussion, create_pull_request
@@ -129,21 +121,21 @@ DiscussionWithDetails(...)
 DiscussionWithDetails(..., is_pull_request=True)
 ```
 
-Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] class. For example:
+풀 리퀘스트 및 토론 관리는 전적으로 [`HfApi`] 클래스로 할 수 있습니다. 예를 들어:
 
-    * [`comment_discussion`] to add comments
-    * [`edit_discussion_comment`] to edit comments
-    * [`rename_discussion`] to rename a Discussion or Pull Request
-    * [`change_discussion_status`] to open or close a Discussion / Pull Request
-    * [`merge_pull_request`] to merge a Pull Request
+    * 댓글을 추가하려면 [`comment_discussion`]
+    * [`edit_discussion_comment`]를 사용하여 댓글을 수정합니다.
+    * 토론 또는 풀 리퀘스트의 이름을 바꾸려면 [`rename_discussion`]을 사용합니다.
+    * 토론/풀 리퀘스트를 열거나 닫으려면 [`change_discussion_status`]를 사용합니다.
+    * [`merge_pull_request`]를 사용하여 풀 리퀘스트를 병합합니다.
 
 
-Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
+사용 가능한 모든 메서드에 대한 전체 참조는 [`HfApi`] 문서 페이지를 참조하세요.
 
-## Push changes to a Pull Request
+## 풀 리퀘스트에 변경 사항 푸시[[push-changes-to-a-pull-request]]
 
-*Coming soon !*
+*곧 출시됩니다!*
 
-## See also
+## 참고 항목[[see-also]]
 
-For a more detailed reference, visit the [Discussions and Pull Requests](../package_reference/community) and the [hf_api](../package_reference/hf_api) documentation page.
+더 자세한 내용은 [토론 및 풀 리퀘스트](../package_reference/community)와 [hf_api](../package_reference/hf_api) 문서 페이지를 참조하세요.
