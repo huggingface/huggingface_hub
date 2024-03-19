@@ -76,6 +76,15 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
+class DummyModelSavingConfig(ModelHubMixin):
+    def _save_pretrained(self, save_directory: Path) -> None:
+        """Implementation that uses `config.json` to serialize the config.
+
+        This file must not be overwritten by the default config saved by `ModelHubMixin`.
+        """
+        (save_directory / "config.json").write_text(json.dumps({"custom_config": "custom_config"}))
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -262,3 +271,11 @@ class HubMixinTest(unittest.TestCase):
 
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
+
+    def test_save_pretrained_do_not_overwrite_config(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102."""
+        model = DummyModelSavingConfig()
+        model.save_pretrained(self.cache_dir)
+        # config.json is not overwritten
+        with open(self.cache_dir / "config.json") as f:
+            assert json.load(f) == {"custom_config": "custom_config"}

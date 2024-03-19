@@ -42,6 +42,15 @@ from typing import (
 
 from requests import HTTPError
 
+from huggingface_hub.errors import (
+    GenerationError,
+    IncompleteGenerationError,
+    OverloadedError,
+    TextGenerationError,
+    UnknownError,
+    ValidationError,
+)
+
 from ..constants import ENDPOINT
 from ..utils import (
     build_hf_headers,
@@ -104,10 +113,6 @@ class ModelStatus:
     state: str
     compute_type: Dict
     framework: str
-
-
-class InferenceTimeoutError(HTTPError, TimeoutError):
-    """Error raised when a model is unavailable or the request times out."""
 
 
 ## IMPORT UTILS
@@ -436,31 +441,6 @@ def _is_chat_completion_server(model: str) -> bool:
 # Text-generation errors are parsed separately to handle as much as possible the errors returned by the text generation
 # inference project (https://github.com/huggingface/text-generation-inference).
 # ----------------------
-
-
-class TextGenerationError(HTTPError):
-    """Generic error raised if text-generation went wrong."""
-
-
-# Text Generation Inference Errors
-class ValidationError(TextGenerationError):
-    """Server-side validation error."""
-
-
-class GenerationError(TextGenerationError):
-    pass
-
-
-class OverloadedError(TextGenerationError):
-    pass
-
-
-class IncompleteGenerationError(TextGenerationError):
-    pass
-
-
-class UnknownError(TextGenerationError):
-    pass
 
 
 def raise_text_generation_error(http_error: HTTPError) -> NoReturn:

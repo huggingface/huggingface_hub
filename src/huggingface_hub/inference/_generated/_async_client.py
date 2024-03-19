@@ -38,10 +38,10 @@ from typing import (
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    InferenceTimeoutError,
     ModelStatus,
     _async_stream_chat_completion_response_from_bytes,
     _async_stream_chat_completion_response_from_text_generation,
