@@ -198,7 +198,7 @@ class HubMixinTest(unittest.TestCase):
     def test_init_accepts_kwargs_save_and_load(self):
         model = DummyModelWithKwargs(something="else")
         model.save_pretrained(self.cache_dir)
-        assert model._mixin_config == {"something": "else"}
+        assert model._hub_mixin_config == {"something": "else"}
 
         with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
             DummyModelWithKwargs.from_pretrained(self.cache_dir)
@@ -255,19 +255,19 @@ class HubMixinTest(unittest.TestCase):
             relative_save_directory = Path(tmp_relative_dir) / "model"
             DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(relative_save_directory)
             model = DummyModelConfigAsDataclass.from_pretrained(relative_save_directory)
-            assert model._mixin_config == CONFIG_AS_DATACLASS
+            assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_from_pretrained_from_absolute_path(self):
         save_directory = self.cache_dir / "subfolder"
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
-        assert model._mixin_config == CONFIG_AS_DATACLASS
+        assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_from_pretrained_from_absolute_string_path(self):
         save_directory = str(self.cache_dir / "subfolder")
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
-        assert model._mixin_config == CONFIG_AS_DATACLASS
+        assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
@@ -294,10 +294,10 @@ class HubMixinTest(unittest.TestCase):
             "token": TOKEN,
         }
         for cls in (DummyModelConfigAsDataclass, DummyModelConfigAsOptionalDataclass):
-            assert cls.from_pretrained(**from_pretrained_kwargs)._mixin_config == CONFIG_AS_DATACLASS
+            assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DATACLASS
 
         for cls in (DummyModelConfigAsDict, DummyModelConfigAsOptionalDict):
-            assert cls.from_pretrained(**from_pretrained_kwargs)._mixin_config == CONFIG_AS_DICT
+            assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DICT
 
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
