@@ -4,10 +4,10 @@ rendered properly in your Markdown viewer.
 
 # 모델 카드 생성 및 공유
 
-`huggingface_hub` 라이브러리는 모델 카드를 만들고 공유하고 업데이트하는 파이썬 인터페이스를 제공합니다. 허브의 모델 카드가 무엇인지, 그리고 후드 아래에서 어떻게 작동하는지에 대한 자세한 내용은 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
+`huggingface_hub` 라이브러리는 모델 카드를 만들고 공유하고 업데이트하는 파이썬 인터페이스를 제공합니다. 허브의 모델 카드가 무엇인지, 그리고 실제로 어떻게 작동하는지에 대한 자세한 내용은 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
 
 <Tip>
-[새로운 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
+[신규 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 </Tip>
 
@@ -51,7 +51,7 @@ card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
 이 작업을 수행하는 또 다른 방법은 f-strings를 사용하는 것입니다. 다음 예에서 우리는:
 
 - 우리가 정의한 메타데이터를 YAML로 변환하기 위해 [`ModelCardData.to_yaml`]을 사용하므로 모델 카드에 YAML 블록을 삽입하는 데 사용할 수 있습니다.
-- Python f-strings를 통해 템플릿 변수를 사용할 방법을 보여줍니다
+- Python f-strings를 통해 템플릿 변수를 사용할 방법을 보여줍니다.
 
 ```python
 card_data = ModelCardData(language='en', license='mit', library='timm')
@@ -161,11 +161,11 @@ library_name: timm
 이 모델은 [@nateraw](https://hf.co/nateraw)에 의해 생성되었습니다.
 ```
 
-카드 데이터를 업데이트할 때 [`ModelCard.validate`]로 전화하여 Hub에 대해 카드가 여전히 유효한지 확인할 수 있습니다. 이렇게 하면 Hugging Face Hub에 설정된 모든 유효성 검사 규칙을 통과할 수 있습니다.
+카드 데이터를 업데이트할 때 [`ModelCard.validate`]를 불러와 Hub에 대해 카드가 여전히 유효한지 확인할 수 있습니다. 이렇게 하면 Hugging Face Hub에 설정된 모든 유효성 검사 규칙을 통과할 수 있습니다.
 
 ### 기본 템플릿으로부터
 
-템플릿을 사용하는 대신 [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md), 를 사용할 수도 있습니다. 이것은 여러분이 작성하고 싶은 수많은 섹션이 있는 완전한 기능을 갖춘 모델 카드입니다. 후드 아래에는 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
+템플릿을 사용하는 대신 [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)를 사용할 수도 있습니다. 이것은 여러분이 작성하고 싶은 수많은 섹션이 있는 완전한 기능을 갖춘 모델 카드입니다. 내부적으론 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
 
 <Tip>
 
@@ -190,7 +190,7 @@ print(card)
 
 Hugging Face Hub로 인증받은 경우(`huggingface-cli login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 허브에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
 
-먼저 인증된 사용자의 네임스페이스 아래에 'hf-hub-modelcards-pr-test'라는 새로운 레포를 만듭니다:
+먼저 인증된 사용자의 네임스페이스 아래에 'hf-hub-modelcards-pr-test'라는 새로운 레포지토리를 만듭니다:
 
 ```python
 from huggingface_hub import whoami, create_repo
@@ -243,7 +243,7 @@ card.push_to_hub(repo_id, create_pr=True)
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "image-classification"})
 ```
 
-두 줄의 코드를 사용하면 메타데이터를 업데이트하여 새로운 `파이프라인_태그'`를 설정할 수 있습니다.
+두 줄의 코드를 사용하면 메타데이터를 업데이트하여 새로운 `파이프라인_태그`를 설정할 수 있습니다.
 
 기본적으로 카드에 이미 존재하는 키는 업데이트할 수 없습니다. 그렇게 하려면 `overwrite=True`를 명시적으로 전달해야 합니다.
 
@@ -261,11 +261,11 @@ card.push_to_hub(repo_id, create_pr=True)
 
 ## 평가 결과 포함하기
 
-메타데이터 `모델-인덱스`에 평가 결과를 포함하려면 관련 평가 결과와 함께 [EvalResult] 또는 `EvalResult` 목록을 전달하면 됩니다. 후드 아래에 `card.data.to _dict()`를 호출하면 `모델-인덱스`가 생성됩니다. 자세한 내용은 [Hub 문서의 이 섹션](https://huggingface.co/docs/hub/models-cards#evaluation-results)을 참조하십시오.
+메타데이터 `모델-인덱스`에 평가 결과를 포함하려면 관련 평가 결과와 함께 [EvalResult] 또는 `EvalResult` 목록을 전달하면 됩니다. 내부적으론 `card.data.to _dict()`를 호출하면 `모델-인덱스`가 생성됩니다. 자세한 내용은 [Hub 문서의 이 섹션](https://huggingface.co/docs/hub/models-cards#evaluation-results)을 참조하십시오.
 
 <Tip>
 
-이 기능을 사용하려면 ['ModelCardData']에 `model_name` 속성을 포함해야 합니다.
+이 기능을 사용하려면 [ModelCardData]에 `model_name` 속성을 포함해야 합니다.
 
 </Tip>
 
