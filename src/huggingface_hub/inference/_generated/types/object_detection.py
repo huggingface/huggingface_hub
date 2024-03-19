@@ -30,7 +30,7 @@ class ObjectDetectionInput(BaseInferenceType):
 
 
 @dataclass
-class BoundingBox(BaseInferenceType):
+class ObjectDetectionBoundingBox(BaseInferenceType):
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """
@@ -45,7 +45,7 @@ class BoundingBox(BaseInferenceType):
 class ObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Object Detection task"""
 
-    box: BoundingBox
+    box: ObjectDetectionBoundingBox
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """

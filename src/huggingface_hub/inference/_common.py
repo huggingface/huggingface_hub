@@ -38,8 +38,6 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
-
 from ..constants import ENDPOINT
 from ..utils import (
     build_hf_headers,
@@ -97,10 +95,6 @@ class ModelStatus:
     state: str
     compute_type: Dict
     framework: str
-
-
-class InferenceTimeoutError(HTTPError, TimeoutError):
-    """Error raised when a model is unavailable or the request times out."""
 
 
 ## IMPORT UTILS

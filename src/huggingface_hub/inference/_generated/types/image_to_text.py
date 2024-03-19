@@ -13,7 +13,7 @@ EarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
-class GenerationParameters(BaseInferenceType):
+class ImageToTextGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process
     Ad-hoc parametrization of the text generation process
     """
@@ -80,7 +80,7 @@ class ImageToTextParameters(BaseInferenceType):
     Additional inference parameters for Image To Text
     """
 
-    generate: Optional[GenerationParameters] = None
+    generate: Optional[ImageToTextGenerationParameters] = None
     """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""
