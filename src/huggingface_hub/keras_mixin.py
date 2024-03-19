@@ -57,6 +57,7 @@ def _flatten_dict(dictionary, parent_key=""):
 
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
+    table = None
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
@@ -65,8 +66,6 @@ def _create_hyperparameter_table(model):
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
-    else:
-        table = None
     return table
 
 
