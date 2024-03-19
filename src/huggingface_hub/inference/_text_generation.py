@@ -29,6 +29,15 @@ from typing import List, NoReturn, Optional
 
 from requests import HTTPError
 
+from huggingface_hub.errors import (
+    GenerationError,
+    IncompleteGenerationError,
+    OverloadedError,
+    TextGenerationError,
+    UnknownError,
+    ValidationError,
+)
+
 from ..utils import is_pydantic_available
 
 
@@ -485,31 +494,6 @@ class TextGenerationStreamResponse:
 # Text-generation errors are parsed separately to handle as much as possible the errors returned by the text generation
 # inference project (https://github.com/huggingface/text-generation-inference).
 # ----------------------
-
-
-class TextGenerationError(HTTPError):
-    """Generic error raised if text-generation went wrong."""
-
-
-# Text Generation Inference Errors
-class ValidationError(TextGenerationError):
-    """Server-side validation error."""
-
-
-class GenerationError(TextGenerationError):
-    pass
-
-
-class OverloadedError(TextGenerationError):
-    pass
-
-
-class IncompleteGenerationError(TextGenerationError):
-    pass
-
-
-class UnknownError(TextGenerationError):
-    pass
 
 
 def raise_text_generation_error(http_error: HTTPError) -> NoReturn:

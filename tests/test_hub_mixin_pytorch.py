@@ -290,6 +290,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert reloaded_with_default.state == "other"
         assert reloaded_with_default.config == {"num_classes": 50, "state": "other"}
 
+        config_file.unlink()  # Remove config file
         reloaded_with_default.save_pretrained(self.cache_dir)
         assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "other"}
 
@@ -307,6 +308,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert "not_jsonable" not in model.config
 
         # If jsonable value passed by user, it's saved in the config
+        (self.cache_dir / "config.json").unlink()
         new_model = DummyModelNoConfig(not_jsonable=123)
         new_model.save_pretrained(self.cache_dir)
         assert new_model.config["not_jsonable"] == 123
