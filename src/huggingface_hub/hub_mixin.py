@@ -131,7 +131,7 @@ class ModelHubMixin:
 
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
-    >>> reloaded_model.config
+    >>> reloaded_model._mixin_config
     {"size": 256, "device": "gpu"}
 
     # Model card has been correctly populated
@@ -144,7 +144,7 @@ class ModelHubMixin:
     ```
     """
 
-    config: Optional[Union[dict, "DataclassInstance"]] = None
+    _mixin_config: Optional[Union[dict, "DataclassInstance"]] = None
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
     library_info: LibraryInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
@@ -187,14 +187,14 @@ class ModelHubMixin:
         """Create a new instance of the class and handle config.
 
         3 cases:
-        - If `self.config` is already set, do nothing.
-        - If `config` is passed as a dataclass, set it as `self.config`.
-        - Otherwise, build `self.config` from default values and passed values.
+        - If `self._mixin_config` is already set, do nothing.
+        - If `config` is passed as a dataclass, set it as `self._mixin_config`.
+        - Otherwise, build `self._mixin_config` from default values and passed values.
         """
         instance = super().__new__(cls)
 
         # If `config` is already set, return early
-        if instance.config is not None:
+        if instance._mixin_config is not None:
             return instance
 
         # Infer passed values
@@ -212,7 +212,7 @@ class ModelHubMixin:
 
         # If config passed as dataclass => set it and return early
         if is_dataclass(passed_values.get("config")):
-            instance.config = passed_values["config"]
+            instance._mixin_config = passed_values["config"]
             return instance
 
         # Otherwise, build config from default + passed values
@@ -231,7 +231,7 @@ class ModelHubMixin:
 
         # Set `config` attribute and return
         if init_config != {}:
-            instance.config = init_config
+            instance._mixin_config = init_config
         return instance
 
     def save_pretrained(
@@ -267,7 +267,7 @@ class ModelHubMixin:
 
         # save config (if provided and if not serialized yet in `_save_pretrained`)
         if config is None:
-            config = self.config
+            config = self._mixin_config
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
@@ -421,8 +421,8 @@ class ModelHubMixin:
 
         # Implicitly set the config as instance attribute if not already set by the class
         # This way `config` will be available when calling `save_pretrained` or `push_to_hub`.
-        if config is not None and (instance.config is None or instance.config == {}):
-            instance.config = config
+        if config is not None and (instance._mixin_config is None or instance._mixin_config == {}):
+            instance._mixin_config = config
 
         return instance
 
