@@ -85,7 +85,7 @@ library: timm
 This model created by [@nateraw](https://github.com/nateraw)
 ```
 
-### 진자 템플릿으로부터
+### Jinja 템플릿으로부터
 
 Jinja2가 설치되어 있으면, Jinja 템플릿 파일에서 모델 카드를 만들 수 있습니다. 기본적인 예를 살펴보겠습니다:
 
@@ -100,7 +100,7 @@ template_text = """
 {{ card_data }}
 ---
 
-# 마이쿨 모델용 모델 카드
+# MyCoolModel 모델용 모델 카드
 
 이 모델은 이것과 저것을 합니다.
 
@@ -113,7 +113,7 @@ Path('custom_template.md').write_text(template_text)
 # 카드 메타데이터 정의
 card_data = ModelCardData(language='en', license='mit', library_name='keras')
 
-# 템플릿에서 카드를 만들고 원하는 진자 템플릿 변수를 전달합니다.
+# 템플릿에서 카드를 만들고 원하는 Jinja 템플릿 변수를 전달합니다.
 # 우리의 경우에는 작성자를 전달하겠습니다.
 card = ModelCard.from_template(card_data, template_path='custom_template.md', author='nateraw')
 card.save('my_model_card_1.md')
@@ -129,7 +129,7 @@ license: mit
 library_name: keras
 ---
 
-# 마이쿨 모델용 모델 카드
+# MyCoolModel 모델용 모델 카드
 
 이 모델은 이것과 저것을 합니다.
 
@@ -154,7 +154,7 @@ license: apache-2.0
 library_name: timm
 ---
 
-# 마이쿨 모델용 모델 카드
+# MyCoolModel 모델용 모델 카드
 
 이 모델은 이것과 저것을 합니다.
 
