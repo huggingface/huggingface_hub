@@ -148,7 +148,7 @@ class ModelHubMixin:
     # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
     _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
-    _hub_mixin_hub_mixin_init_parameters: Dict[str, inspect.Parameter]
+    _hub_mixin_init_parameters: Dict[str, inspect.Parameter]
     _hub_mixin_jsonable_default_values: Dict[str, Any]
     _hub_mixin_inject_config: bool
     # ^ internal values to handle config
