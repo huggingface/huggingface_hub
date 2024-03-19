@@ -202,20 +202,13 @@ class ModelHubMixin:
             **{
                 key: value
                 for key, value in zip(
-                    # Skip `self` and `config` parameters
+                    # [1:] to skip `self` parameter
                     list(cls._hub_mixin_init_parameters)[1:],
                     args,
                 )
-            }
+            },
+            **kwargs,
         }
-        for key, value in kwargs.items():
-            if key in cls._init_parameters.keys():
-                passed_values[key] = value
-            else:
-                if "kwargs" not in passed_values.keys():
-                    passed_values["kwargs"] = {key: value}
-                else:
-                    passed_values["kwargs"][key] = value
 
         # If config passed as dataclass => set it and return early
         if is_dataclass(passed_values.get("config")):
@@ -386,8 +379,6 @@ class ModelHubMixin:
             for param in cls._hub_mixin_init_parameters.values():
                 if param.name not in model_kwargs and param.name in config:
                     model_kwargs[param.name] = config[param.name]
-                if "kwargs" in config:
-                    model_kwargs.update(config["kwargs"])
 
             # Check if `config` argument was passed at init
             if "config" in cls._hub_mixin_init_parameters:
@@ -430,7 +421,7 @@ class ModelHubMixin:
 
         # Implicitly set the config as instance attribute if not already set by the class
         # This way `config` will be available when calling `save_pretrained` or `push_to_hub`.
-        if config is not None and (instance._hub_mixin_config is None or instance._hub_mixin_config == {}):
+        if config is not None and (getattr(instance, "_hub_mixin_config", None) in (None, {})):
             instance._hub_mixin_config = config
 
         return instance

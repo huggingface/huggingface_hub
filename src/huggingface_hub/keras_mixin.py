@@ -443,6 +443,7 @@ class KerasModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         token,
+        config: Optional[Dict[str, Any]] = None,
         **model_kwargs,
     ):
         """Here we just call [`from_pretrained_keras`] function so both the mixin and
@@ -456,9 +457,6 @@ class KerasModelHubMixin(ModelHubMixin):
         else:
             raise ImportError("Called a TensorFlow-specific function but could not import it.")
 
-        # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
-        cfg = model_kwargs.pop("config", None)
-
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
             storage_folder = snapshot_download(
@@ -471,9 +469,10 @@ class KerasModelHubMixin(ModelHubMixin):
         else:
             storage_folder = model_id
 
-        model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+        # TODO: change this in a future PR. We are not returning a KerasModelHubMixin instance here...
+        model = tf.keras.models.load_model(storage_folder)
 
         # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
-        model.config = cfg
+        model.config = config
 
         return model
