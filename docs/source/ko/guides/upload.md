@@ -2,22 +2,23 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Upload files to the Hub
+# 허브에 파일 업로드하기
 
-Sharing your files and work is an important aspect of the Hub. The `huggingface_hub` offers several options for uploading your files to the Hub. You can use these functions independently or integrate them into your library, making it more convenient for your users to interact with the Hub. This guide will show you how to push files:
+파일과 작업을 공유하는 것은 허브의 중요한 측면입니다. 허브에 파일을 업로드하기 위한 몇 가지 옵션을 제공합니다. 이러한 기능을 독립적으로 사용하거나 라이브러리에 통합하여 사용자가 허브와 더 편리하게 상호작용할 수 있도록 할 수 있습니다. 이 가이드에서는 파일을 푸시하는 방법을 설명합니다:
 
-- without using Git.
-- that are very large with [Git LFS](https://git-lfs.github.com/).
-- with the `commit` context manager.
-- with the [`~Repository.push_to_hub`] function.
+- Git을 사용하지 않고
+- [Git LFS](https://git-lfs.github.com/)를 사용하여 매우 큰 파일을 푸시하는 방법을 설명합니다.
+- `commit` 컨텍스트 관리자를 사용합니다.
+- [`~Repository.push_to_hub`] 함수를 사용합니다.
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
+허브에 파일을 업로드할 때마다 허깅페이스 계정으로 로그인해야 합니다. 인증에 대한 자세한 내용은 [이 섹션](../quick-start#authentication)을 확인하세요.
 
-## Upload a file
+## 파일 업로드하기
 
-Once you've created a repository with [`create_repo`], you can upload a file to your repository using [`upload_file`].
+[`create_repo`]로 리파지토리를 생성했다면, [`upload_file`]을 통해 리파지토리에 파일을 업로드할 수 있습니다.
 
-Specify the path of the file to upload, where you want to upload the file to in the repository, and the name of the repository you want to add the file to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+업로드할 파일의 경로, 리포지토리에서 파일을 업로드할 위치, 파일을 추가할 리포지토리의 이름을 지정합니다. 리파지토리 유형에 따라 리파지토리 유형을 `dataset`, `model`, `space`로 선택적으로 설정할 수 있습니다.
+
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -30,30 +31,30 @@ Specify the path of the file to upload, where you want to upload the file to in 
 ... )
 ```
 
-## Upload a folder
+## 폴더 업로드
 
-Use the [`upload_folder`] function to upload a local folder to an existing repository. Specify the path of the local folder
-to upload, where you want to upload the folder to in the repository, and the name of the repository you want to add the
-folder to. Depending on your repository type, you can optionally set the repository type as a `dataset`, `model`, or `space`.
+로컬 폴더를 기존 리포지토리에 업로드하려면 [`upload_folder`] 함수를 사용합니다. 업로드할 로컬 폴더의 경로를 지정합니다.
+업로드할 로컬 폴더의 경로, 리포지토리에서 폴더를 업로드할 위치, 폴더를 추가할 리포지토리의 이름(
+폴더를 추가할 리포지토리의 이름을 지정합니다. 리파지토리 유형에 따라 리파지토리 유형을 `데이터셋`, `모델`, `스페이스`로 선택적으로 설정할 수 있습니다.
 
 ```py
->>> from huggingface_hub import HfApi
+>>> huggingface_hub에서 HfApi를 가져옵니다.
 >>> api = HfApi()
 
-# Upload all the content from the local folder to your remote Space.
-# By default, files are uploaded at the root of the repo
+# 로컬 폴더의 모든 콘텐츠를 원격 스페이스로 업로드합니다.
+# 기본적으로 파일은 리포지토리의 루트에 업로드됩니다.
 >>> api.upload_folder(
-...     folder_path="/path/to/local/space",
-...     repo_id="username/my-cool-space",
-...     repo_type="space",
+... folder_path="/path/to/local/space",
+... repo_id="username/my-cool-space",
+... repo_type="space",
 ... )
 ```
 
-By default, the `.gitignore` file will be taken into account to know which files should be committed or not. By default we check if a `.gitignore` file is present in a commit, and if not, we check if it exists on the Hub. Please be aware that only a `.gitignore` file present at the root of the directory with be used. We do not check for `.gitignore` files in subdirectories.
+기본적으로 어떤 파일을 커밋할지 여부를 알기 위해 `.gitignore` 파일이 고려된다. 기본적으로 커밋에 `.gitignore` 파일이 있는지 확인하고, 없는 경우 허브에 파일이 있는지 확인합니다. 디렉터리의 루트에 있는 `.gitignore` 파일만 사용된다는 점에 유의하세요. 하위 디렉터리에는 `.gitignore` 파일이 있는지 확인하지 않습니다.
 
-If you don't want to use an hardcoded `.gitignore` file, you can use the `allow_patterns` and `ignore_patterns` arguments to filter which files to upload. These parameters accept either a single pattern or a list of patterns. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). If both `allow_patterns` and `ignore_patterns` are provided, both constraints apply.
+하드코딩된 `.gitignore` 파일을 사용하지 않으려면 `allow_patterns` 및 `ignore_patterns` 인수를 사용하여 업로드할 파일을 필터링할 수 있습니다. 이 매개변수는 단일 패턴 또는 패턴 목록을 허용합니다. 패턴은 [여기](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm)에 설명된 대로 표준 와일드카드(글로빙 패턴)입니다. `allow_patterns`과 `ignore_patterns`을 모두 제공하면 두 가지 제약 조건이 모두 적용됩니다.
 
-Beside the `.gitignore` file and allow/ignore patterns, any `.git/` folder present in any subdirectory will be ignored.
+`.gitignore` 파일과 허용/무시 패턴 외에 하위 디렉터리에 있는 모든 `.git/` 폴더는 무시됩니다.
 
 ```py
 >>> api.upload_folder(
@@ -65,12 +66,12 @@ Beside the `.gitignore` file and allow/ignore patterns, any `.git/` folder prese
 ... )
 ```
 
-You can also use the `delete_patterns` argument to specify files you want to delete from the repo in the same commit.
-This can prove useful if you want to clean a remote folder before pushing files in it and you don't know which files
-already exists.
+`delete_patterns` 인수를 사용하여 동일한 커밋에서 리포지토리에서 삭제할 파일을 지정할 수도 있습니다.
+이 방법은 파일을 푸시하기 전에 원격 폴더를 정리하고 싶은데 어떤 파일이 이미 있는지 모르는 경우
+이미 존재하는지 모르는 경우에 유용합니다.
 
-The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
-but before that, all previous logs on the repo on deleted. All of this in a single commit.
+아래 예는 로컬 `./logs` 폴더를 원격 `/experiment/logs/` 폴더에 업로드하는 예입니다. txt 파일만 업로드됩니다.
+하지만 그 전에는 리포지토리에 있는 모든 이전 로그가 삭제됩니다. 이 모든 것이 한 번의 커밋으로 이루어집니다.
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder/logs",
@@ -81,11 +82,11 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ... )
 ```
 
-## Upload from the CLI
+## CLI에서 업로드
 
-You can use the `huggingface-cli upload` command from the terminal to directly upload files to the Hub. Internally it uses the same [`upload_file`] and [`upload_folder`] helpers described above.
+터미널에서 `huggingface-cli upload` 명령을 사용하여 허브에 파일을 직접 업로드할 수 있습니다. 내부적으로는 위에서 설명한 것과 동일한 [`upload_file`] 및 [`upload_folder`] 헬퍼를 사용합니다.
 
-You can either upload a single file or an entire folder:
+단일 파일 또는 전체 폴더를 업로드할 수 있습니다:
 
 ```bash
 # Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
@@ -96,25 +97,25 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-`local_path` and `path_in_repo` are optional and can be implicitly inferred. If `local_path` is not set, the tool will
-check if a local folder or file has the same name as the `repo_id`. If that's the case, its content will be uploaded.
-Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
-set, files are uploaded at the root of the repo.
+`local_path` 및 `path_in_repo`는 선택 사항이며 암시적으로 유추할 수 있습니다. `local_path`가 설정되지 않은 경우, 이 도구는
+로컬 폴더나 파일에 `repo_id`와 같은 이름이 있는지 확인합니다. 이 경우 해당 콘텐츠가 업로드됩니다.
+그렇지 않으면 사용자에게 `local_path`를 명시적으로 설정하도록 요청하는 예외가 발생합니다. 어떤 경우든 `path_in_repo`가 설정되지 않으면
+설정되어 있지 않으면 파일이 리포지토리의 루트에 업로드됩니다.
 
-For more details about the CLI upload command, please refer to the [CLI guide](./cli#huggingface-cli-upload).
+CLI 업로드 명령에 대한 자세한 내용은 [CLI 가이드](./cli#huggingface-cli-upload)를 참조하세요.
 
-## Advanced features
+## 고급 기능
 
-In most cases, you won't need more than [`upload_file`] and [`upload_folder`] to upload your files to the Hub.
-However, `huggingface_hub` has more advanced features to make things easier. Let's have a look at them!
+대부분의 경우, 허브에 파일을 업로드하는 데 [`upload_file`]과 [`upload_folder`] 이상이 필요하지 않습니다.
+하지만 `huggingface_hub`에는 작업을 더 쉽게 할 수 있는 고급 기능이 있습니다. 그 기능들을 살펴봅시다!
 
 
-### Non-blocking uploads
+### 차단되지 않는 업로드
 
-In some cases, you want to push data without blocking your main thread. This is particularly useful to upload logs and
-artifacts while continuing a training. To do so, you can use the `run_as_future` argument in both [`upload_file`] and
-[`upload_folder`]. This will return a [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
-object that you can use to check the status of the upload.
+메인 스레드를 차단하지 않고 데이터를 푸시하고 싶은 경우가 있습니다. 이는 특히 교육을 계속 진행하면서 로그와
+아티팩트를 업로드할 때 특히 유용합니다. 이렇게 하려면 [`업로드_파일`]과 [[`업로드_폴더`] 모두에 `run_as_future` 인수를 사용할 수 있습니다.
+그러면 [`concurrent.futures.Future`](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
+객체가 반환되며 업로드 상태를 확인하는 데 사용할 수 있습니다.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -134,14 +135,14 @@ False
 
 <Tip>
 
-Background jobs are queued when using `run_as_future=True`. This means that you are guaranteed that the jobs will be
-executed in the correct order.
+`run_as_future=True`를 사용하면 백그라운드 작업이 큐에 대기됩니다. 즉, 작업이 올바른 순서로 실행되도록
+올바른 순서로 실행된다는 것을 의미합니다.
 
 </Tip>
 
-Even though background jobs are mostly useful to upload data/create commits, you can queue any method you like using
-[`run_as_future`]. For instance, you can use it to create a repo and then upload data to it in the background. The
-built-in `run_as_future` argument in upload methods is just an alias around it.
+백그라운드 작업은 주로 데이터를 업로드하거나 커밋을 생성하는 데 유용하지만, 원하는 방법을 사용하여 대기열에 넣을 수 있습니다.
+[`run_as_future`]. 예를 들어, 이 작업을 사용하여 리포지토리를 만든 다음 백그라운드에서 리포지토리에 데이터를 업로드할 수 있습니다. 리포지토리에
+업로드 메서드에 내장된 `run_as_future` 인수는 그 주변의 별칭일 뿐입니다.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -157,24 +158,24 @@ Future(...)
 Future(...)
 ```
 
-### Upload a folder by chunks
+### 청크 단위로 폴더 업로드하기
 
-[`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
-hundreds of GB), it can still be challenging. If you have a folder with a lot of files, you might want to upload
-it in several commits. If you experience an error or a connection issue during the upload, you would not have to resume
-the process from the beginning.
+[`upload_folder`]를 사용하면 전체 폴더를 허브에 쉽게 업로드할 수 있습니다. 하지만 대용량 폴더(수천 개의 파일 또는
+수백 GB)의 경우 여전히 어려울 수 있습니다. 파일이 많은 폴더가 있는 경우 여러 개의 커밋에 걸쳐
+업로드하는 것이 좋습니다. 업로드 중에 오류나 연결 문제가 발생하면 처음부터 다시 시작할 필요가 없습니다.
+프로세스를 처음부터 다시 시작할 필요가 없습니다.
 
-To upload a folder in multiple commits, just pass `multi_commits=True` as argument. Under the hood, `huggingface_hub`
-will list the files to upload/delete and split them in several commits. The "strategy" (i.e. how to split the commits)
-is based on the number and size of the files to upload. A PR is open on the Hub to push all the commits. Once the PR is
-ready, the commits are squashed into a single commit. If the process is interrupted before completing, you can rerun
-your script to resume the upload. The created PR will be automatically detected and the upload will resume from where
-it stopped. It is recommended to pass `multi_commits_verbose=True` to get a better understanding of the upload and its
-progress.
+여러 커밋으로 폴더를 업로드하려면 `multi_commits=True`를 인수로 전달하면 됩니다. 내부적으로 `huggingface_hub`는
+는 업로드/삭제할 파일을 나열하고 여러 커밋으로 분할합니다. "전략"(즉, 커밋을 분할하는 방법)
+는 업로드할 파일의 수와 크기에 따라 결정됩니다. 모든 커밋을 푸시하기 위해 허브에 PR이 열려 있습니다. PR이
+준비되면 커밋이 하나의 커밋으로 뭉쳐집니다. 완료하기 전에 프로세스가 중단된 경우 스크립트를 다시 실행하여
+스크립트를 다시 실행하여 업로드를 재개할 수 있습니다. 생성된 PR이 자동으로 감지되고 업로드가 중단된 지점부터
+에서 업로드가 재개됩니다. 업로드와 그 진행 상황을 더 잘 이해하려면 `multi_commits_verbose=True`를 전달하는 것이 좋습니다.
+진행 상황을 더 잘 이해하려면
 
-The example below will upload the checkpoints folder to a dataset in multiple commits. A PR will be created on the Hub
-and merged automatically once the upload is complete. If you prefer the PR to stay open and review it manually, you can
-pass `create_pr=True`.
+아래 예는 여러 커밋으로 체크포인트 폴더를 데이터셋에 업로드하는 예제입니다. 허브에 PR이 생성되고
+에 PR이 생성되고 업로드가 완료되면 자동으로 병합됩니다. PR을 계속 열어두고 수동으로 검토하려면 다음과 같이 하면 됩니다.
+`create_pr=True`를 전달하세요.
 
 ```py
 >>> upload_folder(
@@ -186,26 +187,26 @@ pass `create_pr=True`.
 ... )
 ```
 
-If you want a better control on the upload strategy (i.e. the commits that are created), you can have a look at the
-low-level [`plan_multi_commits`] and [`create_commits_on_pr`] methods.
+업로드 전략(즉, 생성되는 커밋)을 더 잘 제어하고 싶으면
+저수준 [`plan_multi_commits`] 및 [`create_commits_on_pr`] 메서드를 살펴보세요.
 
 <Tip warning={true}>
 
-`multi_commits` is still an experimental feature. Its API and behavior is subject to change in the future without prior
-notice.
+멀티 커밋`은 아직 실험적인 기능입니다. API와 동작은 향후 사전 고지 없이
+예고 없이 변경될 수 있습니다.
 
 </Tip>
 
-### Scheduled uploads
+### 예약된 업로드
 
-The Hugging Face Hub makes it easy to save and version data. However, there are some limitations when updating the same file thousands of times. For instance, you might want to save logs of a training process or user
-feedback on a deployed Space. In these cases, uploading the data as a dataset on the Hub makes sense, but it can be hard to do properly. The main reason is that you don't want to version every update of your data because it'll make the git repository unusable. The [`CommitScheduler`] class offers a solution to this problem.
+허깅 페이스 허브를 사용하면 데이터를 쉽게 저장하고 버전업할 수 있습니다. 하지만 동일한 파일을 수천 번 업데이트할 때는 몇 가지 제한이 있습니다. 예를 들어, 배포된 Space에 대한 교육 프로세스 또는 사용자
+로그를 저장하고 싶을 수 있습니다. 이러한 경우 허브에 데이터 집합으로 데이터를 업로드하는 것이 좋지만 제대로 하기가 어려울 수 있습니다. 가장 큰 이유는 데이터의 모든 업데이트를 버전으로 만들고 싶지 않기 때문인데, 그러면 git 리포지토리를 사용할 수 없게 되기 때문입니다. [`CommitScheduler`] 클래스는 이 문제에 대한 해결책을 제공합니다.
 
-The idea is to run a background job that regularly pushes a local folder to the Hub. Let's assume you have a
-Gradio Space that takes as input some text and generates two translations of it. Then, the user can select their preferred translation. For each run, you want to save the input, output, and user preference to analyze the results. This is a
-perfect use case for [`CommitScheduler`]; you want to save data to the Hub (potentially millions of user feedback), but
-you don't _need_ to save in real-time each user's input. Instead, you can save the data locally in a JSON file and
-upload it every 10 minutes. For example:
+이 클래스는 로컬 폴더를 Hub에 정기적으로 푸시하는 백그라운드 작업을 실행하는 것입니다. 다음과 같이 가정해 보겠습니다.
+일부 텍스트를 입력으로 받아 두 개의 번역을 생성하는 라디오 스페이스가 있다고 가정해 보겠습니다. 그런 다음 사용자가 선호하는 번역을 선택할 수 있습니다. 각 실행에 대해 입력, 출력 및 사용자 기본 설정을 저장하여 결과를 분석하려고 합니다. 이것은
+[`CommitScheduler`]의 완벽한 사용 사례입니다. 허브에 데이터(잠재적으로 수백만 개의 사용자 피드백)를 저장하고 싶지만
+각 사용자의 입력을 실시간으로 저장할 필요는 없습니다. 대신 데이터를 JSON 파일에 로컬로 저장한 다음
+10분마다 업로드하면 됩니다. 예를 들어:
 
 ```py
 >>> import json
@@ -243,45 +244,45 @@ upload it every 10 minutes. For example:
 >>> demo.launch()
 ```
 
-And that's it! User input/outputs and feedback will be available as a dataset on the Hub. By using a unique JSON file name, you are guaranteed you won't overwrite data from a previous run or data from another
-Spaces/replicas pushing concurrently to the same repository.
+여기까지입니다! 사용자 입력/출력 및 피드백은 허브에서 데이터 집합으로 사용할 수 있습니다. 고유한 JSON 파일 이름을 사용하면 이전 실행의 데이터나 다른 데이터의 데이터를 덮어쓰지 않도록 보장할 수 있습니다.
+스페이스/복제본이 동일한 리포지토리에 동시에 푸시하는 경우.
 
-For more details about the [`CommitScheduler`], here is what you need to know:
+[`CommitScheduler`]에 대한 자세한 내용은 다음과 같습니다:
 - **append-only:**
-    It is assumed that you will only add content to the folder. You must only append data to existing files or create
-    new files. Deleting or overwriting a file might corrupt your repository.
+    폴더에 콘텐츠만 추가한다고 가정합니다. 기존 파일에 데이터를 추가하거나 새 파일을 만들 때만
+    새 파일을 만들어야 합니다. 파일을 삭제하거나 덮어쓰면 리포지토리가 손상될 수 있습니다.
 - **git history**:
-    The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
-    recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
-    new content is detected in the folder, the scheduled commit is dropped.
+    스케줄러는 `every` 분마다 폴더를 커밋합니다. git 리포지토리를 너무 많이 오염시키지 않으려면
+    최소값을 5분으로 설정하는 것이 좋습니다. 또한 스케줄러는 빈 커밋을 피하도록 설계되었습니다. 만약
+    폴더에서 새 콘텐츠가 감지되지 않으면 예약된 커밋이 삭제됩니다.
 - **errors:**
-    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
-    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
-    at the next scheduled commit.
+    스케줄러가 백그라운드 스레드로 실행됩니다. 클래스를 인스턴스화할 때 시작되며 절대 멈추지 않습니다. 특히
+    업로드 중에 오류가 발생하면(예: 연결 문제), 스케줄러는 이를 자동으로 무시하고 다음 예약된 커밋에서
+    를 다시 시도합니다.
 - **thread-safety:**
-    In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
-    scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
-    _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
-    `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
-    changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
+    대부분의 경우 파일 잠금에 대해 걱정할 필요 없이 파일에 쓸 수 있다고 가정해도 안전합니다. 스케줄러는
+    스케줄러는 업로드하는 동안 폴더에 콘텐츠를 쓰더라도 충돌하거나 손상되지 않습니다. 실제로는
+    부하가 많은 앱의 경우 동시성 문제가 발생할 수 있습니다. 이 경우에는
+    `scheduler.lock` 잠금을 사용하여 스레드 안전을 보장하는 것이 좋습니다. 이 잠금은 스케줄러가 폴더에서 변경 사항을 검색할 때만 차단되며
+    변경 사항을 검색할 때만 잠금이 차단되며, 데이터를 업로드할 때는 차단되지 않습니다. 따라서 Space의 사용자 환경에는 영향을 미치지 않는다고 안심하셔도 됩니다.
 
-#### Space persistence demo
+#### 스페이스 지속성 데모
 
-Persisting data from a Space to a Dataset on the Hub is the main use case for [`CommitScheduler`]. Depending on the use
-case, you might want to structure your data differently. The structure has to be robust to concurrent users and
-restarts which often implies generating UUIDs. Besides robustness, you should upload data in a format readable by the 🤗 Datasets library for later reuse. We created a [Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
-that demonstrates how to save several different data formats (you may need to adapt it for your own specific needs).
+스페이스에서 허브의 데이터셋으로 데이터를 지속하는 것이 [`CommitScheduler`]의 주요 사용 사례입니다. 사용 사례에 따라
+사용 사례에 따라 데이터 구조를 다르게 설정해야 할 수도 있습니다. 구조는 동시 사용자와 재시작에 대해 견고해야 하며
+재시작에 견고해야 하며, 이는 종종 UUID 생성을 의미합니다. 견고성 외에도 나중에 재사용할 수 있도록 🤗 데이터 세트 라이브러리에서 읽을 수 있는 형식으로 데이터를 업로드해야 합니다. [스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
+를 만들어 여러 가지 데이터 형식을 저장하는 방법을 보여줍니다(각자의 필요에 맞게 조정해야 할 수도 있습니다).
 
-#### Custom uploads
+#### 사용자 지정 업로드
 
-[`CommitScheduler`] assumes your data is append-only and should be uploading "as is". However, you
-might want to customize the way data is uploaded. You can do that by creating a class inheriting from [`CommitScheduler`]
-and overwrite the `push_to_hub` method (feel free to overwrite it any way you want). You are guaranteed it will
-be called every `every` minutes in a background thread. You don't have to worry about concurrency and errors but you
-must be careful about other aspects, such as pushing empty commits or duplicated data.
+[`CommitScheduler`]는 데이터가 추가 전용이며 "있는 그대로" 업로드해야 한다고 가정합니다. 그러나
+데이터 업로드 방식을 사용자 정의하고 싶을 수도 있습니다. [`CommitScheduler`]에서 상속하는 클래스를 생성하여 이를 수행할 수 있습니다.
+에서 상속하는 클래스를 만들고 `push_to_hub` 메서드를 덮어쓰면 됩니다(원하는 방식으로 자유롭게 덮어쓰세요). 다음이 보장됩니다.
+백그라운드 스레드에서 `every` 분마다 호출됩니다. 동시성 및 오류에 대해 걱정할 필요는 없지만
+빈 커밋이나 중복된 데이터를 푸시하는 것과 같은 다른 측면에 주의해야 합니다.
 
-In the (simplified) example below, we overwrite `push_to_hub` to zip all PNG files in a single archive to avoid
-overloading the repo on the Hub:
+아래의 (단순화된) 예제에서는 `push_to_hub`를 덮어쓰고 모든 PNG 파일을 단일 아카이브에 압축하여 다음과 같은 문제를 방지합니다.
+허브의 리포지토리에 과부하가 걸리는 것을 방지합니다:
 
 ```py
 class ZipScheduler(CommitScheduler):
@@ -306,43 +307,43 @@ class ZipScheduler(CommitScheduler):
             png_file.unlink()
 ```
 
-When you overwrite `push_to_hub`, you have access to the attributes of [`CommitScheduler`] and especially:
-- [`HfApi`] client: `api`
-- Folder parameters: `folder_path` and `path_in_repo`
-- Repo parameters: `repo_id`, `repo_type`, `revision`
-- The thread lock: `lock`
+`push_to_hub`를 덮어쓰면 [`CommitScheduler`]의 속성에 액세스할 수 있으며 특히
+- [`HfApi`] 클라이언트: `api`
+- 폴더 매개변수: 폴더 매개변수: `folder_path` 및 `path_in_repo`
+- 리포지토리 매개변수: `repo_id`, `repo_type`, `revision`
+- 스레드 잠금: `lock`
 
 <Tip>
 
-For more examples of custom schedulers, check out our [demo Space](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)
-containing different implementations depending on your use cases.
+사용자 정의 스케줄러의 더 많은 예제는 사용 사례에 따라 다양한 구현이 포함된 [데모 스페이스](https://huggingface.co/spaces/Wauplin/space_to_dataset_saver)를 참조하세요.
+사용 사례에 따라 다양한 구현이 포함되어 있습니다.
 
 </Tip>
 
 ### create_commit
 
-The [`upload_file`] and [`upload_folder`] functions are high-level APIs that are generally convenient to use. We recommend
-trying these functions first if you don't need to work at a lower level. However, if you want to work at a commit-level,
-you can use the [`create_commit`] function directly.
+[`upload_file`] 및 [`upload_folder`] 함수는 일반적으로 사용하기 편리한 상위 수준의 API입니다. 이 함수가 익숙하지 않다면
+더 낮은 수준에서 작업할 필요가 없다면 이 함수를 먼저 사용해 보세요. 그러나 커밋 수준에서 작업하고 싶다면,
+[`create_commit`] 함수를 직접 사용할 수 있습니다.
 
-There are three types of operations supported by [`create_commit`]:
+[`create_commit`]이 지원하는 작업 유형은 세 가지입니다:
 
-- [`CommitOperationAdd`] uploads a file to the Hub. If the file already exists, the file contents are overwritten. This operation accepts two arguments:
+- 커밋 오퍼레이션 추가`]는 파일을 허브에 업로드합니다. 파일이 이미 있는 경우 파일 내용을 덮어씁니다. 이 작업은 두 개의 인수를 받습니다:
 
-  - `path_in_repo`: the repository path to upload a file to.
-  - `path_or_fileobj`: either a path to a file on your filesystem or a file-like object. This is the content of the file to upload to the Hub.
+  - `path_in_repo`: 파일을 업로드할 리포지토리 경로입니다.
+  - `path_or_fileobj`: 파일 시스템의 파일 경로 또는 파일과 유사한 객체. 허브에 업로드할 파일의 콘텐츠입니다.
 
-- [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
+- [`CommitOperationDelete`]는 리포지토리에서 파일 또는 폴더를 제거합니다. 이 작업은 `path_in_repo`를 인수로 받습니다.
 
-- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+- [`CommitOperationCopy`]는 리포지토리 내의 파일을 복사합니다. 이 작업은 세 가지 인수를 받습니다:
 
-  - `src_path_in_repo`: the repository path of the file to copy.
-  - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
+  - `src_path_in_repo`: 복사할 파일의 리포지토리 경로.
+  - `path_in_repo`: 파일을 복사할 리포지토리 경로입니다.
+  - `src_revision`: 선택 사항 - 다른 브랜치/리비전에서 파일을 복사하려는 경우 복사할 파일의 리비전입니다.
 
-For example, if you want to upload two files and delete a file in a Hub repository:
+예를 들어 허브 리포지토리에서 두 개의 파일을 업로드하고 한 개의 파일을 삭제하려는 경우입니다:
 
-1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
+1. 파일을 추가하거나 삭제하고 폴더를 삭제하려면 적절한 `CommitOperation`을 사용합니다:
 
 ```py
 >>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
@@ -356,7 +357,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ... ]
 ```
 
-2. Pass your operations to [`create_commit`]:
+2. 작업을 [`create_commit`]에 전달합니다:
 
 ```py
 >>> api.create_commit(
@@ -366,33 +367,33 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 ... )
 ```
 
-In addition to [`upload_file`] and [`upload_folder`], the following functions also use [`create_commit`] under the hood:
+다음 함수는 [`upload_file`] 및 [`upload_folder`] 외에도 내부적으로 [`create_commit`]을 사용합니다:
 
-- [`delete_file`] deletes a single file from a repository on the Hub.
-- [`delete_folder`] deletes an entire folder from a repository on the Hub.
-- [`metadata_update`] updates a repository's metadata.
+- [`delete_file`]은 허브의 리포지토리에서 단일 파일을 삭제합니다.
+- [`delete_folder`]는 허브의 리포지토리에서 전체 폴더를 삭제합니다.
+- [`metadata_update`]는 리포지토리의 메타데이터를 업데이트합니다.
 
-For more detailed information, take a look at the [`HfApi`] reference.
+자세한 내용은 [`HfApi`] 참조를 참조하세요.
 
-### Preupload LFS files before commit
+### 커밋하기 전에 LFS 파일 미리 업로드하기
 
-In some cases, you might want to upload huge files to S3 **before** making the commit call. For example, if you are
-committing a dataset in several shards that are generated in-memory, you would need to upload the shards one by one
-to avoid an out-of-memory issue. A solution is to upload each shard as a separate commit on the repo. While being
-perfectly valid, this solution has the drawback of potentially messing the git history by generating tens of commits.
-To overcome this issue, you can upload your files one by one to S3 and then create a single commit at the end. This
-is possible using [`preupload_lfs_files`] in combination with [`create_commit`].
+경우에 따라 커밋 호출을 하기 전에 대용량 파일을 S3에 업로드해야 할 수도 있습니다. 예를 들어 다음과 같은 경우
+인메모리에 생성된 여러 개의 샤드에 있는 데이터 세트를 커밋하는 경우, 샤드를 하나씩 업로드해야 메모리 부족 문제를 피할 수 있습니다.
+하나씩 업로드해야 메모리 부족 문제를 피할 수 있습니다. 해결책은 각 샤드를 리포지토리에 별도의 커밋으로 업로드하는 것입니다. 이 방법은
+완벽하게 유효하지만, 이 솔루션은 수십 개의 커밋을 생성하여 잠재적으로 git 히스토리를 엉망으로 만들 수 있다는 단점이 있습니다.
+이 문제를 극복하기 위해 파일을 하나씩 S3에 업로드한 다음 마지막에 하나의 커밋을 생성할 수 있습니다. 이
+[`preupload_lfs_files`]와 [`create_commit`]을 함께 사용하면 가능합니다.
 
 <Tip warning={true}>
 
-This is a power-user method. Directly using [`upload_file`], [`upload_folder`] or [`create_commit`] instead of handling
-the low-level logic of pre-uploading files is the way to go in the vast majority of cases. The main caveat of
-[`preupload_lfs_files`] is that until the commit is actually made, the upload files are not accessible on the repo on
-the Hub. If you have a question, feel free to ping us on our Discord or in a GitHub issue.
+이 방법은 고급 사용자 방법입니다. 사전 커밋의 로우 레벨 로직을 처리하는 대신 [`upload_file`], [`upload_folder`] 또는 [`create_commit`]을 직접 사용하면
+를 처리하는 대신 파일을 미리 업로드하는 저수준 로직을 사용하는 것이 대부분의 경우에 적합한 방법입니다. 주요 주의 사항은
+[`preupload_lfs_files`]의 주요 주의 사항은 커밋이 실제로 이루어질 때까지는 허브의 리포지토리에서 업로드 파일에 액세스할 수 없다는 것입니다.
+허브의 리포지토리에 액세스할 수 없다는 것입니다. 궁금한 점이 있으면 언제든지 Discord나 GitHub 이슈로 문의해 주세요.
 
 </Tip>
 
-Here is a simple example illustrating how to pre-upload files:
+다음은 파일을 미리 업로드하는 방법을 보여주는 간단한 예시입니다:
 
 ```py
 >>> from huggingface_hub import CommitOperationAdd, preupload_lfs_files, create_commit, create_repo
@@ -410,73 +411,73 @@ Here is a simple example illustrating how to pre-upload files:
 >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
 ```
 
-First, we create the [`CommitOperationAdd`] objects one by one. In a real-world example, those would contain the
-generated shards. Each file is uploaded before generating the next one. During the [`preupload_lfs_files`] step, **the
-`CommitOperationAdd` object is mutated**. You should only use it to pass it directly to [`create_commit`]. The main
-update of the object is that **the binary content is removed** from it, meaning that it will be garbage-collected if
-you don't store another reference to it. This is expected as we don't want to keep in memory the content that is
-already uploaded. Finally we create the commit by passing all the operations to [`create_commit`]. You can pass
-additional operations (add, delete or copy) that have not been processed yet and they will be handled correctly.
+먼저, [`CommitOperationAdd`] 오브젝트를 하나씩 생성합니다. 실제 예제에서는, 여기에는
+생성된 샤드를 포함합니다. 각 파일은 다음 파일을 생성하기 전에 업로드됩니다. [`preupload_lfs_files`] 단계에서는
+`CommitOperationAdd` 오브젝트가 변경됩니다**. 이 객체는 [`create_commit`]에 직접 전달할 때만 사용해야 합니다. 오브젝트의 주요
+오브젝트의 주요 업데이트는 **바이너리 콘텐츠가 제거**된다는 것인데, 이는 다음과 같은 경우 가비지 수집된다는 것을 의미합니다.
+다른 참조를 저장하지 않으면 가비지 수집됩니다. 이미 업로드된 콘텐츠를 메모리에 보관하지 않으려는
+이미 업로드된 콘텐츠를 메모리에 보관하고 싶지 않기 때문입니다. 마지막으로 모든 작업을 [`create_commit`]에 전달하여 커밋을 생성합니다. 전달할 수 있는 작업은
+아직 처리되지 않은 추가 작업(추가, 삭제 또는 복사)을 전달하면 올바르게 처리됩니다.
 
-## Tips and tricks for large uploads
+## 대용량 업로드를 위한 팁과 요령
 
-There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data,
-getting an upload/push to fail at the end of the process or encountering a degraded experience, be it on hf.co or when working locally, can be very annoying.
+리포지토리에 있는 대량의 데이터를 처리할 때 주의해야 할 몇 가지 제한 사항이 있습니다. 데이터를 스트리밍하는 데 걸리는 시간을 고려하면
+프로세스 마지막에 업로드/푸시가 실패하거나 hf.co에서 또는 로컬에서 작업할 때 성능 저하가 발생하는 것은 매우 성가신 일이 될 수 있습니다.
 
-Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Next, let's move on with some practical tips to make your upload process as smooth as possible.
+Hub에서 리포지토리를 구성하는 방법에 대한 모범 사례는 [리포지토리 제한 사항 및 권장 사항](https://huggingface.co/docs/hub/repositories-recommendations) 가이드를 참조하세요. 다음으로 업로드 프로세스를 최대한 원활하게 진행할 수 있는 몇 가지 실용적인 팁을 살펴보겠습니다.
 
-- **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate
-on a script when failing takes only a little time.
-- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always
-best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our
-servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you
-already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never
-be re-uploaded twice but checking it client-side can still save some time.
-- **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up
-  uploads on machines with very high bandwidth. To use `hf_transfer`:
+- **작게 시작하세요**: 업로드 스크립트를 테스트할 때는 소량의 데이터로 시작하는 것이 좋습니다. 스크립트를 반복하기가 더 쉽습니다.
+스크립트를 반복하는 것이 더 쉽습니다.
+- **실패를 예상하세요**: 대량의 데이터를 스트리밍하는 것은 어려운 일입니다. 어떤 일이 일어날지 알 수 없지만 항상
+컴퓨터, 연결, 서버 등 어떤 이유로든 한 번쯤은 실패할 수 있다는 점을 고려하는 것이 가장 좋습니다.
+서버 때문이든 상관없습니다. 예를 들어, 많은 양의 파일을 업로드할 계획이라면 다음 파일을 업로드하기 전에 이미 업로드한 파일을 로컬에서 추적하는 것이 가장 좋습니다.
+다음 배치를 업로드하기 전에 이미 업로드한 파일을 로컬에서 추적하는 것이 가장 좋습니다. 이미 커밋된 LFS 파일은 절대 두 번 다시 업로드되지 않습니다.
+두 번 다시 업로드하지 않지만 클라이언트 측에서 확인하면 시간을 절약할 수 있습니다.
+- **`hf_transfer`를 사용하세요**: 대역폭이 매우 높은 컴퓨터에서 업로드 속도를 높이기 위한 Rust 기반 [라이브러리](https://github.com/huggingface/hf_transfer)입니다.
+  업로드 속도를 높이기 위한 것입니다. `hf_transfer`를 사용하려면:
 
-    1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-       (e.g. `pip install huggingface_hub[hf_transfer]`).
-    2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
-
-<Tip warning={true}>
-
-`hf_transfer` is a power user tool!
-It is tested and production-ready,
-but it lacks user-friendly features like advanced error handling or proxies.
-For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
-
-</Tip>
-
-## (legacy) Upload files with Git LFS
-
-All the methods described above use the Hub's API to upload files. This is the recommended way to upload files to the Hub.
-However, we also provide [`Repository`], a wrapper around the git tool to manage a local repository.
+    1. `huggingface_hub`를 설치할 때 `hf_transfer`를 추가로 지정합니다.
+       (예: `pip install huggingface_hub[hf_transfer]`).
+    2. 환경 변수로 `HF_HUB_ENABLE_HF_TRANSFER=1`을 설정합니다.
 
 <Tip warning={true}>
 
-Although [`Repository`] is not formally deprecated, we recommend using the HTTP-based methods described above instead.
-For more details about this recommendation, please have a look at [this guide](../concepts/git_vs_http) explaining the
-core differences between HTTP-based and Git-based approaches.
+`hf_transfer`는 고급 사용자 도구입니다!
+테스트 및 프로덕션 준비가 완료되었습니다,
+하지만 고급 오류 처리나 프록시와 같은 사용자 친화적인 기능이 부족합니다.
+자세한 내용은 이 [섹션](https://huggingface.co/docs/huggingface_hub/hf_transfer)을 참조하세요.
 
 </Tip>
 
-Git LFS automatically handles files larger than 10MB. But for very large files (>5GB), you need to install a custom transfer agent for Git LFS:
+## (레거시) Git LFS로 파일 업로드하기
+
+위에서 설명한 모든 방법은 허브의 API를 사용하여 파일을 업로드합니다. 이는 허브에 파일을 업로드하는 데 권장되는 방법입니다.
+하지만 로컬 리포지토리를 관리하기 위해 git 도구의 래퍼인 [`리포지토리`]도 제공합니다.
+
+<Tip warning={true}>
+
+리포지토리`]는 공식적으로 더 이상 사용되지 않지만, 대신 위에서 설명한 HTTP 기반 방법을 사용할 것을 권장합니다.
+이 권장 사항에 대한 자세한 내용은 [이 가이드](../concepts/git_vs_http)를 참조하세요.
+HTTP 기반 방식과 Git 기반 방식 간의 핵심적인 차이점을 설명합니다.
+
+</Tip>
+
+Git LFS는 10MB보다 큰 파일을 자동으로 처리합니다. 하지만 매우 큰 파일(5GB 이상)의 경우 Git LFS용 사용자 지정 전송 에이전트를 설치해야 합니다:
 
 ```bash
 huggingface-cli lfs-enable-largefiles
 ```
 
-You should install this for each repository that has a very large file. Once installed, you'll be able to push files larger than 5GB.
+매우 큰 파일이 있는 각 리포지토리에 대해 이 옵션을 설치해야 합니다. 설치가 완료되면 5GB보다 큰 파일을 푸시할 수 있습니다.
 
-### commit context manager
+### 커밋 컨텍스트 관리자
 
-The `commit` context manager handles four of the most common Git commands: pull, add, commit, and push. `git-lfs` automatically tracks any file larger than 10MB. In the following example, the `commit` context manager:
+`commit` 컨텍스트 관리자는 가장 일반적인 네 가지 Git 명령인 끌어오기, 추가, 커밋, 푸시를 처리합니다. `git-lfs`는 10MB보다 큰 파일을 자동으로 추적합니다. 다음 예제에서는 `commit` 컨텍스트 관리자를 사용합니다:
 
-1. Pulls from the `text-files` repository.
-2. Adds a change made to `file.txt`.
-3. Commits the change.
-4. Pushes the change to the `text-files` repository.
+1. `text-files` 리포지토리에서 끌어옵니다.
+2. `file.txt`에 변경 내용을 추가합니다.
+3. 변경 내용을 커밋합니다.
+4. 변경 내용을 `text-files` 리포지토리에 푸시합니다.
 
 ```python
 >>> from huggingface_hub import Repository
@@ -485,7 +486,7 @@ The `commit` context manager handles four of the most common Git commands: pull,
 ...         f.write(json.dumps({"hey": 8}))
 ```
 
-Here is another example of how to use the `commit` context manager to save and upload a file to a repository:
+다음은 `commit` 컨텍스트 관리자를 사용하여 파일을 저장하고 리포지토리에 업로드하는 방법의 또 다른 예입니다:
 
 ```python
 >>> import torch
@@ -494,28 +495,28 @@ Here is another example of how to use the `commit` context manager to save and u
 ...     torch.save(model.state_dict(), "model.pt")
 ```
 
-Set `blocking=False` if you would like to push your commits asynchronously. Non-blocking behavior is helpful when you want to continue running your script while your commits are being pushed.
+커밋을 비동기적으로 푸시하려면 `blocking=False`를 설정하세요. 커밋을 푸시하는 동안 스크립트를 계속 실행하고 싶을 때 비 블로킹 동작이 유용합니다.
 
 ```python
 >>> with repo.commit(commit_message="My cool model :)", blocking=False)
 ```
 
-You can check the status of your push with the `command_queue` method:
+`command_queue` 메서드로 푸시 상태를 확인할 수 있습니다:
 
 ```python
 >>> last_command = repo.command_queue[-1]
 >>> last_command.status
 ```
 
-Refer to the table below for the possible statuses:
+가능한 상태는 아래 표를 참조하세요:
 
-| Status   | Description                          |
-| -------- | ------------------------------------ |
-| -1       | The push is ongoing.                 |
-| 0        | The push has completed successfully. |
-| Non-zero | An error has occurred.               |
+| 상태      | 설명                       |
+| -------- | ------------------------- |
+| -1       | 푸시가 진행 중입니다.          |
+| 0        | 푸시가 성공적으로 완료되었습니다. |
+| Non-zero | 오류가 발생했습니다.           |
 
-When `blocking=False`, commands are tracked, and your script will only exit when all pushes are completed, even if other errors occur in your script. Some additional useful commands for checking the status of a push include:
+`blocking=False`인 경우, 명령이 추적되며 스크립트에서 다른 오류가 발생하더라도 모든 푸시가 완료된 경우에만 스크립트가 종료됩니다. 푸시 상태를 확인하는 데 유용한 몇 가지 추가 명령은 다음과 같습니다:
 
 ```python
 # Inspect an error.
@@ -530,30 +531,30 @@ When `blocking=False`, commands are tracked, and your script will only exit when
 
 ### push_to_hub
 
-The [`Repository`] class has a [`~Repository.push_to_hub`] function to add files, make a commit, and push them to a repository. Unlike the `commit` context manager, you'll need to pull from a repository first before calling [`~Repository.push_to_hub`].
+[`Repository`] 클래스에는 파일을 추가하고 커밋한 후 리포지토리로 푸시하는 [`~Repository.push_to_hub`] 함수가 있습니다. `commit` 컨텍스트 관리자와는 달리 []`~Repository.push_to_hub`]를 호출하기 전에 먼저 리포지토리에서 가져와야 합니다.
 
-For example, if you've already cloned a repository from the Hub, then you can initialize the `repo` from the local directory:
+예를 들어 허브에서 리포지토리를 이미 복제했다면 로컬 디렉터리에서 `repo`를 초기화할 수 있습니다:
 
 ```python
 >>> from huggingface_hub import Repository
 >>> repo = Repository(local_dir="path/to/local/repo")
 ```
 
-Update your local clone with [`~Repository.git_pull`] and then push your file to the Hub:
+로컬 클론을 [`~Repository.git_pull`]로 업데이트한 다음 파일을 Hub로 푸시합니다:
 
 ```py
 >>> repo.git_pull()
 >>> repo.push_to_hub(commit_message="Commit my-awesome-file to the Hub")
 ```
 
-However, if you aren't ready to push a file yet, you can use [`~Repository.git_add`] and [`~Repository.git_commit`] to only add and commit your file:
+그러나 아직 파일을 푸시할 준비가 되지 않았다면 [`~Repository.git_add`] 및 [`~Repository.git_commit`]을 사용하여 파일만 추가하고 커밋할 수 있습니다:
 
 ```py
 >>> repo.git_add("path/to/file")
 >>> repo.git_commit(commit_message="add my first model config file :)")
 ```
 
-When you're ready, push the file to your repository with [`~Repository.git_push`]:
+준비가 완료되면 [`~Repository.git_push`]를 사용하여 파일을 리포지토리에 푸시합니다:
 
 ```py
 >>> repo.git_push()
