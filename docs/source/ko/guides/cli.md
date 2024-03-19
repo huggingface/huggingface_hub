@@ -119,11 +119,11 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
-[이 단락](../quick-start#authentication)에서 인증에 대한 더 자세한 내용을 확인하세요.
+[이 단락](../quick-start#authentication)에서 인증에 대한 더 자세한 내용을 확인할 수 있습니다.
 
 ## huggingface-cli whoami [[huggingface-cli-whoami]]
 
-로그인 여부를 확인하기 위해 `huggingface-cli whoami` 명령어를 사용할 수 있습니다. 이 명령어는 옵션이 없으며, 간단하게 사용자 이름과  Hub 내에서 소속된 조직들을 출력합니다:
+로그인 여부를 확인하기 위해 `huggingface-cli whoami` 명령어를 사용할 수 있습니다. 이 명령어는 옵션이 없으며, 간단하게 사용자 이름과 소속된 조직들을 출력합니다:
 
 ```bash
 huggingface-cli whoami
@@ -137,20 +137,20 @@ orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 
 이 명령어를 사용하여 로그아웃할 수 있습니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
 
-하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조]((../package_reference/environment_variables#hftoken))). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거해야 합니다.
+하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조]((../package_reference/environment_variables#hftoken))). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거하면 됩니다.
 
 ## huggingface-cli download [[huggingface-cli-download]]
 
 
-`huggingface-cli download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. 내부적으로는 [다운로드](./download) 가이드에 설명된 것과 동일한 [`hf_hub_download`]와 [`snapshot_download`] 도우미를 사용하여 반환된 경로를 터미널에 출력합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
+`huggingface-cli download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. [download](./download) 가이드에서 설명된 [`hf_hub_download`], [`snapshot_download`] 헬퍼 함수를 사용하여 반환된 경로를 터미널에 출력합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 
 ```bash
 huggingface-cli download --help
 ```
 
-### 단일 파일 다운로드 [[download-a-single-file]]
+### 파일 한 개 다운로드하기 [[download-a-single-file]]
 
-저장소에서 단일 파일을 다운로드하려면 다음과 같이 repo_id와 파일 이름을 제공하세요:
+저장소에서 파일 하나를 다운로드 하고 싶다면, repo_id와 다운받고 싶은 파일명을 아래와 같이 입력하세요:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json
@@ -159,11 +159,11 @@ downloading https://huggingface.co/gpt2/resolve/main/config.json to /home/waupli
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-이 명령은 항상 마지막 줄에 로컬 머신의 파일 경로를 출력합니다.
+이 명령어를 실행하면 항상 마지막 줄에 파일 경로를 출력합니다.
 
-### 전체 저장소 다운로드 [[download-an-entire-repository]]
+### 전체 저장소 다운로드하기 [[download-an-entire-repository]]
 
-때로는 저장소의 모든 파일을 다운로드하고 싶을 때가 있습니다. 이는 repo id만 지정하면 수행할 수 있습니다:
+저장소의 모든 파일을 다운로드하고 싶을 때에는 repo id만 입력하면 됩니다:
 
 ```bash
 >>> huggingface-cli download HuggingFaceH4/zephyr-7b-beta
@@ -173,9 +173,9 @@ Fetching 23 files:   0%|                                                | 0/23 [
 /home/wauplin/.cache/huggingface/hub/models--HuggingFaceH4--zephyr-7b-beta/snapshots/3bac358730f8806e5c3dc7c7e19eb36e045bf720
 ```
 
-### 여러 파일 다운로드 [[download-multiple-files]]
+### 여러 파일 다운로드하기 [[download-multiple-files]]
 
-저장소의 전체 폴더를 다운로드하지 않고 한 번에 여러 파일을 다운로드할 수도 있습니다. 이는 두 가지 방법으로 수행할 수 있습니다. 다운로드할 파일 목록이 이미 있다면 해당 파일을 순차적으로 제공하면 됩니다:
+저장소의 전체 폴더를 다운로드하지 않고 한 번에 여러 파일을 다운로드할 수도 있습니다. 이를 위한 두 가지 방법이 있습니다. 다운로드하고자 하는 파일들의 목록이 정해져 있다면, 해당 파일명을 순서대로 입력하면 됩니다:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json model.safetensors
@@ -186,7 +186,7 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-`--include`와 `--exclude` 패턴을 제공하여 다운로드할 파일을 필터링할 수 있습니다. 예를 들어 [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)에서 FP16 정밀도의 파일을 제외한 모든 safetensors 파일을 다운로드하려면 다음과 같이 합니다:
+또 다른 방법은 `--include`와 `--exclude` 옵션을 사용하여 원하는 파일을 필터링하는 것입니다. 예를 들어, [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)의 모든 safetensors 파일을 다운로드하되 FP16 정밀도의 파일은 제외하고 싶다면 다음과 같이 실행할 수 있습니다:
 
 ```bash
 >>> huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 --include "*.safetensors" --exclude "*.fp16.*"*
@@ -197,9 +197,9 @@ Fetching 8 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--stabilityai--stable-diffusion-xl-base-1.0/snapshots/462165984030d82259a11f4367a4eed129e94a7b
 ```
 
-### 데이터셋 또는 Space 다운로드 [[download-a-dataset-or-a-space]]
+### 데이터 세트 또는 Space 다운로드하기 [[download-a-dataset-or-a-space]]
 
-위의 예제는 모델 저장소에서 다운로드하는 방법을 보여줍니다. 데이터셋이나 Space를 다운로드하려면 `--repo-type` 옵션을 사용하세요:
+앞서 소개된 예시들을 통해 모델 저장소에서 다운로드하는 방법을 배웠습니다. 데이터 세트나 Space를 다운로드하고자 할 때는 `--repo-type` 옵션을 사용하세요:
 
 ```bash
 # https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k
@@ -211,22 +211,22 @@ Fetching 8 files: 100%|███████████████████
 ...
 ```
 
-### 특정 리비전 다운로드 [[download-a-specific-revision]]
+### 특정 개정 다운로드하기 [[download-a-specific-revision]]
 
-위의 예제는 main 브랜치의 최신 커밋에서 다운로드하는 방법을 보여줍니다. 특정 리비전(커밋 해시, 브랜치 이름 또는 태그)에서 다운로드하려면 `--revision` 옵션을 사용하세요:
+따로 개정을 지정하지 않는다면 기본적으로 main 브랜치의 최신 커밋에서 파일을 다운로드합니다. 특정 개정(커밋 해시, 브랜치 이름 또는 태그)에서 다운로드하려면 `--revision` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli download bigcode/the-stack --repo-type dataset --revision v1.1
 ...
 ```
 
-### 로컬 폴더에 다운로드 [[download-to-a-local-folder]]
+### 로컬 폴더에 다운로드하기 [[download-to-a-local-folder]]
 
-Hub에서 파일을 다운로드하는 권장(기본) 방법은 캐시 시스템을 사용하는 것입니다. 그러나 경우에 따라 파일을 다운로드하여 특정 폴더로 이동하려는 경우가 있습니다. 이는 git 명령이 제공하는 워크플로우에 더 가까운 방식으로 유용합니다. `--local_dir` 옵션을 사용하여 이를 수행할 수 있습니다.
+Hub에서 파일을 다운로드하는 권장되는 (기본) 방법은 캐시 시스템을 사용하는 것입니다. 그러나 특정한 경우에는 파일을 지정된 폴더로 다운로드하고 옮기고 싶을 수 있습니다. 이는 git 명령어와 유사한 워크플로우를 만드는데 도움이 됩니다. `--local_dir` 옵션을 사용하여 이 작업을 수행할 수 있습니다.
 
 <Tip warning={true}>
 
-로컬 디렉토리에 다운로드하면 몇 가지 단점이 있습니다. `--local-dir`를 사용하기 전에 [다운로드](./download#download-files-to-local-folder) 가이드에서 제한 사항을 확인하세요.
+로컬 폴더에 다운로드하는 것에는 몇 가지 단점이 있습니다. `--local-dir` 명령어를 사용하기 전에 [download](./download#download-files-to-local-folder) 가이드에서 해당 내용을 확인하세요.
 
 </Tip>
 
@@ -236,9 +236,9 @@ Hub에서 파일을 다운로드하는 권장(기본) 방법은 캐시 시스템
 ./model-00001-of-00002.safetensors
 ```
 
-### 캐시 디렉토리 지정 [[specify-cache-directory]]
+### 캐시 디렉터리 지정하기 [[specify-cache-directory]]
 
-기본적으로 모든 파일은 `HF_HOME` [환경 변수](../package_reference/environment_variables#hfhome)에 정의된 캐시 디렉토리에 다운로드됩니다. `--cache-dir`을 사용하여 사용자 지정 캐시를 지정할 수도 있습니다:
+기본적으로 모든 파일은 `HF_HOME` [환경 변수](../package_reference/environment_variables#hfhome)에서 정의한 캐시 디렉터리에 다운로드됩니다. `--cache-dir`을 사용하여 직접 캐시 위치를 지정할 수 있습니다:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache
@@ -246,18 +246,18 @@ Hub에서 파일을 다운로드하는 권장(기본) 방법은 캐시 시스템
 ./path/to/cache/models--adept--fuyu-8b/snapshots/ddcacbcf5fdf9cc59ff01f6be6d6662624d9c745
 ```
 
-### 토큰 지정 [[specify-a-token]]
+### 토큰 설정하기 [[specify-a-token]]
 
-비공개 또는 제한된 저장소에 액세스하려면 토큰을 사용해야 합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login` 사용)이 사용됩니다. 명시적으로 인증하려면 `--token` 옵션을 사용하세요:
+비공개 또는 접근이 제한된 저장소에 접근하기 위해서는 토큰이 필요합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login`)이 사용됩니다. 직접 인증하고 싶다면 `--token` 옵션을 사용해보세요:
 
 ```bash
 >>> huggingface-cli download gpt2 config.json --token=hf_****
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10/config.json
 ```
 
-### 자동 모드 [[quiet-mode]]
+### 조용한 모드 [[quiet-mode]]
 
-기본적으로 `huggingface-cli download` 명령은 자세한 정보를 출력합니다. 경고 메시지, 다운로드된 파일에 대한 정보 및 진행률 표시줄과 같은 세부 정보를 출력합니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 마지막 줄(즉, 다운로드한 파일의 경로)만 출력됩니다. 이는 스크립트에서 다른 명령으로 출력을 전달하려는 경우 유용할 수 있습니다.
+기본적으로 `huggingface-cli download` 명령은 상세한 정보를 출력합니다. 경고 메시지, 다운로드된 파일 정보, 진행률 등이 포함됩니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 이 옵션을 사용하면 다운로드된 파일의 경로가 표시되는 마지막 줄만 출력됩니다. 이 기능은 스크립트에서 다른 명령어로 출력을 전달하고자 할 때 유용할 수 있습니다.
 
 ```bash
 >>> huggingface-cli download gpt2 --quiet
@@ -266,15 +266,15 @@ Hub에서 파일을 다운로드하는 권장(기본) 방법은 캐시 시스템
 
 ## huggingface-cli upload [[huggingface-cli-upload]]
 
-`huggingface-cli upload` 명령을 사용하여 Hub로 직접 파일을 업로드할 수 있습니다. 내부적으로는 [업로드](./upload) 가이드에 설명된 것과 동일한 [`upload_file`]와 [`upload_folder`] 도우미를 사용합니다. 아래 예제에서는 가장 일반적인 사용 사례를 살펴보겠습니다. 사용 가능한 모든 옵션 목록은 다음 명령을 실행하세요:
+`huggingface-cli upload` 명령어로 Hub에 직접 파일을 업로드할 수 있습니다. [upload](./upload) 가이드에서 설명된 [`upload_file`], [`upload_folder`] 헬퍼 함수를 사용합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 
 ```bash
 >>> huggingface-cli upload --help
 ```
 
-### 전체 폴더 업로드 [[upload-an-entire-folder]]
+### 전체 폴더 업로드하기 [[upload-an-entire-folder]]
 
-이 명령의 기본 사용법은 다음과 같습니다:
+이 명령어의 기본 사용법은 다음과 같습니다:
 
 ```bash
 # Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
