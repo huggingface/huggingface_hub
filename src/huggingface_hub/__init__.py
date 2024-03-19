@@ -270,7 +270,6 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
-        "BoundingBox",
         "ChatCompletionInput",
         "ChatCompletionInputMessage",
         "ChatCompletionOutput",
@@ -332,7 +331,6 @@ _SUBMOD_ATTRS = {
         "TextGenerationOutputToken",
         "TextGenerationParameters",
         "TextGenerationPrefillToken",
-        "TextGenerationSequenceDetails",
         "TextGenerationStreamDetails",
         "TextGenerationStreamOutput",
         "TextToAudioGenerationParameters",
@@ -343,9 +341,6 @@ _SUBMOD_ATTRS = {
         "TextToImageOutput",
         "TextToImageParameters",
         "TextToImageTargetSize",
-        "TextToSpeechInput",
-        "TextToSpeechOutput",
-        "Token",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
@@ -737,7 +732,6 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
-        BoundingBox,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
@@ -799,7 +793,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationOutputToken,  # noqa: F401
         TextGenerationParameters,  # noqa: F401
         TextGenerationPrefillToken,  # noqa: F401
-        TextGenerationSequenceDetails,  # noqa: F401
         TextGenerationStreamDetails,  # noqa: F401
         TextGenerationStreamOutput,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
@@ -810,9 +803,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
         TextToImageTargetSize,  # noqa: F401
-        TextToSpeechInput,  # noqa: F401
-        TextToSpeechOutput,  # noqa: F401
-        Token,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
