@@ -38,7 +38,6 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -99,7 +98,6 @@ class UploadInfo:
         return cls(size=size, sha256=sha, sample=sample)
 
 
-@_deprecate_arguments(version="0.25", deprecated_args=["token"], custom_message="Please pass `headers` directly.")
 @validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
@@ -190,7 +188,6 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
-@_deprecate_arguments(version="0.25", deprecated_args=["token"], custom_message="Please pass `headers` directly.")
 def lfs_upload(
     operation: "CommitOperationAdd",
     lfs_batch_action: Dict,
