@@ -145,7 +145,7 @@ class ModelHubMixin:
     """
 
     _hub_mixin_config: Optional[Union[dict, "DataclassInstance"]] = None
-    # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
+    # ^ optional config attribute automatically set in `from_pretrained`
     _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _hub_mixin_init_parameters: Dict[str, inspect.Parameter]
