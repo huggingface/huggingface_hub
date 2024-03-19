@@ -408,12 +408,12 @@ class CommitApiTest(HfApiCommonTest):
 
     def test_create_repo_org_token_fail(self):
         REPO_NAME = repo_name("org")
-        with pytest.raises(HfHubHTTPError, match="You must use your personal account token."):
+        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
     @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
     def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
-        with pytest.raises(HfHubHTTPError, match="You must use your personal account token."):
+        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
 
