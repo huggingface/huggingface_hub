@@ -53,10 +53,10 @@ from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    InferenceTimeoutError,
     ModelStatus,
     _b64_encode,
     _b64_to_image,
@@ -883,7 +883,7 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.object_detection("people.jpg"):
-        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=BoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
+        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         # detect objects

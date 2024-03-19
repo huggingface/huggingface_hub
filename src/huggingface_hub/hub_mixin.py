@@ -265,13 +265,16 @@ class ModelHubMixin:
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # save config (if provided)
+        # save config (if provided and if not serialized yet in `_save_pretrained`)
         if config is None:
             config = self.config
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
-            (save_directory / CONFIG_NAME).write_text(json.dumps(config, sort_keys=True, indent=2))
+            config_path = save_directory / CONFIG_NAME
+            if not config_path.exists():
+                config_str = json.dumps(config, sort_keys=True, indent=2)
+                config_path.write_text(config_str)
 
         # save model card
         model_card_path = save_directory / "README.md"

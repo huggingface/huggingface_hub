@@ -78,8 +78,11 @@ MAIN_INIT_PY_REGEX = re.compile(
 # List of classes that are shared across multiple modules
 # This is used to fix the naming of the classes (to make them unique by task)
 SHARED_CLASSES = [
+    "BoundingBox",
     "ClassificationOutputTransform",
     "ClassificationOutput",
+    "GenerationParameters",
+    "TargetSize",
 ]
 
 REFERENCE_PACKAGE_CONTENT = """
@@ -119,18 +122,43 @@ def _delete_empty_lines(content: str) -> str:
 def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
     for cls in SHARED_CLASSES:
         cls_definition = f"\nclass {cls}"
-        if cls_definition in content:
-            # Very hacky way to build "AudioClassificationOutputElement" instead of "ClassificationOutput"
-            new_cls_definition = "\nclass " + "".join(part.capitalize() for part in module_name.split("_"))
-            if "Classification" in new_cls_definition:
-                # to avoid "ClassificationClassificationOutput"
-                new_cls_definition += cls.removeprefix("Classification")
-            else:
-                new_cls_definition += cls
-            if new_cls_definition.endswith("ClassificationOutput"):
-                # to get "AudioClassificationOutputElement"
-                new_cls_definition += "Element"
-            content = content.replace(cls_definition, new_cls_definition)
+
+        # Update class definition
+        # Very hacky way to build "AudioClassificationOutputElement" instead of "ClassificationOutput"
+        new_cls = "".join(part.capitalize() for part in module_name.split("_"))
+        if "Classification" in new_cls:
+            # to avoid "ClassificationClassificationOutput"
+            new_cls += cls.removeprefix("Classification")
+        else:
+            new_cls += cls
+        if new_cls.endswith("ClassificationOutput"):
+            # to get "AudioClassificationOutputElement"
+            new_cls += "Element"
+        new_cls_definition = "\nclass " + new_cls
+        content = content.replace(cls_definition, new_cls_definition)
+
+        # Update regular class usage
+        regular_cls = f": {cls}\n"
+        new_regular_cls = f": {new_cls}\n"
+        content = content.replace(regular_cls, new_regular_cls)
+
+        # Update optional class usage
+        optional_cls = f"Optional[{cls}]"
+        new_optional_cls = f"Optional[{new_cls}]"
+        content = content.replace(optional_cls, new_optional_cls)
+    return content
+
+
+def _fix_text2text_shared_parameters(content: str, module_name: str) -> str:
+    if module_name in ("summarization", "translation"):
+        content = content.replace(
+            "Text2TextGenerationParameters",
+            f"{module_name.capitalize()}GenerationParameters",
+        )
+        content = content.replace(
+            "Text2TextGenerationTruncationStrategy",
+            f"{module_name.capitalize()}GenerationTruncationStrategy",
+        )
     return content
 
 
@@ -154,6 +182,7 @@ def fix_inference_classes(content: str, module_name: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
     content = _fix_naming_for_shared_classes(content, module_name)
+    content = _fix_text2text_shared_parameters(content, module_name)
     content = _make_optional_fields_default_to_none(content)
     return content
 

@@ -376,7 +376,7 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_translation(self) -> None:
         output = self.client.translation("Hello world")
-        assert output == TranslationOutput(translation_text="Hallo Welt", translation_output_translation_text=None)
+        assert output == TranslationOutput(translation_text="Hallo Welt")
 
     def test_translation_with_source_and_target_language(self) -> None:
         output_with_langs = self.client.translation(

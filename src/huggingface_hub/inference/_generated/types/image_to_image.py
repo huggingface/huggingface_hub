@@ -10,7 +10,7 @@ from .base import BaseInferenceType
 
 
 @dataclass
-class TargetSize(BaseInferenceType):
+class ImageToImageTargetSize(BaseInferenceType):
     """The size in pixel of the output image"""
 
     height: int
@@ -33,7 +33,7 @@ class ImageToImageParameters(BaseInferenceType):
     """For diffusion models. The number of denoising steps. More denoising steps usually lead to
     a higher quality image at the expense of slower inference.
     """
-    target_size: Optional[TargetSize] = None
+    target_size: Optional[ImageToImageTargetSize] = None
     """The size in pixel of the output image"""
 
 
