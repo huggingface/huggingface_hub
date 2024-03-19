@@ -159,7 +159,7 @@ def post_lfs_batch_info(
 
     headers = {
         **LFS_HEADERS,
-        **build_hf_headers(token=token or True),
+        **build_hf_headers(token=token),
         **(headers or {}),
     }
     resp = get_session().post(batch_url, headers=headers, json=payload)
@@ -246,7 +246,7 @@ def lfs_upload(
         _validate_lfs_action(verify_action)
         verify_resp = get_session().post(
             verify_action["href"],
-            headers=build_hf_headers(token=token or True, headers=headers),
+            headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
         hf_raise_for_status(verify_resp)
