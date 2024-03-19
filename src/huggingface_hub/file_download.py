@@ -20,7 +20,6 @@ from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Uni
 from urllib.parse import quote, urlparse
 
 import requests
-from filelock import FileLock
 
 from huggingface_hub import constants
 
@@ -55,6 +54,7 @@ from .utils import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
     SoftTemporaryDirectory,
+    WeakFileLock,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
     get_fastcore_version,  # noqa: F401 # for backward compatibility
@@ -778,7 +778,7 @@ def cached_download(
     if os.name == "nt" and len(os.path.abspath(cache_path)) > 255:
         cache_path = "\\\\?\\" + os.path.abspath(cache_path)
 
-    with FileLock(lock_path):
+    with WeakFileLock(lock_path):
         # If the download just completed while the lock was activated.
         if os.path.exists(cache_path) and not force_download:
             # Even if returning early like here, the lock will be released.
@@ -1441,7 +1441,7 @@ def hf_hub_download(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-    with FileLock(lock_path):
+    with WeakFileLock(lock_path):
         # If the download just completed while the lock was activated.
         if os.path.exists(pointer_path) and not force_download:
             # Even if returning early like here, the lock will be released.

@@ -18,12 +18,12 @@ class VideoClassificationParameters(BaseInferenceType):
     Additional inference parameters for Video Classification
     """
 
-    frame_sampling_rate: Optional[int]
+    frame_sampling_rate: Optional[int] = None
     """The sampling rate used to select frames from the video."""
-    function_to_apply: Optional["ClassificationOutputTransform"]
-    num_frames: Optional[int]
+    function_to_apply: Optional["ClassificationOutputTransform"] = None
+    num_frames: Optional[int] = None
     """The number of sampled frames to consider for classification."""
-    top_k: Optional[int]
+    top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -33,7 +33,7 @@ class VideoClassificationInput(BaseInferenceType):
 
     inputs: Any
     """The input video data"""
-    parameters: Optional[VideoClassificationParameters]
+    parameters: Optional[VideoClassificationParameters] = None
     """Additional inference parameters"""
 
 

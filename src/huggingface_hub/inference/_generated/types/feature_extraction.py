@@ -15,5 +15,5 @@ class FeatureExtractionInput(BaseInferenceType):
 
     inputs: str
     """The text to get the embeddings of"""
-    parameters: Optional[Dict[str, Any]]
+    parameters: Optional[Dict[str, Any]] = None
     """Additional inference parameters"""

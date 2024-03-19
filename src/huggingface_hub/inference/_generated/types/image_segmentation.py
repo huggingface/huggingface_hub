@@ -18,13 +18,13 @@ class ImageSegmentationParameters(BaseInferenceType):
     Additional inference parameters for Image Segmentation
     """
 
-    mask_threshold: Optional[float]
+    mask_threshold: Optional[float] = None
     """Threshold to use when turning the predicted masks into binary values."""
-    overlap_mask_area_threshold: Optional[float]
+    overlap_mask_area_threshold: Optional[float] = None
     """Mask overlap threshold to eliminate small, disconnected segments."""
-    subtask: Optional["ImageSegmentationSubtask"]
+    subtask: Optional["ImageSegmentationSubtask"] = None
     """Segmentation task to be performed, depending on model capabilities."""
-    threshold: Optional[float]
+    threshold: Optional[float] = None
     """Probability threshold to filter out predicted masks."""
 
 
@@ -34,7 +34,7 @@ class ImageSegmentationInput(BaseInferenceType):
 
     inputs: Any
     """The input image data"""
-    parameters: Optional[ImageSegmentationParameters]
+    parameters: Optional[ImageSegmentationParameters] = None
     """Additional inference parameters"""
 
 
@@ -48,5 +48,5 @@ class ImageSegmentationOutputElement(BaseInferenceType):
     """The label of the predicted segment"""
     mask: Any
     """The corresponding mask as a black-and-white image"""
-    score: Optional[float]
+    score: Optional[float] = None
     """The score or confidence degreee the model has"""
