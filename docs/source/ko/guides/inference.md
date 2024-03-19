@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Run Inference on servers[[Run Inference on servers]]
+# 서버에서 추론 진행하기[[Run Inference on servers]]
 
 추론은 훈련된 모델을 사용하여 새 데이터에 대한 예측을 수행하는 과정입니다. 이 과정은 계산이 많이 필요할 수 있으므로, 전용 서버에서 실행하는 것이 좋은 방안이 될 수 있습니다. `huggingface_hub` 라이브러리는 호스팅된 모델에 대한 추론을 실행하는 서비스를 호출하는 간편한 방법을 제공합니다. 다음과 같은 여러 서비스에 연결할 수 있습니다:
 - [추론 API](https://huggingface.co/docs/api-inference/index): Hugging Face의 인프라에서 가속화된 추론을 실행할 수 있는 서비스로 무료로 제공됩니다. 이 서비스는 추론을 시작하고 다양한 모델을 테스트하며 AI 제품의 프로토타입을 만드는 빠른 방법입니다.
@@ -127,8 +127,7 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 ## 사용자 정의 요청
 
-그러나 모든 경우를 항상 완벽하게 다루는 것은 어렵습니다. 사용자 정의 요청의 경우, [`InferenceClient.post`] 메소드를 사용하여 Inference API로 요청을 보낼 수 있습니다. 예를 들어, 입력 및 출력을 어떻게 파싱할지 지정할 수 있습니다. 아래 예시에서 생성된 이미지는 `PIL Image`로 파싱하는 대신 원본 바이트로 반환됩니다. 이는 설치된 `Pillow`가 없고 이미지의 이진 콘텐츠에만 관심이 있는 경우에 유용합니다.
-[`InferenceClient.post`]는 아직 공식적으로 지원되지 않는 작업을 처리하는 데도 유용합니다.
+그러나 모든 경우를 항상 완벽하게 다루는 것은 어렵습니다. 사용자 정의 요청의 경우, [`InferenceClient.post`] 메소드를 사용하여 Inference API로 요청을 보낼 수 있습니다. 예를 들어, 입력 및 출력을 어떻게 파싱할지 지정할 수 있습니다. 아래 예시에서 생성된 이미지는 `PIL Image`로 파싱하는 대신 원본 바이트로 반환됩니다. 이는 설치된 `Pillow`가 없고 이미지의 이진 콘텐츠에만 관심이 있는 경우에 유용합니다. [`InferenceClient.post`]는 아직 공식적으로 지원되지 않는 작업을 처리하는 데도 유용합니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -173,8 +172,8 @@ pip install --upgrade huggingface_hub[inference]
 ### 타임아웃
 
 추론을 수행할 때 타임아웃이 발생하는 주요 원인은 두 가지입니다:
-- 추론 프로세스가 완료되는 데 오랜 시간이 걸립니다.
-- 모델이 사용 불가능한 경우, 예를 들어 Inference API를 처음으로 가져오는 경우.
+- 추론 프로세스가 완료되는 데 오랜 시간이 걸리는 경우
+- 모델이 사용 불가능한 경우, 예를 들어 Inference API를 처음으로 가져오는 경우
 
 [`InferenceClient`]에는 이 두 가지를 처리하기 위한 전역 `timeout` 매개변수가 있습니다. 기본값은 `None`으로 설정되어 있으며, 클라이언트가 추론이 완료될 때까지 무기한으로 기다리게 합니다. 워크플로우에서 더 많은 제어를 원하는 경우 초 단위의 특정한 값으로 설정할 수 있습니다. 타임아웃 딜레이가 만료되면 [`InferenceTimeoutError`]가 발생합니다. 이를 코드에서 처리할 수 있습니다:
 
