@@ -139,5 +139,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
     def test_generate_non_tgi_endpoint_regression_test(self):
         # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
         with self.assertWarnsRegex(UserWarning, "Ignoring parameters .* 'return_full_text'"):
-            text = self.client.text_generation(prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large")
+            text = self.client.text_generation(
+                prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
+            )
         assert text == "I am at work"
