@@ -8447,7 +8447,7 @@ class HfApi:
         filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
 
         # Compute relative path in repo
-        if path_in_repo:
+        if path_in_repo and path_in_repo not in (".", "./"):
             path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
             relpath_to_abspath = {
                 file[len(path_in_repo) :]: file for file in filenames if file.startswith(path_in_repo)

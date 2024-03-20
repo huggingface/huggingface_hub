@@ -2317,6 +2317,12 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.assertEqual(added_files, {"sub/lfs_in_sub.bin"})  # no "sub/file.txt"
         self.assertEqual(deleted_files, {"sub/file1.txt", "sub/file.txt"})
 
+    def test_delete_if_path_in_repo(self):
+        # Regression test for https://github.com/huggingface/huggingface_hub/pull/2129
+        operations = self._upload_folder_alias(path_in_repo=".", folder_path=self.cache_dir, delete_patterns="*")
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+        assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfLargefilesTest(HfApiCommonTest):
