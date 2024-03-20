@@ -479,9 +479,10 @@ class InferenceClient:
         Args:
             messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
                 Conversation history consisting of roles and content pairs.
-            model (Optional[`str`], optional):
-                Unique identifier of the model to use for inference.
-                Defaults to None.
+            model (`str`, *optional*):
+                The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
+                See https://huggingface.co/tasks/text-generation for more details.
             frequency_penalty (`float`, optional):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
