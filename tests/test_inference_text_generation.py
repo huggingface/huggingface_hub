@@ -135,3 +135,11 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         # Return as stream raises error
         with self.assertRaises(ValueError):
             self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
+
+    def test_generate_non_tgi_endpoint_regression_test(self):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
+        with self.assertWarnsRegex(UserWarning, "Ignoring parameters .* 'return_full_text'"):
+            text = self.client.text_generation(
+                prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
+            )
+        assert text == "I am at work"
