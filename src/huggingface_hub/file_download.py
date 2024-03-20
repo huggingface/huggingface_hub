@@ -1024,6 +1024,7 @@ def hf_hub_download(
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
+    headers: Optional[Dict[str, str]] = None,
     legacy_cache_layout: bool = False,
     endpoint: Optional[str] = None,
 ) -> str:
@@ -1120,6 +1121,8 @@ def hf_hub_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with the request.
         legacy_cache_layout (`bool`, *optional*, defaults to `False`):
             If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
             then `cached_download`. This is deprecated as the new cache layout is
@@ -1237,6 +1240,7 @@ def hf_hub_download(
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
+        headers=headers,
     )
 
     url_to_download = url
@@ -1619,6 +1623,7 @@ def get_hf_file_metadata(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1642,13 +1647,19 @@ def get_hf_file_metadata(
             The version of the library.
         user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with the request.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
     headers = build_hf_headers(
-        token=token, library_name=library_name, library_version=library_version, user_agent=user_agent
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        headers=headers,
     )
     headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
