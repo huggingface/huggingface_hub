@@ -28,10 +28,10 @@ from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tupl
 from urllib.parse import unquote
 
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
-from huggingface_hub.utils import get_session
 
 from .utils import (
     build_hf_headers,
+    get_session,
     hf_raise_for_status,
     http_backoff,
     logging,
@@ -106,6 +106,7 @@ def post_lfs_batch_info(
     repo_id: str,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
@@ -121,10 +122,10 @@ def post_lfs_batch_info(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`, *optional*):
             The git revision to upload to.
+        headers (`dict`, *optional*):
+            Additional headers to include in the request
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -155,7 +156,12 @@ def post_lfs_batch_info(
     }
     if revision is not None:
         payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
-    headers = {**LFS_HEADERS, **build_hf_headers(token=token or True)}  # Token must be provided or retrieved
+
+    headers = {
+        **LFS_HEADERS,
+        **build_hf_headers(token=token),
+        **(headers or {}),
+    }
     resp = get_session().post(batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
@@ -182,7 +188,12 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
-def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: Optional[str]) -> None:
+def lfs_upload(
+    operation: "CommitOperationAdd",
+    lfs_batch_action: Dict,
+    token: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
@@ -194,8 +205,8 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object. See [`~utils.lfs.post_lfs_batch_info`] for
             more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
+        headers (`dict`, *optional*):
+            Headers to include in the request, including authentication and user agent headers.
 
     Raises:
         - `ValueError` if `lfs_batch_action` is improperly formatted
@@ -235,7 +246,7 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
         _validate_lfs_action(verify_action)
         verify_resp = get_session().post(
             verify_action["href"],
-            headers=build_hf_headers(token=token or True),
+            headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
         hf_raise_for_status(verify_resp)
