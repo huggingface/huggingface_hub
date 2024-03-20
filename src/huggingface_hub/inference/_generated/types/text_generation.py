@@ -15,43 +15,43 @@ class TextGenerationParameters(BaseInferenceType):
     Additional inference parameters for Text Generation
     """
 
-    best_of: Optional[int]
+    best_of: Optional[int] = None
     """The number of sampling queries to run. Only the best one (in terms of total logprob) will
     be returned.
     """
-    decoder_input_details: Optional[bool]
+    decoder_input_details: Optional[bool] = None
     """Whether or not to output decoder input details"""
-    details: Optional[bool]
+    details: Optional[bool] = None
     """Whether or not to output details"""
-    do_sample: Optional[bool]
+    do_sample: Optional[bool] = None
     """Whether to use logits sampling instead of greedy decoding when generating new tokens."""
-    max_new_tokens: Optional[int]
+    max_new_tokens: Optional[int] = None
     """The maximum number of tokens to generate."""
-    repetition_penalty: Optional[float]
+    repetition_penalty: Optional[float] = None
     """The parameter for repetition penalty. A value of 1.0 means no penalty. See [this
     paper](https://hf.co/papers/1909.05858) for more details.
     """
-    return_full_text: Optional[bool]
+    return_full_text: Optional[bool] = None
     """Whether to prepend the prompt to the generated text."""
-    seed: Optional[int]
+    seed: Optional[int] = None
     """The random sampling seed."""
-    stop_sequences: Optional[List[str]]
+    stop_sequences: Optional[List[str]] = None
     """Stop generating tokens if a member of `stop_sequences` is generated."""
-    temperature: Optional[float]
+    temperature: Optional[float] = None
     """The value used to modulate the logits distribution."""
-    top_k: Optional[int]
+    top_k: Optional[int] = None
     """The number of highest probability vocabulary tokens to keep for top-k-filtering."""
-    top_p: Optional[float]
+    top_p: Optional[float] = None
     """If set to < 1, only the smallest set of most probable tokens with probabilities that add
     up to `top_p` or higher are kept for generation.
     """
-    truncate: Optional[int]
+    truncate: Optional[int] = None
     """Truncate input tokens to the given size."""
-    typical_p: Optional[float]
+    typical_p: Optional[float] = None
     """Typical Decoding mass. See [Typical Decoding for Natural Language
     Generation](https://hf.co/papers/2202.00666) for more information
     """
-    watermark: Optional[bool]
+    watermark: Optional[bool] = None
     """Watermarking with [A Watermark for Large Language Models](https://hf.co/papers/2301.10226)"""
 
 
@@ -61,7 +61,7 @@ class TextGenerationInput(BaseInferenceType):
 
     inputs: str
     """The text to initialize generation with"""
-    parameters: Optional[TextGenerationParameters]
+    parameters: Optional[TextGenerationParameters] = None
     """Additional inference parameters"""
 
 
@@ -97,7 +97,7 @@ class TextGenerationSequenceDetails(BaseInferenceType):
     prefill: List[PrefillToken]
     tokens: List[Token]
     """The generated tokens and associated details"""
-    seed: Optional[int]
+    seed: Optional[int] = None
     """The random seed used for generation"""
 
 
@@ -112,9 +112,9 @@ class TextGenerationOutputDetails(BaseInferenceType):
     prefill: List[PrefillToken]
     tokens: List[Token]
     """The generated tokens and associated details"""
-    best_of_sequences: Optional[List[TextGenerationSequenceDetails]]
+    best_of_sequences: Optional[List[TextGenerationSequenceDetails]] = None
     """Details about additional sequences when best_of is provided"""
-    seed: Optional[int]
+    seed: Optional[int] = None
     """The random seed used for generation"""
 
 
@@ -124,5 +124,5 @@ class TextGenerationOutput(BaseInferenceType):
 
     generated_text: str
     """The generated text"""
-    details: Optional[TextGenerationOutputDetails]
+    details: Optional[TextGenerationOutputDetails] = None
     """When enabled, details about the generation"""
