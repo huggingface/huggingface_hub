@@ -35,6 +35,7 @@ _CANDIDATES = {
     "graphviz": {"graphviz"},
     "hf_transfer": {"hf_transfer"},
     "jinja": {"Jinja2"},
+    "minijinja": {"minijinja"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
     "pydantic": {"pydantic"},
@@ -137,6 +138,15 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# Minijinja
+def is_minijinja_available() -> bool:
+    return is_package_available("minijinja")
+
+
+def get_minijinja_version() -> str:
+    return _get_version("minijinja")
 
 
 # Numpy
