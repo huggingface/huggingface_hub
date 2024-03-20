@@ -53,6 +53,7 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[base_tqdm] = None,
+    headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
 ) -> str:
     """Download repo files.
@@ -120,6 +121,8 @@ def snapshot_download(
                 - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
+        headers (`dict`, *optional*):
+            Additional headers to include in the request. Those headers take precedence over the others.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
@@ -174,7 +177,11 @@ def snapshot_download(
         try:
             # if we have internet connection we want to list files to download
             api = HfApi(
-                library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
+                endpoint=endpoint,
+                headers=headers,
             )
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
@@ -297,6 +304,7 @@ def snapshot_download(
             resume_download=resume_download,
             force_download=force_download,
             token=token,
+            headers=headers,
         )
 
     if HF_HUB_ENABLE_HF_TRANSFER:

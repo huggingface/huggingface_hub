@@ -83,6 +83,7 @@ def _flatten_dict(dictionary, parent_key=""):
 
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
+    table = None
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
@@ -91,8 +92,6 @@ def _create_hyperparameter_table(model):
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
-    else:
-        table = None
     return table
 
 
@@ -470,6 +469,7 @@ class KerasModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         token,
+        config: Optional[Dict[str, Any]] = None,
         **model_kwargs,
     ):
         """Here we just call [`from_pretrained_keras`] function so both the mixin and
@@ -480,9 +480,6 @@ class KerasModelHubMixin(ModelHubMixin):
         """
         if keras is None:
             raise ImportError("Called a TensorFlow-specific function but could not import it.")
-
-        # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
-        cfg = model_kwargs.pop("config", None)
 
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
@@ -496,9 +493,10 @@ class KerasModelHubMixin(ModelHubMixin):
         else:
             storage_folder = model_id
 
-        model = keras.models.load_model(storage_folder, **model_kwargs)
+        # TODO: change this in a future PR. We are not returning a KerasModelHubMixin instance here...
+        model = keras.models.load_model(storage_folder)
 
         # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
-        model.config = cfg
+        model.config = config
 
         return model
