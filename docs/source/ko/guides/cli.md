@@ -49,11 +49,11 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 
 <Tip>
 
-`--help` 옵션을 사용하면 명령어에 대한 자세한 정보를 쉽게 얻을 수 있습니다. 사용 가능한 모든 옵션과 그 세부 사항을 언제든지 확인할 수 있습니다. 예를 들어 `huggingface-cli upload --help`는 CLI를 사용하여 파일을 업로드하는 구체적인 방법을 알려줍니다.
+`--help` 옵션을 사용하면 명령어에 대한 자세한 정보를 얻을 수 있습니다. 언제든지 사용 가능한 모든 옵션과 그 세부 사항을 확인할 수 있습니다. 예를 들어 `huggingface-cli upload --help`는 CLI를 사용하여 파일을 업로드하는 구체적인 방법을 알려줍니다.
 
 </Tip>
 
-### 다른 설치 방법 [[alternative-install]]
+### 다른 방법으로 설치하기 [[alternative-install]]
 
 #### pkgx 사용하기 [[using-pkgx]]
 
@@ -142,7 +142,7 @@ orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ## huggingface-cli download [[huggingface-cli-download]]
 
 
-`huggingface-cli download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. [download](./download) 가이드에서 설명된 [`hf_hub_download`], [`snapshot_download`] 헬퍼 함수를 사용하여 반환된 경로를 터미널에 출력합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
+`huggingface-cli download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. [다운로드](./download) 가이드에서 설명된 [`hf_hub_download`], [`snapshot_download`] 헬퍼 함수를 사용하여 반환된 경로를 터미널에 출력합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 
 ```bash
 huggingface-cli download --help
@@ -222,11 +222,11 @@ Fetching 8 files: 100%|███████████████████
 
 ### 로컬 폴더에 다운로드하기 [[download-to-a-local-folder]]
 
-Hub에서 파일을 다운로드하는 권장되는 (기본) 방법은 캐시 시스템을 사용하는 것입니다. 그러나 특정한 경우에는 파일을 지정된 폴더로 다운로드하고 옮기고 싶을 수 있습니다. 이는 git 명령어와 유사한 워크플로우를 만드는데 도움이 됩니다. `--local_dir` 옵션을 사용하여 이 작업을 수행할 수 있습니다.
+Hub에서 파일을 다운로드하는 권장되고 기본적인 방법은 캐시 시스템을 사용하는 것입니다. 그러나 특정한 경우에는 파일을 지정된 폴더로 다운로드하고 옮기고 싶을 수 있습니다. 이는 git 명령어와 유사한 워크플로우를 만드는데 도움이 됩니다. `--local_dir` 옵션을 사용하여 이 작업을 수행할 수 있습니다.
 
 <Tip warning={true}>
 
-로컬 폴더에 다운로드하는 것에는 몇 가지 단점이 있습니다. `--local-dir` 명령어를 사용하기 전에 [download](./download#download-files-to-local-folder) 가이드에서 해당 내용을 확인하세요.
+로컬 폴더에 다운로드하는 것에는 몇 가지 단점이 있습니다. `--local-dir` 명령어를 사용하기 전에 [다운로드](./download#download-files-to-local-folder) 가이드에서 해당 내용을 확인해보세요.
 
 </Tip>
 
@@ -257,7 +257,7 @@ Hub에서 파일을 다운로드하는 권장되는 (기본) 방법은 캐시 �
 
 ### 조용한 모드 [[quiet-mode]]
 
-기본적으로 `huggingface-cli download` 명령은 상세한 정보를 출력합니다. 경고 메시지, 다운로드된 파일 정보, 진행률 등이 포함됩니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 이 옵션을 사용하면 다운로드된 파일의 경로가 표시되는 마지막 줄만 출력됩니다. 이 기능은 스크립트에서 다른 명령어로 출력을 전달하고자 할 때 유용할 수 있습니다.
+`huggingface-cli download` 명령은 상세한 정보를 출력합니다. 경고 메시지, 다운로드된 파일 정보, 진행률 등이 포함됩니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 이 옵션을 사용하면 다운로드된 파일의 경로가 표시되는 마지막 줄만 출력됩니다. 이 기능은 스크립트에서 다른 명령어로 출력을 전달하고자 할 때 유용할 수 있습니다.
 
 ```bash
 >>> huggingface-cli download gpt2 --quiet
@@ -266,7 +266,7 @@ Hub에서 파일을 다운로드하는 권장되는 (기본) 방법은 캐시 �
 
 ## huggingface-cli upload [[huggingface-cli-upload]]
 
-`huggingface-cli upload` 명령어로 Hub에 직접 파일을 업로드할 수 있습니다. [upload](./upload) 가이드에서 설명된 [`upload_file`], [`upload_folder`] 헬퍼 함수를 사용합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
+`huggingface-cli upload` 명령어로 Hub에 직접 파일을 업로드할 수 있습니다. [업로드](./upload) 가이드에서 설명된 [`upload_file`], [`upload_folder`] 헬퍼 함수를 사용합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 
 ```bash
 >>> huggingface-cli upload --help
@@ -280,7 +280,7 @@ Hub에서 파일을 다운로드하는 권장되는 (기본) 방법은 캐시 �
 # Usage:  huggingface-cli upload [repo_id] [local_path] [path_in_repo]
 ```
 
-저장소의 루트에 현재 디렉토리를 업로드하려면 다음을 사용하세요:
+현재 디텍터리를 저장소의 루트 위치에 업로드하려면, 아래 명령어를 사용하세요:
 
 ```bash
 >>> huggingface-cli upload my-cool-model . .
@@ -293,39 +293,39 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main/
 
 </Tip>
 
-다음과 같이 특정 폴더를 업로드할 수도 있습니다:
+또한, 특정 폴더만 업로드하는 것도 가능합니다:
 
 ```bash
 >>> huggingface-cli upload my-cool-model ./models .
 https://huggingface.co/Wauplin/my-cool-model/tree/main/
 ```
 
-마지막으로 폴더를 저장소의 특정 대상으로 업로드할 수 있습니다:
+마지막으로, 저장소의 특정 위치에 폴더를 업로드할 수 있습니다:
 
 ```bash
 >>> huggingface-cli upload my-cool-model ./path/to/curated/data /data/train
 https://huggingface.co/Wauplin/my-cool-model/tree/main/data/train
 ```
 
-### 단일 파일 업로드 [[upload-a-single-file]]
+### 파일 한 개 업로드하기 [[upload-a-single-file]]
 
-`local_path`를 컴퓨터의 파일을 가리키도록 설정하여 단일 파일을 업로드할 수도 있습니다. 이 경우 `path_in_repo`는 선택 사항이며 로컬 파일 이름을 기본값으로 사용합니다:
+컴퓨터에 있는 파일을 가리키도록 `local_path`를 설정함으로써 파일 한 개를 업로드할 수 있습니다. 이때, `path_in_repo`는 선택사항이며 로컬 파일 이름을 기본값으로 사용합니다:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/model.safetensors
 ```
 
-단일 파일을 특정 디렉토리에 업로드하려면 `path_in_repo`를 적절히 설정하세요:
+파일 한 개를 특정 디렉터리에 업로드하고 싶다면, `path_in_repo`를 그에 맞게 설정하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models/model.safetensors /vae/model.safetensors
 https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 ```
 
-### 여러 파일 업로드 [[upload-multiple-files]]
+### 여러 파일 업로드하기 [[upload-multiple-files]]
 
-전체 폴더를 업로드하지 않고 한 번에 폴더에서 여러 파일을 업로드하려면 `--include`와 `--exclude` 명령어를 사용해보세요. 저장소에서 파일을 삭제하면서 새 파일을 업로드하는 `--delete` 옵션과 함께 사용할 수도 있습니다. 아래 예제에서는 원격 파일을 삭제하고 `/logs`의 파일을 제외한 모든 파일을 업로드하여 로컬 Space를 동기화합니다:
+전체 폴더를 업로드하지 않고 한 번에 여러 파일을 업로드하려면 `--include`와 `--exclude` 옵션을 사용해보세요. 저장소에 있는 파일을 삭제하면서 새 파일을 업로드하는 `--delete` 옵션과 함께 사용할 수 있습니다. 아래 예시는 `/logs` 안의 파일을 제외한 모든 파일을 업로드하고 원격 파일들을 삭제함으로써 로컬 Space를 동기화하는 방법을 보여줍니다:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)
@@ -333,25 +333,25 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 ...
 ```
 
-### 데이터셋 또는 Space에 업로드 [[upload-to-a-dataset-or-space]]
+### 데이터 세트 또는 Space에 업로드하기 [[upload-to-a-dataset-or-space]]
 
-데이터셋이나 Space에 업로드하려면 `--repo-type` 옵션을 사용하세요:
+데이터 세트나 Space에 업로드하려면 `--repo-type` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
 ...
 ```
 
-### 조직에 업로드 [[upload-to-an-organization]]
+### 조직에 업로드하기 [[upload-to-an-organization]]
 
-개인 저장소 대신 조직이 소유한 저장소에 콘텐츠를 업로드하려면 `repo_id`에 명시적으로 지정해야 합니다:
+개인 저장소 대신 조직이 소유한 저장소에 파일을 업로드하려면 `repo_id`를 입력해야 합니다:
 
 ```bash
 >>> huggingface-cli upload MyCoolOrganization/my-cool-model . .
 https://huggingface.co/MyCoolOrganization/my-cool-model/tree/main/
 ```
 
-### 특정 리비전에 업로드 [[upload-to-a-specific-revision]]
+### 특정 개정에 업로드하기 [[upload-to-a-specific-revision]]
 
 기본적으로 파일은 `main` 브랜치에 업로드됩니다. 다른 브랜치나 참조에 파일을 업로드하려면 `--revision` 옵션을 사용하세요:
 
@@ -361,11 +361,11 @@ https://huggingface.co/MyCoolOrganization/my-cool-model/tree/main/
 ...
 ```
 
-**참고:** `revision`이 존재하지 않고 `--create-pr`이 설정되지 않은 경우 `main` 브랜치에서 자동으로 브랜치가 생성됩니다.
+**참고:** `revision`이 존재하지 않고 `--create-pr` 옵션이 설정되지 않은 경우, `main` 브랜치에서 자동으로 새 브랜치가 생성됩니다.
 
-### 업로드 및 PR 생성 [[upload-and-create-a-pr]]
+### 업로드 및 PR 생성하기 [[upload-and-create-a-pr]]
 
-저장소에 푸시할 권한이 없는 경우 PR을 열고 만들려는 변경 사항을 작성자에게 알려야 합니다. 이는 `--create-pr` 옵션을 설정하여 수행할 수 있습니다:
+저장소에 푸시할 권한이 없다면, PR을 생성하여 작성자들에게 변경하고자 하는 내용을 알려야 합니다. 이를 위해서 `--create-pr` 옵션을 사용할 수 있습니다:
 
 ```bash
 # Create a PR and upload the files to it
@@ -373,16 +373,16 @@ https://huggingface.co/MyCoolOrganization/my-cool-model/tree/main/
 https://huggingface.co/datasets/bigcode/the-stack/blob/refs%2Fpr%2F104/
 ```
 
-### 정기적으로 업로드 [[upload-at-regular-intervals]]
+### 정기적으로 업로드하기 [[upload-at-regular-intervals]]
 
-경우에 따라 저장소에 정기적으로 업데이트를 푸시하려 할 수 있습니다. 예를 들어 모델을 훈련하는 중이고 10분마다 로그 폴더를 업로드하려는 경우에 유용합니다. `--every` 옵션을 사용하여 이를 수행할 수 있습니다:
+저장소에 정기적으로 업데이트하고 싶을 때, `--every` 옵션을 사용할 수 있습니다. 예를 들어, 모델을 훈련하는 중에 로그 폴더를 10분마다 업로드하고 싶다면 다음과 같이 사용할 수 있습니다:
 
 ```bash
 # Upload new logs every 10 minutes
 huggingface-cli upload training-model logs/ --every=10
 ```
 
-### 커밋 메시지 지정 [[specify-a-commit-message]]
+### 커밋 메시지 지정하기 [[specify-a-commit-message]]
 
 `--commit-message`와 `--commit-description`을 사용하여 기본 메시지 대신 사용자 지정 메시지와 설명을 커밋에 설정하세요:
 
@@ -392,9 +392,9 @@ huggingface-cli upload training-model logs/ --every=10
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-### 토큰 지정 [[specify-a-token]]
+### 토큰 지정하기 [[specify-a-token]]
 
-파일을 업로드하려면 토큰을 사용해야 합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login` 사용)이 사용됩니다. 명시적으로 인증하려면 `--token` 옵션을 사용하세요:
+파일을 업로드하려면 토큰이 필요합니다. 기본적으로 로컬에 저장된 토큰(`huggingface-cli login`)이 사용됩니다. 직접 인증하고 싶다면 `--token` 옵션을 사용해보세요:
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --token=hf_****
@@ -402,9 +402,9 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-### 자동 모드 [[quiet-mode]]
+### 조용한 모드 [[quiet-mode]]
 
-기본적으로 `huggingface-cli upload` 명령은 자세한 정보를 출력합니다. 경고 메시지, 업로드된 파일에 대한 정보 및 진행률 표시줄과 같은 세부 정보를 출력합니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 마지막 줄(즉, 업로드된 파일의 URL)만 출력됩니다. 이는 스크립트에서 다른 명령으로 출력을 전달하려는 경우 유용할 수 있습니다.
+기본적으로 `huggingface-cli upload` 명령은 상세한 정보를 출력합니다. 경고 메시지, 업로드된 파일 정보, 진행률 등이 포함됩니다. 이 모든 출력을 숨기려면 `--quiet` 옵션을 사용하세요. 이 옵션을 사용하면 업로드된 파일의 URL이 표시되는 마지막 줄만 출력됩니다. 이 기능은 스크립트에서 다른 명령어로 출력을 전달하고자 할 때 유용할 수 있습니다.
 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --quiet
@@ -413,7 +413,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## huggingface-cli scan-cache [[huggingface-cli-scan-cache]]
 
-다운로드한 저장소와 디스크에서 차지하는 공간을 알고 싶다면 캐시 디렉토리를 스캔하는 것이 유용합니다. `huggingface-cli scan-cache`를 실행하여 이를 수행할 수 있습니다:
+캐시 디렉토리를 스캔하여 다운로드한 저장소가 무엇인지와 디스크에서 차지하는 공간을 알 수 있습니다. `huggingface-cli scan-cache` 명령어를 사용하여 이를 확인해보세요:
 
 ```bash
 >>> huggingface-cli scan-cache
@@ -430,15 +430,15 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-캐시 디렉토리를 스캔하는 방법에 대한 자세한 내용은 [캐시 관리](./manage-cache#scan-cache-from-the-terminal) 가이드를 참조하세요.
+캐시 디렉토리 스캔에 대한 자세한 내용을 알고 싶다면, [캐시 관리](./manage-cache#scan-cache-from-the-terminal) 가이드를 확인해보세요.
 
 ## huggingface-cli delete-cache [[huggingface-cli-delete-cache]]
 
-`huggingface-cli delete-cache`는 더 이상 사용하지 않는 캐시 부분을 삭제하는 데 도움이 되는 도구입니다. 이는 디스크 공간을 절약하고 확보하는 데 유용합니다. 이 명령 사용에 대한 자세한 내용은 [캐시 관리](./manage-cache#clean-cache-from-the-terminal) 가이드를 참조하세요.
+사용하지 않는 캐시를 삭제하고 싶다면 `huggingface-cli delete-cache`를 사용해보세요. 이는 디스크 공간을 절약하고 확보하는 데 유용합니다. 이에 대한 자세한 내용은 [캐시 관리](./manage-cache#clean-cache-from-the-terminal) 가이드에서 확인할 수 있습니다.
 
 ## huggingface-cli env [[huggingface-cli-env]]
 
-`huggingface-cli env` 명령은 머신 설정에 대한 세부 정보를 출력합니다. 이는 [GitHub](https://github.com/huggingface/huggingface_hub)에서 이슈를 열 때 관리자가 문제를 조사하는 데 도움이 되는 유용한 정보입니다.
+`huggingface-cli env` 명령어는 사용자의 컴퓨터 설정에 대한 상세한 정보를 보여줍니다. 이는 [GitHub](https://github.com/huggingface/huggingface_hub)에서 문제를 제출할 때, 관리자가 문제를 파악하고 해결하는 데 도움이 됩니다.
 
 ```bash
 >>> huggingface-cli env
