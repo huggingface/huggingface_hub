@@ -1812,7 +1812,7 @@ class AsyncInferenceClient:
             parameters: Dict = payload["parameters"]  # type: ignore [assignment]
 
             ignored_parameters = []
-            for key in "watermark", "details", "decoder_input_details", "best_of", "stop":
+            for key in "watermark", "details", "decoder_input_details", "best_of", "stop", "return_full_text":
                 if parameters[key] is not None:
                     ignored_parameters.append(key)
                 del parameters[key]
