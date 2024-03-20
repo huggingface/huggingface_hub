@@ -1242,7 +1242,7 @@ class HfApi:
     def __init__(
         self,
         endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[str, bool, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
@@ -1256,9 +1256,9 @@ class HfApi:
         directly at the root of `huggingface_hub`.
 
         Args:
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if
-                not provided.
+            token (`str` or `bool`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+                Pass `token=False` if you don't want to send your token to the server.
             library_name (`str`, *optional*):
                 The name of the library that is making the HTTP request. Will be added to
                 the user-agent header. Example: `"transformers"`.
@@ -2527,7 +2527,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[str, bool, None] = None,
     ) -> bool:
         """
         Checks if a file exists in a repository on the Hugging Face Hub.

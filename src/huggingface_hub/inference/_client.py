@@ -131,9 +131,9 @@ class InferenceClient:
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `bigcode/starcoder`
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
-        token (`str`, *optional*):
-            Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
-            your token to the server.
+        token (`str` or `bool`, *optional*):
+            Hugging Face token. Will default to the locally saved token if not provided.
+            Pass `token=False` if you don't want to send your token to the server.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
             API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
@@ -147,13 +147,13 @@ class InferenceClient:
     def __init__(
         self,
         model: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[str, bool, None] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
-        self.token: Optional[str] = token
+        self.token: Union[str, bool, None] = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
