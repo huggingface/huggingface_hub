@@ -36,6 +36,7 @@ _CANDIDATES = {
     "hf_transfer": {"hf_transfer"},
     "jinja": {"Jinja2"},
     "keras": {"keras"},
+    "minijinja": {"minijinja"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
     "pydantic": {"pydantic"},
@@ -147,6 +148,15 @@ def is_keras_available() -> bool:
 
 def get_keras_version() -> str:
     return _get_version("keras")
+
+
+# Minijinja
+def is_minijinja_available() -> bool:
+    return is_package_available("minijinja")
+
+
+def get_minijinja_version() -> str:
+    return _get_version("minijinja")
 
 
 # Numpy

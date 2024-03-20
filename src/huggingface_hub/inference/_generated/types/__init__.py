@@ -17,6 +17,16 @@ from .automatic_speech_recognition import (
     AutomaticSpeechRecognitionParameters,
 )
 from .base import BaseInferenceType
+from .chat_completion import (
+    ChatCompletionInput,
+    ChatCompletionInputMessage,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
+)
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
     DocumentQuestionAnsweringInput,
@@ -56,13 +66,15 @@ from .table_question_answering import (
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
 from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
 from .text_generation import (
-    PrefillToken,
     TextGenerationInput,
     TextGenerationOutput,
     TextGenerationOutputDetails,
+    TextGenerationOutputSequenceDetails,
+    TextGenerationOutputToken,
     TextGenerationParameters,
-    TextGenerationSequenceDetails,
-    Token,
+    TextGenerationPrefillToken,
+    TextGenerationStreamDetails,
+    TextGenerationStreamOutput,
 )
 from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize
