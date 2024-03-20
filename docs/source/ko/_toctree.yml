@@ -19,7 +19,7 @@
     - local: in_translation
       title: (번역 중) Repository
     - local: guides/search
-      title: 허브에서 탐색하기
+      title: 허브에서 검색하기
     - local: in_translation
       title: (번역 중) Inference
     - local: in_translation
