@@ -722,7 +722,7 @@ class AsyncInferenceClient:
         """
         warnings.warn(
             "'InferenceClient.conversational' is deprecated and will be removed starting from huggingface_hub>=0.25. "
-            "Please you the more appropriate 'InferenceClient.chat_completion' API instead.",
+            "Please use the more appropriate 'InferenceClient.chat_completion' API instead.",
             FutureWarning,
         )
         payload: Dict[str, Any] = {"inputs": {"text": text}}
