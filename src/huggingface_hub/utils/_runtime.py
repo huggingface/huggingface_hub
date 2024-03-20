@@ -35,6 +35,7 @@ _CANDIDATES = {
     "graphviz": {"graphviz"},
     "hf_transfer": {"hf_transfer"},
     "jinja": {"Jinja2"},
+    "keras": {"keras"},
     "minijinja": {"minijinja"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
@@ -138,6 +139,15 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# keras
+def is_keras_available() -> bool:
+    return is_package_available("keras")
+
+
+def get_keras_version() -> str:
+    return _get_version("keras")
 
 
 # Minijinja
@@ -332,6 +342,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Torch"] = get_torch_version()
     info["Jinja2"] = get_jinja_version()
     info["Graphviz"] = get_graphviz_version()
+    info["keras"] = get_keras_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()
