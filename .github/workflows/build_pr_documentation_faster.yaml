@@ -65,7 +65,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6656
         shell: bash
         run: |
-          source ../.venv/bin/activate
+          source .venv/bin/activate
           echo "doc_folder has been set to ${{ env.doc_folder }}"
           cd doc-builder
           args="--build_dir ../build_dir --clean --version pr ${{ github.event.number }}  --repo_owner huggingface--repo_name huggingface_hub --version_tag_suffix=src/"
