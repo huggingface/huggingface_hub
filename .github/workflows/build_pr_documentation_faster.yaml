@@ -53,7 +53,7 @@ jobs:
           pip uninstall -y doc-builder
           cd doc-builder
           git pull origin main
-          uv pip install "doc-builder @ ."
+          uv pip install "hf-doc-builder @ ."
           cd ..
 
           cd huggingface_hub
