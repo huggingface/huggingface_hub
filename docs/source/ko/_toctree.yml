@@ -14,8 +14,8 @@
       title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Upload files
-    - local: in_translation
-      title: (번역 중) HfFileSystem
+    - local: hf_file_system
+      title: Hf파일시스템
     - local: in_translation
       title: (번역 중) Repository
     - local: in_translation
