@@ -9,9 +9,74 @@ concurrency:
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@main
-    with:
-      commit_sha: ${{ github.event.pull_request.head.sha }}
-      pr_number: ${{ github.event.number }}
-      package: huggingface_hub
-      languages: cn de fr en hi ko
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: 'huggingface/doc-builder'
+          path: doc-builder
+          ref: main
+
+      - uses: actions/checkout@v2
+        with:
+          repository: '${{ inputs.repo_owner }}/${{ inputs.package }}'
+          path: ${{ inputs.package }}
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache-dependency-path: "kit/package-lock.json"
+
+      - name: Set env variables
+        run: |
+          if [ -z "${{ inputs.path_to_docs }}" ]
+          then
+            echo "doc_folder=${{ inputs.package }}/docs/source" >> $GITHUB_ENV
+            echo "path_to_docs not provided, defaulting to ${{ inputs.package }}/docs/source"
+          else
+            echo "doc_folder=${{ inputs.path_to_docs }}" >> $GITHUB_ENV
+          fi
+
+          echo "package_name=huggingface_hub" >> $GITHUB_ENV
+
+      - name: Setup environment
+        shell: bash
+        run: |
+          pip uninstall -y doc-builder
+          cd doc-builder
+          git pull origin main
+          pip install .
+          cd ..
+
+          cd huggingface_hub
+          pip install .[dev]
+          cd ..
+
+      - name: Make documentation
+        env:
+          NODE_OPTIONS: --max-old-space-size=6656
+        shell: bash
+        run: |
+          echo "doc_folder has been set to ${{ env.doc_folder }}"
+          cd doc-builder
+          args="--build_dir ../build_dir --clean --version pr ${{ github.event.number }}  --repo_owner ${{ inputs.repo_owner }} --repo_name ${{ inputs.package }} --version_tag_suffix=src/"
+
+
+          IFS=', ' read -r -a langs <<< "cn de fr en hi ko"
+          for lang in "${langs[@]}"
+          do
+              echo "Generating docs for language $lang"
+              doc-builder build ${{ env.package_name }} ../${{ env.doc_folder }}/$lang $args --language $lang
+          done
+          cd ..
+
+      - name: Save commit_sha & pr_number
+        run: |
+          echo ${{ github.event.pull_request.head.sha }} > ./build_dir/commit_sha
+          echo ${{ github.event.number }} > ./build_dir/pr_number
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: doc-build-artifact
+          path: build_dir/
