@@ -40,17 +40,24 @@ jobs:
 
           echo "package_name=huggingface_hub" >> $GITHUB_ENV
 
+      # Setup venv
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
+      - name: Setup venv + uv
+        run: |
+          pip install --upgrade uv
+          uv venv
+
       - name: Setup environment
         shell: bash
         run: |
           pip uninstall -y doc-builder
           cd doc-builder
           git pull origin main
-          pip install .
+          uv pip install "doc-builder @ ."
           cd ..
 
           cd huggingface_hub
-          pip install .[dev]
+          uv pip install "huggingface_hub[dev] @ ."
           cd ..
 
       - name: Make documentation
@@ -58,6 +65,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6656
         shell: bash
         run: |
+          source ../.venv/bin/activate
           echo "doc_folder has been set to ${{ env.doc_folder }}"
           cd doc-builder
           args="--build_dir ../build_dir --clean --version pr ${{ github.event.number }}  --repo_owner ${{ inputs.repo_owner }} --repo_name ${{ inputs.package }} --version_tag_suffix=src/"
