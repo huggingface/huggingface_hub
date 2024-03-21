@@ -3,7 +3,7 @@ import os
 import struct
 import unittest
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -53,10 +53,16 @@ if is_torch_available():
             self.num_classes = num_classes
             self.state = state
             self.not_jsonable = not_jsonable
+
+    class DummyModelWithConfigAndKwargs(nn.Module, PyTorchModelHubMixin):
+        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[Dict] = None, **kwargs):
+            super().__init__()
+
 else:
     DummyModel = None
     DummyModelWithTags = None
     DummyModelNoConfig = None
+    DummyModelWithConfigAndKwargs = None
 
 
 @requires("torch")
@@ -346,3 +352,12 @@ class PytorchHubMixinTest(unittest.TestCase):
         b_bias_ptr = state_dict["b.bias"].storage().data_ptr()
         assert a_weight_ptr == b_weight_ptr
         assert a_bias_ptr == b_bias_ptr
+
+    def test_save_pretrained_when_config_and_kwargs_are_passed(self):
+        # Test creating model with config and kwargs => all values are saved together in config.json
+        model = DummyModelWithConfigAndKwargs(num_classes=50, state="layernorm", config={"a": 1}, b=2, c=3)
+        model.save_pretrained(self.cache_dir)
+        assert model._hub_mixin_config == {"num_classes": 50, "state": "layernorm", "a": 1, "b": 2, "c": 3}
+
+        reloaded = DummyModelWithConfigAndKwargs.from_pretrained(self.cache_dir)
+        assert reloaded._hub_mixin_config == model._hub_mixin_config
