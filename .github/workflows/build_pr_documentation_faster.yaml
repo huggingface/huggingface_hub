@@ -1,4 +1,4 @@
-name: Build PR Documentation
+name: Build PR Documentation Faster
 
 on:
   pull_request
