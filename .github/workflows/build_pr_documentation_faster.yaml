@@ -20,8 +20,8 @@ jobs:
 
       - uses: actions/checkout@v2
         with:
-          repository: '${{ inputs.repo_owner }}/${{ inputs.package }}'
-          path: ${{ inputs.package }}
+          repository: 'huggingface/huggingface_hub'
+          path: huggingface_hub
 
       - uses: actions/setup-node@v3
         with:
@@ -32,8 +32,8 @@ jobs:
         run: |
           if [ -z "${{ inputs.path_to_docs }}" ]
           then
-            echo "doc_folder=${{ inputs.package }}/docs/source" >> $GITHUB_ENV
-            echo "path_to_docs not provided, defaulting to ${{ inputs.package }}/docs/source"
+            echo "doc_folder=huggingface_hub/docs/source" >> $GITHUB_ENV
+            echo "path_to_docs not provided, defaulting to huggingface_hub/docs/source"
           else
             echo "doc_folder=${{ inputs.path_to_docs }}" >> $GITHUB_ENV
           fi
@@ -68,7 +68,7 @@ jobs:
           source ../.venv/bin/activate
           echo "doc_folder has been set to ${{ env.doc_folder }}"
           cd doc-builder
-          args="--build_dir ../build_dir --clean --version pr ${{ github.event.number }}  --repo_owner ${{ inputs.repo_owner }} --repo_name ${{ inputs.package }} --version_tag_suffix=src/"
+          args="--build_dir ../build_dir --clean --version pr ${{ github.event.number }}  --repo_owner huggingface--repo_name huggingface_hub --version_tag_suffix=src/"
 
 
           IFS=', ' read -r -a langs <<< "cn de fr en hi ko"
