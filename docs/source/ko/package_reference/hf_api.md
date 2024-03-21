@@ -2,16 +2,16 @@
 rendered properly in your Markdown viewer.
 -->
 
-# HfApi Client
+# HfApi Client[[hfapi-client]]
 
-Below is the documentation for the `HfApi` class, which serves as a Python wrapper for the Hugging Face Hub's API.
+아래는 허깅 페이스 허브의 API를 위한 파이썬 래퍼 역할을 하는 `HfApi` 클래스에 대한 문서입니다.
 
-All methods from the `HfApi` are also accessible from the package's root directly. Both approaches are detailed below.
+`HfApi`의 모든 메서드는 패키지의 루트에서 직접 액세스할 수도 있습니다. 두 가지 접근 방식은 아래에 자세히 설명되어 있습니다.
 
-Using the root method is more straightforward but the [`HfApi`] class gives you more flexibility.
-In particular, you can pass a token that will be reused in all HTTP calls. This is different
-than `huggingface-cli login` or [`login`] as the token is not persisted on the machine.
-It is also possible to provide a different endpoint or configure a custom user-agent.
+루트 메서드를 사용하는 것이 더 간단하지만 [`HfApi`] 클래스를 사용하면 더 유연하게 사용할 수 있습니다.
+특히 모든 HTTP 호출에서 재사용할 토큰을 전달할 수 있습니다. 
+이것은 `huggingface-cli login` 또는 [`login`]과는 토큰이 머신에 유지되지 않기 때문입니다.
+다른 엔드포인트를 제공하거나 사용자 지정 사용자 에이전트를 구성할 수도 있습니다.
 
 ```python
 from huggingface_hub import HfApi, list_models
@@ -27,79 +27,79 @@ hf_api = HfApi(
 models = hf_api.list_models()
 ```
 
-## HfApi
+## HfApi[[huggingface_hub.HfApi]]
 
 [[autodoc]] HfApi
 
 [[autodoc]] plan_multi_commits
 
-## API Dataclasses
+## API Dataclasses[[api-dataclasses]]
 
-### AccessRequest
+### AccessRequest[[huggingface_hub.hf_api.AccessRequest]]
 
 [[autodoc]] huggingface_hub.hf_api.AccessRequest
 
-### CommitInfo
+### CommitInfo[[huggingface_hub.CommitInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
 
-### DatasetInfo
+### DatasetInfo[[huggingface_hub.hf_api.DatasetInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.DatasetInfo
 
-### GitRefInfo
+### GitRefInfo[[huggingface_hub.GitRefInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.GitRefInfo
 
-### GitCommitInfo
+### GitCommitInfo[[huggingface_hub.GitCommitInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.GitCommitInfo
 
-### GitRefs
+### GitRefs[[huggingface_hub.GitRefs]]
 
 [[autodoc]] huggingface_hub.hf_api.GitRefs
 
-### ModelInfo
+### ModelInfo[[huggingface_hub.hf_api.ModelInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.ModelInfo
 
-### RepoSibling
+### RepoSibling[[huggingface_hub.hf_api.RepoSibling]]
 
 [[autodoc]] huggingface_hub.hf_api.RepoSibling
 
-### RepoFile
+### RepoFile[[huggingface_hub.hf_api.RepoFile]]
 
 [[autodoc]] huggingface_hub.hf_api.RepoFile
 
-### RepoUrl
+### RepoUrl[[huggingface_hub.RepoUrl]]
 
 [[autodoc]] huggingface_hub.hf_api.RepoUrl
 
-### SafetensorsRepoMetadata
+### SafetensorsRepoMetadata[[huggingface_hub.utils.SafetensorsRepoMetadata]]
 
 [[autodoc]] huggingface_hub.utils.SafetensorsRepoMetadata
 
-### SafetensorsFileMetadata
+### SafetensorsFileMetadata[[huggingface_hub.utils.SafetensorsFileMetadata]]
 
 [[autodoc]] huggingface_hub.utils.SafetensorsFileMetadata
 
-### SpaceInfo
+### SpaceInfo[[huggingface_hub.hf_api.SpaceInfo]]
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
 
-### TensorInfo
+### TensorInfo[[huggingface_hub.utils.TensorInfo]]
 
 [[autodoc]] huggingface_hub.utils.TensorInfo
 
-### User
+### User[[huggingface_hub.User]]
 
 [[autodoc]] huggingface_hub.hf_api.User
 
-### UserLikes
+### UserLikes[[huggingface_hub.UserLikes]]
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
 
-## CommitOperation
+## CommitOperation[[huggingface_hub.CommitOperationAdd]]
 
 Below are the supported values for [`CommitOperation`]:
 
@@ -109,18 +109,18 @@ Below are the supported values for [`CommitOperation`]:
 
 [[autodoc]] CommitOperationCopy
 
-## CommitScheduler
+## CommitScheduler[[huggingface_hub.CommitScheduler]]
 
 [[autodoc]] CommitScheduler
 
-## Search helpers
+## Search helpers[[search-helpers]]
 
 Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
 
-### DatasetFilter
+### DatasetFilter[[huggingface_hub.DatasetFilter]]
 
 [[autodoc]] DatasetFilter
 
-### ModelFilter
+### ModelFilter[[huggingface_hub.ModelFilter]]
 
 [[autodoc]] ModelFilter
