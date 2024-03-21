@@ -10,11 +10,12 @@ from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+from fsspec.callbacks import _DEFAULT_CALLBACK
 from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
-from .file_download import hf_hub_url
+from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
     EntryNotFoundError,
@@ -590,6 +591,31 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         if self.isdir(path):
             url = url.replace("/resolve/", "/tree/", 1)
         return url
+
+    def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs):
+        """Copy single remote file to local"""
+        if not isinstance(lpath, str):
+            # for now, let's speed-up download only if destination is a path (instead of a filelike object)
+            return super().get_file(rpath, lpath, callback, outfile, **kwargs)
+
+        if self.isdir(rpath):
+            os.makedirs(lpath, exist_ok=True)
+            return None
+
+        resolve_remote_path = self.resolve_path(rpath)
+
+        os.makedirs(self._parent(lpath), exist_ok=True)
+        with open(lpath, "wb") as local_file:  # TODO: handle callback correctly
+            http_get(
+                url=hf_hub_url(
+                    repo_id=resolve_remote_path.repo_id,
+                    revision=resolve_remote_path.revision,
+                    filename=resolve_remote_path.path_in_repo,
+                    repo_type=resolve_remote_path.repo_type,
+                    endpoint=self.endpoint,
+                ),
+                temp_file=local_file,
+            )
 
     @property
     def transaction(self):
