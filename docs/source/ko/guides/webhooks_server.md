@@ -2,38 +2,38 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Webhooks Server
+# 웹훅 서버[[webhooks-server]]
 
-Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
-all repos belonging to particular users/organizations you're interested in following. This guide will explain how to
-leverage `huggingface_hub` to create a server listening to webhooks and deploy it to a Space. It assumes you are
-familiar with the concept of webhooks on the Huggingface Hub. To learn more about webhooks themselves, you can read
-this [guide](https://huggingface.co/docs/hub/webhooks) first.
+웹훅은 MLOps 관련 기능의 기반이 됩니다. 이를 통해 특정 저장소의 새로운 변경 사항을 수신하거나
+관심 있는 특정 사용자/조직에 속한 모든 저장소를 수신할 수 있습니다. 
+이 가이드에서는 `huggingface_hub`를 활용하여 웹훅을 수신하는 서버를 만들고 Space에 배포하는 방법을 설명합니다. 
+이를 위해서는 Huggingface Hub의 웹훅 개념에 대해 익숙해야 합니다. 
+웹훅 자체에 대해 더 자세히 알아보려면 이 [가이드](https://huggingface.co/docs/hub/webhooks)를 먼저 읽어보세요.  
 
-The base class that we will use in this guide is [`WebhooksServer`]. It is a class for easily configuring a server that
-can receive webhooks from the Huggingface Hub. The server is based on a [Gradio](https://gradio.app/) app. It has a UI
-to display instructions for you or your users and an API to listen to webhooks.
+이 가이드에서 사용할 기본 클래스는 [`WebhooksServer`]입니다. 
+이 클래스는 Huggingface Hub에서 웹훅을 받을 수 있는 서버를 쉽게 구성할 수 있습니다. 서버는 [Gradio](https://gradio.app/) 앱을 기반으로 합니다. 
+이 서버에는 사용자나 사용자를 위한 지침을 표시하는 UI와 웹훅을 수신하는 API가 있습니다.
 
 <Tip>
 
-To see a running example of a webhook server, check out the [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)
-one. It is a Space that launches ephemeral environments when a PR is opened on a Space.
+웹훅 서버의 실행 예시를 보려면 [Spaces CI Bot](https://huggingface.co/spaces/spaces-ci-bot/webhook)을 확인하세요. 
+이것은 Space의 PR이 열릴 때마다 임시 환경을 실행하는 Space입니다.
 
 </Tip>
 
 <Tip warning={true}>
 
-This is an [experimental feature](../package_reference/environment_variables#hfhubdisableexperimentalwarning). This
-means that we are still working on improving the API. Breaking changes might be introduced in the future without prior
-notice. Make sure to pin the version of `huggingface_hub` in your requirements.
+이것은 [실험적 기능](../package_reference/environment_variables#hfhubdisableexperimentalwarning)입니다. 
+우리는 여전히 API 개선을 위해 작업 중입니다. 향후 사전 통지 없이 주요 변경 사항이 도입될 수 있습니다. 
+requirements에서 `huggingface_hub`의 버전을 고정하는 것이 좋습니다.
 
 </Tip>
 
 
-## Create an endpoint
+## 엔드포인트 생성[[create-an-endpoint]]
 
-Implementing a webhook endpoint is as simple as decorating a function. Let's see a first example to explain the main
-concepts:
+웹훅 엔드포인트를 구현하는 것은 함수에 데코레이터를 추가하는 것만큼 간단합니다. 
+주요 개념을 설명하기 위해 첫 번째 예시를 살펴보겠습니다:
 
 ```python
 # app.py
@@ -42,11 +42,11 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # Trigger a training job if a dataset is updated
+        # 데이터셋이 업데이트되면 학습 작업을 트리거합니다.
         ...
 ```
 
-Save this snippet in a file called `'app.py'` and run it with `'python app.py'`. You should see a message like this:
+이 코드 스니펫을 `'app.py'`라는 파일에 저장하고 `'python app.py'`로 실행하면 다음과 같은 메시지가 표시될 것입니다:
 
 ```text
 Webhook secret is not defined. This means your webhook endpoints will be open to everyone.
@@ -63,71 +63,71 @@ Webhooks are correctly setup and ready to use:
 Go to https://huggingface.co/settings/webhooks to setup your webhooks.
 ```
 
-Good job! You just launched a webhook server! Let's break down what happened exactly:
+축하합니다! 웹훅 서버를 실행했습니다! 정확히 어떤 일이 일어났는지 살펴보겠습니다:
 
-1. By decorating a function with [`webhook_endpoint`], a [`WebhooksServer`] object has been created in the background.
-As you can see, this server is a Gradio app running on http://127.0.0.1:7860. If you open this URL in your browser, you
-will see a landing page with instructions about the registered webhooks.
-2. A Gradio app is a FastAPI server under the hood. A new POST route `/webhooks/trigger_training` has been added to it.
-This is the route that will listen to webhooks and run the `trigger_training` function when triggered. FastAPI will
-automatically parse the payload and pass it to the function as a [`WebhookPayload`] object. This is a `pydantic` object
-that contains all the information about the event that triggered the webhook.
-3. The Gradio app also opened a tunnel to receive requests from the internet. This is the interesting part: you can
-configure a Webhook on https://huggingface.co/settings/webhooks pointing to your local machine. This is useful for
-debugging your webhook server and quickly iterating before deploying it to a Space.
-4. Finally, the logs also tell you that your server is currently not secured by a secret. This is not problematic for
-local debugging but is to keep in mind for later.
+1. [`webhook_endpoint`]로 함수에 데코레이터를 추가하면 백그라운드에서 [`WebhooksServer`] 객체가 생성됩니다. 
+볼 수 있듯이 이 서버는 http://127.0.0.1:7860 에서 실행되는 Gradio 앱입니다. 
+이 URL을 브라우저에서 열면 등록된 웹훅에 대한 지침이 있는 랜딩 페이지를 볼 수 있습니다.
+2. Gradio 앱은 내부적으로 FastAPI 서버입니다. 새로운 POST 경로 `/webhooks/trigger_training`이 추가되었습니다. 
+이 경로는 웹훅을 수신하고 트리거될 때 `trigger_training` 함수를 실행합니다. 
+FastAPI는 자동으로 페이로드를 구문 분석하고 [`WebhookPayload`] 객체로 함수에 전달합니다. 
+이 `pydantic` 객체에는 웹훅을 트리거한 이벤트에 대한 모든 정보가 포함되어 있습니다.
+3. Gradio 앱은 인터넷에서 요청을 받을 수 있는 터널도 열었습니다. 
+이것이 흥미로운 부분입니다: https://huggingface.co/settings/webhooks 에서 로컬 머신을 가리키는 웹훅을 구성할 수 있습니다. 
+이를 통해 웹훅 서버를 디버깅하고 Space에 배포하기 전에 빠르게 반복할 수 있습니다.
+4. 마지막으로 로그에는 서버가 현재 비밀로 보호되지 않는다고 알려줍니다. 
+이것은 로컬 디버깅에는 문제가 되지 않지만 나중에 고려해야 할 사항입니다.
 
 <Tip warning={true}>
 
-By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
-once even if you have multiple endpoints.
+기본적으로 서버는 스크립트 끝에서 시작됩니다. 
+노트북에서 실행 중이라면 `decorated_function.run()`을 호출하여 서버를 수동으로 시작할 수 있습니다. 
+고유한 서버가 사용되므로 여러 엔드포인트가 있더라도 서버를 한 번만 시작하면 됩니다.
 
 </Tip>
 
 
-## Configure a Webhook
+## 웹훅 설정하기[[configure-a-webhook]]
 
-Now that you have a webhook server running, you want to configure a Webhook to start receiving messages.
-Go to https://huggingface.co/settings/webhooks, click on "Add a new webhook" and configure your Webhook. Set the target
-repositories you want to watch and the Webhook URL, here `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`.
+웹훅 서버를 실행하고 있으므로, 이제 메시지를 수신하기 위해 웹훅을 구성해야 합니다.
+https://huggingface.co/settings/webhooks 로 이동하여 "Add a new webhook"을 클릭하고 웹훅을 구성하세요. 
+모니터링할 대상 저장소와 웹훅 URL `https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_training`을 설정하세요.
 
 <div class="flex justify-center">
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/configure_webhook.png"/>
 </div>
 
-And that's it! You can now trigger that webhook by updating the target repository (e.g. push a commit). Check the
-Activity tab of your Webhook to see the events that have been triggered. Now that you have a working setup, you can
-test it and quickly iterate. If you modify your code and restart the server, your public URL might change. Make sure
-to update the webhook configuration on the Hub if needed.
+그렇게 하면 됩니다! 이제 대상 저장소를 업데이트하면(예: 커밋 푸시) 웹훅을 트리거할 수 있습니다. 
+웹훅의 Activity 탭에서 트리거된 이벤트를 확인할 수 있습니다. 이제 작동하는 설정이 있으므로 테스트하고 빠르게 반복할 수 있습니다. 
+코드를 수정하고 서버를 다시 시작하면 공개 URL이 변경될 수 있습니다. 
+필요한 경우 Hub에서 웹훅 구성을 업데이트하세요.
 
-## Deploy to a Space
+## Space에 배포하기[[deploy-to-a-space]]
 
-Now that you have a working webhook server, the goal is to deploy it to a Space. Go to https://huggingface.co/new-space
-to create a Space. Give it a name, select the Gradio SDK and click on "Create Space". Upload your code to the Space
-in a file called `app.py`. Your Space will start automatically! For more details about Spaces, please refer to this
-[guide](https://huggingface.co/docs/hub/spaces-overview).
+이제 작동하는 웹훅 서버가 있으므로, 목표는 이를 Space에 배포하는 것입니다. https://huggingface.co/new-space 에 가서 Space를 생성합니다. 
+이름을 지정하고, Gradio SDK를 선택한 다음 "Create Space"를 클릭합니다. 코드를 `app.py` 파일로 Space에 업로드합니다.
+Space가 자동으로 시작됩니다!
+Space에 대한 자세한 내용은 이 [가이드](https://huggingface.co/docs/hub/spaces-overview)를 참조하세요.
 
-Your webhook server is now running on a public Space. If most cases, you will want to secure it with a secret. Go to
-your Space settings > Section "Repository secrets" > "Add a secret". Set the `WEBHOOK_SECRET` environment variable to
-the value of your choice. Go back to the [Webhooks settings](https://huggingface.co/settings/webhooks) and set the
-secret in the webhook configuration. Now, only requests with the correct secret will be accepted by your server.
+웹훅 서버가 이제 공개 Space에서 실행 중입니다. 대부분의 경우 비밀번호로 보안을 설정하고 싶을 것입니다.
+Space 설정 > "Repository secrets" 섹션 > "Add a secret" 로 이동합니다. `WEBHOOK_SECRET` 환경 변수에 원하는 값을 설정합니다. 
+[Webhooks 설정](https://huggingface.co/settings/webhooks)으로 돌아가서 웹훅 구성에 비밀번호를 설정합니다. 
+이제 올바른 비밀번호가 있는 요청만 서버에서 허용됩니다.
 
-And this is it! Your Space is now ready to receive webhooks from the Hub. Please keep in mind that if you run the Space
-on a free 'cpu-basic' hardware, it will be shut down after 48 hours of inactivity. If you need a permanent Space, you
-should consider setting to an [upgraded hardware](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
+그렇게 하면 됩니다! Space가 이제 Hub의 웹훅을 수신할 준비가 되었습니다.
+무료 'cpu-basic' 하드웨어에서 Space를 실행하면 48시간 동안 비활성화되면 종료된다는 점을 유념하세요. 
+영구적인 Space가 필요한 경우 [업그레이드된 하드웨어](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs)를 설정해야 합니다.
 
-## Advanced usage
+## 고급 사용법[[advanced-usage]]
 
-The guide above explained the quickest way to setup a [`WebhooksServer`]. In this section, we will see how to customize
-it further.
+위의 가이드에서는 [`WebhooksServer`]를 설정하는 가장 빠른 방법에 대해 설명했습니다. 
+이 섹션에서는 이를 더욱 사용자 정의하는 방법을 살펴보겠습니다.
 
-### Multiple endpoints
+### 다중 엔드포인트[[multiple-endpoints]]
 
-You can register multiple endpoints on the same server. For example, you might want to have one endpoint to trigger
-a training job and another one to trigger a model evaluation. You can do this by adding multiple `@webhook_endpoint`
-decorators:
+동일한 서버에 여러 엔드포인트를 등록할 수 있습니다. 
+예를 들어, 하나의 엔드포인트는 학습 작업을 트리거하고 다른 엔드포인트는 모델 평가를 트리거하도록 할 수 있습니다. 
+이를 위해 여러 개의 `@webhook_endpoint` 데코레이터를 추가하면 됩니다:
 
 ```python
 # app.py
@@ -136,17 +136,17 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # Trigger a training job if a dataset is updated
+        # 데이터셋이 업데이트되면 학습 작업을 트리거합니다.
         ...
 
 @webhook_endpoint
 async def trigger_evaluation(payload: WebhookPayload) -> None:
     if payload.repo.type == "model" and payload.event.action == "update":
-        # Trigger an evaluation job if a model is updated
+        # 모델이 업데이트되면 평가 작업을 트리거합니다. 
         ...
 ```
 
-Which will create two endpoints:
+이렇게 하면 두 개의 엔드포인트가 생성됩니다:
 
 ```text
 (...)
@@ -155,45 +155,45 @@ Webhooks are correctly setup and ready to use:
   - POST https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_evaluation
 ```
 
-### Custom server
+### 사용자 정의 서버[[custom-server]]
 
-To get more flexibility, you can also create a [`WebhooksServer`] object directly. This is useful if you want to
-customize the landing page of your server. You can do this by passing a [Gradio UI](https://gradio.app/docs/#blocks)
-that will overwrite the default one. For example, you can add instructions for your users or add a form to manually
-trigger the webhooks. When creating a [`WebhooksServer`], you can register new webhooks using the
-[`~WebhooksServer.add_webhook`] decorator.
+더 많은 유연성을 얻으려면 [`WebhooksServer`] 객체를 직접 생성할 수 있습니다. 
+이것은 서버의 랜딩 페이지를 커스터마이징하려는 경우에 유용합니다. 
+기본 페이지를 덮어쓸 [Gradio UI](https://gradio.app/docs/#blocks)를 전달하여 이렇게 할 수 있습니다. 
+예를 들어, 사용자를 위한 지침을 추가하거나 웹훅을 수동으로 트리거할 수 있는 폼을 추가할 수 있습니다. 
+[`WebhooksServer`]를 생성할 때, [`~WebhooksServer.add_webhook`] 데코레이터를 사용하여 새로운 웹훅을 등록할 수 있습니다.
 
-Here is a complete example:
+전체 예제는 다음과 같습니다:
 
 ```python
 import gradio as gr
 from fastapi import Request
 from huggingface_hub import WebhooksServer, WebhookPayload
 
-# 1. Define  UI
+# 1. UI 정의
 with gr.Blocks() as ui:
     ...
 
-# 2. Create WebhooksServer with custom UI and secret
+# 2. 사용자 정의 UI와 시크릿으로 WebhooksServer 생성
 app = WebhooksServer(ui=ui, webhook_secret="my_secret_key")
 
-# 3. Register webhook with explicit name
+# 3. 명시적 이름으로 웹훅 등록
 @app.add_webhook("/say_hello")
 async def hello(payload: WebhookPayload):
     return {"message": "hello"}
 
-# 4. Register webhook with implicit name
+# 4. 암시적 이름으로 웹훅 등록
 @app.add_webhook
 async def goodbye(payload: WebhookPayload):
     return {"message": "goodbye"}
 
-# 5. Start server (optional)
+# 5. 서버 시작 (선택 사항)
 app.run()
 ```
 
-1. We define a custom UI using Gradio blocks. This UI will be displayed on the landing page of the server.
-2. We create a [`WebhooksServer`] object with a custom UI and a secret. The secret is optional and can be set with
-the `WEBHOOK_SECRET` environment variable.
-3. We register a webhook with an explicit name. This will create an endpoint at `/webhooks/say_hello`.
-4. We register a webhook with an implicit name. This will create an endpoint at `/webhooks/goodbye`.
-5. We start the server. This is optional as your server will automatically be started at the end of the script.
+1. Gradio 블록을 사용하여 사용자 정의 UI를 정의합니다. 이 UI는 서버의 랜딩 페이지에 표시됩니다.
+2. 사용자 정의 UI와 시크릿으로 [`WebhooksServer`] 객체를 생성합니다. 
+시크릿은 선택사항이며 `WEBHOOK_SECRET` 환경 변수로 설정할 수 있습니다. 
+3. 명시적 이름으로 웹훅을 등록합니다. 이렇게 하면 `/webhooks/say_hello` 엔드포인트가 생성됩니다.
+4. 암시적 이름으로 웹훅을 등록합니다. 이렇게 하면 `/webhooks/goodbye` 엔드포인트가 생성됩니다.
+5. 서버를 시작합니다. 이것은 선택사항이며 스크립트 끝에서 자동으로 서버가 시작됩니다.
