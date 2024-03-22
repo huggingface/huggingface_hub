@@ -2,11 +2,11 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 허깅 페이스 허브에서 파일 시스템 API를 통해 상호작용
+# Hugging Face Hub에서 파일 시스템 API를 통해 상호작용하기[[interact-with-the-hub-through-the-filesystem-api]]
 
-`huggingface_hub` 라이브러리는 [`HfApi`] 외에도 허깅 페이스 허브에 대한 파이썬식 [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) 파일 인터페이스인 [`HfFileSystem`]을 제공합니다. [`HfFileSystem`]은 [`HfApi`] 위에 구축되어 있으며 `cp`, `mv`, `ls`, `du`, `glob`, `get_file` 및 `put_file`과 같은 전형적인 파일 시스템 스타일 작업을 제공합니다.
+`huggingface_hub` 라이브러리는 [`HfApi`] 외에도 Hugging Face Hub에 대한 파이써닉한 [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) 파일 인터페이스인 [`HfFileSystem`]을 제공합니다. [`HfFileSystem`]은 [`HfApi`] 위에 구축되어 있으며 `cp`, `mv`, `ls`, `du`, `glob`, `get_file` 및 `put_file`과 같은 전형적인 파일 시스템 스타일 작업을 제공합니다.
 
-## 사용법
+## 사용법[[usage]]
 
 ```python
 >>> from huggingface_hub import HfFileSystem
@@ -33,11 +33,11 @@ rendered properly in your Markdown viewer.
 ...     f.write("Fantastic movie!,good")
 ```
 
-선택적 `revision` 인수는 브랜치, 태그 이름 또는 커밋 해시와 같은 특정 커밋에서 작업을 실행하는 데 전달될 수 있습니다.
+선택적 `revision` 인수를 전달하여 브랜치, 태그 이름 또는 커밋 해시와 같은 특정 커밋에서 작업을 실행할 수 있습니다.
 
-파이썬 기본 `open`과 달리 `fsspec`의 `open`은 바이너리 모드 `"rb"`로 기본 설정됩니다. 이것은 텍스트 모드에서 읽기 위해 `"r"`, 쓰기 위해 `"w"`로 모드를 명시적으로 설정해야 함을 의미합니다. 파일에 추가하기(모드 `"a"` 및 `"ab"`)는 아직 지원되지 않습니다.
+파이썬에 내장된 `open`과 달리 `fsspec`의 `open`은 바이너리 모드 `"rb"`로 기본 설정됩니다. 이것은 텍스트 모드에서 읽기 위해 `"r"`, 쓰기 위해 `"w"`로 모드를 명시적으로 설정해야 함을 의미합니다. 파일에 추가하기(모드 `"a"` 및 `"ab"`)는 아직 지원되지 않습니다.
 
-## 통합
+## 통합[[integrations]]
 
 [`HfFileSystem`]은 URL이 다음 구문을 따르는 경우 `fsspec`을 통합하는 모든 라이브러리에서 사용할 수 있습니다.
 
@@ -45,11 +45,11 @@ rendered properly in your Markdown viewer.
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
-여기서 `repo_type_prefix`는 데이터셋의 경우 `datasets/`, 공간의 경우 `spaces/`이며, 모델에는 URL에 접두사가 필요하지 않습니다.
+여기서 `repo_type_prefix`는 Datasets의 경우 `datasets/`, Spaces의 경우 `spaces/`이며, 모델에는 URL에 접두사가 필요하지 않습니다.
 
-[`HfFileSystem`]이 허브와의 상호작용을 단순화하는 몇 가지 흥미로운 통합 사례는 다음과 같습니다:
+[`HfFileSystem`]이 Hub와의 상호작용을 단순화하는 몇 가지 흥미로운 통합 사례는 다음과 같습니다:
 
-* 허브 저장소에서 [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) DataFrame 읽기/쓰기:
+* Hub 저장소에서 [Pandas](https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#reading-writing-remote-files) DataFrame 읽기/쓰기:
 
   ```python
   >>> import pandas as pd
@@ -76,7 +76,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
   >>> df = duckdb.query(f"SELECT * FROM '{fs_query_file}' LIMIT 10").df()
   ```
 
-* [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec)를 사용하여 허브를 배열 저장소로 사용:
+* [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec)를 사용하여 Hub를 배열 저장소로 사용:
 
   ```python
   >>> import numpy as np
@@ -95,9 +95,9 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
   ...    first_row = root["embeddings/experiment_0"][0]
   ```
 
-## 인증
+## 인증[[authentication]]
 
-많은 경우에 허브와 상호작용하려면 허깅 페이스 계정에 로그인해야 합니다. 허브에서 인증 방법에 대해 자세히 알아보려면 문서의 [인증](../quick-start#authentication) 섹션을 참조하세요.
+대부분의 경우 Hub와 상호작용하려면 Hugging Face 계정에 로그인해야 합니다. Hub에서 인증 방법에 대해 자세히 알아보려면 문서의 [인증](../quick-start#authentication) 섹션을 참조하세요.
 
 또한 [`HfFileSystem`]에 `token`을 인수로 전달하여 프로그래밍 방식으로 로그인할 수 있습니다:
 
