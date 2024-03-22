@@ -419,7 +419,7 @@ class HfFileSystemTests(unittest.TestCase):
         # If partial read => should not download whole file
         with patch.object(self.hffs, "get_file") as mock:
             with self.hffs.open(self.text_file, "r") as f:
-                self.assertEqual(f.read(length=5), "dummy")
+                self.assertEqual(f.read(5), "dummy")
             mock.assert_not_called()
 
     def test_get_file_with_temporary_file(self):
