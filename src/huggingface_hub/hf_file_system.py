@@ -6,15 +6,24 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
+from pathlib import Path
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
-from fsspec.callbacks import _DEFAULT_CALLBACK, TqdmCallback
+from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
+from fsspec.utils import isfilelike
 from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
+from .constants import (
+    DEFAULT_REVISION,
+    ENDPOINT,
+    HF_HUB_ENABLE_HF_TRANSFER,
+    REPO_TYPE_MODEL,
+    REPO_TYPES_MAPPING,
+    REPO_TYPES_URL_PREFIXES,
+)
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
@@ -593,25 +602,34 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return url
 
     def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs):
-        """Copy single remote file to local"""
-        if not isinstance(lpath, str) or outfile is not None or (callback is not _DEFAULT_CALLBACK and not isinstance(callback, TqdmCallback)):
-            # for now, let's speed-up download only if destination is a path (instead of a filelike object) and
-            # outfile is None. In practice, this is the common use case in `datasets` library.
+        """Copy single remote file to local."""
+        unhandled_kwargs = set(kwargs.keys()) - {"revision"}
+        if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
+            # for now, let's not handle custom callbacks
+            # and let's not handle custom kwargs
             return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
-        # If remote path is a directory => create it and return
-        if self.isdir(rpath):
+        # Taken from https://github.com/fsspec/filesystem_spec/blob/47b445ae4c284a82dd15e0287b1ffc410e8fc470/fsspec/spec.py#L883
+        if isfilelike(lpath):
+            outfile = lpath
+        elif self.isdir(rpath):
             os.makedirs(lpath, exist_ok=True)
             return None
 
-        # Get info about the remote file
-        resolve_remote_path = self.resolve_path(rpath)
+        if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
+            os.makedirs(os.path.dirname(lpath), exist_ok=True)
+
+        # Open file if not already open
+        close_file = False
+        if outfile is None:
+            outfile = open(lpath, "wb")
+            close_file = True
+
+        # Custom implementation of `get_file` to use `http_get`.
+        resolve_remote_path = self.resolve_path(rpath, revision=kwargs.get("revision"))
         expected_size = self.info(rpath)["size"]
         callback.set_size(expected_size)
-
-        # Create parent directories and download file
-        os.makedirs(self._parent(lpath), exist_ok=True)
-        with open(lpath, "wb") as local_file:
+        try:
             http_get(
                 url=hf_hub_url(
                     repo_id=resolve_remote_path.repo_id,
@@ -620,13 +638,17 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     repo_type=resolve_remote_path.repo_type,
                     endpoint=self.endpoint,
                 ),
-                temp_file=local_file,
+                temp_file=outfile,
                 displayed_filename=rpath,
                 expected_size=expected_size,
                 resume_size=0,
                 headers=self._api._build_hf_headers(),
-                _tqdm_bar=getattr(callback, "tqdm", None),
+                _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
             )
+        finally:
+            # Close file only if we opened it ourselves
+            if close_file:
+                outfile.close()
 
     @property
     def transaction(self):
@@ -655,6 +677,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
+            raise
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
@@ -703,6 +726,35 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
+
+    def read(self, length=-1):
+        """Read remote file.
+
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
+        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
+        temporary file and read from there.
+        """
+        if self.mode == "rb" and (length is None or length == -1):
+            # Open a temporary file to store the downloaded content
+            if HF_HUB_ENABLE_HF_TRANSFER:
+                # if hf_transfer, we want to provide a real temporary file so hf_transfer can write concurrently to it
+                tmp_file = tempfile.NamedTemporaryFile()
+                local_path = tmp_file.name
+            else:
+                # otherwise, we don't care where the file is stored (e.g. in memory or on disk)
+                tmp_file = tempfile.TemporaryFile()
+                local_path = tmp_file
+
+            # Download
+            self.fs.get_file(self.resolved_path.unresolve(), local_path)
+
+            # Read, close and return
+            tmp_file.seek(0)
+            content = tmp_file.read()
+            tmp_file.close()
+            return content
+
+        return super().read(length)
 
     def url(self) -> str:
         return self.fs.url(self.path)
