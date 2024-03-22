@@ -594,18 +594,24 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs):
         """Copy single remote file to local"""
-        if not isinstance(lpath, str):
-            # for now, let's speed-up download only if destination is a path (instead of a filelike object)
+        if not (isinstance(lpath, str) and outfile is None):
+            # for now, let's speed-up download only if destination is a path (instead of a filelike object) and
+            # outfile is None. In practice, this is the common use case in `datasets` library.
             return super().get_file(rpath, lpath, callback, outfile, **kwargs)
 
+        # If remote path is a directory => create it and return
         if self.isdir(rpath):
             os.makedirs(lpath, exist_ok=True)
             return None
 
+        # Get info about the remote file
         resolve_remote_path = self.resolve_path(rpath)
+        expected_size = self.info(rpath)["size"]
+        callback.set_size(expected_size)
 
+        # Create parent directories and download file
         os.makedirs(self._parent(lpath), exist_ok=True)
-        with open(lpath, "wb") as local_file:  # TODO: handle callback correctly
+        with open(lpath, "wb") as local_file:
             http_get(
                 url=hf_hub_url(
                     repo_id=resolve_remote_path.repo_id,
@@ -615,6 +621,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     endpoint=self.endpoint,
                 ),
                 temp_file=local_file,
+                displayed_filename=rpath,
+                expected_size=expected_size,
+                resume_size=0,
+                headers=self._api._build_hf_headers(),
+                _tqdm_bar=callback.tqdm,
             )
 
     @property
@@ -721,7 +732,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
-        # avoid an unecessary .info() call to instantiate .details
+        # avoid an unnecessary .info() call to instantiate .details
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
