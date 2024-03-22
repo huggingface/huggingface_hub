@@ -603,6 +603,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """Copy single remote file to local."""
+        revision = kwargs.get("revision")
         unhandled_kwargs = set(kwargs.keys()) - {"revision"}
         if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
             # for now, let's not handle custom callbacks
@@ -624,10 +625,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         if outfile is None:
             outfile = open(lpath, "wb")
             close_file = True
+        initial_pos = outfile.tell()
 
         # Custom implementation of `get_file` to use `http_get`.
-        resolve_remote_path = self.resolve_path(rpath, revision=kwargs.get("revision"))
-        expected_size = self.info(rpath)["size"]
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        expected_size = self.info(rpath, revision=revision)["size"]
         callback.set_size(expected_size)
         try:
             http_get(
@@ -645,6 +647,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 headers=self._api._build_hf_headers(),
                 _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
             )
+            outfile.seek(initial_pos)
         finally:
             # Close file only if we opened it ourselves
             if close_file:
@@ -749,7 +752,6 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             self.fs.get_file(self.resolved_path.unresolve(), local_path)
 
             # Read, close and return
-            tmp_file.seek(0)
             content = tmp_file.read()
             tmp_file.close()
             return content
