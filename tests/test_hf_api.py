@@ -3791,3 +3791,17 @@ class AccessRequestAPITest(HfApiCommonTest):
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
         with self.assertRaises(HTTPError):
             self._api.cancel_access_request(self.repo_id, OTHER_USER)
+
+
+class UserApiTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()  # no auth!
+
+    def test_user_overview(self) -> None:
+        overview = self.api.get_user_overview(USER)
+        self.assertEqual(overview.user_type, "user")
+        self.assertEqual(overview.num_likes, 0)
+        self.assertEqual(overview.num_upvotes, 0)
+        self.assertEqual(overview.details, None)
+        self.assertEqual(overview.fullname, FULL_NAME)

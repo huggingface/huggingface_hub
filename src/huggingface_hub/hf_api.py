@@ -1197,12 +1197,45 @@ class User:
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
+        is_pro (`bool`):
+            Whether the user is a pro user.
+        num_models (`int`):
+            Number of models created by the user.
+        num_datasets (`int`):
+            Number of datasets created by the user.
+        num_spaces (`int`):
+            Number of spaces created by the user.
+        num_discussions (`int`):
+            Number of discussions initiated by the user.
+        num_papers (`int`):
+            Number of papers authored by the user.
+        num_upvotes (`int`):
+            Number of upvotes received by the user.
+        num_likes (`int`):
+            Number of likes given by the user.
+        user_type (`str`):
+            Type of user.
+        is_following (`bool`):
+            Whether the authenticated user is following this user.
+        details (`str`):
+            User's details.
     """
 
     # Metadata
     avatar_url: str
     username: str
     fullname: str
+    is_pro: bool
+    num_models: int
+    num_datasets: int
+    num_spaces: int
+    num_discussions: int
+    num_papers: int
+    num_upvotes: int
+    num_likes: int
+    user_type: str
+    is_following: bool
+    details: Optional[str]
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -8462,6 +8495,42 @@ class HfApi:
             if relpath_to_abspath[relpath] != ".gitattributes"
         ]
 
+    def get_user_overview(self, username: str) -> User:
+        """
+        Get an overview of a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get an overview of.
+
+        Returns:
+            `User`: A [`User`] object with the user's overview.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+        """
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
+
+        hf_raise_for_status(r)
+        user_data = r.json()
+        return User(
+            avatar_url=user_data.get("avatar_url"),
+            username=user_data["user"],
+            fullname=user_data.get("fullname"),
+            is_pro=user_data.get("isPro"),
+            num_models=user_data.get("numModels"),
+            num_datasets=user_data.get("numDatasets"),
+            num_spaces=user_data.get("numSpaces"),
+            num_discussions=user_data.get("numDiscussions"),
+            num_papers=user_data.get("numPapers"),
+            num_upvotes=user_data.get("numUpvotes"),
+            num_likes=user_data.get("numLikes"),
+            user_type=user_data.get("type"),
+            is_following=user_data.get("isFollowing"),
+            details=user_data.get("details"),
+        )
+
 
 def _prepare_upload_folder_additions(
     folder_path: Union[str, Path],
@@ -8630,3 +8699,6 @@ cancel_access_request = api.cancel_access_request
 accept_access_request = api.accept_access_request
 reject_access_request = api.reject_access_request
 grant_access = api.grant_access
+
+# User API
+get_user_overview = api.get_user_overview
