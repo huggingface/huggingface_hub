@@ -1238,6 +1238,33 @@ class User:
     details: Optional[str]
 
 
+@dataclass
+class OrganizationMember:
+    """
+    Contains information about the members of an organization on the Hub.
+
+    Attributes:
+        avatar_url (`str`):
+            URL of the member's avatar.
+        fullname (`str`):
+            Full name of the member.
+        is_pro (`bool`):
+            Whether the member is a pro user.
+        username (`str`):
+            Name of the member on the Hub (unique).
+        user_type (`str`):
+            Type of member.
+
+    """
+
+    # Metadata
+    avatar_url: str
+    fullname: str
+    is_pro: bool
+    username: str
+    user_type: str
+
+
 def future_compatible(fn: CallableT) -> CallableT:
     """Wrap a method of `HfApi` to handle `run_as_future=True`.
 
@@ -8530,6 +8557,38 @@ class HfApi:
             is_following=user_data.get("isFollowing"),
             details=user_data.get("details"),
         )
+
+    def get_organization_members(self, organization: str) -> List[OrganizationMember]:
+        """
+        Get the list of members of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get the members of.
+
+        Returns:
+            `List[OrganizationMembers]`: A list of [`OrganizationMember`] objects with the members of the organization.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the organization does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/organizations/{organization}/members")
+
+        hf_raise_for_status(r)
+
+        return [
+            OrganizationMember(
+                avatar_url=member.get("avatar_url"),
+                fullname=member.get("fullname"),
+                is_pro=member.get("isPro"),
+                username=member.get("user"),
+                user_type=member.get("type"),
+            )
+            for member in r.json()
+        ]
 
 
 def _prepare_upload_folder_additions(

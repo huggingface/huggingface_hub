@@ -3805,3 +3805,8 @@ class UserApiTest(unittest.TestCase):
         self.assertEqual(overview.num_upvotes, 0)
         self.assertEqual(overview.details, None)
         self.assertEqual(overview.fullname, FULL_NAME)
+
+    @with_production_testing
+    def test_organization_members(self) -> None:
+        members = self.api.get_organization_members("huggingface")
+        self.assertGreater(len(members), 1)
