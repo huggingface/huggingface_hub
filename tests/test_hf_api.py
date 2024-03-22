@@ -3810,3 +3810,11 @@ class UserApiTest(unittest.TestCase):
     def test_organization_members(self) -> None:
         members = self.api.get_organization_members("huggingface")
         self.assertGreater(len(members), 1)
+
+    def test_user_followers(self) -> None:
+        followers = self.api.get_user_followers(USER)
+        self.assertEqual(len(followers), 0)
+
+    def test_user_following(self) -> None:
+        following = self.api.get_user_following(USER)
+        self.assertEqual(len(following), 0)

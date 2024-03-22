@@ -8515,7 +8515,7 @@ class HfApi:
         hf_raise_for_status(r)
         user_data = r.json()
         return User(
-            avatar_url=user_data.get("avatar_url"),
+            avatar_url=user_data.get("avatarUrl"),
             username=user_data["user"],
             fullname=user_data.get("fullname"),
             is_pro=user_data.get("isPro"),
@@ -8554,13 +8554,77 @@ class HfApi:
 
         return [
             User(
-                avatar_url=member.get("avatar_url"),
+                avatar_url=member.get("avatarUrl"),
                 fullname=member.get("fullname"),
                 is_pro=member.get("isPro"),
                 username=member.get("user"),
                 user_type=member.get("type"),
             )
             for member in r.json()
+        ]
+
+    def get_user_followers(self, username: str) -> List[User]:
+        """
+        Get the list of followers of a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get the followers of.
+
+        Returns:
+            `List[User]`: A list of [`User`] objects with the followers of the user.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/followers")
+
+        hf_raise_for_status(r)
+
+        return [
+            User(
+                avatar_url=follower.get("avatarUrl"),
+                fullname=follower.get("fullname"),
+                is_pro=follower.get("isPro"),
+                username=follower.get("user"),
+                user_type=follower.get("type"),
+            )
+            for follower in r.json()
+        ]
+
+    def get_user_following(self, username: str) -> List[User]:
+        """
+        Get the list of users followed by a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get the users followed by.
+
+        Returns:
+            `List[User]`: A list of [`User`] objects with the users followed by the user.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/following")
+
+        hf_raise_for_status(r)
+
+        return [
+            User(
+                avatar_url=following.get("avatarUrl"),
+                fullname=following.get("fullname"),
+                is_pro=following.get("isPro"),
+                username=following.get("user"),
+                user_type=following.get("type"),
+            )
+            for following in r.json()
         ]
 
 
@@ -8734,3 +8798,6 @@ grant_access = api.grant_access
 
 # User API
 get_user_overview = api.get_user_overview
+get_organization_members = api.get_organization_members
+get_user_followers = api.get_user_followers
+get_user_following = api.get_user_following
