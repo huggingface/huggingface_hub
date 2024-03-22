@@ -10,7 +10,7 @@ from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
-from fsspec.callbacks import _DEFAULT_CALLBACK
+from fsspec.callbacks import _DEFAULT_CALLBACK, TqdmCallback
 from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
@@ -594,10 +594,10 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs):
         """Copy single remote file to local"""
-        if not (isinstance(lpath, str) and outfile is None):
+        if not isinstance(lpath, str) or outfile is not None or (callback is not _DEFAULT_CALLBACK and not isinstance(callback, TqdmCallback)):
             # for now, let's speed-up download only if destination is a path (instead of a filelike object) and
             # outfile is None. In practice, this is the common use case in `datasets` library.
-            return super().get_file(rpath, lpath, callback, outfile, **kwargs)
+            return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
         # If remote path is a directory => create it and return
         if self.isdir(rpath):
@@ -625,7 +625,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 expected_size=expected_size,
                 resume_size=0,
                 headers=self._api._build_hf_headers(),
-                _tqdm_bar=callback.tqdm,
+                _tqdm_bar=getattr(callback, "tqdm", None),
             )
 
     @property
