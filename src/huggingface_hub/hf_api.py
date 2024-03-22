@@ -1199,25 +1199,25 @@ class User:
             User's full name.
         is_pro (`bool`):
             Whether the user is a pro user.
-        num_models (`int`):
-            Number of models created by the user.
-        num_datasets (`int`):
-            Number of datasets created by the user.
-        num_spaces (`int`):
-            Number of spaces created by the user.
-        num_discussions (`int`):
-            Number of discussions initiated by the user.
-        num_papers (`int`):
-            Number of papers authored by the user.
-        num_upvotes (`int`):
-            Number of upvotes received by the user.
-        num_likes (`int`):
-            Number of likes given by the user.
         user_type (`str`):
             Type of user.
-        is_following (`bool`):
+        num_models (`int`, *optional*):
+            Number of models created by the user.
+        num_datasets (`int`, *optional*):
+            Number of datasets created by the user.
+        num_spaces (`int`, *optional*):
+            Number of spaces created by the user.
+        num_discussions (`int`, *optional*):
+            Number of discussions initiated by the user.
+        num_papers (`int`, *optional*):
+            Number of papers authored by the user.
+        num_upvotes (`int`, *optional*):
+            Number of upvotes received by the user.
+        num_likes (`int`, *optional*):
+            Number of likes given by the user.
+        is_following (`bool`, *optional*):
             Whether the authenticated user is following this user.
-        details (`str`):
+        details (`str`, *optional*):
             User's details.
     """
 
@@ -1226,43 +1226,16 @@ class User:
     username: str
     fullname: str
     is_pro: bool
-    num_models: int
-    num_datasets: int
-    num_spaces: int
-    num_discussions: int
-    num_papers: int
-    num_upvotes: int
-    num_likes: int
     user_type: str
-    is_following: bool
-    details: Optional[str]
-
-
-@dataclass
-class OrganizationMember:
-    """
-    Contains information about the members of an organization on the Hub.
-
-    Attributes:
-        avatar_url (`str`):
-            URL of the member's avatar.
-        fullname (`str`):
-            Full name of the member.
-        is_pro (`bool`):
-            Whether the member is a pro user.
-        username (`str`):
-            Name of the member on the Hub (unique).
-        user_type (`str`):
-            Type of member.
-
-    """
-
-    # Metadata
-    avatar_url: str
-    fullname: str
-    is_pro: bool
-    username: str
-    user_type: str
+    num_models: Optional[int] = None
+    num_datasets: Optional[int] = None
+    num_spaces: Optional[int] = None
+    num_discussions: Optional[int] = None
+    num_papers: Optional[int] = None
+    num_upvotes: Optional[int] = None
+    num_likes: Optional[int] = None
+    is_following: Optional[bool] = None
+    details: Optional[str] = None
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -8558,7 +8531,7 @@ class HfApi:
             details=user_data.get("details"),
         )
 
-    def get_organization_members(self, organization: str) -> List[OrganizationMember]:
+    def get_organization_members(self, organization: str) -> List[User]:
         """
         Get the list of members of an organization on the Hub.
 
@@ -8567,7 +8540,7 @@ class HfApi:
                 Name of the organization to get the members of.
 
         Returns:
-            `List[OrganizationMembers]`: A list of [`OrganizationMember`] objects with the members of the organization.
+            `List[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
             `HTTPError`:
@@ -8580,7 +8553,7 @@ class HfApi:
         hf_raise_for_status(r)
 
         return [
-            OrganizationMember(
+            User(
                 avatar_url=member.get("avatar_url"),
                 fullname=member.get("fullname"),
                 is_pro=member.get("isPro"),
