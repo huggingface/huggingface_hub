@@ -740,21 +740,17 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         if self.mode == "rb" and (length is None or length == -1):
             # Open a temporary file to store the downloaded content
             if HF_HUB_ENABLE_HF_TRANSFER:
-                # if hf_transfer, we want to provide a real temporary file so hf_transfer can write concurrently to it
-                tmp_file = tempfile.NamedTemporaryFile()
-                local_path = tmp_file.name
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    # if hf_transfer, we want to provide a real temporary file so hf_transfer can write concurrently to it
+                    tmp_path = os.path.join(tmp_dir, "tmp_file")
+                    self.fs.get_file(self.resolved_path.unresolve(), tmp_path)
+                    with open(tmp_path, "rb") as f:
+                        return f.read()
             else:
                 # otherwise, we don't care where the file is stored (e.g. in memory or on disk)
-                tmp_file = tempfile.TemporaryFile()
-                local_path = tmp_file
-
-            # Download
-            self.fs.get_file(self.resolved_path.unresolve(), local_path)
-
-            # Read, close and return
-            content = tmp_file.read()
-            tmp_file.close()
-            return content
+                with tempfile.TemporaryFile() as tmp_file:
+                    self.fs.get_file(self.resolved_path.unresolve(), tmp_file)
+                    return tmp_file.read()
 
         return super().read(length)
 

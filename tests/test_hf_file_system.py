@@ -1,5 +1,6 @@
 import datetime
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -423,27 +424,31 @@ class HfFileSystemTests(unittest.TestCase):
             mock.assert_not_called()
 
     def test_get_file_with_temporary_file(self):
+        # Test passing a file object works => happens "in-memory" for posix systems
         with tempfile.TemporaryFile() as temp_file:
             self.hffs.get_file(self.text_file, temp_file)
             temp_file.seek(0)
             assert temp_file.read() == b"dummy text data"
 
-    def test_get_file_with_named_temporary_file(self):
+    def test_get_file_with_temporary_folder(self):
         # Test passing a file path works => compatible with hf_transfer
-        with tempfile.NamedTemporaryFile() as temp_file:
-            self.hffs.get_file(self.text_file, temp_file.name)
-            with open(temp_file.name, "rb") as f:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = os.path.join(temp_dir, "temp_file.txt")
+            self.hffs.get_file(self.text_file, temp_file)
+            with open(temp_file, "rb") as f:
                 assert f.read() == b"dummy text data"
 
     def test_get_file_with_kwargs(self):
         # If custom kwargs are passed, the function should still work but defaults to base implementation
         with patch.object(hf_file_system, "http_get") as mock:
-            with tempfile.NamedTemporaryFile() as temp_file:
-                self.hffs.get_file(self.text_file, temp_file.name, custom_kwarg=123)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = os.path.join(temp_dir, "temp_file.txt")
+                self.hffs.get_file(self.text_file, temp_file, custom_kwarg=123)
             mock.assert_not_called()
 
-            with tempfile.NamedTemporaryFile() as temp_file:
-                self.hffs.get_file(self.text_file, temp_file.name)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = os.path.join(temp_dir, "temp_file.txt")
+                self.hffs.get_file(self.text_file, temp_file)
             mock.assert_called_once()
 
     def test_get_file_on_folder(self):
