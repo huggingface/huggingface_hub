@@ -50,13 +50,16 @@ def parse_datetime(date_string: str) -> datetime:
         # set the timezone to UTC.
         # See https://en.wikipedia.org/wiki/ISO_8601#Coordinated_Universal_Time_(UTC)
         # Taken from https://stackoverflow.com/a/3168394.
-        if len(date_string) == 30:
-            # Means timezoned-timestamp with nanoseconds precision. We need to truncate the last 3 digits.
-            date_string = date_string[:-4] + "Z"
+        # Handle datetime with milliseconds
         dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
-        return dt.replace(tzinfo=timezone.utc)  # Set explicit timezone
-    except ValueError as e:
-        raise ValueError(
-            f"Cannot parse '{date_string}' as a datetime. Date string is expected to"
-            " follow '%Y-%m-%dT%H:%M:%S.%fZ' pattern."
-        ) from e
+    except ValueError:
+        try:
+            # Handle datetime without milliseconds
+            dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as e:
+            raise ValueError(
+                f"Cannot parse '{date_string}' as a datetime. Date string is expected to"
+                " follow '%Y-%m-%dT%H:%M:%S.%fZ' or '%Y-%m-%dT%H:%M:%SZ' pattern."
+            ) from e
+    
+    return dt.replace(tzinfo=timezone.utc)  # Set explicit timezone
