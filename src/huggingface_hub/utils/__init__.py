@@ -16,7 +16,12 @@
 
 # ruff: noqa: F401
 
-from huggingface_hub.errors import LocalTokenNotFoundError, NotASafetensorsRepoError, SafetensorsParsingError
+from huggingface_hub.errors import (
+    LocalTokenNotFoundError,
+    NotASafetensorsRepoError,
+    OfflineModeIsEnabled,
+    SafetensorsParsingError,
+)
 
 from . import tqdm as _tqdm  # _tqdm is the module
 from ._cache_assets import cached_assets_path

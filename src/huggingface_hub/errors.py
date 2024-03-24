@@ -70,3 +70,10 @@ class NotASafetensorsRepoError(Exception):
 
 class LocalTokenNotFoundError(EnvironmentError):
     """Raised if local token is required but not found."""
+
+
+# HTTP ERRORS
+
+
+class OfflineModeIsEnabled(ConnectionError):
+    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
