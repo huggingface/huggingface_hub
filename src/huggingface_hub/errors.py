@@ -36,3 +36,14 @@ class IncompleteGenerationError(TextGenerationError):
 
 class UnknownError(TextGenerationError):
     pass
+
+
+# INFERENCE ENDPOINT ERRORS
+
+
+class InferenceEndpointError(Exception):
+    """Generic exception when dealing with Inference Endpoints."""
+
+
+class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
+    """Exception for timeouts while waiting for Inference Endpoint."""
