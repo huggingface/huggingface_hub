@@ -16,6 +16,8 @@
 
 # ruff: noqa: F401
 
+from huggingface_hub.errors import NotASafetensorsRepoError, SafetensorsParsingError
+
 from . import tqdm as _tqdm  # _tqdm is the module
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
@@ -97,9 +99,7 @@ from ._runtime import (
     is_torch_available,
 )
 from ._safetensors import (
-    NotASafetensorsRepoError,
     SafetensorsFileMetadata,
-    SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
 )

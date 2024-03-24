@@ -47,3 +47,19 @@ class InferenceEndpointError(Exception):
 
 class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
     """Exception for timeouts while waiting for Inference Endpoint."""
+
+
+# SAFETENSORS ERRORS
+
+
+class SafetensorsParsingError(Exception):
+    """Raised when failing to parse a safetensors file metadata.
+
+    This can be the case if the file is not a safetensors file or does not respect the specification.
+    """
+
+
+class NotASafetensorsRepoError(Exception):
+    """Raised when a repo is not a Safetensors repo i.e. doesn't have either a `model.safetensors` or a
+    `model.safetensors.index.json` file.
+    """
