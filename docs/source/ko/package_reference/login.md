@@ -2,24 +2,25 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Login and logout
+# 로그인 및 로그아웃
 
-The `huggingface_hub` library allows users to programmatically login and logout the machine to the Hub.
+`huggingface_hub` 라이브러리를 사용하면 사용자가 프로그래밍 방식으로 허브에 로그인하고 로그아웃할 수 있습니다.
 
-For more details about authentication, check out [this section](../quick-start#authentication).
+인증에 대한 자세한 내용은 [이 섹션](../quick-start#authentication)을 확인하세요.
 
-## login
+
+## 로그인
 
 [[autodoc]] login
 
-## interpreter_login
+## 인터프리터 로그인 
 
 [[autodoc]] interpreter_login
 
-## notebook_login
+## 노트북 로그인
 
 [[autodoc]] notebook_login
 
-## logout
+## 로그아웃
 
 [[autodoc]] logout
