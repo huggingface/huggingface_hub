@@ -63,3 +63,10 @@ class NotASafetensorsRepoError(Exception):
     """Raised when a repo is not a Safetensors repo i.e. doesn't have either a `model.safetensors` or a
     `model.safetensors.index.json` file.
     """
+
+
+# HEADERS ERRORS
+
+
+class LocalTokenNotFoundError(EnvironmentError):
+    """Raised if local token is required but not found."""
