@@ -10,3 +10,11 @@
   sections:
     - local: concepts/git_vs_http
       title: Git ou HTTP?
+- title: "Guides"
+  sections:
+    - local: guides/cli
+      title: Utiliser le CLI
+    - local: guides/community
+      title: Community Tab
+    - local: guides/collections
+      title: Collections
