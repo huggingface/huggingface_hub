@@ -22,6 +22,8 @@
       title: (번역 중) Search
     - local: in_translation
       title: (번역 중) Inference
+    - local: guides/inference_endpoints
+      title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) Community Tab
     - local: in_translation
