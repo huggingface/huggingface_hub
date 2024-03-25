@@ -76,6 +76,29 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
+class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
+    def _save_pretrained(self, save_directory: Path) -> None:
+        return
+
+    @classmethod
+    def _from_pretrained(
+        cls,
+        model_id: Union[str, Path],
+        config: Optional[Dict] = None,
+        **kwargs,
+    ) -> "BaseModel":
+        return cls(**kwargs)
+
+
+class DummyModelSavingConfig(ModelHubMixin):
+    def _save_pretrained(self, save_directory: Path) -> None:
+        """Implementation that uses `config.json` to serialize the config.
+
+        This file must not be overwritten by the default config saved by `ModelHubMixin`.
+        """
+        (save_directory / "config.json").write_text(json.dumps({"custom_config": "custom_config"}))
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -156,17 +179,33 @@ class HubMixinTest(unittest.TestCase):
 
     def test_init_accepts_kwargs_with_config(self):
         """
-        Test that if `__init__` accepts **kwargs and config file exists then the 'config' kwargs is passed.
+        Test that if `config_inject_mode="as_kwargs"` and config file exists then the 'config' kwarg is passed.
 
-        Regression test. See https://github.com/huggingface/huggingface_hub/pull/2058.
+        Regression test.
+        See https://github.com/huggingface/huggingface_hub/pull/2058.
+        And https://github.com/huggingface/huggingface_hub/pull/2099.
         """
-        model = DummyModelWithKwargs()
+        model = DummyModelFromPretrainedExpectsConfig()
         model.save_pretrained(self.cache_dir, config=CONFIG_AS_DICT)
         with patch.object(
-            DummyModelWithKwargs, "_from_pretrained", return_value=DummyModelWithKwargs()
+            DummyModelFromPretrainedExpectsConfig,
+            "_from_pretrained",
+            return_value=DummyModelFromPretrainedExpectsConfig(),
         ) as from_pretrained_mock:
-            model = DummyModelWithKwargs.from_pretrained(self.cache_dir)
-            assert "config" in from_pretrained_mock.call_args_list[0].kwargs
+            DummyModelFromPretrainedExpectsConfig.from_pretrained(self.cache_dir)
+        assert "config" in from_pretrained_mock.call_args_list[0].kwargs
+
+    def test_init_accepts_kwargs_save_and_load(self):
+        model = DummyModelWithKwargs(something="else")
+        model.save_pretrained(self.cache_dir)
+        assert model._hub_mixin_config == {"something": "else"}
+
+        with patch.object(DummyModelWithKwargs, "__init__", return_value=None) as init_call_mock:
+            DummyModelWithKwargs.from_pretrained(self.cache_dir)
+
+        # 'something' is passed to __init__ both as kwarg and in config.
+        init_kwargs = init_call_mock.call_args_list[0].kwargs
+        assert init_kwargs["something"] == "else"
 
     def test_save_pretrained_with_push_to_hub(self):
         repo_id = repo_name("save")
@@ -216,19 +255,19 @@ class HubMixinTest(unittest.TestCase):
             relative_save_directory = Path(tmp_relative_dir) / "model"
             DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(relative_save_directory)
             model = DummyModelConfigAsDataclass.from_pretrained(relative_save_directory)
-            assert model.config == CONFIG_AS_DATACLASS
+            assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_from_pretrained_from_absolute_path(self):
         save_directory = self.cache_dir / "subfolder"
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
-        assert model.config == CONFIG_AS_DATACLASS
+        assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_from_pretrained_from_absolute_string_path(self):
         save_directory = str(self.cache_dir / "subfolder")
         DummyModelConfigAsDataclass(config=CONFIG_AS_DATACLASS).save_pretrained(save_directory)
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
-        assert model.config == CONFIG_AS_DATACLASS
+        assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
     def test_push_to_hub(self):
         repo_id = f"{USER}/{repo_name('push_to_hub')}"
@@ -255,10 +294,18 @@ class HubMixinTest(unittest.TestCase):
             "token": TOKEN,
         }
         for cls in (DummyModelConfigAsDataclass, DummyModelConfigAsOptionalDataclass):
-            assert cls.from_pretrained(**from_pretrained_kwargs).config == CONFIG_AS_DATACLASS
+            assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DATACLASS
 
         for cls in (DummyModelConfigAsDict, DummyModelConfigAsOptionalDict):
-            assert cls.from_pretrained(**from_pretrained_kwargs).config == CONFIG_AS_DICT
+            assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DICT
 
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
+
+    def test_save_pretrained_do_not_overwrite_config(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102."""
+        model = DummyModelSavingConfig()
+        model.save_pretrained(self.cache_dir)
+        # config.json is not overwritten
+        with open(self.cache_dir / "config.json") as f:
+            assert json.load(f) == {"custom_config": "custom_config"}

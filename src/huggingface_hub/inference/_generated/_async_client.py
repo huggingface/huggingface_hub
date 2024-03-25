@@ -23,7 +23,6 @@ import base64
 import logging
 import time
 import warnings
-from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -39,11 +38,13 @@ from typing import (
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    InferenceTimeoutError,
     ModelStatus,
+    _async_stream_chat_completion_response_from_bytes,
+    _async_stream_chat_completion_response_from_text_generation,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -52,14 +53,21 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _fetch_recommended_models,
     _import_numpy,
+    _is_chat_completion_server,
     _is_tgi_server,
     _open_as_binary,
+    _set_as_non_chat_completion_server,
     _set_as_non_tgi,
+    raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -70,19 +78,15 @@ from huggingface_hub.inference._generated.types import (
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
+    TextGenerationOutput,
+    TextGenerationStreamOutput,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._text_generation import (
-    TextGenerationParameters,
-    TextGenerationRequest,
-    TextGenerationResponse,
-    TextGenerationStreamResponse,
-    raise_text_generation_error,
-)
+from huggingface_hub.inference._templating import render_chat_prompt
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
@@ -112,9 +116,9 @@ class AsyncInferenceClient:
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `bigcode/starcoder`
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
-        token (`str`, *optional*):
-            Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
-            your token to the server.
+        token (`str` or `bool`, *optional*):
+            Hugging Face token. Will default to the locally saved token if not provided.
+            Pass `token=False` if you don't want to send your token to the server.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
             API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
@@ -134,6 +138,7 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
+        self.token: Union[str, bool, None] = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -152,8 +157,18 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[False] = ...,
-    ) -> bytes:
-        pass
+    ) -> bytes: ...
+
+    @overload
+    async def post(  # type: ignore[misc]
+        self,
+        *,
+        json: Optional[Union[str, Dict, List]] = None,
+        data: Optional[ContentT] = None,
+        model: Optional[str] = None,
+        task: Optional[str] = None,
+        stream: Literal[True] = ...,
+    ) -> AsyncIterable[bytes]: ...
 
     @overload
     async def post(
@@ -163,9 +178,8 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]:
-        pass
+        stream: bool = False,
+    ) -> Union[bytes, AsyncIterable[bytes]]: ...
 
     async def post(
         self,
@@ -394,6 +408,260 @@ class AsyncInferenceClient:
         response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
+    @overload
+    async def chat_completion(  # type: ignore
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[False] = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> ChatCompletionOutput: ...
+
+    @overload
+    async def chat_completion(  # type: ignore
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[True] = True,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
+
+    @overload
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
+
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        max_tokens: int = 20,
+        seed: Optional[int] = None,
+        stop: Optional[Union[List[str], str]] = None,
+        temperature: float = 1.0,
+        top_p: Optional[float] = None,
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
+        """
+        A method for completing conversations using a specified language model.
+
+        <Tip>
+
+        If the model is served by a server supporting chat-completion, the method will directly call the server's
+        `/v1/chat/completions` endpoint. If the server does not support chat-completion, the method will render the
+        chat template client-side based on the information fetched from the Hub API. In this case, you will need to
+        have `minijinja` template engine installed. Run `pip install "huggingface_hub[inference]"` or `pip install minijinja`
+        to install it.
+
+        </Tip>
+
+        Args:
+            messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
+                Conversation history consisting of roles and content pairs.
+            model (`str`, *optional*):
+                The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
+                See https://huggingface.co/tasks/text-generation for more details.
+            frequency_penalty (`float`, optional):
+                Penalizes new tokens based on their existing frequency
+                in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
+            max_tokens (`int`, optional):
+                Maximum number of tokens allowed in the response. Defaults to 20.
+            seed (Optional[`int`], optional):
+                Seed for reproducible control flow. Defaults to None.
+            stop (Optional[`str`], optional):
+                Up to four strings which trigger the end of the response.
+                Defaults to None.
+            stream (`bool`, optional):
+                Enable realtime streaming of responses. Defaults to False.
+            temperature (`float`, optional):
+                Controls randomness of the generations. Lower values ensure
+                less random completions. Range: [0, 2]. Defaults to 1.0.
+            top_p (`float`, optional):
+                Fraction of the most likely next words to sample from.
+                Must be between 0 and 1. Defaults to 1.0.
+
+        Returns:
+            `Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]`:
+            Generated text returned from the server:
+            - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
+            - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+        >>> client = AsyncInferenceClient("HuggingFaceH4/zephyr-7b-beta")
+        >>> await client.chat_completion(messages, max_tokens=100)
+        ChatCompletionOutput(
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason='eos_token',
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content='The capital of France is Paris. The official name of the city is "Ville de Paris" (City of Paris) and the name of the country\'s governing body, which is located in Paris, is "La République française" (The French Republic). \nI hope that helps! Let me know if you need any further information.'
+                    )
+                )
+            ],
+            created=1710498360
+        )
+
+        >>> async for token in await client.chat_completion(messages, max_tokens=10, stream=True):
+        ...     print(token)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content='The', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        (...)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=None, role=None), index=0, finish_reason='length')], created=1710498504)
+        ```
+        """
+        # determine model
+        model = model or self.model or self.get_recommended_model("text-generation")
+
+        if _is_chat_completion_server(model):
+            # First, let's consider the server has a `/v1/chat/completions` endpoint.
+            # If that's the case, we don't have to render the chat template client-side.
+            model_url = self._resolve_url(model) + "/v1/chat/completions"
+
+            try:
+                data = await self.post(
+                    model=model_url,
+                    json=dict(
+                        model="tgi",  # random string
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        top_p=top_p,
+                        stream=stream,
+                    ),
+                    stream=stream,
+                )
+            except _import_aiohttp().ClientResponseError:
+                # Let's consider the server is not a chat completion server.
+                # Then we call again `chat_completion` which will render the chat template client side.
+                # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                _set_as_non_chat_completion_server(model)
+                return await self.chat_completion(
+                    messages=messages,
+                    model=model,
+                    stream=stream,
+                    max_tokens=max_tokens,
+                    seed=seed,
+                    stop=stop,
+                    temperature=temperature,
+                    top_p=top_p,
+                )
+
+            if stream:
+                return _async_stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
+
+            return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+
+        # At this point, we know the server is not a chat completion server.
+        # We need to render the chat template client side based on the information we can fetch from
+        # the Hub API.
+
+        model_id = None
+        if model.startswith(("http://", "https://")):
+            # If URL, we need to know which model is served. This is not always possible.
+            # A workaround is to list the user Inference Endpoints and check if one of them correspond to the model URL.
+            # If not, we raise an error.
+            # TODO: fix when we have a proper API for this (at least for Inference Endpoints)
+            # TODO: what if Sagemaker URL?
+            # TODO: what if Azure URL?
+            from ..hf_api import HfApi
+
+            for endpoint in HfApi(token=self.token).list_inference_endpoints():
+                if endpoint.url == model:
+                    model_id = endpoint.repository
+                    break
+        else:
+            model_id = model
+
+        if model_id is None:
+            # If we don't have the model ID, we can't fetch the chat template.
+            # We raise an error.
+            raise ValueError(
+                "Request can't be processed as the model ID can't be inferred from model URL. "
+                "This is needed to fetch the chat template from the Hub since the model is not "
+                "served with a Chat-completion API."
+            )
+
+        # fetch chat template + tokens
+        prompt = render_chat_prompt(model_id=model_id, token=self.token, messages=messages)
+
+        # generate response
+        stop_sequences = [stop] if isinstance(stop, str) else stop
+        text_generation_output = await self.text_generation(
+            prompt=prompt,
+            details=True,
+            stream=stream,
+            model=model,
+            max_new_tokens=max_tokens,
+            seed=seed,
+            stop_sequences=stop_sequences,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        created = int(time.time())
+
+        if stream:
+            return _async_stream_chat_completion_response_from_text_generation(text_generation_output)  # type: ignore [arg-type]
+
+        if isinstance(text_generation_output, TextGenerationOutput):
+            # General use case => format ChatCompletionOutput from text generation details
+            content: str = text_generation_output.generated_text
+            finish_reason: str = text_generation_output.details.finish_reason  # type: ignore[union-attr]
+        else:
+            # Corner case: if server doesn't support details (e.g. if not a TGI server), we only receive an output string.
+            # In such a case, `finish_reason` is set to `"unk"`.
+            content = text_generation_output  # type: ignore[assignment]
+            finish_reason = "unk"
+
+        return ChatCompletionOutput(
+            created=created,
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason=finish_reason,  # type: ignore
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content=content,
+                        role="assistant",
+                    ),
+                )
+            ],
+        )
+
     async def conversational(
         self,
         text: str,
@@ -405,6 +673,13 @@ class AsyncInferenceClient:
     ) -> ConversationalOutput:
         """
         Generate conversational responses based on the given input text (i.e. chat with the API).
+
+        <Tip warning={true}>
+
+        [`InferenceClient.conversational`] API is deprecated and will be removed in a future release. Please use
+        [`InferenceClient.chat_completion`] instead.
+
+        </Tip>
 
         Args:
             text (`str`):
@@ -446,6 +721,11 @@ class AsyncInferenceClient:
         ... )
         ```
         """
+        warnings.warn(
+            "'InferenceClient.conversational' is deprecated and will be removed starting from huggingface_hub>=0.25. "
+            "Please use the more appropriate 'InferenceClient.chat_completion' API instead.",
+            FutureWarning,
+        )
         payload: Dict[str, Any] = {"inputs": {"text": text}}
         if generated_responses is not None:
             payload["inputs"]["generated_responses"] = generated_responses
@@ -897,7 +1177,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.object_detection("people.jpg"):
-        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=BoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
+        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         # detect objects
@@ -1253,7 +1533,7 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> TextGenerationResponse: ...
+    ) -> TextGenerationOutput: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1279,7 +1559,7 @@ class AsyncInferenceClient:
     ) -> AsyncIterable[str]: ...
 
     @overload
-    async def text_generation(
+    async def text_generation(  # type: ignore
         self,
         prompt: str,
         *,
@@ -1299,7 +1579,30 @@ class AsyncInferenceClient:
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
         watermark: bool = False,
-    ) -> AsyncIterable[TextGenerationStreamResponse]: ...
+    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
+
+    @overload
+    async def text_generation(
+        self,
+        prompt: str,
+        *,
+        details: Literal[True] = ...,
+        stream: bool = ...,
+        model: Optional[str] = None,
+        do_sample: bool = False,
+        max_new_tokens: int = 20,
+        best_of: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: bool = False,
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: bool = False,
+    ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
 
     async def text_generation(
         self,
@@ -1322,12 +1625,9 @@ class AsyncInferenceClient:
         typical_p: Optional[float] = None,
         watermark: bool = False,
         decoder_input_details: bool = False,
-    ) -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
-
-        It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
-        early failures.
 
         API endpoint is supposed to run with the `text-generation-inference` backend (TGI). This backend is the
         go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
@@ -1386,12 +1686,12 @@ class AsyncInferenceClient:
                 into account. Defaults to `False`.
 
         Returns:
-            `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`:
+            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
-            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
-            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`]
+            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
+            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 
         Raises:
             `ValidationError`:
@@ -1429,23 +1729,23 @@ class AsyncInferenceClient:
 
         # Case 3: get more details about the generation process.
         >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
-        TextGenerationResponse(
+        TextGenerationOutput(
             generated_text='100% open source and built to be easy to use.',
-            details=Details(
-                finish_reason=<FinishReason.Length: 'length'>,
+            details=TextGenerationDetails(
+                finish_reason='length',
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    InputToken(id=487, text='The', logprob=None),
-                    InputToken(id=53789, text=' hugging', logprob=-13.171875),
+                    TextGenerationPrefillToken(id=487, text='The', logprob=None),
+                    TextGenerationPrefillToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    InputToken(id=204, text=' ', logprob=-7.0390625)
+                    TextGenerationPrefillToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
-                    Token(id=1425, text='100', logprob=-1.0175781, special=False),
-                    Token(id=16, text='%', logprob=-0.0463562, special=False),
+                    TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
+                    TokenElement(id=16, text='%', logprob=-0.0463562, special=False),
                     (...)
-                    Token(id=25, text='.', logprob=-0.5703125, special=False)
+                    TokenElement(id=25, text='.', logprob=-0.5703125, special=False)
                 ],
                 best_of_sequences=None
             )
@@ -1456,30 +1756,27 @@ class AsyncInferenceClient:
         >>> async for details in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
         ...     print(details)
         ...
-        TextGenerationStreamResponse(token=Token(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(
+        TextGenerationStreamOutput(token=TokenElement(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(
             id=25,
             text='.',
             logprob=-0.5703125,
             special=False),
             generated_text='100% open source and built to be easy to use.',
-            details=StreamDetails(finish_reason=<FinishReason.Length: 'length'>, generated_tokens=12, seed=None)
+            details=TextGenerationStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
         ```
         """
-        # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
-        # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
-
         if decoder_input_details and not details:
             warnings.warn(
                 "`decoder_input_details=True` has been passed to the server but `details=False` is set meaning that"
@@ -1487,34 +1784,38 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
-        # Validate parameters
-        parameters = TextGenerationParameters(
-            best_of=best_of,
-            details=details,
-            do_sample=do_sample,
-            max_new_tokens=max_new_tokens,
-            repetition_penalty=repetition_penalty,
-            return_full_text=return_full_text,
-            seed=seed,
-            stop=stop_sequences if stop_sequences is not None else [],
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            truncate=truncate,
-            typical_p=typical_p,
-            watermark=watermark,
-            decoder_input_details=decoder_input_details,
-        )
-        request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
-        payload = asdict(request)
+        # Build payload
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "best_of": best_of,
+                "decoder_input_details": decoder_input_details,
+                "details": details,
+                "do_sample": do_sample,
+                "max_new_tokens": max_new_tokens,
+                "repetition_penalty": repetition_penalty,
+                "return_full_text": return_full_text,
+                "seed": seed,
+                "stop": stop_sequences if stop_sequences is not None else [],
+                "temperature": temperature,
+                "top_k": top_k,
+                "top_p": top_p,
+                "truncate": truncate,
+                "typical_p": typical_p,
+                "watermark": watermark,
+            },
+            "stream": stream,
+        }
 
         # Remove some parameters if not a TGI server
         if not _is_tgi_server(model):
+            parameters: Dict = payload["parameters"]  # type: ignore [assignment]
+
             ignored_parameters = []
-            for key in "watermark", "stop", "details", "decoder_input_details", "best_of":
-                if payload["parameters"][key] is not None:
+            for key in "watermark", "details", "decoder_input_details", "best_of", "stop", "return_full_text":
+                if parameters[key] is not None:
                     ignored_parameters.append(key)
-                del payload["parameters"][key]
+                del parameters[key]
             if len(ignored_parameters) > 0:
                 warnings.warn(
                     "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
@@ -1567,8 +1868,8 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]
-        return TextGenerationResponse(**data) if details else data["generated_text"]
+        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
+        return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(
         self,

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,6 +23,10 @@ from PIL import Image
 
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -41,7 +46,7 @@ from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFEREN
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -69,6 +74,13 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
+
+CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+CHAT_COMPLETION_MESSAGES = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is deep learning?"},
+]
+CHAT_COMPLETE_NON_TGI_MODEL = "microsoft/DialoGPT-small"
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -127,6 +139,82 @@ class InferenceClientVCRTest(InferenceClientTest):
             chunks=None,
         )
 
+    def test_chat_completion_no_stream(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETION_MODEL,
+            stream=False,
+        )
+        assert isinstance(output, ChatCompletionOutput)
+        assert output.created < time.time()
+        assert output.choices == [
+            ChatCompletionOutputChoice(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
+                    role="assistant",
+                ),
+            )
+        ]
+
+    def test_chat_completion_with_stream(self) -> None:
+        output = list(
+            self.client.chat_completion(
+                messages=CHAT_COMPLETION_MESSAGES,
+                model=CHAT_COMPLETION_MODEL,
+                stream=True,
+                max_tokens=20,
+            )
+        )
+
+        assert isinstance(output, list)
+        assert all(isinstance(item, ChatCompletionStreamOutput) for item in output)
+        created = output[0].created
+        assert all(item.created == created for item in output)  # all tokens share the same timestamp
+
+        # All items except the last one have a single choice with role/content delta
+        for item in output[:-1]:
+            assert len(item.choices) == 1
+            assert item.choices[0].finish_reason is None
+            assert item.choices[0].index == 0
+            assert item.choices[0].delta.role == "assistant"
+            assert item.choices[0].delta.content is not None
+
+        # Last item has a finish reason but no role/content delta
+        assert output[-1].choices[0].finish_reason == "length"
+        assert output[-1].choices[0].delta.role is None
+        assert output[-1].choices[0].delta.content is None
+
+        # Reconstruct generated text
+        generated_text = "".join(
+            item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
+        )
+        expected_text = "Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to"
+        assert generated_text == expected_text
+
+    def test_chat_completion_with_non_tgi(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETE_NON_TGI_MODEL,
+            stream=False,
+            max_tokens=20,
+        )
+        assert output == ChatCompletionOutput(
+            choices=[
+                ChatCompletionOutputChoice(
+                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    index=0,
+                    message=ChatCompletionOutputChoiceMessage(
+                        content="Deep learning is a thing.",
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=output.created,
+        )
+
+    @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
         self.assertEqual(
@@ -376,7 +464,7 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_translation(self) -> None:
         output = self.client.translation("Hello world")
-        assert output == TranslationOutput(translation_text="Hallo Welt", translation_output_translation_text=None)
+        assert output == TranslationOutput(translation_text="Hallo Welt")
 
     def test_translation_with_source_and_target_language(self) -> None:
         output_with_langs = self.client.translation(
@@ -453,6 +541,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item.label, str)
             self.assertIsInstance(item.score, float)
 
+    @expect_deprecation("InferenceClient.conversational")
     def test_unprocessable_entity_error(self) -> None:
         with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
             self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
