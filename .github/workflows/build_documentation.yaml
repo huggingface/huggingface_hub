@@ -8,11 +8,12 @@ on:
       - v*-release
 
 jobs:
-   build:
-    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@main
+  build:
+    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@test-build-pr-outside-container
     with:
       commit_sha: ${{ github.sha }}
       package: huggingface_hub
       languages: cn de fr en hi ko
+      custom_container: "" # no need for transformer's docker image
     secrets:
       hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}

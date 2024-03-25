@@ -15,4 +15,4 @@ jobs:
       pr_number: ${{ github.event.number }}
       package: huggingface_hub
       languages: cn de fr en hi ko
-      container_image: ""
+      custom_container: "" # no need for transformer's docker image
