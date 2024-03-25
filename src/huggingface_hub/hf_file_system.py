@@ -737,7 +737,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         temporary file and read from there.
         """
         if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
-            with self.fs.open(self.path, "rb", block_size=0) as f:
+            with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
                 return f.read()
         return super().read(length)
 
