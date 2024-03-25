@@ -19,7 +19,6 @@ from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import (
     DEFAULT_REVISION,
     ENDPOINT,
-    HF_HUB_ENABLE_HF_TRANSFER,
     REPO_TYPE_MODEL,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -737,21 +736,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
         temporary file and read from there.
         """
-        if self.mode == "rb" and (length is None or length == -1):
-            # Open a temporary file to store the downloaded content
-            if HF_HUB_ENABLE_HF_TRANSFER:
-                with tempfile.TemporaryDirectory() as tmp_dir:
-                    # if hf_transfer, we want to provide a real temporary file so hf_transfer can write concurrently to it
-                    tmp_path = os.path.join(tmp_dir, "tmp_file")
-                    self.fs.get_file(self.resolved_path.unresolve(), tmp_path)
-                    with open(tmp_path, "rb") as f:
-                        return f.read()
-            else:
-                # otherwise, we don't care where the file is stored (e.g. in memory or on disk)
-                with tempfile.TemporaryFile() as tmp_file:
-                    self.fs.get_file(self.resolved_path.unresolve(), tmp_file)
-                    return tmp_file.read()
-
+        if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
+            with self.fs.open(self.path, "rb", block_size=0) as f:
+                return f.read()
         return super().read(length)
 
     def url(self) -> str:
