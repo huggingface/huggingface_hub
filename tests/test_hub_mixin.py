@@ -302,10 +302,29 @@ class HubMixinTest(unittest.TestCase):
         # Delete repo
         self._api.delete_repo(repo_id=repo_id)
 
-    def test_save_pretrained_do_not_overwrite_config(self):
-        """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102."""
+    def test_save_pretrained_do_not_overwrite_new_config(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102.
+
+        If `_from_pretrained` does save a config file, we should not overwrite it.
+        """
         model = DummyModelSavingConfig()
         model.save_pretrained(self.cache_dir)
         # config.json is not overwritten
         with open(self.cache_dir / "config.json") as f:
             assert json.load(f) == {"custom_config": "custom_config"}
+
+    def test_save_pretrained_does_overwrite_legacy_config(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/2142.
+
+        If a previously existing config file exists, it should be overwritten.
+        """
+        # Something existing in the cache dir
+        (self.cache_dir / "config.json").write_text(json.dumps({"something_legacy": 123}))
+
+        # Save model
+        model = DummyModelWithKwargs(a=1, b=2)
+        model.save_pretrained(self.cache_dir)
+
+        # config.json IS overwritten
+        with open(self.cache_dir / "config.json") as f:
+            assert json.load(f) == {"a": 1, "b": 2}
