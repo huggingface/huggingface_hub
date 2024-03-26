@@ -82,6 +82,8 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
+    _HF_DEFAULT_ENDPOINT,
+    _HF_DEFAULT_STAGING_ENDPOINT,
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
@@ -182,6 +184,12 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             If `repo_type` is unknown.
     """
     input_hf_id = hf_id
+
+    # check if a proxy has been set => if yes, update the returned URL to use the proxy
+    if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+        hf_id = hf_id.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
+        hf_id = hf_id.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
+
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
@@ -1234,10 +1242,11 @@ class HfApi:
     def __init__(
         self,
         endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[str, bool, None] = None,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
+        headers: Optional[Dict[str, str]] = None,
     ) -> None:
         """Create a HF client to interact with the Hub via HTTP.
 
@@ -1247,9 +1256,9 @@ class HfApi:
         directly at the root of `huggingface_hub`.
 
         Args:
-            token (`str`, *optional*):
-                Hugging Face token. Will default to the locally saved token if
-                not provided.
+            token (`str` or `bool`, *optional*):
+                Hugging Face token. Will default to the locally saved token if not provided.
+                Pass `token=False` if you don't want to send your token to the server.
             library_name (`str`, *optional*):
                 The name of the library that is making the HTTP request. Will be added to
                 the user-agent header. Example: `"transformers"`.
@@ -1259,12 +1268,16 @@ class HfApi:
             user_agent (`str`, `dict`, *optional*):
                 The user agent info in the form of a dictionary or a single string. It will
                 be completed with information about the installed packages.
+            headers (`dict`, *optional*):
+                Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
+                Headers passed here are taking precedence over the default headers.
         """
         self.endpoint = endpoint if endpoint is not None else ENDPOINT
         self.token = token
         self.library_name = library_name
         self.library_version = library_version
         self.user_agent = user_agent
+        self.headers = headers
         self._thread_pool: Optional[ThreadPoolExecutor] = None
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
@@ -2514,7 +2527,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         revision: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[str, bool, None] = None,
     ) -> bool:
         """
         Checks if a file exists in a repository on the Hugging Face Hub.
@@ -3247,7 +3260,7 @@ class HfApi:
 
         # Prepare request
         url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{branch}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         commit_message = commit_message or f"Super-squash branch '{branch}' using huggingface_hub"
 
         # Super-squash
@@ -3353,7 +3366,7 @@ class HfApi:
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
 
         while True:
             r = get_session().post(path, headers=headers, json=json)
@@ -3428,7 +3441,7 @@ class HfApi:
         if repo_type is not None:
             json["type"] = repo_type
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         r = get_session().delete(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
@@ -3493,7 +3506,7 @@ class HfApi:
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
-            headers=self._build_hf_headers(token=token, is_write_action=True),
+            headers=self._build_hf_headers(token=token),
             json={"private": private},
         )
         hf_raise_for_status(r)
@@ -3550,7 +3563,7 @@ class HfApi:
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
         path = f"{self.endpoint}/api/repos/move"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         r = get_session().post(path, headers=headers, json=json)
         try:
             hf_raise_for_status(r)
@@ -3729,6 +3742,8 @@ class HfApi:
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
 
+        headers = self._build_hf_headers(token=token)
+
         operations = list(operations)
         additions = [op for op in operations if isinstance(op, CommitOperationAdd)]
         copies = [op for op in operations if isinstance(op, CommitOperationCopy)]
@@ -3756,7 +3771,7 @@ class HfApi:
                     response = get_session().post(
                         f"{ENDPOINT}/api/validate-yaml",
                         json={"content": file.read().decode(), "repoType": repo_type},
-                        headers=self._build_hf_headers(token=token),
+                        headers=headers,
                     )
                     # Handle warnings (example: empty metadata)
                     response_content = response.json()
@@ -3791,7 +3806,7 @@ class HfApi:
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,
-            token=token or self.token,
+            headers=headers,
             revision=revision,
             endpoint=self.endpoint,
         )
@@ -3812,7 +3827,7 @@ class HfApi:
         headers = {
             # See https://github.com/huggingface/huggingface_hub/issues/1085#issuecomment-1265208073
             "Content-Type": "application/x-ndjson",
-            **self._build_hf_headers(token=token, is_write_action=True),
+            **headers,
         }
         data = b"".join(_payload_as_ndjson())
         params = {"create_pr": "1"} if create_pr else None
@@ -4231,6 +4246,7 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
+        headers = self._build_hf_headers(token=token)
 
         # Check if a `gitignore` file is being committed to the Hub.
         additions = list(additions)
@@ -4250,7 +4266,7 @@ class HfApi:
                 additions=new_additions,
                 repo_type=repo_type,
                 repo_id=repo_id,
-                token=token or self.token,
+                headers=headers,
                 revision=revision,
                 endpoint=self.endpoint,
                 create_pr=create_pr or False,
@@ -4281,7 +4297,7 @@ class HfApi:
             additions=new_lfs_additions_to_upload,
             repo_type=repo_type,
             repo_id=repo_id,
-            token=token or self.token,
+            headers=headers,
             endpoint=self.endpoint,
             num_threads=num_threads,
             # If `create_pr`, we don't want to check user permission on the revision as users with read permission
@@ -5202,6 +5218,7 @@ class HfApi:
             etag_timeout=etag_timeout,
             resume_download=resume_download,
             token=token,
+            headers=self.headers,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
         )
@@ -5623,7 +5640,7 @@ class HfApi:
 
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         payload = {}
         if revision is not None:
             payload["startingPoint"] = revision
@@ -5679,7 +5696,7 @@ class HfApi:
 
         # Prepare request
         branch_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/branch/{branch}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
 
         # Delete branch
         response = get_session().delete(url=branch_url, headers=headers)
@@ -5743,7 +5760,7 @@ class HfApi:
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         payload = {"tag": tag}
         if tag_message is not None:
             payload["message"] = tag_message
@@ -5796,7 +5813,7 @@ class HfApi:
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{tag}"
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
 
         # Un-tag
         response = get_session().delete(url=tag_url, headers=headers)
@@ -6091,7 +6108,7 @@ class HfApi:
             )
         )
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         resp = get_session().post(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions",
             json={
@@ -6189,7 +6206,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
 
-        headers = self._build_hf_headers(token=token, is_write_action=True)
+        headers = self._build_hf_headers(token=token)
         resp = requests.post(path, headers=headers, json=body)
         hf_raise_for_status(resp)
         return resp
@@ -7007,7 +7024,7 @@ class HfApi:
 
         r = get_session().post(
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
-            headers=self._build_hf_headers(token=token, is_write_action=True),
+            headers=self._build_hf_headers(token=token),
             json=payload,
         )
 
@@ -8422,6 +8439,7 @@ class HfApi:
             library_name=library_name or self.library_name,
             library_version=library_version or self.library_version,
             user_agent=user_agent or self.user_agent,
+            headers=self.headers,
         )
 
     def _prepare_upload_folder_deletions(
@@ -8449,7 +8467,7 @@ class HfApi:
         filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
 
         # Compute relative path in repo
-        if path_in_repo:
+        if path_in_repo and path_in_repo not in (".", "./"):
             path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
             relpath_to_abspath = {
                 file[len(path_in_repo) :]: file for file in filenames if file.startswith(path_in_repo)

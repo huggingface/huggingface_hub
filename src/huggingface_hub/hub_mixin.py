@@ -52,7 +52,7 @@ This model has been pushed to the Hub using **{{ library_name }}**:
 
 
 @dataclass
-class LibraryInfo:
+class MixinInfo:
     library_name: Optional[str] = None
     tags: Optional[List[str]] = None
     repo_url: Optional[str] = None
@@ -66,6 +66,20 @@ class ModelHubMixin:
     To integrate your framework, your model class must inherit from this class. Custom logic for saving/loading models
     have to be overwritten in  [`_from_pretrained`] and [`_save_pretrained`]. [`PyTorchModelHubMixin`] is a good example
     of mixin integration with the Hub. Check out our [integration guide](../guides/integrations) for more instructions.
+
+    When inheriting from [`ModelHubMixin`], you can define class-level attributes. These attributes are not passed to
+    `__init__` but to the class definition itself. This is useful to define metadata about the library integrating
+    [`ModelHubMixin`].
+
+    Args:
+        library_name (`str`, *optional*):
+            Name of the library integrating ModelHubMixin. Used to generate model card.
+        tags (`List[str]`, *optional*):
+            Tags to be added to the model card. Used to generate model card.
+        repo_url (`str`, *optional*):
+            URL of the library repository. Used to generate model card.
+        docs_url (`str`, *optional*):
+            URL of the library documentation. Used to generate model card.
 
     Example:
 
@@ -117,7 +131,7 @@ class ModelHubMixin:
 
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
-    >>> reloaded_model.config
+    >>> reloaded_model._hub_mixin_config
     {"size": 256, "device": "gpu"}
 
     # Model card has been correctly populated
@@ -130,16 +144,18 @@ class ModelHubMixin:
     ```
     """
 
-    config: Optional[Union[dict, "DataclassInstance"]] = None
-    # ^ optional config attribute automatically set in `from_pretrained` (if not already set by the subclass)
-    library_info: LibraryInfo
+    _hub_mixin_config: Optional[Union[dict, "DataclassInstance"]] = None
+    # ^ optional config attribute automatically set in `from_pretrained`
+    _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
-    _init_parameters: Dict[str, inspect.Parameter]
-    _jsonable_default_values: Dict[str, Any]
+    _hub_mixin_init_parameters: Dict[str, inspect.Parameter]
+    _hub_mixin_jsonable_default_values: Dict[str, Any]
+    _hub_mixin_inject_config: bool
     # ^ internal values to handle config
 
     def __init_subclass__(
         cls,
+        *,
         library_name: Optional[str] = None,
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
@@ -151,7 +167,7 @@ class ModelHubMixin:
         # Will be reused when creating modelcard
         tags = tags or []
         tags.append("model_hub_mixin")
-        cls.library_info = LibraryInfo(
+        cls._hub_mixin_info = MixinInfo(
             library_name=library_name,
             tags=tags,
             repo_url=repo_url,
@@ -159,25 +175,26 @@ class ModelHubMixin:
         )
 
         # Inspect __init__ signature to handle config
-        cls._init_parameters = dict(inspect.signature(cls.__init__).parameters)
-        cls._jsonable_default_values = {
+        cls._hub_mixin_init_parameters = dict(inspect.signature(cls.__init__).parameters)
+        cls._hub_mixin_jsonable_default_values = {
             param.name: param.default
-            for param in cls._init_parameters.values()
+            for param in cls._hub_mixin_init_parameters.values()
             if param.default is not inspect.Parameter.empty and is_jsonable(param.default)
         }
+        cls._hub_mixin_inject_config = "config" in inspect.signature(cls._from_pretrained).parameters
 
     def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
         """Create a new instance of the class and handle config.
 
         3 cases:
-        - If `self.config` is already set, do nothing.
-        - If `config` is passed as a dataclass, set it as `self.config`.
-        - Otherwise, build `self.config` from default values and passed values.
+        - If `self._hub_mixin_config` is already set, do nothing.
+        - If `config` is passed as a dataclass, set it as `self._hub_mixin_config`.
+        - Otherwise, build `self._hub_mixin_config` from default values and passed values.
         """
         instance = super().__new__(cls)
 
         # If `config` is already set, return early
-        if instance.config is not None:
+        if instance._hub_mixin_config is not None:
             return instance
 
         # Infer passed values
@@ -185,8 +202,8 @@ class ModelHubMixin:
             **{
                 key: value
                 for key, value in zip(
-                    # Skip `self` and `config` parameters
-                    list(cls._init_parameters)[1:],
+                    # [1:] to skip `self` parameter
+                    list(cls._hub_mixin_init_parameters)[1:],
                     args,
                 )
             },
@@ -195,13 +212,13 @@ class ModelHubMixin:
 
         # If config passed as dataclass => set it and return early
         if is_dataclass(passed_values.get("config")):
-            instance.config = passed_values["config"]
+            instance._hub_mixin_config = passed_values["config"]
             return instance
 
         # Otherwise, build config from default + passed values
         init_config = {
             # default values
-            **cls._jsonable_default_values,
+            **cls._hub_mixin_jsonable_default_values,
             # passed values
             **{key: value for key, value in passed_values.items() if is_jsonable(value)},
         }
@@ -214,7 +231,7 @@ class ModelHubMixin:
 
         # Set `config` attribute and return
         if init_config != {}:
-            instance.config = init_config
+            instance._hub_mixin_config = init_config
         return instance
 
     def save_pretrained(
@@ -245,16 +262,24 @@ class ModelHubMixin:
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
 
+        # Remove config.json if already exists. After `_save_pretrained` we don't want to overwrite config.json
+        # as it might have been saved by the custom `_save_pretrained` already. However we do want to overwrite
+        # an existing config.json if it was not saved by `_save_pretrained`.
+        config_path = save_directory / CONFIG_NAME
+        config_path.unlink(missing_ok=True)
+
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
-        # save config (if provided)
+        # save config (if provided and if not serialized yet in `_save_pretrained`)
         if config is None:
-            config = self.config
+            config = self._hub_mixin_config
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
-            (save_directory / CONFIG_NAME).write_text(json.dumps(config, sort_keys=True, indent=2))
+            if not config_path.exists():
+                config_str = json.dumps(config, sort_keys=True, indent=2)
+                config_path.write_text(config_str)
 
         # save model card
         model_card_path = save_directory / "README.md"
@@ -356,14 +381,14 @@ class ModelHubMixin:
                 config = json.load(f)
 
             # Populate model_kwargs from config
-            for param in cls._init_parameters.values():
+            for param in cls._hub_mixin_init_parameters.values():
                 if param.name not in model_kwargs and param.name in config:
                     model_kwargs[param.name] = config[param.name]
 
             # Check if `config` argument was passed at init
-            if "config" in cls._init_parameters:
+            if "config" in cls._hub_mixin_init_parameters:
                 # Check if `config` argument is a dataclass
-                config_annotation = cls._init_parameters["config"].annotation
+                config_annotation = cls._hub_mixin_init_parameters["config"].annotation
                 if config_annotation is inspect.Parameter.empty:
                     pass  # no annotation
                 elif is_dataclass(config_annotation):
@@ -378,11 +403,13 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            elif (
-                "kwargs" in cls._init_parameters
-                and cls._init_parameters["kwargs"].kind == inspect.Parameter.VAR_KEYWORD
-            ):
-                # 2. If __init__ accepts **kwargs, let's forward the config as well (as a dict)
+            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
+                for key, value in config.items():
+                    if key not in model_kwargs:
+                        model_kwargs[key] = value
+
+            # Finally, also inject if `_from_pretrained` expects it
+            if cls._hub_mixin_inject_config:
                 model_kwargs["config"] = config
 
         instance = cls._from_pretrained(
@@ -399,8 +426,8 @@ class ModelHubMixin:
 
         # Implicitly set the config as instance attribute if not already set by the class
         # This way `config` will be available when calling `save_pretrained` or `push_to_hub`.
-        if config is not None and (instance.config is None or instance.config == {}):
-            instance.config = config
+        if config is not None and (getattr(instance, "_hub_mixin_config", None) in (None, {})):
+            instance._hub_mixin_config = config
 
         return instance
 
@@ -531,7 +558,7 @@ class ModelHubMixin:
 
     def generate_model_card(self, *args, **kwargs) -> ModelCard:
         card = ModelCard.from_template(
-            card_data=ModelCardData(**asdict(self.library_info)),
+            card_data=ModelCardData(**asdict(self._hub_mixin_info)),
             template_str=DEFAULT_MODEL_CARD,
         )
         return card

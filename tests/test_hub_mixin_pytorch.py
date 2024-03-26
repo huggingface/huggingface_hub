@@ -3,7 +3,7 @@ import os
 import struct
 import unittest
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 from unittest.mock import Mock, patch
 
 import pytest
@@ -53,10 +53,16 @@ if is_torch_available():
             self.num_classes = num_classes
             self.state = state
             self.not_jsonable = not_jsonable
+
+    class DummyModelWithConfigAndKwargs(nn.Module, PyTorchModelHubMixin):
+        def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[Dict] = None, **kwargs):
+            super().__init__()
+
 else:
     DummyModel = None
     DummyModelWithTags = None
     DummyModelNoConfig = None
+    DummyModelWithConfigAndKwargs = None
 
 
 @requires("torch")
@@ -203,19 +209,19 @@ class PytorchHubMixinTest(unittest.TestCase):
             relative_save_directory = Path(tmp_relative_dir) / "model"
             DummyModel().save_pretrained(relative_save_directory, config=CONFIG)
             model = DummyModel.from_pretrained(relative_save_directory)
-            self.assertDictEqual(model.config, CONFIG)
+            self.assertDictEqual(model._hub_mixin_config, CONFIG)
 
     def test_from_pretrained_to_absolute_path(self):
         save_directory = self.cache_dir / "subfolder"
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
-        self.assertDictEqual(model.config, CONFIG)
+        self.assertDictEqual(model._hub_mixin_config, CONFIG)
 
     def test_from_pretrained_to_absolute_string_path(self):
         save_directory = str(self.cache_dir / "subfolder")
         DummyModel().save_pretrained(save_directory, config=CONFIG)
         model = DummyModel.from_pretrained(save_directory)
-        self.assertDictEqual(model.config, CONFIG)
+        self.assertDictEqual(model._hub_mixin_config, CONFIG)
 
     def test_return_type_hint_from_pretrained(self):
         self.assertIn(
@@ -271,7 +277,7 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Test creating model => auto-generated config
         model = DummyModelNoConfig(num_classes=50)
-        assert model.config == {"num_classes": 50, "state": "layernorm"}
+        assert model._hub_mixin_config == {"num_classes": 50, "state": "layernorm"}
 
         # Test saving model => auto-generated config is saved
         model.save_pretrained(self.cache_dir)
@@ -282,14 +288,15 @@ class PytorchHubMixinTest(unittest.TestCase):
         reloaded = DummyModelNoConfig.from_pretrained(self.cache_dir)
         assert reloaded.num_classes == 50
         assert reloaded.state == "layernorm"
-        assert reloaded.config == {"num_classes": 50, "state": "layernorm"}
+        assert reloaded._hub_mixin_config == {"num_classes": 50, "state": "layernorm"}
 
         # Reload model with custom config => custom config is used
         reloaded_with_default = DummyModelNoConfig.from_pretrained(self.cache_dir, state="other")
         assert reloaded_with_default.num_classes == 50
         assert reloaded_with_default.state == "other"
-        assert reloaded_with_default.config == {"num_classes": 50, "state": "other"}
+        assert reloaded_with_default._hub_mixin_config == {"num_classes": 50, "state": "other"}
 
+        config_file.unlink()  # Remove config file
         reloaded_with_default.save_pretrained(self.cache_dir)
         assert json.loads(config_file.read_text()) == {"num_classes": 50, "state": "other"}
 
@@ -298,22 +305,23 @@ class PytorchHubMixinTest(unittest.TestCase):
         my_object = object()
         model = DummyModelNoConfig(not_jsonable=my_object)
         assert model.not_jsonable is my_object
-        assert "not_jsonable" not in model.config
+        assert "not_jsonable" not in model._hub_mixin_config
 
         # Reload with default value
         model.save_pretrained(self.cache_dir)
         reloaded_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
         assert reloaded_model.not_jsonable is DUMMY_OBJECT
-        assert "not_jsonable" not in model.config
+        assert "not_jsonable" not in model._hub_mixin_config
 
         # If jsonable value passed by user, it's saved in the config
+        (self.cache_dir / "config.json").unlink()
         new_model = DummyModelNoConfig(not_jsonable=123)
         new_model.save_pretrained(self.cache_dir)
-        assert new_model.config["not_jsonable"] == 123
+        assert new_model._hub_mixin_config["not_jsonable"] == 123
 
         reloaded_new_model = DummyModelNoConfig.from_pretrained(self.cache_dir)
         assert reloaded_new_model.not_jsonable == 123
-        assert reloaded_new_model.config["not_jsonable"] == 123
+        assert reloaded_new_model._hub_mixin_config["not_jsonable"] == 123
 
     def test_save_model_with_shared_tensors(self):
         """
@@ -338,9 +346,18 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Linear layers should share weights and biases in memory
         state_dict = reloaded.state_dict()
-        a_weight_ptr = state_dict["a.weight"].storage().data_ptr()
-        b_weight_ptr = state_dict["b.weight"].storage().data_ptr()
-        a_bias_ptr = state_dict["a.bias"].storage().data_ptr()
-        b_bias_ptr = state_dict["b.bias"].storage().data_ptr()
+        a_weight_ptr = state_dict["a.weight"].untyped_storage().data_ptr()
+        b_weight_ptr = state_dict["b.weight"].untyped_storage().data_ptr()
+        a_bias_ptr = state_dict["a.bias"].untyped_storage().data_ptr()
+        b_bias_ptr = state_dict["b.bias"].untyped_storage().data_ptr()
         assert a_weight_ptr == b_weight_ptr
         assert a_bias_ptr == b_bias_ptr
+
+    def test_save_pretrained_when_config_and_kwargs_are_passed(self):
+        # Test creating model with config and kwargs => all values are saved together in config.json
+        model = DummyModelWithConfigAndKwargs(num_classes=50, state="layernorm", config={"a": 1}, b=2, c=3)
+        model.save_pretrained(self.cache_dir)
+        assert model._hub_mixin_config == {"num_classes": 50, "state": "layernorm", "a": 1, "b": 2, "c": 3}
+
+        reloaded = DummyModelWithConfigAndKwargs.from_pretrained(self.cache_dir)
+        assert reloaded._hub_mixin_config == model._hub_mixin_config
