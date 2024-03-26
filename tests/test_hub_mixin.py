@@ -99,6 +99,28 @@ class DummyModelSavingConfig(ModelHubMixin):
         (save_directory / "config.json").write_text(json.dumps({"custom_config": "custom_config"}))
 
 
+@dataclass
+class DummyModelThatIsAlsoADataclass(ModelHubMixin):
+    foo: int
+    bar: str
+
+    @classmethod
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: Optional[str],
+        cache_dir: Optional[Union[str, Path]],
+        force_download: bool,
+        proxies: Optional[Dict],
+        resume_download: bool,
+        local_files_only: bool,
+        token: Optional[Union[str, bool]],
+        **model_kwargs,
+    ):
+        return cls(**model_kwargs)
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -328,3 +350,18 @@ class HubMixinTest(unittest.TestCase):
         # config.json IS overwritten
         with open(self.cache_dir / "config.json") as f:
             assert json.load(f) == {"a": 1, "b": 2}
+
+    def test_from_pretrained_when_cls_is_a_dataclass(self):
+        """Regression test for #2157.
+
+        When the ModelHubMixin class happens to be a dataclass, `__init__` method will accept `**kwargs` when
+        inspecting it. However, due to how dataclasses work, we cannot forward arbitrary kwargs to the `__init__`.
+        This test ensures that the `from_pretrained` method does not raise an error when the class is a dataclass.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2157.
+        """
+        (self.cache_dir / "config.json").write_text('{"foo": 42, "bar": "baz", "other": "value"}')
+        model = DummyModelThatIsAlsoADataclass.from_pretrained(self.cache_dir)
+        assert model.foo == 42
+        assert model.bar == "baz"
+        assert not hasattr(model, "other")
