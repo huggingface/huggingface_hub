@@ -375,9 +375,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 revision=resolved_path.revision,
                 repo_type=resolved_path.repo_type,
             )
-            for path_info in tree:
+            def make_cache_path_info(path_info):
                 if isinstance(path_info, RepoFile):
-                    cache_path_info = {
+                    return {
                         "name": root_path + "/" + path_info.path,
                         "size": path_info.size,
                         "type": "file",
@@ -387,17 +387,20 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         "security": path_info.security,
                     }
                 else:
-                    cache_path_info = {
+                    return {
                         "name": root_path + "/" + path_info.path,
                         "size": 0,
                         "type": "directory",
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
+            for path_info in tree:
+                cache_path_info = make_cache_path_info(path_info)
+                out_cache_path_info = make_cache_path_info(path_info) # copy to not let users modify the dircache
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
-                out.append(cache_path_info)
-        return copy.deepcopy(out)  # copy to not let users modify the dircache
+                out.append(out_cache_path_info)
+        return out
 
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
