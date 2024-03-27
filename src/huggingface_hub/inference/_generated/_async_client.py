@@ -780,13 +780,24 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    async def feature_extraction(
+        self,
+        text: str,
+        truncate: Optional[bool] = True,
+        normalize: Optional[bool] = True,
+        *,
+        model: Optional[str] = None,
+    ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
         Args:
             text (`str`):
                 The text to embed.
+            truncate (`bool`, *optional*):
+                If set to True, truncates inputs longer than 512 tokens. Defaults to True.
+            normalize (`bool`, *optional*):
+                If set to true, returned vectors will have length 1. Defaults to True.
             model (`str`, *optional*):
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
@@ -813,7 +824,9 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        response = await self.post(
+            json={"inputs": text, "truncate": truncate, "normalize": normalize}, model=model, task="feature-extraction"
+        )
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
