@@ -1197,10 +1197,6 @@ class User:
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
-        is_pro (`bool`):
-            Whether the user is a pro user.
-        user_type (`str`):
-            Type of user.
         num_models (`int`, *optional*):
             Number of models created by the user.
         num_datasets (`int`, *optional*):
@@ -1225,8 +1221,6 @@ class User:
     avatar_url: str
     username: str
     fullname: str
-    is_pro: bool
-    user_type: str
     num_models: Optional[int] = None
     num_datasets: Optional[int] = None
     num_spaces: Optional[int] = None
@@ -1236,6 +1230,25 @@ class User:
     num_likes: Optional[int] = None
     is_following: Optional[bool] = None
     details: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.avatar_url = kwargs.get("avatarUrl", "")
+        self.username = kwargs.get("user", "")
+        self.fullname = kwargs.get("fullname", "")
+        self.is_pro = kwargs.get("isPro")
+        self.num_models = kwargs.get("numModels")
+        self.num_datasets = kwargs.get("numDatasets")
+        self.num_spaces = kwargs.get("numSpaces")
+        self.num_discussions = kwargs.get("numDiscussions")
+        self.num_papers = kwargs.get("numPapers")
+        self.num_upvotes = kwargs.get("numUpvotes")
+        self.num_likes = kwargs.get("numLikes")
+        self.user_type = kwargs.get("type")
+        self.is_following = kwargs.get("isFollowing")
+        self.details = kwargs.get("details")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -8513,34 +8526,18 @@ class HfApi:
         r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
 
         hf_raise_for_status(r)
-        user_data = r.json()
-        return User(
-            avatar_url=user_data.get("avatarUrl"),
-            username=user_data["user"],
-            fullname=user_data.get("fullname"),
-            is_pro=user_data.get("isPro"),
-            num_models=user_data.get("numModels"),
-            num_datasets=user_data.get("numDatasets"),
-            num_spaces=user_data.get("numSpaces"),
-            num_discussions=user_data.get("numDiscussions"),
-            num_papers=user_data.get("numPapers"),
-            num_upvotes=user_data.get("numUpvotes"),
-            num_likes=user_data.get("numLikes"),
-            user_type=user_data.get("type"),
-            is_following=user_data.get("isFollowing"),
-            details=user_data.get("details"),
-        )
+        return User(**r.json())
 
-    def get_organization_members(self, organization: str) -> List[User]:
+    def list_organization_members(self, organization: str) -> Iterable[User]:
         """
-        Get the list of members of an organization on the Hub.
+        List of members of an organization on the Hub.
 
         Args:
             organization (`str`):
                 Name of the organization to get the members of.
 
         Returns:
-            `List[User]`: A list of [`User`] objects with the members of the organization.
+            `Iterable[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
             `HTTPError`:
@@ -8552,18 +8549,10 @@ class HfApi:
 
         hf_raise_for_status(r)
 
-        return [
-            User(
-                avatar_url=member.get("avatarUrl"),
-                fullname=member.get("fullname"),
-                is_pro=member.get("isPro"),
-                username=member.get("user"),
-                user_type=member.get("type"),
-            )
-            for member in r.json()
-        ]
+        for member in r.json():
+            yield User(**member)
 
-    def get_user_followers(self, username: str) -> List[User]:
+    def list_user_followers(self, username: str) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
 
@@ -8572,7 +8561,7 @@ class HfApi:
                 Username of the user to get the followers of.
 
         Returns:
-            `List[User]`: A list of [`User`] objects with the followers of the user.
+            `Iterable[User]`: A list of [`User`] objects with the followers of the user.
 
         Raises:
             `HTTPError`:
@@ -8584,18 +8573,10 @@ class HfApi:
 
         hf_raise_for_status(r)
 
-        return [
-            User(
-                avatar_url=follower.get("avatarUrl"),
-                fullname=follower.get("fullname"),
-                is_pro=follower.get("isPro"),
-                username=follower.get("user"),
-                user_type=follower.get("type"),
-            )
-            for follower in r.json()
-        ]
+        for follower in r.json():
+            yield User(**follower)
 
-    def get_user_following(self, username: str) -> List[User]:
+    def list_user_following(self, username: str) -> Iterable[User]:
         """
         Get the list of users followed by a user on the Hub.
 
@@ -8604,7 +8585,7 @@ class HfApi:
                 Username of the user to get the users followed by.
 
         Returns:
-            `List[User]`: A list of [`User`] objects with the users followed by the user.
+            `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
 
         Raises:
             `HTTPError`:
@@ -8616,16 +8597,8 @@ class HfApi:
 
         hf_raise_for_status(r)
 
-        return [
-            User(
-                avatar_url=following.get("avatarUrl"),
-                fullname=following.get("fullname"),
-                is_pro=following.get("isPro"),
-                username=following.get("user"),
-                user_type=following.get("type"),
-            )
-            for following in r.json()
-        ]
+        for followed_user in r.json():
+            yield User(**followed_user)
 
 
 def _prepare_upload_folder_additions(
@@ -8798,6 +8771,6 @@ grant_access = api.grant_access
 
 # User API
 get_user_overview = api.get_user_overview
-get_organization_members = api.get_organization_members
-get_user_followers = api.get_user_followers
-get_user_following = api.get_user_following
+list_organization_members = api.list_organization_members
+list_user_followers = api.list_user_followers
+list_user_following = api.list_user_following

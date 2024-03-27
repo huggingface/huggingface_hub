@@ -3793,28 +3793,26 @@ class AccessRequestAPITest(HfApiCommonTest):
             self._api.cancel_access_request(self.repo_id, OTHER_USER)
 
 
+@with_production_testing
 class UserApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.api = HfApi()  # no auth!
 
     def test_user_overview(self) -> None:
-        overview = self.api.get_user_overview(USER)
+        overview = self.api.get_user_overview("julien-c")
         self.assertEqual(overview.user_type, "user")
-        self.assertEqual(overview.num_likes, 0)
-        self.assertEqual(overview.num_upvotes, 0)
-        self.assertEqual(overview.details, None)
-        self.assertEqual(overview.fullname, FULL_NAME)
+        self.assertGreater(overview.num_likes, 10)
+        self.assertGreater(overview.num_upvotes, 10)
 
-    @with_production_testing
     def test_organization_members(self) -> None:
-        members = self.api.get_organization_members("huggingface")
-        self.assertGreater(len(members), 1)
+        members = self.api.list_organization_members("huggingface")
+        self.assertGreater(len(list(members)), 1)
 
     def test_user_followers(self) -> None:
-        followers = self.api.get_user_followers(USER)
-        self.assertEqual(len(followers), 0)
+        followers = self.api.list_user_followers("julien-c")
+        self.assertGreater(len(list(followers)), 10)
 
     def test_user_following(self) -> None:
-        following = self.api.get_user_following(USER)
-        self.assertEqual(len(following), 0)
+        following = self.api.list_user_following("julien-c")
+        self.assertGreater(len(list(following)), 10)
