@@ -4,14 +4,14 @@ rendered properly in your Markdown viewer.
 
 # HfApi Client[[hfapi-client]]
 
-아래는 허깅 페이스 허브의 API를 위한 파이썬 래퍼 역할을 하는 `HfApi` 클래스에 대한 문서입니다.
+아래는 허깅 페이스 허브의 API를 위한 파이썬 래퍼인 `HfApi` 클래스에 대한 문서입니다.
 
-`HfApi`의 모든 메서드는 패키지의 루트에서 직접 액세스할 수도 있습니다. 두 가지 접근 방식은 아래에 자세히 설명되어 있습니다.
+`HfApi`의 모든 메서드는 패키지의 루트에서 직접 접근할 수 있습니다. 두 접근 방식은 아래에서 자세히 설명합니다.
 
 루트 메서드를 사용하는 것이 더 간단하지만 [`HfApi`] 클래스를 사용하면 더 유연하게 사용할 수 있습니다.
 특히 모든 HTTP 호출에서 재사용할 토큰을 전달할 수 있습니다. 
-이것은 `huggingface-cli login` 또는 [`login`]과는 토큰이 머신에 유지되지 않기 때문입니다.
-다른 엔드포인트를 제공하거나 사용자 지정 사용자 에이전트를 구성할 수도 있습니다.
+이 방식은 토큰이 머신에 유지되지 않기 때문에 `huggingface-cli login` 또는 [`login`]를 사용하는 방식과는 다르며,
+다른 엔드포인트를 제공하거나 사용자정의 에이전트를 구성할 수도 있습니다.
 
 ```python
 from huggingface_hub import HfApi, list_models
