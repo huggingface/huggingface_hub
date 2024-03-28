@@ -47,7 +47,14 @@ from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
 from ._headers import LocalTokenNotFoundError, build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
-from ._http import OfflineModeIsEnabled, configure_http_backend, get_session, http_backoff, reset_sessions
+from ._http import (
+    OfflineModeIsEnabled,
+    configure_http_backend,
+    fix_hf_endpoint_in_url,
+    get_session,
+    http_backoff,
+    reset_sessions,
+)
 from ._pagination import paginate
 from ._paths import IGNORE_GIT_FOLDER_PATTERNS, filter_repo_objects
 from ._runtime import (

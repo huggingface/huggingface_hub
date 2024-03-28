@@ -82,8 +82,6 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
-    _HF_DEFAULT_ENDPOINT,
-    _HF_DEFAULT_STAGING_ENDPOINT,
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_REVISION,
@@ -123,6 +121,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     build_hf_headers,
     experimental,
     filter_repo_objects,
+    fix_hf_endpoint_in_url,
     get_session,
     hf_raise_for_status,
     logging,
@@ -431,14 +430,7 @@ class RepoUrl(str):
     """
 
     def __new__(cls, url: Any, endpoint: Optional[str] = None):
-        # check if a proxy has been set => if yes, update the returned URL to use the proxy
-        if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
-            url = url.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
-            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
-        if endpoint not in (None, _HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
-            url = url.replace(_HF_DEFAULT_ENDPOINT, endpoint)
-            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, endpoint)
-
+        url = fix_hf_endpoint_in_url(url, endpoint=endpoint)
         return super(RepoUrl, cls).__new__(cls, url)
 
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
