@@ -404,6 +404,7 @@ def http_get(
     expected_size: Optional[int] = None,
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
+    _tqdm_bar: Optional[tqdm] = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -483,84 +484,90 @@ def http_get(
     )
 
     # Stream file to buffer
-    with tqdm(
-        unit="B",
-        unit_scale=True,
-        total=total,
-        initial=resume_size,
-        desc=displayed_filename,
-        disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
-        # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-        # see https://github.com/huggingface/huggingface_hub/pull/2000
-    ) as progress:
-        if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
-            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
-            if not supports_callback:
-                warnings.warn(
-                    "You are using an outdated version of `hf_transfer`. "
-                    "Consider upgrading to latest version to enable progress bars "
-                    "using `pip install -U hf_transfer`."
-                )
-            try:
-                hf_transfer.download(
-                    url=url,
-                    filename=temp_file.name,
-                    max_files=HF_TRANSFER_CONCURRENCY,
-                    chunk_size=DOWNLOAD_CHUNK_SIZE,
-                    headers=headers,
-                    parallel_failures=3,
-                    max_retries=5,
-                    **({"callback": progress.update} if supports_callback else {}),
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "An error occurred while downloading using `hf_transfer`. Consider"
-                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-                ) from e
-            if not supports_callback:
-                progress.update(total)
-            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
-                raise EnvironmentError(
-                    consistency_error_message.format(
-                        actual_size=os.path.getsize(temp_file.name),
-                    )
-                )
-            return
-        new_resume_size = resume_size
-        try:
-            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-                if chunk:  # filter out keep-alive new chunks
-                    progress.update(len(chunk))
-                    temp_file.write(chunk)
-                    new_resume_size += len(chunk)
-                    # Some data has been downloaded from the server so we reset the number of retries.
-                    _nb_retries = 5
-        except (requests.ConnectionError, requests.ReadTimeout) as e:
-            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-            # a transient error (network outage?). We log a warning message and try to resume the download a few times
-            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-            if _nb_retries <= 0:
-                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-                raise
-            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-            time.sleep(1)
-            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-            return http_get(
-                url=url,
-                temp_file=temp_file,
-                proxies=proxies,
-                resume_size=new_resume_size,
-                headers=initial_headers,
-                expected_size=expected_size,
-                _nb_retries=_nb_retries - 1,
-            )
+    progress = _tqdm_bar
+    if progress is None:
+        progress = tqdm(
+            unit="B",
+            unit_scale=True,
+            total=total,
+            initial=resume_size,
+            desc=displayed_filename,
+            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
+            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+            # see https://github.com/huggingface/huggingface_hub/pull/2000
+        )
 
-        if expected_size is not None and expected_size != temp_file.tell():
+    if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
+        supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+        if not supports_callback:
+            warnings.warn(
+                "You are using an outdated version of `hf_transfer`. "
+                "Consider upgrading to latest version to enable progress bars "
+                "using `pip install -U hf_transfer`."
+            )
+        try:
+            hf_transfer.download(
+                url=url,
+                filename=temp_file.name,
+                max_files=HF_TRANSFER_CONCURRENCY,
+                chunk_size=DOWNLOAD_CHUNK_SIZE,
+                headers=headers,
+                parallel_failures=3,
+                max_retries=5,
+                **({"callback": progress.update} if supports_callback else {}),
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "An error occurred while downloading using `hf_transfer`. Consider"
+                " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+            ) from e
+        if not supports_callback:
+            progress.update(total)
+        if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
             raise EnvironmentError(
                 consistency_error_message.format(
-                    actual_size=temp_file.tell(),
+                    actual_size=os.path.getsize(temp_file.name),
                 )
             )
+        return
+    new_resume_size = resume_size
+    try:
+        for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+            if chunk:  # filter out keep-alive new chunks
+                progress.update(len(chunk))
+                temp_file.write(chunk)
+                new_resume_size += len(chunk)
+                # Some data has been downloaded from the server so we reset the number of retries.
+                _nb_retries = 5
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
+        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+        # a transient error (network outage?). We log a warning message and try to resume the download a few times
+        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+        if _nb_retries <= 0:
+            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+            raise
+        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+        time.sleep(1)
+        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+        return http_get(
+            url=url,
+            temp_file=temp_file,
+            proxies=proxies,
+            resume_size=new_resume_size,
+            headers=initial_headers,
+            expected_size=expected_size,
+            _nb_retries=_nb_retries - 1,
+            _tqdm_bar=_tqdm_bar,
+        )
+
+    progress.close()
+
+    if expected_size is not None and expected_size != temp_file.tell():
+        raise EnvironmentError(
+            consistency_error_message.format(
+                actual_size=temp_file.tell(),
+            )
+        )
 
 
 @validate_hf_hub_args
@@ -1024,6 +1031,7 @@ def hf_hub_download(
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
+    headers: Optional[Dict[str, str]] = None,
     legacy_cache_layout: bool = False,
     endpoint: Optional[str] = None,
 ) -> str:
@@ -1120,6 +1128,8 @@ def hf_hub_download(
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with the request.
         legacy_cache_layout (`bool`, *optional*, defaults to `False`):
             If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
             then `cached_download`. This is deprecated as the new cache layout is
@@ -1237,6 +1247,7 @@ def hf_hub_download(
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
+        headers=headers,
     )
 
     url_to_download = url
@@ -1619,6 +1630,7 @@ def get_hf_file_metadata(
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1642,13 +1654,19 @@ def get_hf_file_metadata(
             The version of the library.
         user_agent (`dict`, `str`, *optional*):
             The user-agent info in the form of a dictionary or a string.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with the request.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
     headers = build_hf_headers(
-        token=token, library_name=library_name, library_version=library_version, user_agent=user_agent
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        headers=headers,
     )
     headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 

@@ -75,7 +75,7 @@ jobs:
             tensorflow)
               sudo apt update
               sudo apt install -y graphviz
-              uv pip install "huggingface_hub[tensorflow] @ ."
+              uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
           esac

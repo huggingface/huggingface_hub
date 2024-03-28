@@ -79,7 +79,7 @@ Visit the [Models](https://huggingface.co/models) page on the Hub to explore you
 
 ### Using a specific URL
 
-The examples we saw above use the free-hosted Inference API. This proves to be very useful for prototyping
+The examples we saw above use the Serverless Inference API. This proves to be very useful for prototyping
 and testing things quickly. Once you're ready to deploy your model to production, you'll need to use a dedicated infrastructure.
 That's where [Inference Endpoints](https://huggingface.co/docs/inference-endpoints/index) comes into play. It allows you to deploy
 any model and expose it as a private API. Once deployed, you'll get a URL that you can connect to using exactly the same
