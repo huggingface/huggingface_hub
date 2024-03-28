@@ -26,8 +26,8 @@
       title: (번역 중) Community Tab
     - local: in_translation
       title: (번역 중) Cache
-    - local: in_translation
-      title: (번역 중) Model Cards
+    - local: guides/model-cards
+      title: 모델 카드
     - local: in_translation
       title: (번역 중) Manage your Space
     - local: in_translation
