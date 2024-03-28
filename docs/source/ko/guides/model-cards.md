@@ -2,18 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 모델 카드 생성 및 공유
+# 모델 카드 생성 및 공유[[create-and-share-model-cards]]
 
-`huggingface_hub` 라이브러리는 모델 카드를 만들고 공유하고 업데이트하는 파이썬 인터페이스를 제공합니다. 허브의 모델 카드가 무엇인지, 그리고 실제로 어떻게 작동하는지에 대한 자세한 내용은 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
+`huggingface_hub` 라이브러리는 모델 카드를 생성, 공유, 업데이트할 수 있는 파이썬 인터페이스를 제공합니다. Hub의 모델 카드가 무엇인지, 그리고 실제로 어떻게 작동하는지에 대한 자세한 내용을 확인하려면 [전용 설명 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요.
 
 <Tip>
 [신규 (베타)! 우리의 실험적인 모델 카드 크리에이터 앱을 사용해 보세요](https://huggingface.co/spaces/huggingface/Model_Cards_Writing_Tool)
 
 </Tip>
 
-## 허브에서 모델 카드 불러오기
+## Hub에서 모델 카드 불러오기[[load-a-model-card-from-the-hub]]
 
-Hub에서 기존 카드를 불러오려면 [`ModelCard.load`] 기능을 사용하면 됩니다. 여기서는 [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans)에서 카드를 불러옵니다.
+Hub에서 기존 카드를 불러오려면 [`ModelCard.load`] 기능을 사용하면 됩니다. 이 문서에서는 [`nateraw/vit-base-beans`](https://huggingface.co/nateraw/vit-base-beans)에서 카드를 불러오겠습니다.
 
 
 ```python
@@ -28,11 +28,11 @@ card = ModelCard.load('nateraw/vit-base-beans')
   - `card.text`: *메타데이터 헤더를 제외*한 카드의 텍스트를 반환합니다.
   - `card.content`: *메타데이터 헤더를 포함*한 카드의 텍스트 콘텐츠를 반환합니다.
 
-## 모델 카드 만들기
+## 모델 카드 만들기[[create-model-cards]]
 
-### 텍스트에서 생성
+### 텍스트에서 생성[[from-text]]
 
-텍스트로부터 모델 카드를 시작하려면, 카드의 텍스트 내용을 초기화 시 `ModelCard`에 전달하면 됩니다.
+텍스트로 모델 카드의 초기 내용을 설정하려면, 카드의 텍스트 내용을 초기화 시 `ModelCard`에 전달하면 됩니다.
 
 ```python
 content = """
@@ -50,7 +50,7 @@ card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
  
 이 작업을 수행하는 또 다른 방법은 f-strings를 사용하는 것입니다. 다음 예에서 우리는:
 
-- 우리가 정의한 메타데이터를 YAML로 변환하기 위해 [`ModelCardData.to_yaml`]을 사용하므로 모델 카드에 YAML 블록을 삽입하는 데 사용할 수 있습니다.
+- 모델 카드에 YAML 블록을 삽입할 수 있도록 [`ModelCardData.to_yaml`]을 사용해서 우리가 정의한 메타데이터를 YAML로 변환합니다.
 - Python f-strings를 통해 템플릿 변수를 사용할 방법을 보여줍니다.
 
 ```python
@@ -85,9 +85,9 @@ library: timm
 This model created by [@nateraw](https://github.com/nateraw)
 ```
 
-### Jinja 템플릿으로부터
+### Jinja 템플릿으로부터[[from-a-jinja-template]]
 
-Jinja2가 설치되어 있으면, Jinja 템플릿 파일에서 모델 카드를 만들 수 있습니다. 기본적인 예를 살펴보겠습니다:
+`Jinja2`가 설치되어 있으면, jinja 템플릿 파일에서 모델 카드를 만들 수 있습니다. 기본적인 예를 살펴보겠습니다:
 
 ```python
 from pathlib import Path
@@ -102,7 +102,7 @@ template_text = """
 
 # MyCoolModel 모델용 모델 카드
 
-이 모델은 이것과 저것을 합니다.
+이 모델은 이런 저런 것들을 합니다.
 
 이 모델은 [[@{{ author }}](https://hf.co/{{author}})에 의해 생성되었습니다.
 """.strip() 
@@ -131,7 +131,7 @@ library_name: keras
 
 # MyCoolModel 모델용 모델 카드
 
-이 모델은 이것과 저것을 합니다.
+이 모델은 이런 저런 것들을 합니다.
 
 이 모델은 [@nateraw](https://hf.co/nateraw)에 의해 생성되었습니다.
 ```
@@ -156,16 +156,16 @@ library_name: timm
 
 # MyCoolModel 모델용 모델 카드
 
-이 모델은 이것과 저것을 합니다.
+이 모델은 이런 저런 것들을 합니다.
 
 이 모델은 [@nateraw](https://hf.co/nateraw)에 의해 생성되었습니다.
 ```
 
 카드 데이터를 업데이트할 때 [`ModelCard.validate`]를 불러와 Hub에 대해 카드가 여전히 유효한지 확인할 수 있습니다. 이렇게 하면 Hugging Face Hub에 설정된 모든 유효성 검사 규칙을 통과할 수 있습니다.
 
-### 기본 템플릿으로부터
+### 기본 템플릿으로부터[[from-the-default-template]]
 
-템플릿을 사용하는 대신 [default template](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)를 사용할 수도 있습니다. 이것은 여러분이 작성하고 싶은 수많은 섹션이 있는 완전한 기능을 갖춘 모델 카드입니다. 내부적으론 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
+자체 템플릿을 사용하는 대신에, 많은 섹션으로 구성된 기능이 풍부한 [기본 템플릿](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)을 사용할 수도 있습니다. 내부적으론 [Jinja2](https://jinja.palletsprojects.com/en/3.1.x/) 를 사용하여 템플릿 파일을 작성합니다.
 
 <Tip>
 
@@ -186,7 +186,7 @@ card.save('my_model_card_2.md')
 print(card)
 ```
 
-## 모델 카드 공유하기
+## 모델 카드 공유하기[[share-model-cards]]
 
 Hugging Face Hub로 인증받은 경우(`huggingface-cli login` 또는 [`login`] 사용) 간단히 [`ModelCard.push_to_hub`]를 호출하여 카드를 허브에 푸시할 수 있습니다. 이를 수행하는 방법을 살펴보겠습니다.
 
@@ -213,7 +213,7 @@ card = ModelCard.from_template(
 )
 ```
 
-마지막으로 이를 허브로 푸시하겠습니다.
+마지막으로 이를 Hub로 푸시하겠습니다.
 
 ```python
 card.push_to_hub(repo_id)
@@ -221,7 +221,7 @@ card.push_to_hub(repo_id)
 
 결과 카드는 [여기](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/blob/main/README.md)에서 확인할 수 있습니다.
 
-풀 요청으로 카드를 푸시하고 싶다면 `push_to_hub`를 호출할 때 `create_pr=True`라고 말하면 됩니다.
+PR로 카드를 푸시하고 싶다면 `push_to_hub`를 호출할 때 `create_pr=True`라고 지정하면 됩니다.
 
 ```python
 card.push_to_hub(repo_id, create_pr=True)
@@ -229,11 +229,11 @@ card.push_to_hub(repo_id, create_pr=True)
 
 이 명령으로 생성된 결과 PR은 [여기](https://huggingface.co/nateraw/hf-hub-modelcards-pr-test/discussions/3)에서 볼 수 있습니다.
 
-## 메타데이터 업데이트
+## 메타데이터 업데이트[[update-metadata]]
 
 이 섹션에서는 레포 카드에 있는 메타데이터와 업데이트 방법을 확인합니다.
 
-`메타데이터`는 모델, 데이터셋, 스페이스에 대한 높은 수준의 정보를 제공하는 해시맵(또는 키 값) 컨텍스트를 말합니다. 모델의 `pipeline type`, `model_id` 또는 `model_desc` 설명 등의 정보가 포함될 수 있습니다. 자세한 내용은 [모델 카드](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [데이터셋 카드](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) 및 [스페이스 설정](https://huggingface.co/docs/hub/spaces-settings#spaces-settings) 을 참조하십시오. 이제 메타데이터를 업데이트하는 방법에 대한 몇 가지 예를 살펴보겠습니다.
+`메타데이터`는 모델, 데이터 세트, Spaces에 대한 높은 수준의 정보를 제공하는 해시맵(또는 키 값) 컨텍스트를 말합니다. 모델의 `pipeline type`, `model_id` 또는 `model_desc` 설명 등의 정보가 포함될 수 있습니다. 자세한 내용은 [모델 카드](https://huggingface.co/docs/hub/model-cards#model-card-metadata), [데이터 세트 카드](https://huggingface.co/docs/hub/datasets-cards#dataset-card-metadata) 및 [�Spaces 설정](https://huggingface.co/docs/hub/spaces-settings#spaces-settings) 을 참조하세요. 이제 메타데이터를 업데이트하는 방법에 대한 몇 가지 예를 살펴보겠습니다.
 
 
 첫 번째 예부터 살펴보겠습니다:
