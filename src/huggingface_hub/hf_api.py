@@ -131,7 +131,7 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
     DatasetFilter,
@@ -184,11 +184,6 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             If `repo_type` is unknown.
     """
     input_hf_id = hf_id
-
-    # check if a proxy has been set => if yes, update the returned URL to use the proxy
-    if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
-        hf_id = hf_id.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
-        hf_id = hf_id.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
 
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
@@ -436,6 +431,14 @@ class RepoUrl(str):
     """
 
     def __new__(cls, url: Any, endpoint: Optional[str] = None):
+        # check if a proxy has been set => if yes, update the returned URL to use the proxy
+        if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+            url = url.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
+            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
+        if endpoint not in (None, _HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+            url = url.replace(_HF_DEFAULT_ENDPOINT, endpoint)
+            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, endpoint)
+
         return super(RepoUrl, cls).__new__(cls, url)
 
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
@@ -505,10 +508,10 @@ class RepoFile:
         lfs (`BlobLfsInfo`):
             The file's LFS metadata.
         last_commit (`LastCommitInfo`, *optional*):
-            The file's last commit metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            The file's last commit metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
             are called with `expand=True`.
         security (`BlobSecurityInfo`, *optional*):
-            The file's security scan metadata. Only defined if [`list_files_info`], [`list_repo_tree`] and [`get_paths_info`]
+            The file's security scan metadata. Only defined if [`list_repo_tree`] and [`get_paths_info`]
             are called with `expand=True`.
     """
 
@@ -2576,190 +2579,6 @@ class HfApi:
             raise
         except (RepositoryNotFoundError, EntryNotFoundError, RevisionNotFoundError):
             return False
-
-    @validate_hf_hub_args
-    @_deprecate_method(version="0.23", message="Use `list_repo_tree` and `get_paths_info` instead.")
-    def list_files_info(
-        self,
-        repo_id: str,
-        paths: Union[List[str], str, None] = None,
-        *,
-        expand: bool = False,
-        revision: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        token: Optional[Union[bool, str]] = None,
-    ) -> Iterable[RepoFile]:
-        """
-        List files on a repo and get information about them.
-
-        Takes as input a list of paths. Those paths can be either files or folders. Two server endpoints are called:
-        1. POST "/paths-info" to get information about the provided paths. Called once.
-        2. GET  "/tree?recursive=True" to paginate over the input folders. Called only if a folder path is provided as
-           input. Will be called multiple times to follow pagination.
-        If no path is provided as input, step 1. is ignored and all files from the repo are listed.
-
-        Args:
-            repo_id (`str`):
-                A namespace (user or an organization) and a repo name separated by a `/`.
-            paths (`Union[List[str], str, None]`, *optional*):
-                The paths to get information about. Paths to files are directly resolved. Paths to folders are resolved
-                recursively which means that information is returned about all files in the folder and its subfolders.
-                If `None`, all files are returned (the default). If a path do not exist, it is ignored without raising
-                an exception.
-            expand (`bool`, *optional*, defaults to `False`):
-                Whether to fetch more information about the files (e.g. last commit and security scan results). This
-                operation is more expensive for the server so only 50 results are returned per page (instead of 1000).
-                As pagination is implemented in `huggingface_hub`, this is transparent for you except for the time it
-                takes to get the results.
-            revision (`str`, *optional*):
-                The revision of the repository from which to get the information. Defaults to `"main"` branch.
-            repo_type (`str`, *optional*):
-                The type of the repository from which to get the information (`"model"`, `"dataset"` or `"space"`.
-                Defaults to `"model"`.
-            token (`bool` or `str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token). If `None` or `True` and
-                machine is logged in (through `huggingface-cli login` or [`~huggingface_hub.login`]), token will be
-                retrieved from the cache. If `False`, token is not sent in the request header.
-
-        Returns:
-            `Iterable[RepoFile]`:
-                The information about the files, as an iterable of [`RepoFile`] objects. The order of the files is
-                not guaranteed.
-
-        Raises:
-            [`~utils.RepositoryNotFoundError`]:
-                If repository is not found (error 404): wrong repo_id/repo_type, private but not authenticated or repo
-                does not exist.
-            [`~utils.RevisionNotFoundError`]:
-                If revision is not found (error 404) on the repo.
-
-        Examples:
-
-            Get information about files on a repo.
-            ```py
-            >>> from huggingface_hub import list_files_info
-            >>> files_info = list_files_info("lysandre/arxiv-nlp", ["README.md", "config.json"])
-            >>> files_info
-            <generator object HfApi.list_files_info at 0x7f93b848e730>
-            >>> list(files_info)
-            [
-                RepoFile(path='README.md', size=391, blob_id='43bd404b159de6fba7c2f4d3264347668d43af25', lfs=None, last_commit=None, security=None),
-                RepoFile(path='config.json', size=554, blob_id='2f9618c3a19b9a61add74f70bfb121335aeef666', lfs=None, last_commit=None, security=None)
-            ]
-            ```
-
-            Get even more information about files on a repo (last commit and security scan results)
-            ```py
-            >>> from huggingface_hub import list_files_info
-            >>> files_info = list_files_info("prompthero/openjourney-v4", expand=True)
-            >>> list(files_info)
-            [
-                RepoFile(
-                    path='safety_checker/pytorch_model.bin',
-                    size=1216064769,
-                    blob_id='c8835557a0d3af583cb06c7c154b7e54a069c41d',
-                    lfs={
-                        'size': 1216064769,
-                        'sha256': '16d28f2b37109f222cdc33620fdd262102ac32112be0352a7f77e9614b35a394',
-                        'pointer_size': 135
-                    },
-                    last_commit={
-                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                        'title': 'Upload diffusers weights (#48)',
-                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)
-                    },
-                    security={
-                        'safe': True,
-                        'av_scan': {
-                            'virusFound': False,
-                            'virusNames': None
-                        },
-                        'pickle_import_scan': {
-                            'highestSafetyLevel': 'innocuous',
-                            'imports': [
-                                {'module': 'torch', 'name': 'FloatStorage', 'safety': 'innocuous'},
-                                {'module': 'collections', 'name': 'OrderedDict', 'safety': 'innocuous'},
-                                {'module': 'torch', 'name': 'LongStorage', 'safety': 'innocuous'},
-                                {'module': 'torch._utils', 'name': '_rebuild_tensor_v2', 'safety': 'innocuous'}
-                            ]
-                        }
-                    }
-                ),
-                RepoFile(
-                    path='scheduler/scheduler_config.json',
-                    size=465,
-                    blob_id='70d55e3e9679f41cbc66222831b38d5abce683dd',
-                    lfs=None,
-                    last_commit={
-                        'oid': '47b62b20b20e06b9de610e840282b7e6c3d51190',
-                        'title': 'Upload diffusers weights (#48)',
-                        'date': datetime.datetime(2023, 3, 21, 10, 5, 27, tzinfo=datetime.timezone.utc)},
-                        security={
-                            'safe': True,
-                            'av_scan': {
-                                'virusFound': False,
-                                'virusNames': None
-                            },
-                            'pickle_import_scan': None
-                        }
-                ),
-                ...
-            ]
-            ```
-
-            List LFS files from the "vae/" folder in "stabilityai/stable-diffusion-2" repository.
-
-            ```py
-            >>> from huggingface_hub import list_files_info
-            >>> [info.path for info in list_files_info("stabilityai/stable-diffusion-2", "vae") if info.lfs is not None]
-            ['vae/diffusion_pytorch_model.bin', 'vae/diffusion_pytorch_model.safetensors']
-            ```
-
-            List all files on a repo.
-            ```py
-            >>> from huggingface_hub import list_files_info
-            >>> [info.path for info in list_files_info("glue", repo_type="dataset")]
-            ['.gitattributes', 'README.md', 'dataset_infos.json', 'glue.py']
-            ```
-        """
-        repo_type = repo_type or REPO_TYPE_MODEL
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
-        headers = self._build_hf_headers(token=token)
-
-        folder_paths = []
-        if paths is None:
-            # `paths` is not provided => list all files from the repo
-            folder_paths.append("")
-        elif paths == []:
-            # corner case: server would return a 400 error if `paths` is an empty list. Let's return early.
-            return
-        else:
-            # `paths` is provided => get info about those
-            response = get_session().post(
-                f"{self.endpoint}/api/{repo_type}s/{repo_id}/paths-info/{revision}",
-                data={
-                    "paths": paths if isinstance(paths, list) else [paths],
-                    "expand": expand,
-                },
-                headers=headers,
-            )
-            hf_raise_for_status(response)
-            paths_info = response.json()
-
-            # List top-level files first
-            for path_info in paths_info:
-                if path_info["type"] == "file":
-                    yield RepoFile(**path_info)
-                else:
-                    folder_paths.append(path_info["path"])
-
-        # List files in subdirectories
-        for path in folder_paths:
-            encoded_path = "/" + quote(path, safe="") if path else ""
-            tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path}"
-            for subpath_info in paginate(path=tree_url, headers=headers, params={"recursive": True, "expand": expand}):
-                if subpath_info["type"] == "file":
-                    yield RepoFile(**subpath_info)
 
     @validate_hf_hub_args
     def list_repo_files(
@@ -8535,7 +8354,6 @@ repo_info = api.repo_info
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
-list_files_info = api.list_files_info
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
 
