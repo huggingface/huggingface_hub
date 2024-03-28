@@ -104,7 +104,7 @@ def login(
         if not add_to_git_credential:
             print(
                 "The token has not been saved to the git credentials helper. Pass "
-                "`add_to_git_credential=True` if this function directly or "
+                "`add_to_git_credential=True` in this function directly or "
                 "`--add-to-git-credential` if using via `huggingface-cli` if "
                 "you want to set the git credential as well."
             )
