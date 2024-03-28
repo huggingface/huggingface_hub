@@ -2,26 +2,25 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Mixins & serialization methods
+# Mixins & serialization methods[[mixins--serialization-methods]]
 
-## Mixins
+## Mixins[[mixins]]
 
-The `huggingface_hub` library offers a range of mixins that can be used as a parent class for your objects, in order to
-provide simple uploading and downloading functions. Check out our [integration guide](../guides/integrations) to learn
-how to integrate any ML framework with the Hub.
+`huggingface_hub` 라이브러리는 객체에 함수의 업로드 및 다운로드 기능을 제공하기 위해 부모 클래스로 사용될 수 있는 다양한 믹스인을 제공합니다.
+ML 프레임워크를 Hub와 통합하는 방법은 [integration guide](../guides/integrations)를 통해 배울 수 있습니다.
 
-### Generic
+### Generic[[huggingface_hub.ModelHubMixin]]
 
 [[autodoc]] ModelHubMixin
     - all
     - _save_pretrained
     - _from_pretrained
 
-### PyTorch
+### PyTorch[[huggingface_hub.PyTorchModelHubMixin]]
 
 [[autodoc]] PyTorchModelHubMixin
 
-### Keras
+### Keras[[huggingface_hub.KerasModelHubMixin]]
 
 [[autodoc]] KerasModelHubMixin
 
@@ -31,7 +30,7 @@ how to integrate any ML framework with the Hub.
 
 [[autodoc]] save_pretrained_keras
 
-### Fastai
+### Fastai[[huggingface_hub.from_pretrained_fastai]]
 
 [[autodoc]] from_pretrained_fastai
 
