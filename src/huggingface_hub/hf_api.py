@@ -1197,6 +1197,8 @@ class User:
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
+        is_pro (`bool`, *optional*):
+            Whether the user is a pro user.
         num_models (`int`, *optional*):
             Number of models created by the user.
         num_datasets (`int`, *optional*):
@@ -1221,6 +1223,7 @@ class User:
     avatar_url: str
     username: str
     fullname: str
+    is_pro: Optional[bool] = None
     num_models: Optional[int] = None
     num_datasets: Optional[int] = None
     num_spaces: Optional[int] = None
