@@ -435,6 +435,9 @@ class RepoUrl(str):
         if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
             url = url.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
             url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
+        if endpoint not in (None, _HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+            url = url.replace(_HF_DEFAULT_ENDPOINT, endpoint)
+            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, endpoint)
 
         return super(RepoUrl, cls).__new__(cls, url)
 
