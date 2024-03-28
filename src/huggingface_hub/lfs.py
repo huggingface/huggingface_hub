@@ -232,6 +232,7 @@ def lfs_upload(
     # 2. Upload file (either single part or multi-part)
     header = upload_action.get("header", {})
     chunk_size = header.get("chunk_size")
+    upload_url = fix_hf_endpoint_in_url(upload_action["href"], endpoint=endpoint)
     if chunk_size is not None:
         try:
             chunk_size = int(chunk_size)
@@ -239,17 +240,16 @@ def lfs_upload(
             raise ValueError(
                 f"Malformed response from LFS batch endpoint: `chunk_size` should be an integer. Got '{chunk_size}'."
             )
-        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_action["href"])
+        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_url)
     else:
-        _upload_single_part(operation=operation, upload_url=upload_action["href"])
+        _upload_single_part(operation=operation, upload_url=upload_url)
 
     # 3. Verify upload went well
     if verify_action is not None:
         _validate_lfs_action(verify_action)
-        url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
-
+        verify_url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
         verify_resp = get_session().post(
-            url,
+            verify_url,
             headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
