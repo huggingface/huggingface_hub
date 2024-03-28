@@ -31,6 +31,7 @@ from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_
 
 from .utils import (
     build_hf_headers,
+    fix_hf_endpoint_in_url,
     get_session,
     hf_raise_for_status,
     http_backoff,
@@ -193,6 +194,7 @@ def lfs_upload(
     lfs_batch_action: Dict,
     token: Optional[str] = None,
     headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
 ) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.
@@ -244,8 +246,10 @@ def lfs_upload(
     # 3. Verify upload went well
     if verify_action is not None:
         _validate_lfs_action(verify_action)
+        url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
+
         verify_resp = get_session().post(
-            verify_action["href"],
+            url,
             headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
