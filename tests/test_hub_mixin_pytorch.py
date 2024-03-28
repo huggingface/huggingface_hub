@@ -346,10 +346,10 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Linear layers should share weights and biases in memory
         state_dict = reloaded.state_dict()
-        a_weight_ptr = state_dict["a.weight"].storage().data_ptr()
-        b_weight_ptr = state_dict["b.weight"].storage().data_ptr()
-        a_bias_ptr = state_dict["a.bias"].storage().data_ptr()
-        b_bias_ptr = state_dict["b.bias"].storage().data_ptr()
+        a_weight_ptr = state_dict["a.weight"].untyped_storage().data_ptr()
+        b_weight_ptr = state_dict["b.weight"].untyped_storage().data_ptr()
+        a_bias_ptr = state_dict["a.bias"].untyped_storage().data_ptr()
+        b_bias_ptr = state_dict["b.bias"].untyped_storage().data_ptr()
         assert a_weight_ptr == b_weight_ptr
         assert a_bias_ptr == b_bias_ptr
 

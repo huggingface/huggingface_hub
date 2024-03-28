@@ -262,6 +262,12 @@ class ModelHubMixin:
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
 
+        # Remove config.json if already exists. After `_save_pretrained` we don't want to overwrite config.json
+        # as it might have been saved by the custom `_save_pretrained` already. However we do want to overwrite
+        # an existing config.json if it was not saved by `_save_pretrained`.
+        config_path = save_directory / CONFIG_NAME
+        config_path.unlink(missing_ok=True)
+
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
 
@@ -271,7 +277,6 @@ class ModelHubMixin:
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
-            config_path = save_directory / CONFIG_NAME
             if not config_path.exists():
                 config_str = json.dumps(config, sort_keys=True, indent=2)
                 config_path.write_text(config_str)
@@ -398,7 +403,12 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
+            # Inject config if `**kwargs` are expected
+            if is_dataclass(cls):
+                for key in cls.__dataclass_fields__:
+                    if key not in model_kwargs and key in config:
+                        model_kwargs[key] = config[key]
+            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
                 for key, value in config.items():
                     if key not in model_kwargs:
                         model_kwargs[key] = value
