@@ -52,8 +52,8 @@
       title: (번역 중) Hugging Face Hub API
     - local: in_translation
       title: (번역 중) Downloading files
-    - local: in_translation
-      title: (번역 중) Mixins & serialization methods
+    - local: package_reference/mixins
+      title: 미스인 & 직렬화 메서드
     - local: in_translation
       title: (번역 중) Inference Client
     - local: in_translation
