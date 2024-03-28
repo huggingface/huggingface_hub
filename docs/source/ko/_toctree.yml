@@ -20,8 +20,8 @@
       title: (번역 중) Repository
     - local: in_translation
       title: (번역 중) Search
-    - local: in_translation
-      title: (번역 중) Inference
+    - local: inference
+      title: 추론
     - local: in_translation
       title: (번역 중) Community Tab
     - local: in_translation
