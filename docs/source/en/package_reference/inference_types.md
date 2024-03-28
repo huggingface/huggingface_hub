@@ -49,6 +49,26 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## chat_completion
+
+[[autodoc]] huggingface_hub.ChatCompletionInput
+
+[[autodoc]] huggingface_hub.ChatCompletionInputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoiceMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDelta
+
+
+
 ## depth_estimation
 
 [[autodoc]] huggingface_hub.DepthEstimationInput
@@ -203,19 +223,23 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_generation
 
-[[autodoc]] huggingface_hub.PrefillToken
-
 [[autodoc]] huggingface_hub.TextGenerationInput
 
 [[autodoc]] huggingface_hub.TextGenerationOutput
 
 [[autodoc]] huggingface_hub.TextGenerationOutputDetails
 
+[[autodoc]] huggingface_hub.TextGenerationOutputSequenceDetails
+
+[[autodoc]] huggingface_hub.TextGenerationOutputToken
+
 [[autodoc]] huggingface_hub.TextGenerationParameters
 
-[[autodoc]] huggingface_hub.TextGenerationSequenceDetails
+[[autodoc]] huggingface_hub.TextGenerationPrefillToken
 
-[[autodoc]] huggingface_hub.Token
+[[autodoc]] huggingface_hub.TextGenerationStreamDetails
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutput
 
 
 

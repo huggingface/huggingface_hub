@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.22.0.dev0"
+__version__ = "0.23.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -198,7 +198,6 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
-        "list_files_info",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
@@ -270,6 +269,14 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
+        "ChatCompletionInput",
+        "ChatCompletionInputMessage",
+        "ChatCompletionOutput",
+        "ChatCompletionOutputChoice",
+        "ChatCompletionOutputChoiceMessage",
+        "ChatCompletionStreamOutput",
+        "ChatCompletionStreamOutputChoice",
+        "ChatCompletionStreamOutputDelta",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -298,7 +305,6 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
-        "PrefillToken",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -320,8 +326,12 @@ _SUBMOD_ATTRS = {
         "TextGenerationInput",
         "TextGenerationOutput",
         "TextGenerationOutputDetails",
+        "TextGenerationOutputSequenceDetails",
+        "TextGenerationOutputToken",
         "TextGenerationParameters",
-        "TextGenerationSequenceDetails",
+        "TextGenerationPrefillToken",
+        "TextGenerationStreamDetails",
+        "TextGenerationStreamOutput",
         "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
@@ -330,7 +340,6 @@ _SUBMOD_ATTRS = {
         "TextToImageOutput",
         "TextToImageParameters",
         "TextToImageTargetSize",
-        "Token",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
@@ -652,7 +661,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
-        list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
@@ -722,6 +730,14 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
+        ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionOutput,  # noqa: F401
+        ChatCompletionOutputChoice,  # noqa: F401
+        ChatCompletionOutputChoiceMessage,  # noqa: F401
+        ChatCompletionStreamOutput,  # noqa: F401
+        ChatCompletionStreamOutputChoice,  # noqa: F401
+        ChatCompletionStreamOutputDelta,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -750,7 +766,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
-        PrefillToken,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -772,8 +787,12 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationInput,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationOutputSequenceDetails,  # noqa: F401
+        TextGenerationOutputToken,  # noqa: F401
         TextGenerationParameters,  # noqa: F401
-        TextGenerationSequenceDetails,  # noqa: F401
+        TextGenerationPrefillToken,  # noqa: F401
+        TextGenerationStreamDetails,  # noqa: F401
+        TextGenerationStreamOutput,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
@@ -782,7 +801,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
         TextToImageTargetSize,  # noqa: F401
-        Token,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
