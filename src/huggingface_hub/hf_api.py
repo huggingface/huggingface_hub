@@ -185,11 +185,6 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     """
     input_hf_id = hf_id
 
-    # check if a proxy has been set => if yes, update the returned URL to use the proxy
-    if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
-        hf_id = hf_id.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
-        hf_id = hf_id.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
-
     hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
@@ -436,6 +431,11 @@ class RepoUrl(str):
     """
 
     def __new__(cls, url: Any, endpoint: Optional[str] = None):
+        # check if a proxy has been set => if yes, update the returned URL to use the proxy
+        if ENDPOINT not in (_HF_DEFAULT_ENDPOINT, _HF_DEFAULT_STAGING_ENDPOINT):
+            url = url.replace(_HF_DEFAULT_ENDPOINT, ENDPOINT)
+            url = url.replace(_HF_DEFAULT_STAGING_ENDPOINT, ENDPOINT)
+
         return super(RepoUrl, cls).__new__(cls, url)
 
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
