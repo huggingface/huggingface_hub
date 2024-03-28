@@ -19,7 +19,6 @@ from .utils import (
     logging,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments
 
 
 if TYPE_CHECKING:
@@ -485,11 +484,6 @@ class ModelHubMixin:
         """
         raise NotImplementedError
 
-    @_deprecate_arguments(
-        version="0.23.0",
-        deprecated_args=["api_endpoint"],
-        custom_message="Use `HF_ENDPOINT` environment variable instead.",
-    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
@@ -504,8 +498,6 @@ class ModelHubMixin:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        # TODO: remove once deprecated
-        api_endpoint: Optional[str] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -523,8 +515,6 @@ class ModelHubMixin:
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
                 Whether the repository created should be private.
-            api_endpoint (`str`, *optional*):
-                The API endpoint to use when pushing the model to the hub.
             token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `huggingface-cli login`.
@@ -542,7 +532,7 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
-        api = HfApi(endpoint=api_endpoint, token=token)
+        api = HfApi(token=token)
         repo_id = api.create_repo(repo_id=repo_id, private=private, exist_ok=True).repo_id
 
         # Push the files to the repo in a single commit
