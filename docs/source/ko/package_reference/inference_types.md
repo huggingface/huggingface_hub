@@ -10,7 +10,7 @@ rendered properly in your Markdown viewer.
 이 페이지에는 Hugging Face Hub에서 지원하는 작업 유형(예: 데이터 클래스)이 나열되어 있습니다.
 각 작업은 JSON 스키마로 표현되며, 이 작성된 JSON 스키마에 의해서 타입이 생성됩니다. 이때 Python 요구사항으로 인해 일부 커스터마이제이션이 있을 수 있습니다.
  
-JSON 스키마를 확인하시려면 [@huggingface.js/tasks](https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks)
+JSON 스키마를 확인하려면 [@huggingface.js/tasks](https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks)
 를 방문하세요.
 
 라이브러리에서 이 부분은 아직 개발 중이며, 향후 릴리즈에서 개선될 예정입니다.
