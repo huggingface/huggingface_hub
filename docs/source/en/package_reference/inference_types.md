@@ -37,6 +37,8 @@ This part of the lib is still under development and will be improved in future r
 
 ## automatic_speech_recognition
 
+[[autodoc]] huggingface_hub.AutomaticSpeechRecognitionGenerationParameters
+
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionInput
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionOutput
@@ -45,7 +47,25 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionParameters
 
-[[autodoc]] huggingface_hub.GenerationParameters
+
+
+## chat_completion
+
+[[autodoc]] huggingface_hub.ChatCompletionInput
+
+[[autodoc]] huggingface_hub.ChatCompletionInputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputChoiceMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDelta
 
 
 
@@ -113,13 +133,13 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ImageToImageParameters
 
-[[autodoc]] huggingface_hub.TargetSize
+[[autodoc]] huggingface_hub.ImageToImageTargetSize
 
 
 
 ## image_to_text
 
-[[autodoc]] huggingface_hub.GenerationParameters
+[[autodoc]] huggingface_hub.ImageToTextGenerationParameters
 
 [[autodoc]] huggingface_hub.ImageToTextInput
 
@@ -131,7 +151,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## object_detection
 
-[[autodoc]] huggingface_hub.BoundingBox
+[[autodoc]] huggingface_hub.ObjectDetectionBoundingBox
 
 [[autodoc]] huggingface_hub.ObjectDetectionInput
 
@@ -163,11 +183,11 @@ This part of the lib is still under development and will be improved in future r
 
 ## summarization
 
+[[autodoc]] huggingface_hub.SummarizationGenerationParameters
+
 [[autodoc]] huggingface_hub.SummarizationInput
 
 [[autodoc]] huggingface_hub.SummarizationOutput
-
-[[autodoc]] huggingface_hub.Text2TextGenerationParameters
 
 
 
@@ -203,25 +223,29 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_generation
 
-[[autodoc]] huggingface_hub.PrefillToken
-
 [[autodoc]] huggingface_hub.TextGenerationInput
 
 [[autodoc]] huggingface_hub.TextGenerationOutput
 
 [[autodoc]] huggingface_hub.TextGenerationOutputDetails
 
+[[autodoc]] huggingface_hub.TextGenerationOutputSequenceDetails
+
+[[autodoc]] huggingface_hub.TextGenerationOutputToken
+
 [[autodoc]] huggingface_hub.TextGenerationParameters
 
-[[autodoc]] huggingface_hub.TextGenerationSequenceDetails
+[[autodoc]] huggingface_hub.TextGenerationPrefillToken
 
-[[autodoc]] huggingface_hub.Token
+[[autodoc]] huggingface_hub.TextGenerationStreamDetails
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutput
 
 
 
 ## text_to_audio
 
-[[autodoc]] huggingface_hub.GenerationParameters
+[[autodoc]] huggingface_hub.TextToAudioGenerationParameters
 
 [[autodoc]] huggingface_hub.TextToAudioInput
 
@@ -233,25 +257,13 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_to_image
 
-[[autodoc]] huggingface_hub.TargetSize
-
 [[autodoc]] huggingface_hub.TextToImageInput
 
 [[autodoc]] huggingface_hub.TextToImageOutput
 
 [[autodoc]] huggingface_hub.TextToImageParameters
 
-
-
-## text_to_speech
-
-[[autodoc]] huggingface_hub.GenerationParameters
-
-[[autodoc]] huggingface_hub.TextToAudioParameters
-
-[[autodoc]] huggingface_hub.TextToSpeechInput
-
-[[autodoc]] huggingface_hub.TextToSpeechOutput
+[[autodoc]] huggingface_hub.TextToImageTargetSize
 
 
 
@@ -267,7 +279,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## translation
 
-[[autodoc]] huggingface_hub.Text2TextGenerationParameters
+[[autodoc]] huggingface_hub.TranslationGenerationParameters
 
 [[autodoc]] huggingface_hub.TranslationInput
 
@@ -323,7 +335,7 @@ This part of the lib is still under development and will be improved in future r
 
 ## zero_shot_object_detection
 
-[[autodoc]] huggingface_hub.BoundingBox
+[[autodoc]] huggingface_hub.ZeroShotObjectDetectionBoundingBox
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInput
 
