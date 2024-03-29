@@ -40,10 +40,10 @@
   sections:
     - local: concepts/git_vs_http
       title: Git 대 HTTP 패러다임
-- title: "(번역 중) 라이브러리 레퍼런스"
+- title: "라이브러리 레퍼런스"
   sections:
-    - local: in_translation
-      title: (번역 중) Overview
+    - local: package_reference/overview
+      title: 개요
     - local: in_translation
       title: (번역 중) Login and logout
     - local: in_translation
