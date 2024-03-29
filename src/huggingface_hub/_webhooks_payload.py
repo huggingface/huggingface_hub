@@ -112,6 +112,7 @@ class WebhookPayloadUpdatedRef(BaseModel):
     oldSha: Optional[str] = None
     newSha: Optional[str] = None
 
+
 class WebhookPayload(BaseModel):
     event: WebhookPayloadEvent
     repo: WebhookPayloadRepo
