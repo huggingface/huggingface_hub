@@ -50,8 +50,8 @@
       title: (번역 중) Managing local and online repositories
     - local: in_translation
       title: (번역 중) Hugging Face Hub API
-    - local: in_translation
-      title: (번역 중) Downloading files
+    - local: package_reference/file_download
+      title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Mixins & serialization methods
     - local: in_translation
