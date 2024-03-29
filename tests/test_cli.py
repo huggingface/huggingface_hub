@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
+from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.utils import RevisionNotFoundError, SoftTemporaryDirectory, capture_output
 
@@ -558,6 +559,69 @@ class TestDownloadCommand(unittest.TestCase):
             # Taken from https://docs.pytest.org/en/latest/how-to/capture-warnings.html#additional-use-cases-of-warnings-in-tests
             warnings.simplefilter("error")
             DownloadCommand(args).run()
+
+
+class TestTagCommands(unittest.TestCase):
+    def setUp(self) -> None:
+        """
+        Set up CLI as in `src/huggingface_hub/commands/huggingface_cli.py`.
+        """
+        self.parser = ArgumentParser("huggingface-cli", usage="huggingface-cli <command> [<args>]")
+        commands_parser = self.parser.add_subparsers()
+        TagCommands.register_subcommand(commands_parser)
+
+    def test_tag_create_basic(self) -> None:
+        """Test `huggingface-cli tag create my-model 1.0`."""
+        args = self.parser.parse_args(["tag", "create", DUMMY_MODEL_ID, "1.0"])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.tag, "1.0")
+        self.assertIsNone(args.tag_message)
+        self.assertIsNone(args.revision)
+        self.assertIsNone(args.token)
+        self.assertEqual(args.type, "model")
+        self.assertFalse(args.yes)
+
+    def test_tag_create_with_all_options(self) -> None:
+        args = self.parser.parse_args(
+            [
+                "tag",
+                "create",
+                DUMMY_MODEL_ID,
+                "1.0",
+                "--tag-message",
+                "My tag message",
+                "--revision",
+                "v1.0.0",
+                "--token",
+                "my-token",
+                "--type",
+                "dataset",
+                "--yes",
+                "--force",
+            ]
+        )
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.tag, "1.0")
+        self.assertEqual(args.tag_message, "My tag message")
+        self.assertEqual(args.revision, "v1.0.0")
+        self.assertEqual(args.token, "my-token")
+        self.assertEqual(args.type, "dataset")
+        self.assertTrue(args.yes)
+        self.assertTrue(args.force)
+
+    def test_tag_list_basic(self) -> None:
+        args = self.parser.parse_args(["tag", "list", DUMMY_MODEL_ID])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertIsNone(args.token)
+        self.assertEqual(args.type, "model")
+
+    def test_tag_delete_basic(self) -> None:
+        args = self.parser.parse_args(["tag", "delete", DUMMY_MODEL_ID, "1.0"])
+        self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
+        self.assertEqual(args.tag, "1.0")
+        self.assertIsNone(args.token)
+        self.assertEqual(args.type, "model")
+        self.assertFalse(args.yes)
 
 
 @contextmanager
