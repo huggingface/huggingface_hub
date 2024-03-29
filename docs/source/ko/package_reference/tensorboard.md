@@ -2,18 +2,17 @@
 rendered properly in your Markdown viewer.
 -->
 
-# TensorBoard logger
+# TensorBoard logger[[tensorboard-logger]]
 
-TensorBoard is a visualization toolkit for machine learning experimentation. TensorBoard allows tracking and visualizing
-metrics such as loss and accuracy, visualizing the model graph, viewing histograms, displaying images and much more.
-TensorBoard is well integrated with the Hugging Face Hub. The Hub automatically detects TensorBoard traces (such as
-`tfevents`) when pushed to the Hub which starts an instance to visualize them. To get more information about TensorBoard
-integration on the Hub, check out [this guide](https://huggingface.co/docs/hub/tensorboard).
+TensorBoard는 기계학습 실험을 위한 시각화 도구입니다. TensorBoard는 손실 및 정확도와 같은 지표를 추적 및 시각화하고, 모델 그래프와 
+히스토그램을 보여주고, 이미지를 표시하는 등 다양한 기능을 제공합니다. TensorBoard는 Hugging Face Hub와 잘 통합되어 있습니다. 
+TensorBoard 추적(`tfevents` 같은)을 Hub에 푸시하면 Hub는 이를 자동으로 감지하여 시각화 인스턴스를 시작합니다. 
+TensorBoard와 Hub의 통합에 대한 자세한 정보는 [this guide](https://huggingface.co/docs/hub/tensorboard)를 확인하세요.
 
-To benefit from this integration, `huggingface_hub` provides a custom logger to push logs to the Hub. It works as a
-drop-in replacement for [SummaryWriter](https://tensorboardx.readthedocs.io/en/latest/tensorboard.html) with no extra
-code needed. Traces are still saved locally and a background job push them to the Hub at regular interval.
+이 통합의 장점을 활용하기 위해, `huggingface_hub`는 로그를 Hub에 푸시하기 위한 사용자정의 로거를 제공합니다. 
+이 로거는 추가적인 코드 없이 [SummaryWriter](https://tensorboardx.readthedocs.io/en/latest/tensorboard.html)의 대체제로 사용할 수 있습니다. 
+추적은 여전히 로컬에 저장되며 백그라운드 작업이 일정한 시간마다 Hub에 푸시합니다.
 
-## HFSummaryWriter
+## HFSummaryWriter[[huggingface_hub.HFSummaryWriter]]
 
 [[autodoc]] HFSummaryWriter
