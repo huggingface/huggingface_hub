@@ -107,6 +107,12 @@ class WebhookPayloadRepo(ObjectId):
     url: WebhookPayloadUrl
 
 
+class WebhookPayloadUpdatedRef(BaseModel):
+    ref: str
+    oldSha: Optional[str] = None
+    newSha: Optional[str] = None
+
+
 class WebhookPayload(BaseModel):
     event: WebhookPayloadEvent
     repo: WebhookPayloadRepo
@@ -114,3 +120,4 @@ class WebhookPayload(BaseModel):
     comment: Optional[WebhookPayloadComment] = None
     webhook: WebhookPayloadWebhook
     movedTo: Optional[WebhookPayloadMovedTo] = None
+    updatedRefs: Optional[List[WebhookPayloadUpdatedRef]] = None
