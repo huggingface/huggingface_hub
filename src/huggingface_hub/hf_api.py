@@ -1192,12 +1192,61 @@ class User:
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
+        is_pro (`bool`, *optional*):
+            Whether the user is a pro user.
+        num_models (`int`, *optional*):
+            Number of models created by the user.
+        num_datasets (`int`, *optional*):
+            Number of datasets created by the user.
+        num_spaces (`int`, *optional*):
+            Number of spaces created by the user.
+        num_discussions (`int`, *optional*):
+            Number of discussions initiated by the user.
+        num_papers (`int`, *optional*):
+            Number of papers authored by the user.
+        num_upvotes (`int`, *optional*):
+            Number of upvotes received by the user.
+        num_likes (`int`, *optional*):
+            Number of likes given by the user.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user is following this user.
+        details (`str`, *optional*):
+            User's details.
     """
 
     # Metadata
     avatar_url: str
     username: str
     fullname: str
+    is_pro: Optional[bool] = None
+    num_models: Optional[int] = None
+    num_datasets: Optional[int] = None
+    num_spaces: Optional[int] = None
+    num_discussions: Optional[int] = None
+    num_papers: Optional[int] = None
+    num_upvotes: Optional[int] = None
+    num_likes: Optional[int] = None
+    is_following: Optional[bool] = None
+    details: Optional[str] = None
+
+    def __init__(self, **kwargs) -> None:
+        self.avatar_url = kwargs.get("avatarUrl", "")
+        self.username = kwargs.get("user", "")
+        self.fullname = kwargs.get("fullname", "")
+        self.is_pro = kwargs.get("isPro")
+        self.num_models = kwargs.get("numModels")
+        self.num_datasets = kwargs.get("numDatasets")
+        self.num_spaces = kwargs.get("numSpaces")
+        self.num_discussions = kwargs.get("numDiscussions")
+        self.num_papers = kwargs.get("numPapers")
+        self.num_upvotes = kwargs.get("numUpvotes")
+        self.num_likes = kwargs.get("numLikes")
+        self.user_type = kwargs.get("type")
+        self.is_following = kwargs.get("isFollowing")
+        self.details = kwargs.get("details")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
 
 
 def future_compatible(fn: CallableT) -> CallableT:
@@ -8273,6 +8322,98 @@ class HfApi:
             if relpath_to_abspath[relpath] != ".gitattributes"
         ]
 
+    def get_user_overview(self, username: str) -> User:
+        """
+        Get an overview of a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get an overview of.
+
+        Returns:
+            `User`: A [`User`] object with the user's overview.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+        """
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
+
+        hf_raise_for_status(r)
+        return User(**r.json())
+
+    def list_organization_members(self, organization: str) -> Iterable[User]:
+        """
+        List of members of an organization on the Hub.
+
+        Args:
+            organization (`str`):
+                Name of the organization to get the members of.
+
+        Returns:
+            `Iterable[User]`: A list of [`User`] objects with the members of the organization.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the organization does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/organizations/{organization}/members")
+
+        hf_raise_for_status(r)
+
+        for member in r.json():
+            yield User(**member)
+
+    def list_user_followers(self, username: str) -> Iterable[User]:
+        """
+        Get the list of followers of a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get the followers of.
+
+        Returns:
+            `Iterable[User]`: A list of [`User`] objects with the followers of the user.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/followers")
+
+        hf_raise_for_status(r)
+
+        for follower in r.json():
+            yield User(**follower)
+
+    def list_user_following(self, username: str) -> Iterable[User]:
+        """
+        Get the list of users followed by a user on the Hub.
+
+        Args:
+            username (`str`):
+                Username of the user to get the users followed by.
+
+        Returns:
+            `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
+
+        Raises:
+            `HTTPError`:
+                HTTP 404 If the user does not exist on the Hub.
+
+        """
+
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/following")
+
+        hf_raise_for_status(r)
+
+        for followed_user in r.json():
+            yield User(**followed_user)
+
 
 def _prepare_upload_folder_additions(
     folder_path: Union[str, Path],
@@ -8440,3 +8581,9 @@ cancel_access_request = api.cancel_access_request
 accept_access_request = api.accept_access_request
 reject_access_request = api.reject_access_request
 grant_access = api.grant_access
+
+# User API
+get_user_overview = api.get_user_overview
+list_organization_members = api.list_organization_members
+list_user_followers = api.list_user_followers
+list_user_following = api.list_user_following
