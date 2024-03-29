@@ -21,7 +21,7 @@ import time
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import Callable, Tuple, Type, Union
+from typing import Callable, Optional, Tuple, Type, Union
 
 import requests
 from requests import Response
@@ -306,3 +306,16 @@ def http_backoff(
 
         # Update sleep time for next retry
         sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff
+
+
+def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
+    """Replace the default endpoint in a URL by a custom one.
+
+    This is useful when using a proxy and the Hugging Face Hub returns a URL with the default endpoint.
+    """
+    endpoint = endpoint or constants.ENDPOINT
+    # check if a proxy has been set => if yes, update the returned URL to use the proxy
+    if endpoint not in (None, constants._HF_DEFAULT_ENDPOINT, constants._HF_DEFAULT_STAGING_ENDPOINT):
+        url = url.replace(constants._HF_DEFAULT_ENDPOINT, endpoint)
+        url = url.replace(constants._HF_DEFAULT_STAGING_ENDPOINT, endpoint)
+    return url
