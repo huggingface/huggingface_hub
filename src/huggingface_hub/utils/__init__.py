@@ -17,6 +17,7 @@
 # ruff: noqa: F401
 
 from huggingface_hub.errors import (
+    HFValidationError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     OfflineModeIsEnabled,
@@ -113,7 +114,6 @@ from ._telemetry import send_telemetry
 from ._token import get_token
 from ._typing import is_jsonable
 from ._validators import (
-    HFValidationError,
     smoothly_deprecate_use_auth_token,
     validate_hf_hub_args,
     validate_repo_id,

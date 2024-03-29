@@ -77,3 +77,13 @@ class LocalTokenNotFoundError(EnvironmentError):
 
 class OfflineModeIsEnabled(ConnectionError):
     """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
+
+
+# VALIDATION ERRORS
+
+
+class HFValidationError(ValueError):
+    """Generic exception thrown by `huggingface_hub` validators.
+
+    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
+    """
