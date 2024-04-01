@@ -26,8 +26,6 @@
       title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) Community Tab
-    - local: guides/collections
-      title: Collections
     - local: in_translation
       title: (번역 중) Cache
     - local: in_translation
