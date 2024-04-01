@@ -2,28 +2,24 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Inference
+# 추론[[inference]]
 
-Inference is the process of using a trained model to make predictions on new data. As this process can be compute-intensive,
-running on a dedicated server can be an interesting option. The `huggingface_hub` library provides an easy way to call a
-service that runs inference for hosted models. There are several services you can connect to:
-- [Inference API](https://huggingface.co/docs/api-inference/index): a service that allows you to run accelerated inference
-on Hugging Face's infrastructure for free. This service is a fast way to get started, test different models, and
-prototype AI products.
-- [Inference Endpoints](https://huggingface.co/inference-endpoints): a product to easily deploy models to production.
-Inference is run by Hugging Face in a dedicated, fully managed infrastructure on a cloud provider of your choice.
 
-These services can be called with the [`InferenceClient`] object. Please refer to [this guide](../guides/inference)
-for more information on how to use it.
+추론은 훈련된 모델을 사용하여 새로운 데이터에 대한 예측을 수행하는 과정입니다. 이 과정은 계산량이 많을 수 있기 때문에, 전용 서버에서 실행하는 것이 흥미로운 옵션이 될 수 있습니다. `huggingface_hub` 라이브러리는 호스팅된 모델에 대한 추론을 실행하는 간단한 방법을 제공합니다. 여러분이 연결할 수 있는 몇 가지 서비스가 있습니다:
 
-## Inference Client
+- [추론 API](https://huggingface.co/docs/api-inference/index): Hugging Face의 인프라에서 가속화된 추론을 무료로 실행할 수 있는 서비스입니다. 이 서비스는 시작하기 위한 빠른 방법이며, 다양한 모델을 테스트하고 AI 제품을 프로토타입화하는 데에도 유용합니다.
+- [추론 엔드포인트](https://huggingface.co/inference-endpoints): 모델을 손쉽게 프로덕션에 배포할 수 있는 제품입니다. 추론은 여러분이 선택한 클라우드 제공업체의 전용 및 완전히 관리되는 인프라에서 Hugging Face에 의해 실행됩니다.
+
+이러한 서비스는 [`InferenceClient`] 객체를 사용하여 호출할 수 있습니다. 자세한 사용 방법에 대해서는 [이 가이드](../guides/inference)를 참조해주세요.
+
+## 추론 클라이언트[[huggingface_hub.InferenceClient]]
 
 [[autodoc]] InferenceClient
 
-## Async Inference Client
+## 비동기 추론 클라이언트[[huggingface_hub.AsyncInferenceClient]]
 
-An async version of the client is also provided, based on `asyncio` and `aiohttp`.
-To use it, you can either install `aiohttp` directly or use the `[inference]` extra:
+비동기 버전의 클라이언트도 제공되며, 이는 `asyncio`와 `aiohttp`를 기반으로 합니다. 
+이를 사용하려면 `aiohttp`를 직접 설치하거나 `[inference]` 추가 기능을 사용할 수 있습니다:
 
 ```sh
 pip install --upgrade huggingface_hub[inference]
@@ -33,33 +29,29 @@ pip install --upgrade huggingface_hub[inference]
 
 [[autodoc]] AsyncInferenceClient
 
-## InferenceTimeoutError
+## 추론 시간 초과 오류[[huggingface_hub.InferenceTimeoutError]]
 
 [[autodoc]] InferenceTimeoutError
 
-## Return types
+## 반환 유형[[return-types]]
 
-For most tasks, the return value has a built-in type (string, list, image...). Here is a list for the more complex types.
+대부분의 작업에 대해, 반환 값은 내장된 유형(string, list, image...)을 갖습니다. 보다 복잡한 유형을 위한 목록은 다음과 같습니다.
 
-### ConversationalOutputConversation
+### 대화형 출력 대화[[huggingface_hub.inference._types.ConversationalOutputConversation]]
 
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutputConversation
 
-### ConversationalOutput
+### 대화형 출력[[huggingface_hub.inference._types.ConversationalOutput]]
 
 [[autodoc]] huggingface_hub.inference._types.ConversationalOutput
 
-### ModelStatus
+### 모델 상태[[huggingface_hub.inference._common.ModelStatus]]
 
 [[autodoc]] huggingface_hub.inference._common.ModelStatus
 
-## InferenceAPI
+## 추론 API[[huggingface_hub.InferenceApi]]
 
-[`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires knowing
-the input parameters and output format for each task. It also lacks the ability to connect to other services like
-Inference Endpoints or AWS SageMaker. [`InferenceAPI`] will soon be deprecated so we recommend using [`InferenceClient`]
-whenever possible. Check out [this guide](../guides/inference#legacy-inferenceapi-client) to learn how to switch from
-[`InferenceAPI`] to [`InferenceClient`] in your scripts.
+[`InferenceAPI`]는 추론 API를 호출하는 레거시 방식입니다. 이 인터페이스는 더 간단하며 각 작업의 입력 매개변수와 출력 형식을 알아야 합니다. 또한 추론 엔드포인트나 AWS SageMaker와 같은 다른 서비스에 연결할 수 있는 기능이 없습니다. [`InferenceAPI`]는 곧 폐지될 예정이므로 가능한 경우 [`InferenceClient`]를 사용하는 것을 권장합니다. 스크립트에서 [`InferenceAPI`]를 [`InferenceClient`]로 전환하는 방법에 대해 알아보려면 [이 가이드](../guides/inference#legacy-inferenceapi-client)를 참조하세요.
 
 [[autodoc]] InferenceApi
     - __init__
