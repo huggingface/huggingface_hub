@@ -46,7 +46,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 기본적으로 추론 엔드포인트는 Hugging Face에서 제공하는 도커 이미지로 구축됩니다. 그러나 `custom_image` 매개변수를 사용하여 모든 도커 이미지를 지정할 수 있습니다. 일반적인 사용 사례는 [text-generation-inference](https://github.com/huggingface/text-generation-inference) 프레임워크를 사용하여 LLM을 실행하는 것입니다. 다음과 같이 수행할 수 있습니다:
 
 ```python
-# Start an Inference Endpoint running Zephyr-7b-beta on TGI
+# TGI에서 Zephyr-7b-beta를 실행하는 추론 엔드포인트 시작하기
 >>> from huggingface_hub import create_inference_endpoint
 >>> endpoint = create_inference_endpoint(
 ...     "aws-zephyr-7b-beta-0486",
@@ -81,15 +81,15 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 ```py
 >>> from huggingface_hub import get_inference_endpoint, list_inference_endpoints
 
-# Get one
+# 엔드포인트 개체 가져오기
 >>> get_inference_endpoint("my-endpoint-name")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 
-# List all endpoints from an organization
+# 조직의 모든 추론 엔드포인트 나열
 >>> list_inference_endpoints(namespace="huggingface")
 [InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
 
-# List all endpoints from all organizations the user belongs to
+# 사용자가 속해있는 모든 조직의 엔드포인트 나열
 >>> list_inference_endpoints(namespace="*")
 [InferenceEndpoint(name='aws-starchat-beta', namespace='huggingface', repository='HuggingFaceH4/starchat-beta', status='paused', url=None), ...]
 ```
@@ -113,16 +113,16 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 추론 엔드포인트가 실행될 때까지 기다리면서 상태를 가져오는 대신 [`~InferenceEndpoint.wait`]를 직접 호출할 수 있습니다. 이 헬퍼는 `timeout`과 `fetch_every` 매개변수(초)를 입력으로 받아 추론 엔드포인트가 배포될 때까지 스레드를 차단합니다. 기본값은 각각 `None`(제한 시간 없음)과 `5`초입니다.
 
 ```py
-# Pending endpoint
+# 엔드포인트 포류중
 >>> endpoint
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 
-# Wait 10s => raises a InferenceEndpointTimeoutError
+# 10초 대기 => InferenceEndpointTimeoutError 발생
 >>> endpoint.wait(timeout=10)
     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
 huggingface_hub._inference_endpoints.InferenceEndpointTimeoutError: Timeout while waiting for Inference Endpoint to be deployed.
 
-# Wait more
+# 추가 대기
 >>> endpoint.wait()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
@@ -136,11 +136,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 [`InferenceEndpoint`]에는 각각 [`InferenceClient`]와 [`AsyncInferenceClient`]를 반환하는 `client`와 `async_client` 속성이 있습니다.
 
 ```py
-# Run text_generation task:
+# 텍스트 생성 작업 실행:
 >>> endpoint.client.text_generation("I am")
 ' not a fan of the idea of a "big-budget" movie. I think it\'s a'
 
-# Or in an asyncio context:
+# 비동기 컨텍스트에서도 마찬가지:
 >>> await endpoint.async_client.text_generation("I am")
 ```
 
@@ -174,7 +174,7 @@ huggingface_hub._inference_endpoints.InferenceEndpointError: Cannot create a cli
 </Tip>
 
 ```py
-# Pause and resume endpoint
+# 엔드포인트 일시중지 및 재시작
 >>> endpoint.pause()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='paused', url=None)
 >>> endpoint.resume()
@@ -182,7 +182,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> endpoint.wait().client.text_generation(...)
 ...
 
-# Scale to zero
+# 0으로 스케일링
 >>> endpoint.scale_to_zero()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='scaledToZero', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 # Endpoint is not 'running' but still has a URL and will restart on first call.
@@ -193,15 +193,15 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 경우에 따라 새로운 엔드포인트를 생성하지 않고 추론 엔드포인트를 업데이트하고 싶을 수 있습니다. 호스팅된 모델이나 모델 실행에 필요한 하드웨어 요구 사항을 업데이트할 수 있습니다. 이렇게 하려면 [`~InferenceEndpoint.update`]를 사용합니다:
 
 ```py
-# Change target model
+# 타겟 모델 변경
 >>> endpoint.update(repository="gpt2-large")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 
-# Update number of replicas
+# 복제본 갯수 업데이트
 >>> endpoint.update(min_replica=2, max_replica=6)
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 
-# Update to larger instance
+# 더 큰 인스턴스로 업데이트
 >>> endpoint.update(accelerator="cpu", instance_size="large", instance_type="c6i")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
@@ -224,18 +224,18 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> import asyncio
 >>> from huggingface_hub import create_inference_endpoint
 
-# Start endpoint + wait until initialized
+# 엔드포인트 시작 + 초기화될 때까지 대기
 >>> endpoint = create_inference_endpoint(name="batch-endpoint",...).wait()
 
-# Run inference
+# 추론 실행
 >>> client = endpoint.client
 >>> results = [client.text_generation(...) for job in jobs]
 
-# Or with asyncio
+# 비동기로 추론 실행
 >>> async_client = endpoint.async_client
 >>> results = asyncio.gather(*[async_client.text_generation(...) for job in jobs])
 
-# Pause endpoint
+# 엔드포인트 중지
 >>> endpoint.pause()
 ```
 
@@ -245,13 +245,13 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> import asyncio
 >>> from huggingface_hub import get_inference_endpoint
 
-# Get endpoint + wait until initialized
+# 엔드포인트 가져오기 + 초기화될 때까지 대기
 >>> endpoint = get_inference_endpoint("batch-endpoint").resume().wait()
 
-# Run inference
+# 추론 실행
 >>> async_client = endpoint.async_client
 >>> results = asyncio.gather(*[async_client.text_generation(...) for job in jobs])
 
-# Pause endpoint
+# 엔드포인트 중지
 >>> endpoint.pause()
 ```
