@@ -56,6 +56,8 @@
       title: (번역 중) Mixins & serialization methods
     - local: in_translation
       title: (번역 중) Inference Client
+    - local: package_reference/inference_endpoints
+      title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) HfFileSystem
     - local: in_translation
