@@ -231,7 +231,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> client = endpoint.client
 >>> results = [client.text_generation(...) for job in jobs]
 
-# 비동기로 추론 실행
+# 비동기 추론 실행
 >>> async_client = endpoint.async_client
 >>> results = asyncio.gather(*[async_client.text_generation(...) for job in jobs])
 
