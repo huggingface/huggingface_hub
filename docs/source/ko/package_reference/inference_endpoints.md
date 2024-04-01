@@ -1,27 +1,27 @@
-# Inference Endpoints
+# 추론 엔드포인트 [[inference-endpoints]]
 
-Inference Endpoints provides a secure production solution to easily deploy models on a dedicated and autoscaling infrastructure managed by Hugging Face. An Inference Endpoint is built from a model from the [Hub](https://huggingface.co/models). This page is a reference for `huggingface_hub`'s integration with Inference Endpoints. For more information about the Inference Endpoints product, check out its [official documentation](https://huggingface.co/docs/inference-endpoints/index).
+Hugging Face가 관리하는 전용 및 자동 확장 인프라에서 모델을 쉽고 안전하게 배포할 수 있도록 해주는 프로덕션 솔루션이 바로 추론 엔드포인트입니다. 이 추론 엔드포인트는 [허브](https://huggingface.co/models)에 있는 모델을 기반으로 구축됩니다. 이 문서는 `huggingface_hub`와 추론 엔드포인트의 통합에 대한 참고자료입니다. 추론 엔드포인트 제품에 대한 자세한 정보는 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)에서 확인할 수 있습니다.
 
 <Tip>
 
-Check out the [related guide](../guides/inference_endpoints) to learn how to use `huggingface_hub` to manage your Inference Endpoints programmatically.
+프로그래밍 방식으로 추론 엔드포인트를 관리하는 방법을 배우고 싶다면 [관련 가이드](../guides/inference_endpoints)를 참고하세요.
 
 </Tip>
 
-Inference Endpoints can be fully managed via API. The endpoints are documented with [Swagger](https://api.endpoints.huggingface.cloud/). The [`InferenceEndpoint`] class is a simple wrapper built on top on this API.
+추론 엔드포인트는 API를 통해 완전히 관리됩니다. 이 엔드포인트들은 [Swagger](https://api.endpoints.huggingface.cloud/)를 통해 문서화되어 있으며, [`InferenceEndpoint`] 클래스는 이 API를 기반으로 만들어진 간단한 래퍼입니다.
 
-## Methods
+## 메서드 [[methods]]
 
-A subset of the Inference Endpoint features are implemented in [`HfApi`]:
+[`HfApi`]는 추론 엔드포인트의 다음과 같은 기능들을 제공합니다:
 
-- [`get_inference_endpoint`] and [`list_inference_endpoints`] to get information about your Inference Endpoints
-- [`create_inference_endpoint`], [`update_inference_endpoint`] and [`delete_inference_endpoint`] to deploy and manage Inference Endpoints
-- [`pause_inference_endpoint`] and [`resume_inference_endpoint`] to pause and resume an Inference Endpoint
-- [`scale_to_zero_inference_endpoint`] to manually scale an Endpoint to 0 replicas
+- [`get_inference_endpoint`]와 [`list_inference_endpoints`]로 추론 엔드포인트에 대한 정보를 조회합니다.
+- [`create_inference_endpoint`], [`update_inference_endpoint`], [`delete_inference_endpoint`]로 추론 엔드포인트를 배포하고 관리합니다.
+- [`pause_inference_endpoint`]와 [`resume_inference_endpoint`]로 추론 엔드포인트를 일시 정지하거나 재개합니다.
+- [`scale_to_zero_inference_endpoint`]로 엔드포인트를 수동으로 0개의 복제본으로 조정합니다.
 
-## InferenceEndpoint
+## InferenceEndpoint [[huggingface_hub.InferenceEndpoint]]
 
-The main dataclass is [`InferenceEndpoint`]. It contains information about a deployed `InferenceEndpoint`, including its configuration and current state. Once deployed, you can run inference on the Endpoint using the  [`InferenceEndpoint.client`] and [`InferenceEndpoint.async_client`] properties that respectively return an [`InferenceClient`] and an [`AsyncInferenceClient`] object.
+주 데이터 클래스인 [`InferenceEndpoint`]는 배포된 `InferenceEndpoint`에 대한 정보를 담고 있습니다. 여기에는 구성과 현재 상태 등이 포함됩니다. 배포가 완료된 후에는 [`InferenceEndpoint.client`]와 [`InferenceEndpoint.async_client`] 속성을 통해 엔드포인트에서 추론을 수행할 수 있으며, 각각 [`InferenceClient`]와 [`AsyncInferenceClient`] 객체를 반환합니다.
 
 [[autodoc]] InferenceEndpoint
   - from_raw
@@ -29,14 +29,14 @@ The main dataclass is [`InferenceEndpoint`]. It contains information about a dep
   - async_client
   - all
 
-## InferenceEndpointStatus
+## InferenceEndpointStatus [[huggingface_hub.InferenceEndpointStatus]]
 
 [[autodoc]] InferenceEndpointStatus
 
-## InferenceEndpointType
+## InferenceEndpointType [[huggingface_hub.InferenceEndpointType]]
 
 [[autodoc]] InferenceEndpointType
 
-## InferenceEndpointError
+## InferenceEndpointError [[huggingface_hub.InferenceEndpointError]]
 
 [[autodoc]] InferenceEndpointError
