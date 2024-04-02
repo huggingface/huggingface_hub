@@ -2,22 +2,22 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Managing local and online repositories
+# 로컬 및 온라인 저장소 관리[[managing-local-and-online-repositories]]
 
-The `Repository` class is a helper class that wraps `git` and `git-lfs` commands. It provides tooling adapted
-for managing repositories which can be very large.
+`Repository` 클래스는 `git` 및 `git-lfs` 명령을 래핑하는 도우미 클래스입니다. 적합한 툴링을 제공합니다.
+매우 큰 저장소를 관리하는 데 사용됩니다.
 
-It is the recommended tool as soon as any `git` operation is involved, or when collaboration will be a point
-of focus with the repository itself.
+`git` 작업이 포함되거나 협업이 중요한 경우 즉시 권장되는 도구입니다.
+저장소 자체에 중점을 둡니다.
 
-## The Repository class
+## 리포지토리 클래스[[the-repository-class]]
 
 [[autodoc]] Repository
     - __init__
     - current_branch
     - all
 
-## Helper methods
+## 도우미 방법[[helper-methods]]
 
 [[autodoc]] huggingface_hub.repository.is_git_repo
 
@@ -33,15 +33,15 @@ of focus with the repository itself.
 
 [[autodoc]] huggingface_hub.repository.commits_to_push
 
-## Following asynchronous commands
+## 비동기 명령 따르기[[following-asynchronous-commands]]
 
-The `Repository` utility offers several methods which can be launched asynchronously:
+`Repository` 유틸리티는 비동기적으로 시작할 수 있는 여러 메서드를 제공합니다.
 - `git_push`
 - `git_pull`
 - `push_to_hub`
-- The `commit` context manager
+- `commit` 컨텍스트 관리자
 
-See below for utilities to manage such asynchronous methods.
+이러한 비동기 메서드를 관리하는 유틸리티는 아래를 참조하세요.
 
 [[autodoc]] Repository
     - commands_failed
