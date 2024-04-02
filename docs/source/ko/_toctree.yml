@@ -61,7 +61,7 @@
     - local: in_translation
       title: (번역 중) Utilities
     - local: package_reference/community
-      title: Discussions와 Pull Requests
+      title: Discussions 및 Pull Requests
     - local: in_translation
       title: (번역 중) Cache-system reference
     - local: in_translation

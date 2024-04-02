@@ -2,9 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 토론 및 풀 리퀘스트와 상호작용하기[[interacting-with-discussions-and-pull-requests]]
+# Discussions 및 Pull Requests를 이용하여 상호작용하기[[interacting-with-discussions-and-pull-requests]]
 
-허브에서 풀 리퀘스트 및 토론과 상호작용할 수 있는 방법에 대한 참조는 [`HfApi`] 문서 페이지에서 확인하세요.
+Hub에서 Discussions 및 Pull Requests를 이용하여 상호 작용할 수 있는 방법에 대해 참조하고자 한다면 [`HfApi`] 문서 페이지를 확인하세요.
 
 - [`get_repo_discussions`]
 - [`get_discussion_details`]
