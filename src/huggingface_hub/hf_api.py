@@ -285,6 +285,7 @@ class TransformersInfo(dict):
 class SafeTensorsInfo(dict):
     parameters: List[Dict[str, int]]
     total: int
+    sharded: Optional[bool] = False
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
         self.update(asdict(self))
