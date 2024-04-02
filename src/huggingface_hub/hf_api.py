@@ -285,7 +285,6 @@ class TransformersInfo(dict):
 class SafeTensorsInfo(dict):
     parameters: List[Dict[str, int]]
     total: int
-    sharded: Optional[bool] = None
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
         self.update(asdict(self))
@@ -712,7 +711,6 @@ class ModelInfo:
             SafeTensorsInfo(
                 parameters=safetensors["parameters"],
                 total=safetensors["total"],
-                sharded=safetensors.get("sharded"),
             )
             if safetensors
             else None
