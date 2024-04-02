@@ -2,10 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Interacting with Discussions and Pull Requests
+# 토론 및 풀 리퀘스트와 상호작용하기[[interacting-with-discussions-and-pull-requests]]
 
-Check the [`HfApi`] documentation page for the reference of methods enabling
-interaction with Pull Requests and Discussions on the Hub.
+허브에서 풀 리퀘스트 및 토론과 상호작용할 수 있는 방법에 대한 참조는 [`HfApi`] 문서 페이지에서 확인하세요.
 
 - [`get_repo_discussions`]
 - [`get_discussion_details`]
@@ -17,7 +16,7 @@ interaction with Pull Requests and Discussions on the Hub.
 - [`change_discussion_status`]
 - [`merge_pull_request`]
 
-## Data structures
+## 데이터 구조[[huggingface_hub.Discussion]]
 
 [[autodoc]] Discussion
 
