@@ -60,8 +60,8 @@
       title: (번역 중) HfFileSystem
     - local: in_translation
       title: (번역 중) Utilities
-    - local: in_translation
-      title: (번역 중) Discussions and Pull Requests
+    - local: package_reference/community
+      title: Discussions와 Pull Requests
     - local: in_translation
       title: (번역 중) Cache-system reference
     - local: in_translation
