@@ -2,13 +2,11 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 로컬 및 온라인 저장소 관리[[managing-local-and-online-repositories]]
+# 로컬 및 온라인 리포지토리 관리[[managing-local-and-online-repositories]]
 
-`Repository` 클래스는 `git` 및 `git-lfs` 명령을 래핑하는 도우미 클래스입니다. 적합한 툴링을 제공합니다.
-매우 큰 저장소를 관리하는 데 사용됩니다.
+`Repository` 클래스는 `git` 및 `git-lfs` 명령을 감싸는 도우미 클래스로, 매우 큰 리포지토리를 관리하는 데 적합한 툴링을 제공합니다.
 
-`git` 작업이 포함되거나 협업이 중요한 경우 즉시 권장되는 도구입니다.
-저장소 자체에 중점을 둡니다.
+`git` 작업이 포함되거나 리포지토리에서의 협업이 중점이 될 때 권장되는 도구입니다.
 
 ## 리포지토리 클래스[[the-repository-class]]
 
@@ -17,7 +15,7 @@ rendered properly in your Markdown viewer.
     - current_branch
     - all
 
-## 도우미 방법[[helper-methods]]
+## 도우미 메서드[[helper-methods]]
 
 [[autodoc]] huggingface_hub.repository.is_git_repo
 
@@ -33,7 +31,7 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.repository.commits_to_push
 
-## 비동기 명령 따르기[[following-asynchronous-commands]]
+## 후속 비동기 명령[[following-asynchronous-commands]]
 
 `Repository` 유틸리티는 비동기적으로 시작할 수 있는 여러 메서드를 제공합니다.
 - `git_push`
