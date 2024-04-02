@@ -47,7 +47,7 @@ Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default
 ### HF_TOKEN
 
 To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (in `$HF_TOKEN_PATH` or `"$HF_HOME/token"`).
+overwrite the token stored on the machine (in either `$HF_TOKEN_PATH` or `"$HF_HOME/token"` if the former is not set).
 
 For more details about authentication, check out [this section](../quick-start#authentication).
 
