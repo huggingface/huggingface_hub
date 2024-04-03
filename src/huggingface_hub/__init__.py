@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.22.0.dev0"
+__version__ = "0.23.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -198,7 +198,6 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
-        "list_files_info",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
@@ -662,7 +661,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
-        list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
