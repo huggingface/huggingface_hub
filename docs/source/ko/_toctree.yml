@@ -58,8 +58,8 @@
       title: (번역 중) Inference Client
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Utilities
+    - local: package_reference/utilities
+      title: 유틸리티
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
     - local: in_translation
