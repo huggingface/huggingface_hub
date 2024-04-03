@@ -571,30 +571,28 @@ class TestTagCommands(unittest.TestCase):
         TagCommands.register_subcommand(commands_parser)
 
     def test_tag_create_basic(self) -> None:
-        """Test `huggingface-cli tag create my-model 1.0`."""
-        args = self.parser.parse_args(["tag", "create", DUMMY_MODEL_ID, "1.0"])
+        args = self.parser.parse_args(["tag", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"])
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.tag, "1.0")
-        self.assertIsNone(args.tag_message)
+        self.assertIsNotNone(args.message)
         self.assertIsNone(args.revision)
         self.assertIsNone(args.token)
-        self.assertEqual(args.type, "model")
+        self.assertEqual(args.repo_type, "model")
         self.assertFalse(args.yes)
 
     def test_tag_create_with_all_options(self) -> None:
         args = self.parser.parse_args(
             [
                 "tag",
-                "create",
                 DUMMY_MODEL_ID,
                 "1.0",
-                "--tag-message",
+                "--message",
                 "My tag message",
                 "--revision",
                 "v1.0.0",
                 "--token",
                 "my-token",
-                "--type",
+                "--repo-type",
                 "dataset",
                 "--yes",
                 "--force",
@@ -602,25 +600,25 @@ class TestTagCommands(unittest.TestCase):
         )
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.tag, "1.0")
-        self.assertEqual(args.tag_message, "My tag message")
+        self.assertEqual(args.message, "My tag message")
         self.assertEqual(args.revision, "v1.0.0")
         self.assertEqual(args.token, "my-token")
-        self.assertEqual(args.type, "dataset")
+        self.assertEqual(args.repo_type, "dataset")
         self.assertTrue(args.yes)
         self.assertTrue(args.force)
 
     def test_tag_list_basic(self) -> None:
-        args = self.parser.parse_args(["tag", "list", DUMMY_MODEL_ID])
+        args = self.parser.parse_args(["tag", "--list", DUMMY_MODEL_ID])
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertIsNone(args.token)
-        self.assertEqual(args.type, "model")
+        self.assertEqual(args.repo_type, "model")
 
     def test_tag_delete_basic(self) -> None:
-        args = self.parser.parse_args(["tag", "delete", DUMMY_MODEL_ID, "1.0"])
+        args = self.parser.parse_args(["tag", "--delete", DUMMY_MODEL_ID, "1.0"])
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
         self.assertEqual(args.tag, "1.0")
         self.assertIsNone(args.token)
-        self.assertEqual(args.type, "model")
+        self.assertEqual(args.repo_type, "model")
         self.assertFalse(args.yes)
 
 
