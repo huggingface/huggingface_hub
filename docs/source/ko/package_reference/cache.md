@@ -2,58 +2,56 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Cache-system reference
+# 캐시 시스템 참조[[cache-system-reference]]
 
-The caching system was updated in v0.8.0 to become the central cache-system shared
-across libraries that depend on the Hub. Read the [cache-system guide](../guides/manage-cache)
-for a detailed presentation of caching at HF.
+v0.8.0에서 캐싱 시스템이 업데이트되어 Hub에 의존하는 라이브러리 전체에서 공유되는 중앙 캐시 시스템이 되었습니다. HF에서의 캐싱에 대한 자세한 설명은 [캐시 시스템 가이드](../guides/manage-cache)를 참조하세요.
 
-## Helpers
+## 도우미[[helpers]]
 
-### try_to_load_from_cache
+### try_to_load_from_cache[[huggingface_hub.try_to_load_from_cache]]
 
 [[autodoc]] huggingface_hub.try_to_load_from_cache
 
-### cached_assets_path
+### cached_assets_path[[huggingface_hub.cached_assets_path]]
 
 [[autodoc]] huggingface_hub.cached_assets_path
 
-### scan_cache_dir
+### scan_cache_dir[[huggingface_hub.scan_cache_dir]]
 
 [[autodoc]] huggingface_hub.scan_cache_dir
 
-## Data structures
+## 데이터 구조[[data-structures]]
 
-All structures are built and returned by [`scan_cache_dir`] and are immutable.
+모든 구조체는 [`scan_cache_dir`]에 의해 생성되고 반환되며, 불변(immutable)입니다.
 
-### HFCacheInfo
+### HFCacheInfo[[huggingface_hub.HFCacheInfo]]
 
 [[autodoc]] huggingface_hub.HFCacheInfo
 
-### CachedRepoInfo
+### CachedRepoInfo[[huggingface_hub.CachedRepoInfo]]
 
 [[autodoc]] huggingface_hub.CachedRepoInfo
     - size_on_disk_str
     - refs
 
-### CachedRevisionInfo
+### CachedRevisionInfo[[huggingface_hub.CachedRevisionInfo]]
 
 [[autodoc]] huggingface_hub.CachedRevisionInfo
     - size_on_disk_str
     - nb_files
 
-### CachedFileInfo
+### CachedFileInfo[[huggingface_hub.CachedFileInfo]]
 
 [[autodoc]] huggingface_hub.CachedFileInfo
     - size_on_disk_str
 
-### DeleteCacheStrategy
+### DeleteCacheStrategy[[huggingface_hub.DeleteCacheStrategy]]
 
 [[autodoc]] huggingface_hub.DeleteCacheStrategy
     - expected_freed_size_str
 
-## Exceptions
+## 예외
 
-### CorruptedCacheException
+### CorruptedCacheException[[huggingface_hub.CorruptedCacheException]]
 
 [[autodoc]] huggingface_hub.CorruptedCacheException
