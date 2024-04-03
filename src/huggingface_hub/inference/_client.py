@@ -548,7 +548,9 @@ class InferenceClient:
         if _is_chat_completion_server(model):
             # First, let's consider the server has a `/v1/chat/completions` endpoint.
             # If that's the case, we don't have to render the chat template client-side.
-            model_url = self._resolve_url(model) + "/v1/chat/completions"
+            model_url = self._resolve_url(model)
+            if not model_url.endswith("/chat/completions"):
+                model_url += "/v1/chat/completions"
 
             try:
                 data = self.post(
