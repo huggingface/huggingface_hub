@@ -3,11 +3,11 @@ rendered properly in your Markdown viewer.
 -->
 # Collections[[collections]]
 
-Collection은 Hub(모델, 데이터셋, Spaces, 논문)에 있는 관련 항목들의 그룹으로, 같은 페이지에 함께 구성되어 있습니다. Collections는 자신만의 포트폴리오를 만들거나, 카테고리별로 콘텐츠를 북마크하거나, 공유하고 싶은 item들의 큐레이팅 된 목록을 제시하는 데 유용합니다. 여기 [가이드](https://huggingface.co/docs/hub/collections)를 확인하여 Collections가 무엇이고 Hub에서 어떻게 보이는지 자세히 알아보세요.
+Collection은 Hub(모델, 데이터셋, Spaces, 논문)에 있는 관련 항목들의 그룹으로, 같은 페이지에 함께 구성되어 있습니다. Collections는 자신만의 포트폴리오를 만들거나, 카테고리별로 콘텐츠를 북마크 하거나, 공유하고 싶은 item들의 큐레이팅 된 목록을 제시하는 데 유용합니다. 여기 [가이드](https://huggingface.co/docs/hub/collections)를 확인하여 Collections가 무엇이고 Hub에서 어떻게 보이는지 자세히 알아보세요.
 
 브라우저에서 직접 Collections를 관리할 수 있지만, 이 가이드에서는 프로그래밍 방식으로 Collection을 관리하는 방법에 초점을 맞추겠습니다.
 
-## Collection 가져오기[[fetch-a-collection]]q
+## Collection 가져오기[[fetch-a-collection]]
 
 [`get_collection`]을 사용하여 자신의 Collections나 공개된 Collection을 가져올 수 있습니다. Collection을 가져오려면 Collection의 *slug*가 필요합니다. Slug는 제목과 고유한 ID를 기반으로 한 Collection의 식별자입니다. Collection 페이지의 URL에서 slug를 찾을 수 있습니다.
 
@@ -53,13 +53,13 @@ CollectionItem(
 - `item_type`: 모델, 데이터셋, 공간, 논문
 - Collection에서 항목의 `position`으로, 이를 업데이트하여 Collection을 재구성할 수 있습니다(아래의 [`update_collection_item`] 참조)
 
-각 항목에는 추가 정보(코멘트, 블로그 포스트 링크 등)를 위한 `note`도 첨부될 수 있습니다. 항목에 note가 없으면 해당 속성 값은 `None`이 됩니다.
+각 항목에는 추가 정보(코멘트, 블로그 포스트 링크 등)를 위한 `note`도 첨부될 수 있습니다. 항목에 note가 없으면 해당 속성값은 `None`이 됩니다.
 
 이러한 기본 속성 외에도, 반환된 항목은 유형에 따라 추가 속성(`author`, `private`, `lastModified`, `gated`, `title`, `likes`, `upvotes` 등)을 가질 수 있습니다. 그러나 이러한 속성이 반환된다는 보장은 없습니다.
 
 ## Collections 나열하기[[fetch-a-collection]]
 
-[`list_collections`]를 사용하여 Collections를 나열할 수도 있습니다. Collections는 몇 가지 매개변수를 사용하여 필터링할 수 있습니다. 사용자 [`teknium`](https://huggingface.co/teknium)의 모든 Collections를 나열해봅시다.
+[`list_collections`]를 사용하여 Collections를 나열할 수도 있습니다. Collections는 몇 가지 매개변수를 사용하여 필터링할 수 있습니다. 사용자 [`teknium`](https://huggingface.co/teknium)의 모든 Collections를 나열해 봅시다.
 
 ```py
 >>> from huggingface_hub import list_collections
@@ -159,7 +159,7 @@ Collection에 item이 이미 존재하는 경우(동일한 `item_id`/`item_type`
 
 ### 기존 item에 메모 추가[[add-a-note-to-an-existing-item]]
 
-[`update_collection_item`]을 사용하여 기존 item을 수정하여 메모를 추가하거나 변경할 수 있습니다. 위의 예시를 다시 사용해봅시다:
+[`update_collection_item`]을 사용하여 기존 item을 수정하여 메모를 추가하거나 변경할 수 있습니다. 위의 예시를 다시 사용해 봅시다:
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
@@ -180,7 +180,7 @@ Collection에 item이 이미 존재하는 경우(동일한 `item_id`/`item_type`
 
 Collection의 item은 순서가 있습니다. 이 순서는 각 item의 `position` 속성에 의해 결정됩니다. 기본적으로 item은 Collection의 끝에 추가되는 방식으로 순서가 지정됩니다. [`update_collection_item`]을 사용하여 메모를 추가하는 것과 같은 방식으로 순서를 업데이트할 수 있습니다.
 
-위의 예시를 다시 사용해봅시다:
+위의 예시를 다시 사용해 봅시다:
 
 ```py
 >>> from huggingface_hub import get_collection, update_collection_item
