@@ -4,9 +4,9 @@ rendered properly in your Markdown viewer.
 
 # 캐시 시스템 참조[[cache-system-reference]]
 
-v0.8.0에서 캐싱 시스템이 업데이트되어 Hub에 의존하는 라이브러리 전체에서 공유되는 중앙 캐시 시스템이 되었습니다. HF에서의 캐싱에 대한 자세한 설명은 [캐시 시스템 가이드](../guides/manage-cache)를 참조하세요.
+버전 0.8.0에서의 업데이트로, 캐시 시스템은 Hub에 의존하는 라이브러리 전체에서 공유되는 중앙 캐시 시스템으로 발전하였습니다. Hugging Face 캐싱에 대한 자세한 설명은 [캐시 시스템 가이드](../guides/manage-cache)를 참조하세요.
 
-## 도우미[[helpers]]
+## 도우미 함수[[helpers]]
 
 ### try_to_load_from_cache[[huggingface_hub.try_to_load_from_cache]]
 
@@ -50,7 +50,7 @@ v0.8.0에서 캐싱 시스템이 업데이트되어 Hub에 의존하는 라이�
 [[autodoc]] huggingface_hub.DeleteCacheStrategy
     - expected_freed_size_str
 
-## 예외
+## 예외[[exceptions]]
 
 ### CorruptedCacheException[[huggingface_hub.CorruptedCacheException]]
 
