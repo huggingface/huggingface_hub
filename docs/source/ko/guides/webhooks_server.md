@@ -24,8 +24,8 @@ rendered properly in your Markdown viewer.
 <Tip warning={true}>
 
 이것은 [실험적 기능](../package_reference/environment_variables#hfhubdisableexperimentalwarning)입니다. 
-우리는 여전히 API 개선을 위해 작업 중입니다. 향후 사전 통지 없이 주요 변경 사항이 도입될 수 있습니다. 
-requirements에서 `huggingface_hub`의 버전을 고정하는 것이 좋습니다.
+본 API는 현재 개선 작업 중이며, 향후 사전 통지 없이 주요 변경 사항이 도입될 수 있습니다. 
+requirements에서 `huggingface_hub`의 버전을 고정하는 것을 권장합니다.
 
 </Tip>
 
@@ -42,7 +42,7 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # 데이터셋이 업데이트되면 학습 작업을 트리거합니다.
+        # 데이터 세트가 업데이트되면 학습 작업을 트리거합니다.
         ...
 ```
 
@@ -81,7 +81,7 @@ FastAPI는 자동으로 페이로드를 구문 분석하고 [`WebhookPayload`] �
 <Tip warning={true}>
 
 기본적으로 서버는 스크립트 끝에서 시작됩니다. 
-노트북에서 실행 중이라면 `decorated_function.run()`을 호출하여 서버를 수동으로 시작할 수 있습니다. 
+주피터 노트북에서 실행 중이라면 `decorated_function.run()`을 호출하여 서버를 수동으로 시작할 수 있습니다. 
 고유한 서버를 사용하기 때문에 여러 엔드포인트가 있더라도 서버를 한 번만 시작하면 됩니다.
 
 </Tip>
@@ -97,14 +97,14 @@ https://huggingface.co/settings/webhooks 로 이동하여 "Add a new webhook"을
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/configure_webhook.png"/>
 </div>
 
-그렇게 하면 됩니다! 이제 대상 저장소를 업데이트하면 웹훅을 트리거할 수 있습니다. 예를 들면, 커밋 푸시가 그 방법이 될 수 있습니다.
+이걸로 끝입니다! 이제 대상 저장소를 업데이트하면 웹훅을 트리거할 수 있습니다. 예를 들면, 커밋 푸시가 그 방법이 될 수 있습니다.
 웹훅의 Activity 탭에서 트리거된 이벤트를 확인할 수 있습니다. 이제 작동하는 구성이 있으므로 테스트하고 빠르게 반복할 수 있습니다. 
 코드를 수정하고 서버를 다시 시작하면 공개 URL이 변경될 수 있습니다. 
 필요한 경우 Hub에서 웹훅 구성을 업데이트하세요.
 
 ## Space에 배포하기[[deploy-to-a-space]]
 
-이제 작동하는 웹훅 서버가 있으므로, 목표는 이를 Space에 배포하는 것입니다. https://huggingface.co/new-space 에 가서 Space를 생성합니다. 
+이제 작동하는 웹훅 서버가 마련되었으므로, 다음 목표는 이를 Space에 배포하는 것입니다. https://huggingface.co/new-space 에 가서 Space를 생성합니다. 
 이름을 지정하고, Gradio SDK를 선택한 다음 "Create Space"를 클릭합니다. 코드를 `app.py` 파일로 Space에 업로드합니다.
 Space가 자동으로 시작됩니다!
 Space에 대한 자세한 내용은 이 [가이드](https://huggingface.co/docs/hub/spaces-overview)를 참조하세요.
@@ -114,7 +114,7 @@ Space 설정 > "Repository secrets" 섹션 > "Add a secret" 로 이동합니다.
 [Webhooks 설정](https://huggingface.co/settings/webhooks)으로 돌아가서 웹훅 구성에 비밀번호를 설정합니다. 
 이제 올바른 비밀번호가 있는 요청만 서버에서 허용됩니다.
 
-그렇게 하면 됩니다! Space가 이제 Hub의 웹훅을 수신할 준비가 되었습니다.
+이게 전부입니다! Space가 이제 Hub의 웹훅을 수신할 준비가 되었습니다.
 무료 하드웨어인 'cpu-basic'에서 Space를 실행 시, 48시간 동안 비활성화되면 종료된다는 점을 유념하세요. 
 영구적인 Space가 필요한 경우 [업그레이드된 하드웨어](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs)를 설정해야 합니다.
 
@@ -136,7 +136,7 @@ from huggingface_hub import webhook_endpoint, WebhookPayload
 @webhook_endpoint
 async def trigger_training(payload: WebhookPayload) -> None:
     if payload.repo.type == "dataset" and payload.event.action == "update":
-        # 데이터셋이 업데이트되면 학습 작업을 트리거합니다.
+        # 데이터 세트가 업데이트되면 학습 작업을 트리거합니다.
         ...
 
 @webhook_endpoint
