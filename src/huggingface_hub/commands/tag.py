@@ -17,13 +17,15 @@
 
 Usage Examples:
     - Create a tag:
-        $ huggingface-cli tag create my-model 1.0 --tag-message "First release"
-        $ huggingface-cli tag create my-model 1.0 --tag-message "First release" --revision develop
-        $ huggingface-cli tag create my-model 1.0 --tag-message "First release" --type dataset
+        $ huggingface-cli tag user/my-model 1.0 --message "First release"
+        $ huggingface-cli tag user/my-model 1.0 -m "First release" --revision develop
+        $ huggingface-cli tag user/my-dataset 1.0 -m "First release" --repo-type dataset
     - List all tags:
-        $ huggingface-cli tag list my-model
+        $ huggingface-cli tag -l user/my-model
+        $ huggingface-cli tag --list user/my-dataset --repo-type dataset
     - Delete a tag:
-        $ huggingface-cli tag delete my-model 1.0
+        $ huggingface-cli tag -d user/my-model 1.0
+        $ huggingface-cli tag --delete user/my-dataset 1.0 --repo-type dataset
 """
 
 import subprocess
@@ -46,70 +48,49 @@ class TagCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
         tag_parser = parser.add_parser("tag", help="(create, list, delete) tags for a model in the hub")
-        tag_subparsers = tag_parser.add_subparsers(help="tag commands")
 
-        tag_create_parser = tag_subparsers.add_parser("create", help="create a tag for a model in the hub")
-
-        tag_create_parser.add_argument("repo_id", type=str, help="The repository in which a commit will be tagged.")
-        tag_create_parser.add_argument("tag", type=str, help="The name of the tag to create.")
-        tag_create_parser.add_argument("-m", "--tag-message", type=str, help="The description of the tag to create.")
-        tag_create_parser.add_argument("--revision", type=str, help="The git revision to tag.")
-        tag_create_parser.add_argument("--token", type=str, help="Authentication token.")
-        tag_create_parser.add_argument(
-            "--type",
+        tag_parser.add_argument(
+            "repo_id", type=str, help="The repository (model, dataset, or space) for the operation."
+        )
+        tag_parser.add_argument("tag", nargs="?", type=str, help="The name of the tag for creation or deletion.")
+        tag_parser.add_argument("-m", "--message", type=str, help="The description of the tag to create.")
+        tag_parser.add_argument("--revision", type=str, help="The git revision to tag.")
+        tag_parser.add_argument("--token", type=str, help="Authentication token.")
+        tag_parser.add_argument(
+            "--repo-type",
             choices=["model", "dataset", "space"],
             default="model",
-            help="Optional: Set to 'dataset' or 'space' if tagging a dataset or space, 'model' if tagging a model.",
+            help="Set the type of repository (model, dataset, or space).",
         )
-        tag_create_parser.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="Optional: answer Yes to the prompt",
-        )
-        tag_create_parser.add_argument("--force", action="store_true", help="Optional: force tag creation.")
-        tag_create_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
-        tag_create_parser.set_defaults(func=lambda args: TagCreateCommand(args))
+        tag_parser.add_argument("-y", "--yes", action="store_true", help="Answer Yes to prompts automatically.")
+        tag_parser.add_argument("--force", action="store_true", help="Force tag creation or deletion.")
 
-        tag_list_parser = tag_subparsers.add_parser("list", help="list tags for a model in the hub")
+        tag_parser.add_argument("-l", "--list", action="store_true", help="List tags for a repository.")
+        tag_parser.add_argument("-d", "--delete", action="store_true", help="Delete a tag for a repository.")
 
-        tag_list_parser.add_argument("repo_id", type=str, help="The repository for which to list tags.")
-        tag_list_parser.add_argument("--token", type=str, help="Authentication token.")
-        tag_list_parser.add_argument(
-            "--type",
-            choices=["model", "dataset", "space"],
-            default="model",
-            help="Optional: Set to 'dataset' or 'space' if listing tags for a dataset or space, 'model' if listing tags for a model.",
-        )
-        tag_list_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
-        tag_list_parser.set_defaults(func=lambda args: TagListCommand(args))
-
-        tag_delete_parser = tag_subparsers.add_parser("delete", help="delete a tag for a model in the hub")
-
-        tag_delete_parser.add_argument("repo_id", type=str, help="The repository in which a commit will be tagged.")
-        tag_delete_parser.add_argument("tag", type=str, help="The name of the tag to delete.")
-        tag_delete_parser.add_argument("--token", type=str, help="Authentication token.")
-        tag_delete_parser.add_argument(
-            "--type",
-            choices=["model", "dataset", "space"],
-            default="model",
-            help="Optional: Set to 'dataset' or 'space' if tag is in a dataset or space, 'model' if deleting tag for a model.",
-        )
-        tag_delete_parser.add_argument("--organization", type=str, help="Optional: organization namespace.")
-        tag_delete_parser.add_argument(
-            "-y",
-            "--yes",
-            action="store_true",
-            help="Optional: answer Yes to the prompt",
-        )
-        tag_delete_parser.set_defaults(func=lambda args: TagDeleteCommand(args))
+        tag_parser.set_defaults(func=lambda args: handle_commands(args))
 
 
-class BaseTagCommand:
+def handle_commands(args: Namespace):
+    if args.list:
+        return TagListCommand(args)
+    elif args.delete:
+        return TagDeleteCommand(args)
+    else:
+        return TagCreateCommand(args)
+
+
+class TagCommand:
     def __init__(self, args: Namespace):
         self.args = args
         self._api = HfApi()
+        self.token = self.args.token if self.args.token is not None else get_token()
+        self.user = self._api.whoami(self.token)["name"]
+        self.repo_id = self.args.repo_id
+        self.check_git_installed()
         self.check_fields()
+
+    def check_git_installed(self):
         try:
             stdout = subprocess.check_output(["git", "--version"]).decode("utf-8")
             print(ANSI.gray(stdout.strip()))
@@ -119,19 +100,17 @@ class BaseTagCommand:
     def check_fields(self):
         self.token = self.args.token if self.args.token is not None else get_token()
         self.user = self._api.whoami(self.token)["name"]
-        self.namespace = self.args.organization if self.args.organization is not None else self.user
-        self.repo_id = f"{self.namespace}/{self.args.repo_id}"
-        if self.args.type not in REPO_TYPES:
-            print("Invalid repo --type")
+        if self.args.repo_type not in REPO_TYPES:
+            print("Invalid repo --repo-type")
             exit(1)
         if self.token is None:
             print("Not logged in")
             exit(1)
 
 
-class TagCreateCommand(BaseTagCommand):
+class TagCreateCommand(TagCommand):
     def run(self):
-        if self.args.tag_message is None:
+        if self.args.message is None:
             print("Tag message cannot be empty. Please provide a message with `--tag-message`.")
             exit(1)
 
@@ -146,10 +125,11 @@ class TagCreateCommand(BaseTagCommand):
             self._api.create_tag(
                 repo_id=self.repo_id,
                 tag=self.args.tag,
-                tag_message=self.args.tag_message,
+                tag_message=self.args.message,
                 revision=self.args.revision,
                 token=self.token,
                 exist_ok=self.args.force,
+                repo_type=self.args.repo_type,
             )
         except RepositoryNotFoundError:
             print(f"Repository {ANSI.bold(self.repo_id)} not found.")
@@ -168,12 +148,12 @@ class TagCreateCommand(BaseTagCommand):
         print("")
 
 
-class TagListCommand(BaseTagCommand):
+class TagListCommand(TagCommand):
     def run(self):
         try:
             refs = self._api.list_repo_refs(
                 repo_id=self.repo_id,
-                repo_type=self.args.type,
+                repo_type=self.args.repo_type,
             )
         except RepositoryNotFoundError:
             print(f"Repository {ANSI.bold(self.repo_id)} not found.")
@@ -191,7 +171,7 @@ class TagListCommand(BaseTagCommand):
         print("")
 
 
-class TagDeleteCommand(BaseTagCommand):
+class TagDeleteCommand(TagCommand):
     def run(self):
         print(f"You are about to delete tag {ANSI.bold(self.args.tag)} on {ANSI.bold(self.repo_id)}")
 
@@ -201,7 +181,9 @@ class TagDeleteCommand(BaseTagCommand):
                 print("Abort")
                 exit()
         try:
-            self._api.delete_tag(repo_id=self.repo_id, tag=self.args.tag, token=self.token, repo_type=self.args.type)
+            self._api.delete_tag(
+                repo_id=self.repo_id, tag=self.args.tag, token=self.token, repo_type=self.args.repo_type
+            )
         except RepositoryNotFoundError:
             print(f"Repository {ANSI.bold(self.repo_id)} not found.")
             exit(1)
