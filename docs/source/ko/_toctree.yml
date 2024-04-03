@@ -62,8 +62,8 @@
       title: (번역 중) Utilities
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
-    - local: in_translation
-      title: (번역 중) Cache-system reference
+    - local: package_reference/cache
+      title: 캐시 시스템 참조
     - local: in_translation
       title: (번역 중) Repo Cards and Repo Card Data
     - local: in_translation
