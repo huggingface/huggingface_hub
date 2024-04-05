@@ -2,18 +2,18 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Utilities[[utilities]]
+# 유틸리티[[utilities]]
 
-## Configure logging[[huggingface_hub.utils.logging.get_verbosity]]
+## 로깅 구성[[huggingface_hub.utils.logging.get_verbosity]]
 
-The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
-You can import it as such:
+`huggingface_hub` 패키지는 패키지 로깅 수준을 제어하기 위한 `logging` 유틸리티를 제공합니다. 
+다음과 같이 가져올 수 있습니다:
 
 ```py
 from huggingface_hub import logging
 ```
 
-Then, you may define the verbosity in order to update the amount of logs you'll see:
+그런 다음, 로그의 양을 업데이트하기 위해 로깅 수준을 정의할 수 있습니다:
 
 ```python
 from huggingface_hub import logging
@@ -26,16 +26,12 @@ logging.set_verbosity_debug()
 logging.set_verbosity(...)
 ```
 
-The levels should be understood as follows:
+단계는 다음과 같이 이해하면 됩니다:
 
-- `error`: only show critical logs about usage which may result in an error or unexpected behavior.
-- `warning`: show logs that aren't critical but usage may result in unintended behavior.
-  Additionally, important informative logs may be shown.
-- `info`: show most logs, including some verbose logging regarding what is happening under the hood.
-  If something is behaving in an unexpected manner, we recommend switching the verbosity level to this in order
-  to get more information.
-- `debug`: show all logs, including some internal logs which may be used to track exactly what's happening
-  under the hood.
+- `error`: 오류 또는 예기치 않은 동작으로 이어질 수 있는 결정적인 로그만 표시합니다.
+- `warning`:  결정적이진 않지만 의도치 않은 동작을 초래할 수 있는 로그를 표시합니다. 또한 중요한 정보를 포함한 로그도 표시될 수 있습니다.
+- `info`: 하부에서 무슨 일이 일어나고 있는지에 대한 자세한 로그를 포함하여 대부분의 로그를 표시합니다. 무언가 예상치 못한 방식으로 동작하는 경우, 더 많은 정보를 얻기 위해 verbosity 단계로 전환하는 것이 좋습니다.
+- `debug`: 하부에서 정확히 무슨 일이 일어나고 있는지를 추적하는 데 사용될 수 있는 일부 내부 로그를 포함하여 모든 로그를 표시합니다.
 
 [[autodoc]] logging.get_verbosity
 [[autodoc]] logging.set_verbosity
@@ -46,38 +42,33 @@ The levels should be understood as follows:
 [[autodoc]] logging.disable_propagation
 [[autodoc]] logging.enable_propagation
 
-### Repo-specific helper methods[[huggingface_hub.utils.logging.get_logger]]
+### 리포지토리별 도움되는 메서드[[huggingface_hub.utils.logging.get_logger]]
 
-The methods exposed below are relevant when modifying modules from the `huggingface_hub` library itself.
-Using these shouldn't be necessary if you use `huggingface_hub` and you don't modify them.
+아래 제공된 메서드들은 `huggingface_hub` 라이브러리 모듈을 수정할 때 관련이 있습니다. `huggingface_hub`를 사용하고 해당 모듈을 수정하지 않는 경우에는 불필요해야 합니다.
 
 [[autodoc]] logging.get_logger
 
-## Configure progress bars[[configure-progress-bars]]
+## 프로그레스 바 구성하기[[configure-progress-bars]]
 
-Progress bars are a useful tool to display information to the user while a long-running task is being executed (e.g.
-when downloading or uploading files). `huggingface_hub` exposes a [`~utils.tqdm`] wrapper to display progress bars in a
-consistent way across the library.
+프로그레스 바는 긴 시간이 걸리는 작업을 실행하는 동안 정보를 표시하는 유용한 도구입니다(예시로 파일을 다운로드하거나 업로드하는 등). `huggingface_hub`는 라이브러리 전체에서 일관된 방식으로 프로그레스 바를 표시하기 위한 [`~utils.tqdm`] 래퍼를 제공합니다.
 
-By default, progress bars are enabled. You can disable them globally by setting `HF_HUB_DISABLE_PROGRESS_BARS`
-environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and
-[`~utils.disable_progress_bars`]. If set, the environment variable has priority on the helpers.
+기본적으로 프로그레스 바가 활성화되어 있습니다. `HF_HUB_DISABLE_PROGRESS_BARS` 환경 변수를 설정하여 전역적으로 비활성화할 수 있습니다. 또한 [`~utils.enable_progress_bars`]와 [`~utils.disable_progress_bars`]를 사용하여 프로그레스 바를 개별적으로 활성화 또는 비활성화할 수도 있습니다. 환경 변수가 설정되어 있는 경우에는 환경 변수가 우선합니다.
 
 
 ```py
 >>> from huggingface_hub import snapshot_download
 >>> from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
 
->>> # Disable progress bars globally
+>>> # 전역적으로 프로그레스 바를 비활성화합니다.
 >>> disable_progress_bars()
 
->>> # Progress bar will not be shown !
+>>> # 프로그레스 바가 표시되지 않습니다!
 >>> snapshot_download("gpt2")
 
 >>> are_progress_bars_disabled()
 True
 
->>> # Re-enable progress bars globally
+>>> # 다시 프로그레스 바가 활성화됩니다
 >>> enable_progress_bars()
 ```
 
@@ -93,18 +84,11 @@ True
 
 [[autodoc]] huggingface_hub.utils.enable_progress_bars
 
-## Configure HTTP backend[[huggingface_hub.configure_http_backend]]
+## HTTP 백엔드 구성[[huggingface_hub.configure_http_backend]]
 
-In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
-`huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
-then use your settings. Under the hood, `huggingface_hub` uses `requests.Session` so you might want to refer to the
-[`requests` documentation](https://requests.readthedocs.io/en/latest/user/advanced) to learn more about the available
-parameters.
+일부 환경에서는 HTTP 호출이 이루어지는 방식을 구성할 수 있습니다. 예를 들어, 프록시를 사용하는 경우가 그렇습니다. `huggingface_hub`는 [`configure_http_backend`]를 사용하여 전역적으로 이를 구성할 수 있게 합니다. 그러면 Hub로의 모든 요청이 사용자가 설정한 설정을 사용합니다. 내부적으로 `huggingface_hub`는 `requests.Session`을 사용하므로 사용 가능한 매개변수에 대해 자세히 알아보려면 [requests 문서](https://requests.readthedocs.io/en/latest/user/advanced)를 참조하는 것이 좋습니다.
 
-Since `requests.Session` is not guaranteed to be thread-safe, `huggingface_hub` creates one session instance per thread.
-Using sessions allows us to keep the connection open between HTTP calls and ultimately save time. If you are
-integrating `huggingface_hub` in a third-party library and wants to make a custom call to the Hub, use [`get_session`]
-to get a Session configured by your users (i.e. replace any `requests.get(...)` call by `get_session().get(...)`).
+`requests.Session`이 스레드 안전을 보장하지 않기 때문에 `huggingface_hub`는 스레드당 하나의 세션 인스턴스를 생성합니다. 세션을 사용하면 HTTP 호출 사이에 연결을 유지하고 최종적으로 시간을 절약할 수 있습니다. `huggingface_hub`를 타사 라이브러리에 통합하고 사용자 지정 호출을 Hub로 만들려는 경우, [`get_session`]을 사용하여 사용자가 구성한 세션을 가져옵니다 (즉, 모든 `requests.get(...)` 호출을 `get_session().get(...)`으로 대체합니다).
 
 [[autodoc]] configure_http_backend
 
@@ -113,14 +97,11 @@ to get a Session configured by your users (i.e. replace any `requests.get(...)` 
 
 ## Handle HTTP errors[[handle-http-errors]]
 
-`huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
-`requests` with additional information sent back by the server.
+`huggingface_hub`는 서버에서 반환된 추가 정보로 `requests`에서 발생한 `HTTPError`를 세분화하기 위해 자체 HTTP 오류를 정의합니다.
 
-### Raise for status[[huggingface_hub.utils.hf_raise_for_status]]
+### 예외 발생[[huggingface_hub.utils.hf_raise_for_status]]
 
-[`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
-request made to the Hub. It wraps the base `requests.raise_for_status` to provide
-additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
+[`~utils.hf_raise_for_status`]는 Hub에 대한 모든 요청에서 "상태를 확인하고 예외를 발생시키는" 중앙 메서드로 사용됩니다. 이 메서드는 기본 `requests.raise_for_status`를 감싸서 추가 정보를 제공합니다. 발생된 모든 `HTTPError`는 `HfHubHTTPError`로 변환됩니다.
 
 ```py
 import requests
@@ -130,25 +111,23 @@ response = requests.post(...)
 try:
     hf_raise_for_status(response)
 except HfHubHTTPError as e:
-    print(str(e)) # formatted message
-    e.request_id, e.server_message # details returned by server
+    print(str(e)) # 형식화된 메시지
+    e.request_id, e.server_message # 서버에서 반환된 세부 정보
 
-    # Complete the error message with additional information once it's raised
+    # 오류 메시지를 발생시킬 때 추가 정보를 포함하여 완성합니다
     e.append_to_message("\n`create_commit` expects the repository to exist.")
     raise
 ```
 
 [[autodoc]] huggingface_hub.utils.hf_raise_for_status
 
-### HTTP errors[[http-errors]]
+### HTTP 오류[[http-errors]]
 
-Here is a list of HTTP errors thrown in `huggingface_hub`.
+여기에는 `huggingface_hub`에서 발생하는 HTTP 오류 목록이 있습니다.
 
 #### HfHubHTTPError[[huggingface_hub.utils.HfHubHTTPError]]
 
-`HfHubHTTPError` is the parent class for any HF Hub HTTP error. It takes care of parsing
-the server response and format the error message to provide as much information to the
-user as possible.
+`HfHubHTTPError`는 HF Hub HTTP 오류에 대한 부모 클래스입니다. 이 클래스는 서버 응답을 구문 분석하고 오류 메시지를 형식화하여 사용자에게 가능한 많은 정보를 제공합니다.
 
 [[autodoc]] huggingface_hub.utils.HfHubHTTPError
 
@@ -180,34 +159,26 @@ user as possible.
 
 [[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
 
-## Telemetry[[huggingface_hub.utils.send_telemetry]]
+## 원격 측정[[huggingface_hub.utils.send_telemetry]]
 
-`huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
-Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
-Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
+`huggingface_hub`는 원격 측정 데이터를 보내는 도우미가 포함되어 있습니다. 이 정보는 문제를 디버깅하고 새로운 기능을 우선적으로 처리하는 데 도움이 됩니다. 사용자는 `HF_HUB_DISABLE_TELEMETRY=1` 환경 변수를 설정하여 언제든지 원격 측정 수집을 비활성화할 수 있습니다. 또한 오프라인 모드에서도 (즉, HF_HUB_OFFLINE=1로 설정된 경우) 원격 측정 비활성화됩니다.
 
-If you are maintainer of a third-party library, sending telemetry data is as simple as making a call to [`send_telemetry`].
-Data is sent in a separate thread to reduce as much as possible the impact for users.
+타사 라이브러리의 유지 관리자인 경우, 텔레메트리 데이터를 보내는 것은 [`send_telemetry`]를 호출하는 것만큼 간단합니다. 데이터는 사용자에게 가능한 영향을 최소화하기 위해 별도의 스레드에서 전송됩니다.
 
 [[autodoc]] utils.send_telemetry
 
 
-## Validators[[validators]]
+## 검증기[[validators]]
 
-`huggingface_hub` includes custom validators to validate method arguments automatically.
-Validation is inspired by the work done in [Pydantic](https://pydantic-docs.helpmanual.io/)
-to validate type hints but with more limited features.
+`huggingface_hub`에는 메서드 인수를 자동으로 유효성 검사하는 사용자 정의 검증기가 포함되어 있습니다. 이 유효성 검사는 타입 힌트를 검증하는 데 [Pydantic](https://pydantic-docs.helpmanual.io/)의 작업을 참고하여 구현되었지만, 기능은 더 제한적입니다.
 
-### Generic decorator[[generic-decorator]]
+### 일반 데코레이터[[generic-decorator]]
 
-[`~utils.validate_hf_hub_args`] is a generic decorator to encapsulate
-methods that have arguments following `huggingface_hub`'s naming. By default, all
-arguments that has a validator implemented will be validated.
+[`~utils.validate_hf_hub_args`]는 `huggingface_hub`의 네이밍을 따르는 인수를 갖는 메서드를 캡슐화하는 일반적인 데코레이터입니다. 기본적으로 구현된 검증기가 있는 모든 인수가 유효성 검사됩니다.
 
-If an input is not valid, a [`~utils.HFValidationError`] is thrown. Only
-the first non-valid value throws an error and stops the validation process.
+입력이 유효하지 않은 경우 [`~utils.HFValidationError`]이 발생합니다. 첫 번째 유효하지 않은 값만 오류를 발생시키고 유효성 검사 프로세스를 중지합니다.
 
-Usage:
+사용법:
 
 ```py
 >>> from huggingface_hub.utils import validate_hf_hub_args
@@ -250,8 +221,7 @@ UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token
 
 ### Argument validators[[argument-validators]]
 
-Validators can also be used individually. Here is a list of all arguments that can be
-validated.
+검증기는 개별적으로도 사용할 수 있습니다. 다음은 검증할 수 있는 모든 인수 목록입니다.
 
 #### repo_id[[huggingface_hub.utils.validate_repo_id]]
 
@@ -259,6 +229,6 @@ validated.
 
 #### smoothly_deprecate_use_auth_token[[huggingface_hub.utils.smoothly_deprecate_use_auth_token]]
 
-Not exactly a validator, but ran as well.
+정확 검증기는 아니지만 실행됩니다.
 
 [[autodoc]] utils.smoothly_deprecate_use_auth_token
