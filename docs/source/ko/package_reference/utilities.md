@@ -42,7 +42,7 @@ logging.set_verbosity(...)
 [[autodoc]] logging.disable_propagation
 [[autodoc]] logging.enable_propagation
 
-### 리포지토리별 도움되는 메서드[[huggingface_hub.utils.logging.get_logger]]
+### 리포지토리별 도우미 메서드[[huggingface_hub.utils.logging.get_logger]]
 
 아래 제공된 메서드들은 `huggingface_hub` 라이브러리 모듈을 수정할 때 관련이 있습니다. `huggingface_hub`를 사용하고 해당 모듈을 수정하지 않는 경우에는 불필요해야 합니다.
 
@@ -95,7 +95,7 @@ True
 [[autodoc]] get_session
 
 
-## Handle HTTP errors[[handle-http-errors]]
+## HTTP 오류 다루기[[handle-http-errors]]
 
 `huggingface_hub`는 서버에서 반환된 추가 정보로 `requests`에서 발생한 `HTTPError`를 세분화하기 위해 자체 HTTP 오류를 정의합니다.
 
