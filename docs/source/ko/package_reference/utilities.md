@@ -2,9 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Utilities
+# Utilities[[utilities]]
 
-## Configure logging
+## Configure logging[[huggingface_hub.utils.logging.get_verbosity]]
 
 The `huggingface_hub` package exposes a `logging` utility to control the logging level of the package itself.
 You can import it as such:
@@ -46,14 +46,14 @@ The levels should be understood as follows:
 [[autodoc]] logging.disable_propagation
 [[autodoc]] logging.enable_propagation
 
-### Repo-specific helper methods
+### Repo-specific helper methods[[huggingface_hub.utils.logging.get_logger]]
 
 The methods exposed below are relevant when modifying modules from the `huggingface_hub` library itself.
 Using these shouldn't be necessary if you use `huggingface_hub` and you don't modify them.
 
 [[autodoc]] logging.get_logger
 
-## Configure progress bars
+## Configure progress bars[[configure-progress-bars]]
 
 Progress bars are a useful tool to display information to the user while a long-running task is being executed (e.g.
 when downloading or uploading files). `huggingface_hub` exposes a [`~utils.tqdm`] wrapper to display progress bars in a
@@ -81,19 +81,19 @@ True
 >>> enable_progress_bars()
 ```
 
-### are_progress_bars_disabled
+### are_progress_bars_disabled[[huggingface_hub.utils.are_progress_bars_disabled]]
 
 [[autodoc]] huggingface_hub.utils.are_progress_bars_disabled
 
-### disable_progress_bars
+### disable_progress_bars[[huggingface_hub.utils.disable_progress_bars]]
 
 [[autodoc]] huggingface_hub.utils.disable_progress_bars
 
-### enable_progress_bars
+### enable_progress_bars[huggingface_hub.utils.enable_progress_bars]]
 
 [[autodoc]] huggingface_hub.utils.enable_progress_bars
 
-## Configure HTTP backend
+## Configure HTTP backend[[huggingface_hub.configure_http_backend]]
 
 In some environments, you might want to configure how HTTP calls are made, for example if you are using a proxy.
 `huggingface_hub` let you configure this globally using [`configure_http_backend`]. All requests made to the Hub will
@@ -111,12 +111,12 @@ to get a Session configured by your users (i.e. replace any `requests.get(...)` 
 [[autodoc]] get_session
 
 
-## Handle HTTP errors
+## Handle HTTP errors[[handle-http-errors]]
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
 `requests` with additional information sent back by the server.
 
-### Raise for status
+### Raise for status[[huggingface_hub.utils.hf_raise_for_status]]
 
 [`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
 request made to the Hub. It wraps the base `requests.raise_for_status` to provide
@@ -140,11 +140,11 @@ except HfHubHTTPError as e:
 
 [[autodoc]] huggingface_hub.utils.hf_raise_for_status
 
-### HTTP errors
+### HTTP errors[[http-errors]]
 
 Here is a list of HTTP errors thrown in `huggingface_hub`.
 
-#### HfHubHTTPError
+#### HfHubHTTPError[[huggingface_hub.utils.HfHubHTTPError]]
 
 `HfHubHTTPError` is the parent class for any HF Hub HTTP error. It takes care of parsing
 the server response and format the error message to provide as much information to the
@@ -152,35 +152,35 @@ user as possible.
 
 [[autodoc]] huggingface_hub.utils.HfHubHTTPError
 
-#### RepositoryNotFoundError
+#### RepositoryNotFoundError[[huggingface_hub.utils.RepositoryNotFoundError]]
 
 [[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
 
-#### GatedRepoError
+#### GatedRepoError[[huggingface_hub.utils.GatedRepoError]]
 
 [[autodoc]] huggingface_hub.utils.GatedRepoError
 
-#### RevisionNotFoundError
+#### RevisionNotFoundError[[huggingface_hub.utils.RevisionNotFoundError]]
 
 [[autodoc]] huggingface_hub.utils.RevisionNotFoundError
 
-#### EntryNotFoundError
+#### EntryNotFoundError[[huggingface_hub.utils.EntryNotFoundError]]
 
 [[autodoc]] huggingface_hub.utils.EntryNotFoundError
 
-#### BadRequestError
+#### BadRequestError[[huggingface_hub.utils.BadRequestError]]
 
 [[autodoc]] huggingface_hub.utils.BadRequestError
 
-#### LocalEntryNotFoundError
+#### LocalEntryNotFoundError[[huggingface_hub.utils.LocalEntryNotFoundError]]
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
 
-#### OfflineModeIsEnabled
+#### OfflineModeIsEnabledd[[huggingface_hub.utils.OfflineModeIsEnabled]]
 
 [[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
 
-## Telemetry
+## Telemetry[[huggingface_hub.utils.send_telemetry]]
 
 `huggingface_hub` includes an helper to send telemetry data. This information helps us debug issues and prioritize new features.
 Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
@@ -192,13 +192,13 @@ Data is sent in a separate thread to reduce as much as possible the impact for u
 [[autodoc]] utils.send_telemetry
 
 
-## Validators
+## Validators[[validators]]
 
 `huggingface_hub` includes custom validators to validate method arguments automatically.
 Validation is inspired by the work done in [Pydantic](https://pydantic-docs.helpmanual.io/)
 to validate type hints but with more limited features.
 
-### Generic decorator
+### Generic decorator[[generic-decorator]]
 
 [`~utils.validate_hf_hub_args`] is a generic decorator to encapsulate
 methods that have arguments following `huggingface_hub`'s naming. By default, all
@@ -240,24 +240,24 @@ UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token
 "a token"
 ```
 
-#### validate_hf_hub_args
+#### validate_hf_hub_args[[huggingface_hub.utils.validate_hf_hub_args]]
 
 [[autodoc]] utils.validate_hf_hub_args
 
-#### HFValidationError
+#### HFValidationError[[huggingface_hub.utils.HFValidationError]]
 
 [[autodoc]] utils.HFValidationError
 
-### Argument validators
+### Argument validators[[argument-validators]]
 
 Validators can also be used individually. Here is a list of all arguments that can be
 validated.
 
-#### repo_id
+#### repo_id[[huggingface_hub.utils.validate_repo_id]]
 
 [[autodoc]] utils.validate_repo_id
 
-#### smoothly_deprecate_use_auth_token
+#### smoothly_deprecate_use_auth_token[[huggingface_hub.utils.smoothly_deprecate_use_auth_token]]
 
 Not exactly a validator, but ran as well.
 
