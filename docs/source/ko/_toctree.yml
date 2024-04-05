@@ -16,8 +16,8 @@
       title: (번역 중) Upload files
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Repository
+    - local: guides/repository
+      title: 리포지토리
     - local: in_translation
       title: (번역 중) Search
     - local: in_translation
