@@ -26,7 +26,6 @@ logging.set_verbosity_debug()
 logging.set_verbosity(...)
 ```
 
-
 단계는 다음과 같이 이해하면 됩니다:
 
 - `error`: 오류 또는 예기치 않은 동작으로 이어질 수 있는 결정적인 로그만 표시합니다.
@@ -86,7 +85,6 @@ True
 
 ## HTTP 백엔드 구성[[huggingface_hub.configure_http_backend]]
 
-
 일부 환경에서는 HTTP 호출이 이루어지는 방식을 구성할 수 있습니다. 예를 들어, 프록시를 사용하는 경우가 그렇습니다. `huggingface_hub`는 [`configure_http_backend`]를 사용하여 전역적으로 이를 구성할 수 있게 합니다. 그러면 Hub로의 모든 요청이 사용자가 설정한 설정을 사용합니다. 내부적으로 `huggingface_hub`는 `requests.Session`을 사용하므로 사용 가능한 매개변수에 대해 자세히 알아보려면 [requests 문서](https://requests.readthedocs.io/en/latest/user/advanced)를 참조하는 것이 좋습니다.
 
 `requests.Session`이 스레드 안전을 보장하지 않기 때문에 `huggingface_hub`는 스레드당 하나의 세션 인스턴스를 생성합니다. 세션을 사용하면 HTTP 호출 사이에 연결을 유지하고 최종적으로 시간을 절약할 수 있습니다. `huggingface_hub`를 타사 라이브러리에 통합하고 사용자 지정 호출을 Hub로 만들려는 경우, [`get_session`]을 사용하여 사용자가 구성한 세션을 가져옵니다 (즉, 모든 `requests.get(...)` 호출을 `get_session().get(...)`으로 대체합니다).
@@ -126,7 +124,6 @@ except HfHubHTTPError as e:
 여기에는 `huggingface_hub`에서 발생하는 HTTP 오류 목록이 있습니다.
 
 #### HfHubHTTPError[[huggingface_hub.utils.HfHubHTTPError]]
-
 
 `HfHubHTTPError`는 HF Hub HTTP 오류에 대한 부모 클래스입니다. 이 클래스는 서버 응답을 구문 분석하고 오류 메시지를 형식화하여 사용자에게 가능한 많은 정보를 제공합니다.
 
@@ -168,13 +165,11 @@ except HfHubHTTPError as e:
 
 [[autodoc]] utils.send_telemetry
 
-
 ## 검증기[[validators]]
 
 `huggingface_hub`에는 메서드 인수를 자동으로 유효성 검사하는 사용자 정의 검증기가 포함되어 있습니다. 이 유효성 검사는 타입 힌트를 검증하는 데 [Pydantic](https://pydantic-docs.helpmanual.io/)의 작업을 참고하여 구현되었지만, 기능은 더 제한적입니다.
 
 ### 일반 데코레이터[[generic-decorator]]
-
 
 [`~utils.validate_hf_hub_args`]는 `huggingface_hub`의 네이밍을 따르는 인수를 갖는 메서드를 캡슐화하는 일반적인 데코레이터입니다. 기본적으로 구현된 검증기가 있는 모든 인수가 유효성 검사됩니다.
 
