@@ -265,6 +265,20 @@ By default, the `huggingface-cli download` command will be verbose. It will prin
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
+### Download Timeout
+
+If you are behind an http proxy the default `request` timeout of 10 seconds couldn't be enough.
+You could get an error like:
+```bash
+`requests.exceptions.ReadTimeout: (ReadTimeoutError("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+```
+
+In such case you can adapt the timeout, setting the environment variable `HF_HUB_DOWNLOAD_TIMEOUT`:
+```bash
+export HF_HUB_DOWNLOAD_TIMEOUT=30
+```
+And rerun your download command.
+
 ## huggingface-cli upload
 
 Use the `huggingface-cli upload` command to upload files to the Hub directly. Internally, it uses the same [`upload_file`] and [`upload_folder`] helpers described in the [Upload](./upload) guide. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
