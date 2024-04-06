@@ -47,7 +47,7 @@
     - local: in_translation
       title: (번역 중) Environment variables
     - local: package_reference/repository
-      title: 로컬과 온라인 리포지토리 관리하기
+      title: 로컬 및 온라인 리포지토리 관리
     - local: in_translation
       title: (번역 중) Hugging Face Hub API
     - local: in_translation
