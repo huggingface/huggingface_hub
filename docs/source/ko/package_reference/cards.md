@@ -11,7 +11,7 @@ Hub의 모델 카드가 무엇이며 내부적으로 어떻게 작동하는지 �
     - __init__
     - all
 
-## 카드 데이터[huggingface_hub.CardData]
+## 카드 데이터[[huggingface_hub.CardData]]
 
 [`CardData`] 객체는 [`ModelCardData`]와 [`DatasetCardData`]의 상위 클래스입니다.
 
@@ -27,15 +27,15 @@ Hub의 모델 카드가 무엇이며 내부적으로 어떻게 작동하는지 �
 
 [[autodoc]] ModelCardData
 
-## 데이터 세트 카드[cards#dataset-cards]
+## 데이터 세트 카드[[cards#dataset-cards]]
 
 데이터 세트 카드는 ML 커뮤니티에서 데이터 카드로도 알려져 있습니다.
 
-### DatasetCard[huggingface_hub.DatasetCard]
+### DatasetCard[[huggingface_hub.DatasetCard]]
 
 [[autodoc]] DatasetCard
 
-### DatasetCardData[huggingface_hub.DatasetCardData]
+### DatasetCardData[[huggingface_hub.DatasetCardData]]
 
 [[autodoc]] DatasetCardData
 
@@ -51,7 +51,7 @@ Hub의 모델 카드가 무엇이며 내부적으로 어떻게 작동하는지 �
 
 ## 유틸리티[[utilities]]
 
-### EvalResult[huggingface_hub.EvalResult]
+### EvalResult[[huggingface_hub.EvalResult]]
 
 [[autodoc]] EvalResult
 
