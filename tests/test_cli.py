@@ -595,7 +595,6 @@ class TestTagCommands(unittest.TestCase):
                 "--repo-type",
                 "dataset",
                 "--yes",
-                "--force",
             ]
         )
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
@@ -605,7 +604,6 @@ class TestTagCommands(unittest.TestCase):
         self.assertEqual(args.token, "my-token")
         self.assertEqual(args.repo_type, "dataset")
         self.assertTrue(args.yes)
-        self.assertTrue(args.force)
 
     def test_tag_list_basic(self) -> None:
         args = self.parser.parse_args(["tag", "--list", DUMMY_MODEL_ID])
