@@ -64,8 +64,8 @@
       title: (번역 중) Discussions and Pull Requests
     - local: in_translation
       title: (번역 중) Cache-system reference
-    - local: in_translation
-      title: (번역 중) Repo Cards and Repo Card Data
+    - local: package_reference/cards
+      title: Repo Cards and Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
     - local: in_translation
