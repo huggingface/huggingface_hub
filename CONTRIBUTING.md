@@ -178,7 +178,7 @@ Follow these steps to start contributing:
    pre-commit install
    ```
 
-   You only need to do the above once in your repository's environment. If, for any reason, you would like to disable
+   You only need to do the above once in your repository's environment. If for any reason you would like to disable
    pre-commit hooks on a commit, you can pass `-n` to your `git commit` command to temporarily disable pre-commit
    hooks.
 
