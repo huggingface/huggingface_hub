@@ -16,20 +16,20 @@
       title: (번역 중) Upload files
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Repository
+    - local: guides/repository
+      title: 리포지토리
     - local: in_translation
       title: (번역 중) Search
     - local: in_translation
       title: (번역 중) Inference
-    - local: in_translation
-      title: (번역 중) Community Tab
+    - local: guides/community
+      title: 커뮤니티
     - local: guides/collections
       title: Collections
     - local: in_translation
       title: (번역 중) Cache
-    - local: in_translation
-      title: (번역 중) Model Cards
+    - local: guides/model-cards
+      title: 모델 카드
     - local: in_translation
       title: (번역 중) Manage your Space
     - local: in_translation
