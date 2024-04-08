@@ -1,9 +1,9 @@
-# 저장소 카드[[repository-cards]]
+# 리포지토리 카드[[repository-cards]]
 
 huggingface_hub 라이브러리는 모델/데이터 세트 카드를 생성, 공유 및 업데이트하기 위한 Python 인터페이스를 제공합니다.
 Hub의 모델 카드가 무엇이며 내부적으로 어떻게 작동하는지 더 깊이 있게 알아보려면 [전용 문서 페이지](https://huggingface.co/docs/hub/models-cards)를 방문하세요. 또한 이러한 유틸리티를 자신의 프로젝트에서 어떻게 사용할 수 있는지 감을 잡기 위해 [모델 카드 가이드](../how-to-model-cards)를 확인할 수 있습니다.
 
-## 저장소 카드[[huggingface_hub.RepoCard]]
+## 리포지토리 카드[[huggingface_hub.RepoCard]]
 
 `RepoCard` 객체는 [`ModelCard`], [`DatasetCard`] 및 `SpaceCard`의 상위 클래스입니다.
 
