@@ -8,9 +8,7 @@ from ..utils import HfHubHTTPError, RepositoryNotFoundError, is_minijinja_availa
 
 def _import_minijinja():
     if not is_minijinja_available():
-        raise ImportError(
-            "Cannot render template. Please install minijinja using `pip install minijinja`."
-        )
+        raise ImportError("Cannot render template. Please install minijinja using `pip install minijinja`.")
     import minijinja  # noqa: F401
 
     return minijinja
@@ -44,13 +42,9 @@ def render_chat_prompt(
     template = _fetch_and_compile_template(model_id=model_id, token=token)
 
     try:
-        return template(
-            messages=messages, add_generation_prompt=add_generation_prompt, **kwargs
-        )
+        return template(messages=messages, add_generation_prompt=add_generation_prompt, **kwargs)
     except minijinja.TemplateError as e:
-        raise TemplateError(
-            f"Error while trying to render chat prompt for model '{model_id}': {e}"
-        ) from e
+        raise TemplateError(f"Error while trying to render chat prompt for model '{model_id}': {e}") from e
 
 
 @lru_cache  # TODO: lru_cache for raised exceptions
@@ -76,13 +70,9 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Ca
     try:
         config = HfApi(token=token).model_info(model_id).config
     except RepositoryNotFoundError as e:
-        raise TemplateError(
-            f"Cannot render chat template: model '{model_id}' not found."
-        ) from e
+        raise TemplateError(f"Cannot render chat template: model '{model_id}' not found.") from e
     except HfHubHTTPError as e:
-        raise TemplateError(
-            f"Error while trying to fetch chat template for model '{model_id}': {e}"
-        ) from e
+        raise TemplateError(f"Error while trying to fetch chat template for model '{model_id}': {e}") from e
 
     # 2. check config validity
     if config is None:
@@ -91,14 +81,10 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Ca
     if tokenizer_config is None:
         raise TemplateError(f"Tokenizer config not found for model '{model_id}'.")
     if tokenizer_config.get("chat_template") is None:
-        raise TemplateError(
-            f"Chat template not found in tokenizer_config for model '{model_id}'."
-        )
+        raise TemplateError(f"Chat template not found in tokenizer_config for model '{model_id}'.")
     chat_template = tokenizer_config["chat_template"]
     if not isinstance(chat_template, str):
-        raise TemplateError(
-            f"Chat template must be a string, not '{type(chat_template)}' (model: {model_id})."
-        )
+        raise TemplateError(f"Chat template must be a string, not '{type(chat_template)}' (model: {model_id}).")
 
     special_tokens: Dict[str, Optional[str]] = {}
     for key, value in tokenizer_config.items():
@@ -113,9 +99,5 @@ def _fetch_and_compile_template(*, model_id: str, token: Union[str, None]) -> Ca
     try:
         env.add_template("chat_template", chat_template)
     except minijinja.TemplateError as e:
-        raise TemplateError(
-            f"Error while trying to compile chat template for model '{model_id}': {e}"
-        ) from e
-    return lambda **kwargs: env.render_template(
-        "chat_template", **kwargs, **special_tokens
-    )
+        raise TemplateError(f"Error while trying to compile chat template for model '{model_id}': {e}") from e
+    return lambda **kwargs: env.render_template("chat_template", **kwargs, **special_tokens)
