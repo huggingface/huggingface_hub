@@ -36,3 +36,54 @@ class IncompleteGenerationError(TextGenerationError):
 
 class UnknownError(TextGenerationError):
     pass
+
+
+# INFERENCE ENDPOINT ERRORS
+
+
+class InferenceEndpointError(Exception):
+    """Generic exception when dealing with Inference Endpoints."""
+
+
+class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
+    """Exception for timeouts while waiting for Inference Endpoint."""
+
+
+# SAFETENSORS ERRORS
+
+
+class SafetensorsParsingError(Exception):
+    """Raised when failing to parse a safetensors file metadata.
+
+    This can be the case if the file is not a safetensors file or does not respect the specification.
+    """
+
+
+class NotASafetensorsRepoError(Exception):
+    """Raised when a repo is not a Safetensors repo i.e. doesn't have either a `model.safetensors` or a
+    `model.safetensors.index.json` file.
+    """
+
+
+# HEADERS ERRORS
+
+
+class LocalTokenNotFoundError(EnvironmentError):
+    """Raised if local token is required but not found."""
+
+
+# HTTP ERRORS
+
+
+class OfflineModeIsEnabled(ConnectionError):
+    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
+
+
+# VALIDATION ERRORS
+
+
+class HFValidationError(ValueError):
+    """Generic exception thrown by `huggingface_hub` validators.
+
+    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
+    """
