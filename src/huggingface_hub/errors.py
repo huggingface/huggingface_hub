@@ -3,39 +3,25 @@
 from requests import HTTPError
 
 
+# HEADERS ERRORS
+
+
+class LocalTokenNotFoundError(EnvironmentError):
+    """Raised if local token is required but not found."""
+
+
+# HTTP ERRORS
+
+
+class OfflineModeIsEnabled(ConnectionError):
+    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
+
+
 # INFERENCE CLIENT ERRORS
 
 
 class InferenceTimeoutError(HTTPError, TimeoutError):
     """Error raised when a model is unavailable or the request times out."""
-
-
-# TEXT GENERATION ERRORS
-
-
-class TextGenerationError(HTTPError):
-    """Generic error raised if text-generation went wrong."""
-
-
-# Text Generation Inference Errors
-class ValidationError(TextGenerationError):
-    """Server-side validation error."""
-
-
-class GenerationError(TextGenerationError):
-    pass
-
-
-class OverloadedError(TextGenerationError):
-    pass
-
-
-class IncompleteGenerationError(TextGenerationError):
-    pass
-
-
-class UnknownError(TextGenerationError):
-    pass
 
 
 # INFERENCE ENDPOINT ERRORS
@@ -65,18 +51,39 @@ class NotASafetensorsRepoError(Exception):
     """
 
 
-# HEADERS ERRORS
+# TEMPLATING ERRORS
 
 
-class LocalTokenNotFoundError(EnvironmentError):
-    """Raised if local token is required but not found."""
+class TemplateError(Exception):
+    """Any error raised while trying to fetch or render a chat template."""
 
 
-# HTTP ERRORS
+# TEXT GENERATION ERRORS
 
 
-class OfflineModeIsEnabled(ConnectionError):
-    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
+class TextGenerationError(HTTPError):
+    """Generic error raised if text-generation went wrong."""
+
+
+# Text Generation Inference Errors
+class ValidationError(TextGenerationError):
+    """Server-side validation error."""
+
+
+class GenerationError(TextGenerationError):
+    pass
+
+
+class OverloadedError(TextGenerationError):
+    pass
+
+
+class IncompleteGenerationError(TextGenerationError):
+    pass
+
+
+class UnknownError(TextGenerationError):
+    pass
 
 
 # VALIDATION ERRORS
