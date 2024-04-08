@@ -1,4 +1,3 @@
-import copy
 import os
 import re
 import tempfile
@@ -24,7 +23,7 @@ from .constants import (
     REPO_TYPES_URL_PREFIXES,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import BlobLfsInfo, BlobSecurityInfo, HfApi, LastCommitInfo, RepoFile
 from .utils import (
     EntryNotFoundError,
     HFValidationError,
@@ -377,10 +376,27 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             )
 
             for path_info in tree:
-                cache_path_info = self._make_cache_path_info(root_path, path_info, should_copy=False)
+                if isinstance(path_info, RepoFile):
+                    cache_path_info = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": path_info.size,
+                        "type": "file",
+                        "blob_id": path_info.blob_id,
+                        "lfs": path_info.lfs,
+                        "last_commit": path_info.last_commit,
+                        "security": path_info.security,
+                    }
+                else:
+                    cache_path_info = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": 0,
+                        "type": "directory",
+                        "tree_id": path_info.tree_id,
+                        "last_commit": path_info.last_commit,
+                    }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
-                out_cache_path_info = self._make_cache_path_info(root_path, path_info)
+                out_cache_path_info = _weak_copy_path_info(cache_path_info)
                 out.append(out_cache_path_info)
         return out
 
@@ -525,34 +541,28 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                     path_in_repo="",
                     _raw_revision=resolved_path._raw_revision,
                 ).unresolve()
-                out = self._make_path_info(root_path, path_info)
+                if isinstance(path_info, RepoFile):
+                    out = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": path_info.size,
+                        "type": "file",
+                        "blob_id": path_info.blob_id,
+                        "lfs": path_info.lfs,
+                        "last_commit": path_info.last_commit,
+                        "security": path_info.security,
+                    }
+                else:
+                    out = {
+                        "name": root_path + "/" + path_info.path,
+                        "size": 0,
+                        "type": "directory",
+                        "tree_id": path_info.tree_id,
+                        "last_commit": path_info.last_commit,
+                    }
                 if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
-        return out
-
-    def _make_cache_path_info(
-        self, root_path: str, path_info: RepoFile | RepoFolder, shallow_copy: bool = True
-    ) -> Dict[str, Any]:
-        return (
-            {
-                "name": root_path + "/" + path_info.path,
-                "size": path_info.size,
-                "type": "file",
-                "blob_id": path_info.blob_id,
-                "lfs": copy.copy(path_info.lfs) if shallow_copy else path_info.lfs,
-                "last_commit": copy.copy(path_info.last_commit) if shallow_copy else path_info.last_commit,
-                "security": copy.copy(path_info.security) if shallow_copy else path_info.security,
-            }
-            if isinstance(path_info, RepoFile)
-            else {
-                "name": root_path + "/" + path_info.path,
-                "size": 0,
-                "type": "directory",
-                "tree_id": path_info.tree_id,
-                "last_commit": copy.copy(path_info.last_commit) if shallow_copy else path_info.last_commit,
-            }
-        )
+        return _weak_copy_path_info(out)
 
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
@@ -852,6 +862,30 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
     elif isinstance(err, HFValidationError):
         msg = f"{path} (invalid repository id)"
     raise FileNotFoundError(msg) from err
+
+
+def _weak_copy_path_info(path_info: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return a weak copy of the path info dictionary to make the `HfFileSystem` cache robust to modifications of two top levels.
+    """
+    if path_info["type"] == "file":
+        return {
+            **path_info,
+            "lfs": BlobLfsInfo(**path_info.get("lfs")) if path_info.get("lfs") is not None else None,
+            "last_commit": LastCommitInfo(**path_info.get("last_commit"))
+            if path_info.get("last_commit") is not None
+            else None,
+            "security": BlobSecurityInfo(**path_info.get("security"))
+            if path_info.get("security") is not None
+            else None,
+        }
+    else:
+        return {
+            **path_info,
+            "last_commit": LastCommitInfo(**path_info.get("last_commit"))
+            if path_info.get("last_commit") is not None
+            else None,
+        }
 
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
