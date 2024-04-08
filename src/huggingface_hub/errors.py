@@ -2,7 +2,6 @@
 
 from requests import HTTPError
 
-
 # INFERENCE CLIENT ERRORS
 
 
@@ -87,3 +86,10 @@ class HFValidationError(ValueError):
 
     Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
+
+
+# TEMPLATING ERRORS
+
+
+class TemplateError(Exception):
+    """Any error raised while trying to fetch or render a chat template."""
