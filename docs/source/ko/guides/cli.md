@@ -211,9 +211,9 @@ Fetching 8 files: 100%|███████████████████
 ...
 ```
 
-### 특정 개정 다운로드하기 [[download-a-specific-revision]]
+### 특정 리비전 다운로드하기 [[download-a-specific-revision]]
 
-따로 개정을 지정하지 않는다면 기본적으로 main 브랜치의 최신 커밋에서 파일을 다운로드합니다. 특정 개정(커밋 해시, 브랜치 이름 또는 태그)에서 다운로드하려면 `--revision` 옵션을 사용하세요:
+따로 리비전을 지정하지 않는다면 기본적으로 main 브랜치의 최신 커밋에서 파일을 다운로드합니다. 특정 리비전(커밋 해시, 브랜치 이름 또는 태그)에서 다운로드하려면 `--revision` 옵션을 사용하세요:
 
 ```bash
 >>> huggingface-cli download bigcode/the-stack --repo-type dataset --revision v1.1
