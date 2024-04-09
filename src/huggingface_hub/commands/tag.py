@@ -94,11 +94,6 @@ class TagCreateCommand(TagCommand):
     def run(self):
         print(f"You are about to create tag {ANSI.bold(self.args.tag)} on {self.repo_type} {ANSI.bold(self.repo_id)}")
 
-        if not self.args.yes:
-            choice = input("Proceed? [Y/n] ").lower()
-            if choice not in ("", "y", "yes"):
-                print("Abort")
-                exit()
         try:
             self.api.create_tag(
                 repo_id=self.repo_id,
