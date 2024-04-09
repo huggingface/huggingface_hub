@@ -103,9 +103,10 @@ def login(
     if token is not None:
         if not add_to_git_credential:
             print(
-                "Token has not been saved to git credential helper. Pass"
-                " `add_to_git_credential=True` if you want to set the git"
-                " credential as well."
+                "The token has not been saved to the git credentials helper. Pass "
+                "`add_to_git_credential=True` in this function directly or "
+                "`--add-to-git-credential` if using via `huggingface-cli` if "
+                "you want to set the git credential as well."
             )
         _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
     elif is_notebook():
