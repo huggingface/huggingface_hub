@@ -20,8 +20,8 @@
       title: (번역 중) HfFileSystem
     - local: guides/repository
       title: 리포지토리
-    - local: in_translation
-      title: (번역 중) Search
+    - local: guides/search
+      title: Hub에서 검색하기
     - local: in_translation
       title: (번역 중) Inference
     - local: guides/community
