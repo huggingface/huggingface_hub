@@ -10,19 +10,6 @@ TENSOR_NAME_T = str
 DTYPE_T = Literal["F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "BOOL"]
 
 
-class SafetensorsParsingError(Exception):
-    """Raised when failing to parse a safetensors file metadata.
-
-    This can be the case if the file is not a safetensors file or does not respect the specification.
-    """
-
-
-class NotASafetensorsRepoError(Exception):
-    """Raised when a repo is not a Safetensors repo i.e. doesn't have either a `model.safetensors` or a
-    `model.safetensors.index.json` file.
-    """
-
-
 @dataclass
 class TensorInfo:
     """Information about a tensor.
