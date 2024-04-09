@@ -75,7 +75,7 @@ extras["testing"] = (
         "Pillow",
         "gradio",  # to test webhooks
         "numpy",  # for embeddings
-        "fastapi", # To build the documentation
+        "fastapi",  # To build the documentation
     ]
 )
 
