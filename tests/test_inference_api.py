@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from PIL import Image
 
 from huggingface_hub import hf_hub_download
@@ -23,6 +24,7 @@ from huggingface_hub.inference_api import InferenceApi
 from .testing_utils import expect_deprecation, with_production_testing
 
 
+@pytest.mark.vcr
 @with_production_testing
 class InferenceApiTest(unittest.TestCase):
     def read(self, filename: str) -> bytes:
