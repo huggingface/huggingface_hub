@@ -8501,7 +8501,7 @@ class HfApi:
                     "id": "654bbbc16f2ec14d77f109cc",
                     "watched": [{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
                     "url": "https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                    "token": "my-token",
+                    "secret": "my-secret",
                     "domains": ["repo", "discussion"],
                     "disabled": False,
                 },
@@ -8528,8 +8528,44 @@ class HfApi:
     ) -> Dict:
         """Update an existing webhook.
 
-        Exact same usage as `create_webhook` but you must know the `webhook_id`.
-        All fields are updated.
+        Args:
+            webhook_id (str):
+                The unique identifier of the webhook to be updated.
+            watched (List[WatchedItem]):
+                List of items to watch. It can be users, orgs, models, datasets, or spaces.
+                Refer to `WatchedItem` for more details.
+            url (str):
+                The URL to which the payload will be sent.
+            domains (List[Literal["repo", "discussion"]]):
+                The domains to watch. This can include "repo", "discussion", or both.
+            secret (str, optional):
+                A secret to sign the payload with, providing an additional layer of security.
+            token (str, optional):
+                A valid authentication token for authorization (see https://huggingface.co/settings/token).
+
+        Returns:
+            dict: The updated webhook configuration.
+
+        Example:
+            ```python
+            >>> updated_payload = update_webhook(
+            ...     webhook_id="654bbbc16f2ec14d77f109cc",
+            ...     watched=[{"type": "org", "name": "HuggingFaceH4"}, {"type": "model", "name": "HuggingFaceH4/new-model"}],
+            ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+            ...     domains=["repo"],
+            ...     secret="my-secret",
+            ... )
+            {
+                "webhook": {
+                    "id": "654bbbc16f2ec14d77f109cc",
+                    "watched": [{"type": "org", "name": "HuggingFaceH4"}, {"type": "model", "name": "HuggingFaceH4/new-model"}],
+                    "url": "https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                    "secret": "new-secret",
+                    "domains": ["repo"],
+                    "disabled": False,
+                },
+            }
+            ```
         """
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
