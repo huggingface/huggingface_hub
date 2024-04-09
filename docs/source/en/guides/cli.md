@@ -456,9 +456,9 @@ For more details about how to scan your cache directory, please refer to the [Ma
 
 The `huggingface-cli tag` command allows you to tag, untag, and list tags for repositories.
 
-### Tag a model repository
+### Tag a model
 
-To tag a repo, you need to provide the repo_id and the tag name:
+To tag a repo, you need to provide the `repo_id` and the `tag` name:
 
 ```bash
 >>> huggingface-cli tag Wauplin/my-cool-model v1.0
@@ -466,9 +466,9 @@ You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
 
-### Tag a model repository at a specific revision
+### Tag a model at a specific revision
 
-If you want to tag a specific revision, you can use the `--revision` option, by default, the tag will be created on the `main` branch:
+If you want to tag a specific revision, you can use the `--revision` option. By default, the tag will be created on the `main` branch:
 
 ```bash
 >>> huggingface-cli tag Wauplin/my-cool-model v1.0 --revision refs/pr/104
@@ -476,8 +476,9 @@ You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
 
-### Tag a dataset/space repository
-If you want to tag dataset or space repositories, you must specify the `--repo-type` option, otherwise, the command will default to a model repository:
+### Tag a dataset or a Space
+
+If you want to tag a dataset or Space, you must specify the `--repo-type` option:
 
 ```bash
 >>> huggingface-cli tag bigcode/the-stack v1.0 --repo-type dataset
@@ -510,6 +511,8 @@ You are about to delete tag v1.0 on model Wauplin/my-cool-model
 Proceed? [Y/n] y
 Tag v1.0 deleted on Wauplin/my-cool-model
 ```
+
+You can also pass `-y` to skip the confirmation step.
 
 ## huggingface-cli env
 
