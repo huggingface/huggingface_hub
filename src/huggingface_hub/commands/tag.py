@@ -115,7 +115,6 @@ class TagCreateCommand(TagCommand):
             raise e
 
         print(f"Tag {ANSI.bold(self.args.tag)} created on {ANSI.bold(self.repo_id)}")
-        print("")
 
 
 class TagListCommand(TagCommand):
@@ -133,12 +132,11 @@ class TagListCommand(TagCommand):
             print(ANSI.red(e.response.text))
             exit(1)
         if len(refs.tags) == 0:
-            print("  No tags found")
+            print("No tags found")
             exit(0)
         print(f"Tags for {self.repo_type} {ANSI.bold(self.repo_id)}:")
         for tag in refs.tags:
-            print(f"  - {ANSI.bold(tag.name)}")
-        print("")
+            print(tag.name)
 
 
 class TagDeleteCommand(TagCommand):
@@ -159,4 +157,3 @@ class TagDeleteCommand(TagCommand):
             print(f"Tag {ANSI.bold(self.args.tag)} not found on {ANSI.bold(self.repo_id)}")
             exit(1)
         print(f"Tag {ANSI.bold(self.args.tag)} deleted on {ANSI.bold(self.repo_id)}")
-        print("")
