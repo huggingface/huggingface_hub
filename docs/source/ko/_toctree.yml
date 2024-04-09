@@ -14,6 +14,8 @@
       title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Upload files
+    - local: guides/cli
+      title: 명령줄 인터페이스(CLI) 사용하기
     - local: in_translation
       title: (번역 중) HfFileSystem
     - local: guides/repository
