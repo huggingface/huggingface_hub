@@ -36,6 +36,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -103,7 +104,7 @@ from .constants import (
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
-from .utils import (  # noqa: F401 # imported for backward compatibility
+from .utils import (  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility
     IGNORE_GIT_FOLDER_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
@@ -389,6 +390,21 @@ class AccessRequest:
     fields: Optional[Dict[str, Any]] = None
 
 
+@dataclass
+class WatchedItem(TypedDict):
+    """Data structure containing informatin about webhooks watched for updates.
+
+    Attributes:
+        type (`Literal["dataset", "model", "org", "space", "user"]`):
+            Type of the item to be watched. Can be one of `["dataset", "model", "org", "space", "user"]`.
+        name (`str`):
+            Name of the item to be watched. Can be the username, organization name, model name, dataset name or space name.
+    """
+
+    type: Literal["dataset", "model", "org", "space", "user"]
+    name: str
+
+
 class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
@@ -525,13 +541,17 @@ class RepoFile:
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(
-                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
+                oid=last_commit["id"],
+                title=last_commit["title"],
+                date=parse_datetime(last_commit["date"]),
             )
         self.last_commit = last_commit
         security = kwargs.pop("security", None)
         if security is not None:
             security = BlobSecurityInfo(
-                safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
+                safe=security["safe"],
+                av_scan=security["avScan"],
+                pickle_import_scan=security["pickleImportScan"],
             )
         self.security = security
 
@@ -565,7 +585,9 @@ class RepoFolder:
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(
-                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
+                oid=last_commit["id"],
+                title=last_commit["title"],
+                date=parse_datetime(last_commit["date"]),
             )
         self.last_commit = last_commit
 
@@ -1009,7 +1031,13 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
+        self,
+        _id: str,
+        id: str,
+        type: CollectionItemType_T,
+        position: int,
+        note: Optional[Dict] = None,
+        **kwargs,
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
@@ -2088,7 +2116,8 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().delete(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
 
@@ -2616,7 +2645,11 @@ class HfApi:
             ```
         """
         url = hf_hub_url(
-            repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            filename=filename,
+            endpoint=self.endpoint,
         )
         try:
             if token is None:
@@ -2659,7 +2692,11 @@ class HfApi:
         return [
             f.rfilename
             for f in self.list_repo_tree(
-                repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type, token=token
+                repo_id=repo_id,
+                recursive=True,
+                revision=revision,
+                repo_type=repo_type,
+                token=token,
             )
             if isinstance(f, RepoFile)
         ]
@@ -2792,7 +2829,11 @@ class HfApi:
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
         tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
-        for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
+        for path_info in paginate(
+            path=tree_url,
+            headers=headers,
+            params={"recursive": recursive, "expand": expand},
+        ):
             yield (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
 
     @validate_hf_hub_args
@@ -2862,9 +2903,9 @@ class HfApi:
             branches=[_format_as_git_ref_info(item) for item in data["branches"]],
             converts=[_format_as_git_ref_info(item) for item in data["converts"]],
             tags=[_format_as_git_ref_info(item) for item in data["tags"]],
-            pull_requests=[_format_as_git_ref_info(item) for item in data["pullRequests"]]
-            if include_pull_requests
-            else None,
+            pull_requests=(
+                [_format_as_git_ref_info(item) for item in data["pullRequests"]] if include_pull_requests else None
+            ),
         )
 
     @validate_hf_hub_args
@@ -3025,7 +3066,7 @@ class HfApi:
         hf_raise_for_status(response)
         paths_info = response.json()
         return [
-            RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
+            (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
             for path_info in paths_info
         ]
 
@@ -3175,7 +3216,11 @@ class HfApi:
         if repo_type not in REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json: Dict[str, Any] = {"name": name, "organization": organization, "private": private}
+        json: Dict[str, Any] = {
+            "name": name,
+            "organization": organization,
+            "private": private,
+        }
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -3198,8 +3243,20 @@ class HfApi:
             "space_secrets",
             "space_variables",
         ]
-        json_keys = ["hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
-        values = [space_hardware, space_storage, space_sleep_time, space_secrets, space_variables]
+        json_keys = [
+            "hardware",
+            "storageTier",
+            "sleepTimeSeconds",
+            "secrets",
+            "variables",
+        ]
+        values = [
+            space_hardware,
+            space_storage,
+            space_sleep_time,
+            space_secrets,
+            space_variables,
+        ]
 
         if repo_type == "space":
             json.update({k: v for k, v in zip(json_keys, values) if v is not None})
@@ -3298,7 +3355,9 @@ class HfApi:
 
     @validate_hf_hub_args
     @_deprecate_arguments(
-        version="0.24.0", deprecated_args=("organization", "name"), custom_message="Use `repo_id` instead."
+        version="0.24.0",
+        deprecated_args=("organization", "name"),
+        custom_message="Use `repo_id` instead.",
     )
     def update_repo_visibility(
         self,
@@ -3830,7 +3889,10 @@ class HfApi:
             # search for a draft PR with strategy ID
             if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
                 pr = self.get_discussion_details(
-                    repo_id=repo_id, discussion_num=discussion.num, repo_type=repo_type, token=token
+                    repo_id=repo_id,
+                    discussion_num=discussion.num,
+                    repo_type=repo_type,
+                    token=token,
                 )
                 logger.info(f"PR already exists: {pr.url}. Will resume process where it stopped.")
                 break
@@ -3872,13 +3934,19 @@ class HfApi:
         commits_on_main_branch = {
             commit.commit_id
             for commit in self.list_repo_commits(
-                repo_id=repo_id, repo_type=repo_type, token=token, revision=DEFAULT_REVISION
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                revision=DEFAULT_REVISION,
             )
         }
         pr_commits = [
             commit
             for commit in self.list_repo_commits(
-                repo_id=repo_id, repo_type=repo_type, token=token, revision=pr.git_reference
+                repo_id=repo_id,
+                repo_type=repo_type,
+                token=token,
+                revision=pr.git_reference,
             )
             if commit.commit_id not in commits_on_main_branch
         ]
@@ -3942,7 +4010,9 @@ class HfApi:
                 discussion_num=pr.num,
                 comment_id=pr_comment.id,
                 new_content=multi_commit_generate_comment(
-                    commit_message=commit_message, commit_description=commit_description, strategy=strategy
+                    commit_message=commit_message,
+                    commit_description=commit_description,
+                    strategy=strategy,
                 ),
             )
         logger.info("All commits have been pushed.")
@@ -5283,10 +5353,18 @@ class HfApi:
             ```
         """
         if self.file_exists(  # Single safetensors file => non-sharded model
-            repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_SINGLE_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             file_metadata = self.parse_safetensors_file_metadata(
-                repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_SINGLE_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -5295,11 +5373,19 @@ class HfApi:
                 files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
-            repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_INDEX_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             # Fetch index
             index_file = self.hf_hub_download(
-                repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             with open(index_file) as f:
                 index = json.load(f)
@@ -5311,7 +5397,11 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
                 )
 
             thread_map(
@@ -5374,7 +5464,11 @@ class HfApi:
             - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
         """
         url = hf_hub_url(
-            repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
+            repo_id=repo_id,
+            filename=filename,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
         )
         _headers = self._build_hf_headers(token=token)
 
@@ -6449,7 +6543,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def add_space_secret(
-        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        key: str,
+        value: str,
+        *,
+        description: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> None:
         """Adds or updates a secret in a Space.
 
@@ -6522,7 +6622,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def add_space_variable(
-        self, repo_id: str, key: str, value: str, *, description: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        key: str,
+        value: str,
+        *,
+        description: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> Dict[str, SpaceVariable]:
         """Adds or updates a variable in a Space.
 
@@ -6591,7 +6697,8 @@ class HfApi:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
         r = get_session().get(
-            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -6723,7 +6830,8 @@ class HfApi:
                 a static Space, you can set it to private.
         """
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/pause",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -6766,7 +6874,9 @@ class HfApi:
         if factory_reboot:
             params["factory"] = "true"
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), params=params
+            f"{self.endpoint}/api/spaces/{repo_id}/restart",
+            headers=self._build_hf_headers(token=token),
+            params=params,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -6857,7 +6967,14 @@ class HfApi:
         # repository must be a valid repo_id (namespace/repo_name).
         payload: Dict[str, Any] = {"repository": f"{to_namespace}/{to_repo_name}"}
 
-        keys = ["private", "hardware", "storageTier", "sleepTimeSeconds", "secrets", "variables"]
+        keys = [
+            "private",
+            "hardware",
+            "storageTier",
+            "sleepTimeSeconds",
+            "secrets",
+            "variables",
+        ]
         values = [private, hardware, storage, sleep_time, secrets, variables]
         payload.update({k: v for k, v in zip(keys, values) if v is not None})
 
@@ -6990,7 +7107,11 @@ class HfApi:
                     endpoints += list_inference_endpoints(namespace=org["name"], token=token)
                 except HfHubHTTPError as error:
                     if error.response.status_code == 401:  # Either no billing or user don't have access)
-                        logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
+                        logger.debug(
+                            "Cannot list Inference Endpoints for org '%s': %s",
+                            org["name"],
+                            error,
+                        )
                     pass
 
             return endpoints
@@ -7268,7 +7389,16 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         payload: Dict = {}
-        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica)):
+        if any(
+            value is not None
+            for value in (
+                accelerator,
+                instance_size,
+                instance_type,
+                min_replica,
+                max_replica,
+            )
+        ):
             payload["compute"] = {
                 "accelerator": accelerator,
                 "instanceSize": instance_size,
@@ -7514,7 +7644,8 @@ class HfApi:
         ```
         """
         r = get_session().get(
-            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
         return Collection(**{**r.json(), "endpoint": self.endpoint})
@@ -7571,7 +7702,9 @@ class HfApi:
             payload["description"] = description
 
         r = get_session().post(
-            f"{self.endpoint}/api/collections", headers=self._build_hf_headers(token=token), json=payload
+            f"{self.endpoint}/api/collections",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
         )
         try:
             hf_raise_for_status(r)
@@ -7650,7 +7783,11 @@ class HfApi:
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
 
     def delete_collection(
-        self, collection_slug: str, *, missing_ok: bool = False, token: Optional[str] = None
+        self,
+        collection_slug: str,
+        *,
+        missing_ok: bool = False,
+        token: Optional[str] = None,
     ) -> None:
         """Delete a collection on the Hub.
 
@@ -7676,7 +7813,8 @@ class HfApi:
         </Tip>
         """
         r = get_session().delete(
-            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
         )
         try:
             hf_raise_for_status(r)
@@ -7871,7 +8009,11 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_pending_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> List[AccessRequest]:
         """
         Get pending access requests for a given gated repo.
@@ -7932,7 +8074,11 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_accepted_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> List[AccessRequest]:
         """
         Get accepted access requests for a given gated repo.
@@ -7991,7 +8137,11 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_rejected_access_requests(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> List[AccessRequest]:
         """
         Get rejected access requests for a given gated repo.
@@ -8079,7 +8229,12 @@ class HfApi:
 
     @validate_hf_hub_args
     def cancel_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> None:
         """
         Cancel an access request from a user for a given gated repo.
@@ -8116,7 +8271,12 @@ class HfApi:
 
     @validate_hf_hub_args
     def accept_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> None:
         """
         Accept an access request from a user for a given gated repo.
@@ -8155,7 +8315,12 @@ class HfApi:
 
     @validate_hf_hub_args
     def reject_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> None:
         """
         Reject an access request from a user for a given gated repo.
@@ -8215,7 +8380,12 @@ class HfApi:
 
     @validate_hf_hub_args
     def grant_access(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> None:
         """
         Grant access to a user for a given gated repo.
@@ -8260,6 +8430,133 @@ class HfApi:
         )
         hf_raise_for_status(response)
         return response.json()
+
+    ###################
+    # Manage webhooks #
+    ###################
+
+    @validate_hf_hub_args
+    def get_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
+        """Get a webhook by its id."""
+        response = get_session().get(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def list_webhooks(self, token: Optional[str] = None) -> List[Dict]:
+        """List all configured webhooks."""
+        response = get_session().get(
+            f"{ENDPOINT}/api/settings/webhooks",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def create_webhook(
+        self,
+        watched: List[WatchedItem],
+        url: str,
+        domains: List[Literal["repo", "discussion"]],
+        token: Optional[str] = None,
+    ) -> Dict:
+        """Create a new webhook.
+
+        Args:
+            watched (List[WatchedItem]):
+                List of items to watch. It an be users, orgs, models, datasets or spaces.
+                See `WatchedItem` for more details.
+            url (str):
+                URL to send the payload to.
+            domains (List[Literal["repo", "discussion"]]):
+                List of domains to watch. It can be "repo", "discussion" or both.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            dict: The created webhook.
+
+        Example:
+            ```python
+            >>> payload = create_webhook(
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+            ...     domains=["repo", "discussion"],
+            ...     token="my-token",
+            ... )
+            {
+                "webhook": {
+                    "id": "654bbbc16f2ec14d77f109cc",
+                    "watched": [{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+                    "url": "https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                    "token": "my-token",
+                    "domains": ["repo", "discussion"],
+                    "disabled": False,
+                },
+            }
+            ```
+        """
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks",
+            json={"watched": watched, "url": url, "domains": domains, "token": token},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def update_webhook(
+        self,
+        webhook_id: str,
+        watched: List[WatchedItem],
+        url: str,
+        domains: List[Literal["repo", "discussion"]],
+        token: Optional[str] = None,
+    ) -> Dict:
+        """Update an existing webhook.
+
+        Exact same usage as `create_webhook` but you must know the `webhook_id`.
+        All fields are updated.
+        """
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            json={"watched": watched, "url": url, "domains": domains, "token": token},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def enable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
+        """Enable a webhook (makes it "active")."""
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def disable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
+        """Disable a webhook (makes it "disabled")."""
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return response.json()
+
+    @validate_hf_hub_args
+    def delete_webhook(self, webhook_id: str, token: Optional[str] = None):
+        """Delete a webhook."""
+        response = get_session().delete(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
 
     #############
     # Internals #
@@ -8453,7 +8750,9 @@ def _prepare_upload_folder_additions(
             path_in_repo=prefix + relpath,  # "absolute" path in repo
         )
         for relpath in filter_repo_objects(
-            relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+            relpath_to_abspath.keys(),
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
         )
     ]
 
@@ -8588,6 +8887,16 @@ cancel_access_request = api.cancel_access_request
 accept_access_request = api.accept_access_request
 reject_access_request = api.reject_access_request
 grant_access = api.grant_access
+
+# Webhooks API
+create_webhook = api.create_webhook
+disable_webhook = api.disable_webhook
+delete_webhook = api.delete_webhook
+enable_webhook = api.enable_webhook
+get_webhook = api.get_webhook
+list_webhooks = api.list_webhooks
+update_webhook = api.update_webhook
+
 
 # User API
 get_user_overview = api.get_user_overview
