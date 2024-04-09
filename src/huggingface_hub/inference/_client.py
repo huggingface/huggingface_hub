@@ -114,7 +114,7 @@ from huggingface_hub.utils import (
 
 if TYPE_CHECKING:
     import numpy as np
-    from PIL import Image
+    from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
 
