@@ -36,7 +36,6 @@ from typing import (
     Literal,
     Optional,
     Tuple,
-    TypedDict,
     TypeVar,
     Union,
     overload,
@@ -104,7 +103,7 @@ from .constants import (
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
-from .utils import (  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility
+from .utils import (  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility  # noqa: F401 # imported for backward compatibility
     IGNORE_GIT_FOLDER_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
@@ -391,7 +390,7 @@ class AccessRequest:
 
 
 @dataclass
-class WatchedItem(TypedDict):
+class WatchedItem:
     """Data structure containing informatin about webhooks watched for updates.
 
     Attributes:
@@ -3495,7 +3494,8 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo: ...
+    ) -> CommitInfo:
+        ...
 
     @overload
     def create_commit(
@@ -3512,7 +3512,8 @@ class HfApi:
         num_threads: int = 5,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]: ...
+    ) -> Future[CommitInfo]:
+        ...
 
     @validate_hf_hub_args
     @future_compatible
@@ -4242,7 +4243,8 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo: ...
+    ) -> CommitInfo:
+        ...
 
     @overload
     def upload_file(
@@ -4259,7 +4261,8 @@ class HfApi:
         create_pr: Optional[bool] = None,
         parent_commit: Optional[str] = None,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]: ...
+    ) -> Future[CommitInfo]:
+        ...
 
     @validate_hf_hub_args
     @future_compatible
@@ -4447,7 +4450,8 @@ class HfApi:
         multi_commits: Literal[False] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[False] = ...,
-    ) -> CommitInfo: ...
+    ) -> CommitInfo:
+        ...
 
     @overload
     def upload_folder(  # type: ignore
@@ -4492,7 +4496,8 @@ class HfApi:
         multi_commits: Literal[False] = ...,
         multi_commits_verbose: bool = False,
         run_as_future: Literal[True] = ...,
-    ) -> Future[CommitInfo]: ...
+    ) -> Future[CommitInfo]:
+        ...
 
     @overload
     def upload_folder(
@@ -8461,6 +8466,7 @@ class HfApi:
         watched: List[WatchedItem],
         url: str,
         domains: List[Literal["repo", "discussion"]],
+        secret: Optional[str] = None,
         token: Optional[str] = None,
     ) -> Dict:
         """Create a new webhook.
@@ -8473,6 +8479,8 @@ class HfApi:
                 URL to send the payload to.
             domains (List[Literal["repo", "discussion"]]):
                 List of domains to watch. It can be "repo", "discussion" or both.
+            secret (`str`, *optional*):
+                A secret to sign the payload with.
             token (`str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
 
@@ -8485,7 +8493,7 @@ class HfApi:
             ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
             ...     domains=["repo", "discussion"],
-            ...     token="my-token",
+            ...     secret="my-secret",
             ... )
             {
                 "webhook": {
@@ -8501,7 +8509,7 @@ class HfApi:
         """
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks",
-            json={"watched": watched, "url": url, "domains": domains, "token": token},
+            json={"watched": watched, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8514,6 +8522,7 @@ class HfApi:
         watched: List[WatchedItem],
         url: str,
         domains: List[Literal["repo", "discussion"]],
+        secret: Optional[str] = None,
         token: Optional[str] = None,
     ) -> Dict:
         """Update an existing webhook.
@@ -8523,7 +8532,7 @@ class HfApi:
         """
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
-            json={"watched": watched, "url": url, "domains": domains, "token": token},
+            json={"watched": watched, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
