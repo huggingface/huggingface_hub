@@ -1,10 +1,12 @@
+import inspect
 import json
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union, get_args, get_origin
 
 import pytest
 
-from huggingface_hub.inference._generated.types import BaseInferenceType
+import huggingface_hub.inference._generated.types as types
+from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionParameters, BaseInferenceType
 
 from .testing_utils import expect_deprecation
 
@@ -138,3 +140,23 @@ def test_normalize_keys():
     assert isinstance(instance.maybe_items, list)
     assert len(instance.maybe_items) == 1
     assert isinstance(instance.maybe_items[0], DummyType)
+
+
+def test_optional_are_set_to_none():
+    for _type in types.BaseInferenceType.__subclasses__():
+        parameters = inspect.signature(_type).parameters
+        for parameter in parameters.values():
+            if _is_optional(parameter.annotation):
+                assert parameter.default is None, f"Parameter {parameter} of {_type} should be set to None"
+
+
+def test_none_inferred():
+    """Regression test for https://github.com/huggingface/huggingface_hub/pull/2095"""
+    # Doing this should not fail with
+    # TypeError: __init__() missing 2 required positional arguments: 'generate' and 'return_timestamps'
+    AutomaticSpeechRecognitionParameters()
+
+
+def _is_optional(field) -> bool:
+    # Taken from https://stackoverflow.com/a/58841311
+    return get_origin(field) is Union and type(None) in get_args(field)

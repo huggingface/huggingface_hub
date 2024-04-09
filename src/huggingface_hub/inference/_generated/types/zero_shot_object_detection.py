@@ -25,12 +25,12 @@ class ZeroShotObjectDetectionInput(BaseInferenceType):
 
     inputs: ZeroShotObjectDetectionInputData
     """The input image data, with candidate labels"""
-    parameters: Optional[Dict[str, Any]]
+    parameters: Optional[Dict[str, Any]] = None
     """Additional inference parameters"""
 
 
 @dataclass
-class BoundingBox(BaseInferenceType):
+class ZeroShotObjectDetectionBoundingBox(BaseInferenceType):
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """
@@ -45,7 +45,7 @@ class BoundingBox(BaseInferenceType):
 class ZeroShotObjectDetectionOutputElement(BaseInferenceType):
     """Outputs of inference for the Zero Shot Object Detection task"""
 
-    box: BoundingBox
+    box: ZeroShotObjectDetectionBoundingBox
     """The predicted bounding box. Coordinates are relative to the top left corner of the input
     image.
     """

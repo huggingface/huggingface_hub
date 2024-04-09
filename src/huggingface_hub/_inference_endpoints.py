@@ -2,7 +2,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Union
+
+from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
 from .inference._client import InferenceClient
 from .inference._generated._async_client import AsyncInferenceClient
@@ -14,14 +16,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.get_logger(__name__)
-
-
-class InferenceEndpointError(Exception):
-    """Generic exception when dealing with Inference Endpoints."""
-
-
-class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
-    """Exception for timeouts while waiting for Inference Endpoint."""
 
 
 class InferenceEndpointStatus(str, Enum):
@@ -71,8 +65,9 @@ class InferenceEndpoint:
             The type of the Inference Endpoint (public, protected, private).
         raw (`Dict`):
             The raw dictionary data returned from the API.
-        token (`str`, *optional*):
-            Authentication token for the Inference Endpoint, if set when requesting the API.
+        token (`str` or `bool`, *optional*):
+            Authentication token for the Inference Endpoint, if set when requesting the API. Will default to the
+            locally saved token if not provided. Pass `token=False` if you don't want to send your token to the server.
 
     Example:
         ```python
@@ -120,12 +115,12 @@ class InferenceEndpoint:
     raw: Dict = field(repr=False)
 
     # Internal fields
-    _token: Optional[str] = field(repr=False, compare=False)
+    _token: Union[str, bool, None] = field(repr=False, compare=False)
     _api: "HfApi" = field(repr=False, compare=False)
 
     @classmethod
     def from_raw(
-        cls, raw: Dict, namespace: str, token: Optional[str] = None, api: Optional["HfApi"] = None
+        cls, raw: Dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
     ) -> "InferenceEndpoint":
         """Initialize object from raw dictionary."""
         if api is None:
@@ -230,7 +225,7 @@ class InferenceEndpoint:
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
-        obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
+        obj = self._api.get_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
         return self
@@ -295,7 +290,7 @@ class InferenceEndpoint:
             framework=framework,
             revision=revision,
             task=task,
-            token=self._token,
+            token=self._token,  # type: ignore [arg-type]
         )
 
         # Mutate current object
@@ -316,7 +311,7 @@ class InferenceEndpoint:
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
-        obj = self._api.pause_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
+        obj = self._api.pause_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
         return self
@@ -330,7 +325,7 @@ class InferenceEndpoint:
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
-        obj = self._api.resume_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
+        obj = self._api.resume_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
         return self
@@ -348,7 +343,7 @@ class InferenceEndpoint:
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
-        obj = self._api.scale_to_zero_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
+        obj = self._api.scale_to_zero_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
         return self
@@ -361,7 +356,7 @@ class InferenceEndpoint:
 
         This is an alias for [`HfApi.delete_inference_endpoint`].
         """
-        self._api.delete_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)
+        self._api.delete_inference_endpoint(name=self.name, namespace=self.namespace, token=self._token)  # type: ignore [arg-type]
 
     def _populate_from_raw(self) -> None:
         """Populate fields from raw dictionary.

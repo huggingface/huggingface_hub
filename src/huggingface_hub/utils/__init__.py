@@ -16,6 +16,14 @@
 
 # ruff: noqa: F401
 
+from huggingface_hub.errors import (
+    HFValidationError,
+    LocalTokenNotFoundError,
+    NotASafetensorsRepoError,
+    OfflineModeIsEnabled,
+    SafetensorsParsingError,
+)
+
 from . import tqdm as _tqdm  # _tqdm is the module
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
@@ -43,11 +51,17 @@ from ._errors import (
     hf_raise_for_status,
 )
 from ._experimental import experimental
-from ._fixes import SoftTemporaryDirectory, yaml_dump
+from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
-from ._headers import LocalTokenNotFoundError, build_hf_headers, get_token_to_send
+from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
-from ._http import OfflineModeIsEnabled, configure_http_backend, get_session, http_backoff, reset_sessions
+from ._http import (
+    configure_http_backend,
+    fix_hf_endpoint_in_url,
+    get_session,
+    http_backoff,
+    reset_sessions,
+)
 from ._pagination import paginate
 from ._paths import IGNORE_GIT_FOLDER_PATTERNS, filter_repo_objects
 from ._runtime import (
@@ -60,6 +74,7 @@ from ._runtime import (
     get_hf_hub_version,
     get_hf_transfer_version,
     get_jinja_version,
+    get_minijinja_version,
     get_numpy_version,
     get_pillow_version,
     get_pydantic_version,
@@ -76,6 +91,7 @@ from ._runtime import (
     is_graphviz_available,
     is_hf_transfer_available,
     is_jinja_available,
+    is_minijinja_available,
     is_notebook,
     is_numpy_available,
     is_package_available,
@@ -88,9 +104,7 @@ from ._runtime import (
     is_torch_available,
 )
 from ._safetensors import (
-    NotASafetensorsRepoError,
     SafetensorsFileMetadata,
-    SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
 )
@@ -99,7 +113,6 @@ from ._telemetry import send_telemetry
 from ._token import get_token
 from ._typing import is_jsonable
 from ._validators import (
-    HFValidationError,
     smoothly_deprecate_use_auth_token,
     validate_hf_hub_args,
     validate_repo_id,
