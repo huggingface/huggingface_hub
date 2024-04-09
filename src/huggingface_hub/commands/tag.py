@@ -20,7 +20,7 @@ Usage Examples:
         $ huggingface-cli tag user/my-model 1.0 --message "First release"
         $ huggingface-cli tag user/my-model 1.0 -m "First release" --revision develop
         $ huggingface-cli tag user/my-dataset 1.0 -m "First release" --repo-type dataset
-        $ huggingface-cli tag user/my-space 1.0 -y
+        $ huggingface-cli tag user/my-space 1.0
     - List all tags:
         $ huggingface-cli tag -l user/my-model
         $ huggingface-cli tag --list user/my-dataset --repo-type dataset
@@ -47,7 +47,7 @@ from ._cli_utils import ANSI
 class TagCommands(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        tag_parser = parser.add_parser("tag", help="(create, list, delete) tags for a model in the hub")
+        tag_parser = parser.add_parser("tag", help="(create, list, delete) tags for a repo in the hub")
 
         tag_parser.add_argument("repo_id", type=str, help="The ID of the repo to tag (e.g. `username/repo-name`).")
         tag_parser.add_argument("tag", nargs="?", type=str, help="The name of the tag for creation or deletion.")
