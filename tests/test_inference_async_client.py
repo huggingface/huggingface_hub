@@ -30,10 +30,21 @@ import pytest
 from aiohttp import ClientResponseError
 
 import huggingface_hub.inference._common
-from huggingface_hub import AsyncInferenceClient, InferenceClient, InferenceTimeoutError
+from huggingface_hub import (
+    AsyncInferenceClient,
+    ChatCompletionOutput,
+    ChatCompletionOutputChoice,
+    ChatCompletionOutputChoiceMessage,
+    ChatCompletionStreamOutput,
+    InferenceClient,
+    InferenceTimeoutError,
+    TextGenerationPrefillToken,
+)
+from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _is_tgi_server
-from huggingface_hub.inference._text_generation import FinishReason, InputToken
-from huggingface_hub.inference._text_generation import ValidationError as TextGenerationValidationError
+
+from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
+from .testing_utils import with_production_testing
 
 
 @pytest.fixture(autouse=True)
@@ -59,11 +70,11 @@ async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> 
     response = await tgi_client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
 
     assert response.generated_text == ""
-    assert response.details.finish_reason == FinishReason.Length
+    assert response.details.finish_reason == "length"
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
     assert len(response.details.prefill) == 1
-    assert response.details.prefill[0] == InputToken(id=0, text="<pad>", logprob=None)
+    assert response.details.prefill[0] == TextGenerationPrefillToken(id=0, text="<pad>", logprob=None)
     assert len(response.details.tokens) == 1
     assert response.details.tokens[0].id == 3
     assert response.details.tokens[0].text == " "
@@ -137,9 +148,74 @@ async def test_async_generate_stream_with_details(tgi_client: AsyncInferenceClie
     response = responses[0]
 
     assert response.generated_text == ""
-    assert response.details.finish_reason == FinishReason.Length
+    assert response.details.finish_reason == "length"
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_async_chat_completion_no_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
+    assert isinstance(output.created, int)
+    assert output == ChatCompletionOutput(
+        choices=[
+            ChatCompletionOutputChoice(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a subfield of machine learning that",
+                    role="assistant",
+                ),
+            )
+        ],
+        created=output.created,
+    )
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_async_chat_completion_not_tgi_no_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETE_NON_TGI_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
+    assert isinstance(output.created, int)
+    assert output == ChatCompletionOutput(
+        choices=[
+            ChatCompletionOutputChoice(
+                finish_reason="unk",  # Non-TGI => cannot know the finish reason
+                index=0,
+                message=ChatCompletionOutputChoiceMessage(
+                    content="Deep learning is a thing.",
+                    role="assistant",
+                ),
+            )
+        ],
+        created=output.created,
+    )
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_async_chat_completion_with_stream() -> None:
+    async_client = AsyncInferenceClient(model=CHAT_COMPLETION_MODEL)
+    output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10, stream=True)
+
+    all_items = [item async for item in output]
+    generated_text = ""
+    for item in all_items[:-1]:  # all but last item
+        assert isinstance(item, ChatCompletionStreamOutput)
+        assert len(item.choices) == 1
+        generated_text += item.choices[0].delta.content
+    last_item = all_items[-1]
+
+    assert generated_text == "Deep Learning is a subfield of Machine Learning that"
+
+    # Last item has a finish reason but no role/content delta
+    assert last_item.choices[0].finish_reason == "length"
+    assert last_item.choices[0].delta.role is None
+    assert last_item.choices[0].delta.content is None
 
 
 @pytest.mark.vcr
@@ -162,22 +238,21 @@ def test_sync_vs_async_signatures() -> None:
     async_client = AsyncInferenceClient()
 
     # Some methods have to be tested separately.
-    special_methods = ["post", "text_generation"]
+    special_methods = ["post", "text_generation", "chat_completion"]
 
     # Post: this is not automatically tested. No need to test its signature separately.
 
-    # Text-generation: return type changes from Iterable[...] to AsyncIterable[...] but input parameters are the same
-    sync_method = getattr(client, "text_generation")
-    assert not inspect.iscoroutinefunction(sync_method)
-    async_method = getattr(async_client, "text_generation")
-    assert inspect.iscoroutinefunction(async_method)
+    # text-generation/chat-completion: return type changes from Iterable[...] to AsyncIterable[...] but input parameters are the same
+    for name in ["text_generation", "chat_completion"]:
+        sync_method = getattr(client, name)
+        assert not inspect.iscoroutinefunction(sync_method)
+        async_method = getattr(async_client, name)
+        assert inspect.iscoroutinefunction(async_method)
 
-    sync_sig = inspect.signature(sync_method)
-    async_sig = inspect.signature(async_method)
-    assert sync_sig.parameters == async_sig.parameters
-    assert sync_sig.return_annotation != async_sig.return_annotation
-
-    [name for name in dir(client) if (not name.startswith("_")) and inspect.ismethod(getattr(client, name))]
+        sync_sig = inspect.signature(sync_method)
+        async_sig = inspect.signature(async_method)
+        assert sync_sig.parameters == async_sig.parameters
+        assert sync_sig.return_annotation != async_sig.return_annotation
 
     # Check that all methods are consistent between InferenceClient and AsyncInferenceClient
     for name in dir(client):
@@ -261,5 +336,6 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.asyncio
 async def test_unprocessable_entity_error() -> None:
     with pytest.raises(ClientResponseError) as error:
-        await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
+        with pytest.warns(FutureWarning, match=".*'InferenceClient.conversational'.*"):
+            await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
     assert "Make sure 'conversational' task is supported by the model." in error.value.message

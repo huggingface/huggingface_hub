@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.22.0.dev0"
+__version__ = "0.23.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -198,7 +198,6 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
-        "list_files_info",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
@@ -265,11 +264,19 @@ _SUBMOD_ATTRS = {
         "AudioClassificationParameters",
         "AudioToAudioInput",
         "AudioToAudioOutputElement",
+        "AutomaticSpeechRecognitionGenerationParameters",
         "AutomaticSpeechRecognitionInput",
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
-        "BoundingBox",
+        "ChatCompletionInput",
+        "ChatCompletionInputMessage",
+        "ChatCompletionOutput",
+        "ChatCompletionOutputChoice",
+        "ChatCompletionOutputChoiceMessage",
+        "ChatCompletionStreamOutput",
+        "ChatCompletionStreamOutputChoice",
+        "ChatCompletionStreamOutputDelta",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -280,7 +287,6 @@ _SUBMOD_ATTRS = {
         "FillMaskInput",
         "FillMaskOutputElement",
         "FillMaskParameters",
-        "GenerationParameters",
         "ImageClassificationInput",
         "ImageClassificationOutputElement",
         "ImageClassificationParameters",
@@ -290,25 +296,27 @@ _SUBMOD_ATTRS = {
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
+        "ImageToImageTargetSize",
+        "ImageToTextGenerationParameters",
         "ImageToTextInput",
         "ImageToTextOutput",
         "ImageToTextParameters",
+        "ObjectDetectionBoundingBox",
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
-        "PrefillToken",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
         "QuestionAnsweringParameters",
         "SentenceSimilarityInput",
         "SentenceSimilarityInputData",
+        "SummarizationGenerationParameters",
         "SummarizationInput",
         "SummarizationOutput",
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
-        "TargetSize",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
@@ -318,20 +326,24 @@ _SUBMOD_ATTRS = {
         "TextGenerationInput",
         "TextGenerationOutput",
         "TextGenerationOutputDetails",
+        "TextGenerationOutputSequenceDetails",
+        "TextGenerationOutputToken",
         "TextGenerationParameters",
-        "TextGenerationSequenceDetails",
+        "TextGenerationPrefillToken",
+        "TextGenerationStreamDetails",
+        "TextGenerationStreamOutput",
+        "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
         "TextToAudioParameters",
         "TextToImageInput",
         "TextToImageOutput",
         "TextToImageParameters",
-        "TextToSpeechInput",
-        "TextToSpeechOutput",
-        "Token",
+        "TextToImageTargetSize",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
+        "TranslationGenerationParameters",
         "TranslationInput",
         "TranslationOutput",
         "VideoClassificationInput",
@@ -349,6 +361,7 @@ _SUBMOD_ATTRS = {
         "ZeroShotImageClassificationInputData",
         "ZeroShotImageClassificationOutputElement",
         "ZeroShotImageClassificationParameters",
+        "ZeroShotObjectDetectionBoundingBox",
         "ZeroShotObjectDetectionInput",
         "ZeroShotObjectDetectionInputData",
         "ZeroShotObjectDetectionOutputElement",
@@ -648,7 +661,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
-        list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
@@ -713,11 +725,19 @@ if TYPE_CHECKING:  # pragma: no cover
         AudioClassificationParameters,  # noqa: F401
         AudioToAudioInput,  # noqa: F401
         AudioToAudioOutputElement,  # noqa: F401
+        AutomaticSpeechRecognitionGenerationParameters,  # noqa: F401
         AutomaticSpeechRecognitionInput,  # noqa: F401
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
-        BoundingBox,  # noqa: F401
+        ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionOutput,  # noqa: F401
+        ChatCompletionOutputChoice,  # noqa: F401
+        ChatCompletionOutputChoiceMessage,  # noqa: F401
+        ChatCompletionStreamOutput,  # noqa: F401
+        ChatCompletionStreamOutputChoice,  # noqa: F401
+        ChatCompletionStreamOutputDelta,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -728,7 +748,6 @@ if TYPE_CHECKING:  # pragma: no cover
         FillMaskInput,  # noqa: F401
         FillMaskOutputElement,  # noqa: F401
         FillMaskParameters,  # noqa: F401
-        GenerationParameters,  # noqa: F401
         ImageClassificationInput,  # noqa: F401
         ImageClassificationOutputElement,  # noqa: F401
         ImageClassificationParameters,  # noqa: F401
@@ -738,25 +757,27 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
+        ImageToImageTargetSize,  # noqa: F401
+        ImageToTextGenerationParameters,  # noqa: F401
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
         ImageToTextParameters,  # noqa: F401
+        ObjectDetectionBoundingBox,  # noqa: F401
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
-        PrefillToken,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
         QuestionAnsweringParameters,  # noqa: F401
         SentenceSimilarityInput,  # noqa: F401
         SentenceSimilarityInputData,  # noqa: F401
+        SummarizationGenerationParameters,  # noqa: F401
         SummarizationInput,  # noqa: F401
         SummarizationOutput,  # noqa: F401
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
-        TargetSize,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
@@ -766,20 +787,24 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationInput,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationOutputSequenceDetails,  # noqa: F401
+        TextGenerationOutputToken,  # noqa: F401
         TextGenerationParameters,  # noqa: F401
-        TextGenerationSequenceDetails,  # noqa: F401
+        TextGenerationPrefillToken,  # noqa: F401
+        TextGenerationStreamDetails,  # noqa: F401
+        TextGenerationStreamOutput,  # noqa: F401
+        TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
         TextToAudioParameters,  # noqa: F401
         TextToImageInput,  # noqa: F401
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
-        TextToSpeechInput,  # noqa: F401
-        TextToSpeechOutput,  # noqa: F401
-        Token,  # noqa: F401
+        TextToImageTargetSize,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
+        TranslationGenerationParameters,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
@@ -797,6 +822,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ZeroShotImageClassificationInputData,  # noqa: F401
         ZeroShotImageClassificationOutputElement,  # noqa: F401
         ZeroShotImageClassificationParameters,  # noqa: F401
+        ZeroShotObjectDetectionBoundingBox,  # noqa: F401
         ZeroShotObjectDetectionInput,  # noqa: F401
         ZeroShotObjectDetectionInputData,  # noqa: F401
         ZeroShotObjectDetectionOutputElement,  # noqa: F401

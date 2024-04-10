@@ -9,20 +9,20 @@ from typing import Any, Dict, Literal, Optional
 from .base import BaseInferenceType
 
 
-Text2TextGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
+SummarizationGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
 @dataclass
-class Text2TextGenerationParameters(BaseInferenceType):
+class SummarizationGenerationParameters(BaseInferenceType):
     """Additional inference parameters
     Additional inference parameters for Text2text Generation
     """
 
-    clean_up_tokenization_spaces: Optional[bool]
+    clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[Dict[str, Any]]
+    generate_parameters: Optional[Dict[str, Any]] = None
     """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["Text2TextGenerationTruncationStrategy"]
+    truncation: Optional["SummarizationGenerationTruncationStrategy"] = None
     """The truncation strategy to use"""
 
 
@@ -34,16 +34,13 @@ class SummarizationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[Text2TextGenerationParameters]
+    parameters: Optional[SummarizationGenerationParameters] = None
     """Additional inference parameters"""
 
 
 @dataclass
 class SummarizationOutput(BaseInferenceType):
-    """Outputs for Summarization inference
-    Outputs of inference for the Text2text Generation task
-    """
+    """Outputs of inference for the Summarization task"""
 
-    summary_text: Any
-    summarization_output_summary_text: Optional[str]
-    """The generated text."""
+    summary_text: str
+    """The summarized text."""

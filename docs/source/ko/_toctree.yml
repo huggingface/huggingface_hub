@@ -14,20 +14,22 @@
       title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Upload files
+    - local: guides/cli
+      title: 명령줄 인터페이스(CLI) 사용하기
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Repository
-    - local: in_translation
-      title: (번역 중) Search
+    - local: guides/repository
+      title: 리포지토리
+    - local: guides/search
+      title: Hub에서 검색하기
     - local: in_translation
       title: (번역 중) Inference
-    - local: in_translation
-      title: (번역 중) Community Tab
+    - local: guides/community
+      title: 커뮤니티
     - local: in_translation
       title: (번역 중) Cache
-    - local: in_translation
-      title: (번역 중) Model Cards
+    - local: guides/model-cards
+      title: 모델 카드
     - local: in_translation
       title: (번역 중) Manage your Space
     - local: in_translation
@@ -38,10 +40,10 @@
   sections:
     - local: concepts/git_vs_http
       title: Git 대 HTTP 패러다임
-- title: "(번역 중) 라이브러리 레퍼런스"
+- title: "라이브러리 레퍼런스"
   sections:
-    - local: in_translation
-      title: (번역 중) Overview
+    - local: package_reference/overview
+      title: 개요
     - local: in_translation
       title: (번역 중) Login and logout
     - local: in_translation
