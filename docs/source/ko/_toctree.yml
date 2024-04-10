@@ -20,7 +20,7 @@
       title: (번역 중) Repository
     - local: in_translation
       title: (번역 중) Search
-    - local: inference
+    - local: guides/inference
       title: 추론
     - local: in_translation
       title: (번역 중) Community Tab

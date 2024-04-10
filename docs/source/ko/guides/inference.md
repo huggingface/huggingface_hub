@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 서버에서 추론 진행하기[[Run Inference on servers]]
+# 서버에서 추론 진행하기[[run-inference-on-servers]]
 
 추론은 훈련된 모델을 사용하여 새 데이터에 대한 예측을 수행하는 과정입니다. 이 과정은 계산이 많이 필요할 수 있으므로, 전용 서버에서 실행하는 것이 좋은 방안이 될 수 있습니다. `huggingface_hub` 라이브러리는 호스팅된 모델에 대한 추론을 실행하는 서비스를 호출하는 간편한 방법을 제공합니다. 다음과 같은 여러 서비스에 연결할 수 있습니다:
 - [추론 API](https://huggingface.co/docs/api-inference/index): Hugging Face의 인프라에서 가속화된 추론을 실행할 수 있는 서비스로 무료로 제공됩니다. 이 서비스는 추론을 시작하고 다양한 모델을 테스트하며 AI 제품의 프로토타입을 만드는 빠른 방법입니다.
@@ -18,9 +18,9 @@ rendered properly in your Markdown viewer.
 
 </Tip>
 
-## 시작하기
+## 시작하기[[getting-started]]
 
-텍스트 투 이미지 작업을 시작해보겠습니다.
+text-to-image 작업을 시작해보겠습니다.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -38,16 +38,16 @@ API는 간단하게 설계되었습니다. 모든 매개변수와 옵션이 사�
 
 </Tip>
 
-### 특정 모델 사용하기
+### 특정 모델 사용하기[[using-a-specific-model]]
 
 특정 모델을 사용하고 싶다면 어떻게 해야 할까요? 매개변수로 직접 지정하거나 인스턴스 수준에서 직접 지정할 수 있습니다:
 
 ```python
 >>> from huggingface_hub import InferenceClient
-# Initialize client for a specific model
+# 특정 모델을 위한 클라이언트를 초기화합니다.
 >>> client = InferenceClient(model="prompthero/openjourney-v4")
 >>> client.text_to_image(...)
-# Or use a generic client but pass your model as an argument
+# 또는 일반적인 클라이언트를 사용하되 모델을 인수로 전달하세요.
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="prompthero/openjourney-v4")
 ```
@@ -58,19 +58,19 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 </Tip>
 
-### 특정 URL 사용하기
+### 특정 URL 사용하기[[using-a-specific-url]]
 
-위에서 본 예제들은 무료로 호스팅된 추론 API를 사용합니다. 이는 빠르게 프로토타입을 정하고 테스트할 때 매우 유용합니다. 모델을 프로덕션 환경에 배포할 준비가 되면 전용 인프라를 사용해야 합니다. 그것이 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)가 필요한 이유입니다. 이를 사용하면 모든 모델을 배포하고 개인 API로 노출시킬 수 있습니다. 한 번 배포되면 이전과 완전히 동일한 코드를 사용하여 연결할 수 있는 URL을 얻게 됩니다. `model` 매개변수만 변경하면 됩니다:
+위에서 본 예제들은 서버리스 추론 API를 사용합니다. 이는 빠르게 프로토타입을 정하고 테스트할 때 매우 유용합니다. 모델을 프로덕션 환경에 배포할 준비가 되면 전용 인프라를 사용해야 합니다. 그것이 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)가 필요한 이유입니다. 이를 사용하면 모든 모델을 배포하고 개인 API로 노출시킬 수 있습니다. 한 번 배포되면 이전과 완전히 동일한 코드를 사용하여 연결할 수 있는 URL을 얻게 됩니다. `model` 매개변수만 변경하면 됩니다:
 
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> client = InferenceClient(model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
-# or
+# 또는
 >>> client = InferenceClient()
 >>> client.text_to_image(..., model="https://uu149rez6gw9ehej.eu-west-1.aws.endpoints.huggingface.cloud/deepfloyd-if")
 ```
 
-### 인증
+### 인증[[authentication]]
 
 [`InferenceClient`]로 수행된 호출은 [사용자 액세스 토큰](https://huggingface.co/docs/hub/security-tokens)을 사용하여 인증할 수 있습니다. 기본적으로 로그인한 경우 기기에 저장된 토큰을 사용합니다 ([인증 방법](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)을 확인하세요). 로그인하지 않은 경우 인스턴스 매개변수로 토큰을 전달할 수 있습니다.
 
@@ -85,7 +85,7 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 </Tip>
 
-## 지원되는 작업
+## 지원되는 작업[[supported-tasks]]
 
 [`InferenceClient`]의 목표는 Hugging Face 모델에서 추론을 실행하기 위한 가장 쉬운 인터페이스를 제공하는 것입니다. 이는 가장 일반적인 작업들을 지원하는 간단한 API를 가지고 있습니다. 현재 지원되는 작업 목록은 다음과 같습니다:
 
@@ -125,7 +125,7 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 
 </Tip>
 
-## 사용자 정의 요청
+## 사용자 정의 요청[[custom-requests]]
 
 그러나 모든 경우를 항상 완벽하게 다루는 것은 어렵습니다. 사용자 정의 요청의 경우, [`InferenceClient.post`] 메소드를 사용하여 Inference API로 요청을 보낼 수 있습니다. 예를 들어, 입력 및 출력을 어떻게 파싱할지 지정할 수 있습니다. 아래 예시에서 생성된 이미지는 `PIL Image`로 파싱하는 대신 원본 바이트로 반환됩니다. 이는 설치된 `Pillow`가 없고 이미지의 이진 콘텐츠에만 관심이 있는 경우에 유용합니다. [`InferenceClient.post`]는 아직 공식적으로 지원되지 않는 작업을 처리하는 데도 유용합니다.
 
@@ -133,24 +133,24 @@ Hugging Face Hub에는 20만 개가 넘는 모델이 있습니다! [`InferenceCl
 >>> from huggingface_hub import InferenceClient
 >>> client = InferenceClient()
 >>> response = client.post(json={"inputs": "An astronaut riding a horse on the moon."}, model="stabilityai/stable-diffusion-2-1")
->>> response.content # raw bytes
+>>> response.content # 원시 바이트
 b'...'
 ```
 
-## 비동기 클라이언트
+## 비동기 클라이언트[[async-client]]
 
 `asyncio`와 `aiohttp`를 기반으로 한 클라이언트의 비동기 버전도 제공됩니다. `aiohttp`를 직접 설치하거나 `[inference]` 추가 옵션을 사용할 수 있습니다:
 
 ```sh
 pip install --upgrade huggingface_hub[inference]
-# or
+# 또는
 # pip install aiohttp
 ```
 
 설치 후 모든 비동기 API 엔드포인트는 [`AsyncInferenceClient`]를 통해 사용할 수 있습니다. 초기화 및 API는 동기 전용 버전과 완전히 동일합니다.
 
 ```py
-# Code must be run in a asyncio concurrent context.
+# 코드는 비동기 asyncio 라이브러리 동시성 컨텍스트에서 실행되어야 합니다.
 # $ python -m asyncio
 >>> from huggingface_hub import AsyncInferenceClient
 >>> client = AsyncInferenceClient()
@@ -165,11 +165,11 @@ pip install --upgrade huggingface_hub[inference]
 
 `asyncio` 모듈에 대한 자세한 정보는 [공식 문서](https://docs.python.org/3/library/asyncio.html)를 참조하세요.
 
-## 고급 팁
+## 고급 팁[[advanced-tips]]
 
 위 섹션에서는 [`InferenceClient`]의 주요 측면을 살펴보았습니다. 이제 몇 가지 고급 팁에 대해 자세히 알아보겠습니다.
 
-### 타임아웃
+### 타임아웃[[timeout]]
 
 추론을 수행할 때 타임아웃이 발생하는 주요 원인은 두 가지입니다:
 - 추론 프로세스가 완료되는 데 오랜 시간이 걸리는 경우
@@ -186,7 +186,7 @@ pip install --upgrade huggingface_hub[inference]
 ...     print("Inference timed out after 30s.")
 ```
 
-### 이진 입력
+### 이진 입력[[binary-inputs]]
 
 일부 작업에는 이미지 또는 오디오 파일을 처리할 때와 같이 이진 입력이 필요한 경우가 있습니다. 이 경우 [`InferenceClient`]는 최대한 다양한 유형을 융통성 있게 허용합니다:
 - 원시 `bytes`
@@ -201,13 +201,13 @@ pip install --upgrade huggingface_hub[inference]
 [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
 ```
 
-## 레거시 InferenceAPI 클라이언트
+## 레거시 InferenceAPI 클라이언트[[legacy-inferenceapi-client]]
 
 [`InferenceClient`]는 레거시 [`InferenceApi`] 클라이언트를 대체하여 작동합니다. 특정 작업에 대한 지원을 제공하고 [추론 API](https://huggingface.co/docs/api-inference/index) 및 [추론 엔드포인트](https://huggingface.co/docs/inference-endpoints/index)에서 추론을 처리합니다.
 
 아래는 [`InferenceApi`]에서 [`InferenceClient`]로 마이그레이션하는 데 도움이 되는 간단한 가이드입니다.
 
-### 초기화
+### 초기화[[initialization]]
 
 변경 전:
 
@@ -223,7 +223,7 @@ pip install --upgrade huggingface_hub[inference]
 >>> inference = InferenceClient(model="bert-base-uncased", token=API_TOKEN)
 ```
 
-### 특정 작업에서 실행하기
+### 특정 작업에서 실행하기[[run-on-a-specific-task]]
 
 변경 전:
 
@@ -247,7 +247,7 @@ pip install --upgrade huggingface_hub[inference]
 
 </Tip>
 
-### 사용자 정의 요청 실행
+### 사용자 정의 요청 실행[[run-custom-request]]
 
 변경 전:
 
@@ -268,7 +268,7 @@ pip install --upgrade huggingface_hub[inference]
 [{'sequence': 'the goal of life is life.', 'score': 0.10933292657136917, 'token': 2166, 'token_str': 'life'}]
 ```
 
-### 매개변수와 함께 실행하기
+### 매개변수와 함께 실행하기[[run-with-parameters]]
 
 변경 전:
 
