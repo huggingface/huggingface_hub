@@ -27,7 +27,7 @@ Once installed, you can check that the CLI is correctly setup:
 usage: huggingface-cli <command> [<args>]
 
 positional arguments:
-  {env,login,whoami,logout,repo,upload,download,lfs-enable-largefiles,lfs-multipart-upload,scan-cache,delete-cache}
+  {env,login,whoami,logout,repo,upload,download,lfs-enable-largefiles,lfs-multipart-upload,scan-cache,delete-cache,tag}
                         huggingface-cli command helpers
     env                 Print information about the environment.
     login               Log in using a token from huggingface.co/settings/tokens
@@ -40,6 +40,7 @@ positional arguments:
                         Configure your repository to enable upload of files > 5GB.
     scan-cache          Scan cache directory.
     delete-cache        Delete revisions from the cache directory.
+    tag                 (create, list, delete) tags for a repo in the hub
 
 options:
   -h, --help            show this help message and exit
@@ -265,6 +266,20 @@ By default, the `huggingface-cli download` command will be verbose. It will prin
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
+### Download timeout
+
+On machines with slow connections, you might encounter timeout issues like this one:
+```bash
+`requests.exceptions.ReadTimeout: (ReadTimeoutError("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+```
+
+To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
+```bash
+export HF_HUB_DOWNLOAD_TIMEOUT=30
+```
+
+For more details, check out the [environment variables reference](../package_reference/environment_variables#hfhubdownloadtimeout).And rerun your download command.
+
 ## huggingface-cli upload
 
 Use the `huggingface-cli upload` command to upload files to the Hub directly. Internally, it uses the same [`upload_file`] and [`upload_folder`] helpers described in the [Upload](./upload) guide. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
@@ -436,6 +451,68 @@ For more details about how to scan your cache directory, please refer to the [Ma
 ## huggingface-cli delete-cache
 
 `huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+
+## huggingface-cli tag
+
+The `huggingface-cli tag` command allows you to tag, untag, and list tags for repositories.
+
+### Tag a model
+
+To tag a repo, you need to provide the `repo_id` and the `tag` name:
+
+```bash
+>>> huggingface-cli tag Wauplin/my-cool-model v1.0
+You are about to create tag v1.0 on model Wauplin/my-cool-model
+Tag v1.0 created on Wauplin/my-cool-model
+```
+
+### Tag a model at a specific revision
+
+If you want to tag a specific revision, you can use the `--revision` option. By default, the tag will be created on the `main` branch:
+
+```bash
+>>> huggingface-cli tag Wauplin/my-cool-model v1.0 --revision refs/pr/104
+You are about to create tag v1.0 on model Wauplin/my-cool-model
+Tag v1.0 created on Wauplin/my-cool-model
+```
+
+### Tag a dataset or a Space
+
+If you want to tag a dataset or Space, you must specify the `--repo-type` option:
+
+```bash
+>>> huggingface-cli tag bigcode/the-stack v1.0 --repo-type dataset
+You are about to create tag v1.0 on dataset bigcode/the-stack
+Tag v1.0 created on bigcode/the-stack
+```
+
+### List tags
+
+To list all tags for a repository, use the `-l` or `--list` option:
+
+```bash
+>>> huggingface-cli tag Wauplin/gradio-space-ci -l --repo-type space
+Tags for space Wauplin/gradio-space-ci:
+0.2.2
+0.2.1
+0.2.0
+0.1.2
+0.0.2
+0.0.1
+```
+
+### Delete a tag
+
+To delete a tag, use the `-d` or `--delete` option:
+
+```bash
+>>> huggingface-cli tag -d Wauplin/my-cool-model v1.0
+You are about to delete tag v1.0 on model Wauplin/my-cool-model
+Proceed? [Y/n] y
+Tag v1.0 deleted on Wauplin/my-cool-model
+```
+
+You can also pass `-y` to skip the confirmation step.
 
 ## huggingface-cli env
 
