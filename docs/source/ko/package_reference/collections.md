@@ -2,23 +2,22 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Managing collections
+# 컬렉션 관리[[managing-collections]]
 
-Check out the [`HfApi`] documentation page for the reference of methods to manage your Space on the Hub.
+[`HfApi`] 문서 페이지에서 Hub에서 공간을 관리하는 메소드에 대한 참조를 확인하세요.
 
-- Get collection content: [`get_collection`]
-- Create new collection: [`create_collection`]
-- Update a collection: [`update_collection_metadata`]
-- Delete a collection: [`delete_collection`]
-- Add an item to a collection: [`add_collection_item`]
-- Update an item in a collection: [`update_collection_item`]
-- Remove an item from a collection: [`delete_collection_item`]
+- 컬렉션 내용 가져오기: [`get_collection`]
+- 새로운 컬렉션 생성: [`create_collection`]
+- 컬렉션 업데이트: [`update_collection_metadata`]
+- 컬렉션 삭제: [`delete_collection`]
+- 컬렉션에 항목 추가: [`add_collection_item`]
+- 컬렉션의 항목 업데이트: [`update_collection_item`]
+- 컬렉션에서 항목 제거: [`delete_collection_item`]
 
-
-### Collection
+### Collection[[huggingface_hub.Collection]]
 
 [[autodoc]] Collection
 
-### CollectionItem
+### CollectionItem[[huggingface_hub.CollectionItem]]
 
 [[autodoc]] CollectionItem
