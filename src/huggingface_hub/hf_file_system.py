@@ -315,6 +315,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         out = []
         if path in self.dircache and not refresh:
             cached_path_infos = self.dircache[path]
+            cached_path_infos = [_weak_copy_path_info(o) for o in cached_path_infos]
             out.extend(cached_path_infos)
             dirs_not_in_dircache = []
             if recursive:
@@ -329,6 +330,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         dirs_not_in_dircache.append(dir_info["name"])
                     else:
                         cached_path_infos = self.dircache[dir_info["name"]]
+                        cached_path_infos = [_weak_copy_path_info(o) for o in cached_path_infos]
                         out.extend(cached_path_infos)
                         dirs_to_visit.extend(
                             [path_info for path_info in cached_path_infos if path_info["type"] == "directory"]
@@ -559,10 +561,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                         "tree_id": path_info.tree_id,
                         "last_commit": path_info.last_commit,
                     }
+                out = _weak_copy_path_info(out)
                 if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
-        return _weak_copy_path_info(out)
+        return out
 
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
