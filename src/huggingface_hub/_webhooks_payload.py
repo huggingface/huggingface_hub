@@ -25,7 +25,7 @@ else:
     # Define a dummy BaseModel to avoid import errors when pydantic is not installed
     # Import error will be raised when trying to use the class
 
-    class BaseModel:
+    class BaseModel:  # type: ignore [no-redef]
         def __init__(self, *args, **kwargs) -> None:
             raise ImportError(
                 "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
