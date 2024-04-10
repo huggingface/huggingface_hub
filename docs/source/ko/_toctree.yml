@@ -70,6 +70,8 @@
       title: (번역 중) Repo Cards and Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
+    - local: package_reference/collections
+      title: 컬렉션 관리
     - local: in_translation
       title: (번역 중) TensorBoard logger
     - local: in_translation
