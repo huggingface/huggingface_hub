@@ -16,6 +16,14 @@
 
 # ruff: noqa: F401
 
+from huggingface_hub.errors import (
+    HFValidationError,
+    LocalTokenNotFoundError,
+    NotASafetensorsRepoError,
+    OfflineModeIsEnabled,
+    SafetensorsParsingError,
+)
+
 from . import tqdm as _tqdm  # _tqdm is the module
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
@@ -45,10 +53,9 @@ from ._errors import (
 from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
-from ._headers import LocalTokenNotFoundError, build_hf_headers, get_token_to_send
+from ._headers import build_hf_headers, get_token_to_send
 from ._hf_folder import HfFolder
 from ._http import (
-    OfflineModeIsEnabled,
     configure_http_backend,
     fix_hf_endpoint_in_url,
     get_session,
@@ -97,9 +104,7 @@ from ._runtime import (
     is_torch_available,
 )
 from ._safetensors import (
-    NotASafetensorsRepoError,
     SafetensorsFileMetadata,
-    SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
 )
@@ -108,7 +113,6 @@ from ._telemetry import send_telemetry
 from ._token import get_token
 from ._typing import is_jsonable
 from ._validators import (
-    HFValidationError,
     smoothly_deprecate_use_auth_token,
     validate_hf_hub_args,
     validate_repo_id,

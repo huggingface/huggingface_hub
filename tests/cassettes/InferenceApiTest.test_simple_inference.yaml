@@ -1,0 +1,166 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 96833a92-4fca-432f-a1d3-a2280fc0d673
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: GET
+    uri: https://huggingface.co/api/models/bert-base-uncased
+  response:
+    body:
+      string: Temporary Redirect. Redirecting to /api/models/google-bert/bert-base-uncased
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '76'
+      Content-Type:
+      - text/plain; charset=utf-8
+      Date:
+      - Tue, 09 Apr 2024 08:46:54 GMT
+      Location:
+      - /api/models/google-bert/bert-base-uncased
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin, Accept
+      Via:
+      - 1.1 168125097acf734cd7750e139a974b38.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - _WJStyXqQ6F1OHcvw7-oZXL5LlkG-WaUI03BiZ9rAzG6IUGogFy2kQ==
+      X-Amz-Cf-Pop:
+      - PRG50-C1
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-6615007d-710883da26f5c95a0277e722;96833a92-4fca-432f-a1d3-a2280fc0d673
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 307
+      message: Temporary Redirect
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 96833a92-4fca-432f-a1d3-a2280fc0d673
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: GET
+    uri: https://huggingface.co/api/models/google-bert/bert-base-uncased
+  response:
+    body:
+      string: '{"_id":"621ffdc036468d709f174338","id":"google-bert/bert-base-uncased","modelId":"google-bert/bert-base-uncased","author":"google-bert","sha":"86b5e0934494bd15c9632b12f734a8a67f723594","lastModified":"2024-02-19T11:06:12.000Z","private":false,"disabled":false,"gated":false,"pipeline_tag":"fill-mask","tags":["transformers","pytorch","tf","jax","rust","coreml","onnx","safetensors","bert","fill-mask","exbert","en","dataset:bookcorpus","dataset:wikipedia","arxiv:1810.04805","license:apache-2.0","autotrain_compatible","endpoints_compatible","has_space","region:us"],"downloads":45929312,"library_name":"transformers","mask_token":"[MASK]","widgetData":[{"text":"Paris
+        is the [MASK] of France."},{"text":"The goal of life is [MASK]."}],"likes":1469,"model-index":null,"config":{"architectures":["BertForMaskedLM"],"model_type":"bert","tokenizer_config":{}},"cardData":{"language":"en","tags":["exbert"],"license":"apache-2.0","datasets":["bookcorpus","wikipedia"]},"transformersInfo":{"auto_model":"AutoModelForMaskedLM","pipeline_tag":"fill-mask","processor":"AutoTokenizer"},"spaces":["microsoft/HuggingGPT","Vision-CAIR/minigpt4","lnyan/stablediffusion-infinity","multimodalart/latentdiffusion","Salesforce/BLIP","shi-labs/Versatile-Diffusion","cvlab/zero123-live","AIGC-Audio/AudioGPT","xinyu1205/recognize-anything","yizhangliu/Grounded-Segment-Anything","mrfakename/MeloTTS","hilamanor/audioEditing","Audio-AGI/AudioSep","DAMO-NLP-SG/Video-LLaMA","gligen/demo","declare-lab/mustango","shgao/EditAnything","m-ric/chunk_visualizer","Awiny/Image2Paragraph","Yuliang/ECON","IDEA-Research/Grounded-SAM","Vision-CAIR/MiniGPT-v2","ShilongLiu/Grounding_DINO_demo","liuyuan-pal/SyncDreamer","exbert-project/exbert","haotiz/glip-zeroshot-demo","nateraw/lavila","Pinwheel/GLIP-BLIP-Object-Detection-VQA","Junfeng5/GLEE_demo","abyildirim/inst-inpaint","fffiloni/Video-Matting-Anything","sam-hq-team/sam-hq","shi-labs/Matting-Anything","eson/tokenizer-arena","magicr/BuboGPT","OpenGVLab/InternGPT","clip-italian/clip-italian-demo","merve/Grounding_DINO_demo","hongfz16/3DTopia","mmlab-ntu/relate-anything-model","byeongjun-park/HarmonyView","keras-io/bert-semantic-similarity","MirageML/sjc","NAACL2022/CLIP-Caption-Reward","Gladiator/Text-Summarizer","ysharma/text-to-image-to-video","milyiyo/reimagine-it","society-ethics/model-card-regulatory-check","yenniejun/tokenizers-languages","avid-ml/bias-detection","OpenGVLab/VideoChatGPT","linfanluntan/Grounded-SAM","TencentARC/VLog","ynhe/AskAnything","llizhx/TinyGPT-V","flax-community/koclip","Pusheen/LoCo","pseudolab/AI_Tutor_BERT","flax-community/clip-reply-demo","SeViLA/SeViLA","AnimaLab/bias-test-gpt-pairs","CosmoAI/BhagwatGeeta","thewhole/GaussianDreamer_Demo","ALM/CALM","sasha/BiasDetection","tornadoslims/instruct-pix2pix","kaushalya/medclip-roco","PSLD/PSLD","sasha/WinoBiasCheck","ccolas/TastyPiano","HaloMaster/chinesesummary","AIGC-Audio/Make_An_Audio","Make-A-Protagonist/Make-A-Protagonist-inference","codelion/Grounding_DINO_demo","emilylearning/llm_uncertainty","fffiloni/audioldm-text-to-audio-generation-copy","taesiri/HuggingGPT-Lite","Volkopat/SegmentAnythingxGroundingDINO","attention-refocusing/Attention-refocusing","mlpc-lab/BLIVA","AILab-CVC/SEED-LLaMA","zdou0830/desco","MykolaL/evp","taka-yamakoshi/tokenizer-demo","mbahrami/Auto-Complete_Semantic","EuroPython2022/clickbaitonator","Dreamsome/HuggingFace-Datasets-Text-Quality-Analysis","KAIST-Geometric-AI-Lab/salad-demo","nsethi610/ns-gradio-apps","emilylearning/spurious_correlation_evaluation","iakarshu/docformer_for_document_classification","webshop/amazon_shop","doevent/blip","Shredder/CONBERT-3","bradarrML/stablediffusion-infinity","flax-community/Multilingual-VQA","Caoyunkang/Segment-Any-Anomaly","RitaParadaRamos/SmallCapDemo","badayvedat/AudioSep","yhavinga/dutch-tokenizer-arena","7Vivek/Next-Word-Prediction-Streamlit","anonymousauthorsanonymous/uncertainty","RamAnanth1/T2I-Adapter","deeplearning/audioldm-text-to-audio-generation","koajoel/PolyFormer","YouLiXiya/Mobile-SAM","docs-demos/bert-base-uncased","Pippoz/All_in_one","Gradio-Blocks/spurious_correlation_evaluation","diagaiwei/ir_chinese_medqa","tennant/MUG_caption","zjunlp/KGEditor","librarian-bots/MetaRefine","eson/bert-perplexity","MAIL-CS-ECNU/Text-Gym-Agents","rxtan/Koala-video-llm","akhaliq/SummerTime","erc/entity-referring-classifier","sohomghosh/FiNCAT_Financial_Numeral_Claim_Analysis_Tool","amsterdamNLP/attention-rollout","ICML2022/selection_bias_induced_spurious_correlations","yfyangd/PictureBookUnderstanding","ipvikas/ImageProcessing","Ramos-Ramos/albef-vqa","tillyu/Emojimotion","AIGC-Audio/Make_An_Audio_inpaint","Lihuchen/AcroBERT","jiaqingj/ConZIC","CVH-vn1210/make_hair","jackyccl/segment-anything","Suniilkumaar/AudioSep","ChristopherMarais/Andrew_Alpha","aliabd/SummerTime","mbahrami/AutoComplete","piecurus/Summarizer","projetomemoreba/leaderboard","shubh2014shiv/Japanese_NLP","taka-yamakoshi/bert-priors-demo","anirudhmittal/humour-detection","Shredder/CONBERT-2","sohomghosh/FLUEnT","damilojohn/text-descrambler","HemanthSai7/IntelligentQuestionGenerator","amankishore/sjc","russellc/BLIP","amsterdamNLP/value-zeroing","joonkim/bert-political-sentiment-analysis","dawood/audioldm-text-to-audio-generation","LightChen2333/OpenSLU","UserXTheUnknown/stablediffusion-infinity","zjunlp/MKG_Analogy","Purple11/Grounded-Diffusion","DrGabrielLopez/BERTopic","altafalam3/Text-Summarizer","edenehuyh/BLIQ_ImageCaptioning","ferdmartin/GradApplicationDocsApp","ben-epstein/ner-spans-to-tokens-tags","caltex1/streamlit_pdf_gpt","Menna2211/Text-Image","dragonSwing/annotate-anything","Yiqin/ChatVID","yuezih/BLIP-SMILE","smhavens/AnalogyArcade","any0019/text-style-transfer-demo","interactdiffusion/interactdiffusion","jeang/ernie_demo_toy","dl4eo/Grounding_DINO_demo","kurone/cp_tags_prediction","djl234/EducationGpt","leoneat/comments_refiner","KManukovskaia/Asistente_medico_avanzado","Aymene/FakeNewsDetector","noumanjavaid/CCC","hlopez/Twitter-Positivity-Analyzer","parson/audioEditing","lvwerra/bary_score","szili2011/audioEditingunlimitedinput","nishant17j03/end_of_night","Dusan/clickbaitonator","Daniel-Saeedi/sent-debias","Daniel-Saeedi/auto-debias","dentadelta123/GuardrailDetection","Shredder/CONBERT","arnavkartikeya/SCRIPture-final","anonymousauthorsanonymous/spurious","Pranjal2041/SemSup-XC","bigslime/stablediffusion-infinity","Froleptan/stablediffusion-infinity","Berbex/FinalProject","Svngoku/bert-semantic-similarity","Hallucinate/demo","AIFILMS/audioldm-text-to-audio-generation","fclong/summary","zeno-ml/translation-critique","pragmaticslab/bary_score","ParisNeo/Blip_QA","mzltest/gpt2-chinese-composition","ruanchaves/hashtag-segmentation","jennysun/jwsun-multisubject-render-model","ccarr0807/HuggingGPT","Zpwang-AI/InsultingLanguageDetection","blaziant/ysda_nlp_ops","kony1337/audioldm-text-to-audio-generation","theholycityweb/HuggingGPT","blaziant/ysda_nlp_ops_update","CodyJiang/Finetuning-Sentiment-Analysis-App","ferdmartin/GradApplicationDocsApp2","jesoteric/Grounded-SAM","RichardMB1217/blip","MingGatsby/Grounding_DINO_demo","skf15963/summary","EinfachOlder/HuggingChat","Cat125/text-generator-v3","Menna2211/ImCaptioning","Seetha/IMA-pipeline-streamlit","jeffrymahbuubi/bert-advanced-cnn-hate-speech-classification","saurshaz/HuggingGPT","imh0/transformers-p1-embeddings","Kwabbs/SENTIMENT_APP","mohamedemam/bert_sentaces_similarty","Shubham2003/chatWithPdfs","simonza/Product_Search_v0","zhangchuntao/ttg","netgvarun2005/VirtualTherapist","PHZane/emrwa","themanas021/AI-Generated-text-Detection","GT-RIPL/GPT-K","Kayson/InstructDiffusion","chendl/compositional_test","Arulkumar03/GroundingDINO_SOTA_Zero_Shot_Model","Sifal/En2Kab","Yugang998/Grounded-Segment-Anything","abidlabs/mteb-leaderboard","ZeroTwo3/AudioSep","VTechAI/Segment-Anything","MattGPT/ClassUI","VedantGitte/Bigbasket_Chaabi","7jimmy/classificationbysharjeel","mehmetsah/sahgpt","zy5830850/MedRPG","ASAM-Team/ASAM","cheesexuebao/murphy","Oliver12315/Brand_Tone_of_Voice_Online_Demo","Alfasign/HuggingGPT-Lite","sunnychenxiwang/EasyDetect","sberhe/software-release-notes-classification","Charles95/gradio-tasks","TechAudio/audiosr","killah-t-cell/EditAnything","Ldrago116/bert-semantic-similarity","Marchello/ingsoc_censor","ewriji/heil-A.412C","knoxcs/masked-probs","kruntuid/ysda_nlp_task12","Betacuckgpt/HuggingGPT","lizadakhova/shad-nlp","sanjaykamath/Safeworld_Captioning_Spaces","vosatorp/style-transfer","Jainesh212/Milestone3","vovaf709/style_transfer","poedator/scence_article_topics","dashasabirova/HW-abstracts","all-things-vits/comparative-explainability","kaza167/SHAD_ML","kaza167/SHAD_PAPERS","tadevosiaan/Transformer_arXiv","poseg/Yandex_SHAD_ML_Lab2","zachlopez/sample_1","jbilcke-hf/segmentation-api","zachlopez/sample_2","zachlopez/sample_3","cedpsam/latentdiffusion","GradApplicationDocsApp/GradApplicationDocsApp","ericanthonymitchell/model-editing","Ujjwal123/EZ-Crossword","dragonSwing/capu-demo","jihaitang/extrasneo111","PCMS-AI/MSP","sanjay-906/throwaway","ksiyang/Will_Your_SO_Question_Be_Answered","bingbort/MiniGPT-v2","liamabra/projet-5","chewhow/RAGBatteryDeploy","spuun/BLIP","ka1kuk/LLM-api","Asutosh2003/go_emotions_BERT","yonixw/test1","Shredder/Sample","jishnuprakash/lex_glue_ecthrA","Shakhovak/Sheldon_Retrieval_chat_bot","anonymous8/Rapid-Textual-Adversarial-Defense","FahadAlam/Fill-Mask","ysharma/3DTopia","long1104/ICE3","datasciencedojo/Fill-Mask","Kamaljp/transformers_universe","Shrey/cc-bert","VishalF5/F5","GV05/blip-pool-alarm","valerymal/archive_topic_clf","DiViorg/RECModel","GradApplicationDocuments/GradApp","dzLu1203/subject_work_2022_MLA_demo","nathanluskey/ml_in_prod","apipulse/test","rohithkakarla/google-bert-bert-base-uncased","BecomeAllan/meta-demo-app","Epiphyllum/google-bert-bert-base-uncased-1","wongshennan/fake-news-classification","shrimantasatpati/FiNCAT_Financial_Numeral_Claim_Analysis_Tool","dever/stablediffusion-infinity","MartinRages/Versatile-Diffusion","kowalsky/multi_task_bert","ayaanzaveri/bert-api","Prgckwb/tokenvisor","ghostwangqing/gradio","Wmcs91/Versatile-Diffusion","Moustached/Risovallllka","Moustached/Vengery","young4weapon/echo-chatbot","SLAYEROFALL3050/Audio_Generator_Using_GAN","teddybearxzh/Versatile-Diffusion","cocktailpeanut/MeloTTS","Nymbo/chunk_visualizer","deadcrowd/fooocusspace","JoshiaT/stablediffusion","lx0xl/STE","usiam/NLP4ELL","djl234/minigpt4","Smehta1/Question_Answering_System","Ganesh43/Demo_space_2","5ye8/extrasneo","pikto/MeloTTS","hunterng/BoilerPlateBERT","surajyadav53/Fooocus-v2","WwYc/explain-BERT-twoclass","John2452/google-bert-bert-base-uncased","Ujjwal123/Second-Pass","paracanthurus/lol","cocktailpeanut/audioEditing","sophiaaez/BLIPsinki2","ever53339/chatbot-byu-cs501-final","oliva92/Grounded-SAM","tristan-aeschbach/Test","jaynopponep/CTIIC-Plagiarism-Detector","andreasref/BLIP-copy","Greatmonkey/Question_answer_generator_with_pretrained_models","Booguy/linguask","aviralv/airline-sentiment-bert","hakunamatata1997/audioEditing","Thziin/Kakaka","csncsn/AI_Gen_for_SG","MrNikolaTesla/APIFo","hvaldez/SViTT-Ego_Multiple_Choice_Question","DylanLi/Covid19detection","raunaksinha/part-desco","DingShinn/ding-test-1","WwYc/explain-LXMERT","xhk/ASAM","Arivmta19/img2img","kithangw/testingphishinglink","BlueyModelosIAEspLat/audioEditing","karalif/PipelineSpace","hvaldez/SViTT-Ego_Action_Recognition","hzy9981/minigpt4","paranov/MeloTTS","awacke1/RAG-Sentence-Embedding-Viz","Adityadn/KB","sheikyerbouti/audioEditing","SVGRender/DiffSketcher","kkngan/it-service-classifcation","ElixirRod/Versatile-Diffusion","Adityadn/AI-Describe-Image","TRaw/digital-alchemy","Domw/p5-nlp","aayush9/Stock-Talk","Adityadn/AIImages","m-ric/attention_visualizer","MENG21/studfaceval","sancharikadebnath/CareerEnchanter","ismot/12t10","SidneyChen/MBTIdemo","okeowo1014/catandog","waidhoferj/major-matcher","gsspdev/audioEditing","jeanlag1/speaking-the-language-of-sight","Yashwanth-07/InternGPT","Suniilkumaar/audioEditing","Deeyn/Fooocus","Metformin/test","Aamar1/ChangeDetecor","kylemin/CharadesEgo","Amanb0420/sentiment_new","joseangel77/Detect-Segment-Anything","tunajojo/healthcare-recommender-chatbot-v1","EMPATHY-S12-GROUP-7/healthcare-recommender-chatbot-v1","youngtsai/MeloTTS","helenai/dataset-token-distribution","Dhunan/SDXL-Fooocus","MENG21/studfacultyeval_prototype","Fadil369/audioEditing","TrungNQ/qa_roberta","kylemin/EK100MIR","joseangel77/Detect-Objects-Grounding","MadJo/BERT_Analysis","aegar/NewApp","Sushrut98/Sentiment_Analysis","lookingforabrain/11","hikerxu/Grounded-Segment-Anything","TwoPerCent/instruct-pix2pix","caltech-animal-tracking/Primate-Detection-GPU","allAI-tools/MeloTTS","elliotwork/calls","ishrakui/rea_intent","edmundhui/mercari-price-prediction","qbikmuzik/audioEditing","cyclinghearttortoise/STE","AmanSharma/instruct-pix2pix","sumanthkv/pdf","sanjay-906/VQA","chaosbless/foocuss","Abdullah-Habib/SDXL-NSFW","Tuhinm2002/bert_youtube_sentiment","Felbdogg/google-bert-bert-base-uncased","benpalgi/instruct-pix2pix","Steljoka/instruct-pix2pix4444444","amuvarma/instruct-pix2pix","lylylyAI/instruct-pix2pix","thomasht86/instruct-pix2pix","Aegisgfx/instruct-pix2pix","shamim237/python-dev-task-skyranko","dimaiklov/audioldm-text-to-audio-generation","oldfart/text-to-audio-generation","aimhxr/audioldm-text-to-audio-generation-test","RudiCahyan/Stable-Diffusion","taka-yamakoshi/causal-intervention-demo","stanno/stablediffusion-infinity-capstonetest","Pushpa/bert","Pranav-K/FinBert","Pushpa/APP","ACRLab/FraleyLabAttachmentBot","Sadiksha/Sentiment_analysis_bert","JuanJoseMV/neuraltextgen_BERT","tennant/MUG_caption_test","adamtayzzz/test","galem/glip-zeroshot-demo","OK-ODT/audioldm-text-to-audio-generation-test2","OK-ODT/audioldm-text-to-audio-generation-4","Pinguin/audioldm-text-to-audio-generation","asafAdge/BLIP","kent101/chatgpt-fine-tune-example","nyaridori/Lazywritez","osmanthus/ConZIC","mariasandu/sentiment-analysis-of-a-tweet","sergey-hovhannisyan/toxic-tweets","awacke1/3D.Live.Image.To.Model.Generator","Zhonathon/DRv2","Jackie2235/E-commerceKeyphraseGeneration","Jhoeel/AutoMarcaDino2","NimaKL/FireWatch-Streamlit","cgr28/cs482-project","komleva/VQA","BenKirb/audioldm-text-to-audio-generation","frozenmad/audioldm-text-to-audio-generation","Anna-UoC/classification","Anna-UoC/classification2","kelvinleong/streamlittestcsv","kelvinleong/streamlitcsv02","Anna-UoC/classification3","Pruthul/CS482-104-Milestone2","angelajyeung/text-sentiment-analysis-app","cagataydag/TSmarizer","GopalGoyal/test","keaneu/HuggingGPT","Coder246/glip-zeroshot-demo","argo2001/YSDA_transformers_paper_classification","viscosity/HuggingGPT","danielacthomas2001/AI-Project-1","Mcdof/HuggingGPT","BMukhtar/BMA","chrisW6825/HuggingGPT","Shenziqian/HuggingGPT","lokutus/HuggingGPT","mimiqiao/HuggingGPT","kotvkaske/test-transformer","tsgbalakarthik/HuggingGPT","jbraha/aiproject","wowochkin/HuggingGPT","Msp/HuggingGPT","v-nemala/sentiment-analysis","CodyJiang/text-sentiment-analysis-app","psychedelicbunny/sentimentanalysis","ab8997/Sentiment-Analysis-App","Ptato/Sentiment-Analysis","metaknightccc/sentiment-analysis-app","ryan12439/HuggingGPTpub","EgorRacio/ArticleTransformer","FANCHIYU/HuggingGPT","cashqin/HuggingGPT","felixfriday/MICROSOFTT_JARVIS_HuggingGPT","alekeik1/shad-mlops-transformers","Meffordh/HuggingGPT","binhnase04854/nobita-gpt","lzqfree/HuggingGPT","bountyfuljr/HuggingGPTplaypublic","mearjunsha/HuggingGPT","zeabin/Grounded-Segment-Anything","grv805/GSAM-AD","toxabuk/YSDA_HW","turbowed/HuggingGPT","Chokyounghoon/HuggingGPT","SatAT/transformer_service","asamsonenko/Article_topic_classifier","avakos/ML2","crowul/TODO_YSDA_TEST_Rodionov","lollo21/Will-GPT","vitkishloh228/bert_arxiv_tagging","Pfs2021Funny/HuggingGPT","irritablebro/HuggingGPT","beskrovnykh/danielsearch-embeddings","vitkishloh228/bert_tagger","prath/sentiment-analysis","MagKoz/HuggingGPT","vacuumisme/fastapi_nb_demo","zhangdream/HuggingGPT","Nickabragin/tagger","sheacon/semantic-song-search","calliber/HuggingGPT","Pitak/HuggingGPT","gaocegege/HuggingGPT","sethlxk/milestone3","apgarmd/jarvis","apgarmd/jarvis2","sethlxk/test","mukulnag/HuggingGPT1","xdite/mini","anirudh-techie/test-space","svjack/TableQA-Chinese","lugifudun/HuggingGPT","leadmaister/HuggingGPT","pors/HuggingGPT","jeromechew15/milestone3","jiuku/audioldm-text-to-audio-generation","Junssssss/minigpt4","Sevenlee/minigpt4","weiq/minigpt4","zlwq/minigpt4","vs4vijay/HuggingGPT","SharpAI/minigpt4","rafatsiddiqui/minigpt4","hf-100/minigpt4","saidal/minigpt4","AhmedFaisal/milestone-3","aodianyun/Image2Paragraph","ayanmw/minigpt4","PenguinMan/News_Bias_Discrminator","mariasandu/detecting-toxic-tweets","FirsttyBoy/audioldm-text-to-audio-generation","mariasandu/toxic-comment-app","mckeeboards/HuggingGPT","snaramirez872/Finetuning-Toxicity-Model","nppmatt/milestone-3","Keshavp08/Classifier","ajag1/testing","Samp007/Finetuning_Language_Models","ynp3/Milestone3","ajag1/Milestone3","Jvs37/FTLM","rd448/multi-headed-toxicity-classifier","AndrewMetaBlock/minigpt4","leadmaister/minigpt4","lucifer958/minigpt4","steamur/minigpt","ynp3/trial","Samp007/Milestone-3","kya5/CS482-Milestone2","mastere00/JarvisMeetsProfessor","Mmmm2/minigpt4","apande/chatgpt4img","lyzen/Milestone-3","passthebutter/HuggingGPT","Lisisowow/minigpt4","amrithhun/streamlit_pdf_gpt","ohrol/minigpt4","dp92/Toxiclassifier","manu1435/HuggingGPT","better57/minigpt4","Manto2023/AudioGPT","KSolomon/minigpt4","shumik/minigpt4","Tj/audioldm-text-to-audio-generation-copy","sunny-annie/elbrus_nlp_project","Datasculptor/AudioGPT","EranLa/Table-QA-Based-On-StableLM-Tuned-Alpha","Kejo11/minigpt4","piggypocket/audioldm-text-to-audio-generation","VirSingh/perf-prediction","Rams901/OpenSLU","toniz/minigpt4","Hrsh-Venket/Corrected-Speech-to-Text","suyogyj/IMLProject","NaamanSaif/HuggingGPT","vdvbszgs/minigpt4","vm567/Finetuning_HUPD_dataset","z11h/AudioGPT","CollaalloC/HuggingGPT","nateraw/jupyterlab-inference-dev","nateraw/text-generation-inference","stanno/capstone","Roopalav/MarineLitter","ShraddhaGami/minigpt4","ShraddhaGami/minigpt4-qwe","dwolfe66/HuggingGPT","xian-sheng/HuggingGPT","otmanheddouch/otmanhe","Aygtljl518866/HuggingGPT","alonegg/AudioGPT","Hemi1403/HuggingGPT","osanseviero/Versatile-Diffusion","psychedelicbunny/sentiment","ahmedelnakeeb/audioldm-text-to-audio-generation","trhacknon/audioldm-text-to-audio-generation","trhacknon/HuggingGPT","trhacknon/minigpt4","Vito99/HuggingGPT-Lite","Alifarsi/llms_compare","EinfachOlder/HuggingGPT-Lite","ODR/glip-zeroshot-demo","mosby-t05/NER-UNDERSTAND","mzltest/gpt2-2","groundworm/minigpt4","jeevavijay10/nlp-goemotions-senti-pred","switmer/mbti-sentiment","Sparkles-AI/gpt4mini","innovativeillusions/HuggingGPT","akhil2808/BERT-EPICS","Midtown/minigpt4","sankalphimself/pitchpal","emee/test2vec","hlydecker/Grounded-Segment-Anything","naman7415963/twitter-sentiment","bhavyapandya/twitter-sentiment","omar87/Image","psyne/MLSLPDFSummarizer","jeffsss12121/name","Satinurus/AudioGPT","alexmealor/GenreFromLyrics","naman7415963/troll-detection","bhavyapandya/Troll-detection","Anandx05/BLIP","luminousncc/RoadProject","luminousncc/RoadProjectDemo","Matt-CB/TwitterAccountAnalyzer","Sirus1/Multimodal_Demo","yxchng/elia","PlengP/phishoff","EddyGiusepe/Movie_Genre_Prediction","Jeney/Matte-Anything","ylavie/HuggingGPT3","ylavie/HuggingGPT-Lite","OurNhan/asdasd","OurNhan/sentiment-analysis","jacksabari/Iris_Classification","Sam10155/499demo","kenzab/Chatbot-Recruteur","rjiang12/bias-test-gpt","nabarun/Image2Hashtag","hkmast/image_match","PeepDaSlan9/Recognize_Anything-Tag2Text","CCYAO/HuggingGPT","rjiang12/bias-test-gpt-breadcrumbs","rstallman/bert-political-sentiment-analysis","wldmr/similarity-st1","yuaiyu/Versatile-Diffusion","pppppppppp2/instruct-pix2pix","Ayush28/demo-app","xnetba/train-test","anujbhardwaj64/FakeNews","Choco0real/DemoCVCourse","dcams/HuggingGPT","mit-riya/Text2Questions","wangyongda/ramdemo","anichaudhri/OpenEyes","rjiang12/bias-test-gpt-breadcrumbsV2","jcancela/npl-course","kcltw/asr_demo","Treav/reccsys","avishek-018/bert-semantic-similarity","AravindAG/Reviewer","Noobian/MeetingChat","CS4NLP/vqa_demo","tangjicheng123/BLIP","MrDdz/Tweet-Sentiment-Analysis","emilylearning/choose_your_own_spurious","efobi/P5","efobi/P44","efobi/PP45","efobi/pd42","efobi/opo001","Georgeeliwilliams01/twitter-sentiment-analysis","efobi/MI6","luminousncc/foodDetectionDemo","mlgeis/arxiv-subject-classifier-demo","indigoman/text_image_editing","eyemabhishek/det-gpt-space-v10","malmukhtar/Accessibility-labeler","gremlin97/Tag2Text_Demo","castorini/ONNX-Demo","ruchithahoney/fraud-detection","mygyasir/Text-Summarizer","dipro7/story-genre-classifier","farbereth/fiona-farber","cndavy/HuggingGPT","Ateras/kohya_ss","DiningSystem/minigpt4","tayhan/minigpt-final","Saiharish98/Disasternlpanalysis","Reiner4/extrasneo","K00B404/minigpt4","csuvikv/tokenizer","sofarikasid/Debit_Analysis","MeghanaVeerannagari/test-space","AlisterAnhedonia/extrasneo","Zalaruc/extrasseleo","shaojiang/wenyanwen","MAEBA96/SIMPLE-CONVERSATIONAL-BOT","rjx/rjxai_image_identification","asgeorges/ll-create","AITECHPRODUCTS/chromadb","Cran-May/yugang-bert","HYCCC/zero-shot_sentiment_analysis","jfeng1115/marketing-analytics-bot","geonmin-kim/NetsPresso_QA","Ankush05/Code5","rima357/Query_Domain_Classification","josephZw/masktext","Zeeshan01/Segment_and_track_Anything","SanKl123/bertchat4docker","Schrodingers/gradio_deploy","Thefrudi78/Extra","tombm/gp-uq-tester","Ashrafb/chatWithPdfs","jishnuprakash/lex_glue_ecthrA_2","sudhanvamg/RAM","TensorBoyML/Lucifer_Alive","andrienr/marble-catalogue","Lihuchen/AcroBERT_v2","poisonawaits/low_effort_v1","Neu256/Prome-LLM","anon4757/BiasTestGPT","hari-shankar-huggingface/text_sentiment_prediction","Anavya1/Anavya-TEXTSUMMARIZERADVANCE","GoTogether/App_Prototype","kmlf/Lab_10","comidan/video-llama2-test","Anon3365/BiasTestGPT","ZackBradshaw/omni_bot","SilverStarShadow/HF-SillyTavern-Extras","Alexxggs/sounds-samples","DeepLearning101/IE101TW","waleko/SegmentAnythingxGroundingDINO","drowdancer/extrasneo","cocktailpeanut/AudioSep","gopikrsmscs/iSeBetter","Danishhh/text_classified","pol9886/extrasneo","pol9886/extrasneo2","zamasam/extrasneo","xfl218/test","svaddi/CommentaryGPT","Sharathhebbar24/Sentence-Similarity","sms07/Georgios-Ioannou-Visual-Question-Answering-With-Hugging-Face","Solshine/Training","0xSparked/yungpunks","infludata/test-space","infludata/test-space-2","sms07/Georgios-Ioannou-Visual-Question-Answering-With-Hugging-Face-FINAL","simon-clmtd/exbert","aliyan22/streamlit-llm-app","TRMT/Multimodal_Bird_Search","TRMT/test","rianders/viewembedding","IBounhas/Riadh","berkaygkv/curate-me-a-playlist","principeroxido/hockey-recognizer-test","nijoow/openai_space","nguynking/fake-news-detection","aikenml/SAMmodel","jackbielinski/dan_AI","Hank528286709/tb","syedabdullah32/NLPquiz","krismaglasang/basic-sentiment-classifier-2labels","Faizan15/classificationpredictions","basimmughal3/input-output","subhannadeem1/textclassification","farooq-09/txt-classification-nlp","aikenml/Segment_and_track_Anything","7jimmy/TextClassificationBySharjeel12","AravindVepati/Chaabi_Assignment","aikenml/Segment_and_track_Anything-Duplicated2","PankajNk/Automate_MCQ","katyaniki/RAG-project-new","KGBrain/Causal-pipeline","rngd/text-generation-webui","farbereth/fiona-farber2","awqwqwq/Fooocus","Hank528286709/ad","Sarvech/BERTSelf-Harm","shivasai824/lets_see","solo7917/extrasneo","solo7917/extrasneo1","nanankawa/extrasneo-CodeSandBox","jihaitang/extrasneo11","Kajal17/AI_Voyagers","Kajal17/AI_Voyagers_2","TuanBC/token_counter","jihaitang/extrasneo4399","jihaitang/SillyTavern-Extras1","paranitik/3","aikenml/Segment-And-Track-Anything-Model","aikenml/data_mining","aikenml/Segment-And-Track-Anything-Model_duplicated2","AnishaBhatnagar/LLVM_trial","poisonawaits/kurkuma","aikenml/Segment-And-Track-Anything-Model_dup","aikenml/SAM_Track_Duplicated2","aikenti/Segment-And-Track-Anything-Model","aikenml/samtrack","salomonsky/sp","lu-ny/Novel_Title_Summary_Gen","Vishakaraj/GroundingDino","burhaant/Fooocus","HaggiVaggi/FindMyMovie","YaTharThShaRma999/GLEE_demo","YaTharThShaRma999/GLEE","NarayanaMayya/web-creations-for-ai-models.streamlit.app3","Oiliver/GH29BERT","merve/grounding_sam_inpainting","nguynking/BERT-for-Polical-News-Sentiment-Analysis","Azhageswari/nlp-goemotion-sentimentanalysis","awqwqwq/foooocus4","iamsrikanthnani/Fooocus","rmayormartins/sentiment-analysis-committee","cybertiwari/test","mukulsaran/semantic_similarity","Alfasign/newpd","arnab91/Gen_AI_Demo_2812023","Tuhinm2002/bert-vision","AsadullaH777/HuggingGPT","nelbarman053/Scientific-Paper-Keyword-Categorization","ID2223/hackernews-upvotes-predictor","hibahyder/bias_identification_app","SHAMNAFARVIN/Bias_Identification","khadija3818/Mid_project","mahesh3394/clinical_text_classification","kavinh07/quote-classifier","clearlove5488/SillyTavern-Extras1","kaitkuroba/SillyTavern-Extras11","Harvey-J/Fooocus-API","karan99300/Sentiment_Analysis_using_BERT","418iamacrow/minus","smrgrghf/img-gen-with-fooocus-space","Rajut/QAnswer","Rajut/Normandy_QA","noni27/Shift_and_Inpaint","7sugiwa/sarcasm_detection","crockrocks/review_classification","Omeer/Gradio_Cars_Reviews_chatbot","jianfuzhang233/controlnet","wezyai/naked","njain1978/llmops","tikcrimhg/testai","viacheslavzyrianov/myfirstspace","chanhen/echo-chatbot","njain1978/genai-bean","seawolf2357/temptest","HumbleWolf/DockerFooocus","os1187/Talk2Deck","jax2000/inst-inpaint","fazzebo/fooocus","Solar-Iz/Find_my_Movie","adamtayzzz/test_skim","rodrigomasini/data-only-mteb-leaderboard","JOHANhuynhhhhh/Object-Detection","GeorgiosIoannouCoder/cuny-tech-prep-tutorial-4","Jeongsik-Lucas-Park/MiniGPT-4","karpatko/Fooocus"],"gitalyUid":"ea7d1e533784f257a570cc19bb9b48fd44b17aaa33ded7fad89b8a2fa7f1fb09","siblings":[{"rfilename":".gitattributes"},{"rfilename":"LICENSE"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/model.mlmodel"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Data/com.apple.CoreML/weights/weight.bin"},{"rfilename":"coreml/fill-mask/float32_model.mlpackage/Manifest.json"},{"rfilename":"flax_model.msgpack"},{"rfilename":"model.onnx"},{"rfilename":"model.safetensors"},{"rfilename":"pytorch_model.bin"},{"rfilename":"rust_model.ot"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer.json"},{"rfilename":"tokenizer_config.json"},{"rfilename":"vocab.txt"}],"createdAt":"2022-03-02T23:29:04.000Z","safetensors":{"parameters":{"F32":110106428},"total":110106428}}'
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '26494'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 09 Apr 2024 08:46:54 GMT
+      ETag:
+      - W/"677e-QqJ1g4LW0ByAeNp1sq9t/xhQaA0"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 168125097acf734cd7750e139a974b38.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - gCtnfQ7b_vC-M-H2R5Q79AtCutcByp2dZUi8CyxC--dKGv41_dQekA==
+      X-Amz-Cf-Pop:
+      - PRG50-C1
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-6615007e-3097671c2f833fb261e99165;96833a92-4fca-432f-a1d3-a2280fc0d673
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"options": {"wait_for_model": true, "use_gpu": false}, "inputs": "Hi,
+      I think [MASK]\u00a0is cool"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '100'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 0e5f5f21-b15d-4a07-95f7-8703d44cea3a
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/pipeline/fill-mask/bert-base-uncased
+  response:
+    body:
+      string: '[{"score":0.8000569343566895,"token":2023,"token_str":"this","sequence":"hi,
+        i think this is cool"},{"score":0.05881352350115776,"token":2008,"token_str":"that","sequence":"hi,
+        i think that is cool"},{"score":0.05029095709323883,"token":2009,"token_str":"it","sequence":"hi,
+        i think it is cool"},{"score":0.011821238324046135,"token":2673,"token_str":"everything","sequence":"hi,
+        i think everything is cool"},{"score":0.008278421126306057,"token":2002,"token_str":"he","sequence":"hi,
+        i think he is cool"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '506'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 09 Apr 2024 08:46:55 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.295'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - qvphCx0qFCFnq13eDpLqL
+      x-sha:
+      - 86b5e0934494bd15c9632b12f734a8a67f723594
+    status:
+      code: 200
+      message: OK
+version: 1

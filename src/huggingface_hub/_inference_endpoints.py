@@ -4,6 +4,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
+from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
+
 from .inference._client import InferenceClient
 from .inference._generated._async_client import AsyncInferenceClient
 from .utils import logging, parse_datetime
@@ -14,14 +16,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.get_logger(__name__)
-
-
-class InferenceEndpointError(Exception):
-    """Generic exception when dealing with Inference Endpoints."""
-
-
-class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
-    """Exception for timeouts while waiting for Inference Endpoint."""
 
 
 class InferenceEndpointStatus(str, Enum):
