@@ -19,7 +19,7 @@ from huggingface_hub import HfApi, list_models
 # 루트 메서드를 사용하세요.
 models = list_models()
 
-# Or configure a HfApi client
+# 또는 HfApi client를 구성하세요.
 hf_api = HfApi(
     endpoint="https://huggingface.co", # 비공개 Hub 엔드포인트를 지정할 수 있습니다.
     token="hf_xxx", # 토큰은 머신에 유지되지 않습니다.
