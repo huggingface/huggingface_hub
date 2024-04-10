@@ -16,7 +16,21 @@
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from .utils import is_pydantic_available
+
+
+if is_pydantic_available():
+    from pydantic import BaseModel
+else:
+    # Define a dummy BaseModel to avoid import errors when pydantic is not installed
+    # Import error will be raised when trying to use the class
+
+    class BaseModel:
+        def __init__(self, *args, **kwargs) -> None:
+            raise ImportError(
+                "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
+                " should be installed separately. Please run `pip install --upgrade pydantic` and retry."
+            )
 
 
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they
