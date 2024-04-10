@@ -55,7 +55,7 @@
     - local: in_translation
       title: (번역 중) Downloading files
     - local: package_reference/mixins
-      title: 미스인 & 직렬화 메서드
+      title: 믹스인 & 직렬화 메서드
     - local: in_translation
       title: (번역 중) Inference Client
     - local: in_translation
