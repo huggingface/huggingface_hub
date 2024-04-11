@@ -99,7 +99,7 @@ from .._common import _async_yield_from, _import_aiohttp
 
 if TYPE_CHECKING:
     import numpy as np
-    from PIL import Image
+    from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
 

@@ -28,6 +28,8 @@ from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest
 
+from huggingface_hub.errors import OfflineModeIsEnabled
+
 from .. import constants
 from . import logging
 from ._typing import HTTP_METHOD_T
@@ -40,10 +42,6 @@ logger = logging.get_logger(__name__)
 # If `X_AMZN_TRACE_ID` is set, the Hub will use it as well.
 X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
-
-
-class OfflineModeIsEnabled(ConnectionError):
-    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
 
 
 class UniqueRequestIdAdapter(HTTPAdapter):
