@@ -21,7 +21,7 @@ Hugging Face가 관리하는 추론 엔드포인트는 우리가 모델을 쉽�
 
 ## InferenceEndpoint [[huggingface_hub.InferenceEndpoint]]
 
-[`InferenceEndpoint`]는 배포된 `InferenceEndpoint`에 대한 정보를 가진 주 데이터 클래스입니다. 여기에는 구성과 현재 상태가 포함되어 있습니다. 배포 후에는 [`InferenceEndpoint.client`]와 [`InferenceEndpoint.async_client`]를 사용해 엔드포인트에서 추론 작업을 할 수 있고, 이때 [`InferenceClient`]와 [`AsyncInferenceClient`] 객체를 반환합니다.
+기본 데이터 클래스는 [`InferenceEndpoint`]입니다. 여기에는 구성 및 현재 상태를 가지고 있는 배포된 `InferenceEndpoint`에 대한 정보가 포함되어 있습니다. 배포 후에는 [`InferenceEndpoint.client`]와 [`InferenceEndpoint.async_client`]를 사용해 엔드포인트에서 추론 작업을 할 수 있고, 이때 [`InferenceClient`]와 [`AsyncInferenceClient`] 객체를 반환합니다.
 
 [[autodoc]] InferenceEndpoint
   - from_raw
