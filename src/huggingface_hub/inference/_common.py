@@ -70,7 +70,7 @@ from ._generated.types import (
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
-    from PIL import Image
+    from PIL.Image import Image
 
 # TYPES
 UrlT = str

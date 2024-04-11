@@ -1,0 +1,351 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      X-Amzn-Trace-Id:
+      - 6efb96f8-6757-491e-a340-8f490bbad0aa
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: GET
+    uri: https://huggingface.co/api/models/deepset/roberta-base-squad2
+  response:
+    body:
+      string: "{\"_id\":\"621ffdc136468d709f17a5fd\",\"id\":\"deepset/roberta-base-squad2\"\
+        ,\"modelId\":\"deepset/roberta-base-squad2\",\"author\":\"deepset\",\"sha\"\
+        :\"cbf50ba81465d4d8676b8bab348e31835147541b\",\"lastModified\":\"2024-03-18T08:00:40.000Z\"\
+        ,\"private\":false,\"disabled\":false,\"gated\":false,\"pipeline_tag\":\"\
+        question-answering\",\"tags\":[\"transformers\",\"pytorch\",\"tf\",\"jax\"\
+        ,\"rust\",\"safetensors\",\"roberta\",\"question-answering\",\"en\",\"dataset:squad_v2\"\
+        ,\"license:cc-by-4.0\",\"model-index\",\"endpoints_compatible\",\"has_space\"\
+        ,\"region:us\"],\"downloads\":1155190,\"library_name\":\"transformers\",\"\
+        mask_token\":\"<mask>\",\"widgetData\":[{\"text\":\"Where do I live?\",\"\
+        context\":\"My name is Wolfgang and I live in Berlin\"},{\"text\":\"Where\
+        \ do I live?\",\"context\":\"My name is Sarah and I live in London\"},{\"\
+        text\":\"What's my name?\",\"context\":\"My name is Clara and I live in Berkeley.\"\
+        },{\"text\":\"Which name is also used to describe the Amazon rainforest in\
+        \ English?\",\"context\":\"The Amazon rainforest (Portuguese: Floresta Amaz\xF4\
+        nica or Amaz\xF4nia; Spanish: Selva Amaz\xF3nica, Amazon\xEDa or usually Amazonia;\
+        \ French: For\xEAt amazonienne; Dutch: Amazoneregenwoud), also known in English\
+        \ as Amazonia or the Amazon Jungle, is a moist broadleaf forest that covers\
+        \ most of the Amazon basin of South America. This basin encompasses 7,000,000\
+        \ square kilometres (2,700,000 sq mi), of which 5,500,000 square kilometres\
+        \ (2,100,000 sq mi) are covered by the rainforest. This region includes territory\
+        \ belonging to nine nations. The majority of the forest is contained within\
+        \ Brazil, with 60% of the rainforest, followed by Peru with 13%, Colombia\
+        \ with 10%, and with minor amounts in Venezuela, Ecuador, Bolivia, Guyana,\
+        \ Suriname and French Guiana. States or departments in four nations contain\
+        \ \\\"Amazonas\\\" in their names. The Amazon represents over half of the\
+        \ planet's remaining rainforests, and comprises the largest and most biodiverse\
+        \ tract of tropical rainforest in the world, with an estimated 390 billion\
+        \ individual trees divided into 16,000 species.\"}],\"likes\":614,\"model-index\"\
+        :[{\"name\":\"deepset/roberta-base-squad2\",\"results\":[{\"task\":{\"type\"\
+        :\"question-answering\",\"name\":\"Question Answering\"},\"dataset\":{\"name\"\
+        :\"squad_v2\",\"type\":\"squad_v2\",\"config\":\"squad_v2\",\"split\":\"validation\"\
+        },\"metrics\":[{\"type\":\"exact_match\",\"value\":79.9309,\"name\":\"Exact\
+        \ Match\",\"verified\":true,\"verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMDhhNjg5YzNiZGQ1YTIyYTAwZGUwOWEzZTRiYzdjM2QzYjA3ZTUxNDM1NjE1MTUyMjE1MGY1YzEzMjRjYzVjYiIsInZlcnNpb24iOjF9.EH5JJo8EEFwU7osPz3s7qanw_tigeCFhCXjSfyN0Y1nWVnSfulSxIk_DbAEI5iE80V4EKLyp5-mYFodWvL2KDA\"\
+        },{\"type\":\"f1\",\"value\":82.9501,\"name\":\"F1\",\"verified\":true,\"\
+        verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMjk5ZDYwOGQyNjNkMWI0OTE4YzRmOTlkY2JjNjQ0YTZkNTMzMzNkYTA0MDFmNmI3NjA3NjNlMjhiMDQ2ZjJjNSIsInZlcnNpb24iOjF9.DDm0LNTkdLbGsue58bg1aH_s67KfbcmkvL-6ZiI2s8IoxhHJMSf29H_uV2YLyevwx900t-MwTVOW3qfFnMMEAQ\"\
+        },{\"type\":\"total\",\"value\":11869,\"name\":\"total\",\"verified\":true,\"\
+        verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMGFkMmI2ODM0NmY5NGNkNmUxYWViOWYxZDNkY2EzYWFmOWI4N2VhYzY5MGEzMTVhOTU4Zjc4YWViOGNjOWJjMCIsInZlcnNpb24iOjF9.fexrU1icJK5_MiifBtZWkeUvpmFISqBLDXSQJ8E6UnrRof-7cU0s4tX_dIsauHWtUpIHMPZCf5dlMWQKXZuAAA\"\
+        }]},{\"task\":{\"type\":\"question-answering\",\"name\":\"Question Answering\"\
+        },\"dataset\":{\"name\":\"squad\",\"type\":\"squad\",\"config\":\"plain_text\"\
+        ,\"split\":\"validation\"},\"metrics\":[{\"type\":\"exact_match\",\"value\"\
+        :85.289,\"name\":\"Exact Match\",\"verified\":false},{\"type\":\"f1\",\"value\"\
+        :91.841,\"name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\"\
+        ,\"name\":\"Question Answering\"},\"dataset\":{\"name\":\"adversarial_qa\"\
+        ,\"type\":\"adversarial_qa\",\"config\":\"adversarialQA\",\"split\":\"validation\"\
+        },\"metrics\":[{\"type\":\"exact_match\",\"value\":29.5,\"name\":\"Exact Match\"\
+        ,\"verified\":false},{\"type\":\"f1\",\"value\":40.367,\"name\":\"F1\",\"\
+        verified\":false}]},{\"task\":{\"type\":\"question-answering\",\"name\":\"\
+        Question Answering\"},\"dataset\":{\"name\":\"squad_adversarial\",\"type\"\
+        :\"squad_adversarial\",\"config\":\"AddOneSent\",\"split\":\"validation\"\
+        },\"metrics\":[{\"type\":\"exact_match\",\"value\":78.567,\"name\":\"Exact\
+        \ Match\",\"verified\":false},{\"type\":\"f1\",\"value\":84.469,\"name\":\"\
+        F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\",\"name\"\
+        :\"Question Answering\"},\"dataset\":{\"name\":\"squadshifts amazon\",\"type\"\
+        :\"squadshifts\",\"config\":\"amazon\",\"split\":\"test\"},\"metrics\":[{\"\
+        type\":\"exact_match\",\"value\":69.924,\"name\":\"Exact Match\",\"verified\"\
+        :false},{\"type\":\"f1\",\"value\":83.284,\"name\":\"F1\",\"verified\":false}]},{\"\
+        task\":{\"type\":\"question-answering\",\"name\":\"Question Answering\"},\"\
+        dataset\":{\"name\":\"squadshifts new_wiki\",\"type\":\"squadshifts\",\"config\"\
+        :\"new_wiki\",\"split\":\"test\"},\"metrics\":[{\"type\":\"exact_match\",\"\
+        value\":81.204,\"name\":\"Exact Match\",\"verified\":false},{\"type\":\"f1\"\
+        ,\"value\":90.595,\"name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\"\
+        :\"question-answering\",\"name\":\"Question Answering\"},\"dataset\":{\"name\"\
+        :\"squadshifts nyt\",\"type\":\"squadshifts\",\"config\":\"nyt\",\"split\"\
+        :\"test\"},\"metrics\":[{\"type\":\"exact_match\",\"value\":82.931,\"name\"\
+        :\"Exact Match\",\"verified\":false},{\"type\":\"f1\",\"value\":90.756,\"\
+        name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\"\
+        ,\"name\":\"Question Answering\"},\"dataset\":{\"name\":\"squadshifts reddit\"\
+        ,\"type\":\"squadshifts\",\"config\":\"reddit\",\"split\":\"test\"},\"metrics\"\
+        :[{\"type\":\"exact_match\",\"value\":71.55,\"name\":\"Exact Match\",\"verified\"\
+        :false},{\"type\":\"f1\",\"value\":82.939,\"name\":\"F1\",\"verified\":false}]}]}],\"\
+        config\":{\"architectures\":[\"RobertaForQuestionAnswering\"],\"model_type\"\
+        :\"roberta\",\"tokenizer_config\":{}},\"cardData\":{\"language\":\"en\",\"\
+        license\":\"cc-by-4.0\",\"datasets\":[\"squad_v2\"],\"model-index\":[{\"name\"\
+        :\"deepset/roberta-base-squad2\",\"results\":[{\"task\":{\"type\":\"question-answering\"\
+        ,\"name\":\"Question Answering\"},\"dataset\":{\"name\":\"squad_v2\",\"type\"\
+        :\"squad_v2\",\"config\":\"squad_v2\",\"split\":\"validation\"},\"metrics\"\
+        :[{\"type\":\"exact_match\",\"value\":79.9309,\"name\":\"Exact Match\",\"\
+        verified\":true,\"verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMDhhNjg5YzNiZGQ1YTIyYTAwZGUwOWEzZTRiYzdjM2QzYjA3ZTUxNDM1NjE1MTUyMjE1MGY1YzEzMjRjYzVjYiIsInZlcnNpb24iOjF9.EH5JJo8EEFwU7osPz3s7qanw_tigeCFhCXjSfyN0Y1nWVnSfulSxIk_DbAEI5iE80V4EKLyp5-mYFodWvL2KDA\"\
+        },{\"type\":\"f1\",\"value\":82.9501,\"name\":\"F1\",\"verified\":true,\"\
+        verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMjk5ZDYwOGQyNjNkMWI0OTE4YzRmOTlkY2JjNjQ0YTZkNTMzMzNkYTA0MDFmNmI3NjA3NjNlMjhiMDQ2ZjJjNSIsInZlcnNpb24iOjF9.DDm0LNTkdLbGsue58bg1aH_s67KfbcmkvL-6ZiI2s8IoxhHJMSf29H_uV2YLyevwx900t-MwTVOW3qfFnMMEAQ\"\
+        },{\"type\":\"total\",\"value\":11869,\"name\":\"total\",\"verified\":true,\"\
+        verifyToken\":\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJoYXNoIjoiMGFkMmI2ODM0NmY5NGNkNmUxYWViOWYxZDNkY2EzYWFmOWI4N2VhYzY5MGEzMTVhOTU4Zjc4YWViOGNjOWJjMCIsInZlcnNpb24iOjF9.fexrU1icJK5_MiifBtZWkeUvpmFISqBLDXSQJ8E6UnrRof-7cU0s4tX_dIsauHWtUpIHMPZCf5dlMWQKXZuAAA\"\
+        }]},{\"task\":{\"type\":\"question-answering\",\"name\":\"Question Answering\"\
+        },\"dataset\":{\"name\":\"squad\",\"type\":\"squad\",\"config\":\"plain_text\"\
+        ,\"split\":\"validation\"},\"metrics\":[{\"type\":\"exact_match\",\"value\"\
+        :85.289,\"name\":\"Exact Match\",\"verified\":false},{\"type\":\"f1\",\"value\"\
+        :91.841,\"name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\"\
+        ,\"name\":\"Question Answering\"},\"dataset\":{\"name\":\"adversarial_qa\"\
+        ,\"type\":\"adversarial_qa\",\"config\":\"adversarialQA\",\"split\":\"validation\"\
+        },\"metrics\":[{\"type\":\"exact_match\",\"value\":29.5,\"name\":\"Exact Match\"\
+        ,\"verified\":false},{\"type\":\"f1\",\"value\":40.367,\"name\":\"F1\",\"\
+        verified\":false}]},{\"task\":{\"type\":\"question-answering\",\"name\":\"\
+        Question Answering\"},\"dataset\":{\"name\":\"squad_adversarial\",\"type\"\
+        :\"squad_adversarial\",\"config\":\"AddOneSent\",\"split\":\"validation\"\
+        },\"metrics\":[{\"type\":\"exact_match\",\"value\":78.567,\"name\":\"Exact\
+        \ Match\",\"verified\":false},{\"type\":\"f1\",\"value\":84.469,\"name\":\"\
+        F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\",\"name\"\
+        :\"Question Answering\"},\"dataset\":{\"name\":\"squadshifts amazon\",\"type\"\
+        :\"squadshifts\",\"config\":\"amazon\",\"split\":\"test\"},\"metrics\":[{\"\
+        type\":\"exact_match\",\"value\":69.924,\"name\":\"Exact Match\",\"verified\"\
+        :false},{\"type\":\"f1\",\"value\":83.284,\"name\":\"F1\",\"verified\":false}]},{\"\
+        task\":{\"type\":\"question-answering\",\"name\":\"Question Answering\"},\"\
+        dataset\":{\"name\":\"squadshifts new_wiki\",\"type\":\"squadshifts\",\"config\"\
+        :\"new_wiki\",\"split\":\"test\"},\"metrics\":[{\"type\":\"exact_match\",\"\
+        value\":81.204,\"name\":\"Exact Match\",\"verified\":false},{\"type\":\"f1\"\
+        ,\"value\":90.595,\"name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\"\
+        :\"question-answering\",\"name\":\"Question Answering\"},\"dataset\":{\"name\"\
+        :\"squadshifts nyt\",\"type\":\"squadshifts\",\"config\":\"nyt\",\"split\"\
+        :\"test\"},\"metrics\":[{\"type\":\"exact_match\",\"value\":82.931,\"name\"\
+        :\"Exact Match\",\"verified\":false},{\"type\":\"f1\",\"value\":90.756,\"\
+        name\":\"F1\",\"verified\":false}]},{\"task\":{\"type\":\"question-answering\"\
+        ,\"name\":\"Question Answering\"},\"dataset\":{\"name\":\"squadshifts reddit\"\
+        ,\"type\":\"squadshifts\",\"config\":\"reddit\",\"split\":\"test\"},\"metrics\"\
+        :[{\"type\":\"exact_match\",\"value\":71.55,\"name\":\"Exact Match\",\"verified\"\
+        :false},{\"type\":\"f1\",\"value\":82.939,\"name\":\"F1\",\"verified\":false}]}]}]},\"\
+        transformersInfo\":{\"auto_model\":\"AutoModelForQuestionAnswering\",\"pipeline_tag\"\
+        :\"question-answering\",\"processor\":\"AutoTokenizer\"},\"spaces\":[\"microsoft/HuggingGPT\"\
+        ,\"seduerr/semantic_search\",\"razakhan/text-summarizer\",\"anakin87/who-killed-laura-palmer\"\
+        ,\"AmazonScience/QA-NLU\",\"Hellisotherpeople/HF-SHAP\",\"taesiri/HuggingGPT-Lite\"\
+        ,\"Eemansleepdeprived/Study_For_Me_AI\",\"nsethi610/ns-gradio-apps\",\"Wootang01/question_answer\"\
+        ,\"raphaelsty/games\",\"Abhilashvj/haystack_QA\",\"course-demos/question-answering-simple\"\
+        ,\"manishjaiswal/05-SOTA-Question-Answer-From-TextFileContext-Demo\",\"jayesh95/Voice-QA\"\
+        ,\"IsmayilMasimov36/question-answering-app\",\"awacke1/SOTA-Plan\",\"jorge-henao/ask2democracy\"\
+        ,\"amsterdamNLP/attention-rollout\",\"awacke1/CarePlanQnAWithContext\",\"\
+        AIZ2H/05-SOTA-Question-Answer-From-TextFileContext\",\"drift-ai/question-answer-text\"\
+        ,\"emmetmayer/Large-Context-Question-and-Answering\",\"unco3892/real_estate_ie\"\
+        ,\"nkatraga/7.22.CarePlanQnAWithContext\",\"Timjo88/toy-board-game-QA\",\"\
+        HemanthSai7/IntelligentQuestionGenerator\",\"awacke1/NLPContextQATransformersRobertaBaseSquad2\"\
+        ,\"cyberspyde/chatbot-team4\",\"edemgold/QA-App\",\"gulabpatel/Question-Answering_roberta\"\
+        ,\"cpnepo/Harry-Potter-Q-A\",\"awacke1/ContextQuestionAnswerNLP\",\"mishtert/tracer\"\
+        ,\"niksyad/CarePlanQnAWithContext\",\"awacke1/CarePlanQnAWithContext2\",\"\
+        williambr/CarePlanSOTAQnA\",\"sdande11/CarePlanQnAWithContext2\",\"BilalSardar/QuestionAndAnswer\"\
+        ,\"Jonni/05-QandA-from-textfile\",\"Chatop/Lab10\",\"Sasidhar/information-extraction-demo\"\
+        ,\"cshallah/qna-ancient-1\",\"awacke1/NLPDemo1\",\"hhalim/NLPContextQATransformersRobertaBaseSquad2\"\
+        ,\"allieannez/NLPContextQASquad2Demo\",\"sanjayw/nlpDemo1\",\"abhilashb/NLP-Test\"\
+        ,\"ccarr0807/HuggingGPT\",\"theholycityweb/HuggingGPT\",\"camillevanhoffelen/langchain-HuggingGPT\"\
+        ,\"saurshaz/HuggingGPT\",\"Kelvinhjk/QnA_chatbot_for_Swinburne_cs_course\"\
+        ,\"Th3BossC/TranscriptApi\",\"Jaehan/Question-Answering-1\",\"knotmesh/deepset-roberta-base-squad2\"\
+        ,\"Nikhil0987/omm\",\"Manoj21k/Custom-QandA\",\"Jforeverss/finchat222\",\"\
+        aidinro/qqqqqqqqqqqqq\",\"roshithindia/ayureasybot\",\"MachineLearningReply/search_mlReply\"\
+        ,\"Alfasign/HuggingGPT-Lite\",\"AyselRahimli/Project2\",\"Charles95/gradio-tasks\"\
+        ,\"abdala9512/dsrp-demo-example\",\"abidlabs/question-answering\",\"aidan-o-brien/recipe-improver\"\
+        ,\"bentrevett/question-answering\",\"stmnk/patchface\",\"abidlabs/question-answering-simple\"\
+        ,\"utec/SpaceLucasAlmeida\",\"abidlabs/question-answering-demo\",\"abidlabs/quick-qa\"\
+        ,\"docs-demos/roberta-base-squad2\",\"clevo570/Nissan_Project\",\"ziyadbastaili/get_special_meeting\"\
+        ,\"charlesfrye/test-space-117\",\"yadapruk/document-qa\",\"cpnepo/DFA_Press_Release_QnA\"\
+        ,\"PRENT/PR-ENT_Dashboard\",\"peter2000/policy_test\",\"atomiclabs/question_answering\"\
+        ,\"noelfranthomas/LabBot\",\"Lurunchik/nf-cats\",\"jaydeepkum/CarePlanQnaWithContext\"\
+        ,\"santoshsindham/CarePlanQnAWithContext\",\"Myrna/CarePlan\",\"PrafulUHG/CarePlan\"\
+        ,\"Desh/test1\",\"SudarshanaR/CarePlanQnaWithContext\",\"Preetesh/CarePlanQnAWithContext\"\
+        ,\"awacke1/CarePlanSOTAQnA\",\"peekaboo/CarePlanQnA\",\"Vasanthp/CarePlanSOTAQnA\"\
+        ,\"vnemala/CarePlanSOTAQnA\",\"ocordes/CarePlanSOTAQnA\",\"mm2593/CarePlan\"\
+        ,\"MateusA/CarePlanSOTAQnA\",\"vsaripella/CarePlanSOTAQnA\",\"MadhuV28/SOTA-Plan\"\
+        ,\"madara-uchiha/CarePlanQnAContext\",\"burhanaminvaid/CarePlanQnAWithContext\"\
+        ,\"rsatish1110/CareplanQnAwithContext\",\"Sasidhar/ml-playground\",\"Priyabrata017/CarePlanQnAWithContext\"\
+        ,\"freddyaboulton/all_demos\",\"Jai12345/kendra\",\"Saliltrehan7/deepset_roberta-base-squad2\"\
+        ,\"tomcat/AskAndAnswer\",\"tomcat/Ask_and_Answer_v2\",\"shawon100/context-question-answering\"\
+        ,\"Timjo88/monopoly-qa-semantic-search\",\"pjain/StreamlitBasicQA\",\"krrishD/deepset_roberta-base-squad2\"\
+        ,\"clef/PRENT-Demo\",\"p208p2002/Transformer-QA-Decode-Visualize\",\"abidlabs/qa\"\
+        ,\"rajamamoon/Studyforme\",\"jaimin/Bullet_Point\",\"HilaMarcus/Hila\",\"\
+        Ahmedshabana/QA-Sapce\",\"Charmaine/qna\",\"Harsh23Kashyap/QnA-System\",\"\
+        vissu27/deepset-roberta-base-squad2\",\"myeh/QuestionandAnswering\",\"myeh/QA\"\
+        ,\"plasticlabs/qa-prototype-roberta\",\"Carlosito16/Artinity_bot\",\"LeoGitGuy/BounWiki\"\
+        ,\"subrota2k2/qa_roberta\",\"sbudni/sk\",\"LeoGitGuy/BounWikiQA\",\"davidnai/qa_roberta\"\
+        ,\"sharetest2000/qa_roberta\",\"adrien1/test1\",\"VasMir/deepset-roberta-base-squad2\"\
+        ,\"madani/qa_roberta\",\"stmnk/mlrefsqa\",\"Joom/deepset-roberta-base-squad2\"\
+        ,\"Everymans-ai/GPT3-knowledge-management\",\"srimali1234/deepset-roberta-base-squad2\"\
+        ,\"vanishing-grad/sense\",\"eruizgar91/test-Haystack\",\"y595086081/learninguse\"\
+        ,\"vincentclaes/question-answer-text\",\"sedrickkeh/vqa-guessing-game\",\"\
+        sohailq/space1\",\"cbb0214/jiangjiang_mama\",\"SelinSekmen/deepset-roberta-base-squad2\"\
+        ,\"ethanrom/chat2\",\"nassga/Question_answer\",\"JeffMao/sp1\",\"omprakash93/om_test\"\
+        ,\"Louise1001/qa_roberta\",\"Dochee/QA_berta\",\"Betacuckgpt/deepset-roberta-base-squad2\"\
+        ,\"ChunHo/TfNLP\",\"jmartinezot/berteus_test\",\"raghuram13/deepset\",\"kanishka207004/Document_QA\"\
+        ,\"mydisposable/bloodfire\",\"rambocoder/t1000\",\"EricCao/deepset-roberta-base-squad2\"\
+        ,\"keaneu/HuggingGPT\",\"viscosity/HuggingGPT\",\"Mcdof/HuggingGPT\",\"BMukhtar/BMA\"\
+        ,\"chrisW6825/HuggingGPT\",\"Shenziqian/HuggingGPT\",\"lokutus/HuggingGPT\"\
+        ,\"mimiqiao/HuggingGPT\",\"tsgbalakarthik/HuggingGPT\",\"wowochkin/HuggingGPT\"\
+        ,\"Msp/HuggingGPT\",\"sam12321/deepset-roberta-base-squad2\",\"ryan12439/HuggingGPTpub\"\
+        ,\"FANCHIYU/HuggingGPT\",\"Betacuckgpt/HuggingGPT\",\"cashqin/HuggingGPT\"\
+        ,\"felixfriday/MICROSOFTT_JARVIS_HuggingGPT\",\"Meffordh/HuggingGPT\",\"lzqfree/HuggingGPT\"\
+        ,\"bountyfuljr/HuggingGPTplaypublic\",\"mearjunsha/HuggingGPT\",\"turbowed/HuggingGPT\"\
+        ,\"Chokyounghoon/HuggingGPT\",\"JoeMattAI/deepset-roberta-base-squad2\",\"\
+        lollo21/Will-GPT\",\"Pfs2021Funny/HuggingGPT\",\"irritablebro/HuggingGPT\"\
+        ,\"MagKoz/HuggingGPT\",\"zhangdream/HuggingGPT\",\"calliber/HuggingGPT\",\"\
+        Pitak/HuggingGPT\",\"gaocegege/HuggingGPT\",\"jmsdatasci/textasdata\",\"apgarmd/jarvis\"\
+        ,\"apgarmd/jarvis2\",\"mukulnag/HuggingGPT1\",\"Jaggi/deepset-roberta-base-squad2\"\
+        ,\"lugifudun/HuggingGPT\",\"leadmaister/HuggingGPT\",\"pors/HuggingGPT\",\"\
+        diogocarapito/chatmgf\",\"vs4vijay/HuggingGPT\",\"dabbu2000/FinetunedLanguageModel\"\
+        ,\"mckeeboards/HuggingGPT\",\"mastere00/JarvisMeetsProfessor\",\"passthebutter/HuggingGPT\"\
+        ,\"manu1435/HuggingGPT\",\"laohudajinwan/deepset-roberta-base-squad2\",\"\
+        RiyaChougule/Question-Answer-model\",\"NaamanSaif/HuggingGPT\",\"CollaalloC/HuggingGPT\"\
+        ,\"dwolfe66/HuggingGPT\",\"xian-sheng/HuggingGPT\",\"skid-dev/deepset-roberta-base-squad2\"\
+        ,\"PSM272/WikiAI\",\"Aygtljl518866/HuggingGPT\",\"arthi-96/Ponniyin-Selvan-Chatbot\"\
+        ,\"Hemi1403/HuggingGPT\",\"osanseviero/all_nlp_demos\",\"Ekruders/deepset-roberta-base-squad2\"\
+        ,\"trhacknon/HuggingGPT\",\"Vito99/HuggingGPT-Lite\",\"EinfachOlder/HuggingGPT-Lite\"\
+        ,\"Ickbert/gradio_2\",\"innovativeillusions/HuggingGPT\",\"vamgan/deepset-roberta-base-squad2\"\
+        ,\"florymignon/biuma\",\"Namit2111/QA\",\"CazimirRoman/ChatGPTWithWikipedia\"\
+        ,\"nitin77/deepset-roberta-base-squad2\",\"ttphong68/code_5.1\",\"vasevooo/NLP_project\"\
+        ,\"annafilina/NLP_project\",\"ramanakumark/CarePlanQnAWithContext\",\"leFalcon/mi_primer_llm\"\
+        ,\"chillerie/api-test\",\"InvictusRudra/question_answering\",\"fdogmz/qa_test\"\
+        ,\"prlabs2023/question-answere-1\",\"ylavie/HuggingGPT3\",\"ylavie/HuggingGPT-Lite\"\
+        ,\"yewsam1277/question-answering-malaysia\",\"Kelvinhjk/demo1\",\"Diuyilu/qa_roberta\"\
+        ,\"edjdhug3/chatbot-1\",\"mdsadiq/deepset-roberta-base-squad2\",\"CCYAO/HuggingGPT\"\
+        ,\"wangkq1/nlp_test\",\"talentyu/talent_yu_ai\",\"jarvis911/deepset-roberta-base-squad2\"\
+        ,\"TuTM/NLP_Project\",\"kunitakayama/startup\",\"jeromyyap/deepset-roberta-base-squad2\"\
+        ,\"peanut007/qa_roberta\",\"matthartman/PDFreader\",\"awl2023/deepset-roberta-base-squad2\"\
+        ,\"hwayo/qa_roberta\",\"nalanwutuo/test01\",\"shahidkarimi/deepset-roberta-base-squad2\"\
+        ,\"dcams/HuggingGPT\",\"RosyTchoumi/squad_demo\",\"9farccontioshi/TranscriptApi\"\
+        ,\"Vaishali12/docVQA_demo\",\"xlinsdo/deepset-roberta-base-squad2\",\"Seb230/QA_Model\"\
+        ,\"Seb230/Model_Demo\",\"rt22/deepset-roberta-base-squad2\",\"arpitneema/ArpitRobertaBase\"\
+        ,\"jingwora/language-question-answering\",\"Mapleie/deepset-roberta-base-squad2\"\
+        ,\"Jafta/Roberta-QnA\",\"Lucastil2212/ufo-intel\",\"zapliance/deepset-roberta-base-squad2\"\
+        ,\"kalyansworld/Question-Answer\",\"exyou/talk_to_project_nexodus\",\"cndavy/HuggingGPT\"\
+        ,\"yaoqi/question-answering-simple\",\"prasannakram/deepset-roberta-base-squad2\"\
+        ,\"lucas-w/deepset-roberta-base-squad2\",\"bluequijote/qa_robera2\",\"ankitMzluri/deepset-roberta-base-squad2\"\
+        ,\"rganesan2003/laksam\",\"wtlu88/qa_roberta\",\"tianboguang/kuqin0905-02\"\
+        ,\"DineshDyne/QA_test\",\"Ono-Enzo/test-space\",\"abishek-official/Legal-doc-Summarizer\"\
+        ,\"umair894/fastapi-document-qa_plus\",\"umair894/fastapi-document-qa_semantic\"\
+        ,\"WilliamArias/deepset-roberta-base-squad2\",\"hf-dongpyo/qa_roberta\",\"\
+        Krrish4757/deepset-roberta-base-squad2\",\"jcherrya/little_qna\",\"subu4444/basic-nlp-operations\"\
+        ,\"inumulaisk/deepset-roberta-base-squad2\",\"makanaiii/text-summarizer-dublicated\"\
+        ,\"donohara-cmweb/oreilly\",\"Rohankumar31/Prakruti_LLM\",\"gdlunga/halloween-unibo-2023\"\
+        ,\"Manoj21k/Conversational_QandA\",\"Anavya1/text-summarizer\",\"rawezh/deepset-roberta-base-squad2\"\
+        ,\"rm92/test_hf_rm\",\"ZackBradshaw/omni_bot\",\"ketangandhi/my-bot\",\"jayant-yadav/deepset-roberta-base-squad2\"\
+        ,\"cryptokid2017/deepset-roberta-base-squad2\",\"hiert/deepset-roberta-base-squad2\"\
+        ,\"VivekRastogi/deepset-roberta-base-squad2\",\"jackwang2023/qa_roberta\"\
+        ,\"Dzaecko/deepset-roberta-base-squad2\",\"Iosif24/qa_roberta\",\"nsjzg/hotdog-gradio\"\
+        ,\"AashishKumar/deepset-roberta-base-squad2\",\"alexvaroz/first_qa_roberta\"\
+        ,\"dkbs12/Extractive-QA\",\"Tedjoulemo/demo_app\",\"mdkhalid/deepset-roberta-base-squad2\"\
+        ,\"elvisklester/deepset-roberta-base-squad2\",\"homeway/PromptCARE\",\"Nikhil0987/wolf\"\
+        ,\"AhmedMagdy7/deepset-roberta-base-squad2\",\"KakuOG89/deepset-roberta-base-squad2\"\
+        ,\"MJobe/document-vqa-v2\",\"bari135/deepset-roberta-base-squad2\",\"tracinginsights/QuotesBot\"\
+        ,\"JK-TK/practice\",\"yushaobin/deepset-roberta-base-squad2\",\"AsadullaH777/HuggingGPT\"\
+        ,\"Samira21/QA\",\"herMaster/QnA-with-roberta-base-squad2\",\"Psychophoria/deepset-roberta-base-squad2\"\
+        ,\"priyanshu027/deepset-roberta-base-squad2\",\"fsaglam2002/qa_roberta\",\"\
+        yugamj/Finance_chatbot\",\"mindmime/gradio\",\"caovantuan/ai255\",\"deadeye0/druginfoextractor\"\
+        ,\"anshrochan/deepset-roberta-base-squad2\",\"run480/intro_to_transformers\"\
+        ,\"gmpravin/deepset-roberta-base-squad2\",\"watt-wiz/deepset-roberta-base-squad2\"\
+        ,\"Ahmadzei/RAG\",\"GowthamYarlagadda/ContextQuestionAnswerNLP\",\"mikepastor11/PennwickHoneybeeRobot\"\
+        ,\"snehh/task_1\",\"mkkumar/mkk\",\"mohamed20d/deepset-roberta-base-squad2\"\
+        ,\"Greatmonkey/Question_answer_generator_with_pretrained_models\",\"SpawnedShoyo/huh\"\
+        ,\"nneka/QAModel\",\"Nikhil0987/modeltrain\",\"Abhishek0323/Question-and-Answer-Assistant\"\
+        ,\"TrungNQ/qa_roberta\",\"Anirudh1993/EthicalAI\",\"mbasaranoglu/deepset-roberta-base-squad2\"\
+        ,\"Oguzhan26/droneops\",\"Yuangong/qa_johnshen\",\"MachineLearningReply/docwhiz\"\
+        ,\"Mayureshd/senti3\",\"rougeo/deepset-roberta-base-squad2\",\"Anirudh1993/AI-Docwhiz\"\
+        ],\"siblings\":[{\"rfilename\":\".gitattributes\"},{\"rfilename\":\"README.md\"\
+        },{\"rfilename\":\"config.json\"},{\"rfilename\":\"flax_model.msgpack\"},{\"\
+        rfilename\":\"merges.txt\"},{\"rfilename\":\"model.safetensors\"},{\"rfilename\"\
+        :\"pytorch_model.bin\"},{\"rfilename\":\"rust_model.ot\"},{\"rfilename\":\"\
+        special_tokens_map.json\"},{\"rfilename\":\"tf_model.h5\"},{\"rfilename\"\
+        :\"tokenizer_config.json\"},{\"rfilename\":\"vocab.json\"}],\"createdAt\"\
+        :\"2022-03-02T23:29:05.000Z\",\"safetensors\":{\"parameters\":{\"F32\":124056578,\"\
+        I64\":514},\"total\":124057092}}"
+    headers:
+      Access-Control-Allow-Origin:
+      - https://huggingface.co
+      Access-Control-Expose-Headers:
+      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '19949'
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Tue, 09 Apr 2024 08:41:39 GMT
+      ETag:
+      - W/"4ded-yEp/Hh6ELqp7u+y8+iyMGVg5RNw"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Vary:
+      - Origin
+      Via:
+      - 1.1 bb390afd921c223e0fe4921fbc23bbe8.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - tdrVfDdTC1wtB5xQPb_ssr95cLr5x7KbfFdbQViIjY90lTk90ARU8A==
+      X-Amz-Cf-Pop:
+      - PRG50-C1
+      X-Cache:
+      - Miss from cloudfront
+      X-Powered-By:
+      - huggingface-moon
+      X-Request-Id:
+      - Root=1-6614ff43-0616faa57072eb5465dadc88;6efb96f8-6757-491e-a340-8f490bbad0aa
+      cross-origin-opener-policy:
+      - same-origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"options": {"wait_for_model": true, "use_gpu": false}, "inputs": {"question":
+      "What''s my name?"}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '98'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 5899c8f2-2983-4efd-9cc3-f5afb60eef95
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/pipeline/question-answering/deepset/roberta-base-squad2
+  response:
+    body:
+      string: '{"error":"Rate limit reached. Please log in or use a HF access token"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '70'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 09 Apr 2024 08:41:40 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-request-id:
+      - -cYJn1c7Lnpu061LuFbmz
+    status:
+      code: 429
+      message: Too Many Requests
+version: 1

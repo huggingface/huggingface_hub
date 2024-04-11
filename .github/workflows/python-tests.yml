@@ -15,6 +15,9 @@ on:
 jobs:
   build-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      UV_HTTP_TIMEOUT: 600 # max 10min to install deps
+
     strategy:
       fail-fast: false
       matrix:
@@ -139,6 +142,7 @@ jobs:
     runs-on: windows-latest
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
+      UV_HTTP_TIMEOUT: 600 # max 10min to install deps
     strategy:
       fail-fast: false
       matrix:
