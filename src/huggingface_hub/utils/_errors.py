@@ -9,7 +9,7 @@ from ._fixes import JSONDecodeError
 REPO_API_REGEX = re.compile(
     r"""
         # staging or production endpoint
-        ^https://(hub-ci.)?huggingface.co
+        ^https://[^/]+
         (
             # on /api/repo_type/repo_id
             /api/(models|datasets|spaces)/(.+)

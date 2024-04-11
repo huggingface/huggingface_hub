@@ -6,15 +6,24 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
+from pathlib import Path
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
+from fsspec.utils import isfilelike
 from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
-from .file_download import hf_hub_url
+from .constants import (
+    DEFAULT_REVISION,
+    ENDPOINT,
+    REPO_TYPE_MODEL,
+    REPO_TYPES_MAPPING,
+    REPO_TYPES_URL_PREFIXES,
+)
+from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
     EntryNotFoundError,
@@ -591,6 +600,58 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
+    def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
+        """Copy single remote file to local."""
+        revision = kwargs.get("revision")
+        unhandled_kwargs = set(kwargs.keys()) - {"revision"}
+        if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
+            # for now, let's not handle custom callbacks
+            # and let's not handle custom kwargs
+            return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
+
+        # Taken from https://github.com/fsspec/filesystem_spec/blob/47b445ae4c284a82dd15e0287b1ffc410e8fc470/fsspec/spec.py#L883
+        if isfilelike(lpath):
+            outfile = lpath
+        elif self.isdir(rpath):
+            os.makedirs(lpath, exist_ok=True)
+            return None
+
+        if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
+            os.makedirs(os.path.dirname(lpath), exist_ok=True)
+
+        # Open file if not already open
+        close_file = False
+        if outfile is None:
+            outfile = open(lpath, "wb")
+            close_file = True
+        initial_pos = outfile.tell()
+
+        # Custom implementation of `get_file` to use `http_get`.
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        expected_size = self.info(rpath, revision=revision)["size"]
+        callback.set_size(expected_size)
+        try:
+            http_get(
+                url=hf_hub_url(
+                    repo_id=resolve_remote_path.repo_id,
+                    revision=resolve_remote_path.revision,
+                    filename=resolve_remote_path.path_in_repo,
+                    repo_type=resolve_remote_path.repo_type,
+                    endpoint=self.endpoint,
+                ),
+                temp_file=outfile,
+                displayed_filename=rpath,
+                expected_size=expected_size,
+                resume_size=0,
+                headers=self._api._build_hf_headers(),
+                _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+            )
+            outfile.seek(initial_pos)
+        finally:
+            # Close file only if we opened it ourselves
+            if close_file:
+                outfile.close()
+
     @property
     def transaction(self):
         """A context within which files are committed together upon exit
@@ -618,6 +679,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
+            raise
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
@@ -667,6 +729,18 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 path=self.resolved_path.unresolve(),
             )
 
+    def read(self, length=-1):
+        """Read remote file.
+
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
+        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
+        temporary file and read from there.
+        """
+        if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
+            with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
+                return f.read()
+        return super().read(length)
+
     def url(self) -> str:
         return self.fs.url(self.path)
 
@@ -695,7 +769,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
-        # avoid an unecessary .info() call to instantiate .details
+        # avoid an unnecessary .info() call to instantiate .details
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs

@@ -1,9 +1,6 @@
 [tool.mypy]
 ignore_missing_imports = true
 no_implicit_optional = true
-plugins = [
-    "pydantic.mypy",
-]
 scripts_are_modules = true
 
 [tool.pytest.ini_options]

@@ -7,134 +7,19 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
 from requests import HTTPError
 
-from huggingface_hub import InferenceClient
-from huggingface_hub.inference._common import _NON_TGI_SERVERS
-from huggingface_hub.inference._text_generation import (
-    FinishReason,
+from huggingface_hub import InferenceClient, TextGenerationPrefillToken
+from huggingface_hub.inference._common import (
+    _NON_TGI_SERVERS,
     GenerationError,
     IncompleteGenerationError,
-    InputToken,
     OverloadedError,
-    TextGenerationParameters,
-    TextGenerationRequest,
-    TextGenerationStreamResponse,
     raise_text_generation_error,
 )
-from huggingface_hub.inference._text_generation import (
+from huggingface_hub.inference._common import (
     ValidationError as TextGenerationValidationError,
 )
-
-
-class TestTextGenerationTypes(unittest.TestCase):
-    def test_parameters_validation(self):
-        # Test best_of
-        TextGenerationParameters(best_of=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(best_of=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(best_of=-1)
-        TextGenerationParameters(best_of=2, do_sample=True)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(best_of=2)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(best_of=2, seed=1)
-
-        # Test repetition_penalty
-        TextGenerationParameters(repetition_penalty=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(repetition_penalty=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(repetition_penalty=-1)
-
-        # Test seed
-        TextGenerationParameters(seed=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(seed=-1)
-
-        # Test temperature
-        TextGenerationParameters(temperature=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(temperature=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(temperature=-1)
-
-        # Test top_k
-        TextGenerationParameters(top_k=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(top_k=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(top_k=-1)
-
-        # Test top_p
-        TextGenerationParameters(top_p=0.5)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(top_p=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(top_p=-1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(top_p=1)
-
-        # Test truncate
-        TextGenerationParameters(truncate=1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(truncate=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(truncate=-1)
-
-        # Test typical_p
-        TextGenerationParameters(typical_p=0.5)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(typical_p=0)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(typical_p=-1)
-        with self.assertRaises(ValidationError):
-            TextGenerationParameters(typical_p=1)
-
-    def test_request_validation(self):
-        TextGenerationRequest(inputs="test")
-
-        with self.assertRaises(ValidationError):
-            TextGenerationRequest(inputs="")
-
-        TextGenerationRequest(inputs="test", stream=True)
-        TextGenerationRequest(inputs="test", parameters=TextGenerationParameters(best_of=2, do_sample=True))
-
-        with self.assertRaises(ValidationError):
-            TextGenerationRequest(
-                inputs="test", parameters=TextGenerationParameters(best_of=2, do_sample=True), stream=True
-            )
-
-    def test_streaming_response_validation(self):
-        """
-        Regression test for #2005.
-
-        See https://github.com/huggingface/huggingface_hub/issues/2005
-        """
-        json_payload_latest = {
-            "index": 97,
-            "token": {"id": 264, "text": " a", "logprob": -0.0003259182, "special": False},
-            "generated_text": None,
-            "details": None,
-        }
-        TextGenerationStreamResponse(**json_payload_latest)
-
-        json_payload_older_had_no_index = {
-            "token": {"id": 264, "text": " a", "logprob": -0.0003259182, "special": False},
-            "generated_text": None,
-            "details": None,
-        }
-        TextGenerationStreamResponse(**json_payload_older_had_no_index)
-
-        json_payload_without_required_field_token = {
-            "index": 97,
-            "generated_text": None,
-            "details": None,
-        }
-        with self.assertRaises((ValidationError, TypeError)):
-            TextGenerationStreamResponse(**json_payload_without_required_field_token)
 
 
 class TestTextGenerationErrors(unittest.TestCase):
@@ -183,11 +68,11 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = self.client.text_generation("test", details=True, max_new_tokens=1, decoder_input_details=True)
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
         assert len(response.details.prefill) == 1
-        assert response.details.prefill[0] == InputToken(id=0, text="<pad>", logprob=None)
+        assert response.details.prefill[0] == TextGenerationPrefillToken(id=0, text="<pad>", logprob=None)
         assert len(response.details.tokens) == 1
         assert response.details.tokens[0].id == 3
         assert response.details.tokens[0].text == " "
@@ -216,7 +101,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = responses[0]
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
 
@@ -229,7 +114,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         response = responses[0]
 
         assert response.generated_text == ""
-        assert response.details.finish_reason == FinishReason.Length
+        assert response.details.finish_reason == "length"
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
 
@@ -250,3 +135,11 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         # Return as stream raises error
         with self.assertRaises(ValueError):
             self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10, stream=True)
+
+    def test_generate_non_tgi_endpoint_regression_test(self):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
+        with self.assertWarnsRegex(UserWarning, "Ignoring parameters .* 'return_full_text'"):
+            text = self.client.text_generation(
+                prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
+            )
+        assert text == "I am at work"

@@ -52,7 +52,9 @@ HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
-ENDPOINT = os.getenv("HF_ENDPOINT") or ("https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co")
+_HF_DEFAULT_ENDPOINT = "https://huggingface.co"
+_HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
+ENDPOINT = os.getenv("HF_ENDPOINT") or (_HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT)
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
@@ -125,7 +127,7 @@ HF_HUB_DISABLE_TELEMETRY = (
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
 # See https://github.com/huggingface/huggingface_hub/issues/1232
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.path.join(HF_HOME, "token")
+HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
 
 
 if _staging_mode:

@@ -63,13 +63,15 @@ class TextGenerationInput(BaseInferenceType):
     """The text to initialize generation with"""
     parameters: Optional[TextGenerationParameters] = None
     """Additional inference parameters"""
+    stream: Optional[bool] = None
+    """Whether to stream output tokens"""
 
 
-FinishReason = Literal["length", "eos_token", "stop_sequence"]
+TextGenerationFinishReason = Literal["length", "eos_token", "stop_sequence"]
 
 
 @dataclass
-class PrefillToken(BaseInferenceType):
+class TextGenerationPrefillToken(BaseInferenceType):
     id: int
     logprob: float
     text: str
@@ -77,45 +79,50 @@ class PrefillToken(BaseInferenceType):
 
 
 @dataclass
-class Token(BaseInferenceType):
+class TextGenerationOutputToken(BaseInferenceType):
+    """Generated token."""
+
     id: int
-    logprob: float
     special: bool
     """Whether or not that token is a special one"""
     text: str
     """The text associated with that token"""
+    logprob: Optional[float] = None
 
 
 @dataclass
-class TextGenerationSequenceDetails(BaseInferenceType):
-    finish_reason: "FinishReason"
-    """The reason why the generation was stopped."""
-    generated_text: int
+class TextGenerationOutputSequenceDetails(BaseInferenceType):
+    finish_reason: "TextGenerationFinishReason"
+    generated_text: str
     """The generated text"""
     generated_tokens: int
     """The number of generated tokens"""
-    prefill: List[PrefillToken]
-    tokens: List[Token]
+    prefill: List[TextGenerationPrefillToken]
+    tokens: List[TextGenerationOutputToken]
     """The generated tokens and associated details"""
     seed: Optional[int] = None
     """The random seed used for generation"""
+    top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
+    """Most likely tokens"""
 
 
 @dataclass
 class TextGenerationOutputDetails(BaseInferenceType):
     """When enabled, details about the generation"""
 
-    finish_reason: "FinishReason"
+    finish_reason: "TextGenerationFinishReason"
     """The reason why the generation was stopped."""
     generated_tokens: int
     """The number of generated tokens"""
-    prefill: List[PrefillToken]
-    tokens: List[Token]
+    prefill: List[TextGenerationPrefillToken]
+    tokens: List[TextGenerationOutputToken]
     """The generated tokens and associated details"""
-    best_of_sequences: Optional[List[TextGenerationSequenceDetails]] = None
+    best_of_sequences: Optional[List[TextGenerationOutputSequenceDetails]] = None
     """Details about additional sequences when best_of is provided"""
     seed: Optional[int] = None
     """The random seed used for generation"""
+    top_tokens: Optional[List[List[TextGenerationOutputToken]]] = None
+    """Most likely tokens"""
 
 
 @dataclass
@@ -126,3 +133,29 @@ class TextGenerationOutput(BaseInferenceType):
     """The generated text"""
     details: Optional[TextGenerationOutputDetails] = None
     """When enabled, details about the generation"""
+
+
+@dataclass
+class TextGenerationStreamDetails(BaseInferenceType):
+    """Generation details. Only available when the generation is finished."""
+
+    finish_reason: "TextGenerationFinishReason"
+    """The reason why the generation was stopped."""
+    generated_tokens: int
+    """The number of generated tokens"""
+    seed: int
+    """The random seed used for generation"""
+
+
+@dataclass
+class TextGenerationStreamOutput(BaseInferenceType):
+    """Text Generation Stream Output"""
+
+    token: TextGenerationOutputToken
+    """Generated token."""
+    details: Optional[TextGenerationStreamDetails] = None
+    """Generation details. Only available when the generation is finished."""
+    generated_text: Optional[str] = None
+    """The complete generated text. Only available when the generation is finished."""
+    index: Optional[int] = None
+    """The token index within the stream. Optional to support older clients that omit it."""
