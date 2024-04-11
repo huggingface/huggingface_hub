@@ -1,6 +1,6 @@
 # 추론 엔드포인트 [[inference-endpoints]]
 
-Hugging Face가 관리하는 추론 엔드포인트는 우리가 모델을 쉽고 안전하게 배포할 수 있게 해주는 도구입니다. 이러한 추론 엔드포인트는 [Hub](https://huggingface.co/models)에 있는 모델을 기반으로 설계되었습니다. 이 문서는 `huggingface_hub`와 추론 엔드포인트 통합에 관한 기술적 자료로써, 더욱 자세한 정보는 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)를 통해 확인할 수 있습니다.
+Hugging Face가 관리하는 추론 엔드포인트는 우리가 모델을 쉽고 안전하게 배포할 수 있게 해주는 도구입니다. 이러한 추론 엔드포인트는 [Hub](https://huggingface.co/models)에 있는 모델을 기반으로 설계되었습니다. 이 문서는 `huggingface_hub`와 추론 엔드포인트 통합에 관한 참조 페이지이며, 더욱 자세한 정보는 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)를 통해 확인할 수 있습니다.
 
 <Tip>
 
