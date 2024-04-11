@@ -30,8 +30,8 @@
       title: (번역 중) Cache
     - local: guides/model-cards
       title: 모델 카드
-    - local: in_translation
-      title: (번역 중) Manage your Space
+    - local: guides/manage-spaces
+      title: Space 관리
     - local: in_translation
       title: (번역 중) Integrate a library
     - local: in_translation
