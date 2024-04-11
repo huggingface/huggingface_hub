@@ -2,11 +2,11 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 스페이스 런타임 관리[[managing-your-space-runtime]]
+# Space 런타임 관리[[managing-your-space-runtime]]
 
-[`HfApi`] 문서 페이지를 확인하여 Hub에서 스페이스를 관리하는 메소드에 대한 참조를 확인하세요.
+Hub의 Space를 관리하는 메소드에 대한 자세한 설명은 [`HfApi`]페이지를 확인하세요.
 
-- 스페이스 복제: [`duplicate_space`]
+- Space 복제: [`duplicate_space`]
 - 현재 런타임 가져오기: [`get_space_runtime`]
 - 보안 관리: [`add_space_secret`] 및 [`delete_space_secret`]
 - 하드웨어 관리: [`request_space_hardware`]
