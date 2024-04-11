@@ -32,8 +32,8 @@
       title: 모델 카드
     - local: in_translation
       title: (번역 중) Manage your Space
-    - local: in_translation
-      title: (번역 중) Integrate a library
+    - local: guides/integrations
+      title: 라이브러리 통합
     - local: in_translation
       title: (번역 중) Webhooks server
 - title: "(번역 중) 개념 가이드"
