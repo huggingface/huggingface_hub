@@ -20,6 +20,7 @@ from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
+from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.commands.user import UserCommands
 
@@ -36,6 +37,7 @@ def main():
     LfsCommands.register_subcommand(commands_parser)
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)
+    TagCommands.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()
