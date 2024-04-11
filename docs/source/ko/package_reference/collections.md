@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # 컬렉션 관리[[managing-collections]]
 
-[`HfApi`] 문서 페이지에서 Hub에서 스페이스를 관리하는 메소드에 대한 참조를 확인하세요.
+Hub에서 Space를 관리하는 메소드에 대한 자세한 설명은 [`HfApi`] 페이지를 확인하세요.
 
 - 컬렉션 내용 가져오기: [`get_collection`]
 - 새로운 컬렉션 생성: [`create_collection`]
