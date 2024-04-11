@@ -130,8 +130,8 @@ class ModelHubMixin:
 
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
-    >>> reloaded_model._hub_mixin_config
-    {"size": 256, "device": "gpu"}
+    >>> reloaded_model.size
+    256
 
     # Model card has been correctly populated
     >>> from huggingface_hub import ModelCard
