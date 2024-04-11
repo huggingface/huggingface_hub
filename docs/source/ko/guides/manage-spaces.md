@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 공간 관리하기[[manage-your-space]]
+# Space 관리하기[[manage-your-space]]
 
 이 가이드에서는 `huggingface_hub`를 사용하여 Space 런타임([보안 정보](https://huggingface.co/docs/hub/spaces-overview#managing-secrets), [하드웨어](https://huggingface.co/docs/hub/spaces-gpus) 및 [저장소](https://huggingface.co/docs/hub/spaces-storage#persistent-storage))를 관리하는 방법을 살펴보겠습니다.
 
