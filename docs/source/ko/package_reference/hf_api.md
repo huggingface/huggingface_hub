@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # HfApi Client[[hfapi-client]]
 
-아래는 허깅 페이스 허브의 API를 위한 파이썬 래퍼인 `HfApi` 클래스에 대한 문서입니다.
+아래는 허깅 페이스 Hub의 API를 위한 파이썬 래퍼인 `HfApi` 클래스에 대한 문서입니다.
 
 `HfApi`의 모든 메서드는 패키지의 루트에서 직접 접근할 수 있습니다. 두 접근 방식은 아래에서 자세히 설명합니다.
 
