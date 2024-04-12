@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Generator, Literal, Optional, Tuple, Type, Union
 from urllib.parse import quote, urlparse
 
 import requests
@@ -24,6 +24,7 @@ import requests
 from huggingface_hub import constants
 
 from . import __version__  # noqa: F401 # for backward compatibility
+from ._local_folder import local_file_path, local_lock_path, read_download_metadata, write_download_metadata
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,
     DEFAULT_REQUEST_TIMEOUT,
@@ -1255,97 +1256,36 @@ def hf_hub_download(
     commit_hash = None
     expected_size = None
     head_call_error: Optional[Exception] = None
+
+    # Try to get metadata from the server.
+    # Do not raise yet if the file is not found or not accessible.
     if not local_files_only:
-        try:
-            try:
-                metadata = get_hf_file_metadata(
-                    url=url,
-                    token=token,
-                    proxies=proxies,
-                    timeout=etag_timeout,
-                    library_name=library_name,
-                    library_version=library_version,
-                    user_agent=user_agent,
-                )
-            except EntryNotFoundError as http_error:
-                # Cache the non-existence of the file and raise
-                commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
-                if commit_hash is not None and not legacy_cache_layout:
-                    no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
-                    no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
-                    no_exist_file_path.touch()
-                    _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
-                raise
+        metadata_or_error = _get_metadata_or_catch_error(
+            url=url,
+            token=token,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            headers=headers,
+            storage_folder=storage_folder,
+            revision=revision,
+            relative_filename=relative_filename,
+        )
 
-            # Commit hash must exist
-            commit_hash = metadata.commit_hash
-            if commit_hash is None:
-                raise FileMetadataError(
-                    "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
-                    " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
-                    " and proxy settings and make sure your SSL certificates are updated."
-                )
-
-            # Etag must exist
+        if isinstance(metadata_or_error, Exception):
+            head_call_error = metadata_or_error
+        else:
+            assert isinstance(metadata_or_error, HfFileMetadata)
+            metadata = metadata_or_error
             etag = metadata.etag
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            # If we don't have any of those, raise an error.
-            if etag is None:
-                raise FileMetadataError(
-                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
-                )
-
-            # Expected (uncompressed) size
+            commit_hash = metadata.commit_hash
             expected_size = metadata.size
+            url_to_download = metadata.location
 
-            # In case of a redirect, save an extra redirect on the request.get call,
-            # and ensure we download the exact atomic version even if it changed
-            # between the HEAD and the GET (unlikely, but hey).
-            #
-            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
-            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
-            if metadata.location != url:
-                url_to_download = metadata.location
-                if urlparse(url).netloc != urlparse(url_to_download).netloc:
-                    # Remove authorization header when downloading a LFS blob
-                    headers.pop("authorization", None)
-        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
-            # Actually raise for those subclasses of ConnectionError
-            raise
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
-        ) as error:
-            # Otherwise, our Internet connection is down.
-            # etag is None
-            head_call_error = error
-            pass
-        except (RevisionNotFoundError, EntryNotFoundError):
-            # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
-            raise
-        except requests.HTTPError as error:
-            # Multiple reasons for an http error:
-            # - Repository is private and invalid/missing token sent
-            # - Repository is gated and invalid/missing token sent
-            # - Hub is down (error 500 or 504)
-            # => let's switch to 'local_files_only=True' to check if the files are already cached.
-            #    (if it's not the case, the error will be re-raised)
-            head_call_error = error
-            pass
-        except FileMetadataError as error:
-            # Multiple reasons for a FileMetadataError:
-            # - Wrong network configuration (proxy, firewall, SSL certificates)
-            # - Inconsistency on the Hub
-            # => let's switch to 'local_files_only=True' to check if the files are already cached.
-            #    (if it's not the case, the error will be re-raised)
-            head_call_error = error
-            pass
-
-    assert (
-        local_files_only or etag is not None or head_call_error is not None
-    ), "etag is empty due to uncovered problems"
+    if not (local_files_only or etag is not None or head_call_error is not None):
+        raise RuntimeError("etag is empty due to uncovered problems")
 
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
@@ -1528,6 +1468,101 @@ def hf_hub_download(
     return pointer_path
 
 
+def hf_hub_download_local_dir(
+    repo_id: str,
+    filename: str,
+    commit_hash: str,
+    etag: Optional[str],
+    local_dir: Union[str, Path],
+    *,
+    subfolder: Optional[str] = None,
+    repo_type: Optional[str] = None,
+    revision: Optional[str] = None,
+    library_name: Optional[str] = None,
+    library_version: Optional[str] = None,
+    cache_dir: Union[str, Path, None] = None,
+    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+    user_agent: Union[Dict, str, None] = None,
+    force_download: bool = False,
+    force_filename: Optional[str] = None,
+    proxies: Optional[Dict] = None,
+    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+    resume_download: bool = False,
+    token: Union[bool, str, None] = None,
+    local_files_only: bool = False,
+    headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+) -> str:
+    local_dir = Path(local_dir)
+    local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
+    file_path = local_file_path(local_dir, filename)
+    lock_path = local_lock_path(local_dir, filename)
+
+    if local_files_only:
+        if file_path.is_file():
+            return str(file_path)
+        raise LocalEntryNotFoundError(
+            "Cannot find the requested file in local folder and outgoing traffic has been disabled. To enable"
+            " hf.co look-ups and downloads online, set 'local_files_only=False'."
+        )
+
+    # Local file exists + metadata exists + commit_hash matches => return file
+    if file_path.is_file() and local_metadata is not None and local_metadata.commit_hash == commit_hash:
+        return str(file_path)
+
+    # Local file doesn't exist or commit_hash doesn't match => we need the etag
+    if etag is None:
+        metadata_or_error = _get_metadata_or_catch_error(
+            url=hf_hub_url(
+                repo_id,
+                filename,
+                subfolder=subfolder,
+                repo_type=repo_type,
+                revision=revision,
+                endpoint=endpoint,
+            ),
+            token=token,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            library_name=library_name,
+            library_version=library_version,
+            user_agent=user_agent,
+            headers=headers,
+            storage_folder=cache_dir,
+            revision=revision,
+            relative_filename=filename,
+        )
+        etag = metadata_or_error.etag
+
+    # Local file exists + etag matches => update metadata and return file
+    if file_path.is_file() and local_metadata is not None and local_metadata.etag == etag:
+        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+        return str(file_path)
+
+    # Local file doesn't exist or etag doesn't match => retrieve file from remote (or cache)
+
+    # If we are lucky enough, the file is already in the cache => copy it
+    cached_path = try_to_load_from_cache(
+        repo_id=repo_id,
+        filename=filename,
+        cache_dir=cache_dir,
+        revision=revision,
+        repo_type=repo_type,
+    )
+    if isinstance(cached_path, str):
+        with WeakFileLock(lock_path):
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(cached_path, file_path)
+        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+        return str(file_path)
+
+    # Let's download the file
+    # http_get() + resume_download
+    # copy + write metadata
+    # return
+    return str(file_path)
+
+
 @validate_hf_hub_args
 def try_to_load_from_cache(
     repo_id: str,
@@ -1694,6 +1729,110 @@ def get_hf_file_metadata(
         location=r.headers.get("Location") or r.request.url,  # type: ignore
         size=_int_or_none(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")),
     )
+
+
+def _get_metadata_or_catch_error(
+    *,
+    url: str,
+    token: Union[bool, str, None],
+    proxies: Optional[Dict],
+    etag_timeout: Optional[float],
+    library_name: Optional[str],
+    library_version: Optional[str],
+    user_agent: Union[Dict, str, None],
+    headers: Optional[Dict[str, str]],
+    storage_folder: str,
+    revision: str,
+    relative_filename: str,
+) -> Union[HfFileMetadata, Type[Exception]]:
+    """Get metadata for a file on the Hub, safely handling network issues.
+
+    Returns either the etag, commit_hash and expected size of the file, or the error
+    raised while fetching the metadata.
+
+    NOTE: This function mutates `headers` inplace! It removes the `authorization` header
+          if the file is a LFS blob and the domain of the url is different from the
+          domain of the location (typically an S3 bucket).
+    """
+    try:
+        try:
+            metadata = get_hf_file_metadata(
+                url=url,
+                token=token,
+                proxies=proxies,
+                timeout=etag_timeout,
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
+            )
+        except EntryNotFoundError as http_error:
+            # Cache the non-existence of the file and raise
+            commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+            if commit_hash is not None:
+                no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
+                no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
+                no_exist_file_path.touch()
+                _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+            raise
+
+        # Commit hash must exist
+        commit_hash = metadata.commit_hash
+        if commit_hash is None:
+            raise FileMetadataError(
+                "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
+                " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
+                " and proxy settings and make sure your SSL certificates are updated."
+            )
+
+        # Etag must exist
+        # If we don't have any of those, raise an error.
+        if metadata.etag is None:
+            raise FileMetadataError(
+                "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
+            )
+
+        # In case of a redirect, save an extra redirect on the request.get call,
+        # and ensure we download the exact atomic version even if it changed
+        # between the HEAD and the GET (unlikely, but hey).
+        #
+        # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
+        # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
+        if url != metadata.location:
+            if urlparse(url).netloc != urlparse(metadata.location).netloc:
+                # Remove authorization header when downloading a LFS blob
+                headers.pop("authorization", None)
+
+        return metadata
+    except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+        # Actually raise for those subclasses of ConnectionError
+        raise
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        OfflineModeIsEnabled,
+    ) as error:
+        # Otherwise, our Internet connection is down.
+        # etag is None
+        return error
+    except (RevisionNotFoundError, EntryNotFoundError):
+        # The repo was found but the revision or entry doesn't exist on the Hub (never existed or got deleted)
+        raise
+    except requests.HTTPError as error:
+        # Multiple reasons for an http error:
+        # - Repository is private and invalid/missing token sent
+        # - Repository is gated and invalid/missing token sent
+        # - Hub is down (error 500 or 504)
+        # => let's switch to 'local_files_only=True' to check if the files are already cached.
+        #    (if it's not the case, the error will be re-raised)
+        return error
+        pass
+    except FileMetadataError as error:
+        # Multiple reasons for a FileMetadataError:
+        # - Wrong network configuration (proxy, firewall, SSL certificates)
+        # - Inconsistency on the Hub
+        # => let's switch to 'local_files_only=True' to check if the files are already cached.
+        #    (if it's not the case, the error will be re-raised)
+        return error
 
 
 def _int_or_none(value: Optional[str]) -> Optional[int]:
