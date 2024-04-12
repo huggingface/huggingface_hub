@@ -57,13 +57,39 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 from .utils import WeakFileLock
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LocalDownloadFilePaths:
+    """
+    Paths to the files related to a download process in a local dir.
+
+    Returned by `get_local_download_paths`.
+
+    Attributes:
+        file_path (`Path`):
+            Path where the file will be saved.
+        lock_path (`Path`):
+            Path to the lock file used to ensure atomicity when reading/writing metadata.
+        metadata_path (`Path`):
+            Path to the metadata file.
+    """
+
+    file_path: Path
+    lock_path: Path
+    metadata_path: Path
+
+    def incomplete_path(self, etag: str) -> Path:
+        """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
+        return self.metadata_path.with_suffix(f".{etag}.incomplete")
 
 
 @dataclass
@@ -89,8 +115,11 @@ class LocalDownloadFileMetadata:
     timestamp: int
 
 
-def local_file_path(local_dir: Path, filename: str) -> Path:
-    """Compute path to a file in the local directory.
+@lru_cache(maxsize=128)  # ensure singleton
+def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
+    """Compute paths to the files related to a download process.
+
+    Folders containing the paths are all guaranteed to exist.
 
     Args:
         local_dir (`Path`):
@@ -99,42 +128,18 @@ def local_file_path(local_dir: Path, filename: str) -> Path:
             Path of the file in the repo.
 
     Return:
-        `Path`: the path to the file.
+        [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
-    return local_dir / _normalize_filename(filename)
+    # filename is the path in the Hub repository (separated by '/')
+    # make sure to have a cross platform transcription
+    sanitized_filename = os.path.join(*filename.split("/"))
+    file_path = local_dir / sanitized_filename
+    metadata_path = local_dir / ".huggingface" / "download" / f"{sanitized_filename}.metadata"
+    lock_path = metadata_path.with_suffix(".lock")
 
-
-def local_lock_path(local_dir: Path, filename: str) -> Path:
-    """Compute path to the lock file for a file in the local directory.
-
-    It is the same lock as for the metadata file.
-    Folder containing the lock file is guaranteed to exist.
-
-    Args:
-        local_dir (`Path`):
-            Path to the local directory in which files are downloaded.
-        filename (`str`):
-            Path of the file in the repo.
-
-    Return:
-        `Path`: the path to the lock file.
-    """
-    return _download_metadata_file_path(local_dir, filename)[0]
-
-
-def local_tmp_path(local_dir: Path, filename: str) -> Path:
-    """Compute path where the file will be downloaded to before being moved to correct destination.
-
-    Args:
-        local_dir (`Path`):
-            Path to the local directory in which files are downloaded.
-        filename (`str`):
-            Path of the file in the repo.
-
-    Return:
-        `Path`: the path to the temporary file.
-    """
-    return _download_metadata_file_path(local_dir, filename)[1].with_suffix(".incomplete")
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    return LocalDownloadFilePaths(file_path=file_path, lock_path=lock_path, metadata_path=metadata_path)
 
 
 def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDownloadFileMetadata]:
@@ -149,15 +154,13 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
     Return:
         `[LocalDownloadFileMetadata]` or `None`: the metadata if it exists, `None` otherwise.
     """
-    # file_path => path where file is downloaded
-    # metadata_path => path where metadata is stored
-    # lock_path => path to lock file to ensure atomic read/write of metadata
-    file_path = local_file_path(local_dir, filename)
-    lock_path, metadata_path = _download_metadata_file_path(local_dir, filename)
-    with WeakFileLock(lock_path):
-        if metadata_path.exists():
+    paths = get_local_download_paths(local_dir, filename)
+    # file_path = local_file_path(local_dir, filename)
+    # lock_path, metadata_path = _download_metadata_file_path(local_dir, filename)
+    with WeakFileLock(paths.lock_path):
+        if paths.metadata_path.exists():
             try:
-                with metadata_path.open() as f:
+                with paths.metadata_path.open() as f:
                     metadata = json.load(f)
                     metadata = LocalDownloadFileMetadata(
                         filename=filename,
@@ -167,15 +170,17 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
                     )
             except Exception as e:
                 # remove the metadata file if it is corrupted / not a json / not the right format
-                logger.warning(f"Invalid metadata file {metadata_path}: {e}. Removing it from disk and continue.")
+                logger.warning(
+                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
+                )
                 try:
-                    metadata_path.unlink()
+                    paths.metadata_path.unlink()
                 except Exception as e:
-                    logger.warning(f"Could not remove corrupted metadata file {metadata_path}: {e}")
+                    logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
 
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
-                stat = file_path.stat()
+                stat = paths.file_path.stat()
                 if stat.st_mtime <= metadata.timestamp:
                     return metadata
                 logger.info(f"Ignoring metadata as file has been modified since metadata was saved ({filename}).")
@@ -192,42 +197,7 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
         local_dir (`Path`):
             Path to the local directory in which files are downloaded.
     """
-    lock_path, metadata_path = _download_metadata_file_path(local_dir, filename)
-    with WeakFileLock(lock_path):
-        with metadata_path.open("w") as f:
+    paths = get_local_download_paths(local_dir, filename)
+    with WeakFileLock(paths.lock_path):
+        with paths.metadata_path.open("w") as f:
             json.dump({"commit_hash": commit_hash, "etag": etag, "timestamp": int(time.time())}, f, indent=4)
-
-
-def _download_metadata_file_path(local_dir: Path, filename: str) -> Tuple[Path, Path]:
-    """Compute path to the metadata file for a given file in the local directory.
-
-    Args:
-        local_dir (`Path`):
-            Path to the local directory in which files are downloaded.
-        filename (`str`):
-            Path of the file in the repo.
-
-    Return:
-        `Tuple[Path, Path]`: a tuple (`lock_path`, `metadata_path`). You must use the lock_path to read or write in the
-                             metadata file. You are guaranteed the folder that should contain the files exists but
-                             the files themselves might not exist.
-    """
-    path = local_dir / ".huggingface" / "download" / f"{_normalize_filename(filename)}.metadata"
-    lock_path = path.with_suffix(".lock")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return lock_path, path
-
-
-def _normalize_filename(filename: str) -> str:
-    """Normalize a filename to be cross-platform.
-
-    Args:
-        filename (`str`):
-            Path of the file in the repo.
-
-    Return:
-        `str`: the normalized filename.
-    """
-    # filename is the path in the Hub repository (separated by '/')
-    # make sure to have a cross platform transcription
-    return os.path.join(*filename.split("/"))
