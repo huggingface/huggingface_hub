@@ -22,8 +22,8 @@
       title: 리포지토리
     - local: guides/search
       title: Hub에서 검색하기
-    - local: in_translation
-      title: (번역 중) Inference
+    - local: guides/inference
+      title: 추론
     - local: guides/community
       title: 커뮤니티
     - local: in_translation

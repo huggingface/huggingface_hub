@@ -185,8 +185,8 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 >>> model = MyModel(hidden_size=128)
 
 # Config is automatically created based on input + default values
->>> model._hub_mixin_config
-{"hidden_size": 128, "vocab_size": 30000, "output_size": 4}
+>>> model.param.shape[0]
+128
 
 # 2. (optional) Save model to local directory
 >>> model.save_pretrained("path/to/my-awesome-model")
@@ -196,8 +196,8 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 
 # 4. Initialize model from the Hub => config has been preserved
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
->>> model._hub_mixin_config
-{"hidden_size": 128, "vocab_size": 30000, "output_size": 4}
+>>> model.param.shape[0]
+128
 
 # Model card has been correctly populated
 >>> from huggingface_hub import ModelCard
