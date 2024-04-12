@@ -1430,7 +1430,6 @@ def hf_hub_download_local_dir(
     local_dir: Union[str, Path],
     subfolder: Optional[str] = None,
     repo_type: Optional[str] = None,
-    revision: Optional[str] = None,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
@@ -1501,12 +1500,14 @@ def hf_hub_download_local_dir(
 
     # Local file doesn't exist or etag doesn't match => retrieve file from remote (or cache)
 
+    # TODO: if file exists + etag is a sha256 => compute local hash and compare?
+
     # If we are lucky enough, the file is already in the cache => copy it
     cached_path = try_to_load_from_cache(
         repo_id=repo_id,
         filename=filename,
         cache_dir=cache_dir,
-        revision=revision,
+        revision=commit_hash,
         repo_type=repo_type,
     )
     if isinstance(cached_path, str):
