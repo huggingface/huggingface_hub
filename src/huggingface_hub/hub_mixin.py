@@ -44,7 +44,7 @@ DEFAULT_MODEL_CARD = """
 {{ card_data }}
 ---
 
-This model has been pushed to the Hub using the https://huggingface.co/docs/huggingface_hub/package_reference/mixins#huggingface_hub.PyTorchModelHubMixin:
+This model has been pushed to the Hub using the [PytorchModelHubMixin](https://huggingface.co/docs/huggingface_hub/package_reference/mixins#huggingface_hub.PyTorchModelHubMixin) integration:
 - Library: {{ repo_url | default("[More Information Needed]", true) }}
 - Docs: {{ docs_url | default("[More Information Needed]", true) }}
 """
