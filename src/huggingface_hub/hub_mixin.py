@@ -257,6 +257,8 @@ class ModelHubMixin:
                 not provided.
             kwargs:
                 Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
+        Returns:
+            `str` or `None`: url of the commit on the Hub if `push_to_hub=True`, `None` otherwise.
         """
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
