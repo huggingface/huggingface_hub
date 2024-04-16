@@ -507,14 +507,14 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     def __dir__():
         return __all__
 
-    if os.environ.get("EAGER_IMPORT", ""):
-        for attr in set(attr_to_modules.keys()) | submodules:
-            __getattr__(attr)
-
     return __getattr__, __dir__, list(__all__)
 
 
 __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
+
+if os.environ.get("EAGER_IMPORT", ""):
+    for attr in __all__:
+        __getattr__(attr)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !
