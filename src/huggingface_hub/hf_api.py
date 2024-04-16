@@ -2056,7 +2056,8 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().post(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
 
@@ -2103,7 +2104,8 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().delete(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
 
@@ -2184,7 +2186,11 @@ class HfApi:
 
     @validate_hf_hub_args
     def list_repo_likers(
-        self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
     ) -> List[User]:
         """
         List all users who liked a given repo on the hugging Face Hub.
@@ -2621,11 +2627,7 @@ class HfApi:
             ```
         """
         url = hf_hub_url(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=revision,
-            filename=filename,
-            endpoint=self.endpoint,
+            repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
         )
         try:
             if token is None:
@@ -2871,9 +2873,9 @@ class HfApi:
             branches=[_format_as_git_ref_info(item) for item in data["branches"]],
             converts=[_format_as_git_ref_info(item) for item in data["converts"]],
             tags=[_format_as_git_ref_info(item) for item in data["tags"]],
-            pull_requests=(
-                [_format_as_git_ref_info(item) for item in data["pullRequests"]] if include_pull_requests else None
-            ),
+            pull_requests=[_format_as_git_ref_info(item) for item in data["pullRequests"]]
+            if include_pull_requests
+            else None,
         )
 
     @validate_hf_hub_args
@@ -3034,7 +3036,7 @@ class HfApi:
         hf_raise_for_status(response)
         paths_info = response.json()
         return [
-            (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
+            RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
             for path_info in paths_info
         ]
 
@@ -8088,12 +8090,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def cancel_access_request(
-        self,
-        repo_id: str,
-        user: str,
-        *,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """
         Cancel an access request from a user for a given gated repo.
@@ -8130,12 +8127,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def accept_access_request(
-        self,
-        repo_id: str,
-        user: str,
-        *,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """
         Accept an access request from a user for a given gated repo.
@@ -8174,12 +8166,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def reject_access_request(
-        self,
-        repo_id: str,
-        user: str,
-        *,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """
         Reject an access request from a user for a given gated repo.
@@ -8239,12 +8226,7 @@ class HfApi:
 
     @validate_hf_hub_args
     def grant_access(
-        self,
-        repo_id: str,
-        user: str,
-        *,
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Optional[str] = None
     ) -> None:
         """
         Grant access to a user for a given gated repo.
