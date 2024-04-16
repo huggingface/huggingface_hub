@@ -53,6 +53,7 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 @dataclass
 class MixinInfo:
     library_name: Optional[str] = None
+    pipeline_tag: Optional[str] = None
     tags: Optional[List[str]] = None
     repo_url: Optional[str] = None
     docs_url: Optional[str] = None
@@ -75,6 +76,8 @@ class ModelHubMixin:
             Name of the library integrating ModelHubMixin. Used to generate model card.
         tags (`List[str]`, *optional*):
             Tags to be added to the model card. Used to generate model card.
+        pipeline_tag (`str`, *optional*):
+            Tag of the pipeline. Used to generate model card. e.g. "text-classification".
         repo_url (`str`, *optional*):
             URL of the library repository. Used to generate model card.
         docs_url (`str`, *optional*):
@@ -156,6 +159,7 @@ class ModelHubMixin:
         cls,
         *,
         library_name: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
@@ -169,6 +173,7 @@ class ModelHubMixin:
         cls._hub_mixin_info = MixinInfo(
             library_name=library_name,
             tags=tags,
+            pipeline_tag=pipeline_tag,
             repo_url=repo_url,
             docs_url=docs_url,
         )
