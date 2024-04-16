@@ -2104,8 +2104,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().delete(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
 
@@ -2497,7 +2496,13 @@ class HfApi:
         )
 
     @validate_hf_hub_args
-    def repo_exists(self, repo_id: str, *, repo_type: Optional[str] = None, token: Optional[str] = None) -> bool:
+    def repo_exists(
+        self,
+        repo_id: str,
+        *,
+        repo_type: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> bool:
         """
         Checks if a repository exists on the Hugging Face Hub.
 
@@ -8631,9 +8636,7 @@ def _prepare_upload_folder_additions(
             path_in_repo=prefix + relpath,  # "absolute" path in repo
         )
         for relpath in filter_repo_objects(
-            relpath_to_abspath.keys(),
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
+            relpath_to_abspath.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
         )
     ]
 
