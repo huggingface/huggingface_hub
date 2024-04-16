@@ -541,17 +541,13 @@ class RepoFile:
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(
-                oid=last_commit["id"],
-                title=last_commit["title"],
-                date=parse_datetime(last_commit["date"]),
+                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
         security = kwargs.pop("security", None)
         if security is not None:
             security = BlobSecurityInfo(
-                safe=security["safe"],
-                av_scan=security["avScan"],
-                pickle_import_scan=security["pickleImportScan"],
+                safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
             )
         self.security = security
 
@@ -585,9 +581,7 @@ class RepoFolder:
         last_commit = kwargs.pop("lastCommit", None) or kwargs.pop("last_commit", None)
         if last_commit is not None:
             last_commit = LastCommitInfo(
-                oid=last_commit["id"],
-                title=last_commit["title"],
-                date=parse_datetime(last_commit["date"]),
+                oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
 
@@ -1031,13 +1025,7 @@ class CollectionItem:
     note: Optional[str] = None
 
     def __init__(
-        self,
-        _id: str,
-        id: str,
-        type: CollectionItemType_T,
-        position: int,
-        note: Optional[Dict] = None,
-        **kwargs,
+        self, _id: str, id: str, type: CollectionItemType_T, position: int, note: Optional[Dict] = None, **kwargs
     ) -> None:
         self.item_object_id: str = _id  # id in database
         self.item_id: str = id  # repo_id or paper id
@@ -2068,8 +2056,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().post(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
 
@@ -2116,8 +2103,7 @@ class HfApi:
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL
         response = get_session().delete(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(response)
 
@@ -2692,11 +2678,7 @@ class HfApi:
         return [
             f.rfilename
             for f in self.list_repo_tree(
-                repo_id=repo_id,
-                recursive=True,
-                revision=revision,
-                repo_type=repo_type,
-                token=token,
+                repo_id=repo_id, recursive=True, revision=revision, repo_type=repo_type, token=token
             )
             if isinstance(f, RepoFile)
         ]
@@ -2829,11 +2811,7 @@ class HfApi:
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
         tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
-        for path_info in paginate(
-            path=tree_url,
-            headers=headers,
-            params={"recursive": recursive, "expand": expand},
-        ):
+        for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
             yield (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
 
     @validate_hf_hub_args
