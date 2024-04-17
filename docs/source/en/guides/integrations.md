@@ -282,7 +282,7 @@ In the section above, we quickly discussed how the [`ModelHubMixin`] works. In t
 
 #### Model card
 
-[`ModelHubMixin`] handles generating a model card for you. Model cards are files that accompany the models and provide handy information. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check-out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide handy information. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check-out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
 
 Generating models cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This is very practical to make all models using your library easily searchable on the Hub and to provide some resource links for users landing on the Hub. You can define them directly when inheriting from [`ModelHubMixin`]:
 
