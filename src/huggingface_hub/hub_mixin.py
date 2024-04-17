@@ -52,9 +52,8 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 
 @dataclass
 class MixinInfo:
-    library_name: Optional[str] = None
-    pipeline_tag: Optional[str] = None
-    tags: Optional[List[str]] = None
+    model_card_template: str
+    model_card_data: ModelCardData
     repo_url: Optional[str] = None
     docs_url: Optional[str] = None
 
@@ -158,11 +157,18 @@ class ModelHubMixin:
     def __init_subclass__(
         cls,
         *,
-        library_name: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
+        # Model card template
+        model_card_template: str = DEFAULT_MODEL_CARD,
+        # Model card metadata
+        languages: Optional[List[str]] = None,
+        library_name: Optional[str] = None,
+        license: Optional[str] = None,
+        license_name: Optional[str] = None,
+        license_url: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
+        tags: Optional[List[str]] = None,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -171,11 +177,18 @@ class ModelHubMixin:
         tags = tags or []
         tags.append("model_hub_mixin")
         cls._hub_mixin_info = MixinInfo(
-            library_name=library_name,
-            tags=tags,
-            pipeline_tag=pipeline_tag,
+            model_card_template=model_card_template,
             repo_url=repo_url,
             docs_url=docs_url,
+            model_card_data=ModelCardData(
+                languages=languages,
+                library_name=library_name,
+                license=license,
+                license_name=license_name,
+                license_url=license_url,
+                pipeline_tag=pipeline_tag,
+                tags=tags,
+            ),
         )
 
         # Inspect __init__ signature to handle config
@@ -560,8 +573,10 @@ class ModelHubMixin:
 
     def generate_model_card(self, *args, **kwargs) -> ModelCard:
         card = ModelCard.from_template(
-            card_data=ModelCardData(**asdict(self._hub_mixin_info)),
-            template_str=DEFAULT_MODEL_CARD,
+            card_data=self._hub_mixin_info.model_card_data,
+            template_str=self._hub_mixin_info.model_card_template,
+            repo_url=self._hub_mixin_info.repo_url,
+            docs_url=self._hub_mixin_info.docs_url,
         )
         return card
 
