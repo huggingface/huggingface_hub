@@ -295,7 +295,7 @@ class UniDepthV1(
    docs_url=...,
    pipeline_tag="depth-estimation",
    license="cc-by-nc-4.0",
-   tags=["monocular-metric-depth-estimation"]
+   tags=["monocular-metric-depth-estimation", "arxiv:1234.56789"]
 ):
    ...
 ```
@@ -420,6 +420,7 @@ In the snippet above, both the internal logic and the `__init__` signature of th
    2. The decoder expects as input raw data (typically a dictionary) and reconstruct the initial object. This will be used when loading the model with `from_pretrained`.
 3. Add a type annotation to the `__init__` signature. This is important to let the mixin know which type is expected by the class (and therefore which decoder to use).
 
+For the sake of simplicity, the encoder/decoder functions in the example above are not robust. For a concrete implementation, you would most likely have to handle corner cases properly.
 
 ## Quick comparison
 
