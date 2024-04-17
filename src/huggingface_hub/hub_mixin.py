@@ -76,6 +76,8 @@ class ModelHubMixin:
     `__init__` but to the class definition itself. This is useful to define metadata about the library integrating
     [`ModelHubMixin`].
 
+    For more details on how to integrate the mixin with your library, checkout the [integration guide](../guides/integrations).
+
     Args:
         repo_url (`str`, *optional*):
             URL of the library repository. Used to generate model card.
@@ -658,6 +660,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
     Implementation of [`ModelHubMixin`] to provide model Hub upload/download capabilities to PyTorch models. The model
     is set in evaluation mode by default using `model.eval()` (dropout modules are deactivated). To train the model,
     you should first set it back in training mode with `model.train()`.
+
+    See [`ModelHubMixin`] for more details on how to use the mixin.
 
     Example:
 
