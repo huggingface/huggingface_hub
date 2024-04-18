@@ -70,7 +70,7 @@
       title: (번역 중) Repo Cards and Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
-    - local: in_translation
-      title: (번역 중) TensorBoard logger
+    - local: package_reference/tensorboard
+      title: TensorBoard 로거
     - local: in_translation
       title: (번역 중) Webhooks server
