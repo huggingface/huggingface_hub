@@ -2,28 +2,28 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Serialization
+# 직렬화[[serialization]]
 
-`huggingface_hub` contains helpers to help ML libraries to serialize models weights in a standardized way. This part of the lib is still under development and will be improved in future releases. The goal is to harmonize how weights are serialized on the Hub, both to remove code duplication across libraries and to foster conventions on the Hub.
+`huggingface_hub`에는 ML 라이브러리가 모델 가중치를 표준화된 방식으로 직렬화할 수 있도록 돕는 헬퍼를 포함하고 있습니다. 이 라이브러리의 부분은 아직 개발 중이며 향후 버전에서 개선될 예정입니다. 이러한 개선의 목표는 Hub에서 가중치의 직렬화 방식을 통일하고, 라이브러리 간 코드 중복을 줄이며, Hub에서의 규약을 촉진하는 것입니다.
 
-## Split state dict into shards
+## 상태 사전을 조각으로 나누기[[split-state-dict-into-shards]]
 
-At the moment, this module contains a single helper that takes a state dictionary (e.g. a mapping between layer names and related tensors) and split it into several shards, while creating a proper index in the process. This helper is available for `torch`, `tensorflow` and `numpy` tensors and is designed to be easily extended to any other ML frameworks.
+현재 이 모듈은 상태 딕셔너리(예: 레이어 이름과 관련 텐서 간의 매핑)를 받아 여러 조각으로 나누고, 이 과정에서 적절한 인덱스를 생성하는 단일 헬퍼를 포함하고 있습니다. 이 헬퍼는 torch, tensorflow, numpy 텐서에 사용 가능하며, 다른 ML 프레임워크로 쉽게 확장될 수 있도록 설계되었습니다.
 
-### split_numpy_state_dict_into_shards
+### split_numpy_state_dict_into_shards[[huggingface_hub.split_numpy_state_dict_into_shards]]
 
 [[autodoc]] huggingface_hub.split_numpy_state_dict_into_shards
 
-### split_tf_state_dict_into_shards
+### split_tf_state_dict_into_shards[[huggingface_hub.split_tf_state_dict_into_shards]]
 
 [[autodoc]] huggingface_hub.split_tf_state_dict_into_shards
 
-### split_torch_state_dict_into_shards
+### split_torch_state_dict_into_shards[[huggingface_hub.split_torch_state_dict_into_shards]]
 
 [[autodoc]] huggingface_hub.split_torch_state_dict_into_shards
 
-### split_state_dict_into_shards_factory
+### split_state_dict_into_shards_factory[[huggingface_hub.split_state_dict_into_shards_factory]]
 
-This is the underlying factory from which each framework-specific helper is derived. In practice, you are not expected to use this factory directly except if you need to adapt it to a framework that is not yet supported. If that is the case, please let us know by [opening a new issue](https://github.com/huggingface/huggingface_hub/issues/new) on the `huggingface_hub` repo.
+이것은 각 프레임워크별 헬퍼가 파생되는 기본 틀입니다. 실제로는 아직 지원되지 않는 프레임워크에 맞게 조정할 필요가 있는 경우가 아니면 이 틀을 직접 사용할 것으로 예상되지 않습니다. 그런 경우가 있다면, `huggingface_hub` 리포지토리에 [새로운 이슈를 개설](https://github.com/huggingface/huggingface_hub/issues/new) 하여 알려주세요.
 
 [[autodoc]] huggingface_hub.split_state_dict_into_shards_factory
