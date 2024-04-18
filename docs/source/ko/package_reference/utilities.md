@@ -6,14 +6,14 @@ rendered properly in your Markdown viewer.
 
 ## 로깅 구성[[huggingface_hub.utils.logging.get_verbosity]]
 
-`huggingface_hub` 패키지는 패키지 로깅 수준을 제어하기 위한 `logging` 유틸리티를 제공합니다. 
+`huggingface_hub` 패키지는 패키지 로그 레벨을 제어하기 위한 `logging` 유틸리티를 제공합니다. 
 다음과 같이 가져올 수 있습니다:
 
 ```py
 from huggingface_hub import logging
 ```
 
-그런 다음, 로그의 출력 수를 업데이트하기 위해 로깅 수준을 정의할 수 있습니다:
+그런 다음, 로그의 출력 수를 업데이트하기 위해 로그 레벨을 정의할 수 있습니다:
 
 ```python
 from huggingface_hub import logging
@@ -26,7 +26,7 @@ logging.set_verbosity_debug()
 logging.set_verbosity(...)
 ```
 
-로깅 수준은 다음과 같이 이해하면 됩니다:
+로그 레벨은 다음과 같이 이해하면 됩니다:
 
 - `error`: 오류 또는 예기치 않은 동작으로 이어질 수 있는 결정적인 로그만 표시합니다.
 - `warning`:  결정적이진 않지만 의도치 않은 동작을 초래할 수 있는 로그를 표시합니다. 또한 중요한 정보를 포함한 로그도 표시될 수 있습니다.
@@ -42,9 +42,9 @@ logging.set_verbosity(...)
 [[autodoc]] logging.disable_propagation
 [[autodoc]] logging.enable_propagation
 
-### 리포지토리별 도우미 메서드[[huggingface_hub.utils.logging.get_logger]]
+### 리포지토리별 도우미 메소드[[huggingface_hub.utils.logging.get_logger]]
 
-아래 제공된 메서드들은 `huggingface_hub` 라이브러리 모듈을 수정할 때 관련이 있습니다. `huggingface_hub`를 사용하고 해당 모듈을 수정하지 않는 경우에는 사용할 필요가 없습니다.
+아래 제공된 메소드들은 `huggingface_hub` 라이브러리 모듈을 수정할 때 관련이 있습니다. `huggingface_hub`를 사용하고 해당 모듈을 수정하지 않는 경우에는 사용할 필요가 없습니다.
 
 [[autodoc]] logging.get_logger
 
@@ -101,7 +101,7 @@ True
 
 ### 예외 발생[[huggingface_hub.utils.hf_raise_for_status]]
 
-[`~utils.hf_raise_for_status`]는 Hub에 대한 모든 요청에서 "상태를 확인하고 예외를 발생시키는" 중앙 메서드로 사용됩니다. 이 메서드는 기본 `requests.raise_for_status`를 감싸서 추가 정보를 제공합니다. 발생된 모든 `HTTPError`는 `HfHubHTTPError`로 변환됩니다.
+[`~utils.hf_raise_for_status`]는 Hub에 대한 모든 요청에서 "상태를 확인하고 예외를 발생시키는" 중앙 메소드로 사용됩니다. 이 메서드는 기본 `requests.raise_for_status`를 감싸서 추가 정보를 제공합니다. 발생된 모든 `HTTPError`는 `HfHubHTTPError`로 변환됩니다.
 
 ```py
 import requests
@@ -170,11 +170,11 @@ except HfHubHTTPError as e:
 
 ## 검증기[[validators]]
 
-`huggingface_hub`에는 메서드 인수를 자동으로 유효성 검사하는 사용자 정의 검증기가 포함되어 있습니다. 이 유효성 검사는 타입 힌트를 검증하는 데 [Pydantic](https://pydantic-docs.helpmanual.io/)의 작업을 참고하여 구현되었지만, 기능은 더 제한적입니다.
+`huggingface_hub`에는 메소드 인수를 자동으로 유효성 검사하는 사용자 정의 검증기가 포함되어 있습니다. 이 유효성 검사는 타입 힌트를 검증하는 데 [Pydantic](https://pydantic-docs.helpmanual.io/)의 작업을 참고하여 구현되었지만, 기능은 더 제한적입니다.
 
 ### 일반 데코레이터[[generic-decorator]]
 
-[`~utils.validate_hf_hub_args`]는 `huggingface_hub`의 네이밍을 따르는 인수를 갖는 메서드를 캡슐화하는 일반적인 데코레이터입니다. 기본적으로 구현된 검증기가 있는 모든 인수가 유효성 검사됩니다.
+[`~utils.validate_hf_hub_args`]는 `huggingface_hub`의 네이밍을 따르는 인수를 갖는 메소드를 캡슐화하는 일반적인 데코레이터입니다. 기본적으로 구현된 검증기가 있는 모든 인수가 유효성 검사됩니다.
 
 입력이 유효하지 않은 경우 [`~utils.HFValidationError`]이 발생합니다. 첫 번째 유효하지 않은 값만 오류를 발생시키고 유효성 검사 프로세스를 중지합니다.
 
