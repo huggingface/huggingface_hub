@@ -143,7 +143,7 @@ your library, you should:
     model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well documented and type annotated. Finally, the download count on the Hub will also work out of the box.
+The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. The [`ModelHubMixin`] also ensures public methods are documented and type annotated, and you'll be able to view your model's download count on the Hub. All of this is handled by the [`ModelHubMixin`] and available to your users.
 
 ### A concrete example: PyTorch
 
@@ -278,13 +278,13 @@ And that's it! Your library now enables users to upload and download files to an
 
 ### Advanced usage
 
-In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some more advanced features the mixin offers to improve the integration of your library with the Hugging Face Hub.
+In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some of its more advanced features to improve your library integration with the Hugging Face Hub.
 
 #### Model card
 
-[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide handy information. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check-out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide important information about them. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
 
-Generating models cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This is very practical to make all models using your library easily searchable on the Hub and to provide some resource links for users landing on the Hub. You can define them directly when inheriting from [`ModelHubMixin`]:
+Generating model cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This makes all models backed by your library easily searchable on the Hub and provides some resource links for users landing on the Hub. You can define the metadata directly when inheriting from [`ModelHubMixin`]:
 
 ```py
 class UniDepthV1(
@@ -352,11 +352,11 @@ class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
 
 #### Config
 
-[`ModelHubMixin`] handles the model configuration for you. It automatically checks the input values when you instantiate the model and serialize them in a `config.json` file. This files has 2 advantages:
+[`ModelHubMixin`] handles the model configuration for you. It automatically checks the input values when you instantiate the model and serializes them in a `config.json` file. This provides 2 benefits:
 1. Users will be able to reload the model with the exact same parameters as you.
 2. Having a `config.json` file automatically enables analytics on the Hub (i.e. the "downloads" count).
 
-But how does it work in practice? There are several rules applied to make the process as smooth as possible from a user perspective:
+But how does it work in practice? Several rules make the process as smooth as possible from a user perspective:
 - if your `__init__` method expects a `config` input, it will be automatically saved in the repo as `config.json`.
 - if the `config` input parameter is annotated with a dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you.
 - all values passed at initialization will also be stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it.
@@ -378,7 +378,7 @@ model.save_pretrained(...)
 {"value": "my_value", "size": 3}
 ```
 
-But what if a value cannot be serialized as JSON? By default, the value will be ignored when saving the config file. However, in some cases your library already expects a custom object as input that cannot be serialized and you don't want to update your internal logic to update its type. No worries! You can pass custom encoders/decoders for any type when inheriting from [`ModelHubMixin`]. This is a bit more work but ensures to keep your internal logic untouched when integrating your library with the Hub.
+But what if a value cannot be serialized as JSON? By default, the value will be ignored when saving the config file. However, in some cases your library already expects a custom object as input that cannot be serialized, and you don't want to update your internal logic to update its type. No worries! You can pass custom encoders/decoders for any type when inheriting from [`ModelHubMixin`]. This is a bit more work but ensures your internal logic is untouched when integrating your library with the Hub.
 
 Here is a concrete example where a class expects a `argparse.Namespace` config as input:
 
@@ -414,11 +414,11 @@ class VoiceCraft(
 ```
 
 In the snippet above, both the internal logic and the `__init__` signature of the class did not change. This means all existing code snippets for your library will continue to work. To achieve this, we had to:
-1. Inherit from the mixin (`PytorchModelHubMixin` in this case)
+1. Inherit from the mixin (`PytorchModelHubMixin` in this case).
 2. Pass a `coders` parameter in the inheritance. This is a dictionary where keys are custom types you want to process. Values are a tuple `(encoder, decoder)`.
-   1. The encoder expects as input an object of the specified type and returns a jsonable value. This will be used when saving a model with `save_pretrained`.
-   2. The decoder expects as input raw data (typically a dictionary) and reconstruct the initial object. This will be used when loading the model with `from_pretrained`.
-3. Add a type annotation to the `__init__` signature. This is important to let the mixin know which type is expected by the class (and therefore which decoder to use).
+   - The encoder expects an object of the specified type as input and returns a jsonable value. This will be used when saving a model with `save_pretrained`.
+   - The decoder expects raw data (typically a dictionary) as input and reconstructs the initial object. This will be used when loading the model with `from_pretrained`.
+3. Add a type annotation to the `__init__` signature. This is important to let the mixin know which type is expected by the class and, therefore, which decoder to use.
 
 For the sake of simplicity, the encoder/decoder functions in the example above are not robust. For a concrete implementation, you would most likely have to handle corner cases properly.
 
