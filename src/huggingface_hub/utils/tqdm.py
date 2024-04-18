@@ -80,12 +80,19 @@ progress_bar_states: Dict[str, bool] = {}
 
 def disable_progress_bars(name: Optional[str] = None) -> None:
     """
-    Disable progress bars globally or for a specific group in `huggingface_hub`, except when overridden by
-    the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+    Disable progress bars either globally or for a specified group.
+
+    This function updates the state of progress bars based on a group name.
+    If no group name is provided, all progress bars are disabled. The operation
+    respects the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable's setting.
 
     Args:
         name (`str`, *optional*):
-            Specific group to disable progress bars for. If None, disables globally.
+            The name of the group for which to disable the progress bars. If None,
+            progress bars are disabled globally.
+
+    Raises:
+        Warning: If the environment variable precludes changes.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is False:
         warnings.warn(
@@ -105,12 +112,19 @@ def disable_progress_bars(name: Optional[str] = None) -> None:
 
 def enable_progress_bars(name: Optional[str] = None) -> None:
     """
-    Enable progress bars globally or for a specific group in `huggingface_hub`, except when overridden by
-    the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+    Enable progress bars either globally or for a specified group.
+
+    This function sets the progress bars to enabled for the specified group or globally
+    if no group is specified. The operation is subject to the `HF_HUB_DISABLE_PROGRESS_BARS`
+    environment setting.
 
     Args:
-        name (Optional[str]):
-            Specific group to enable progress bars for. If None, enables globally.
+        name (`str`, *optional*):
+            The name of the group for which to enable the progress bars. If None,
+            progress bars are enabled globally.
+
+    Raises:
+        Warning: If the environment variable precludes changes.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         warnings.warn(
@@ -132,15 +146,16 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     """
     Check if progress bars are disabled globally or for a specific group.
 
-    This respects the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable first, then checks
-    programmatic settings. If a group name is provided, it checks for that specific group's
-    setting, unless overridden by the environment variable.
+    This function returns whether progress bars are disabled for a given group or globally.
+    It checks the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable first, then the programmatic
+    settings.
 
     Args:
-        name (`str`, *optional*): Group name to check; if None, checks the global setting.
+        name (`str`, *optional*):
+            The group name to check; if None, checks the global setting.
 
     Returns:
-        `bool`: True if disabled, False otherwise.
+        `bool`: True if progress bars are disabled, False otherwise.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         return True
