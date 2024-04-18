@@ -59,7 +59,7 @@ import io
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Optional, Union
+from typing import Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
@@ -75,60 +75,7 @@ from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 # progress bar visibility through code. By default, progress bars are turned on.
 
 
-progress_bar_states = {}
-
-
-def _set_progress_bar_state(name: Optional[str], enabled: bool) -> None:
-    """
-    Set the state of a progress bar group, creating the hierarchy as needed.
-
-    Args:
-        name (`str`, *optional*):
-            The name of the progress bar group.
-        enabled (`bool`):
-            Whether the progress bar group should be enabled or not.
-
-
-    """
-    if name is None:
-        name = ""
-    parts = name.split(".")
-    current_level = progress_bar_states
-
-    for part in parts[:-1]:
-        if part not in current_level:
-            current_level[part] = {}
-        current_level = current_level[part]
-
-    current_level[parts[-1]] = enabled
-
-
-def _get_progress_bar_state(name: Optional[str]) -> bool:
-    """
-    Get the state of a progress bar group.
-
-    Args:
-        name (`str`, *optional*):
-            The name of the progress bar group.
-
-    Returns:
-        `bool`: Whether the progress bar group is enabled or not.
-    """
-    if name is None:
-        name = ""
-    parts = name.split(".")
-    current_level = progress_bar_states
-
-    for part in parts:
-        if part in current_level:
-            if isinstance(current_level[part], dict):
-                current_level = current_level[part]
-            else:
-                return current_level[part]
-        else:
-            break
-
-    return True
+progress_bar_states: Dict[str, bool] = {}
 
 
 def disable_progress_bars(name: Optional[str] = None) -> None:
@@ -146,7 +93,14 @@ def disable_progress_bars(name: Optional[str] = None) -> None:
         )
         return
 
-    _set_progress_bar_state(name, False)
+    if name is None:
+        progress_bar_states.clear()
+        progress_bar_states["_global"] = False
+    else:
+        keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
+        for key in keys_to_remove:
+            del progress_bar_states[key]
+        progress_bar_states[name] = False
 
 
 def enable_progress_bars(name: Optional[str] = None) -> None:
@@ -164,7 +118,14 @@ def enable_progress_bars(name: Optional[str] = None) -> None:
         )
         return
 
-    _set_progress_bar_state(name, True)
+    if name is None:
+        progress_bar_states.clear()
+        progress_bar_states["_global"] = True
+    else:
+        keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
+        for key in keys_to_remove:
+            del progress_bar_states[key]
+        progress_bar_states[name] = True
 
 
 def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
@@ -183,7 +144,16 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         return True
-    return not _get_progress_bar_state(name)
+
+    if name is None:
+        return not progress_bar_states.get("_global", True)
+
+    while name:
+        if name in progress_bar_states:
+            return not progress_bar_states[name]
+        name = ".".join(name.split(".")[:-1])
+
+    return not progress_bar_states.get("_global", True)
 
 
 class tqdm(old_tqdm):
