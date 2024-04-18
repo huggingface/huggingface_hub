@@ -53,6 +53,25 @@ Example:
     for _ in tqdm(range(5)):
        do_something()
     ```
+
+Hierarchical Control Example:
+    ```python
+    # Disable progress bars for a specific group
+    disable_progress_bars("peft.foo")
+
+    # Check state of different groups
+    print(are_progress_bars_disabled("peft"))         # Outputs: False
+    print(are_progress_bars_disabled("peft.something"))  # Outputs: False
+    print(are_progress_bars_disabled("peft.foo"))       # Outputs: True
+    print(are_progress_bars_disabled("peft.foo.bar"))   # Outputs: True
+
+    # Enable progress bars for a subgroup
+    enable_progress_bars("peft.foo.bar")
+
+    # Check if enabling a subgroup affects the parent group
+    print(are_progress_bars_disabled("peft.foo"))       # Outputs: True
+    print(are_progress_bars_disabled("peft.foo.bar"))   # Outputs: False
+    ```
 """
 
 import io
