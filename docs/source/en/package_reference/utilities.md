@@ -63,7 +63,6 @@ By default, progress bars are enabled. You can disable them globally by setting 
 environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and
 [`~utils.disable_progress_bars`]. If set, the environment variable has priority on the helpers.
 
-
 ```py
 >>> from huggingface_hub import snapshot_download
 >>> from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars
@@ -79,6 +78,30 @@ True
 
 >>> # Re-enable progress bars globally
 >>> enable_progress_bars()
+```
+
+### Group-specific control of progress bars
+
+You can also enable or disable progress bars for specific groups. This allows you to manage progress bar visibility more granularly within different parts of your application or library. When a progress bar is disabled for a group, all subgroups under it are also affected unless explicitly overridden.
+
+```py
+>>> # Disable progress bars for a specific group
+>>> disable_progress_bars("peft.foo")
+>>> are_progress_bars_disabled("peft")
+False
+>>> are_progress_bars_disabled("peft.something")
+False
+>>> are_progress_bars_disabled("peft.foo")
+True
+>>> are_progress_bars_disabled("peft.foo.bar")
+True
+
+>>> # Re-enable progress bars for a subgroup
+>>> enable_progress_bars("peft.foo.bar")
+>>> are_progress_bars_disabled("peft.foo")
+True
+>>> are_progress_bars_disabled("peft.foo.bar")
+False
 ```
 
 ### are_progress_bars_disabled
