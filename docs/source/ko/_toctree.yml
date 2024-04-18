@@ -69,7 +69,7 @@
     - local: in_translation
       title: (번역 중) Repo Cards and Repo Card Data
     - local: package_reference/space_runtime.md
-      title: 스페이스 런타임
+      title: Space 런타임
     - local: in_translation
       title: (번역 중) TensorBoard logger
     - local: in_translation
