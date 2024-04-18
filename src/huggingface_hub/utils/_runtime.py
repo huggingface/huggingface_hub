@@ -30,6 +30,7 @@ _package_versions = {}
 _CANDIDATES = {
     "aiohttp": {"aiohttp"},
     "fastai": {"fastai"},
+    "fastapi": {"fastapi"},
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
@@ -103,6 +104,15 @@ def is_fastai_available() -> bool:
 
 def get_fastai_version() -> str:
     return _get_version("fastai")
+
+
+# FastAPI
+def is_fastapi_available() -> bool:
+    return is_package_available("fastapi")
+
+
+def get_fastapi_version() -> str:
+    return _get_version("fastapi")
 
 
 # Fastcore

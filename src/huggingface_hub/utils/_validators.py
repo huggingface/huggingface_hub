@@ -21,6 +21,8 @@ from functools import wraps
 from itertools import chain
 from typing import Any, Dict
 
+from huggingface_hub.errors import HFValidationError
+
 from ._typing import CallableT
 
 
@@ -35,13 +37,6 @@ REPO_ID_REGEX = re.compile(
     """,
     flags=re.VERBOSE,
 )
-
-
-class HFValidationError(ValueError):
-    """Generic exception thrown by `huggingface_hub` validators.
-
-    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
-    """
 
 
 def validate_hf_hub_args(fn: CallableT) -> CallableT:
