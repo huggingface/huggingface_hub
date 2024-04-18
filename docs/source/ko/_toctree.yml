@@ -34,8 +34,8 @@
       title: (번역 중) Manage your Space
     - local: in_translation
       title: (번역 중) Integrate a library
-    - local: in_translation
-      title: (번역 중) Webhooks server
+    - local: guides/webhooks_server
+      title: 웹훅 서버
 - title: "(번역 중) 개념 가이드"
   sections:
     - local: concepts/git_vs_http
