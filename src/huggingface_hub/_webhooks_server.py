@@ -20,15 +20,19 @@ import os
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from .utils import experimental, is_gradio_available
+from .utils import experimental, is_fastapi_available, is_gradio_available
 
 
 if TYPE_CHECKING:
     import gradio as gr
+    from fastapi import Request
 
-
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+if is_fastapi_available():
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+else:
+    # Will fail at runtime if FastAPI is not available
+    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
 
 
 _global_app: Optional["WebhooksServer"] = None
@@ -94,6 +98,11 @@ class WebhooksServer:
         if not is_gradio_available():
             raise ImportError(
                 "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio`"
+                " first."
+            )
+        if not is_fastapi_available():
+            raise ImportError(
+                "You must have `fastapi` installed to use `WebhooksServer`. Please run `pip install --upgrade fastapi`"
                 " first."
             )
         return super().__new__(cls)
