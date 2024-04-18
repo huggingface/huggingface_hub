@@ -183,8 +183,9 @@ def test_fetch(mock_get: Mock):
     assert endpoint.url == "https://vksrvs8pc1xnifhq.us-east-1.aws.endpoints.huggingface.cloud"
 
 
+@patch("huggingface_hub._inference_endpoints.get_session")
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
-def test_wait_until_running(mock_get: Mock):
+def test_wait_until_running(mock_get: Mock, mock_session: Mock):
     """Test waits waits until the endpoint is ready."""
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
 
@@ -194,11 +195,18 @@ def test_wait_until_running(mock_get: Mock):
         InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo"),
         InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo"),
         InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo"),
+        InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo"),
     ]
+    mock_session.return_value = Mock()
+    mock_session.return_value.get.side_effect = [
+        Mock(status_code=400),  # url is provisioned but not yet ready
+        Mock(status_code=200),  # endpoint is ready
+    ]
+
     endpoint.wait(refresh_every=0.01)
 
     assert endpoint.status == "running"
-    assert len(mock_get.call_args_list) == 5
+    assert len(mock_get.call_args_list) == 6
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
@@ -216,7 +224,7 @@ def test_wait_timeout(mock_get: Mock):
         endpoint.wait(timeout=0.1, refresh_every=0.05)
 
     assert endpoint.status == "pending"
-    assert len(mock_get.call_args_list) == 3
+    assert len(mock_get.call_args_list) == 2
 
 
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
