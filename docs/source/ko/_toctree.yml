@@ -22,8 +22,8 @@
       title: 리포지토리
     - local: guides/search
       title: Hub에서 검색하기
-    - local: in_translation
-      title: (번역 중) Inference
+    - local: guides/inference
+      title: 추론
     - local: guides/community
       title: 커뮤니티
     - local: in_translation
@@ -34,8 +34,8 @@
       title: (번역 중) Manage your Space
     - local: in_translation
       title: (번역 중) Integrate a library
-    - local: in_translation
-      title: (번역 중) Webhooks server
+    - local: guides/webhooks_server
+      title: 웹훅 서버
 - title: "(번역 중) 개념 가이드"
   sections:
     - local: concepts/git_vs_http
@@ -44,35 +44,37 @@
   sections:
     - local: package_reference/overview
       title: 개요
-    - local: in_translation
-      title: (번역 중) Login and logout
+    - local: package_reference/login
+      title: 로그인 및 로그아웃
     - local: in_translation
       title: (번역 중) Environment variables
     - local: in_translation
       title: (번역 중) Managing local and online repositories
     - local: in_translation
       title: (번역 중) Hugging Face Hub API
-    - local: in_translation
-      title: (번역 중) Downloading files
+    - local: package_reference/file_download
+      title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Mixins & serialization methods
-    - local: in_translation
-      title: (번역 중) Inference Client
+    - local: package_reference/inference_client
+      title: 추론 클라이언트
+    - local: package_reference/inference_endpoints
+      title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) HfFileSystem
     - local: in_translation
       title: (번역 중) Utilities
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
-    - local: in_translation
-      title: (번역 중) Cache-system reference
+    - local: package_reference/cache
+      title: 캐시 시스템 참조
     - local: in_translation
       title: (번역 중) Repo Cards and Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
     - local: package_reference/collections
       title: 컬렉션 관리
-    - local: in_translation
-      title: (번역 중) TensorBoard logger
+    - local: package_reference/tensorboard
+      title: TensorBoard 로거
     - local: in_translation
       title: (번역 중) Webhooks server
