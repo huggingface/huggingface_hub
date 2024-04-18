@@ -58,10 +58,10 @@ Hub에 파일을 업로드 하려면 허깅페이스 계정으로 로그인해�
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder",
-...     path_in_repo="my-dataset/train", # Upload to a specific folder
+...     path_in_repo="my-dataset/train", # 특정 폴더에 업로드
 ...     repo_id="username/test-dataset",
 ...     repo_type="dataset",
-...     ignore_patterns="**/logs/*.txt", # Ignore all text logs
+...     ignore_patterns="**/logs/*.txt", # 모든 로그 텍스트 파일을 무시
 ... )
 ```
 
@@ -75,8 +75,8 @@ Hub에 파일을 업로드 하려면 허깅페이스 계정으로 로그인해�
 ...     folder_path="/path/to/local/folder/logs",
 ...     repo_id="username/trained-model",
 ...     path_in_repo="experiment/logs/",
-...     allow_patterns="*.txt", # Upload all local text files
-...     delete_patterns="*.txt", # Delete all remote text files before
+...     allow_patterns="*.txt", # 모든 로컬 텍스트 파일을 업로드
+...     delete_patterns="*.txt", # 모든 이전 텍스트 파일을 삭제
 ... )
 ```
 
@@ -117,7 +117,7 @@ CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#hugg
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> future = api.upload_folder( # Upload in the background (non-blocking action)
+>>> future = api.upload_folder( # 백그라운드에서 업로드 작업 수행 (논블로킹)
 ...     repo_id="username/my-model",
 ...     folder_path="checkpoints-001",
 ...     run_as_future=True,
@@ -126,7 +126,7 @@ CLI 업로드 명령어에 대한 자세한 내용은 [CLI 가이드](./cli#hugg
 Future(...)
 >>> future.done()
 False
->>> future.result() # Wait for the upload to complete (blocking action)
+>>> future.result() # 업로드가 완료될 때까지 대기 (블로킹)
 ...
 ```
 
