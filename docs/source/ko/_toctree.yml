@@ -44,8 +44,8 @@
   sections:
     - local: package_reference/overview
       title: 개요
-    - local: in_translation
-      title: (번역 중) Login and logout
+    - local: package_reference/login
+      title: 로그인 및 로그아웃
     - local: in_translation
       title: (번역 중) Environment variables
     - local: in_translation
@@ -72,7 +72,7 @@
       title: (번역 중) Repo Cards and Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
-    - local: in_translation
-      title: (번역 중) TensorBoard logger
+    - local: package_reference/tensorboard
+      title: TensorBoard 로거
     - local: in_translation
       title: (번역 중) Webhooks server
