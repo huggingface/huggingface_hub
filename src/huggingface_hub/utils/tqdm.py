@@ -57,20 +57,26 @@ Example:
 Hierarchical Control Example:
     ```python
     # Disable progress bars for a specific group
-    disable_progress_bars("peft.foo")
+    >>> disable_progress_bars("peft.foo")
 
     # Check state of different groups
-    print(are_progress_bars_disabled("peft"))         # Outputs: False
-    print(are_progress_bars_disabled("peft.something"))  # Outputs: False
-    print(are_progress_bars_disabled("peft.foo"))       # Outputs: True
-    print(are_progress_bars_disabled("peft.foo.bar"))   # Outputs: True
+    >>> are_progress_bars_disabled("peft"))
+    False
+    >>> are_progress_bars_disabled("peft.something")
+    False
+    >>> are_progress_bars_disabled("peft.foo"))
+    True
+    >>> are_progress_bars_disabled("peft.foo.bar"))
+    True
 
     # Enable progress bars for a subgroup
-    enable_progress_bars("peft.foo.bar")
+    >>> enable_progress_bars("peft.foo.bar")
 
     # Check if enabling a subgroup affects the parent group
-    print(are_progress_bars_disabled("peft.foo"))       # Outputs: True
-    print(are_progress_bars_disabled("peft.foo.bar"))   # Outputs: False
+    >>> are_progress_bars_disabled("peft.foo"))
+    True
+    >>> are_progress_bars_disabled("peft.foo.bar"))
+    False
     ```
 """
 
