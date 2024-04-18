@@ -1,4 +1,3 @@
-import copy
 import os
 import re
 import tempfile
@@ -397,7 +396,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
                 out.append(cache_path_info)
-        return copy.deepcopy(out)  # copy to not let users modify the dircache
+        return out
 
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
@@ -561,7 +560,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
-        return copy.deepcopy(out)  # copy to not let users modify the dircache
+        return out
 
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
