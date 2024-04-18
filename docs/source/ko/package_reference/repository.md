@@ -15,7 +15,7 @@ rendered properly in your Markdown viewer.
     - current_branch
     - all
 
-## 도우미 메서드[[helper-methods]]
+## 도우미 메소드[[helper-methods]]
 
 [[autodoc]] huggingface_hub.repository.is_git_repo
 
@@ -33,13 +33,13 @@ rendered properly in your Markdown viewer.
 
 ## 후속 비동기 명령[[following-asynchronous-commands]]
 
-`Repository` 유틸리티는 비동기적으로 시작할 수 있는 여러 메서드를 제공합니다.
+`Repository` 유틸리티는 비동기적으로 시작할 수 있는 여러 메소드를 제공합니다.
 - `git_push`
 - `git_pull`
 - `push_to_hub`
 - `commit` 컨텍스트 관리자
 
-이러한 비동기 메서드를 관리하는 유틸리티는 아래를 참조하세요.
+이러한 비동기 메소드를 관리하는 유틸리티는 아래를 참조하세요.
 
 [[autodoc]] Repository
     - commands_failed
