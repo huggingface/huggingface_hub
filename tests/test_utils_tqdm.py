@@ -137,3 +137,82 @@ class TestTqdmUtils(unittest.TestCase):
             self.assertIn("config.json: 100%", captured.err)  # log file name
             self.assertIn("|█████████", captured.err)  # tqdm bar
             self.assertIn("1.00k/1.00k", captured.err)  # size in B
+
+
+class TestTqdmGroup(unittest.TestCase):
+    def setUp(self):
+        """Set up the initial condition for each test."""
+        super().setUp()
+        enable_progress_bars()  # Ensure all are enabled before each test
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_disable_specific_group(self):
+        """Test disabling a specific group only affects that group and its subgroups."""
+        disable_progress_bars("peft.foo")
+        self.assertFalse(are_progress_bars_disabled("peft"))
+        self.assertFalse(are_progress_bars_disabled("peft.something"))
+        self.assertTrue(are_progress_bars_disabled("peft.foo"))
+        self.assertTrue(are_progress_bars_disabled("peft.foo.bar"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_enable_specific_subgroup(self):
+        """Test that enabling a subgroup does not affect the disabled state of its parent."""
+        disable_progress_bars("peft.foo")
+        enable_progress_bars("peft.foo.bar")
+        self.assertTrue(are_progress_bars_disabled("peft.foo"))
+        self.assertFalse(are_progress_bars_disabled("peft.foo.bar"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", True)
+    def test_disable_override_by_environment_variable(self):
+        """Ensure progress bars are disabled regardless of local settings when environment variable is set."""
+        with self.assertWarns(UserWarning):
+            enable_progress_bars()
+        self.assertTrue(are_progress_bars_disabled("peft"))
+        self.assertTrue(are_progress_bars_disabled("peft.foo"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", False)
+    def test_enable_override_by_environment_variable(self):
+        """Ensure progress bars are enabled regardless of local settings when environment variable is set."""
+        with self.assertWarns(UserWarning):
+            disable_progress_bars("peft.foo")
+        self.assertFalse(are_progress_bars_disabled("peft.foo"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_partial_group_name_not_affected(self):
+        """Ensure groups with similar names but not exactly matching are not affected."""
+        disable_progress_bars("peft.foo")
+        self.assertFalse(are_progress_bars_disabled("peft.footprint"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_nested_subgroup_behavior(self):
+        """Test enabling and disabling nested subgroups."""
+        disable_progress_bars("peft")
+        enable_progress_bars("peft.foo")
+        disable_progress_bars("peft.foo.bar")
+        self.assertTrue(are_progress_bars_disabled("peft"))
+        self.assertFalse(are_progress_bars_disabled("peft.foo"))
+        self.assertTrue(are_progress_bars_disabled("peft.foo.bar"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_effect_with_invalid_group_names(self):
+        """Test the behavior with invalid or empty group names."""
+        disable_progress_bars("")
+        self.assertFalse(are_progress_bars_disabled("peft"))
+
+        enable_progress_bars("123.invalid.name")
+        self.assertFalse(are_progress_bars_disabled("123.invalid.name"))
+
+    @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
+    def test_multiple_level_toggling(self):
+        """Test multiple levels of enabling and disabling."""
+        disable_progress_bars("peft")
+        enable_progress_bars("peft.foo")
+        disable_progress_bars("peft.foo.bar.something")
+        self.assertTrue(are_progress_bars_disabled("peft"))
+        self.assertFalse(are_progress_bars_disabled("peft.foo"))
+        self.assertTrue(are_progress_bars_disabled("peft.foo.bar.something"))
+
+    def tearDown(self):
+        """Clean up after each test."""
+        super().tearDown()
+        enable_progress_bars()
