@@ -707,7 +707,14 @@ class ModelInfo:
         )
         self.spaces = kwargs.pop("spaces", None)
         safetensors = kwargs.pop("safetensors", None)
-        self.safetensors = SafeTensorsInfo(**safetensors) if safetensors else None
+        self.safetensors = (
+            SafeTensorsInfo(
+                parameters=safetensors["parameters"],
+                total=safetensors["total"],
+            )
+            if safetensors
+            else None
+        )
 
         # backwards compatibility
         self.lastModified = self.last_modified
@@ -3235,7 +3242,7 @@ class HfApi:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
                     return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
                 except HfHubHTTPError:
-                    raise
+                    raise err
             else:
                 raise
 

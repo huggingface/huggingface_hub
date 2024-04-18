@@ -33,12 +33,13 @@ Whichever way you choose to contribute, please be mindful to respect our
 ### The client library, `huggingface_hub`
 
 This repository hosts the `huggingface_hub`, the client library that interfaces any Python script with the Hugging Face Hub.
-Its implementation lives in `src/huggingface_hub` while the tests are located in `tests/`.
+Its implementation lives in `src/huggingface_hub`, while the tests are located in `tests/`.
 
 There are many ways you can contribute to this client library:
-* Fixing outstanding issues with the existing code;
-* Contributing to the examples or to the documentation;
-* Submitting issues related to bugs or desired new features.
+
+- Fixing outstanding issues with the existing code;
+- Contributing to the examples or to the documentation;
+- Submitting issues related to bugs or desired new features.
 
 ## Submitting a new issue or feature request
 
@@ -56,27 +57,29 @@ already reported** (use the search bar on Github under Issues).
 
 Did not find it? :( So we can act quickly on it, please follow these steps:
 
-* A short, self-contained, code snippet that allows us to reproduce the bug in less than 30s;
-* Provide the *full* traceback if an exception is raised by copying the text from your terminal in the issue description.
-* Include information about your local setup. You can dump this information by running `huggingface-cli env` in your terminal;
+- A short, self-contained, code snippet that allows us to reproduce the bug in less than 30s;
+- Provide the _full_ traceback if an exception is raised by copying the text from your terminal in the issue description.
+- Include information about your local setup. You can dump this information by running `huggingface-cli env` in your terminal;
 
 ### Do you want a new feature?
 
 A good feature request addresses the following points:
 
 1. Motivation first:
-* Is it related to a problem/frustration with the library? If so, please explain
+
+- Is it related to a problem/frustration with the library? If so, please explain
   why and provide a code snippet that demonstrates the problem best.
-* Is it related to something you would need for a project? We'd love to hear
+- Is it related to something you would need for a project? We'd love to hear
   about it!
-* Is it something you worked on and think could benefit the community?
+- Is it something you worked on and think could benefit the community?
   Awesome! Tell us what problem it solved for you.
-2. Write a *full paragraph* describing the feature;
+
+2. Write a _full paragraph_ describing the feature;
 3. Provide a **code snippet** that demonstrates its future use;
 4. In case this is related to a paper, please attach a link;
 5. Attach any additional information (drawings, screenshots, etc.) you think may help.
 
-If your issue is well written we're already 80% of the way there by the time you post it!
+If your issue is well written, we're already 80% of the way there by the time you post it!
 
 ## Submitting a pull request (PR)
 
@@ -107,7 +110,7 @@ Follow these steps to start contributing:
 
 3. Create a new branch to hold your development changes, and do this for every new PR you work on.
 
-   Start by synchronizing your `main` branch with the `upstream/main` branch (ore details in the [GitHub Docs](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/syncing-a-fork)):
+   Start by synchronizing your `main` branch with the `upstream/main` branch (more details in the [GitHub Docs](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/syncing-a-fork)):
 
    ```bash
    $ git checkout main
@@ -167,7 +170,6 @@ Follow these steps to start contributing:
    > For the commands leveraging the `make` utility, we recommend using the WSL system when running on
    > Windows. More information [here](https://docs.microsoft.com/en-us/windows/wsl/about).
 
-
 8. (optional) Alternatively, you can install pre-commit hooks so that these styles are applied and checked on files
    that you have touched in each commit:
 
@@ -181,6 +183,7 @@ Follow these steps to start contributing:
    hooks.
 
    To permanently disable hooks, you can run the following command:
+
    ```bash
    pre-commit uninstall
    ```
@@ -196,8 +199,7 @@ Follow these steps to start contributing:
    Please write [good commit messages](https://chris.beams.io/posts/git-commit/).
 
    It is a good idea to sync your copy of the code with the original
-   repository regularly. The following document covers it in length: [github documentation](
-   https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
+   repository regularly. The following document covers it in length: [github documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
 
    And here's how you can do it quickly from your `git` commandline:
 
@@ -216,9 +218,9 @@ Follow these steps to start contributing:
     is happy too**), go to the webpage of your fork on GitHub. Click on 'Pull request' to send your changes to the project maintainers for review.
 
 11. It's ok if maintainers ask you for changes. It happens all the time to core contributors
-   too! So everyone can see the changes in the Pull request, work in your local
-   branch and push the changes to your fork. They will automatically appear in
-   the pull request.
+    too! So everyone can see the changes in the Pull request, work in your local
+    branch and push the changes to your fork. They will automatically appear in
+    the pull request.
 
 12. Once your changes have been approved, one of the project maintainers will
     merge your pull request for you. Good job!
