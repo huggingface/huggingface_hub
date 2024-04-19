@@ -331,6 +331,10 @@ def _format_chat_completion_stream_output_from_text_generation(
     if item.details is None:
         # new token generated => return delta
         return ChatCompletionStreamOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
             choices=[
                 ChatCompletionStreamOutputChoice(
                     delta=ChatCompletionStreamOutputDelta(
@@ -346,9 +350,13 @@ def _format_chat_completion_stream_output_from_text_generation(
     else:
         # generation is completed => return finish reason
         return ChatCompletionStreamOutput(
+            id="dummy",
+            model="model",
+            object="object",
+            system_fingerprint="dummy",
             choices=[
                 ChatCompletionStreamOutputChoice(
-                    delta=ChatCompletionStreamOutputDelta(),
+                    delta=ChatCompletionStreamOutputDelta(role="assistant"),
                     finish_reason=item.details.finish_reason,
                     index=0,
                 )

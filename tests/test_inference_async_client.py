@@ -33,12 +33,13 @@ import huggingface_hub.inference._common
 from huggingface_hub import (
     AsyncInferenceClient,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     InferenceClient,
     InferenceTimeoutError,
-    TextGenerationPrefillToken,
+    TextGenerationOutputPrefillToken,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _is_tgi_server
@@ -74,7 +75,7 @@ async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> 
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
     assert len(response.details.prefill) == 1
-    assert response.details.prefill[0] == TextGenerationPrefillToken(id=0, text="<pad>", logprob=None)
+    assert response.details.prefill[0] == TextGenerationOutputPrefillToken(id=0, text="<pad>", logprob=None)
     assert len(response.details.tokens) == 1
     assert response.details.tokens[0].id == 3
     assert response.details.tokens[0].text == " "
@@ -160,11 +161,16 @@ async def test_async_chat_completion_no_stream() -> None:
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
     assert isinstance(output.created, int)
     assert output == ChatCompletionOutput(
+        id="",
+        model="HuggingFaceH4/zephyr-7b-beta",
+        object="text_completion",
+        system_fingerprint="1.4.3-sha-e6bb3ff",
+        usage=ChatCompletionOutputUsage(completion_tokens=10, prompt_tokens=47, total_tokens=57),
         choices=[
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="length",
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a subfield of machine learning that",
                     role="assistant",
                 ),
@@ -182,11 +188,16 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
     assert isinstance(output.created, int)
     assert output == ChatCompletionOutput(
+        id="dummy",
+        model="dummy",
+        object="dummy",
+        system_fingerprint="dummy",
+        usage=None,
         choices=[
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="unk",  # Non-TGI => cannot know the finish reason
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a thing.",
                     role="assistant",
                 ),

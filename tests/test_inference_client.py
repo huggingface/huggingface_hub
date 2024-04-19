@@ -24,8 +24,8 @@ from PIL import Image
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -148,10 +148,10 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert isinstance(output, ChatCompletionOutput)
         assert output.created < time.time()
         assert output.choices == [
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="length",
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
                     role="assistant",
                 ),
@@ -201,11 +201,16 @@ class InferenceClientVCRTest(InferenceClientTest):
             max_tokens=20,
         )
         assert output == ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,
             choices=[
-                ChatCompletionOutputChoice(
+                ChatCompletionOutputComplete(
                     finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
+                    message=ChatCompletionOutputMessage(
                         content="Deep learning is a thing.",
                         role="assistant",
                     ),

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from requests import HTTPError
 
-from huggingface_hub import InferenceClient, TextGenerationPrefillToken
+from huggingface_hub import InferenceClient, TextGenerationOutputPrefillToken
 from huggingface_hub.inference._common import (
     _NON_TGI_SERVERS,
     GenerationError,
@@ -72,7 +72,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         assert response.details.generated_tokens == 1
         assert response.details.seed is None
         assert len(response.details.prefill) == 1
-        assert response.details.prefill[0] == TextGenerationPrefillToken(id=0, text="<pad>", logprob=None)
+        assert response.details.prefill[0] == TextGenerationOutputPrefillToken(id=0, text="<pad>", logprob=None)
         assert len(response.details.tokens) == 1
         assert response.details.tokens[0].id == 3
         assert response.details.tokens[0].text == " "

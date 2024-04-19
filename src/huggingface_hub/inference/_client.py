@@ -79,8 +79,8 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -522,10 +522,10 @@ class InferenceClient:
         >>> client.chat_completion(messages, max_tokens=100)
         ChatCompletionOutput(
             choices=[
-                ChatCompletionOutputChoice(
+                ChatCompletionOutputComplete(
                     finish_reason='eos_token',
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
+                    message=ChatCompletionOutputMessage(
                         content='The capital of France is Paris. The official name of the city is "Ville de Paris" (City of Paris) and the name of the country\'s governing body, which is located in Paris, is "La République française" (The French Republic). \nI hope that helps! Let me know if you need any further information.'
                     )
                 )
@@ -651,12 +651,17 @@ class InferenceClient:
             finish_reason = "unk"
 
         return ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,  # type: ignore # set to None as we don't want to provide fake information
             created=created,
             choices=[
-                ChatCompletionOutputChoice(
+                ChatCompletionOutputComplete(
                     finish_reason=finish_reason,  # type: ignore
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
+                    message=ChatCompletionOutputMessage(
                         content=content,
                         role="assistant",
                     ),
