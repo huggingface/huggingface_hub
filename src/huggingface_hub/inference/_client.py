@@ -110,6 +110,7 @@ from huggingface_hub.utils import (
     get_session,
     hf_raise_for_status,
 )
+from huggingface_hub.utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -669,6 +670,7 @@ class InferenceClient:
             ],
         )
 
+    @_deprecate_method(version="0.25", message="Use `chat_completion` instead.")
     def conversational(
         self,
         text: str,
@@ -1718,10 +1720,10 @@ class InferenceClient:
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    TextGenerationPrefillToken(id=487, text='The', logprob=None),
-                    TextGenerationPrefillToken(id=53789, text=' hugging', logprob=-13.171875),
+                    TextGenerationPrefillOutputToken(id=487, text='The', logprob=None),
+                    TextGenerationPrefillOutputToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    TextGenerationPrefillToken(id=204, text=' ', logprob=-7.0390625)
+                    TextGenerationPrefillOutputToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
                     TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
