@@ -1757,7 +1757,7 @@ class InferenceClient:
             logprob=-0.5703125,
             special=False),
             generated_text='100% open source and built to be easy to use.',
-            details=TextGenerationStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
+            details=TextGenerationStreamOutputStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
         ```
         """
