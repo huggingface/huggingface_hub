@@ -56,6 +56,8 @@
       title: 파일 다운로드하기
     - local: in_translation
       title: (번역 중) Mixins & serialization methods
+    - local: package_reference/inference_types
+      title: 추론 타입
     - local: package_reference/inference_client
       title: 추론 클라이언트
     - local: package_reference/inference_endpoints
