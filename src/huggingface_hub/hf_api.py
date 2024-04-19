@@ -3242,7 +3242,7 @@ class HfApi:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
                     return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
                 except HfHubHTTPError:
-                    raise
+                    raise err
             else:
                 raise
 
