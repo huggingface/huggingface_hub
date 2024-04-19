@@ -35,6 +35,7 @@ from .constants import (
     HF_HUB_DOWNLOAD_TIMEOUT,
     HF_HUB_ENABLE_HF_TRANSFER,
     HF_HUB_ETAG_TIMEOUT,
+    HF_HUB_OFFLINE,
     HF_TRANSFER_CONCURRENCY,
     HUGGINGFACE_CO_URL_TEMPLATE,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -584,7 +585,7 @@ def cached_download(
     etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
+    local_files_only: bool = HF_HUB_OFFLINE,
     legacy_cache_layout: bool = False,
 ) -> str:
     """
@@ -626,7 +627,7 @@ def cached_download(
                 - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
-        local_files_only (`bool`, *optional*, defaults to `False`):
+        local_files_only (`bool`, *optional*, defaults to `HF_HUB_OFFLINE`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
         legacy_cache_layout (`bool`, *optional*, defaults to `False`):
@@ -1030,7 +1031,7 @@ def hf_hub_download(
     etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
+    local_files_only: bool = HF_HUB_OFFLINE,
     headers: Optional[Dict[str, str]] = None,
     legacy_cache_layout: bool = False,
     endpoint: Optional[str] = None,
@@ -1125,7 +1126,7 @@ def hf_hub_download(
                 - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
-        local_files_only (`bool`, *optional*, defaults to `False`):
+        local_files_only (`bool`, *optional*, defaults to `HF_HUB_OFFLINE`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
         headers (`dict`, *optional*):
@@ -1360,7 +1361,7 @@ def hf_hub_download(
     if etag is None:
         # In those cases, we cannot force download.
         if force_download:
-            if local_files_only:
+            if local_files_only and not HF_HUB_OFFLINE:
                 raise ValueError("Cannot pass 'force_download=True' and 'local_files_only=True' at the same time.")
             elif isinstance(head_call_error, OfflineModeIsEnabled):
                 raise ValueError(
