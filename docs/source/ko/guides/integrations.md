@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Integrate any ML framework with the Hub
+# Integrate any ML framework with the Hub[[integrate-any-ml-framework-with-the-hub]]
 
 The Hugging Face Hub makes hosting and sharing models with the community easy. It supports
 [dozens of libraries](https://huggingface.co/docs/hub/models-libraries) in the Open Source ecosystem. We are always
@@ -27,7 +27,7 @@ If you are interested in Inference and Widgets, you can follow [this guide](http
 In both cases, you can reach out to us if you are integrating a library with the Hub and want to be listed
 [in our docs](https://huggingface.co/docs/hub/models-libraries).
 
-## A flexible approach: helpers
+## A flexible approach: helpers[[a-flexible-approach-helpers]]
 
 The first approach to integrate a library to the Hub is to actually implement the `push_to_hub` and `from_pretrained`
 methods by yourself. This gives you full flexibility on which files you need to upload/download and how to handle inputs
@@ -37,7 +37,7 @@ and [`from_pretrained_fastai`]).
 
 Implementation can differ between libraries, but the workflow is often similar.
 
-### from_pretrained
+### from_pretrained[[frompretrained]]
 
 This is how a `from_pretrained` method usually look like:
 
@@ -55,7 +55,7 @@ def from_pretrained(model_id: str) -> MyModelClass:
     return load_model(cached_model)
 ```
 
-### push_to_hub
+### push_to_hub[[pushtohub]]
 
 The `push_to_hub` method often requires a bit more complexity to handle repo creation, generate the model card and save weights.
 A common approach is to save all of these files in a temporary folder, upload it and then delete it.
@@ -90,7 +90,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 This is of course only an example. If you are interested in more complex manipulations (delete remote files, upload
 weights on the fly, persist weights locally, etc.) please refer to the [upload files](./upload) guide.
 
-### Limitations
+### Limitations[[limitations]]
 
 While being flexible, this approach has some drawbacks, especially in terms of maintenance. Hugging Face users are often
 used to additional features when working with `huggingface_hub`. For example, when loading files from the Hub, it is
@@ -115,7 +115,7 @@ However, if a parameter changes or a new feature is added, you will need to upda
 parameters also means more documentation to maintain on your side. To see how to mitigate these limitations, let's jump
 to our next section **class inheritance**.
 
-## A more complex approach: class inheritance
+## A more complex approach: class inheritance[[a-more-complex-approach-class-inheritance]]
 
 As we saw above, there are two main methods to include in your library to integrate it with the Hub: upload files
 (`push_to_hub`) and download files (`from_pretrained`). You can implement those methods by yourself but it comes with
@@ -149,11 +149,11 @@ As a bonus, [`ModelHubMixin`] handles the model configuration for you. If your `
 
 Finally, [`ModelHubMixin`] handles generating a model card for you. When inheriting from [`ModelHubMixin`], you can define metadata such as `library_name`, `tags`, `repo_url` and `docs_url`. Those fields will be reused to populate the modelcard of any model that use your class. This is very practical to make all models using your library easily searchable on the Hub and to provide some resource links for users landing on the Hub. If you want to extend the modelcard template, you can override the [`~ModelHubMixin.generate_model_card`] method.
 
-### A concrete example: PyTorch
+### A concrete example: PyTorch[[a-concrete-example-pytorch]]
 
 A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a ready-to-use integration.
 
-#### How to use it?
+#### How to use it?[[how-to-use-it]]
 
 Here is how any user can load/save a PyTorch model from/to the Hub:
 
@@ -208,7 +208,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 "keras-nlp"
 ```
 
-#### Implementation
+#### Implementation[[implementation]]
 
 The implementation is actually very straightforward, and the full implementation can be found [here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
 
@@ -280,7 +280,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
 
-## Quick comparison
+## Quick comparison[[quick-comparison]]
 
 Let's quickly sum up the two approaches we saw with their advantages and drawbacks. The table below is only indicative.
 Your framework might have some specificities that you need to address. This guide is only here to give guidelines and
