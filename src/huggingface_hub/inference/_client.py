@@ -1486,19 +1486,24 @@ class InferenceClient:
         details: Literal[False] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> str: ...
 
     @overload
@@ -1509,19 +1514,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> TextGenerationOutput: ...
 
     @overload
@@ -1532,19 +1542,24 @@ class InferenceClient:
         details: Literal[False] = ...,
         stream: Literal[True] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Iterable[str]: ...
 
     @overload
@@ -1555,19 +1570,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: Literal[True] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Iterable[TextGenerationStreamOutput]: ...
 
     @overload
@@ -1578,19 +1598,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: bool = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
 
     def text_generation(
@@ -1777,27 +1802,29 @@ class InferenceClient:
             decoder_input_details = False
 
         # Build payload
+        parameters = {
+            "best_of": best_of,
+            "decoder_input_details": decoder_input_details,
+            "do_sample": do_sample,
+            "frequency_penalty": frequency_penalty,
+            "grammar": grammar,
+            "max_new_tokens": max_new_tokens,
+            "repetition_penalty": repetition_penalty,
+            "return_full_text": return_full_text,
+            "seed": seed,
+            "stop": stop_sequences if stop_sequences is not None else [],
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_n_tokens": top_n_tokens,
+            "top_p": top_p,
+            "truncate": truncate,
+            "typical_p": typical_p,
+            "watermark": watermark,
+        }
+        parameters = {k: v for k, v in parameters.items() if v is not None}
         payload = {
             "inputs": prompt,
-            "parameters": {
-                "best_of": best_of,
-                "decoder_input_details": decoder_input_details,
-                "do_sample": do_sample,
-                "frequency_penalty": frequency_penalty,
-                "grammar": grammar,
-                "max_new_tokens": max_new_tokens,
-                "repetition_penalty": repetition_penalty,
-                "return_full_text": return_full_text,
-                "seed": seed,
-                "stop": stop_sequences if stop_sequences is not None else [],
-                "temperature": temperature,
-                "top_k": top_k,
-                "top_n_tokens": top_n_tokens,
-                "top_p": top_p,
-                "truncate": truncate,
-                "typical_p": typical_p,
-                "watermark": watermark,
-            },
+            "parameters": parameters,
             "stream": stream,
         }
 

@@ -2,6 +2,7 @@
 # and https://github.com/huggingface/text-generation-inference/tree/main/clients/python)
 #
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
+import json
 import unittest
 from typing import Dict
 from unittest.mock import MagicMock, patch
@@ -143,3 +144,30 @@ class TestTextGenerationClientVCR(unittest.TestCase):
                 prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
             )
         assert text == "I am at work"
+
+    def test_generate_with_grammar(self):
+        # Example taken from https://huggingface.co/docs/text-generation-inference/conceptual/guidance#the-grammar-parameter
+        response = self.client.text_generation(
+            prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+            max_new_tokens=100,
+            model="HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1",
+            repetition_penalty=1.3,
+            grammar={
+                "type": "json",
+                "value": {
+                    "properties": {
+                        "location": {"type": "string"},
+                        "activity": {"type": "string"},
+                        "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+                        "animals": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["location", "activity", "animals_seen", "animals"],
+                },
+            },
+        )
+        assert json.loads(response) == {
+            "activity": "biking",
+            "animals": [],
+            "animals_seen": 3,
+            "location": "park",
+        }
