@@ -11,7 +11,7 @@ from requests import HTTPError
 
 from huggingface_hub import InferenceClient, TextGenerationOutputPrefillToken
 from huggingface_hub.inference._common import (
-    _NON_TGI_SERVERS,
+    _UNSUPPORTED_TEXT_GENERATION_KWARGS,
     GenerationError,
     IncompleteGenerationError,
     OverloadedError,
@@ -51,7 +51,7 @@ def _mocked_error(payload: Dict) -> MagicMock:
 
 
 @pytest.mark.vcr
-@patch.dict("huggingface_hub.inference._common._NON_TGI_SERVERS", {})
+@patch.dict("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
 class TestTextGenerationClientVCR(unittest.TestCase):
     """Use VCR test to avoid making requests to the prod infra."""
 
@@ -121,7 +121,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
     def test_generate_non_tgi_endpoint(self):
         text = self.client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
         self.assertEqual(text, " 3 4 5 6 7 8 9 10 11 12")
-        self.assertIn("gpt2", _NON_TGI_SERVERS)
+        self.assertIn("gpt2", _UNSUPPORTED_TEXT_GENERATION_KWARGS)
 
         # Watermark is ignored (+ warning)
         with self.assertWarns(UserWarning):
@@ -138,7 +138,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
 
     def test_generate_non_tgi_endpoint_regression_test(self):
         # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
-        with self.assertWarnsRegex(UserWarning, "Ignoring parameters .* 'return_full_text'"):
+        with self.assertWarnsRegex(UserWarning, "Ignoring following parameters: return_full_text"):
             text = self.client.text_generation(
                 prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
             )

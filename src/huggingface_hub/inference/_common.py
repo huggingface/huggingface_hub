@@ -411,8 +411,8 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # Both approaches have very similar APIs, but not exactly the same. What we do first in
 # the `text_generation` method is to assume the model is served via TGI. If we realize
 # it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
-# default API with a warning message. We remember for each model if it's a TGI server
-# or not using `_NON_TGI_SERVERS` global variable.
+# default API with a warning message. When that's the case, We remember the unsupported
+# attributes for this model in the `_NON_TGI_SERVERS_UNSUPPORTED_KWARGS` global variable.
 #
 # In addition, TGI servers have a built-in API route for chat-completion, which is not
 # available on the default API. We use this route to provide a more consistent behavior
@@ -421,15 +421,17 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_NON_TGI_SERVERS: Set[Optional[str]] = set()
+# _NON_TGI_SERVERS: Set[Optional[str]] = set()
+# _NON_TGI_SERVERS_UNSUPPORTED_KWARGS = Dict[Optional[str], List[str]]
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
 
 
-def _set_as_non_tgi(model: Optional[str]) -> None:
-    _NON_TGI_SERVERS.add(model)
+def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
+    _UNSUPPORTED_TEXT_GENERATION_KWARGS[model] = unsupported_kwargs
 
 
-def _is_tgi_server(model: Optional[str]) -> bool:
-    return model not in _NON_TGI_SERVERS
+def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
+    return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
 
 
 _NON_CHAT_COMPLETION_SERVER: Set[str] = set()

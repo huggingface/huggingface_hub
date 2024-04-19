@@ -21,6 +21,7 @@
 import asyncio
 import base64
 import logging
+import re
 import time
 import warnings
 from typing import (
@@ -35,6 +36,7 @@ from typing import (
     overload,
 )
 
+from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
@@ -52,12 +54,12 @@ from huggingface_hub.inference._common import (
     _bytes_to_image,
     _bytes_to_list,
     _fetch_recommended_models,
+    _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _is_chat_completion_server,
-    _is_tgi_server,
     _open_as_binary,
     _set_as_non_chat_completion_server,
-    _set_as_non_tgi,
+    _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
@@ -91,6 +93,7 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
 from huggingface_hub.utils import (
+    BadRequestError,
     build_hf_headers,
 )
 from huggingface_hub.utils._deprecation import _deprecate_method
@@ -103,6 +106,9 @@ if TYPE_CHECKING:
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
+
+
+MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
 
 
 class AsyncInferenceClient:
@@ -1620,20 +1626,24 @@ class AsyncInferenceClient:
         details: bool = False,
         stream: bool = False,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[Dict] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-        decoder_input_details: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
@@ -1799,8 +1809,9 @@ class AsyncInferenceClient:
             "parameters": {
                 "best_of": best_of,
                 "decoder_input_details": decoder_input_details,
-                "details": details,
                 "do_sample": do_sample,
+                "frequency_penalty": frequency_penalty,
+                "grammar": grammar,
                 "max_new_tokens": max_new_tokens,
                 "repetition_penalty": repetition_penalty,
                 "return_full_text": return_full_text,
@@ -1808,6 +1819,7 @@ class AsyncInferenceClient:
                 "stop": stop_sequences if stop_sequences is not None else [],
                 "temperature": temperature,
                 "top_k": top_k,
+                "top_n_tokens": top_n_tokens,
                 "top_p": top_p,
                 "truncate": truncate,
                 "typical_p": typical_p,
@@ -1817,18 +1829,22 @@ class AsyncInferenceClient:
         }
 
         # Remove some parameters if not a TGI server
-        if not _is_tgi_server(model):
+        unsupported_kwargs = _get_unsupported_text_generation_kwargs(model)
+        if len(unsupported_kwargs) > 0:
+            # The server does not support some parameters
+            # => means it is not a TGI server
+            # => remove unsupported parameters and warn the user
             parameters: Dict = payload["parameters"]  # type: ignore [assignment]
 
             ignored_parameters = []
-            for key in "watermark", "details", "decoder_input_details", "best_of", "stop", "return_full_text":
+            for key in unsupported_kwargs:
                 if parameters[key] is not None:
                     ignored_parameters.append(key)
                 del parameters[key]
             if len(ignored_parameters) > 0:
                 warnings.warn(
-                    "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
-                    f" {ignored_parameters}.",
+                    "API endpoint/model for text-generation is not served via TGI. Ignoring following parameters:"
+                    f" {', '.join(ignored_parameters)}.",
                     UserWarning,
                 )
             if details:
@@ -1847,29 +1863,33 @@ class AsyncInferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
-        except _import_aiohttp().ClientResponseError as e:
-            error_message = getattr(e, "response_error_payload", {}).get("error", "")
-            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
-                _set_as_non_tgi(model)
+        except HTTPError as e:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
+                unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
+                _set_unsupported_text_generation_kwargs(model, unused_params)
                 return await self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,
                     model=model,
-                    do_sample=do_sample,
-                    max_new_tokens=max_new_tokens,
                     best_of=best_of,
+                    decoder_input_details=decoder_input_details,
+                    do_sample=do_sample,
+                    frequency_penalty=frequency_penalty,
+                    grammar=grammar,
+                    max_new_tokens=max_new_tokens,
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
                     stop_sequences=stop_sequences,
                     temperature=temperature,
                     top_k=top_k,
+                    top_n_tokens=top_n_tokens,
                     top_p=top_p,
                     truncate=truncate,
                     typical_p=typical_p,
                     watermark=watermark,
-                    decoder_input_details=decoder_input_details,
                 )
             raise_text_generation_error(e)
 
