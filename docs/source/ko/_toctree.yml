@@ -48,8 +48,8 @@
       title: 로그인 및 로그아웃
     - local: in_translation
       title: (번역 중) Environment variables
-    - local: in_translation
-      title: (번역 중) Managing local and online repositories
+    - local: package_reference/repository
+      title: 로컬 및 온라인 리포지토리 관리
     - local: in_translation
       title: (번역 중) Hugging Face Hub API
     - local: package_reference/file_download
