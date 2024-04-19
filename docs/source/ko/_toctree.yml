@@ -72,10 +72,10 @@
       title: 캐시 시스템 참조
     - local: in_translation
       title: (번역 중) Repo Cards and Repo Card Data
-    - local: in_translation
-      title: (번역 중) Space runtime
     - local: package_reference/collections
       title: 컬렉션 관리
+    - local: package_reference/space_runtime.md
+      title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거
     - local: in_translation
