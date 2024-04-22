@@ -1861,7 +1861,6 @@ class AsyncInferenceClient:
             # The server does not support some parameters
             # => means it is not a TGI server
             # => remove unsupported parameters and warn the user
-            parameters: Dict = payload["parameters"]  # type: ignore [assignment]
 
             ignored_parameters = []
             for key in unsupported_kwargs:
