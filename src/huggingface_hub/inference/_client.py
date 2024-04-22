@@ -79,6 +79,8 @@ from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
     ChatCompletionOutputMessage,
@@ -101,6 +103,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
+from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
 from huggingface_hub.inference._templating import render_chat_prompt
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
@@ -421,10 +424,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput: ...
 
@@ -435,10 +447,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
@@ -449,10 +470,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: bool = False,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
@@ -462,10 +492,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: bool = False,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
@@ -563,10 +602,19 @@ class InferenceClient:
                     json=dict(
                         model="tgi",  # random string
                         messages=messages,
+                        frequency_penalty=frequency_penalty,
+                        logit_bias=logit_bias,
+                        logprobs=logprobs,
                         max_tokens=max_tokens,
+                        n=n,
+                        presence_penalty=presence_penalty,
                         seed=seed,
                         stop=stop,
                         temperature=temperature,
+                        tool_choice=tool_choice,
+                        tool_prompt=tool_prompt,
+                        tools=tools,
+                        top_logprobs=top_logprobs,
                         top_p=top_p,
                         stream=stream,
                     ),
@@ -627,7 +675,6 @@ class InferenceClient:
         prompt = render_chat_prompt(model_id=model_id, token=self.token, messages=messages)
 
         # generate response
-        stop_sequences = [stop] if isinstance(stop, str) else stop
         text_generation_output = self.text_generation(
             prompt=prompt,
             details=True,
@@ -635,7 +682,7 @@ class InferenceClient:
             model=model,
             max_new_tokens=max_tokens,
             seed=seed,
-            stop_sequences=stop_sequences,
+            stop_sequences=stop,
             temperature=temperature,
             top_p=top_p,
         )
