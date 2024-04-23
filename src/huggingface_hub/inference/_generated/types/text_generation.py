@@ -54,6 +54,7 @@ class TextGenerationInput(BaseInferenceType):
 
     inputs: str
     parameters: Optional[TextGenerationInputGenerateParameters] = None
+    stream: Optional[bool] = None
 
 
 TextGenerationOutputFinishReason = Literal["length", "eos_token", "stop_sequence"]
