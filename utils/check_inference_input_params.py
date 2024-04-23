@@ -14,10 +14,10 @@
 # limitations under the License.
 """Utility script to check consistency between input parameters of InferenceClient methods and generated types.
 
-TODO: check if parameters are documented in the method docstring.
 TODO: check all methods
 TODO: check parameters types
 TODO: check parameters default values
+TODO: check parameters (type, description) are consistent in the docstrings
 TODO: (low priority) automatically generate the input types from the methods
 """
 
