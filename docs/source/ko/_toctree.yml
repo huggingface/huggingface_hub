@@ -30,8 +30,8 @@
       title: (번역 중) Cache
     - local: guides/model-cards
       title: 모델 카드
-    - local: in_translation
-      title: (번역 중) Manage your Space
+    - local: guides/manage-spaces
+      title: Space 관리
     - local: in_translation
       title: (번역 중) Integrate a library
     - local: guides/webhooks_server
@@ -74,7 +74,7 @@
       title: (번역 중) Repo Cards and Repo Card Data
     - local: package_reference/collections
       title: 컬렉션 관리
-    - local: package_reference/space_runtime.md
+    - local: package_reference/space_runtime
       title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거

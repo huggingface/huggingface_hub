@@ -1123,7 +1123,7 @@ class AsyncInferenceClient:
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models currently deployed on the Inference API service.
+        List models deployed on the Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -1131,9 +1131,17 @@ class AsyncInferenceClient:
         in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
         frameworks are checked, the more time it will take.
 
+        <Tip warning={true}>
+
+        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        It searches over a cached list of models that were recently available and the list may not be up to date.
+        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
+
+        </Tip>
+
         <Tip>
 
-        This endpoint is mostly useful for discoverability. If you already know which model you want to use and want to
+        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
         check its availability, you can directly use [`~InferenceClient.get_model_status`].
 
         </Tip>
