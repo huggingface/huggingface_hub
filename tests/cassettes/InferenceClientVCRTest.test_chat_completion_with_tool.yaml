@@ -39,7 +39,7 @@ interactions:
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
   response:
     body:
-      string: '{"id":"","object":"text_completion","created":1713800152,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"tools","parameters":{"format":"fahrenheit","location":"San
+      string: '{"id":"","object":"text_completion","created":1713800152,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"get_n_day_weather_forecast","arguments":{"format":"fahrenheit","location":"San
         Francisco, CA","num_days":3}}}]},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":246,"completion_tokens":27,"total_tokens":273}}'
     headers:
       Connection:
@@ -105,7 +105,7 @@ interactions:
     uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
   response:
     body:
-      string: '{"id":"","object":"text_completion","created":1713800953,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"tools","parameters":{"format":"fahrenheit","location":"San
+      string: '{"id":"","object":"text_completion","created":1713800953,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"get_current_weather","arguments":{"format":"fahrenheit","location":"San
         Francisco, CA"}}}]},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":144,"completion_tokens":16,"total_tokens":160}}'
     headers:
       Connection:

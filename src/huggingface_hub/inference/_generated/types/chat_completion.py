@@ -141,7 +141,7 @@ class ChatCompletionOutputLogprobs(BaseInferenceType):
 
 @dataclass
 class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
-    parameters: Any
+    arguments: Any
     name: str
     description: Optional[str] = None
 

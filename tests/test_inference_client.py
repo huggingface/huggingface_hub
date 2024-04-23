@@ -302,8 +302,8 @@ class InferenceClientVCRTest(InferenceClientTest):
         # Tool
         tool_call = output.message.tool_calls[0]
         assert tool_call.type == "function"
-        assert tool_call.function.name == "tools"
-        assert tool_call.function.parameters == {
+        assert tool_call.function.name == "get_n_day_weather_forecast"
+        assert tool_call.function.arguments == {
             "format": "fahrenheit",
             "location": "San Francisco, CA",
             "num_days": 3,
@@ -319,8 +319,9 @@ class InferenceClientVCRTest(InferenceClientTest):
         )
         output = response.choices[0]
         tool_call = output.message.tool_calls[0]
+        assert tool_call.function.name == "get_current_weather"
         # No need for 'num_days' with this tool
-        assert tool_call.function.parameters == {
+        assert tool_call.function.arguments == {
             "format": "fahrenheit",
             "location": "San Francisco, CA",
         }
