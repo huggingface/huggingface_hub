@@ -36,7 +36,6 @@ from typing import (
     overload,
 )
 
-from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
@@ -97,10 +96,8 @@ from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
 from huggingface_hub.utils import (
-    BadRequestError,
     build_hf_headers,
 )
-from huggingface_hub.utils._deprecation import _deprecate_method
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -750,7 +747,6 @@ class AsyncInferenceClient:
             ],
         )
 
-    @_deprecate_method(version="0.25", message="Use `chat_completion` instead.")
     async def conversational(
         self,
         text: str,
@@ -1954,9 +1950,9 @@ class AsyncInferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if parameters[key] is not None:
+                if parameters.get(key) is not None:
                     ignored_parameters.append(key)
-                del parameters[key]
+                parameters.pop(key, None)
             if len(ignored_parameters) > 0:
                 warnings.warn(
                     "API endpoint/model for text-generation is not served via TGI. Ignoring following parameters:"
@@ -1979,9 +1975,9 @@ class AsyncInferenceClient:
         # Handle errors separately for more precise error messages
         try:
             bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
-        except HTTPError as e:
-            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
-            if isinstance(e, BadRequestError) and match:
+        except _import_aiohttp().ClientResponseError as e:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
+            if e.status == 400 and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
                 _set_unsupported_text_generation_kwargs(model, unused_params)
                 return await self.text_generation(  # type: ignore

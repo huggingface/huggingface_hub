@@ -115,7 +115,6 @@ from huggingface_hub.utils import (
     get_session,
     hf_raise_for_status,
 )
-from huggingface_hub.utils._deprecation import _deprecate_method
 
 
 if TYPE_CHECKING:
@@ -748,7 +747,6 @@ class InferenceClient:
             ],
         )
 
-    @_deprecate_method(version="0.25", message="Use `chat_completion` instead.")
     def conversational(
         self,
         text: str,
@@ -1927,9 +1925,9 @@ class InferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if parameters[key] is not None:
+                if parameters.get(key) is not None:
                     ignored_parameters.append(key)
-                del parameters[key]
+                parameters.pop(key, None)
             if len(ignored_parameters) > 0:
                 warnings.warn(
                     "API endpoint/model for text-generation is not served via TGI. Ignoring following parameters:"

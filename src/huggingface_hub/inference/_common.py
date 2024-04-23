@@ -414,7 +414,7 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # the `text_generation` method is to assume the model is served via TGI. If we realize
 # it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
 # default API with a warning message. When that's the case, We remember the unsupported
-# attributes for this model in the `_NON_TGI_SERVERS_UNSUPPORTED_KWARGS` global variable.
+# attributes for this model in the `_UNSUPPORTED_TEXT_GENERATION_KWARGS` global variable.
 #
 # In addition, TGI servers have a built-in API route for chat-completion, which is not
 # available on the default API. We use this route to provide a more consistent behavior
@@ -423,8 +423,6 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-# _NON_TGI_SERVERS: Set[Optional[str]] = set()
-# _NON_TGI_SERVERS_UNSUPPORTED_KWARGS = Dict[Optional[str], List[str]]
 _UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
 
 

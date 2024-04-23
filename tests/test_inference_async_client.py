@@ -42,7 +42,7 @@ from huggingface_hub import (
     TextGenerationOutputPrefillToken,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
-from huggingface_hub.inference._common import _is_tgi_server
+from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 from .testing_utils import with_production_testing
@@ -50,7 +50,7 @@ from .testing_utils import with_production_testing
 
 @pytest.fixture(autouse=True)
 def patch_non_tgi_server(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(huggingface_hub.inference._common, "_NON_TGI_SERVERS", set())
+    monkeypatch.setattr(huggingface_hub.inference._common, "_UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ async def test_async_generate_validation_error(tgi_client: AsyncInferenceClient)
 async def test_async_generate_non_tgi_endpoint(tgi_client: AsyncInferenceClient) -> None:
     text = await tgi_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
     assert text == " 3 4 5 6 7 8 9 10 11 12"
-    assert not _is_tgi_server("gpt2")
+    assert _get_unsupported_text_generation_kwargs("gpt2") == ["details", "stop", "watermark", "decoder_input_details"]
 
     # Watermark is ignored (+ warning)
     with pytest.warns(UserWarning):
