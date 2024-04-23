@@ -141,7 +141,7 @@ class TestTextGenerationClientVCR(unittest.TestCase):
         # Regression test for https://github.com/huggingface/huggingface_hub/issues/2135
         with self.assertWarnsRegex(UserWarning, "Ignoring following parameters: return_full_text"):
             text = self.client.text_generation(
-                prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large"
+                prompt="How are you today?", max_new_tokens=20, model="google/flan-t5-large", return_full_text=True
             )
         assert text == "I am at work"
 
