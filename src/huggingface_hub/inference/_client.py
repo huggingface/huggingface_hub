@@ -1925,7 +1925,7 @@ class InferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if parameters.get(key) is not None:
+                if parameters.get(key):
                     ignored_parameters.append(key)
                 parameters.pop(key, None)
             if len(ignored_parameters) > 0:

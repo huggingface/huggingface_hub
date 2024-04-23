@@ -427,7 +427,7 @@ _UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
 
 
 def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
-    _UNSUPPORTED_TEXT_GENERATION_KWARGS[model] = unsupported_kwargs
+    _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
 def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
