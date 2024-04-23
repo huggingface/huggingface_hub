@@ -1065,9 +1065,9 @@ class InferenceClient:
 
         <Tip warning={true}>
 
-        This endpoint method does not return a live list of all models available for the Serverless Inference API service. 
-        It searches over a cached list of models that were recently available and the list may not be up to date. 
-        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`]. 
+        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        It searches over a cached list of models that were recently available and the list may not be up to date.
+        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
 
         </Tip>
 
