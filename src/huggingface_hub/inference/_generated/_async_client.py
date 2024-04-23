@@ -584,8 +584,10 @@ class AsyncInferenceClient:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
+
         ```py
         # Must be run in an async context
+        # Chat example
         >>> from huggingface_hub import AsyncInferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
         >>> client = AsyncInferenceClient("HuggingFaceH4/zephyr-7b-beta")
@@ -609,7 +611,77 @@ class AsyncInferenceClient:
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
         (...)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
-        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=None, role=None), index=0, finish_reason='length')], created=1710498504)
+
+        # Chat example with tools
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "system",
+        ...         "content": "Don't make assumptions about what values to plug into functions. Ask async for clarification if a user request is ambiguous.",
+        ...     },
+        ...     {
+        ...         "role": "user",
+        ...         "content": "What's the weather like the next 3 days in San Francisco, CA?",
+        ...     },
+        ... ]
+        >>> tools = [
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_current_weather",
+        ...             "description": "Get the current weather",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format"],
+        ...             },
+        ...         },
+        ...     },
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_n_day_weather_forecast",
+        ...             "description": "Get an N-day weather forecast",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                     "num_days": {
+        ...                         "type": "integer",
+        ...                         "description": "The number of days to forecast",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format", "num_days"],
+        ...             },
+        ...         },
+        ...     },
+        ... ]
+
+        >>> await client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=500,
+        )
         ```
         """
         # determine model
@@ -1905,6 +1977,28 @@ class AsyncInferenceClient:
             generated_text='100% open source and built to be easy to use.',
             details=TextGenerationStreamOutputStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
+
+        # Case 5: generate constrained output using grammar
+        >>> response = await client.text_generation(
+        ...     prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+        ...     model="HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1",
+        ...     max_new_tokens=100,
+        ...     repetition_penalty=1.3,
+        ...     grammar={
+        ...         "type": "json",
+        ...         "value": {
+        ...             "properties": {
+        ...                 "location": {"type": "string"},
+        ...                 "activity": {"type": "string"},
+        ...                 "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+        ...                 "animals": {"type": "array", "items": {"type": "string"}},
+        ...             },
+        ...             "required": ["location", "activity", "animals_seen", "animals"],
+        ...         },
+        ...     },
+        ... )
+        >>> json.loads(response)
+        {"activity": "biking", "animals": [], "animals_seen": 3, "location": "park"}
         ```
         """
         if decoder_input_details and not details:
@@ -1950,7 +2044,7 @@ class AsyncInferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if parameters.get(key) is not None:
+                if parameters.get(key):
                     ignored_parameters.append(key)
                 parameters.pop(key, None)
             if len(ignored_parameters) > 0:

@@ -92,7 +92,7 @@ CHAT_COMPLETION_TOOL_INSTRUCTIONS = [
         "content": "What's the weather like the next 3 days in San Francisco, CA?",
     },
 ]
-CHAT_COMPLETION_TOOLS = tools = [  # 1 tool to get current weather, 1 to get N-day weather forecast
+CHAT_COMPLETION_TOOLS = [  # 1 tool to get current weather, 1 to get N-day weather forecast
     {
         "type": "function",
         "function": {
