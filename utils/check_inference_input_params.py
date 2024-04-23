@@ -40,6 +40,9 @@ PARAMETERS_TO_SKIP = {
         "stop",  # stop_sequence instead (for legacy reasons)
     },
 }
+UNDOCUMENTED_PARAMETERS = {
+    "self",
+}
 
 
 def check_method(method_name: str, method: Any):
@@ -48,6 +51,7 @@ def check_method(method_name: str, method: Any):
         return [f"Missing input type for method {method_name}"]
 
     input_type = getattr(types, input_type_name)
+    docstring = method.__doc__
 
     if method_name == "chat_completion":
         # Special case for chat_completion
@@ -65,10 +69,20 @@ def check_method(method_name: str, method: Any):
     logs = []
     method_params = inspect.signature(method).parameters
     for param_name in parameters_type.__dataclass_fields__:
-        if param_name in PARAMETERS_TO_SKIP.get(method_name, []):
+        if param_name in PARAMETERS_TO_SKIP[method_name]:
             continue
         if param_name not in method_params:
-            logs.append(f"  Missing parameter {param_name} for method {method_name}")
+            logs.append(f"Missing parameter {param_name} in method signature")
+
+    # Check parameter is documented in docstring
+    for param_name in method_params:
+        if param_name in UNDOCUMENTED_PARAMETERS:
+            continue
+        if param_name in PARAMETERS_TO_SKIP[method_name]:
+            continue
+        if f"            {param_name} (" not in docstring:
+            logs.append(f"Parameter {param_name} is not documented")
+
     return logs
 
 
