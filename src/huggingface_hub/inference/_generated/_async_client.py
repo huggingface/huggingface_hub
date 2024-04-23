@@ -598,7 +598,7 @@ class AsyncInferenceClient:
                     finish_reason='eos_token',
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content='The capital of France is Paris. The official name of the city is "Ville de Paris" (City of Paris) and the name of the country\'s governing body, which is located in Paris, is "La République française" (The French Republic). \nI hope that helps! Let me know if you need any further information.'
+                        content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic). \nI hope that helps! Let me know if you need any further information.'
                     )
                 )
             ],
