@@ -675,51 +675,22 @@ class AsyncInferenceClient:
         ...     },
         ... ]
 
-        >>> await client.chat_completion(
-            model="meta-llama/Meta-Llama-3-70B-Instruct",
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            max_tokens=500,
-        )
-        ChatCompletionOutput(
-            choices=[
-                ChatCompletionOutputComplete(
-                    finish_reason='eos_token',
-                    index=0,
-                    message=ChatCompletionOutputMessage(
-                        role='assistant',
-                        content=None,
-                        name=None,
-                        tool_calls=[
-                            ChatCompletionOutputToolCall(
-                                function=ChatCompletionOutputFunctionDefinition(
-                                    arguments={
-                                        'location': 'San Francisco, CA',
-                                        'format': 'fahrenheit',
-                                        'num_days': 3
-                                    },
-                                    name='get_n_day_weather_forecast',
-                                    description=None
-                                ),
-                                id=0,
-                                type='function'
-                            )
-                        ]
-                    ),
-                    logprobs=None
-                )
-            ],
-            created=1713874496,
-            id='',
-            model='meta-llama/Meta-Llama-3-70B-Instruct',
-            object='text_completion',
-            system_fingerprint='1.4.5-native',
-            usage=ChatCompletionOutputUsage(
-                completion_tokens=21,
-                prompt_tokens=246,
-                total_tokens=267
-            )
+        >>> response = await client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-70B-Instruct",
+        ...     messages=messages,
+        ...     tools=tools,
+        ...     tool_choice="auto",
+        ...     max_tokens=500,
+        ... )
+        >>> response.choices[0].message.tool_calls[0].function
+        ChatCompletionOutputFunctionDefinition(
+            arguments={
+                'location': 'San Francisco, CA',
+                'format': 'fahrenheit',
+                'num_days': 3
+            },
+            name='get_n_day_weather_forecast',
+            description=None
         )
         ```
         """
