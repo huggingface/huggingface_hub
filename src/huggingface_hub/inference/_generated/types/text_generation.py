@@ -46,7 +46,11 @@ class TextGenerationInputGenerateParameters(BaseInferenceType):
 
 @dataclass
 class TextGenerationInput(BaseInferenceType):
-    """Text Generation Input"""
+    """Text Generation Input.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     inputs: str
     parameters: Optional[TextGenerationInputGenerateParameters] = None
@@ -94,7 +98,11 @@ class TextGenerationOutputDetails(BaseInferenceType):
 
 @dataclass
 class TextGenerationOutput(BaseInferenceType):
-    """Text Generation Output"""
+    """Text Generation Output.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     generated_text: str
     details: Optional[TextGenerationOutputDetails] = None
@@ -117,7 +125,11 @@ class TextGenerationStreamOutputToken(BaseInferenceType):
 
 @dataclass
 class TextGenerationStreamOutput(BaseInferenceType):
-    """Text Generation Stream Output"""
+    """Text Generation Stream Output.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     index: int
     token: TextGenerationStreamOutputToken

@@ -47,7 +47,11 @@ class ChatCompletionInputTool(BaseInferenceType):
 
 @dataclass
 class ChatCompletionInput(BaseInferenceType):
-    """Chat Completion Input"""
+    """Chat Completion Input.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     messages: List[ChatCompletionInputMessage]
     """A list of messages comprising the conversation so far."""
@@ -178,7 +182,11 @@ class ChatCompletionOutputUsage(BaseInferenceType):
 
 @dataclass
 class ChatCompletionOutput(BaseInferenceType):
-    """Chat Completion Output"""
+    """Chat Completion Output.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     choices: List[ChatCompletionOutputComplete]
     created: int
@@ -238,7 +246,11 @@ class ChatCompletionStreamOutputChoice(BaseInferenceType):
 
 @dataclass
 class ChatCompletionStreamOutput(BaseInferenceType):
-    """Chat Completion Stream Output"""
+    """Chat Completion Stream Output.
+    Auto-generated from TGI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tgi-import.ts.
+    """
 
     choices: List[ChatCompletionStreamOutputChoice]
     created: int
