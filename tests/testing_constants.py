@@ -7,7 +7,7 @@ TOKEN = "hf_94wBhPGp6KrrTH3KDchhKpRxZwd6dmHWLL"
 
 # Used to create repos that we don't own (example: for gated repo)
 # Token is not critical. Also public in https://github.com/huggingface/datasets-server
-OTHER_USER = "DSSUser"
+OTHER_USER = "DVUser"
 OTHER_TOKEN = "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"
 
 ENDPOINT_PRODUCTION = "https://huggingface.co"

@@ -44,8 +44,8 @@ DEFAULT_MODEL_CARD = """
 {{ card_data }}
 ---
 
-This model has been pushed to the Hub using **{{ library_name }}**:
-- Repo: {{ repo_url | default("[More Information Needed]", true) }}
+This model has been pushed to the Hub using the [PytorchModelHubMixin](https://huggingface.co/docs/huggingface_hub/package_reference/mixins#huggingface_hub.PyTorchModelHubMixin) integration:
+- Library: {{ repo_url | default("[More Information Needed]", true) }}
 - Docs: {{ docs_url | default("[More Information Needed]", true) }}
 """
 
@@ -53,6 +53,7 @@ This model has been pushed to the Hub using **{{ library_name }}**:
 @dataclass
 class MixinInfo:
     library_name: Optional[str] = None
+    pipeline_tag: Optional[str] = None
     tags: Optional[List[str]] = None
     repo_url: Optional[str] = None
     docs_url: Optional[str] = None
@@ -75,6 +76,8 @@ class ModelHubMixin:
             Name of the library integrating ModelHubMixin. Used to generate model card.
         tags (`List[str]`, *optional*):
             Tags to be added to the model card. Used to generate model card.
+        pipeline_tag (`str`, *optional*):
+            Tag of the pipeline. Used to generate model card. e.g. "text-classification".
         repo_url (`str`, *optional*):
             URL of the library repository. Used to generate model card.
         docs_url (`str`, *optional*):
@@ -130,8 +133,8 @@ class ModelHubMixin:
 
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
-    >>> reloaded_model._hub_mixin_config
-    {"size": 256, "device": "gpu"}
+    >>> reloaded_model.size
+    256
 
     # Model card has been correctly populated
     >>> from huggingface_hub import ModelCard
@@ -156,6 +159,7 @@ class ModelHubMixin:
         cls,
         *,
         library_name: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
@@ -169,6 +173,7 @@ class ModelHubMixin:
         cls._hub_mixin_info = MixinInfo(
             library_name=library_name,
             tags=tags,
+            pipeline_tag=pipeline_tag,
             repo_url=repo_url,
             docs_url=docs_url,
         )
@@ -257,6 +262,8 @@ class ModelHubMixin:
                 not provided.
             kwargs:
                 Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
+        Returns:
+            `str` or `None`: url of the commit on the Hub if `push_to_hub=True`, `None` otherwise.
         """
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)

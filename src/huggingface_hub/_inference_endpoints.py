@@ -4,9 +4,11 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
+from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
+
 from .inference._client import InferenceClient
 from .inference._generated._async_client import AsyncInferenceClient
-from .utils import logging, parse_datetime
+from .utils import get_session, logging, parse_datetime
 
 
 if TYPE_CHECKING:
@@ -14,14 +16,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.get_logger(__name__)
-
-
-class InferenceEndpointError(Exception):
-    """Generic exception when dealing with Inference Endpoints."""
-
-
-class InferenceEndpointTimeoutError(InferenceEndpointError, TimeoutError):
-    """Exception for timeouts while waiting for Inference Endpoint."""
 
 
 class InferenceEndpointStatus(str, Enum):
@@ -200,10 +194,6 @@ class InferenceEndpoint:
             [`InferenceEndpointTimeoutError`]
                 If the Inference Endpoint is not deployed after `timeout` seconds.
         """
-        if self.url is not None:  # Means the endpoint is deployed
-            logger.info("Inference Endpoint is ready to be used.")
-            return self
-
         if timeout is not None and timeout < 0:
             raise ValueError("`timeout` cannot be negative.")
         if refresh_every <= 0:
@@ -211,10 +201,12 @@ class InferenceEndpoint:
 
         start = time.time()
         while True:
-            self.fetch()
-            if self.url is not None:  # Means the endpoint is deployed
-                logger.info("Inference Endpoint is ready to be used.")
-                return self
+            if self.url is not None:
+                # Means the URL is provisioned => check if the endpoint is reachable
+                response = get_session().get(self.url, headers=self._api._build_hf_headers(token=self._token))
+                if response.status_code == 200:
+                    logger.info("Inference Endpoint is ready to be used.")
+                    return self
             if self.status == InferenceEndpointStatus.FAILED:
                 raise InferenceEndpointError(
                     f"Inference Endpoint {self.name} failed to deploy. Please check the logs for more information."
@@ -224,6 +216,7 @@ class InferenceEndpoint:
                     raise InferenceEndpointTimeoutError("Timeout while waiting for Inference Endpoint to be deployed.")
             logger.info(f"Inference Endpoint is not deployed yet ({self.status}). Waiting {refresh_every}s...")
             time.sleep(refresh_every)
+            self.fetch()
 
     def fetch(self) -> "InferenceEndpoint":
         """Fetch latest information about the Inference Endpoint.

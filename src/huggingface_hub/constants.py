@@ -127,7 +127,7 @@ HF_HUB_DISABLE_TELEMETRY = (
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
 # See https://github.com/huggingface/huggingface_hub/issues/1232
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.path.join(HF_HOME, "token")
+HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
 
 
 if _staging_mode:
@@ -197,7 +197,6 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "fastai",
     "fasttext",
     "flair",
-    "generic",
     "k2",
     "keras",
     "mindspore",
