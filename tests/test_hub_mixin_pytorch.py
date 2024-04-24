@@ -34,7 +34,13 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-    class DummyModelWithTags(nn.Module, PyTorchModelHubMixin, tags=["tag1", "tag2"], library_name="my-dummy-lib"):
+    class DummyModelWithTags(
+        nn.Module,
+        PyTorchModelHubMixin,
+        tags=["tag1", "tag2"],
+        pipeline_tag="text-classification",
+        library_name="my-dummy-lib",
+    ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
             self.l1 = nn.Linear(linear_layer, linear_layer)
@@ -265,6 +271,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         model = DummyModelWithTags()
         card = model.generate_model_card()
         assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+        assert card.data.pipeline_tag == "text-classification"
 
         model.save_pretrained(self.cache_dir)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
