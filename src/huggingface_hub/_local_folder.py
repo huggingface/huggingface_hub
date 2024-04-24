@@ -36,23 +36,17 @@ using the cache).
 Metadata file structure:
 ```
 # file.txt.metadata
-{
-    "commit_hash": "11c5a3d5811f50298f278a704980280950aedb10",
-    "etag": "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930",
-    "timestamp": 1712656091
-}
-
+11c5a3d5811f50298f278a704980280950aedb10
+a16a55fda99d2f2e7b69cce5cf93ff4ad3049930
+1712656091.123
 
 # file.parquet.metadata
-{
-    "commit_hash": "11c5a3d5811f50298f278a704980280950aedb10",
-    "etag": "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421",
-    "timestamp": 1712656091
+11c5a3d5811f50298f278a704980280950aedb10
+7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421
+1712656091.123
 }
 ```
 """
-
-import json
 import logging
 import os
 import time
@@ -167,15 +161,17 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
         if paths.metadata_path.exists():
             try:
                 with paths.metadata_path.open() as f:
-                    metadata = json.load(f)
+                    commit_hash = f.readline().strip()
+                    etag = f.readline().strip()
+                    timestamp = float(f.readline().strip())
                     metadata = LocalDownloadFileMetadata(
                         filename=filename,
-                        commit_hash=metadata["commit_hash"],
-                        etag=metadata["etag"],
-                        timestamp=metadata["timestamp"],
+                        commit_hash=commit_hash,
+                        etag=etag,
+                        timestamp=timestamp,
                     )
             except Exception as e:
-                # remove the metadata file if it is corrupted / not a json / not the right format
+                # remove the metadata file if it is corrupted / not the right format
                 logger.warning(
                     f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
                 )
@@ -206,7 +202,7 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
     paths = get_local_download_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
         with paths.metadata_path.open("w") as f:
-            json.dump({"commit_hash": commit_hash, "etag": etag, "timestamp": time.time()}, f, indent=4)
+            f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
 
 
 @lru_cache()
