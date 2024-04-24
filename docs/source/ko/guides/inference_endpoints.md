@@ -3,7 +3,7 @@
 추론 엔드포인트는 쉽게 `transformers`, `sentence-transformers` 및 `diffusers` 모델을 기반으로 전용 및 자동 확장 인프라에 배포할 수 있는 안전한 프로덕션 솔루션을 제공합니다. 추론 엔드포인트는 [Hub](https://huggingface.co/models)의 모델로 구축됩니다.
 이 가이드에서는 `huggingface_hub`를 사용하여 프로그래밍 방식으로 추론 엔드포인트를 관리하는 방법을 배웁니다. 추론 엔드포인트 제품 자체에 대한 자세한 내용은 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)를 참조하세요.
 
-이 가이드에서는 `huggingface_hub`가 올바르게 설치되고 기계가 로그인되어 있다고 가정합니다. 아직 그렇지 않은 경우 [빠른 시작 가이드](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart)를 참조하세요. 추론 엔드포인트 API를 지원하는 최소 버전은 `v0.19.0`입니다.
+이 가이드에서는 `huggingface_hub`가 올바르게 설치되어 있고 장비가 로그인되어 있다고 가정합니다. 아직 그렇지 않은 경우 [빠른 시작 가이드](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart)를 참조하세요. 추론 엔드포인트 API를 지원하는 최소 버전은 `v0.19.0`입니다.
 
 ## 추론 엔드포인트 생성[[create-an-inference-endpoint]]
 
@@ -26,7 +26,7 @@
 ... )
 ```
 
-이 예에서는 `"my-endpoint-name"`라는 `protected` 추론 엔드포인트를 생성하여 `text-generation`을 위해 [gpt2](https://huggingface.co/gpt2)를 제공합니다. `protected` 추론 엔드포인트는 API에 액세스하려면 토큰이 필요합니다. 또한 벤더, 지역, 가속기, 인스턴스 유형, 크기와 같은 하드웨어 요구 사항을 구성하기 위한 추가 정보를 제공해야 합니다. 사용 가능한 리소스 목록은 [여기](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors)에서 확인할 수 있습니다. 또는 [웹 인터페이스](https://ui.endpoints.huggingface.co/new)를 사용하여 편리하게 수동으로 추론 엔드포인트를 생성할 수 있습니다. 고급 설정 및 사용법에 대한 자세한 내용은 [이 가이드](https://huggingface.co/docs/inference-endpoints/guides/advanced)를 참조하세요.
+예시에서는 `"my-endpoint-name"`라는 `protected` 추론 엔드포인트를 생성하여 `text-generation`을 위한 [gpt2](https://huggingface.co/gpt2)를 제공합니다. `protected` 추론 엔드포인트 API에 액세스하려면 토큰이 필요합니다. 또한 벤더, 지역, 액셀러레이터, 인스턴스 유형, 크기와 같은 하드웨어 요구 사항을 구성하기 위한 추가 정보를 제공해야 합니다. 사용 가능한 리소스 목록은 [여기](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors)에서 확인할 수 있습니다. 또한 [웹 인터페이스](https://ui.endpoints.huggingface.co/new)를 사용하여 편리하게 수동으로 추론 엔드포인트를 생성할 수 있습니다. 고급 설정 및 사용법에 대한 자세한 내용은 [이 가이드](https://huggingface.co/docs/inference-endpoints/guides/advanced)를 참조하세요.
 
 [`create_inference_endpoint`]에서 반환된 값은 [`InferenceEndpoint`] 개체입니다:
 
@@ -35,7 +35,7 @@
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-이것은 `name`, `repository`, `status`, `task`, `created_at`, `updated_at` 등과 같은 중요한 속성에 접근할 수 있는 데이터 클래스입니다. 필요한 경우 `endpoint.raw`를 통해 서버에서 온 원시 응답에도 접근할 수 있습니다.
+`name`, `repository`, `status`, `task`, `created_at`, `updated_at` 등과 같은 중요한 속성에 접근할 수 있는 데이터 클래스입니다. 필요한 경우 `endpoint.raw`를 통해 서버에서 온 원시 응답에도 접근할 수 있습니다.
 
 추론 엔드포인트가 생성되면 [개인 대시보드](https://ui.endpoints.huggingface.co/)에서 확인할 수 있습니다.
 
@@ -74,9 +74,9 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 `custom_image`에 전달할 값은 도커 컨테이너의 URL과 이를 실행하기 위한 구성이 포함된 딕셔너리입니다. 자세한 내용은 [Swagger 문서](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint)를 참조하세요.
 
-### 기존 추론 엔드포인트 가져오기 또는 나열[[get-or-list-existing-inference-endpoints]]
+### 기존 추론 엔드포인트 가져오기 또는 리스트 조회[[get-or-list-existing-inference-endpoints]]
 
-경우에 따라 이전에 생성한 추론 엔드포인트를 관리해야 할 수 있습니다. 이름을 알고 있는 경우 [`get_inference_endpoint`]를 사용하여 [`InferenceEndpoint`] 개체를 가져올 수 있습니다. 또는 [`list_inference_endpoints`]를 사용하여 모든 추론 엔드포인트 목록을 검색할 수 있습니다. 두 메서드 모두 선택적 `namespace` 매개변수를 허용합니다. 속해 있는 조직의 `namespace`를 설정할 수 있습니다. 그렇지 않으면 기본적으로 사용자 이름이 사용됩니다.
+경우에 따라 이전에 생성한 추론 엔드포인트를 관리해야 할 수 있습니다. 이름을 알고 있는 경우 [`get_inference_endpoint`]를 사용하여 [`InferenceEndpoint`] 개체를 가져올 수 있습니다. 또는 [`list_inference_endpoints`]를 사용하여 모든 추론 엔드포인트 리스트를 검색할 수 있습니다. 두 메소드 모두 선택적 `namespace` 매개변수를 허용합니다. 속해 있는 조직의 `namespace`를 설정할 수 있습니다. 그렇지 않으면 기본적으로 사용자 이름이 사용됩니다.
 
 ```py
 >>> from huggingface_hub import get_inference_endpoint, list_inference_endpoints
@@ -103,17 +103,17 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-`"running"` 상태에 도달하기 전에 추론 엔드포인트는 일반적으로 `"initializing"` 또는 `"pending"` 단계를 거칩니다. [`~InferenceEndpoint.fetch`]를 실행하여 엔드포인트의 새 상태를 가져올 수 있습니다. [`InferenceEndpoint`]의 다른 메서드와 마찬가지로 이 메서드는 서버에 요청을 하며, `endpoint`의 내부 속성이 그 자리에서 변경됩니다:
+`"running"` 상태에 도달하기 전에 추론 엔드포인트는 일반적으로 `"initializing"` 또는 `"pending"` 단계를 거칩니다. [`~InferenceEndpoint.fetch`]를 실행하여 엔드포인트의 새 상태를 가져올 수 있습니다. [`InferenceEndpoint`]의 다른 메소드와 마찬가지로 이 메소드는 서버에 요청을 하며, `endpoint`의 내부 속성이 그 자리에서 변경됩니다:
 
 ```py
 >>> endpoint.fetch()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-추론 엔드포인트가 실행될 때까지 기다리면서 상태를 가져오는 대신 [`~InferenceEndpoint.wait`]를 직접 호출할 수 있습니다. 이 헬퍼는 `timeout`과 `fetch_every` 매개변수(초)를 입력으로 받아 추론 엔드포인트가 배포될 때까지 스레드를 차단합니다. 기본값은 각각 `None`(제한 시간 없음)과 `5`초입니다.
+추론 엔드포인트가 실행될 때까지 기다리면서 상태를 가져오는 대신 [`~InferenceEndpoint.wait`]를 직접 호출할 수 있습니다. 이 헬퍼는 `timeout`과 `fetch_every` 매개변수를 입력으로 받아 (초 단위) 추론 엔드포인트가 배포될 때까지 스레드를 차단합니다. 기본값은 각각 `None`(제한 시간 없음)과 `5`초입니다.
 
 ```py
-# 엔드포인트 포류중
+# 엔드포인트 보류
 >>> endpoint
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 
@@ -140,11 +140,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> endpoint.client.text_generation("I am")
 ' not a fan of the idea of a "big-budget" movie. I think it\'s a'
 
-# 비동기 컨텍스트에서도 마찬가지:
+# 비동기 컨텍스트에서도 마찬가지로 실행:
 >>> await endpoint.async_client.text_generation("I am")
 ```
 
-추론 엔드포인트가 실행 중이 아니면 [`InferenceEndpointError`] 예외가 발생합니다:
+추론 엔드포인트가 실행 중이 아니면 [`InferenceEndpointError`] 오류가 발생합니다:
 
 ```py
 >>> endpoint.client
@@ -159,17 +159,17 @@ huggingface_hub._inference_endpoints.InferenceEndpointError: Cannot create a cli
 
 <Tip>
 
-이 섹션에서는 [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] 및 [`~InferenceEndpoint.delete`] 등의 메서드를 살펴볼 것입니다. 모든 메서드는 편의를 위해 [`InferenceEndpoint`]에 추가된 별칭입니다. 원한다면 `HfApi`에 정의된 일반 메서드 [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`] 및 [`delete_inference_endpoint`]를 사용할 수도 있습니다.
+이 섹션에서는 [`~InferenceEndpoint.pause`], [`~InferenceEndpoint.resume`], [`~InferenceEndpoint.scale_to_zero`], [`~InferenceEndpoint.update`] 및 [`~InferenceEndpoint.delete`] 등의 메소드를 살펴볼 것입니다. 모든 메소드는 편의를 위해 [`InferenceEndpoint`]에 추가된 별칭입니다. 원한다면 `HfApi`에 정의된 일반 메소드 [`pause_inference_endpoint`], [`resume_inference_endpoint`], [`scale_to_zero_inference_endpoint`], [`update_inference_endpoint`] 및 [`delete_inference_endpoint`]를 사용할 수도 있습니다.
 
 </Tip>
 
 ### 일시 중지 또는 0으로 확장[[pause-or-scale-to-zero]]
 
-추론 엔드포인트를 사용하지 않을 때 비용을 절감하기 위해 [`~InferenceEndpoint.pause`]를 사용하여 일시 중지하거나 [`~InferenceEndpoint.scale_to_zero`]를 사용하여 0으로 확장할 수 있습니다.
+추론 엔드포인트를 사용하지 않을 때 비용을 절감하기 위해 [`~InferenceEndpoint.pause`]를 사용하여 일시 중지하거나 [`~InferenceEndpoint.scale_to_zero`]를 사용하여 0으로 스케일링할 수 있습니다.
 
 <Tip>
 
-*일시 중지* 또는 *0으로 확장*된 추론 엔드포인트는 비용이 들지 않습니다. 이 두 가지의 차이점은 *일시 중지* 엔드포인트는 [`~InferenceEndpoint.resume`]를 사용하여 명시적으로 *재개*해야 한다는 것입니다. 반대로 *0으로 확장*된 엔드포인트는 추론 호출이 있으면 추가 콜드 스타트 지연 시간과 함께 자동으로 시작됩니다. 추론 엔드포인트는 일정 기간 비활성화된 후 자동으로 0으로 확장되도록 구성할 수도 있습니다.
+*일시 중지* 또는 *0으로 스케일링*된 추론 엔드포인트는 비용이 들지 않습니다. 이 두 가지의 차이점은 *일시 중지* 엔드포인트는 [`~InferenceEndpoint.resume`]를 사용하여 명시적으로 *재개*해야 한다는 것입니다. 반대로 *0으로 스케일링*된 엔드포인트는 추론 호출이 있으면 추가 콜드 스타트 지연과 함께 자동으로 시작됩니다. 추론 엔드포인트는 일정 기간 비활성화된 후 자동으로 0으로 스케일링되도록 구성할 수도 있습니다.
 
 </Tip>
 
@@ -185,7 +185,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # 0으로 스케일링
 >>> endpoint.scale_to_zero()
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='scaledToZero', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
-# Endpoint is not 'running' but still has a URL and will restart on first call.
+# 엔드포인트는 'running'은 아니지만 URL�을 가지고 있으며 첫 번째 호출 시 다시 시작됩니다.
 ```
 
 ### 모델 또는 하드웨어 요구 사항 업데이트[[update-model-or-hardware-requirements]]
