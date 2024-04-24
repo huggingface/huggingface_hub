@@ -19,7 +19,6 @@ from .utils import (
     logging,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments
 
 
 if TYPE_CHECKING:
@@ -45,8 +44,8 @@ DEFAULT_MODEL_CARD = """
 {{ card_data }}
 ---
 
-This model has been pushed to the Hub using **{{ library_name }}**:
-- Repo: {{ repo_url | default("[More Information Needed]", true) }}
+This model has been pushed to the Hub using the [PytorchModelHubMixin](https://huggingface.co/docs/huggingface_hub/package_reference/mixins#huggingface_hub.PyTorchModelHubMixin) integration:
+- Library: {{ repo_url | default("[More Information Needed]", true) }}
 - Docs: {{ docs_url | default("[More Information Needed]", true) }}
 """
 
@@ -54,6 +53,7 @@ This model has been pushed to the Hub using **{{ library_name }}**:
 @dataclass
 class MixinInfo:
     library_name: Optional[str] = None
+    pipeline_tag: Optional[str] = None
     tags: Optional[List[str]] = None
     repo_url: Optional[str] = None
     docs_url: Optional[str] = None
@@ -76,6 +76,8 @@ class ModelHubMixin:
             Name of the library integrating ModelHubMixin. Used to generate model card.
         tags (`List[str]`, *optional*):
             Tags to be added to the model card. Used to generate model card.
+        pipeline_tag (`str`, *optional*):
+            Tag of the pipeline. Used to generate model card. e.g. "text-classification".
         repo_url (`str`, *optional*):
             URL of the library repository. Used to generate model card.
         docs_url (`str`, *optional*):
@@ -131,8 +133,8 @@ class ModelHubMixin:
 
     # Download and initialize weights from the Hub
     >>> reloaded_model = MyCustomModel.from_pretrained("username/my-awesome-model")
-    >>> reloaded_model._hub_mixin_config
-    {"size": 256, "device": "gpu"}
+    >>> reloaded_model.size
+    256
 
     # Model card has been correctly populated
     >>> from huggingface_hub import ModelCard
@@ -157,6 +159,7 @@ class ModelHubMixin:
         cls,
         *,
         library_name: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
         tags: Optional[List[str]] = None,
         repo_url: Optional[str] = None,
         docs_url: Optional[str] = None,
@@ -170,6 +173,7 @@ class ModelHubMixin:
         cls._hub_mixin_info = MixinInfo(
             library_name=library_name,
             tags=tags,
+            pipeline_tag=pipeline_tag,
             repo_url=repo_url,
             docs_url=docs_url,
         )
@@ -258,9 +262,17 @@ class ModelHubMixin:
                 not provided.
             kwargs:
                 Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
+        Returns:
+            `str` or `None`: url of the commit on the Hub if `push_to_hub=True`, `None` otherwise.
         """
         save_directory = Path(save_directory)
         save_directory.mkdir(parents=True, exist_ok=True)
+
+        # Remove config.json if already exists. After `_save_pretrained` we don't want to overwrite config.json
+        # as it might have been saved by the custom `_save_pretrained` already. However we do want to overwrite
+        # an existing config.json if it was not saved by `_save_pretrained`.
+        config_path = save_directory / CONFIG_NAME
+        config_path.unlink(missing_ok=True)
 
         # save model weights/files (framework-specific)
         self._save_pretrained(save_directory)
@@ -271,7 +283,6 @@ class ModelHubMixin:
         if config is not None:
             if is_dataclass(config):
                 config = asdict(config)  # type: ignore[arg-type]
-            config_path = save_directory / CONFIG_NAME
             if not config_path.exists():
                 config_str = json.dumps(config, sort_keys=True, indent=2)
                 config_path.write_text(config_str)
@@ -398,7 +409,12 @@ class ModelHubMixin:
                 # Forward config to model initialization
                 model_kwargs["config"] = config
 
-            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
+            # Inject config if `**kwargs` are expected
+            if is_dataclass(cls):
+                for key in cls.__dataclass_fields__:
+                    if key not in model_kwargs and key in config:
+                        model_kwargs[key] = config[key]
+            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
                 for key, value in config.items():
                     if key not in model_kwargs:
                         model_kwargs[key] = value
@@ -475,11 +491,6 @@ class ModelHubMixin:
         """
         raise NotImplementedError
 
-    @_deprecate_arguments(
-        version="0.23.0",
-        deprecated_args=["api_endpoint"],
-        custom_message="Use `HF_ENDPOINT` environment variable instead.",
-    )
     @validate_hf_hub_args
     def push_to_hub(
         self,
@@ -494,8 +505,6 @@ class ModelHubMixin:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        # TODO: remove once deprecated
-        api_endpoint: Optional[str] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -513,8 +522,6 @@ class ModelHubMixin:
                 Message to commit while pushing.
             private (`bool`, *optional*, defaults to `False`):
                 Whether the repository created should be private.
-            api_endpoint (`str`, *optional*):
-                The API endpoint to use when pushing the model to the hub.
             token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `huggingface-cli login`.
@@ -532,7 +539,7 @@ class ModelHubMixin:
         Returns:
             The url of the commit of your model in the given repository.
         """
-        api = HfApi(endpoint=api_endpoint, token=token)
+        api = HfApi(token=token)
         repo_id = api.create_repo(repo_id=repo_id, private=private, exist_ok=True).repo_id
 
         # Push the files to the repo in a single commit

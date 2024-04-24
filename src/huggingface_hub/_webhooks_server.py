@@ -20,16 +20,19 @@ import os
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from .utils import experimental, is_gradio_available
-from .utils._deprecation import _deprecate_method
+from .utils import experimental, is_fastapi_available, is_gradio_available
 
 
 if TYPE_CHECKING:
     import gradio as gr
+    from fastapi import Request
 
-
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+if is_fastapi_available():
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+else:
+    # Will fail at runtime if FastAPI is not available
+    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
 
 
 _global_app: Optional["WebhooksServer"] = None
@@ -41,7 +44,7 @@ class WebhooksServer:
     """
     The [`WebhooksServer`] class lets you create an instance of a Gradio app that can receive Huggingface webhooks.
     These webhooks can be registered using the [`~WebhooksServer.add_webhook`] decorator. Webhook endpoints are added to
-    the app as a POST endpoint to the FastAPI router. Once all the webhooks are registered, the `run` method has to be
+    the app as a POST endpoint to the FastAPI router. Once all the webhooks are registered, the `launch` method has to be
     called to start the app.
 
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
@@ -87,7 +90,7 @@ class WebhooksServer:
         async def hello(payload: WebhookPayload):
             return {"message": "hello"}
 
-        app.run()
+        app.launch()
         ```
     """
 
@@ -95,6 +98,11 @@ class WebhooksServer:
         if not is_gradio_available():
             raise ImportError(
                 "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio`"
+                " first."
+            )
+        if not is_fastapi_available():
+            raise ImportError(
+                "You must have `fastapi` installed to use `WebhooksServer`. Please run `pip install --upgrade fastapi`"
                 " first."
             )
         return super().__new__(cls)
@@ -134,7 +142,7 @@ class WebhooksServer:
                     # Trigger a training job if a dataset is updated
                     ...
 
-            app.run()
+            app.launch()
         ```
         """
         # Usage: directly as decorator. Example: `@app.add_webhook`
@@ -184,10 +192,6 @@ class WebhooksServer:
 
         if not prevent_thread_lock:
             ui.block_thread()
-
-    @_deprecate_method(version="0.23", message="Use `WebhooksServer.launch` instead.")
-    def run(self) -> None:
-        return self.launch()
 
     def _get_default_ui(self) -> "gr.Blocks":
         """Default UI if not provided (lists webhooks and provides basic instructions)."""
@@ -278,7 +282,7 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
                 ...
 
         # Start the server manually
-        trigger_training.run()
+        trigger_training.launch()
         ```
     """
     if callable(path):
@@ -290,16 +294,16 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
         app = _get_global_app()
         app.add_webhook(path)(func)
         if len(app.registered_webhooks) == 1:
-            # Register `app.run` to run at exit (only once)
-            atexit.register(app.run)
+            # Register `app.launch` to run at exit (only once)
+            atexit.register(app.launch)
 
-        @wraps(app.run)
-        def _run_now():
+        @wraps(app.launch)
+        def _launch_now():
             # Run the app directly (without waiting atexit)
-            atexit.unregister(app.run)
-            app.run()
+            atexit.unregister(app.launch)
+            app.launch()
 
-        func.run = _run_now  # type: ignore
+        func.launch = _launch_now  # type: ignore
         return func
 
     return _inner
