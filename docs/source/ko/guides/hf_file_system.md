@@ -12,22 +12,22 @@ rendered properly in your Markdown viewer.
 >>> from huggingface_hub import HfFileSystem
 >>> fs = HfFileSystem()
 
->>> # List all files in a directory
+>>> # 디렉터리의 모든 파일 나열하기
 >>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # List all ".csv" files in a repo
+>>> # 저장소(repo)에서 ".csv" 파일 모두 나열하기
 >>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
->>> # Read a remote file
+>>> # 원격 파일 읽기
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
->>> # Read the content of a remote file as a string
+>>> # 문자열로 원격 파일의 내용 읽기
 >>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
->>> # Write a remote file
+>>> # 원격 파일 쓰기
 >>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
@@ -54,10 +54,10 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
   ```python
   >>> import pandas as pd
 
-  >>> # Read a remote CSV file into a dataframe
+  >>> # 원격 CSV 파일을 데이터프레임으로 읽기
   >>> df = pd.read_csv("hf://datasets/my-username/my-dataset-repo/train.csv")
 
-  >>> # Write a dataframe to a remote CSV file
+  >>> # 데이터프레임을 원격 CSV 파일로 쓰기
   >>> df.to_csv("hf://datasets/my-username/my-dataset-repo/test.csv")
   ```
 
@@ -71,7 +71,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
   >>> fs = HfFileSystem()
   >>> duckdb.register_filesystem(fs)
-  >>> # Query a remote file and get the result back as a dataframe
+  >>> # 원격 파일을 쿼리하고 결과를 데이터프레임으로 가져오기
   >>> fs_query_file = "hf://datasets/my-username/my-dataset-repo/data_dir/data.parquet"
   >>> df = duckdb.query(f"SELECT * FROM '{fs_query_file}' LIMIT 10").df()
   ```
@@ -84,13 +84,13 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
   >>> embeddings = np.random.randn(50000, 1000).astype("float32")
 
-  >>> # Write an array to a repo
+  >>> # 저장소(repo)에 배열 쓰기
   >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="w") as root:
   ...    foo = root.create_group("embeddings")
   ...    foobar = foo.zeros('experiment_0', shape=(50000, 1000), chunks=(10000, 1000), dtype='f4')
   ...    foobar[:] = embeddings
 
-  >>> # Read an array from a repo
+  >>> # 저장소(repo)에서 배열 읽기
   >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="r") as root:
   ...    first_row = root["embeddings/experiment_0"][0]
   ```
