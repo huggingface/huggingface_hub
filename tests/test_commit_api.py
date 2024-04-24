@@ -57,7 +57,7 @@ class TestCommitOperationPathInRepo(unittest.TestCase):
 
 
 class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
-    """Commit operations must throw an error on files in the .git/ folder.
+    """Commit operations must throw an error on files in the .git/ or .huggingface/ folders.
 
     Server would error anyway so it's best to prevent early.
     """
@@ -78,6 +78,7 @@ class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
         "path/to/.gitignore",
         "path/to/something.git",
         "path/to/something.git/more",
+        "path/to/something.huggingface/more",
     }
 
     def test_cannot_update_file_in_git_folder(self):
