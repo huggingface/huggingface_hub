@@ -19,6 +19,7 @@ from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    FORBIDDEN_FOLDERS,
     EntryNotFoundError,
     chunk_iterable,
     get_session,
@@ -254,7 +255,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
-    for forbidden in [".git", ".huggingface"]:
+    for forbidden in FORBIDDEN_FOLDERS:
         if any(part == forbidden for part in path_in_repo.split("/")):
             raise ValueError(
                 f"Invalid `path_in_repo` in CommitOperation: cannot update files under a '{forbidden}/' folder (path:"

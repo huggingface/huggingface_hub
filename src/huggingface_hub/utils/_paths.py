@@ -32,6 +32,8 @@ DEFAULT_IGNORE_PATTERNS = [
     "*/.huggingface",
     "**/.huggingface/**",
 ]
+# Forbidden to commit these folders
+FORBIDDEN_FOLDERS = [".git", ".huggingface"]
 
 
 def filter_repo_objects(
