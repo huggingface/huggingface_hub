@@ -1427,9 +1427,14 @@ def _hf_hub_download_to_local_dir(
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 
     # Local file exists + metadata exists + commit_hash matches => return file
-    if REGEX_COMMIT_HASH.match(revision):
-        if paths.file_path.is_file() and local_metadata is not None and local_metadata.commit_hash == revision:
-            return str(paths.file_path)
+    if (
+        not force_download
+        and REGEX_COMMIT_HASH.match(revision)
+        and paths.file_path.is_file()
+        and local_metadata is not None
+        and local_metadata.commit_hash == revision
+    ):
+        return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
     (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
@@ -1461,7 +1466,7 @@ def _hf_hub_download_to_local_dir(
     assert expected_size is not None, "expected_size must have been retrieved from server"
 
     # Local file exists => check if it's up-to-date
-    if paths.file_path.is_file():
+    if not force_download and paths.file_path.is_file():
         # etag matches => update metadata and return file
         if local_metadata is not None and local_metadata.etag == etag:
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1481,19 +1486,20 @@ def _hf_hub_download_to_local_dir(
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
     # If we are lucky enough, the file is already in the cache => copy it
-    cached_path = try_to_load_from_cache(
-        repo_id=repo_id,
-        filename=filename,
-        cache_dir=cache_dir,
-        revision=commit_hash,
-        repo_type=repo_type,
-    )
-    if isinstance(cached_path, str):
-        with WeakFileLock(paths.lock_path):
-            paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(cached_path, paths.file_path)
-        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
-        return str(paths.file_path)
+    if not force_download:
+        cached_path = try_to_load_from_cache(
+            repo_id=repo_id,
+            filename=filename,
+            cache_dir=cache_dir,
+            revision=commit_hash,
+            repo_type=repo_type,
+        )
+        if isinstance(cached_path, str):
+            with WeakFileLock(paths.lock_path):
+                paths.file_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(cached_path, paths.file_path)
+            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+            return str(paths.file_path)
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
