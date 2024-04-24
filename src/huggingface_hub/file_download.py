@@ -2,26 +2,20 @@ import copy
 import errno
 import fnmatch
 import inspect
-import io
 import json
 import os
 import re
 import shutil
 import stat
-import tempfile
 import time
 import uuid
 import warnings
-from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Generator, Literal, NoReturn, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
 
 import requests
-
-from huggingface_hub import constants
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from ._local_folder import (
@@ -791,46 +785,16 @@ def cached_download(
         cache_path = "\\\\?\\" + os.path.abspath(cache_path)
 
     with WeakFileLock(lock_path):
-        # If the download just completed while the lock was activated.
-        if os.path.exists(cache_path) and not force_download:
-            # Even if returning early like here, the lock will be released.
-            return cache_path
-
-        if resume_download:
-            incomplete_path = cache_path + ".incomplete"
-
-            @contextmanager
-            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
-                with open(incomplete_path, "ab") as f:
-                    yield f
-
-            temp_file_manager = _resumable_file_manager
-            if os.path.exists(incomplete_path):
-                resume_size = os.stat(incomplete_path).st_size
-            else:
-                resume_size = 0
-        else:
-            temp_file_manager = partial(  # type: ignore
-                tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
-            )
-            resume_size = 0
-
-        # Download to temporary file, then copy to cache dir once finished.
-        # Otherwise you get corrupt cache entries if the download gets interrupted.
-        with temp_file_manager() as temp_file:
-            logger.info("downloading %s to %s", url, temp_file.name)
-
-            http_get(
-                url_to_download,
-                temp_file,
-                proxies=proxies,
-                resume_size=resume_size,
-                headers=headers,
-                expected_size=expected_size,
-            )
-
-        logger.info("storing %s in cache at %s", url, cache_path)
-        _chmod_and_replace(temp_file.name, cache_path)
+        _download_to_tmp_and_move(
+            incomplete_path=Path(cache_path + ".incomplete"),
+            destination_path=Path(cache_path),
+            url_to_download=url_to_download,
+            proxies=proxies,
+            headers=headers,
+            expected_size=expected_size,
+            filename=filename,
+            force_download=force_download,
+        )
 
         if force_filename is None:
             logger.info("creating metadata file for %s", cache_path)
@@ -1212,7 +1176,6 @@ def hf_hub_download(
         cache_dir = str(cache_dir)
     if isinstance(local_dir, Path):
         local_dir = str(local_dir)
-    locks_dir = os.path.join(cache_dir, ".locks")
 
     if subfolder == "":
         subfolder = None
@@ -1225,6 +1188,87 @@ def hf_hub_download(
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
 
+    headers = build_hf_headers(
+        token=token,
+        library_name=library_name,
+        library_version=library_version,
+        user_agent=user_agent,
+        headers=headers,
+    )
+
+    if local_dir is not None:
+        if local_dir_use_symlinks != "auto":
+            warnings.warn(
+                "`local_dir_use_symlinks` parameter is deprecated and will be ignored. "
+                "The process to download files to a local folder has been updated and do "
+                "not rely on symlinks anymore. You only need to pass a destination folder "
+                "as`local_dir`.\n"
+                "For more details, check out https://huggingface.co/docs/huggingface_hub/main/en/guides/download#download-files-to-local-folder."
+            )
+
+        return _hf_hub_download_to_local_dir(
+            # Destination
+            local_dir=local_dir,
+            # File info
+            repo_id=repo_id,
+            repo_type=repo_type,
+            filename=filename,
+            revision=revision,
+            # HTTP info
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            headers=headers,
+            endpoint=endpoint,
+            # Additional options
+            cache_dir=cache_dir,
+            force_download=force_download,
+            local_files_only=local_files_only,
+        )
+    else:
+        return _hf_hub_download_to_cache_dir(
+            # Destination
+            cache_dir=cache_dir,
+            # File info
+            repo_id=repo_id,
+            filename=filename,
+            repo_type=repo_type,
+            revision=revision,
+            # HTTP info
+            headers=headers,
+            proxies=proxies,
+            etag_timeout=etag_timeout,
+            endpoint=endpoint,
+            # Additional options
+            local_files_only=local_files_only,
+            force_download=force_download,
+            resume_download=resume_download,
+        )
+
+
+def _hf_hub_download_to_cache_dir(
+    *,
+    # Destination
+    cache_dir: str,
+    # File info
+    repo_id: str,
+    filename: str,
+    repo_type: str,
+    revision: str,
+    # HTTP info
+    headers: Dict[str, str],
+    proxies: Optional[Dict],
+    etag_timeout: float,
+    endpoint: Optional[str],
+    # Additional options
+    local_files_only: bool,
+    force_download: bool,
+    resume_download: bool,
+) -> str:
+    """Download a given file to a cache folder, if not already present.
+
+    Method should not be called directly. Please use `hf_hub_download` instead.
+    """
+    locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
     # cross platform transcription of filename, to be used as a local file path.
@@ -1236,31 +1280,23 @@ def hf_hub_download(
                 " owner to rename this file."
             )
 
-    # if user provides a commit_hash and they already have the file on disk,
-    # shortcut everything.
+    # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
-        if os.path.exists(pointer_path):
-            if local_dir is not None:
-                return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
+        if os.path.exists(pointer_path) and not force_download:
             return pointer_path
 
-    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
-
-    headers = build_hf_headers(
-        token=token,
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-        headers=headers,
-    )
-
+    # Try to get metadata (etag, commit_hash, url, size) from the server.
+    # If we can't, a HEAD request error is returned.
     (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
-        url=url,
+        repo_id=repo_id,
+        filename=filename,
+        repo_type=repo_type,
+        revision=revision,
+        endpoint=endpoint,
         proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
-        revision=revision,
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
@@ -1269,7 +1305,7 @@ def hf_hub_download(
     # etag can be None for several reasons:
     # 1. we passed local_files_only.
     # 2. we don't have a connection
-    # 3. Hub is down (HTTP 500 or 504)
+    # 3. Hub is down (HTTP 500, 503, 504)
     # 4. repo is not found -for example private or gated- and invalid/missing token sent
     # 5. Hub is blocked by a firewall or proxy is not set correctly.
     # => Try to get the last downloaded one from the specified revision.
@@ -1291,11 +1327,7 @@ def hf_hub_download(
             # Return pointer file if exists
             if commit_hash is not None:
                 pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
-                if os.path.exists(pointer_path):
-                    if local_dir is not None:
-                        return _to_local_dir(
-                            pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks
-                        )
+                if os.path.exists(pointer_path) and not force_download:
                     return pointer_path
 
         # Otherwise, raise appropriate error
@@ -1311,21 +1343,19 @@ def hf_hub_download(
 
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
     _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
 
-    if os.path.exists(pointer_path) and not force_download:
-        if local_dir is not None:
-            return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
-        return pointer_path
+    # If file already exists, return it (except if force_download=True)
+    if not force_download:
+        if os.path.exists(pointer_path):
+            return pointer_path
 
-    if os.path.exists(blob_path) and not force_download:
-        # we have the blob already, but not the pointer
-        if local_dir is not None:  # to local dir
-            return _to_local_dir(blob_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
-        else:  # or in snapshot cache
+        if os.path.exists(blob_path):
+            # we have the blob already, but not the pointer
             _create_symlink(blob_path, pointer_path, new_blob=False)
             return pointer_path
 
@@ -1343,137 +1373,63 @@ def hf_hub_download(
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
     with WeakFileLock(lock_path):
-        # If the download just completed while the lock was activated.
-        if os.path.exists(pointer_path) and not force_download:
-            # Even if returning early like here, the lock will be released.
-            if local_dir is not None:
-                return _to_local_dir(pointer_path, local_dir, relative_filename, use_symlinks=local_dir_use_symlinks)
-            return pointer_path
-
-        if resume_download:
-            incomplete_path = blob_path + ".incomplete"
-
-            @contextmanager
-            def _resumable_file_manager() -> Generator[io.BufferedWriter, None, None]:
-                with open(incomplete_path, "ab") as f:
-                    yield f
-
-            temp_file_manager = _resumable_file_manager
-            if os.path.exists(incomplete_path):
-                resume_size = os.stat(incomplete_path).st_size
-            else:
-                resume_size = 0
-        else:
-            temp_file_manager = partial(  # type: ignore
-                tempfile.NamedTemporaryFile, mode="wb", dir=cache_dir, delete=False
-            )
-            resume_size = 0
-
-        # Download to temporary file, then copy to cache dir once finished.
-        # Otherwise you get corrupt cache entries if the download gets interrupted.
-        with temp_file_manager() as temp_file:
-            logger.info("downloading %s to %s", url, temp_file.name)
-
-            if expected_size is not None:  # might be None if HTTP header not set correctly
-                # Check tmp path
-                _check_disk_space(expected_size, os.path.dirname(temp_file.name))
-
-                # Check destination
-                _check_disk_space(expected_size, os.path.dirname(blob_path))
-                if local_dir is not None:
-                    _check_disk_space(expected_size, local_dir)
-
-            http_get(
-                url_to_download,
-                temp_file,
-                proxies=proxies,
-                resume_size=resume_size,
-                headers=headers,
-                expected_size=expected_size,
-                displayed_filename=filename,
-            )
-
-        if local_dir is None:
-            logger.debug(f"Storing {url} in cache at {blob_path}")
-            _chmod_and_replace(temp_file.name, blob_path)
-            _create_symlink(blob_path, pointer_path, new_blob=True)
-        else:
-            local_dir_filepath = os.path.join(local_dir, relative_filename)
-            os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
-
-            # If "auto" (default) copy-paste small files to ease manual editing but symlink big files to save disk
-            # In both cases, blob file is cached.
-            is_big_file = os.stat(temp_file.name).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
-            if local_dir_use_symlinks is True or (local_dir_use_symlinks == "auto" and is_big_file):
-                logger.debug(f"Storing {url} in cache at {blob_path}")
-                _chmod_and_replace(temp_file.name, blob_path)
-                logger.debug("Create symlink to local dir")
-                _create_symlink(blob_path, local_dir_filepath, new_blob=False)
-            elif local_dir_use_symlinks == "auto" and not is_big_file:
-                logger.debug(f"Storing {url} in cache at {blob_path}")
-                _chmod_and_replace(temp_file.name, blob_path)
-                logger.debug("Duplicate in local dir (small file and use_symlink set to 'auto')")
-                shutil.copyfile(blob_path, local_dir_filepath)
-            else:
-                logger.debug(f"Storing {url} in local_dir at {local_dir_filepath} (not cached).")
-                _chmod_and_replace(temp_file.name, local_dir_filepath)
-            pointer_path = local_dir_filepath  # for return value
+        _download_to_tmp_and_move(
+            incomplete_path=Path(blob_path + ".incomplete"),
+            destination_path=Path(blob_path),
+            url_to_download=url_to_download,
+            proxies=proxies,
+            headers=headers,
+            expected_size=expected_size,
+            filename=filename,
+            force_download=force_download,
+        )
+        _create_symlink(blob_path, pointer_path, new_blob=True)
 
     return pointer_path
 
 
-def hf_hub_download_local_dir(
+def _hf_hub_download_to_local_dir(
     *,
-    repo_id: str,
-    filename: str,
-    commit_hash: str,
+    # Destination
     local_dir: Union[str, Path],
-    subfolder: Optional[str] = None,
-    repo_type: Optional[str] = None,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
-    force_download: bool = False,
-    proxies: Optional[Dict] = None,
-    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-    token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
-    headers: Optional[Dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    # File info
+    repo_id: str,
+    repo_type: str,
+    filename: str,
+    revision: str,
+    # HTTP info
+    proxies: Optional[Dict],
+    etag_timeout: float,
+    headers: Dict[str, str],
+    endpoint: Optional[str],
+    # Additional options
+    cache_dir: str,
+    force_download: bool,
+    local_files_only: bool,
 ) -> str:
+    """Download a given file to a local folder, if not already present.
+
+    Method should not be called directly. Please use `hf_hub_download` instead.
+    """
     local_dir = Path(local_dir)
-    paths = get_local_download_paths()
+    paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 
     # Local file exists + metadata exists + commit_hash matches => return file
-    if paths.file_path.is_file() and local_metadata is not None and local_metadata.commit_hash == commit_hash:
-        return str(paths.file_path)
-
-    # Need to make http requests
-    url = hf_hub_url(
-        repo_id,
-        filename,
-        subfolder=subfolder,
-        repo_type=repo_type,
-        revision=commit_hash,
-        endpoint=endpoint,
-    )
-    headers = build_hf_headers(
-        token=token,
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-        headers=headers,
-    )
+    if REGEX_COMMIT_HASH.match(revision):
+        if paths.file_path.is_file() and local_metadata is not None and local_metadata.commit_hash == revision:
+            return str(paths.file_path)
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
-    (url_to_download, etag, _, expected_size, head_call_error) = _get_metadata_or_catch_error(
-        url=url,
+    (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
+        repo_id=repo_id,
+        filename=filename,
+        repo_type=repo_type,
+        revision=revision,
+        endpoint=endpoint,
         proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
-        revision=commit_hash,
         local_files_only=local_files_only,
     )
 
@@ -1518,27 +1474,17 @@ def hf_hub_download_local_dir(
         return str(paths.file_path)
 
     # Otherwise, let's download the file!
-    tmp_path = paths.incomplete_path(etag)
     with WeakFileLock(paths.lock_path):
-        if force_download:
-            tmp_path.unlink(missing_ok=True)
-
-        with tmp_path.open("ab") as f:
-            resume_size = f.tell()
-            logger.info(f"downloading '{url_to_download}' to '{tmp_path}' (resume from {resume_size}/{expected_size})")
-            http_get(
-                url_to_download,
-                f,
-                proxies=proxies,
-                resume_size=f.tell(),
-                headers=headers,
-                expected_size=expected_size,
-            )
-
-        # Move the file to its final location
-        logger.info(f"moving '{tmp_path}' to '{paths.file_path}'")
-        shutil.move(tmp_path, paths.file_path)
-        logger.info(f"successfully downloaded '{filename}' to '{paths.file_path}'")
+        _download_to_tmp_and_move(
+            incomplete_path=paths.incomplete_path(etag),
+            destination_path=paths.file_path,
+            url_to_download=url_to_download,
+            proxies=proxies,
+            headers=headers,
+            expected_size=expected_size,
+            filename=filename,
+            force_download=force_download,
+        )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
     return str(paths.file_path)
@@ -1714,18 +1660,22 @@ def get_hf_file_metadata(
 
 def _get_metadata_or_catch_error(
     *,
-    url: str,
+    repo_id: str,
+    filename: str,
+    repo_type: str,
+    revision: str,
+    endpoint: Optional[str],
     proxies: Optional[Dict],
     etag_timeout: Optional[float],
-    headers: Dict[str, str],
-    revision: str,
+    headers: Dict[str, str],  # mutated inplace!
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
 ) -> Union[
     # Either an exception is caught and returned
     Tuple[None, None, None, None, Exception],
-    # Or the metadata is returned
+    # Or the metadata is returned as
+    # `(url_to_download, etag, commit_hash, expected_size, None)`
     Tuple[str, str, str, int, None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
@@ -1743,9 +1693,12 @@ def _get_metadata_or_catch_error(
             None,
             None,
             None,
-            OfflineModeIsEnabled(f"Cannot access file since 'local_files_only=True' as been set. (url: {url})"),
+            OfflineModeIsEnabled(
+                f"Cannot access file since 'local_files_only=True' as been set. (repo_id: {repo_id}, repo_type: {repo_type}, revision: {revision}, filename: {filename})"
+            ),
         )
 
+    url = url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
     etag: Optional[str] = None
     commit_hash: Optional[str] = None
@@ -1868,6 +1821,70 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
         ) from head_call_error
 
 
+def _download_to_tmp_and_move(
+    incomplete_path: Path,
+    destination_path: Path,
+    url_to_download: str,
+    proxies: Optional[Dict],
+    headers: Dict[str, str],
+    expected_size: Optional[int],
+    filename: str,
+    force_download: bool,
+) -> None:
+    """Download content from a URL to a destination path.
+
+    Internal logic:
+    - return early if file is already downloaded
+    - resume download if possible (from incomplete file)
+    - do not resume download if `force_download=True` or `HF_HUB_ENABLE_HF_TRANSFER=True`
+    - check disk space before downloading
+    - download content to a temporary file
+    - set correct permissions on temporary file
+    - move the temporary file to the destination path
+
+    Both `incomplete_path` and `destination_path` must be on the same volume to avoid a local copy.
+    """
+    if destination_path.exists() and not force_download:
+        # Do nothing if already exists (except if force_download=True)
+        return
+
+    if incomplete_path.exists() and (force_download or (HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
+        # By default, we will try to resume the download if possible.
+        # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
+        # not resume the download => delete the incomplete file.
+        message = f"Removing incomplete file '{incomplete_path}'"
+        if force_download:
+            message += " (force_download=True)"
+        elif HF_HUB_ENABLE_HF_TRANSFER and not proxies:
+            message += " (hf_transfer=True)"
+        logger.info(message)
+        incomplete_path.unlink(missing_ok=True)
+
+    with incomplete_path.open("ab") as f:
+        resume_size = f.tell()
+        message = f"Downloading '{filename}' to '{incomplete_path}'"
+        if resume_size > 0 and expected_size is not None:
+            message += f" (resume from {resume_size}/{expected_size})"
+        logger.info(message)
+
+        if expected_size is not None:  # might be None if HTTP header not set correctly
+            # Check disk space in both tmp and destination path
+            _check_disk_space(expected_size, incomplete_path.parent)
+            _check_disk_space(expected_size, destination_path.parent)
+
+        http_get(
+            url_to_download,
+            f,
+            proxies=proxies,
+            resume_size=resume_size,
+            headers=headers,
+            expected_size=expected_size,
+        )
+
+    logger.info(f"Download complete. Moving file to {destination_path}")
+    _chmod_and_move(incomplete_path, destination_path)
+
+
 def _int_or_none(value: Optional[str]) -> Optional[int]:
     try:
         return int(value)  # type: ignore
@@ -1875,7 +1892,7 @@ def _int_or_none(value: Optional[str]) -> Optional[int]:
         return None
 
 
-def _chmod_and_replace(src: str, dst: str) -> None:
+def _chmod_and_move(src: Path, dst: Path) -> None:
     """Set correct permission before moving a blob from tmp directory to cache dir.
 
     Do not take into account the `umask` from the process as there is no convenient way
@@ -1889,15 +1906,15 @@ def _chmod_and_replace(src: str, dst: str) -> None:
     - Fix issue: https://github.com/huggingface/huggingface_hub/issues/1215
     """
     # Get umask by creating a temporary file in the cached repo folder.
-    tmp_file = Path(dst).parent.parent / f"tmp_{uuid.uuid4()}"
+    tmp_file = dst.parent.parent / f"tmp_{uuid.uuid4()}"
     try:
         tmp_file.touch()
         cache_dir_mode = Path(tmp_file).stat().st_mode
-        os.chmod(src, stat.S_IMODE(cache_dir_mode))
+        os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
     finally:
         tmp_file.unlink()
 
-    shutil.move(src, dst)
+    shutil.move(str(src), str(dst))
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
@@ -1911,32 +1928,3 @@ def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str
             f" `relative_filename='{relative_filename}'`."
         )
     return pointer_path
-
-
-def _to_local_dir(
-    path: str, local_dir: str, relative_filename: str, use_symlinks: Union[bool, Literal["auto"]]
-) -> str:
-    """Place a file in a local dir (different than cache_dir).
-
-    Either symlink to blob file in cache or duplicate file depending on `use_symlinks` and file size.
-    """
-    # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
-    local_dir_filepath = os.path.join(local_dir, relative_filename)
-    if Path(os.path.abspath(local_dir)) not in Path(os.path.abspath(local_dir_filepath)).parents:
-        raise ValueError(
-            f"Cannot copy file '{relative_filename}' to local dir '{local_dir}': file would not be in the local"
-            " directory."
-        )
-
-    os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
-    real_blob_path = os.path.realpath(path)
-
-    # If "auto" (default) copy-paste small files to ease manual editing but symlink big files to save disk
-    if use_symlinks == "auto":
-        use_symlinks = os.stat(real_blob_path).st_size > constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
-
-    if use_symlinks:
-        _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
-    else:
-        shutil.copyfile(real_blob_path, local_dir_filepath)
-    return local_dir_filepath
