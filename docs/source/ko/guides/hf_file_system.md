@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Hugging Face Hub에서 파일 시스템 API를 통해 상호작용하기[[interact-with-the-hub-through-the-filesystem-api]]
 
-`huggingface_hub` 라이브러리는 [`HfApi`] 외에도 Hugging Face Hub에 대한 파이써닉한 [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) 파일 인터페이스인 [`HfFileSystem`]을 제공합니다. [`HfFileSystem`]은 [`HfApi`] 위에 구축되어 있으며 `cp`, `mv`, `ls`, `du`, `glob`, `get_file` 및 `put_file`과 같은 전형적인 파일 시스템 스타일 작업을 제공합니다.
+`huggingface_hub` 라이브러리는 [`HfApi`] 외에도 Hugging Face Hub에 대한 파이써닉한 [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) 파일 인터페이스인 [`HfFileSystem`]을 제공합니다. [`HfFileSystem`]은 [`HfApi`]을 기반으로 구축되며, `cp`, `mv`, `ls`, `du`, `glob`, `get_file` 및 `put_file`과 같은 일반적인 파일 시스템 스타일 작업을 제공합니다.
 
 ## 사용법[[usage]]
 
@@ -63,7 +63,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
 동일한 워크플로우를 [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) 및 [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html) DataFrame에도 사용할 수 있습니다.
 
-* [DuckDB](https://duckdb.org/docs/guides/python/filesystems)를 사용하여 (원격) 허브 파일 쿼리:
+* [DuckDB](https://duckdb.org/docs/guides/python/filesystems)를 사용하여 (원격) Hub 파일 쿼리:
 
   ```python
   >>> from huggingface_hub import HfFileSystem
