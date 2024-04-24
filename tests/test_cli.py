@@ -419,6 +419,7 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=False,
             cache_dir=None,
             local_dir=".",
+            local_dir_use_symlinks=None,
             quiet=False,
         )
 
@@ -454,6 +455,7 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=True,
             cache_dir=None,
             local_dir="/path/to/dir",
+            local_dir_use_symlinks=None,
             quiet=False,
         )
         DownloadCommand(args).run()
@@ -488,6 +490,7 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             quiet=False,
             local_dir=None,
+            local_dir_use_symlinks=None,
         )
         DownloadCommand(args).run()
 
@@ -521,6 +524,7 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             quiet=False,
             local_dir=None,
+            local_dir_use_symlinks=None,
         )
 
         with self.assertWarns(UserWarning):
