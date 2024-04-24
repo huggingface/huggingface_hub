@@ -65,7 +65,7 @@
     - local: in_translation
       title: (번역 중) Cache-system reference
     - local: package_reference/cards
-      title: Repo Cards and Repo Card Data
+      title: Repo Cards와 Repo Card Data
     - local: in_translation
       title: (번역 중) Space runtime
     - local: in_translation
