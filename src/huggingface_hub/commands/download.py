@@ -38,7 +38,7 @@ Usage:
 
 import warnings
 from argparse import Namespace, _SubParsersAction
-from typing import List, Literal, Optional, Union
+from typing import List, Optional
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
@@ -94,13 +94,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.add_argument(
             "--local-dir-use-symlinks",
             choices=["auto", "True", "False"],
-            default="auto",
-            help=(
-                "To be used with `local_dir`. If set to 'auto', the cache directory will be used and the file will be"
-                " either duplicated or symlinked to the local directory depending on its size. It set to `True`, a"
-                " symlink will be created, no matter the file size. If set to `False`, the file will either be"
-                " duplicated from cache (if already exists) or downloaded from the Hub and not cached."
-            ),
+            help=("Deprecated and ignored. Downloading to a local directory do not use symlinks anymore."),
         )
         download_parser.add_argument(
             "--force-download",
@@ -134,19 +128,10 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.resume_download: bool = args.resume_download
         self.quiet: bool = args.quiet
 
-        # Raise if local_dir_use_symlinks is invalid
-        self.local_dir_use_symlinks: Union[Literal["auto"], bool]
-        use_symlinks_lowercase = args.local_dir_use_symlinks.lower()
-        if use_symlinks_lowercase == "true":
-            self.local_dir_use_symlinks = True
-        elif use_symlinks_lowercase == "false":
-            self.local_dir_use_symlinks = False
-        elif use_symlinks_lowercase == "auto":
-            self.local_dir_use_symlinks = "auto"
-        else:
-            raise ValueError(
-                f"'{args.local_dir_use_symlinks}' is not a valid value for `local_dir_use_symlinks`. It must be either"
-                " 'auto', 'True' or 'False'."
+        if args.local_dir_use_symlinks is not None:
+            warnings.warn(
+                "Ignoring --local-dir-use-symlinks. Downloading to a local directory do not use symlinks anymore.",
+                FutureWarning,
             )
 
     def run(self) -> None:
@@ -187,7 +172,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
-                local_dir_use_symlinks=self.local_dir_use_symlinks,
                 library_name="huggingface-cli",
             )
 
@@ -210,6 +194,5 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             cache_dir=self.cache_dir,
             token=self.token,
             local_dir=self.local_dir,
-            local_dir_use_symlinks=self.local_dir_use_symlinks,
             library_name="huggingface-cli",
         )

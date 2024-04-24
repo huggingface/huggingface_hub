@@ -359,7 +359,6 @@ class TestDownloadCommand(unittest.TestCase):
         self.assertIsNone(args.exclude)
         self.assertIsNone(args.cache_dir)
         self.assertIsNone(args.local_dir)
-        self.assertEqual(args.local_dir_use_symlinks, "auto")
         self.assertFalse(args.force_download)
         self.assertFalse(args.resume_download)
         self.assertIsNone(args.token)
@@ -391,8 +390,6 @@ class TestDownloadCommand(unittest.TestCase):
                 "--quiet",
                 "--local-dir",
                 ".",
-                "--local-dir-use-symlinks",
-                "True",
             ]
         )
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
@@ -403,7 +400,6 @@ class TestDownloadCommand(unittest.TestCase):
         self.assertTrue(args.force_download)
         self.assertEqual(args.cache_dir, "/tmp")
         self.assertEqual(args.local_dir, ".")
-        self.assertTrue(args.local_dir_use_symlinks)
         self.assertTrue(args.resume_download)
         self.assertEqual(args.token, "my-token")
         self.assertTrue(args.quiet)
@@ -423,7 +419,6 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=False,
             cache_dir=None,
             local_dir=".",
-            local_dir_use_symlinks="auto",
             quiet=False,
         )
 
@@ -442,7 +437,6 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=False,
             token="hf_****",
             local_dir=".",
-            local_dir_use_symlinks="auto",
             library_name="huggingface-cli",
         )
 
@@ -460,7 +454,6 @@ class TestDownloadCommand(unittest.TestCase):
             resume_download=True,
             cache_dir=None,
             local_dir="/path/to/dir",
-            local_dir_use_symlinks="False",
             quiet=False,
         )
         DownloadCommand(args).run()
@@ -477,7 +470,6 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             token="hf_****",
             local_dir="/path/to/dir",
-            local_dir_use_symlinks=False,
             library_name="huggingface-cli",
         )
 
@@ -496,7 +488,6 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             quiet=False,
             local_dir=None,
-            local_dir_use_symlinks="auto",
         )
         DownloadCommand(args).run()
 
@@ -511,7 +502,6 @@ class TestDownloadCommand(unittest.TestCase):
             force_download=True,
             cache_dir=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
             token=None,
             library_name="huggingface-cli",
         )
@@ -531,7 +521,6 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             quiet=False,
             local_dir=None,
-            local_dir_use_symlinks="auto",
         )
 
         with self.assertWarns(UserWarning):
@@ -549,7 +538,6 @@ class TestDownloadCommand(unittest.TestCase):
             cache_dir=None,
             token=None,
             local_dir=None,
-            local_dir_use_symlinks="auto",
             library_name="huggingface-cli",
         )
 

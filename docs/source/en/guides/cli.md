@@ -224,18 +224,20 @@ The examples above show how to download from the latest commit on the main branc
 
 ### Download to a local folder
 
-The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option. The file is downloaded to a tmp file and then moved to the local dir to avoid having partially downloaded files in the local folder.
+The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
 
-<Tip warning={true}>
+Note that a `.huggingface/` folder will be created at the root of your local directory, containing metadata about the downloaded files. This prevents re-downloading files if you re-run the command. While this mechanism is not as robust as the main cache-system, it's optimized for regularly pulling the latest version of a repository.
 
-Downloading to a local directory comes with some downsides. Please check out the limitations in the [Download](./download#download-files-to-local-folder) guide before using `--local-dir`.
+<Tip>
+
+For more details on how downloading to a local file works, check out the [download](./download.md#download-files-to-a-local-folder) guide.
 
 </Tip>
 
 ```bash
->>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir .
+>>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir fuyu
 ...
-./model-00001-of-00002.safetensors
+fuyu/model-00001-of-00002.safetensors
 ```
 
 ### Specify cache directory
