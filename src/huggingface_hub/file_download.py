@@ -79,13 +79,23 @@ from .utils import (
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.insecure_hashlib import sha256
+from .utils.sha import sha_fileobj
 
 
 logger = logging.get_logger(__name__)
 
+# Return value when trying to load a file from cache but the file does not exist in the distant repo.
+_CACHED_NO_EXIST = object()
+_CACHED_NO_EXIST_T = Any
+
 # Regex to get filename from a "Content-Disposition" header for CDN-served files
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
+# Regex to check if the revision IS directly a commit_hash
+REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+
+# Regex to check if the file etag IS a valid sha256
+REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 _are_symlinks_supported_in_dir: Dict[str, bool] = {}
 
@@ -147,12 +157,6 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
                     warnings.warn(message)
 
     return _are_symlinks_supported_in_dir[cache_dir]
-
-
-# Return value when trying to load a file from cache but the file does not exist in the distant repo.
-_CACHED_NO_EXIST = object()
-_CACHED_NO_EXIST_T = Any
-REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 
 
 @dataclass(frozen=True)
@@ -1456,14 +1460,25 @@ def _hf_hub_download_to_local_dir(
     assert url_to_download is not None, "file location must have been retrieved from server"
     assert expected_size is not None, "expected_size must have been retrieved from server"
 
-    # Local file exists + etag matches => update metadata and return file
-    if paths.file_path.is_file() and local_metadata is not None and local_metadata.etag == etag:
-        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
-        return str(paths.file_path)
+    # Local file exists => check if it's up-to-date
+    if paths.file_path.is_file():
+        # etag matches => update metadata and return file
+        if local_metadata is not None and local_metadata.etag == etag:
+            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+            return str(paths.file_path)
 
-    # Local file doesn't exist or etag doesn't match => retrieve file from remote (or cache)
+        # metadata is outdated + etag is a sha256
+        # => means it's an LFS file (large)
+        # => let's compute local hash and compare
+        # => if match, update metadata and return file
+        if local_metadata is None and REGEX_SHA256.match(etag) is not None:
+            with open(paths.file_path, "rb") as f:
+                file_hash = sha_fileobj(f).hex() + ")"
+            if file_hash == etag:
+                write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+                return str(paths.file_path)
 
-    # TODO: if file exists + etag is a sha256 => compute local hash and compare?
+    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
     # If we are lucky enough, the file is already in the cache => copy it
     cached_path = try_to_load_from_cache(

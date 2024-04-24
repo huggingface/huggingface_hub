@@ -112,7 +112,7 @@ class LocalDownloadFileMetadata:
     filename: str
     commit_hash: str
     etag: str
-    timestamp: int
+    timestamp: float
 
 
 @lru_cache(maxsize=128)  # ensure singleton
@@ -200,7 +200,7 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
     paths = get_local_download_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
         with paths.metadata_path.open("w") as f:
-            json.dump({"commit_hash": commit_hash, "etag": etag, "timestamp": int(time.time())}, f, indent=4)
+            json.dump({"commit_hash": commit_hash, "etag": etag, "timestamp": time.time()}, f, indent=4)
 
 
 @lru_cache()
