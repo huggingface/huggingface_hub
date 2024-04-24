@@ -24,6 +24,8 @@
       title: Hub에서 검색하기
     - local: guides/inference
       title: 추론
+    - local: guides/inference_endpoints
+      title: 추론 엔드포인트
     - local: guides/community
       title: 커뮤니티
     - local: in_translation
