@@ -133,6 +133,11 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     # filename is the path in the Hub repository (separated by '/')
     # make sure to have a cross platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
+    if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
+        raise ValueError(
+            f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
+            " owner to rename this file."
+        )
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
