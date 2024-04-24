@@ -1473,7 +1473,7 @@ def _hf_hub_download_to_local_dir(
         # => if match, update metadata and return file
         if local_metadata is None and REGEX_SHA256.match(etag) is not None:
             with open(paths.file_path, "rb") as f:
-                file_hash = sha_fileobj(f).hex() + ")"
+                file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
                 write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
                 return str(paths.file_path)
