@@ -104,7 +104,7 @@ from .constants import (
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (  # noqa: F401 # imported for backward compatibility
-    IGNORE_GIT_FOLDER_PATTERNS,
+    DEFAULT_IGNORE_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
     GatedRepoError,
@@ -4633,7 +4633,7 @@ class HfApi:
             ignore_patterns = []
         elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
-        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
+        ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
         delete_operations = self._prepare_upload_folder_deletions(
             repo_id=repo_id,
@@ -4999,8 +4999,6 @@ class HfApi:
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
                 data before giving up which is passed to `requests.request`.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                If `True`, resume a previously interrupted download.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -5141,8 +5139,6 @@ class HfApi:
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
                 data before giving up which is passed to `requests.request`.
-            resume_download (`bool`, *optional*, defaults to `False):
-                If `True`, resume a previously interrupted download.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
             token (`bool` or `str`, *optional*):

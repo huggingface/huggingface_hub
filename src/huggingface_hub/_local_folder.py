@@ -134,7 +134,7 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     # make sure to have a cross platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
     file_path = local_dir / sanitized_filename
-    metadata_path = local_dir / ".huggingface" / "download" / f"{sanitized_filename}.metadata"
+    metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,7 +183,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
                 stat = paths.file_path.stat()
                 if stat.st_mtime <= metadata.timestamp:
                     return metadata
-                logger.info(f"Ignoring metadata as file has been modified since metadata was saved ({filename}).")
+                logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
             except FileNotFoundError:
                 # file does not exist => metadata is outdated
                 return None
@@ -201,3 +201,21 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
     with WeakFileLock(paths.lock_path):
         with paths.metadata_path.open("w") as f:
             json.dump({"commit_hash": commit_hash, "etag": etag, "timestamp": int(time.time())}, f, indent=4)
+
+
+@lru_cache()
+def _huggingface_dir(local_dir: Path) -> Path:
+    """Return the path to the `.huggingface` directory in a local directory."""
+    # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times
+    path = local_dir / ".huggingface"
+    path.mkdir(exist_ok=True, parents=True)
+
+    # Create a .gitignore file in the .huggingface directory if it doesn't exist
+    # Should be thread-safe enough like this.
+    gitignore = path / ".gitignore"
+    gitignore_lock = path / ".gitignore.lock"
+    if not gitignore.exists():
+        with WeakFileLock(gitignore_lock):
+            gitignore.write_text("*")
+        gitignore_lock.unlink(missing_ok=True)
+    return path

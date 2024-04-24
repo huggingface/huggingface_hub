@@ -112,8 +112,6 @@ def snapshot_download(
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False):
-            If `True`, resume a previously interrupted download.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):

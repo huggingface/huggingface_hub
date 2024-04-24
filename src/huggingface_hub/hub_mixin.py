@@ -342,8 +342,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
             proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
@@ -474,8 +472,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
             proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint (e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`).

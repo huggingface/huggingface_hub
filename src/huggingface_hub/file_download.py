@@ -477,9 +477,9 @@ def http_get(
 
     consistency_error_message = (
         f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry download and"
-        " pass `force_download=True, resume_download=False` as argument.\nIf the issue persists, please let us"
-        " know by opening an issue on https://github.com/huggingface/huggingface_hub."
+        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry"
+        " with `force_download=True`.\nIf the issue persists, please let us know by opening an issue "
+        "on https://github.com/huggingface/huggingface_hub."
     )
 
     # Stream file to buffer
@@ -618,8 +618,6 @@ def cached_download(
         etag_timeout (`float`, *optional* defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False`):
-            If `True`, resume a previously interrupted download.
         token (`bool`, `str`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
@@ -668,6 +666,13 @@ def cached_download(
         warnings.warn(
             "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
             " 'hf_hub_download'",
+            FutureWarning,
+        )
+    if resume_download:
+        warnings.warn(
+            "`resume_download` is deprecated and will be removed in version 1.0.0. "
+            "Download always resume when possible. "
+            "If you want to force a new download, use `force_download=True`.",
             FutureWarning,
         )
 
@@ -1087,8 +1092,6 @@ def hf_hub_download(
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False`):
-            If `True`, resume a previously interrupted download.
         token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
@@ -1141,6 +1144,13 @@ def hf_hub_download(
             FutureWarning,
         )
         legacy_cache_layout = True
+    if resume_download:
+        warnings.warn(
+            "`resume_download` is deprecated and will be removed in version 1.0.0. "
+            "Download always resume when possible. "
+            "If you want to force a new download, use `force_download=True`.",
+            FutureWarning,
+        )
 
     if legacy_cache_layout:
         url = hf_hub_url(
@@ -1162,7 +1172,6 @@ def hf_hub_download(
             force_filename=force_filename,
             proxies=proxies,
             etag_timeout=etag_timeout,
-            resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
             legacy_cache_layout=legacy_cache_layout,
@@ -1241,7 +1250,6 @@ def hf_hub_download(
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
-            resume_download=resume_download,
         )
 
 
@@ -1262,7 +1270,6 @@ def _hf_hub_download_to_cache_dir(
     # Additional options
     local_files_only: bool,
     force_download: bool,
-    resume_download: bool,
 ) -> str:
     """Download a given file to a cache folder, if not already present.
 
@@ -1475,6 +1482,7 @@ def _hf_hub_download_to_local_dir(
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
+        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,

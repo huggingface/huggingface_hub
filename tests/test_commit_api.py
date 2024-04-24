@@ -68,6 +68,9 @@ class TestCommitOperationForbiddenPathInRepo(unittest.TestCase):
         "./.git/path/to/file",
         "subfolder/path/.git/to/file",
         "./subfolder/path/.git/to/file",
+        ".huggingface",
+        "./.huggingface/path/to/file",
+        "./subfolder/path/.huggingface/to/file",
     }
 
     VALID_PATHS_IN_REPO = {
