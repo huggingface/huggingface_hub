@@ -208,7 +208,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ### 엔드포인트 삭제[[delete-the-endpoint]]
 
-마지막으로 더 이상 추론 엔드포인트를 사용하지 않을 경우 [`~InferenceEndpoint.delete()`]를 호출하기만 하면 됩니다.
+마지막으로 더 이상 추론 엔드포인트를 사용하지 않을 경우, [`~InferenceEndpoint.delete()`]를 호출하기만 하면 됩니다.
 
 <Tip warning={true}>
 
