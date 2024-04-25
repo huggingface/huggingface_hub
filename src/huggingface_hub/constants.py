@@ -197,7 +197,6 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "fastai",
     "fasttext",
     "flair",
-    "generic",
     "k2",
     "keras",
     "mindspore",

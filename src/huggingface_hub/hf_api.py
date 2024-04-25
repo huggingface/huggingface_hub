@@ -603,7 +603,7 @@ class ModelInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the model.
+            Number of downloads of the model over the last 30 days.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -756,7 +756,7 @@ class DatasetInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the dataset.
+            Number of downloads of the dataset over the last 30 days.
         likes (`int`):
             Number of likes of the dataset.
         tags (`List[str]`):
