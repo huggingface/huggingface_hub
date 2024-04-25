@@ -266,7 +266,7 @@ class HubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             token=None,
         )
