@@ -8316,9 +8316,9 @@ class HfApi:
             webhook_id (`str`):
                 The unique identifier of the webhook to get.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`Webhook`]:
@@ -8364,9 +8364,9 @@ class HfApi:
 
         Args:
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `List[Webhook]`:
@@ -8428,9 +8428,9 @@ class HfApi:
             secret (`str`, *optional*):
                 A secret to sign the payload with.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`Webhook`]:
@@ -8501,9 +8501,9 @@ class HfApi:
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`Webhook`]:
@@ -8557,9 +8557,9 @@ class HfApi:
             webhook_id (`str`):
                 The unique identifier of the webhook to enable.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`Webhook`]:
@@ -8607,9 +8607,9 @@ class HfApi:
             webhook_id (`str`):
                 The unique identifier of the webhook to disable.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             [`Webhook`]:
@@ -8657,9 +8657,9 @@ class HfApi:
             webhook_id (`str`):
                 The unique identifier of the webhook to delete.
             token (Union[bool, str, None], optional):
-                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
-                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
-                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `None`
