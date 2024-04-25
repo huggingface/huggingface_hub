@@ -4918,7 +4918,7 @@ class HfApi:
         token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
         # Deprecated args
-        resume_download: bool = False,
+        resume_download: Optional[bool] = None,
         legacy_cache_layout: bool = False,
         force_filename: Optional[str] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -5063,7 +5063,7 @@ class HfApi:
         tqdm_class: Optional[base_tqdm] = None,
         # Deprecated args
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-        resume_download: bool = False,
+        resume_download: Optional[bool] = None,
     ) -> str:
         """Download repo files.
 

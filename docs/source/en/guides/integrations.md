@@ -98,7 +98,7 @@ common to offer parameters like:
 - `token`: to download from a private repo
 - `revision`: to download from a specific branch
 - `cache_dir`: to cache files in a specific directory
-- `force_download`/`resume_download`/`local_files_only`: to reuse the cache or not
+- `force_download`/`local_files_only`: to reuse the cache or not
 - `proxies`: configure HTTP session
 
 When pushing models, similar parameters are supported:

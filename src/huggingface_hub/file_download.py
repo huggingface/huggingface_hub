@@ -585,7 +585,7 @@ def cached_download(
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-    resume_download: bool = False,
+    resume_download: Optional[bool] = None,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     legacy_cache_layout: bool = False,
@@ -672,10 +672,10 @@ def cached_download(
             " 'hf_hub_download'",
             FutureWarning,
         )
-    if resume_download:
+    if resume_download is not None:
         warnings.warn(
             "`resume_download` is deprecated and will be removed in version 1.0.0. "
-            "Download always resume when possible. "
+            "Downloads always resume when possible. "
             "If you want to force a new download, use `force_download=True`.",
             FutureWarning,
         )
@@ -1010,7 +1010,7 @@ def hf_hub_download(
     endpoint: Optional[str] = None,
     # Deprecated args
     legacy_cache_layout: bool = False,
-    resume_download: bool = False,
+    resume_download: Optional[bool] = None,
     force_filename: Optional[str] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
 ) -> str:
@@ -1127,10 +1127,10 @@ def hf_hub_download(
             FutureWarning,
         )
         legacy_cache_layout = True
-    if resume_download:
+    if resume_download is not None:
         warnings.warn(
             "`resume_download` is deprecated and will be removed in version 1.0.0. "
-            "Download always resume when possible. "
+            "Downloads always resume when possible. "
             "If you want to force a new download, use `force_download=True`.",
             FutureWarning,
         )

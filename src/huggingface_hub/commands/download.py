@@ -102,7 +102,9 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             help="If True, the files will be downloaded even if they are already cached.",
         )
         download_parser.add_argument(
-            "--resume-download", action="store_true", help="If True, resume a previously interrupted download."
+            "--resume-download",
+            action="store_true",
+            help="Deprecated and ignored. Downloading a file to local dir always attempt to resume previously interrupted download.",
         )
         download_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
@@ -125,7 +127,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download
-        self.resume_download: bool = args.resume_download
+        self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
 
         if args.local_dir_use_symlinks is not None:

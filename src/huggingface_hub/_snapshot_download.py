@@ -55,7 +55,7 @@ def snapshot_download(
     endpoint: Optional[str] = None,
     # Deprecated args
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    resume_download: bool = False,
+    resume_download: Optional[bool] = None,
 ) -> str:
     """Download repo files.
 
