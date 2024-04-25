@@ -101,7 +101,7 @@ models = hf_api.list_models()
 
 ## CommitOperation[[huggingface_hub.CommitOperationAdd]]
 
-Below are the supported values for [`CommitOperation`]:
+[`CommitOperation`]에 지원되는 값은 다음과 같습니다:
 
 [[autodoc]] CommitOperationAdd
 
@@ -115,7 +115,7 @@ Below are the supported values for [`CommitOperation`]:
 
 ## Search helpers[[search-helpers]]
 
-Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
+`huggingface_hub` 패키지에는 Hub에서 리포지토리를 필터링하는 데 도움되는 도구들이 포함되어 있습니다.
 
 ### DatasetFilter[[huggingface_hub.DatasetFilter]]
 
