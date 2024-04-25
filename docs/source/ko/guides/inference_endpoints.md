@@ -35,7 +35,7 @@
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='pending', url=None)
 ```
 
-`name`, `repository`, `status`, `task`, `created_at`, `updated_at` 등과 같은 중요한 속성에 접근할 수 있는 데이터 클래스입니다. 필요한 경우 `endpoint.raw`를 통해 서버에서 온 원시 응답에도 접근할 수 있습니다.
+이것은 엔드포인트에 대한 정보를 저장하는 데이터클래스입니다. `name`, `repository`, `status`, `task`, `created_at`, `updated_at` 등과 같은 중요한 속성에 접근할 수 있습니다. 필요한 경우 `endpoint.raw`를 통해 서버로부터의 원시 응답에도 접근할 수 있습니다.
 
 추론 엔드포인트가 생성되면 [개인 대시보드](https://ui.endpoints.huggingface.co/)에서 확인할 수 있습니다.
 
