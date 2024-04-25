@@ -212,7 +212,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 <Tip warning={true}>
 
-이것은 구성, 로그 및 사용 메트릭을 포함하여 엔드포인트를 완전히 제거하는 비가역적인 작업입니다. 삭제된 추론 엔드포인트는 복원할 수 없습니다.
+이것은 돌이킬 수 없는 작업이며, 구성, 로그 및 사용 메트릭을 포함한 엔드포인트를 완전히 제거합니다. 삭제된 추론 엔드포인트는 복원할 수 없습니다.
 
 </Tip>
 
