@@ -8309,14 +8309,16 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+    def get_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
         """Get a webhook by its id.
 
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to get.
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             [`Webhook`]:
@@ -8357,12 +8359,14 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, token: Optional[str] = None) -> List[Webhook]:
+    def list_webhooks(self, token: Union[bool, str, None] = None) -> List[Webhook]:
         """List all configured webhooks.
 
         Args:
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             `List[Webhook]`:
@@ -8410,7 +8414,7 @@ class HfApi:
         url: str,
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
     ) -> Webhook:
         """Create a new webhook.
 
@@ -8423,8 +8427,10 @@ class HfApi:
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, *optional*):
                 A secret to sign the payload with.
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             [`Webhook`]:
@@ -8478,7 +8484,7 @@ class HfApi:
         url: str,
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
     ) -> Webhook:
         """Update an existing webhook.
 
@@ -8494,8 +8500,10 @@ class HfApi:
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
-            token (`str`, optional):
-                A valid authentication token for authorization (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             [`Webhook`]:
@@ -8542,14 +8550,16 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+    def enable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
         """Enable a webhook (makes it "active").
 
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to enable.
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             [`Webhook`]:
@@ -8590,14 +8600,16 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+    def disable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
         """Disable a webhook (makes it "disabled").
 
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to disable.
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             [`Webhook`]:
@@ -8638,14 +8650,16 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def delete_webhook(self, webhook_id: str, token: Optional[str] = None) -> None:
+    def delete_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> None:
         """Delete a webhook.
 
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to delete.
-            token (`str`, *optional*):
-                A valid authentication token (see https://huggingface.co/settings/token).
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). If not set, will default to the locally saved one. Pass token=False
+                to explicitly disable authentication. Note that the recommended way to authenticate is usually with a
+                locally saved token (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
             `None`
