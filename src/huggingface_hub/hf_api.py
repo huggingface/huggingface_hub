@@ -8364,7 +8364,7 @@ class HfApi:
 
         Returns:
             `List[Webhook]`:
-                A list of [`Webhook`] configurations.
+                A list of [`huggingface_hub.hf_api.Webhook`] configurations.
 
         Example:
             ```python
@@ -8426,7 +8426,7 @@ class HfApi:
 
         Returns:
             [`Webhook`]:
-                The created webhook.
+                The created [`huggingface_hub.hf_api.Webhook`] configuration.
 
         Example:
             ```python
@@ -8497,7 +8497,7 @@ class HfApi:
 
         Returns:
             [`Webhook`]:
-                The updated webhook configuration.
+                The updated [`huggingface_hub.hf_api.Webhook`] configuration.
 
         Example:
             ```python
@@ -8550,7 +8550,8 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Returns:
-            `None`
+            [`Webhook`]:
+                The enabled [`huggingface_hub.hf_api.Webhook`] configuration.
 
         Example:
             ```python
@@ -8598,7 +8599,7 @@ class HfApi:
 
         Returns:
             [`Webhook`]:
-                The disabled webhook configuration.
+                The disabled [`huggingface_hub.hf_api.Webhook`] configuration.
 
         Example:
             ```python
