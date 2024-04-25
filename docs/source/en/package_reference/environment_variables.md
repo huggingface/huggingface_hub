@@ -67,7 +67,7 @@ For more details, see [logging reference](../package_reference/utilities#hugging
 
 ### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
 
-This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir do not rely on symlinks anymore.
+This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir does not rely on symlinks anymore.
 
 ### HF_HUB_ETAG_TIMEOUT
 

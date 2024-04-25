@@ -130,7 +130,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
 
         if args.local_dir_use_symlinks is not None:
             warnings.warn(
-                "Ignoring --local-dir-use-symlinks. Downloading to a local directory do not use symlinks anymore.",
+                "Ignoring --local-dir-use-symlinks. Downloading to a local directory does not use symlinks anymore.",
                 FutureWarning,
             )
 

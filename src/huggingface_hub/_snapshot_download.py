@@ -66,7 +66,7 @@ def snapshot_download(
 
     If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
     option, the `cache_dir` will not be used and a `.huggingface/` folder will be created at the root of `local_dir`
-    to store some metadata related to the downloaded files.While this mechanism is not as robust as the main
+    to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
     cache-system, it's optimized for regularly pulling the latest version of a repository.
 
     An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
