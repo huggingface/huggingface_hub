@@ -54,8 +54,8 @@
       title: 허깅페이스 Hub API
     - local: package_reference/file_download
       title: 파일 다운로드하기
-    - local: in_translation
-      title: (번역 중) Mixins & serialization methods
+    - local: package_reference/mixins
+      title: 믹스인 & 직렬화 메소드
     - local: package_reference/inference_types
       title: 추론 타입
     - local: package_reference/inference_client
