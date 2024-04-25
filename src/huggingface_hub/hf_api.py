@@ -8313,8 +8313,10 @@ class HfApi:
         """Get a webhook by its id.
 
         Args:
-            webhook_id (`str`): The unique identifier of the webhook to get.
-            token (`str`, *optional*): A valid authentication token (see https://huggingface.co/settings/token).
+            webhook_id (`str`):
+                The unique identifier of the webhook to get.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
 
         Returns:
             [`Webhook`]:
