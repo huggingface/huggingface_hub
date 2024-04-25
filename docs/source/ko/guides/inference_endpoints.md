@@ -131,7 +131,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 ## 추론 실행[[run-inference]]
 
-추론 엔드포인트가 실행 중이면 마지막으로 추론을 실행할 수 있습니다!
+추론 엔드포인트가 실행되면, 마침내 추론을 실행할 수 있습니다!
 
 [`InferenceEndpoint`]에는 각각 [`InferenceClient`]와 [`AsyncInferenceClient`]를 반환하는 `client`와 `async_client` 속성이 있습니다.
 
