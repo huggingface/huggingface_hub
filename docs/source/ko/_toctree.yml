@@ -66,8 +66,8 @@
       title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Utilities
+    - local: package_reference/utilities
+      title: 유틸리티
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
     - local: package_reference/cache
