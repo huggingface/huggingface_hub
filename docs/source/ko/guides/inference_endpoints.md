@@ -127,7 +127,7 @@ huggingface_hub._inference_endpoints.InferenceEndpointTimeoutError: Timeout whil
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-`timeout`이 설정되어 있고 추론 엔드포인트가 로드되는 데 너무 오래 걸리면 [`InferenceEndpointTimeoutError`] 제한 시간 초과 오류가 발생합니다.
+`timeout`이 설정되어 있고 추론 엔드포인트가 불러오는 데 너무 오래 걸리면, [`InferenceEndpointTimeoutError`] 제한 시간 초과 오류가 발생합니다.
 
 ## 추론 실행[[run-inference]]
 
