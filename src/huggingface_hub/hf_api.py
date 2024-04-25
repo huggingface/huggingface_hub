@@ -391,8 +391,8 @@ class AccessRequest:
 
 
 @dataclass
-class WatchedItem:
-    """Data structure containing informatin about webhooks watched for updates.
+class WebhookWatchedItem:
+    """Data structure containing information about the items watched by a webhook.
 
     Attributes:
         type (`Literal["dataset", "model", "org", "space", "user"]`):
@@ -403,6 +403,33 @@ class WatchedItem:
 
     type: Literal["dataset", "model", "org", "space", "user"]
     name: str
+
+
+@dataclass
+class Webhook:
+    """Data structure containing information about a webhook.
+
+    Attributes:
+        id (`str`):
+            ID of the webhook.
+        watched (`List[WebhookWatchedItem]`):
+            List of items watched by the webhook, see [`WebhookWatchedItem`].
+        url (`str`):
+            URL of the webhook.
+        secret (`str`, *optional*):
+            Secret of the webhook.
+        domains (`List[WEBHOOK_DOMAIN_T]`):
+            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+        disabled (`bool`):
+            Whether the webhook is disabled or not.
+    """
+
+    id: str
+    watched: List[WebhookWatchedItem]
+    url: str
+    secret: Optional[str]
+    domains: List[WEBHOOK_DOMAIN_T]
+    disabled: bool
 
 
 class RepoUrl(str):
@@ -8282,43 +8309,115 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
-        """Get a webhook by its id."""
+    def get_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+        """Get a webhook by its id.
+
+        Args:
+            webhook_id (`str`): The unique identifier of the webhook to get.
+            token (`str`, *optional*): A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            [`Webhook`]:
+                The webhook configuration.
+
+        Example:
+            ```python
+            >>> webhook = get_webhook("654bbbc16f2ec14d77f109cc")
+            >>> print(webhook)
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
+            ```
+        """
         response = get_session().get(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhook_data = response.json()
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = Webhook(
+            id=webhook_data["id"],
+            watched=watched_items,
+            url=webhook_data["url"],
+            secret=webhook_data.get("secret"),
+            domains=webhook_data["domains"],
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, token: Optional[str] = None) -> List[Dict]:
-        """List all configured webhooks."""
+    def list_webhooks(self, token: Optional[str] = None) -> List[Webhook]:
+        """List all configured webhooks.
+
+        Args:
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `List[Webhook]`:
+                A list of [`Webhook`] configurations.
+
+        Example:
+            ```python
+            >>> webhooks = list_webhooks()
+            >>> len(webhooks)
+            2
+            >>> webhooks[0]
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
+            ```
+        """
         response = get_session().get(
             f"{ENDPOINT}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhooks_data = response.json()
+
+        return [
+            Webhook(
+                id=webhook["id"],
+                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
+                url=webhook["url"],
+                secret=webhook.get("secret"),
+                domains=webhook["domains"],
+                disabled=webhook["disabled"],
+            )
+            for webhook in webhooks_data
+        ]
 
     @validate_hf_hub_args
     def create_webhook(
         self,
-        watched: List[WatchedItem],
+        watched: List[WebhookWatchedItem],
         url: str,
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
         token: Optional[str] = None,
-    ) -> Dict:
+    ) -> Webhook:
         """Create a new webhook.
 
         Args:
-            watched (List[WatchedItem]):
-                List of items to watch. It an be users, orgs, models, datasets or spaces.
-                See `WatchedItem` for more details.
-            url (str):
+            watched (`List[WebhookWatchedItem]`):
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It an be users, orgs, models, datasets or spaces.
+            url (`str`):
                 URL to send the payload to.
-            domains (List[Literal["repo", "discussion"]]):
+            domains (`List[Literal["repo", "discussion"]]`):
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, *optional*):
                 A secret to sign the payload with.
@@ -8326,26 +8425,26 @@ class HfApi:
                 A valid authentication token (see https://huggingface.co/settings/token).
 
         Returns:
-            dict: The created webhook.
+            [`Webhook`]:
+                The created webhook.
 
         Example:
             ```python
             >>> payload = create_webhook(
-            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
             ...     domains=["repo", "discussion"],
             ...     secret="my-secret",
             ... )
-            {
-                "webhook": {
-                    "id": "654bbbc16f2ec14d77f109cc",
-                    "watched": [{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
-                    "url": "https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                    "secret": "my-secret",
-                    "domains": ["repo", "discussion"],
-                    "disabled": False,
-                },
-            }
+            >>> print(payload)
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
             ```
         """
         response = get_session().post(
@@ -8354,57 +8453,69 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhook_data = response.json()
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = Webhook(
+            id=webhook_data["id"],
+            watched=watched_items,
+            url=webhook_data["url"],
+            secret=webhook_data.get("secret"),
+            domains=webhook_data["domains"],
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
 
     @validate_hf_hub_args
     def update_webhook(
         self,
         webhook_id: str,
-        watched: List[WatchedItem],
+        watched: List[WebhookWatchedItem],
         url: str,
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
         token: Optional[str] = None,
-    ) -> Dict:
+    ) -> Webhook:
         """Update an existing webhook.
 
         Args:
-            webhook_id (str):
+            webhook_id (`str`):
                 The unique identifier of the webhook to be updated.
-            watched (List[WatchedItem]):
+            watched (`List[WebhookWatchedItem]`):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
-                Refer to `WatchedItem` for more details.
-            url (str):
+                Refer to [`WebhookWatchedItem`] for more details.
+            url (`str`):
                 The URL to which the payload will be sent.
-            domains (List[Literal["repo", "discussion"]]):
+            domains (`List[Literal["repo", "discussion"]]`):
                 The domains to watch. This can include "repo", "discussion", or both.
-            secret (str, optional):
+            secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
-            token (str, optional):
+            token (`str`, optional):
                 A valid authentication token for authorization (see https://huggingface.co/settings/token).
 
         Returns:
-            dict: The updated webhook configuration.
+            [`Webhook`]:
+                The updated webhook configuration.
 
         Example:
             ```python
             >>> updated_payload = update_webhook(
             ...     webhook_id="654bbbc16f2ec14d77f109cc",
-            ...     watched=[{"type": "org", "name": "HuggingFaceH4"}, {"type": "model", "name": "HuggingFaceH4/new-model"}],
+            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
             ...     domains=["repo"],
             ...     secret="my-secret",
             ... )
-            {
-                "webhook": {
-                    "id": "654bbbc16f2ec14d77f109cc",
-                    "watched": [{"type": "org", "name": "HuggingFaceH4"}, {"type": "model", "name": "HuggingFaceH4/new-model"}],
-                    "url": "https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                    "secret": "new-secret",
-                    "domains": ["repo"],
-                    "disabled": False,
-                },
-            }
+            >>> print(updated_payload)
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                domains=["repo"],
+                secret="my-secret",
+                disabled=False,
             ```
         """
         response = get_session().post(
@@ -8413,31 +8524,134 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhook_data = response.json()
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = Webhook(
+            id=webhook_data["id"],
+            watched=watched_items,
+            url=webhook_data["url"],
+            secret=webhook_data.get("secret"),
+            domains=webhook_data["domains"],
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
-        """Enable a webhook (makes it "active")."""
+    def enable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+        """Enable a webhook (makes it "active").
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to enable.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `None`
+
+        Example:
+            ```python
+            >>> enabled_webhook = enable_webhook("654bbbc16f2ec14d77f109cc")
+            >>> enabled_webhook
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
+            ```
+        """
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhook_data = response.json()
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = Webhook(
+            id=webhook_data["id"],
+            watched=watched_items,
+            url=webhook_data["url"],
+            secret=webhook_data.get("secret"),
+            domains=webhook_data["domains"],
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Dict:
-        """Disable a webhook (makes it "disabled")."""
+    def disable_webhook(self, webhook_id: str, token: Optional[str] = None) -> Webhook:
+        """Disable a webhook (makes it "disabled").
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to disable.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            [`Webhook`]:
+                The disabled webhook configuration.
+
+        Example:
+            ```python
+            >>> disabled_webhook = disable_webhook("654bbbc16f2ec14d77f109cc")
+            >>> disabled_webhook
+            Webhook(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=True,
+            )
+            ```
+        """
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        return response.json()
+        webhook_data = response.json()
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = Webhook(
+            id=webhook_data["id"],
+            watched=watched_items,
+            url=webhook_data["url"],
+            secret=webhook_data.get("secret"),
+            domains=webhook_data["domains"],
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
 
     @validate_hf_hub_args
-    def delete_webhook(self, webhook_id: str, token: Optional[str] = None):
-        """Delete a webhook."""
+    def delete_webhook(self, webhook_id: str, token: Optional[str] = None) -> None:
+        """Delete a webhook.
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to delete.
+            token (`str`, *optional*):
+                A valid authentication token (see https://huggingface.co/settings/token).
+
+        Returns:
+            `None`
+
+        Example:
+            ```python
+            >>> delete_webhook("654bbbc16f2ec14d77f109cc")
+            ```
+        """
         response = get_session().delete(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
