@@ -147,7 +147,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -176,7 +176,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -187,7 +187,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -204,7 +204,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             token=None,
         )
