@@ -33,15 +33,16 @@ import huggingface_hub.inference._common
 from huggingface_hub import (
     AsyncInferenceClient,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     InferenceClient,
     InferenceTimeoutError,
-    TextGenerationPrefillToken,
+    TextGenerationOutputPrefillToken,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
-from huggingface_hub.inference._common import _is_tgi_server
+from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 from .testing_utils import with_production_testing
@@ -49,7 +50,7 @@ from .testing_utils import with_production_testing
 
 @pytest.fixture(autouse=True)
 def patch_non_tgi_server(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(huggingface_hub.inference._common, "_NON_TGI_SERVERS", set())
+    monkeypatch.setattr(huggingface_hub.inference._common, "_UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
 
 
 @pytest.fixture
@@ -74,7 +75,7 @@ async def test_async_generate_with_details(tgi_client: AsyncInferenceClient) -> 
     assert response.details.generated_tokens == 1
     assert response.details.seed is None
     assert len(response.details.prefill) == 1
-    assert response.details.prefill[0] == TextGenerationPrefillToken(id=0, text="<pad>", logprob=None)
+    assert response.details.prefill[0] == TextGenerationOutputPrefillToken(id=0, text="<pad>", logprob=None)
     assert len(response.details.tokens) == 1
     assert response.details.tokens[0].id == 3
     assert response.details.tokens[0].text == " "
@@ -106,7 +107,7 @@ async def test_async_generate_validation_error(tgi_client: AsyncInferenceClient)
 async def test_async_generate_non_tgi_endpoint(tgi_client: AsyncInferenceClient) -> None:
     text = await tgi_client.text_generation("0 1 2", model="gpt2", max_new_tokens=10)
     assert text == " 3 4 5 6 7 8 9 10 11 12"
-    assert not _is_tgi_server("gpt2")
+    assert _get_unsupported_text_generation_kwargs("gpt2") == ["details", "stop", "watermark", "decoder_input_details"]
 
     # Watermark is ignored (+ warning)
     with pytest.warns(UserWarning):
@@ -160,11 +161,16 @@ async def test_async_chat_completion_no_stream() -> None:
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
     assert isinstance(output.created, int)
     assert output == ChatCompletionOutput(
+        id="",
+        model="HuggingFaceH4/zephyr-7b-beta",
+        object="text_completion",
+        system_fingerprint="1.4.3-sha-e6bb3ff",
+        usage=ChatCompletionOutputUsage(completion_tokens=10, prompt_tokens=47, total_tokens=57),
         choices=[
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="length",
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a subfield of machine learning that",
                     role="assistant",
                 ),
@@ -182,11 +188,16 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
     assert isinstance(output.created, int)
     assert output == ChatCompletionOutput(
+        id="dummy",
+        model="dummy",
+        object="dummy",
+        system_fingerprint="dummy",
+        usage=None,
         choices=[
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="unk",  # Non-TGI => cannot know the finish reason
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a thing.",
                     role="assistant",
                 ),

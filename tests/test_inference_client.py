@@ -24,8 +24,8 @@ from PIL import Image
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -81,6 +81,67 @@ CHAT_COMPLETION_MESSAGES = [
     {"role": "user", "content": "What is deep learning?"},
 ]
 CHAT_COMPLETE_NON_TGI_MODEL = "microsoft/DialoGPT-small"
+
+CHAT_COMPLETION_TOOL_INSTRUCTIONS = [
+    {
+        "role": "system",
+        "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.",
+    },
+    {
+        "role": "user",
+        "content": "What's the weather like the next 3 days in San Francisco, CA?",
+    },
+]
+CHAT_COMPLETION_TOOLS = [  # 1 tool to get current weather, 1 to get N-day weather forecast
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                },
+                "required": ["location", "format"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_n_day_weather_forecast",
+            "description": "Get an N-day weather forecast",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                    "num_days": {
+                        "type": "integer",
+                        "description": "The number of days to forecast",
+                    },
+                },
+                "required": ["location", "format", "num_days"],
+            },
+        },
+    },
+]
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -148,10 +209,10 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert isinstance(output, ChatCompletionOutput)
         assert output.created < time.time()
         assert output.choices == [
-            ChatCompletionOutputChoice(
+            ChatCompletionOutputComplete(
                 finish_reason="length",
                 index=0,
-                message=ChatCompletionOutputChoiceMessage(
+                message=ChatCompletionOutputMessage(
                     content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
                     role="assistant",
                 ),
@@ -201,11 +262,16 @@ class InferenceClientVCRTest(InferenceClientTest):
             max_tokens=20,
         )
         assert output == ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,
             choices=[
-                ChatCompletionOutputChoice(
+                ChatCompletionOutputComplete(
                     finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
+                    message=ChatCompletionOutputMessage(
                         content="Deep learning is a thing.",
                         role="assistant",
                     ),
@@ -213,6 +279,52 @@ class InferenceClientVCRTest(InferenceClientTest):
             ],
             created=output.created,
         )
+
+    def test_chat_completion_with_tool(self) -> None:
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="auto",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+
+        # Single message before EOS
+        assert output.finish_reason == "eos_token"
+        assert output.index == 0
+        assert output.message.role == "assistant"
+
+        # No content but a tool call
+        assert output.message.content is None
+        assert len(output.message.tool_calls) == 1
+
+        # Tool
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.type == "function"
+        assert tool_call.function.name == "get_n_day_weather_forecast"
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+            "num_days": 3,
+        }
+
+        # Now, test with tool_choice="get_current_weather"
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="get_current_weather",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.function.name == "get_current_weather"
+        # No need for 'num_days' with this tool
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+        }
 
     @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
