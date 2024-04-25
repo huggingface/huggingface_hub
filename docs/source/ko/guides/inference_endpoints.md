@@ -103,7 +103,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2', status='running', url='https://jpj7k2q4j805b727.us-east-1.aws.endpoints.huggingface.cloud')
 ```
 
-`"running"` 상태에 도달하기 전에 추론 엔드포인트는 일반적으로 `"initializing"` 또는 `"pending"` 단계를 거칩니다. [`~InferenceEndpoint.fetch`]를 실행하여 엔드포인트의 새 상태를 가져올 수 있습니다. [`InferenceEndpoint`]의 다른 메소드와 마찬가지로 이 메소드는 서버에 요청을 하며, `endpoint`의 내부 속성이 그 자리에서 변경됩니다:
+`추론 엔드포인트가 "running"` 상태에 도달하기 전에 일반적으로 `"initializing"` 또는 `"pending"` 단계를 거칩니다. [`~InferenceEndpoint.fetch`]를 실행하여 엔드포인트의 새로운 상태를 가져올 수 있습니다. [`InferenceEndpoint`]의 다른 메소드와 마찬가지로 이 메소드는 서버에 요청을 하며, `endpoint`의 내부 속성이 변경됩니다:
 
 ```py
 >>> endpoint.fetch()
