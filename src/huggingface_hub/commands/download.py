@@ -94,7 +94,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.add_argument(
             "--local-dir-use-symlinks",
             choices=["auto", "True", "False"],
-            help=("Deprecated and ignored. Downloading to a local directory do not use symlinks anymore."),
+            help=("Deprecated and ignored. Downloading to a local directory does not use symlinks anymore."),
         )
         download_parser.add_argument(
             "--force-download",

@@ -99,7 +99,7 @@ class LocalDownloadFileMetadata:
             Commit hash of the file in the repo.
         etag (`str`):
             ETag of the file in the repo. Used to check if the file has changed.
-            For LFS files, this is the sha256 of the file. For regular, it correspond to the git hash.
+            For LFS files, this is the sha256 of the file. For regular files, it corresponds to the git hash.
         timestamp (`int`):
             Unix timestamp of when the metadata was saved i.e. when the metadata was accurate.
     """
