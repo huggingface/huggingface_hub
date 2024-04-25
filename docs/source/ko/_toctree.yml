@@ -50,8 +50,8 @@
       title: (번역 중) Environment variables
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
-    - local: in_translation
-      title: (번역 중) Hugging Face Hub API
+    - local: package_reference/hf_api
+      title: 허깅페이스 Hub API
     - local: package_reference/file_download
       title: 파일 다운로드하기
     - local: in_translation
