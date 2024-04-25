@@ -9,7 +9,7 @@ rendered properly in your Markdown viewer.
 
 이 페이지에는 Hugging Face Hub에서 지원하는 타입(예: 데이터 클래스)이 나열되어 있습니다.
 각 작업은 JSON 스키마를 사용하여 지정되며, 이러한 스키마에 의해서 타입이 생성됩니다. 이때 Python 요구 사항으로 인해 일부 사용자 정의가 있을 수 있습니다.
- 
+
 각 작업의 JSON 스키마를 확인하려면 [@huggingface.js/tasks](https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks)를 확인하세요.
 
 라이브러리에서 이 부분은 아직 개발 중이며, 향후 릴리즈에서 개선될 예정입니다.
@@ -52,19 +52,49 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInput
 
+[[autodoc]] huggingface_hub.ChatCompletionInputFunctionDefinition
+
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionInputTool
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolTypeClass
 
 [[autodoc]] huggingface_hub.ChatCompletionOutput
 
-[[autodoc]] huggingface_hub.ChatCompletionOutputChoice
+[[autodoc]] huggingface_hub.ChatCompletionOutputComplete
 
-[[autodoc]] huggingface_hub.ChatCompletionOutputChoiceMessage
+[[autodoc]] huggingface_hub.ChatCompletionOutputFunctionDefinition
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputLogprobs
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputTopLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputUsage
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutput
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputChoice
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputDelta
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDeltaToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputFunction
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputLogprobs
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
 
 
 
@@ -224,21 +254,25 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.TextGenerationInput
 
+[[autodoc]] huggingface_hub.TextGenerationInputGenerateParameters
+
+[[autodoc]] huggingface_hub.TextGenerationInputGrammarType
+
 [[autodoc]] huggingface_hub.TextGenerationOutput
+
+[[autodoc]] huggingface_hub.TextGenerationOutputBestOfSequence
 
 [[autodoc]] huggingface_hub.TextGenerationOutputDetails
 
-[[autodoc]] huggingface_hub.TextGenerationOutputSequenceDetails
+[[autodoc]] huggingface_hub.TextGenerationOutputPrefillToken
 
 [[autodoc]] huggingface_hub.TextGenerationOutputToken
 
-[[autodoc]] huggingface_hub.TextGenerationParameters
-
-[[autodoc]] huggingface_hub.TextGenerationPrefillToken
-
-[[autodoc]] huggingface_hub.TextGenerationStreamDetails
-
 [[autodoc]] huggingface_hub.TextGenerationStreamOutput
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutputStreamDetails
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutputToken
 
 
 
