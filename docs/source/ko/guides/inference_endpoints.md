@@ -3,7 +3,7 @@
 추론 엔드포인트는 Hugging Face가 관리하는 전용 및 자동 확장 인프라에 `transformers`, `sentence-transformers` 및 `diffusers` 모델을 쉽게 배포할 수 있는 안전한 프로덕션 솔루션을 제공합니다. 추론 엔드포인트는 [Hub](https://huggingface.co/models)의 모델로 구축됩니다.
 이 가이드에서는 `huggingface_hub`를 사용하여 프로그래밍 방식으로 추론 엔드포인트를 관리하는 방법을 배웁니다. 추론 엔드포인트 제품 자체에 대한 자세한 내용은 [공식 문서](https://huggingface.co/docs/inference-endpoints/index)를 참조하세요.
 
-이 가이드에서는 `huggingface_hub`가 올바르게 설치되어 있고 장비가 로그인되어 있다고 가정합니다. 아직 그렇지 않은 경우 [빠른 시작 가이드](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart)를 참조하세요. 추론 엔드포인트 API를 지원하는 최소 버전은 `v0.19.0`입니다.
+이 가이드에서는 `huggingface_hub`가 올바르게 설치 및 로그인되어 있다고 가정합니다. 아직 그렇지 않은 경우 [빠른 시작 가이드](https://huggingface.co/docs/huggingface_hub/quick-start#quickstart)를 참조하세요. 추론 엔드포인트 API를 지원하는 최소 버전은 `v0.19.0`입니다.
 
 ## 추론 엔드포인트 생성[[create-an-inference-endpoint]]
 
