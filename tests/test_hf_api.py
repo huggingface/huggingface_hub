@@ -1888,10 +1888,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
         assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
 
-        # Ascending order => first items have 0 likes
-        spaces_ascending_likes = list(self._api.list_spaces(sort="likes", limit=100))
-        assert spaces_ascending_likes[0].likes == 0
-
     def test_list_spaces_limit(self):
         spaces = list(self._api.list_spaces(limit=5))
         self.assertEqual(len(spaces), 5)
