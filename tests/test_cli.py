@@ -434,7 +434,7 @@ class TestDownloadCommand(unittest.TestCase):
             revision="refs/pr/1",
             filename="README.md",
             cache_dir=None,
-            resume_download=False,
+            resume_download=None,
             force_download=False,
             token="hf_****",
             local_dir=".",
