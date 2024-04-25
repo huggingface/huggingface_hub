@@ -134,11 +134,7 @@ However, if you need to download files to a specific folder, you can pass a `loc
 
 Note that a `.huggingface/` folder will be created at the root of your local directory, containing metadata about the downloaded files. This prevents re-downloading files if you re-run your script. While this mechanism is not as robust as the main cache-system, it's optimized for regularly pulling the latest version of a repository.
 
-<Tip>
-
 After completing the download, you can safely remove the `.huggingface/` folder if you no longer need it. However, be aware that re-running your script without this folder may result in longer recovery times, as metadata will be lost. Rest assured that your local data will remain intact and unaffected.
-
-</Tip>
 
 <Tip>
 
