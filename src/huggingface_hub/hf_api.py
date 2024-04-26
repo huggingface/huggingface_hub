@@ -8326,6 +8326,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import get_webhook
             >>> webhook = get_webhook("654bbbc16f2ec14d77f109cc")
             >>> print(webhook)
             WebhookInfo(
@@ -8374,6 +8375,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import list_webhooks
             >>> webhooks = list_webhooks()
             >>> len(webhooks)
             2
@@ -8438,6 +8440,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import create_webhook
             >>> payload = create_webhook(
             ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8511,6 +8514,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import update_webhook
             >>> updated_payload = update_webhook(
             ...     webhook_id="654bbbc16f2ec14d77f109cc",
             ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
@@ -8567,6 +8571,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import enable_webhook
             >>> enabled_webhook = enable_webhook("654bbbc16f2ec14d77f109cc")
             >>> enabled_webhook
             WebhookInfo(
@@ -8617,6 +8622,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import disable_webhook
             >>> disabled_webhook = disable_webhook("654bbbc16f2ec14d77f109cc")
             >>> disabled_webhook
             WebhookInfo(
@@ -8666,6 +8672,7 @@ class HfApi:
 
         Example:
             ```python
+            >>> from huggingface_hub import delete_webhook
             >>> delete_webhook("654bbbc16f2ec14d77f109cc")
             ```
         """
