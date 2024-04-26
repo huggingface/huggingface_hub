@@ -19,6 +19,7 @@ from .constants import (
     DEFAULT_REVISION,
     ENDPOINT,
     HF_HUB_DOWNLOAD_TIMEOUT,
+    HF_HUB_ETAG_TIMEOUT,
     REPO_TYPE_MODEL,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -123,7 +124,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Tuple[bool, Optional[Exception]]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
-                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type)
+                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type, timeout=HF_HUB_ETAG_TIMEOUT)
             except (RepositoryNotFoundError, HFValidationError) as e:
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)] = False, e
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = False, e
