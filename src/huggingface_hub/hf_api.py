@@ -406,7 +406,7 @@ class WebhookWatchedItem:
 
 
 @dataclass
-class Webhook:
+class WebhookInfo:
     """Data structure containing information about a webhook.
 
     Attributes:
@@ -8309,7 +8309,7 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
+    def get_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Get a webhook by its id.
 
         Args:
@@ -8321,14 +8321,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Webhook`]:
+            [`WebhookInfo`]:
                 The webhook configuration.
 
         Example:
             ```python
             >>> webhook = get_webhook("654bbbc16f2ec14d77f109cc")
             >>> print(webhook)
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8347,7 +8347,7 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = Webhook(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
             watched=watched_items,
             url=webhook_data["url"],
@@ -8359,7 +8359,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, token: Union[bool, str, None] = None) -> List[Webhook]:
+    def list_webhooks(self, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -8369,8 +8369,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `List[Webhook]`:
-                A list of [`huggingface_hub.hf_api.Webhook`] configurations.
+            `List[WebhookInfo]`:
+                A list of [`huggingface_hub.hf_api.WebhookInfo`] configurations.
 
         Example:
             ```python
@@ -8378,7 +8378,7 @@ class HfApi:
             >>> len(webhooks)
             2
             >>> webhooks[0]
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8396,7 +8396,7 @@ class HfApi:
         webhooks_data = response.json()
 
         return [
-            Webhook(
+            WebhookInfo(
                 id=webhook["id"],
                 watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
                 url=webhook["url"],
@@ -8415,7 +8415,7 @@ class HfApi:
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> Webhook:
+    ) -> WebhookInfo:
         """Create a new webhook.
 
         Args:
@@ -8433,8 +8433,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Webhook`]:
-                The created [`huggingface_hub.hf_api.Webhook`] configuration.
+            [`WebhookInfo`]:
+                The created [`huggingface_hub.hf_api.WebhookInfo`] configuration.
 
         Example:
             ```python
@@ -8445,7 +8445,7 @@ class HfApi:
             ...     secret="my-secret",
             ... )
             >>> print(payload)
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8465,7 +8465,7 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = Webhook(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
             watched=watched_items,
             url=webhook_data["url"],
@@ -8485,7 +8485,7 @@ class HfApi:
         domains: List[WEBHOOK_DOMAIN_T],
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> Webhook:
+    ) -> WebhookInfo:
         """Update an existing webhook.
 
         Args:
@@ -8506,8 +8506,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Webhook`]:
-                The updated [`huggingface_hub.hf_api.Webhook`] configuration.
+            [`WebhookInfo`]:
+                The updated [`huggingface_hub.hf_api.WebhookInfo`] configuration.
 
         Example:
             ```python
@@ -8519,7 +8519,7 @@ class HfApi:
             ...     secret="my-secret",
             ... )
             >>> print(updated_payload)
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8538,7 +8538,7 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = Webhook(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
             watched=watched_items,
             url=webhook_data["url"],
@@ -8550,7 +8550,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
+    def enable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Enable a webhook (makes it "active").
 
         Args:
@@ -8562,14 +8562,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Webhook`]:
-                The enabled [`huggingface_hub.hf_api.Webhook`] configuration.
+            [`WebhookInfo`]:
+                The enabled [`huggingface_hub.hf_api.WebhookInfo`] configuration.
 
         Example:
             ```python
             >>> enabled_webhook = enable_webhook("654bbbc16f2ec14d77f109cc")
             >>> enabled_webhook
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8588,7 +8588,7 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = Webhook(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
             watched=watched_items,
             url=webhook_data["url"],
@@ -8600,7 +8600,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> Webhook:
+    def disable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Disable a webhook (makes it "disabled").
 
         Args:
@@ -8612,14 +8612,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            [`Webhook`]:
-                The disabled [`huggingface_hub.hf_api.Webhook`] configuration.
+            [`WebhookInfo`]:
+                The disabled [`huggingface_hub.hf_api.WebhookInfo`] configuration.
 
         Example:
             ```python
             >>> disabled_webhook = disable_webhook("654bbbc16f2ec14d77f109cc")
             >>> disabled_webhook
-            Webhook(
+            WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
                 watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8638,7 +8638,7 @@ class HfApi:
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
-        webhook = Webhook(
+        webhook = WebhookInfo(
             id=webhook_data["id"],
             watched=watched_items,
             url=webhook_data["url"],
