@@ -8322,7 +8322,7 @@ class HfApi:
 
         Returns:
             [`WebhookInfo`]:
-                The webhook configuration.
+                Info about the webhook.
 
         Example:
             ```python
@@ -8371,7 +8371,7 @@ class HfApi:
 
         Returns:
             `List[WebhookInfo]`:
-                A list of [`huggingface_hub.hf_api.WebhookInfo`] configurations.
+                List of webhook info objects.
 
         Example:
             ```python
@@ -8436,7 +8436,7 @@ class HfApi:
 
         Returns:
             [`WebhookInfo`]:
-                The created [`huggingface_hub.hf_api.WebhookInfo`] configuration.
+                Info about the newly created webhook.
 
         Example:
             ```python
@@ -8510,7 +8510,7 @@ class HfApi:
 
         Returns:
             [`WebhookInfo`]:
-                The updated [`huggingface_hub.hf_api.WebhookInfo`] configuration.
+                Info about the updated webhook.
 
         Example:
             ```python
@@ -8567,7 +8567,7 @@ class HfApi:
 
         Returns:
             [`WebhookInfo`]:
-                The enabled [`huggingface_hub.hf_api.WebhookInfo`] configuration.
+                Info about the enabled webhook.
 
         Example:
             ```python
@@ -8618,7 +8618,7 @@ class HfApi:
 
         Returns:
             [`WebhookInfo`]:
-                The disabled [`huggingface_hub.hf_api.WebhookInfo`] configuration.
+                Info about the disabled webhook.
 
         Example:
             ```python
