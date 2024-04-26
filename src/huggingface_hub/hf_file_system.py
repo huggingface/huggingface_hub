@@ -18,6 +18,7 @@ from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .constants import (
     DEFAULT_REVISION,
     ENDPOINT,
+    HF_HUB_DOWNLOAD_TIMEOUT,
     REPO_TYPE_MODEL,
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
@@ -700,7 +701,13 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
-        r = http_backoff("GET", url, headers=headers, retry_on_status_codes=(502, 503, 504))
+        r = http_backoff(
+            "GET",
+            url,
+            headers=headers,
+            retry_on_status_codes=(502, 503, 504),
+            timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+        )
         hf_raise_for_status(r)
         return r.content
 
@@ -799,6 +806,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 headers=self.fs._api._build_hf_headers(),
                 retry_on_status_codes=(502, 503, 504),
                 stream=True,
+                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
             )
             hf_raise_for_status(self.response)
         try:
@@ -820,6 +828,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
                 retry_on_status_codes=(502, 503, 504),
                 stream=True,
+                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
             )
             hf_raise_for_status(self.response)
             try:
