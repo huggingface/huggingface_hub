@@ -18,6 +18,7 @@ from argparse import ArgumentParser
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
+from huggingface_hub.commands.large_upload import LargeUploadCommand
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
@@ -38,6 +39,9 @@ def main():
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)
     TagCommands.register_subcommand(commands_parser)
+
+    # Experimental
+    LargeUploadCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()
