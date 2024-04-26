@@ -119,6 +119,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
                 "  - You must not delete the `.huggingface/` folder while a process is running.\n"
                 "  - You can delete the `.huggingface/` folder to reinitialize the upload state (when not running). Files will have to be hashed and preuploaded again, except for already committed files.\n"
                 "- Do not upload the same folder to several repositories. If you need to do so, you must delete the `.huggingface/` folder first.\n"
+                "For more details about available options, run `huggingface-cli large-upload --help`.\n"
                 "\n"
                 "Feedback is very welcome! Don't forget to report back how it went on https://github.com/huggingface/huggingface_hub/pull/2254"
             )
