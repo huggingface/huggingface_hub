@@ -150,6 +150,7 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "User",
         "UserLikes",
+        "WebhookInfo",
         "accept_access_request",
         "add_collection_item",
         "add_space_secret",
@@ -620,6 +621,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
+        WebhookInfo,  # noqa: F401
         accept_access_request,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
