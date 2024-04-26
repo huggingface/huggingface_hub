@@ -16,22 +16,24 @@
       title: 파일 업로드하기
     - local: guides/cli
       title: 명령줄 인터페이스(CLI) 사용하기
-    - local: in_translation
-      title: (번역 중) HfFileSystem
+    - local: guides/hf_file_system
+      title: Hf파일시스템
     - local: guides/repository
       title: 리포지토리
     - local: guides/search
       title: Hub에서 검색하기
     - local: guides/inference
       title: 추론
+    - local: guides/inference_endpoints
+      title: 추론 엔드포인트
     - local: guides/community
       title: 커뮤니티
     - local: in_translation
       title: (번역 중) Cache
     - local: guides/model-cards
       title: 모델 카드
-    - local: in_translation
-      title: (번역 중) Manage your Space
+    - local: guides/manage-spaces
+      title: Space 관리
     - local: in_translation
       title: (번역 중) Integrate a library
     - local: guides/webhooks_server
@@ -50,12 +52,12 @@
       title: (번역 중) Environment variables
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
-    - local: in_translation
-      title: (번역 중) Hugging Face Hub API
+    - local: package_reference/hf_api
+      title: 허깅페이스 Hub API
     - local: package_reference/file_download
       title: 파일 다운로드하기
-    - local: in_translation
-      title: (번역 중) Mixins & serialization methods
+    - local: package_reference/mixins
+      title: 믹스인 & 직렬화 메소드
     - local: package_reference/inference_types
       title: 추론 타입
     - local: package_reference/inference_client
@@ -64,8 +66,8 @@
       title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Utilities
+    - local: package_reference/utilities
+      title: 유틸리티
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
     - local: package_reference/cache
@@ -74,7 +76,7 @@
       title: (번역 중) Repo Cards and Repo Card Data
     - local: package_reference/collections
       title: 컬렉션 관리
-    - local: package_reference/space_runtime.md
+    - local: package_reference/space_runtime
       title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거
