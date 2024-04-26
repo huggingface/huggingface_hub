@@ -1,24 +1,5 @@
 """
-How to use?
-1. Install requirements: `pip install huggingface_hub`
-2. Update constants in script
-  a. REPO_ID: your repo id (should already exists on the Hub)
-  b. FOLDER_DIR_PATH: path to the folder containing tar files
-  c. METADATA_DIR_PATH: path to the folder where metadata will be stored (temporary)
-3. Run the script
-    python robust_upload.py
-
-How it works?:
-1. List all tar files in the FOLDER_DIR_PATH folder (and subfolders).
-2. For each tar file:
-    a. Read metadata from METADATA_DIR_PATH folder.
-    b. If metadata does not exist, calculate sha256 of the file.
-    c. If file is not uploaded, upload it as LFS.
-    d. If file is not committed, commit it to the repo (with up to 5 retries).
-3. Check for uncommitted files and print stats (number of files hashed, uploaded, committed).
-
-=> After each step, metadata is updated in a json file. This is to ensure that the script can be stopped and resumed at any time.
-=> The script uses file locks to ensure that multiple instances of the script can be run in parallel.
+EXPERIMENTAL
 """
 
 import enum
@@ -27,6 +8,7 @@ import os
 import queue
 import threading
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
@@ -287,7 +269,9 @@ def _worker_job(
         8. Get upload mode if at least 1 file.
         9. Commit if at least 1 file.
 
-    TODO: Special rule: if `hf_transfer` => only 1 LFS uploader at a time.
+    Special rules:
+        - TODO: If `hf_transfer` => only 1 LFS uploader at a time.
+        - Always: only one worker can commit at a time.
     """
     while True:
         next_job: Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]] = None
@@ -295,15 +279,17 @@ def _worker_job(
         # Determine next task
         with status.lock:
             # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
-            if status.queue_commit.qsize() > 0 and (
-                status.last_commit_attempt is None or time.time() - status.last_commit_attempt > 5 * 60
+            if (
+                status.nb_workers_commit == 0
+                and status.queue_commit.qsize() > 0
+                and (status.last_commit_attempt is None or time.time() - status.last_commit_attempt > 5 * 60)
             ):
                 status.nb_workers_commit += 1
                 next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
                 logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
 
             # 2. Commit if at least 25 files are ready to commit
-            elif status.queue_commit.qsize() >= 25:
+            elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 25:
                 status.nb_workers_commit += 1
                 next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
                 logger.debug("Job: commit (>25 files ready)")
@@ -345,7 +331,7 @@ def _worker_job(
                 logger.debug("Job: get upload mode")
 
             # 9. Commit if at least 1 file
-            elif status.queue_commit.qsize() > 0:
+            elif status.nb_workers_commit == 0 and status.queue_commit.qsize() > 0:
                 status.nb_workers_commit += 1
                 next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
                 logger.debug("Job: commit")
@@ -364,7 +350,8 @@ def _worker_job(
                 _compute_sha256(item)
                 status.queue_get_upload_mode.put(item)
             except Exception as e:
-                logger.error(f"Failed to compute sha256: {e}. Putting back in queue.")
+                logger.error(f"Failed to compute sha256: {e}")
+                traceback.format_exc()
                 status.queue_sha256.put(item)
 
             with status.lock:
@@ -374,7 +361,8 @@ def _worker_job(
             try:
                 _get_upload_mode(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
             except Exception as e:
-                logger.error(f"Failed to get upload mode: {e}. Putting back in queue.")
+                logger.error(f"Failed to get upload mode: {e}")
+                traceback.format_exc()
 
             # Items are either:
             # - dropped (if should_ignore)
@@ -401,7 +389,8 @@ def _worker_job(
                 _preupload_lfs(item, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
                 status.queue_commit.put(item)
             except Exception as e:
-                logger.error(f"Failed to preupload LFS: {e}. Putting back in queue.")
+                logger.error(f"Failed to preupload LFS: {e}")
+                traceback.format_exc()
                 status.queue_preupload_lfs.put(item)
 
             with status.lock:
@@ -411,7 +400,8 @@ def _worker_job(
             try:
                 _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
             except Exception as e:
-                logger.error(f"Failed to commit: {e}. Putting back in queue.")
+                logger.error(f"Failed to commit: {e}")
+                traceback.format_exc()
                 for item in items:
                     status.queue_commit.put(item)
             with status.lock:
@@ -490,7 +480,8 @@ def _commit(items: List[JOB_ITEM_T], api: HfApi, repo_id: str, repo_type: str, r
 
 class HackyCommitOperationAdd(CommitOperationAdd):
     def __post_init__(self) -> None:
-        return
+        if isinstance(self.path_or_fileobj, Path):
+            self.path_or_fileobj = str(self.path_or_fileobj)
 
 
 def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
