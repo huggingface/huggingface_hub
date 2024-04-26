@@ -37,18 +37,6 @@ pip install --upgrade huggingface_hub[inference]
 
 [[autodoc]] InferenceTimeoutError
 
-## Return types
-
-For most tasks, the return value has a built-in type (string, list, image...). Here is a list for the more complex types.
-
-### ConversationalOutputConversation
-
-[[autodoc]] huggingface_hub.inference._types.ConversationalOutputConversation
-
-### ConversationalOutput
-
-[[autodoc]] huggingface_hub.inference._types.ConversationalOutput
-
 ### ModelStatus
 
 [[autodoc]] huggingface_hub.inference._common.ModelStatus
