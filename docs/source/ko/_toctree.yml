@@ -57,7 +57,7 @@
     - local: in_translation
       title: (번역 중) Inference Client
     - local: package_reference/hf_file_system
-      title: Hf 파일 시스템
+      title: Hf파일시스템
     - local: in_translation
       title: (번역 중) Utilities
     - local: in_translation
