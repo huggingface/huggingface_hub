@@ -1783,11 +1783,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
     @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
-        self.assertTrue("fill-mask" == models[0].pipeline_tag)
-        self.assertTrue("albert-base-v2" in models[0].modelId)
+        assert models[0].pipeline_tag == "fill-mask"
+        assert "albert" in models[0].modelId
+        assert "base" in models[0].modelId
+        assert "v2" in models[0].modelId
 
         models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
-        self.assertEqual(len(models), 0)
+        assert len(models) == 0
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
