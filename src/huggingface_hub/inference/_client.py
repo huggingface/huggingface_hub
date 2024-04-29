@@ -728,7 +728,10 @@ class InferenceClient:
                     ),
                     stream=stream,
                 )
-            except HTTPError:
+            except HTTPError as e:
+                if e.response.status_code == 422:
+                    # Means wrong input from the user
+                    raise
                 # Let's consider the server is not a chat completion server.
                 # Then we call again `chat_completion` which will render the chat template client side.
                 # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)

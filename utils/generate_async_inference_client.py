@@ -335,8 +335,11 @@ def _adapt_text_generation_to_async(code: str) -> str:
 def _adapt_chat_completion_to_async(code: str) -> str:
     # Catch `aiohttp` error instead of `requests` error
     code = code.replace(
-        "except HTTPError:",
-        "except _import_aiohttp().ClientResponseError:",
+        """            except HTTPError as e:
+                if e.response.status_code == 422:""",
+        """
+            except _import_aiohttp().ClientResponseError as e:
+                if e.status == 422:""",
     )
 
     # Await text-generation call

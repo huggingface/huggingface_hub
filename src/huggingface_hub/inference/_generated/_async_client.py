@@ -728,7 +728,11 @@ class AsyncInferenceClient:
                     ),
                     stream=stream,
                 )
-            except _import_aiohttp().ClientResponseError:
+
+            except _import_aiohttp().ClientResponseError as e:
+                if e.status == 422:
+                    # Means wrong input from the user
+                    raise
                 # Let's consider the server is not a chat completion server.
                 # Then we call again `chat_completion` which will render the chat template client side.
                 # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
