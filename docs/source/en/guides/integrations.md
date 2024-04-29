@@ -98,7 +98,7 @@ common to offer parameters like:
 - `token`: to download from a private repo
 - `revision`: to download from a specific branch
 - `cache_dir`: to cache files in a specific directory
-- `force_download`/`resume_download`/`local_files_only`: to reuse the cache or not
+- `force_download`/`local_files_only`: to reuse the cache or not
 - `proxies`: configure HTTP session
 
 When pushing models, similar parameters are supported:
@@ -143,11 +143,7 @@ your library, you should:
     model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well documented and type annotated.
-
-As a bonus, [`ModelHubMixin`] handles the model configuration for you. If your `__init__` method expects a `config` input, it will be automatically saved in the repo when calling `save_pretrained` and reloaded correctly by `load_pretrained`. Moreover, if the `config` input parameter is annotated with dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you. Finally, all jsonable values passed at initialization will be also stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it. The big advantage of having a `config.json` file in your model repository is that it automatically enables the analytics on the Hub (e.g. the "downloads" count).
-
-Finally, [`ModelHubMixin`] handles generating a model card for you. When inheriting from [`ModelHubMixin`], you can define metadata such as `library_name`, `tags`, `repo_url` and `docs_url`. Those fields will be reused to populate the modelcard of any model that use your class. This is very practical to make all models using your library easily searchable on the Hub and to provide some resource links for users landing on the Hub. If you want to extend the modelcard template, you can override the [`~ModelHubMixin.generate_model_card`] method.
+The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. The [`ModelHubMixin`] also ensures public methods are documented and type annotated, and you'll be able to view your model's download count on the Hub. All of this is handled by the [`ModelHubMixin`] and available to your users.
 
 ### A concrete example: PyTorch
 
@@ -279,6 +275,152 @@ class PyTorchModelHubMixin(ModelHubMixin):
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
+
+### Advanced usage
+
+In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some of its more advanced features to improve your library integration with the Hugging Face Hub.
+
+#### Model card
+
+[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide important information about them. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+
+Generating model cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This makes all models backed by your library easily searchable on the Hub and provides some resource links for users landing on the Hub. You can define the metadata directly when inheriting from [`ModelHubMixin`]:
+
+```py
+class UniDepthV1(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="unidepth",
+   repo_url="https://github.com/lpiccinelli-eth/UniDepth",
+   docs_url=...,
+   pipeline_tag="depth-estimation",
+   license="cc-by-nc-4.0",
+   tags=["monocular-metric-depth-estimation", "arxiv:1234.56789"]
+):
+   ...
+```
+
+By default, a generic model card will be generated with the info you've provided (example: [pyp1/VoiceCraft_giga830M](https://huggingface.co/pyp1/VoiceCraft_giga830M)). But you can define your own model card template as well!
+
+In this example, all models pushed with the `VoiceCraft` class will automatically include a citation section and license details. For more details on how to define a model card template, please check the [Model Cards guide](./model-cards).
+
+```py
+MODEL_CARD_TEMPLATE = """
+---
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
+---
+
+This is a VoiceCraft model. For more details, please check out the official Github repo: https://github.com/jasonppy/VoiceCraft. This model is shared under a Attribution-NonCommercial-ShareAlike 4.0 International license.
+
+## Citation
+
+@article{peng2024voicecraft,
+  author    = {Peng, Puyuan and Huang, Po-Yao and Li, Daniel and Mohamed, Abdelrahman and Harwath, David},
+  title     = {VoiceCraft: Zero-Shot Speech Editing and Text-to-Speech in the Wild},
+  journal   = {arXiv},
+  year      = {2024},
+}
+"""
+
+class VoiceCraft(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="voicecraft",
+   model_card_template=MODEL_CARD_TEMPLATE,
+   ...
+):
+   ...
+```
+
+
+Finally, if you want to extend the model card generation process with dynamic values, you can override the [`~ModelHubMixin.generate_model_card`] method:
+
+```py
+from huggingface_hub import ModelCard, PyTorchModelHubMixin
+
+class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
+   (...)
+
+   def generate_model_card(self, *args, **kwargs) -> ModelCard:
+      card = super().generate_model_card(*args, **kwargs)
+      card.data.metrics = ...  # add metrics to the metadata
+      card.text += ... # append section to the modelcard
+      return card
+```
+
+#### Config
+
+[`ModelHubMixin`] handles the model configuration for you. It automatically checks the input values when you instantiate the model and serializes them in a `config.json` file. This provides 2 benefits:
+1. Users will be able to reload the model with the exact same parameters as you.
+2. Having a `config.json` file automatically enables analytics on the Hub (i.e. the "downloads" count).
+
+But how does it work in practice? Several rules make the process as smooth as possible from a user perspective:
+- if your `__init__` method expects a `config` input, it will be automatically saved in the repo as `config.json`.
+- if the `config` input parameter is annotated with a dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you.
+- all values passed at initialization will also be stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it.
+
+Example:
+
+```py
+class MyModel(ModelHubMixin):
+   def __init__(value: str, size: int = 3):
+      self.value = value
+      self.size = size
+
+   (...) # implement _save_pretrained / _from_pretrained
+
+model = MyModel(value="my_value")
+model.save_pretrained(...)
+
+# config.json contains passed and default values
+{"value": "my_value", "size": 3}
+```
+
+But what if a value cannot be serialized as JSON? By default, the value will be ignored when saving the config file. However, in some cases your library already expects a custom object as input that cannot be serialized, and you don't want to update your internal logic to update its type. No worries! You can pass custom encoders/decoders for any type when inheriting from [`ModelHubMixin`]. This is a bit more work but ensures your internal logic is untouched when integrating your library with the Hub.
+
+Here is a concrete example where a class expects a `argparse.Namespace` config as input:
+
+```py
+class VoiceCraft(nn.Module):
+    def __init__(self, args):
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+One solution can be to update the `__init__` signature to `def __init__(self, pattern: str, hidden_size: int)` and update all snippets that instantiates your class. This is a perfectly valid way to fix it but it might break downstream applications using your library.
+
+Another solution is to provide a simple encoder/decoder to convert `argparse.Namespace` to a dictionary.
+
+```py
+from argparse import Namespace
+
+class VoiceCraft(
+   nn.Module,
+   PytorchModelHubMixin,  # inherit from mixin
+   coders: {
+      Namespace = (
+         lambda x: vars(x),  # Encoder: how to convert a `Namespace` to a valid jsonable value?
+         lambda data: Namespace(**data),  # Decoder: how to reconstruct a `Namespace` from a dictionary?
+      )
+   }
+):
+    def __init__(self, args: Namespace): # annotate `args`
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+In the snippet above, both the internal logic and the `__init__` signature of the class did not change. This means all existing code snippets for your library will continue to work. To achieve this, we had to:
+1. Inherit from the mixin (`PytorchModelHubMixin` in this case).
+2. Pass a `coders` parameter in the inheritance. This is a dictionary where keys are custom types you want to process. Values are a tuple `(encoder, decoder)`.
+   - The encoder expects an object of the specified type as input and returns a jsonable value. This will be used when saving a model with `save_pretrained`.
+   - The decoder expects raw data (typically a dictionary) as input and reconstructs the initial object. This will be used when loading the model with `from_pretrained`.
+3. Add a type annotation to the `__init__` signature. This is important to let the mixin know which type is expected by the class and, therefore, which decoder to use.
+
+For the sake of simplicity, the encoder/decoder functions in the example above are not robust. For a concrete implementation, you would most likely have to handle corner cases properly.
 
 ## Quick comparison
 

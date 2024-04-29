@@ -38,12 +38,11 @@ Usage:
 
 import warnings
 from argparse import Namespace, _SubParsersAction
-from typing import List, Literal, Optional, Union
+from typing import List, Optional
 
 from huggingface_hub import logging
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
@@ -85,8 +84,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             "--local-dir",
             type=str,
             help=(
-                "If set, the downloaded file will be placed under this directory either as a symlink (default) or a"
-                " regular file. Check out"
+                "If set, the downloaded file will be placed under this directory. Check out"
                 " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
                 " details."
             ),
@@ -94,13 +92,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.add_argument(
             "--local-dir-use-symlinks",
             choices=["auto", "True", "False"],
-            default="auto",
-            help=(
-                "To be used with `local_dir`. If set to 'auto', the cache directory will be used and the file will be"
-                " either duplicated or symlinked to the local directory depending on its size. It set to `True`, a"
-                " symlink will be created, no matter the file size. If set to `False`, the file will either be"
-                " duplicated from cache (if already exists) or downloaded from the Hub and not cached."
-            ),
+            help=("Deprecated and ignored. Downloading to a local directory does not use symlinks anymore."),
         )
         download_parser.add_argument(
             "--force-download",
@@ -108,7 +100,9 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             help="If True, the files will be downloaded even if they are already cached.",
         )
         download_parser.add_argument(
-            "--resume-download", action="store_true", help="If True, resume a previously interrupted download."
+            "--resume-download",
+            action="store_true",
+            help="Deprecated and ignored. Downloading a file to local dir always attempts to resume previously interrupted downloads (unless hf-transfer is enabled).",
         )
         download_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
@@ -131,22 +125,13 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.cache_dir: Optional[str] = args.cache_dir
         self.local_dir: Optional[str] = args.local_dir
         self.force_download: bool = args.force_download
-        self.resume_download: bool = args.resume_download
+        self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
 
-        # Raise if local_dir_use_symlinks is invalid
-        self.local_dir_use_symlinks: Union[Literal["auto"], bool]
-        use_symlinks_lowercase = args.local_dir_use_symlinks.lower()
-        if use_symlinks_lowercase == "true":
-            self.local_dir_use_symlinks = True
-        elif use_symlinks_lowercase == "false":
-            self.local_dir_use_symlinks = False
-        elif use_symlinks_lowercase == "auto":
-            self.local_dir_use_symlinks = "auto"
-        else:
-            raise ValueError(
-                f"'{args.local_dir_use_symlinks}' is not a valid value for `local_dir_use_symlinks`. It must be either"
-                " 'auto', 'True' or 'False'."
+        if args.local_dir_use_symlinks is not None:
+            warnings.warn(
+                "Ignoring --local-dir-use-symlinks. Downloading to a local directory does not use symlinks anymore.",
+                FutureWarning,
             )
 
     def run(self) -> None:
@@ -169,12 +154,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             if self.exclude is not None and len(self.exclude) > 0:
                 warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
 
-        if not HF_HUB_ENABLE_HF_TRANSFER:
-            logger.info(
-                "Consider using `hf_transfer` for faster downloads. This solution comes with some limitations. See"
-                " https://huggingface.co/docs/huggingface_hub/hf_transfer for more details."
-            )
-
         # Single file to download: use `hf_hub_download`
         if len(self.filenames) == 1:
             return hf_hub_download(
@@ -187,7 +166,6 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
                 force_download=self.force_download,
                 token=self.token,
                 local_dir=self.local_dir,
-                local_dir_use_symlinks=self.local_dir_use_symlinks,
                 library_name="huggingface-cli",
             )
 
@@ -210,6 +188,5 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             cache_dir=self.cache_dir,
             token=self.token,
             local_dir=self.local_dir,
-            local_dir_use_symlinks=self.local_dir_use_symlinks,
             library_name="huggingface-cli",
         )

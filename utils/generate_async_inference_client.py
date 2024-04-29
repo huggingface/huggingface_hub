@@ -287,12 +287,13 @@ def _adapt_text_generation_to_async(code: str) -> str:
     code = code.replace(
         """
         except HTTPError as e:
-            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
     """,
         """
         except _import_aiohttp().ClientResponseError as e:
-            error_message = getattr(e, "response_error_payload", {}).get("error", "")
-            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
+            if e.status == 400 and match:
     """,
     )
 

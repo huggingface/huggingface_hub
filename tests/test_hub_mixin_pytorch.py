@@ -19,6 +19,15 @@ from .testing_utils import repo_name, requires
 
 DUMMY_OBJECT = object()
 
+DUMMY_MODEL_CARD_TEMPLATE = """
+---
+{{ card_data }}
+---
+
+This is a dummy model card.
+Arxiv ID: 1234.56789
+"""
+
 if is_torch_available():
     import torch
     import torch.nn as nn
@@ -34,12 +43,15 @@ if is_torch_available():
         def forward(self, x):
             return self.l1(x)
 
-    class DummyModelWithTags(
+    class DummyModelWithModelCard(
         nn.Module,
         PyTorchModelHubMixin,
+        model_card_template=DUMMY_MODEL_CARD_TEMPLATE,
+        languages=["en", "zh"],
+        library_name="my-dummy-lib",
+        license="apache-2.0",
         tags=["tag1", "tag2"],
         pipeline_tag="text-classification",
-        library_name="my-dummy-lib",
     ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
@@ -66,7 +78,7 @@ if is_torch_available():
 
 else:
     DummyModel = None
-    DummyModelWithTags = None
+    DummyModelWithModelCard = None
     DummyModelNoConfig = None
     DummyModelWithConfigAndKwargs = None
 
@@ -147,7 +159,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -176,7 +188,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -187,7 +199,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             token=None,
             local_files_only=False,
         )
@@ -204,7 +216,7 @@ class PytorchHubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -268,10 +280,16 @@ class PytorchHubMixinTest(unittest.TestCase):
         self._api.delete_repo(repo_id=repo_id)
 
     def test_generate_model_card(self):
-        model = DummyModelWithTags()
+        model = DummyModelWithModelCard()
         card = model.generate_model_card()
-        assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+        assert card.data.languages == ["en", "zh"]
+        assert card.data.library_name == "my-dummy-lib"
+        assert card.data.license == "apache-2.0"
         assert card.data.pipeline_tag == "text-classification"
+        assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+
+        # Model card template has been used
+        assert "This is a dummy model card." in str(card)
 
         model.save_pretrained(self.cache_dir)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
