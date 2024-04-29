@@ -26,11 +26,10 @@ interactions:
   response:
     body:
       string: '{"error":"The following `model_kwargs` are not used by the model: [''return_full_text'',
-        ''watermark'', ''stop'', ''decoder_input_details'', ''details''] (note: typos
+        ''watermark'', ''stop'', ''decoder_input_details''] (note: typos
         in the generate arguments will also show up in this list)","warnings":["There
         was an inference error: The following `model_kwargs` are not used by the model:
-        [''return_full_text'', ''watermark'', ''stop'', ''decoder_input_details'',
-        ''details''] (note: typos in the generate arguments will also show up in this
+        [''return_full_text'', ''watermark'', ''stop'', ''decoder_input_details''] (note: typos in the generate arguments will also show up in this
         list)"]}'
     headers:
       Connection:
