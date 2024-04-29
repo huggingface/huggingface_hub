@@ -94,6 +94,8 @@ def test_write_download_metadata(tmp_path: Path):
     assert timestamp < time.time()  # in the past
     assert timestamp > time.time() - 1  # but less than 1 seconds ago (we're not that slow)
 
+    time.sleep(0.2)  # for deterministic tests
+
     # Overwriting works as expected
     write_download_metadata(tmp_path, filename="file.txt", commit_hash="commit_hash2", etag="987654321")
     with metadata_path.open() as f:
@@ -151,7 +153,7 @@ def test_read_download_metadata_correct_metadata_but_outdated(tmp_path: Path):
     """Test reading download metadata when metadata is correct but outdated."""
     # Write correct metadata
     write_download_metadata(tmp_path, filename="file.txt", commit_hash="commit_hash", etag="123456789")
-    time.sleep(0.05)  # for deterministic tests
+    time.sleep(0.2)  # for deterministic tests
 
     # File is outdated => return None
     (tmp_path / "file.txt").write_text("content")
