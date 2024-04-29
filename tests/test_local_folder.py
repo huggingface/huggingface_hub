@@ -153,7 +153,7 @@ def test_read_download_metadata_correct_metadata_but_outdated(tmp_path: Path):
     """Test reading download metadata when metadata is correct but outdated."""
     # Write correct metadata
     write_download_metadata(tmp_path, filename="file.txt", commit_hash="commit_hash", etag="123456789")
-    time.sleep(0.2)  # for deterministic tests
+    time.sleep(2)  # We allow for a 1s difference in practice, so let's wait a bit
 
     # File is outdated => return None
     (tmp_path / "file.txt").write_text("content")

@@ -184,7 +184,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
                 stat = paths.file_path.stat()
-                if stat.st_mtime <= metadata.timestamp:
+                if stat.st_mtime - 1 <= metadata.timestamp: # allow 1s difference as stat.st_mtime might not be precise
                     return metadata
                 logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
             except FileNotFoundError:
