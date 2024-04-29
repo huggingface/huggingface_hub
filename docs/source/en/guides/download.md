@@ -130,9 +130,9 @@ files except `vocab.json`.
 
 By default, we recommend using the [cache system](./manage-cache) to download files from the Hub. You can specify a custom cache location using the `cache_dir` parameter in [`hf_hub_download`] and [`snapshot_download`], or by setting the [`HF_HOME`](../package_reference/environment_variables#hf_home) environment variable.
 
-However, if you need to download files to a specific folder, you can pass a `local_dir` parameter to the download function. This is useful to get a workflow closer to what `git` commands offer. The downloaded files will maintain their original file structure within the specified folder. For example, if `filename="data/train.csv"` and `local_dir="path/to/folder"`, the resulting filepath will be `"path/to/folder/data/train.csv"`.
+However, if you need to download files to a specific folder, you can pass a `local_dir` parameter to the download function. This is useful to get a workflow closer to what the `git` command offers. The downloaded files will maintain their original file structure within the specified folder. For example, if `filename="data/train.csv"` and `local_dir="path/to/folder"`, the resulting filepath will be `"path/to/folder/data/train.csv"`.
 
-Note that a `.huggingface/` folder will be created at the root of your local directory, containing metadata about the downloaded files. This prevents re-downloading files if you re-run your script. While this mechanism is not as robust as the main cache-system, it's optimized for regularly pulling the latest version of a repository.
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local_dir` optimized for pulling only the latest changes.
 
 After completing the download, you can safely remove the `.huggingface/` folder if you no longer need it. However, be aware that re-running your script without this folder may result in longer recovery times, as metadata will be lost. Rest assured that your local data will remain intact and unaffected.
 

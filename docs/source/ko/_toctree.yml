@@ -24,6 +24,8 @@
       title: Hub에서 검색하기
     - local: guides/inference
       title: 추론
+    - local: guides/inference_endpoints
+      title: 추론 엔드포인트
     - local: guides/community
       title: 커뮤니티
     - local: in_translation
@@ -50,12 +52,12 @@
       title: (번역 중) Environment variables
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
-    - local: in_translation
-      title: (번역 중) Hugging Face Hub API
+    - local: package_reference/hf_api
+      title: 허깅페이스 Hub API
     - local: package_reference/file_download
       title: 파일 다운로드하기
-    - local: in_translation
-      title: (번역 중) Mixins & serialization methods
+    - local: package_reference/mixins
+      title: 믹스인 & 직렬화 메소드
     - local: package_reference/inference_types
       title: 추론 타입
     - local: package_reference/inference_client
@@ -64,8 +66,8 @@
       title: 추론 엔드포인트
     - local: in_translation
       title: (번역 중) HfFileSystem
-    - local: in_translation
-      title: (번역 중) Utilities
+    - local: package_reference/utilities
+      title: 유틸리티
     - local: in_translation
       title: (번역 중) Discussions and Pull Requests
     - local: package_reference/cache

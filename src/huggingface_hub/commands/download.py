@@ -84,8 +84,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             "--local-dir",
             type=str,
             help=(
-                "If set, the downloaded file will be placed under this directory either as a symlink (default) or a"
-                " regular file. Check out"
+                "If set, the downloaded file will be placed under this directory. Check out"
                 " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
                 " details."
             ),
@@ -103,7 +102,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.add_argument(
             "--resume-download",
             action="store_true",
-            help="Deprecated and ignored. Downloading a file to local dir always attempt to resume previously interrupted download.",
+            help="Deprecated and ignored. Downloading a file to local dir always attempts to resume previously interrupted downloads (unless hf-transfer is enabled).",
         )
         download_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"

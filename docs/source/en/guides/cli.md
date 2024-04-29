@@ -226,7 +226,7 @@ The examples above show how to download from the latest commit on the main branc
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
 
-Note that a `.huggingface/` folder will be created at the root of your local directory, containing metadata about the downloaded files. This prevents re-downloading files if you re-run the command. While this mechanism is not as robust as the main cache-system, it's optimized for regularly pulling the latest version of a repository.
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local_dir` optimized for pulling only the latest changes.
 
 <Tip>
 
