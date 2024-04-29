@@ -16,7 +16,7 @@ from huggingface_hub.utils import (
 )
 
 
-class TestTqdmUtils(unittest.TestCase):
+class CapsysBaseTest(unittest.TestCase):
     @pytest.fixture(autouse=True)
     def capsys(self, capsys: CaptureFixture) -> None:
         """Workaround to make capsys work in unittest framework.
@@ -28,6 +28,8 @@ class TestTqdmUtils(unittest.TestCase):
         """
         self.capsys = capsys
 
+
+class TestTqdmUtils(CapsysBaseTest):
     def setUp(self) -> None:
         """Get verbosity to set it back after the tests."""
         self._previous_are_progress_bars_disabled = are_progress_bars_disabled()
@@ -139,11 +141,16 @@ class TestTqdmUtils(unittest.TestCase):
             self.assertIn("1.00k/1.00k", captured.err)  # size in B
 
 
-class TestTqdmGroup(unittest.TestCase):
+class TestTqdmGroup(CapsysBaseTest):
     def setUp(self):
         """Set up the initial condition for each test."""
         super().setUp()
         enable_progress_bars()  # Ensure all are enabled before each test
+
+    def tearDown(self):
+        """Clean up after each test."""
+        super().tearDown()
+        enable_progress_bars()
 
     @patch("huggingface_hub.utils._tqdm.HF_HUB_DISABLE_PROGRESS_BARS", None)
     def test_disable_specific_group(self):
@@ -212,7 +219,17 @@ class TestTqdmGroup(unittest.TestCase):
         assert not are_progress_bars_disabled("peft.foo")
         assert are_progress_bars_disabled("peft.foo.bar.something")
 
-    def tearDown(self):
-        """Clean up after each test."""
-        super().tearDown()
-        enable_progress_bars()
+    def test_progress_bar_respects_group(self) -> None:
+        disable_progress_bars("foo.bar")
+        for _ in tqdm(range(10), name="foo.bar.something"):
+            pass
+        captured = self.capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""
+
+        enable_progress_bars("foo.bar.something")
+        for _ in tqdm(range(10), name="foo.bar.something"):
+            pass
+        captured = self.capsys.readouterr()
+        assert captured.out == ""
+        assert "10/10" in captured.err

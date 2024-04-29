@@ -195,7 +195,8 @@ class tqdm(old_tqdm):
     """
 
     def __init__(self, *args, **kwargs):
-        if are_progress_bars_disabled():
+        name = kwargs.pop("name", None)  # do not pass `name` to `tqdm`
+        if are_progress_bars_disabled(name):
             kwargs["disable"] = True
         super().__init__(*args, **kwargs)
 
