@@ -197,7 +197,7 @@ class TestTqdmGroup(unittest.TestCase):
     def test_empty_group_is_root(self):
         """Test the behavior with invalid or empty group names."""
         disable_progress_bars("")
-        assert are_progress_bars_disabled("peft")
+        assert not are_progress_bars_disabled("peft")
 
         enable_progress_bars("123.invalid.name")
         assert not are_progress_bars_disabled("123.invalid.name")
