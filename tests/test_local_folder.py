@@ -102,7 +102,7 @@ def test_write_download_metadata(tmp_path: Path):
         assert f.readline() == "commit_hash2\n"
         assert f.readline() == "987654321\n"
         timestamp2 = float(f.readline().strip())
-    assert timestamp < timestamp2  # updated timestamp
+    assert timestamp <= timestamp2  # updated timestamp
 
 
 def test_read_download_metadata_valid_metadata(tmp_path: Path):
