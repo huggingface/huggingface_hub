@@ -26,32 +26,29 @@ NOTE: Environment variable `HF_HUB_DISABLE_PROGRESS_BARS` has the priority.
 
 Example:
     ```py
-    from huggingface_hub.utils import (
-        are_progress_bars_disabled,
-        disable_progress_bars,
-        enable_progress_bars,
-        tqdm,
-    )
+    >>> from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm
 
     # Disable progress bars globally
-    disable_progress_bars()
+    >>> disable_progress_bars()
 
     # Use as normal `tqdm`
-    for _ in tqdm(range(5)):
-       do_something()
+    >>> for _ in tqdm(range(5)):
+    ...    do_something()
 
     # Still not showing progress bars, as `disable=False` is overwritten to `True`.
-    for _ in tqdm(range(5), disable=False):
-       do_something()
+    >>> for _ in tqdm(range(5), disable=False):
+    ...    do_something()
 
-    are_progress_bars_disabled() # True
+    >>> are_progress_bars_disabled()
+    True
 
     # Re-enable progress bars globally
-    enable_progress_bars()
+    >>> enable_progress_bars()
 
     # Progress bar will be shown !
-    for _ in tqdm(range(5)):
-       do_something()
+    >>> for _ in tqdm(range(5)):
+    ...   do_something()
+    100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
     ```
 
 Group-based control:
