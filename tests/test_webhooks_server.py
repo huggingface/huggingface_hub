@@ -232,8 +232,9 @@ class TestWebhooksServerRun(unittest.TestCase):
             self.mocked_run_app()
 
         instructions = output.getvalue()
-        self.assertIn("Webhooks are correctly setup and ready to use:", instructions)
-        self.assertIn("- POST http://127.0.0.1:7860/webhooks/test_webhook", instructions)
+        assert "Webhooks are correctly setup and ready to use:" in instructions
+        assert "- POST http://127.0.0.1:" in instructions  # port is usually 7860 but can be dynamic
+        assert "/webhooks/test_webhook" in instructions
 
     def test_run_parse_payload(self):
         """Test that the payload is correctly parsed when running the app."""

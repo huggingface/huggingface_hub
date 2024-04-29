@@ -121,6 +121,37 @@ class DummyModelThatIsAlsoADataclass(ModelHubMixin):
         return cls(**model_kwargs)
 
 
+class CustomType:
+    def __init__(self, value: str):
+        self.value = value
+
+
+class DummyModelWithCustomTypes(
+    ModelHubMixin,
+    coders={
+        CustomType: (
+            lambda x: {"value": x.value},
+            lambda x: CustomType(x["value"]),
+        )
+    },
+):
+    def __init__(
+        self, foo: int, bar: str, custom: CustomType, custom_default: CustomType = CustomType("default"), **kwargs
+    ):
+        self.foo = foo
+        self.bar = bar
+        self.custom = custom
+        self.custom_default = custom_default
+
+    @classmethod
+    def _from_pretrained(cls, **kwargs):
+        return cls(**kwargs)
+
+    @classmethod
+    def _save_pretrained(cls, save_directory: Path):
+        return
+
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class HubMixinTest(unittest.TestCase):
     cache_dir: Path
@@ -266,7 +297,7 @@ class HubMixinTest(unittest.TestCase):
             cache_dir=None,
             force_download=False,
             proxies=None,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             token=None,
         )
@@ -365,3 +396,21 @@ class HubMixinTest(unittest.TestCase):
         assert model.foo == 42
         assert model.bar == "baz"
         assert not hasattr(model, "other")
+
+    def test_from_cls_with_custom_type(self):
+        model = DummyModelWithCustomTypes(1, bar="bar", custom=CustomType("custom"))
+        model.save_pretrained(self.cache_dir)
+
+        config = json.loads((self.cache_dir / "config.json").read_text())
+        assert config == {
+            "foo": 1,
+            "bar": "bar",
+            "custom": {"value": "custom"},
+            "custom_default": {"value": "default"},
+        }
+
+        model_reloaded = DummyModelWithCustomTypes.from_pretrained(self.cache_dir)
+        assert model_reloaded.foo == 1
+        assert model_reloaded.bar == "bar"
+        assert model_reloaded.custom.value == "custom"
+        assert model_reloaded.custom_default.value == "default"

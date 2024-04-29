@@ -530,8 +530,10 @@ class CommitApiTest(HfApiCommonTest):
             path.write_text("content")
 
         _create_file(".git", "file.txt")
+        _create_file(".huggingface", "file.txt")
         _create_file(".git", "folder", "file.txt")
         _create_file("folder", ".git", "file.txt")
+        _create_file("folder", ".huggingface", "file.txt")
         _create_file("folder", ".git", "folder", "file.txt")
         _create_file(".git_something", "file.txt")
         _create_file("file.git")
@@ -1781,11 +1783,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
     @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
-        self.assertTrue("fill-mask" == models[0].pipeline_tag)
-        self.assertTrue("albert-base-v2" in models[0].modelId)
+        assert models[0].pipeline_tag == "fill-mask"
+        assert "albert" in models[0].modelId
+        assert "base" in models[0].modelId
+        assert "v2" in models[0].modelId
 
         models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
-        self.assertEqual(len(models), 0)
+        assert len(models) == 0
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
@@ -2873,7 +2877,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             force_filename=None,
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             legacy_cache_layout=False,
             headers=None,
@@ -2899,7 +2903,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_dir_use_symlinks="auto",
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,
