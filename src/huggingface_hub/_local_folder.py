@@ -184,7 +184,9 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
                 stat = paths.file_path.stat()
-                if stat.st_mtime - 1 <= metadata.timestamp: # allow 1s difference as stat.st_mtime might not be precise
+                if (
+                    stat.st_mtime - 1 <= metadata.timestamp
+                ):  # allow 1s difference as stat.st_mtime might not be precise
                     return metadata
                 logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
             except FileNotFoundError:
@@ -220,5 +222,8 @@ def _huggingface_dir(local_dir: Path) -> Path:
     if not gitignore.exists():
         with WeakFileLock(gitignore_lock):
             gitignore.write_text("*")
-        gitignore_lock.unlink(missing_ok=True)
+        try:
+            gitignore_lock.unlink()
+        except OSError: # FileNotFoundError, PermissionError, etc.
+            pass
     return path
