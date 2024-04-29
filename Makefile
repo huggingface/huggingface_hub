@@ -7,14 +7,15 @@ check_dirs := contrib src tests utils setup.py
 quality:
 	ruff check $(check_dirs)  # linter
 	ruff format --check $(check_dirs) # formatter
-	mypy src
+	python utils/check_inference_input_params.py
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
 	python utils/generate_async_inference_client.py
+	mypy src
 
 style:
-	ruff check --fix $(check_dirs) # linter
 	ruff format $(check_dirs) # formatter
+	ruff check --fix $(check_dirs) # linter
 	python utils/check_contrib_list.py --update
 	python utils/check_static_imports.py --update
 	python utils/generate_async_inference_client.py --update
