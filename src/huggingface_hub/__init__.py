@@ -270,13 +270,28 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
         "ChatCompletionInput",
+        "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputMessage",
+        "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
+        "ChatCompletionInputToolTypeClass",
         "ChatCompletionOutput",
-        "ChatCompletionOutputChoice",
-        "ChatCompletionOutputChoiceMessage",
+        "ChatCompletionOutputComplete",
+        "ChatCompletionOutputFunctionDefinition",
+        "ChatCompletionOutputLogprob",
+        "ChatCompletionOutputLogprobs",
+        "ChatCompletionOutputMessage",
+        "ChatCompletionOutputToolCall",
+        "ChatCompletionOutputTopLogprob",
+        "ChatCompletionOutputUsage",
         "ChatCompletionStreamOutput",
         "ChatCompletionStreamOutputChoice",
         "ChatCompletionStreamOutputDelta",
+        "ChatCompletionStreamOutputDeltaToolCall",
+        "ChatCompletionStreamOutputFunction",
+        "ChatCompletionStreamOutputLogprob",
+        "ChatCompletionStreamOutputLogprobs",
+        "ChatCompletionStreamOutputTopLogprob",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -324,14 +339,16 @@ _SUBMOD_ATTRS = {
         "TextClassificationOutputElement",
         "TextClassificationParameters",
         "TextGenerationInput",
+        "TextGenerationInputGenerateParameters",
+        "TextGenerationInputGrammarType",
         "TextGenerationOutput",
+        "TextGenerationOutputBestOfSequence",
         "TextGenerationOutputDetails",
-        "TextGenerationOutputSequenceDetails",
+        "TextGenerationOutputPrefillToken",
         "TextGenerationOutputToken",
-        "TextGenerationParameters",
-        "TextGenerationPrefillToken",
-        "TextGenerationStreamDetails",
         "TextGenerationStreamOutput",
+        "TextGenerationStreamOutputStreamDetails",
+        "TextGenerationStreamOutputToken",
         "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
@@ -500,14 +517,14 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     def __dir__():
         return __all__
 
-    if os.environ.get("EAGER_IMPORT", ""):
-        for attr in set(attr_to_modules.keys()) | submodules:
-            __getattr__(attr)
-
     return __getattr__, __dir__, list(__all__)
 
 
 __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
+
+if os.environ.get("EAGER_IMPORT", ""):
+    for attr in __all__:
+        __getattr__(attr)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !
@@ -731,13 +748,28 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
+        ChatCompletionInputToolTypeClass,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
-        ChatCompletionOutputChoice,  # noqa: F401
-        ChatCompletionOutputChoiceMessage,  # noqa: F401
+        ChatCompletionOutputComplete,  # noqa: F401
+        ChatCompletionOutputFunctionDefinition,  # noqa: F401
+        ChatCompletionOutputLogprob,  # noqa: F401
+        ChatCompletionOutputLogprobs,  # noqa: F401
+        ChatCompletionOutputMessage,  # noqa: F401
+        ChatCompletionOutputToolCall,  # noqa: F401
+        ChatCompletionOutputTopLogprob,  # noqa: F401
+        ChatCompletionOutputUsage,  # noqa: F401
         ChatCompletionStreamOutput,  # noqa: F401
         ChatCompletionStreamOutputChoice,  # noqa: F401
         ChatCompletionStreamOutputDelta,  # noqa: F401
+        ChatCompletionStreamOutputDeltaToolCall,  # noqa: F401
+        ChatCompletionStreamOutputFunction,  # noqa: F401
+        ChatCompletionStreamOutputLogprob,  # noqa: F401
+        ChatCompletionStreamOutputLogprobs,  # noqa: F401
+        ChatCompletionStreamOutputTopLogprob,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -785,14 +817,16 @@ if TYPE_CHECKING:  # pragma: no cover
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
         TextGenerationInput,  # noqa: F401
+        TextGenerationInputGenerateParameters,  # noqa: F401
+        TextGenerationInputGrammarType,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
+        TextGenerationOutputBestOfSequence,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
-        TextGenerationOutputSequenceDetails,  # noqa: F401
+        TextGenerationOutputPrefillToken,  # noqa: F401
         TextGenerationOutputToken,  # noqa: F401
-        TextGenerationParameters,  # noqa: F401
-        TextGenerationPrefillToken,  # noqa: F401
-        TextGenerationStreamDetails,  # noqa: F401
         TextGenerationStreamOutput,  # noqa: F401
+        TextGenerationStreamOutputStreamDetails,  # noqa: F401
+        TextGenerationStreamOutputToken,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
