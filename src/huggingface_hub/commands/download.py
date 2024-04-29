@@ -84,8 +84,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             "--local-dir",
             type=str,
             help=(
-                "If set, the downloaded file will be placed under this directory either as a symlink (default) or a"
-                " regular file. Check out"
+                "If set, the downloaded file will be placed under this directory. Check out"
                 " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
                 " details."
             ),
