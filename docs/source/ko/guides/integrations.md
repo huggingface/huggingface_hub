@@ -247,15 +247,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 이게 전부입니다! 이제 라이브러리를 통해 Hub로부터 파일을 업로드하고 다운로드할 수 있습니다.
 
-### Advanced usage
+### 고급 사용법[[advanced-usage]]
 
-In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some of its more advanced features to improve your library integration with the Hugging Face Hub.
+위의 섹션에서는 [`ModelHubMixin`]이 어떻게 작동하는지 간단히 살펴보았습니다. 이번 섹션에서는 Hugging Face Hub와 라이브러리 통합을 개선하기 위한 더 고급 기능 중 일부를 살펴보겠습니다.
 
-#### Model card
+#### 모델 카드[[model-card]]
 
-[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide important information about them. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+[`ModelHubMixin`]은 모델 카드를 자동으로 생성합니다. 모델 카드는 모델과 함께 제공되는 중요한 정보를 제공하는 파일입니다. 모델 카드는 추가 메타데이터가 포함된 간단한 Markdown 파일입니다. 모델 카드는 발견 가능성, 재현성 및 공유를 위해 중요합니다! 더 자세한 내용은 [모델 카드 가이드](https://huggingface.co/docs/hub/model-cards)를 확인하세요.
 
-Generating model cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This makes all models backed by your library easily searchable on the Hub and provides some resource links for users landing on the Hub. You can define the metadata directly when inheriting from [`ModelHubMixin`]:
+모델 카드를 준자동적으로 생성하는 것은 모든 라이브러리로 푸시된 모델이 `library_name`, `tags`, `license`, `pipeline_tag` 등과 같은 일반적인 메타데이터를 공유하도록 하는 좋은 방법입니다. 이를 통해 모든 모델이 Hub에서 쉽게 검색 가능하게 되고, Hub에 접속한 사용자에게 일부 리소스 링크를 제공합니다. [`ModelHubMixin`]을 상속할 때 메타데이터를 직접 정의할 수 있습니다:
 
 ```py
 class UniDepthV1(
@@ -271,9 +271,9 @@ class UniDepthV1(
    ...
 ```
 
-By default, a generic model card will be generated with the info you've provided (example: [pyp1/VoiceCraft_giga830M](https://huggingface.co/pyp1/VoiceCraft_giga830M)). But you can define your own model card template as well!
+기본적으로는 제공된 정보로 일반적인 모델 카드가 생성됩니다(예: [pyp1/VoiceCraft_giga830M](https://huggingface.co/pyp1/VoiceCraft_giga830M)). 그러나 사용자 정의 모델 카드 템플릿을 정의할 수도 있습니다!
 
-In this example, all models pushed with the `VoiceCraft` class will automatically include a citation section and license details. For more details on how to define a model card template, please check the [Model Cards guide](./model-cards).
+이 예에서는 `VoiceCraft` 클래스로 푸시된 모든 모델에 자동으로 인용 부분과 라이선스 세부 정보가 포함됩니다. 모델 카드 템플릿을 정의하는 방법에 대한 자세한 내용은 [모델 카드 가이드](./model-cards)를 참조하세요.
 
 ```py
 MODEL_CARD_TEMPLATE = """
@@ -305,8 +305,7 @@ class VoiceCraft(
    ...
 ```
 
-
-Finally, if you want to extend the model card generation process with dynamic values, you can override the [`~ModelHubMixin.generate_model_card`] method:
+마지막으로, 모델 카드 생성 프로세스를 동적 값으로 확장하려면 [`~ModelHubMixin.generate_model_card`] 메소드를 재정의할 수 있습니다:
 
 ```py
 from huggingface_hub import ModelCard, PyTorchModelHubMixin
@@ -316,14 +315,14 @@ class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
 
    def generate_model_card(self, *args, **kwargs) -> ModelCard:
       card = super().generate_model_card(*args, **kwargs)
-      card.data.metrics = ...  # add metrics to the metadata
-      card.text += ... # append section to the modelcard
+      card.data.metrics = ...  # 메타데이터에 메트릭 추가
+      card.text += ... # 모델 카드에 섹션 추가
       return card
 ```
 
 #### 구성[[config]]
 
-[ModelHubMixin]은 모델 구성을 처리합니다. 모델을 인스턴스화할 때 입력 값들을 자동으로 확인하고 이를 `config.json` 파일에 직렬화합니다. 이렇게 함으로써 두 가지 이점이 제공됩니다:
+[`ModelHubMixin`]은 모델 구성을 처리합니다. 모델을 인스턴스화할 때 입력 값들을 자동으로 확인하고 이를 `config.json` 파일에 직렬화합니다. 이렇게 함으로써 두 가지 이점이 제공됩니다:
 
 1. 사용자는 정확히 동일한 매개변수로 모델을 다시 로드할 수 있습니다.
 2. `config.json` 파일이 자동으로 생성되면 Hub에서 분석이 가능해집니다(즉, "다운로드" 횟수가 기록됩니다).
