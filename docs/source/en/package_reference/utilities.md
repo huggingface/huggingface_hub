@@ -87,21 +87,15 @@ You can also enable or disable progress bars for specific groups. This allows yo
 ```py
 >>> # Disable progress bars for a specific group
 >>> disable_progress_bars("peft.foo")
->>> are_progress_bars_disabled("peft")
-False
->>> are_progress_bars_disabled("peft.something")
-False
->>> are_progress_bars_disabled("peft.foo")
-True
->>> are_progress_bars_disabled("peft.foo.bar")
-True
+>>> assert not are_progress_bars_disabled("peft")
+>>> assert not are_progress_bars_disabled("peft.something")
+>>> assert are_progress_bars_disabled("peft.foo")
+>>> assert are_progress_bars_disabled("peft.foo.bar")
 
 >>> # Re-enable progress bars for a subgroup
 >>> enable_progress_bars("peft.foo.bar")
->>> are_progress_bars_disabled("peft.foo")
-True
->>> are_progress_bars_disabled("peft.foo.bar")
-False
+>>> assert are_progress_bars_disabled("peft.foo")
+>>> assert not are_progress_bars_disabled("peft.foo.bar")
 ```
 
 ### are_progress_bars_disabled
