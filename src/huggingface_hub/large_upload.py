@@ -264,10 +264,11 @@ def _worker_job(
         3. Get upload mode if at least 10 files.
         4. Preupload LFS file if at least 1 file and no worker is preuploading LFS.
         5. Compute sha256 if at least 1 file and no worker is computing sha256.
-        6. Compute LFS file if at least 1 file.
-        7. Compute sha256 if at least 1 file.
-        8. Get upload mode if at least 1 file.
-        9. Commit if at least 1 file.
+        6. Get upload mode if at least 1 file and no worker is getting upload mode.
+        7. Compute LFS file if at least 1 file.
+        8. Compute sha256 if at least 1 file.
+        9. Get upload mode if at least 1 file.
+        10. Commit if at least 1 file.
 
     Special rules:
         - TODO: If `hf_transfer` => only 1 LFS uploader at a time.
@@ -285,19 +286,19 @@ def _worker_job(
                 and (status.last_commit_attempt is None or time.time() - status.last_commit_attempt > 5 * 60)
             ):
                 status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
+                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
                 logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
 
             # 2. Commit if at least 25 files are ready to commit
             elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 25:
                 status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
+                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
                 logger.debug("Job: commit (>25 files ready)")
 
             # 3. Get upload mode if at least 10 files
             elif status.queue_get_upload_mode.qsize() >= 10:
                 status.nb_workers_get_upload_mode += 1
-                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_50(status.queue_get_upload_mode))
+                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
                 logger.debug("Job: get upload mode (>10 files ready)")
 
             # 4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
@@ -312,28 +313,34 @@ def _worker_job(
                 next_job = (WorkerJob.SHA256, _get_one(status.queue_sha256))
                 logger.debug("Job: sha256 (no other worker computing sha256)")
 
-            # 6. Compute LFS file if at least 1 file
+            # 6. Get upload mode if at least 1 file and no worker is getting upload mode
+            elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
+                status.nb_workers_get_upload_mode += 1
+                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
+                logger.debug("Job: get upload mode (no other worker getting upload mode)")
+
+            # 7. Compute LFS file if at least 1 file
             elif status.queue_preupload_lfs.qsize() > 0:
                 status.nb_workers_preupload_lfs += 1
                 next_job = (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
                 logger.debug("Job: preupload LFS")
 
-            # 7. Compute sha256 if at least 1 file
+            # 8. Compute sha256 if at least 1 file
             elif status.queue_sha256.qsize() > 0:
                 status.nb_workers_sha256 += 1
                 next_job = (WorkerJob.SHA256, _get_one(status.queue_sha256))
                 logger.debug("Job: sha256")
 
-            # 8. Get upload mode if at least 1 file
+            # 9. Get upload mode if at least 1 file
             elif status.queue_get_upload_mode.qsize() > 0:
                 status.nb_workers_get_upload_mode += 1
-                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_50(status.queue_get_upload_mode))
+                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
                 logger.debug("Job: get upload mode")
 
-            # 9. Commit if at least 1 file
+            # 10. Commit if at least 1 file
             elif status.nb_workers_commit == 0 and status.queue_commit.qsize() > 0:
                 status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_50(status.queue_commit))
+                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
                 logger.debug("Job: commit")
 
             # End of job
@@ -504,8 +511,8 @@ def _get_one(queue: queue.Queue[JOB_ITEM_T]) -> List[JOB_ITEM_T]:
     return [queue.get()]
 
 
-def _get_50(queue: queue.Queue[JOB_ITEM_T]) -> List[JOB_ITEM_T]:
-    return [queue.get() for _ in range(min(queue.qsize(), 50))]
+def _get_n(queue: queue.Queue[JOB_ITEM_T], n: int) -> List[JOB_ITEM_T]:
+    return [queue.get() for _ in range(min(queue.qsize(), n))]
 
 
 def _format_size(num: int) -> str:
