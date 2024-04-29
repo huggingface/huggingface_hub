@@ -2,8 +2,8 @@
 rendered properly in your Markdown viewer.
 -->
 
-# 어떤 머신 러닝 프레임워크든 Hub와 통합[[integrate-any-ml-framework-with-the-hub]]
-Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들어줍니다. 이는 오픈소스 생태계의 [수십 가지 라이브러리](https://glorious-goldfish-v557q9qvxv7366v9.github.dev/)를 지원합니다. 저희는 항상 협업적인 머신 러닝을 전진시키기 위해 이 지원을 확대하기 위해 노력하고 있습니다. `huggingface_hub` 라이브러리는 어떤 Python 스크립트든지 쉽게 파일을 업로드하고 로드할 수 있도록 하는 데 중요한 역할을 합니다.
+# Hub와 어떤 머신 러닝 프레임워크든 통합[[integrate-any-ml-framework-with-the-hub]]
+Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들어줍니다. 이는 오픈소스 생태계의 [수십 가지 라이브러리](https://huggingface.co/docs/hub/models-libraries)를 지원합니다. 저희는 항상 협업적인 머신 러닝을 전진시키기 위해 이 지원을 확대하기 위해 노력하고 있습니다. `huggingface_hub` 라이브러리는 어떤 Python 스크립트든지 쉽게 파일을 업로드하고 로드할 수 있도록 하는 데 중요한 역할을 합니다.
 
 라이브러리를 Hub와 통합하는 주요 네 가지 방법이 있습니다:
 
@@ -42,7 +42,7 @@ def from_pretrained(model_id: str) -> MyModelClass:
 
 ### push_to_hub[[pushtohub]]
 
-`push_to_hub` 메서드는 종종 레포지토리 생성, 모델 카드 생성 및 가중치 저장을 처리하기 위해 조금 더 복잡한 접근 방식이 필요합니다. 일반적으로 모든 이러한 파일을 임시 폴더에 저장한 다음 업로드하고 나중에 삭제하는 방식이 흔히 사용됩니다.
+`push_to_hub` 메서드는 종종 리포지토리 생성, 모델 카드 생성 및 가중치 저장을 처리하기 위해 조금 더 복잡한 접근 방식이 필요합니다. 일반적으로 모든 이러한 파일을 임시 폴더에 저장한 다음 업로드하고 나중에 삭제하는 방식이 흔히 사용됩니다.
 
 ```python
 def push_to_hub(model: MyModelClass, repo_name: str) -> None:
@@ -110,9 +110,9 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    - [`~ModelHubMixin._from_pretrained`]: `model_id`를 입력으로 받아 인스턴스화된 모델을 반환하는 **클래스 메서드**입니다. 이 메서드는 관련 파일을 다운로드하고 로드해야 합니다.
 3. 완료했습니다!
 
-[`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 레포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. 이 모든 것은 믹스인에 의해 처리되며 사용자에게 제공됩니다. 믹스인은 또한 공개 메서드가 잘 문서화되고 타입이 주석이 달려있는지를 보장합니다.
+[`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 리포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. 이 모든 것은 믹스인에 의해 처리되며 사용자에게 제공됩니다. 믹스인은 또한 공개 메서드가 잘 문서화되고 타입이 주석이 달려있는지를 보장합니다.
 
-보너스로, [`ModelHubMixin`]은 모델 구성을 자동으로 처리해 줍니다. 만약 당신의 `__init__` 메서드가 `config` 입력을 기대한다면, `save_pretrained`를 호출할 때 자동으로 레포에 저장되고 `load_pretrained`에 의해 올바르게 다시 로드될 것입니다. 더불어, `config` 입력 매개변수가 dataclass 타입으로 주석 처리되어 있다면 (예: `config: Optional[MyConfigClass] = None`), 그렇게 하면 `config` 값이 올바르게 역직렬화됩니다. 마지막으로, 초기화할 때 전달된 모든 jsonable 값은 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이를 활용할 수 있다는 것을 의미합니다. 모델 리포지토리에 `config.json` 파일이 있으면 Hub에서 자동으로 분석을 활성화시킵니다 (예: "다운로드" 횟수).
+보너스로, [`ModelHubMixin`]은 모델 구성을 자동으로 처리해 줍니다. 만약 당신의 `__init__` 메서드가 `config` 입력을 기대한다면, `save_pretrained`를 호출할 때 자동으로 리포지토리에 저장되고 `load_pretrained`에 의해 올바르게 다시 로드될 것입니다. 더불어, `config` 입력 매개변수가 dataclass 타입으로 주석 처리되어 있다면 (예: `config: Optional[MyConfigClass] = None`), 그렇게 하면 `config` 값이 올바르게 역직렬화됩니다. 마지막으로, 초기화할 때 전달된 모든 jsonable 값은 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이를 활용할 수 있다는 것을 의미합니다. 모델 리포지토리에 `config.json` 파일이 있으면 Hub에서 자동으로 분석을 활성화시킵니다 (예: "다운로드" 횟수).
 
 마지막으로, [`ModelHubMixin`]은 모델 카드 생성을 처리해줍니다. [`ModelHubMixin`]을 상속받을 때 `library_name`, `tags`, `repo_url`, `docs_url`과 같은 메타데이터를 정의할 수 있습니다. 이러한 필드는 클래스를 사용하는 모든 모델의 모델 카드를 채우는 데 재사용됩니다. 이는 Hub에서 라이브러리를 사용하는 모든 모델을 쉽게 검색할 수 있도록 만들고, Hub에 착륙하는 사용자에게 일부 리소스 링크를 제공하는 데 매우 유용합니다. 만약 모델 카드 템플릿을 확장하고 싶다면, [`~ModelHubMixin.generate_model_card`] 메서드를 재정의할 수 있습니다.
 
