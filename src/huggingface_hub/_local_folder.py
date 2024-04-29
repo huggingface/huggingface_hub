@@ -224,6 +224,6 @@ def _huggingface_dir(local_dir: Path) -> Path:
             gitignore.write_text("*")
         try:
             gitignore_lock.unlink()
-        except OSError: # FileNotFoundError, PermissionError, etc.
+        except OSError:  # FileNotFoundError, PermissionError, etc.
             pass
     return path
