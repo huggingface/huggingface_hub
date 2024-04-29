@@ -54,7 +54,7 @@ Example:
        do_something()
     ```
 
-Hierarchical Control Example:
+Group-based control:
     ```python
     # Disable progress bars for a specific group
     >>> disable_progress_bars("peft.foo")
