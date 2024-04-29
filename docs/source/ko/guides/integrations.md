@@ -7,8 +7,8 @@ Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들�
 
 라이브러리를 Hub와 통합하는 주요 네 가지 방법이 있습니다:
 
-1. **Hub에 업로드하기**: 모델을 Hub에 업로드하는 메서드를 구현합니다. 이에는 모델 가중치뿐만 아니라 [모델 카드](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) 및 모델 실행에 필요한 다른 관련 정보나 데이터(예: 훈련 로그)가 포함됩니다. 이 방법은 일반적으로 `push_to_hub()`라고 합니다.
-2. **Hub에서 다운로드하기**: Hub에서 모델을 가져오는 메서드를 구현합니다. 이 메서드는 모델 구성/가중치를 다운로드하고 모델을 가져와야 합니다. 이 방법은 일반적으로 `from_pretrained` 또는 `load_from_hub()`라고 합니다.
+1. **Hub에 업로드하기**: 모델을 Hub에 업로드하는 메소드를 구현합니다. 이에는 모델 가중치뿐만 아니라 [모델 카드](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) 및 모델 실행에 필요한 다른 관련 정보나 데이터(예: 훈련 로그)가 포함됩니다. 이 방법은 일반적으로 `push_to_hub()`라고 합니다.
+2. **Hub에서 다운로드하기**: Hub에서 모델을 가져오는 메소드를 구현합니다. 이 메소드는 모델 구성/가중치를 다운로드하고 모델을 가져와야 합니다. 이 방법은 일반적으로 `from_pretrained` 또는 `load_from_hub()`라고 합니다.
 3. **추론 API**: 라이브러리에서 지원하는 모델에 대해 무료로 추론을 실행하기 위해 서버를 사용합니다.
 4. **위젯**: Hub의 모델 랜딩 페이지에 위젯을 표시합니다. 이를 통해 사용자들은 브라우저에서 빠르게 모델을 시도할 수 있습니다.
 
@@ -18,13 +18,13 @@ Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들�
 
 ## 유연한 접근 방식: 도우미(helper)[[a-flexible-approach-helpers]]
 
-라이브러리를 Hub에 통합하는 첫 번째 접근 방법은 실제로 `push_to_hub` 및 `from_pretrained` 메서드를 직접 구현하는 것입니다. 이를 통해 업로드/다운로드할 파일 및 입력을 처리하는 방법에 대한 완전한 유연성을 제공받을 수 있습니다. 이를 위해 [파일 업로드](./upload) 및 [파일 다운로드](./download) 가이드를 참조하여 자세히 알아볼 수 있습니다. 예를 들어 FastAI 통합이 구현된 방법을 보면 됩니다 ([`push_to_hub_fastai`] 및 [`from_pretrained_fastai`]를 참조).
+라이브러리를 Hub에 통합하는 첫 번째 접근 방법은 실제로 `push_to_hub` 및 `from_pretrained` 메소드를 직접 구현하는 것입니다. 이를 통해 업로드/다운로드할 파일 및 입력을 처리하는 방법에 대한 완전한 유연성을 제공받을 수 있습니다. 이를 위해 [파일 업로드](./upload) 및 [파일 다운로드](./download) 가이드를 참조하여 자세히 알아볼 수 있습니다. 예를 들어 FastAI 통합이 구현된 방법을 보면 됩니다 ([`push_to_hub_fastai`] 및 [`from_pretrained_fastai`]를 참조).
 
 라이브러리마다 구현 방식은 다를 수 있지만, 워크플로우는 일반적으로 비슷합니다.
 
 ### from_pretrained[[frompretrained]]
 
-일반적으로 `from_pretrained` 메서드는 다음과 같은 형태를 가집니다:
+일반적으로 `from_pretrained` 메소드는 다음과 같은 형태를 가집니다:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
@@ -42,7 +42,7 @@ def from_pretrained(model_id: str) -> MyModelClass:
 
 ### push_to_hub[[pushtohub]]
 
-`push_to_hub` 메서드는 종종 레포지토리 생성, 모델 카드 생성 및 가중치 저장을 처리하기 위해 조금 더 복잡한 접근 방식이 필요합니다. 일반적으로 모든 이러한 파일을 임시 폴더에 저장한 다음 업로드하고 나중에 삭제하는 방식이 흔히 사용됩니다.
+`push_to_hub` 메소드는 종종 레포지토리 생성, 모델 카드 생성 및 가중치 저장을 처리하기 위해 조금 더 복잡한 접근 방식이 필요합니다. 일반적으로 모든 이러한 파일을 임시 폴더에 저장한 다음 업로드하고 나중에 삭제하는 방식이 흔히 사용됩니다.
 
 ```python
 def push_to_hub(model: MyModelClass, repo_name: str) -> None:
@@ -93,28 +93,28 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 - `token`
 - ...
 
-이러한 매개변수는 위에서 본 구현에 추가하여 `huggingface_hub` 메서드로 전달할 수 있습니다. 그러나 매개변수가 변경되거나 새로운 기능이 추가되는 경우에는 패키지를 업데이트해야 합니다. 이러한 매개변수를 지원하는 것은 유지 관리할 문서가 더 많아진다는 것을 의미합니다. 이러한 제한 사항을 어떻게 완화할 수 있는지 보려면 다음 섹션인 **클래스 상속**으로 이동해 보겠습니다.
+이러한 매개변수는 위에서 본 구현에 추가하여 `huggingface_hub` 메소드로 전달할 수 있습니다. 그러나 매개변수가 변경되거나 새로운 기능이 추가되는 경우에는 패키지를 업데이트해야 합니다. 이러한 매개변수를 지원하는 것은 유지 관리할 문서가 더 많아진다는 것을 의미합니다. 이러한 제한 사항을 어떻게 완화할 수 있는지 보려면 다음 섹션인 **클래스 상속**으로 이동해 보겠습니다.
 
 ## 더욱 복잡한 접근법: 클래스 상속[[a-more-complex-approach-class-inheritance]]
 
 
-위에서 보았듯이 Hub와 통합하기 위해 라이브러리에 포함해야 할 주요 메서드는 파일을 업로드하는 (`push_to_hub`) 및 파일을 다운로드하는 (`from_pretrained`)입니다. 이러한 메서드를 직접 구현할 수 있지만, 이에는 몇 가지 주의할 점이 있습니다. 이를 해결하기 위해 `huggingface_hub`은 클래스 상속을 사용하는 도구를 제공합니다. 이 도구가 어떻게 작동하는지 살펴보겠습니다!
+위에서 보았듯이 Hub와 통합하기 위해 라이브러리에 포함해야 할 주요 메소드는 파일을 업로드하는 (`push_to_hub`) 및 파일을 다운로드하는 (`from_pretrained`)입니다. 이러한 메소드를 직접 구현할 수 있지만, 이에는 몇 가지 주의할 점이 있습니다. 이를 해결하기 위해 `huggingface_hub`은 클래스 상속을 사용하는 도구를 제공합니다. 이 도구가 어떻게 작동하는지 살펴보겠습니다!
 
-많은 경우에 라이브러리는 이미 Python 클래스를 사용하여 모델을 구현합니다. 이 클래스에는 모델의 속성 및 로드, 실행, 훈련 및 평가하는 메서드가 포함되어 있습니다. 접근 방식은 [믹스인](https://stackoverflow.com/a/547714)을 사용하여 이 클래스를 확장하여 업로드 및 다운로드 기능을 포함하는 것입니다. 믹스인(Mixin)은 기존 클래스에 여러 상속을 통해 특정 기능을 확장하기 위해 설계된 클래스입니다. `huggingface_hub`은 자체 믹스인인 [`ModelHubMixin`]을 제공합니다. 이 중요한 점은 그 동작을 이해하고 사용자 정의하는 것입니다.
+많은 경우에 라이브러리는 이미 Python 클래스를 사용하여 모델을 구현합니다. 이 클래스에는 모델의 속성 및 로드, 실행, 훈련 및 평가하는 메소드가 포함되어 있습니다. 접근 방식은 [믹스인](https://stackoverflow.com/a/547714)을 사용하여 이 클래스를 확장하여 업로드 및 다운로드 기능을 포함하는 것입니다. 믹스인(Mixin)은 기존 클래스에 여러 상속을 통해 특정 기능을 확장하기 위해 설계된 클래스입니다. `huggingface_hub`은 자체 믹스인인 [`ModelHubMixin`]을 제공합니다. 이 중요한 점은 그 동작을 이해하고 사용자 정의하는 것입니다.
 
-[`ModelHubMixin`] 클래스는 세 개의 *공개* 메서드(`push_to_hub`, `save_pretrained`, `from_pretrained`)를 구현합니다. 이 메서드들은 사용자가 라이브러리를 사용하여 모델을 로드/저장할 때 호출하는 메서드입니다. 또한 [`ModelHubMixin`]은 두 개의 *비공개* 메서드(`_save_pretrained` 및 `_from_pretrained`)를 정의합니다. 이 메서드들을 구현해야 합니다. 라이브러리를 통합하려면:
+[`ModelHubMixin`] 클래스는 세 개의 *공개* 메소드(`push_to_hub`, `save_pretrained`, `from_pretrained`)를 구현합니다. 이 메소드들은 사용자가 라이브러리를 사용하여 모델을 로드/저장할 때 호출하는 메소드입니다. 또한 [`ModelHubMixin`]은 두 개의 *비공개* 메소드(`_save_pretrained` 및 `_from_pretrained`)를 정의합니다. 이 메소드들을 구현해야 합니다. 라이브러리를 통합하려면:
 
 1. 모델 클래스를 [`ModelHubMixin`]에서 상속합니다.
-2. 비공개 메서드를 구현합니다:
-   - [`~ModelHubMixin._save_pretrained`]: 디렉터리 경로를 입력으로 받아 모델을 해당 디렉터리에 저장하는 메서드입니다. 이 메서드에는 모델 카드, 모델 가중치, 구성 파일, 훈련 로그 및 그림 등 해당 모델에 대한 모든 관련 정보를 덤프하기 위한 로직을 작성해야 합니다. [모델 카드](https://huggingface.co/docs/hub/model-cards)는 모델을 설명하는 데 특히 중요합니다. 더 자세한 내용은 [구현 가이드](./model-cards)를 확인하세요.
-   - [`~ModelHubMixin._from_pretrained`]: `model_id`를 입력으로 받아 인스턴스화된 모델을 반환하는 **클래스 메서드**입니다. 이 메서드는 관련 파일을 다운로드하고 로드해야 합니다.
+2. 비공개 메소드를 구현합니다:
+   - [`~ModelHubMixin._save_pretrained`]: 디렉터리 경로를 입력으로 받아 모델을 해당 디렉터리에 저장하는 메소드입니다. 이 메소드에는 모델 카드, 모델 가중치, 구성 파일, 훈련 로그 및 그림 등 해당 모델에 대한 모든 관련 정보를 덤프하기 위한 로직을 작성해야 합니다. [모델 카드](https://huggingface.co/docs/hub/model-cards)는 모델을 설명하는 데 특히 중요합니다. 더 자세한 내용은 [구현 가이드](./model-cards)를 확인하세요.
+   - [`~ModelHubMixin._from_pretrained`]: `model_id`를 입력으로 받아 인스턴스화된 모델을 반환하는 **클래스 메소드**입니다. 이 메소드는 관련 파일을 다운로드하고 로드해야 합니다.
 3. 완료했습니다!
 
-[`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 레포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. 이 모든 것은 믹스인에 의해 처리되며 사용자에게 제공됩니다. 믹스인은 또한 공개 메서드가 잘 문서화되고 타입이 주석이 달려있는지를 보장합니다.
+[`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 레포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. 이 모든 것은 믹스인에 의해 처리되며 사용자에게 제공됩니다. 믹스인은 또한 공개 메소드가 잘 문서화되고 타입이 주석이 달려있는지를 보장합니다.
 
-보너스로, [`ModelHubMixin`]은 모델 구성을 자동으로 처리해 줍니다. 만약 당신의 `__init__` 메서드가 `config` 입력을 기대한다면, `save_pretrained`를 호출할 때 자동으로 레포에 저장되고 `load_pretrained`에 의해 올바르게 다시 로드될 것입니다. 더불어, `config` 입력 매개변수가 dataclass 타입으로 주석 처리되어 있다면 (예: `config: Optional[MyConfigClass] = None`), 그렇게 하면 `config` 값이 올바르게 역직렬화됩니다. 마지막으로, 초기화할 때 전달된 모든 jsonable 값은 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이를 활용할 수 있다는 것을 의미합니다. 모델 리포지토리에 `config.json` 파일이 있으면 Hub에서 자동으로 분석을 활성화시킵니다 (예: "다운로드" 횟수).
+보너스로, [`ModelHubMixin`]은 모델 구성을 자동으로 처리해 줍니다. 만약 당신의 `__init__` 메소드가 `config` 입력을 기대한다면, `save_pretrained`를 호출할 때 자동으로 레포에 저장되고 `load_pretrained`에 의해 올바르게 다시 로드될 것입니다. 더불어, `config` 입력 매개변수가 dataclass 타입으로 주석 처리되어 있다면 (예: `config: Optional[MyConfigClass] = None`), 그렇게 하면 `config` 값이 올바르게 역직렬화됩니다. 마지막으로, 초기화할 때 전달된 모든 jsonable 값은 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이를 활용할 수 있다는 것을 의미합니다. 모델 리포지토리에 `config.json` 파일이 있으면 Hub에서 자동으로 분석을 활성화시킵니다 (예: "다운로드" 횟수).
 
-마지막으로, [`ModelHubMixin`]은 모델 카드 생성을 처리해줍니다. [`ModelHubMixin`]을 상속받을 때 `library_name`, `tags`, `repo_url`, `docs_url`과 같은 메타데이터를 정의할 수 있습니다. 이러한 필드는 클래스를 사용하는 모든 모델의 모델 카드를 채우는 데 재사용됩니다. 이는 Hub에서 라이브러리를 사용하는 모든 모델을 쉽게 검색할 수 있도록 만들고, Hub에 착륙하는 사용자에게 일부 리소스 링크를 제공하는 데 매우 유용합니다. 만약 모델 카드 템플릿을 확장하고 싶다면, [`~ModelHubMixin.generate_model_card`] 메서드를 재정의할 수 있습니다.
+마지막으로, [`ModelHubMixin`]은 모델 카드 생성을 처리해줍니다. [`ModelHubMixin`]을 상속받을 때 `library_name`, `tags`, `repo_url`, `docs_url`과 같은 메타데이터를 정의할 수 있습니다. 이러한 필드는 클래스를 사용하는 모든 모델의 모델 카드를 채우는 데 재사용됩니다. 이는 Hub에서 라이브러리를 사용하는 모든 모델을 쉽게 검색할 수 있도록 만들고, Hub에 착륙하는 사용자에게 일부 리소스 링크를 제공하는 데 매우 유용합니다. 만약 모델 카드 템플릿을 확장하고 싶다면, [`~ModelHubMixin.generate_model_card`] 메소드를 재정의할 수 있습니다.
 
 ### 자세한 예시: PyTorch[[a-concrete-example-pytorch]]
 
@@ -188,7 +188,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
    (...)
 ```
 
-2. `_save_pretrained` 메서드를 구현하세요:
+2. `_save_pretrained` 메소드를 구현하세요:
 
 ```py
 from huggingface_hub import ModelHubMixin
@@ -202,13 +202,13 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 ```
 
-3. `_from_pretrained` 메서드를 구현하세요:
+3. `_from_pretrained` 메소드를 구현하세요:
 
 ```python
 class PyTorchModelHubMixin(ModelHubMixin):
    (...)
 
-   @classmethod # 반드시 클래스 메서드여야 합니다!
+   @classmethod # 반드시 클래스 메소드여야 합니다!
    def _from_pretrained(
       cls,
       *,
@@ -246,6 +246,153 @@ class PyTorchModelHubMixin(ModelHubMixin):
 ```
 
 이게 전부입니다! 이제 라이브러리를 통해 Hub로부터 파일을 업로드하고 다운로드할 수 있습니다.
+
+### Advanced usage
+
+In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some of its more advanced features to improve your library integration with the Hugging Face Hub.
+
+#### Model card
+
+[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide important information about them. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+
+Generating model cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This makes all models backed by your library easily searchable on the Hub and provides some resource links for users landing on the Hub. You can define the metadata directly when inheriting from [`ModelHubMixin`]:
+
+```py
+class UniDepthV1(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="unidepth",
+   repo_url="https://github.com/lpiccinelli-eth/UniDepth",
+   docs_url=...,
+   pipeline_tag="depth-estimation",
+   license="cc-by-nc-4.0",
+   tags=["monocular-metric-depth-estimation", "arxiv:1234.56789"]
+):
+   ...
+```
+
+By default, a generic model card will be generated with the info you've provided (example: [pyp1/VoiceCraft_giga830M](https://huggingface.co/pyp1/VoiceCraft_giga830M)). But you can define your own model card template as well!
+
+In this example, all models pushed with the `VoiceCraft` class will automatically include a citation section and license details. For more details on how to define a model card template, please check the [Model Cards guide](./model-cards).
+
+```py
+MODEL_CARD_TEMPLATE = """
+---
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
+---
+
+This is a VoiceCraft model. For more details, please check out the official Github repo: https://github.com/jasonppy/VoiceCraft. This model is shared under a Attribution-NonCommercial-ShareAlike 4.0 International license.
+
+## Citation
+
+@article{peng2024voicecraft,
+  author    = {Peng, Puyuan and Huang, Po-Yao and Li, Daniel and Mohamed, Abdelrahman and Harwath, David},
+  title     = {VoiceCraft: Zero-Shot Speech Editing and Text-to-Speech in the Wild},
+  journal   = {arXiv},
+  year      = {2024},
+}
+"""
+
+class VoiceCraft(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="voicecraft",
+   model_card_template=MODEL_CARD_TEMPLATE,
+   ...
+):
+   ...
+```
+
+
+Finally, if you want to extend the model card generation process with dynamic values, you can override the [`~ModelHubMixin.generate_model_card`] method:
+
+```py
+from huggingface_hub import ModelCard, PyTorchModelHubMixin
+
+class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
+   (...)
+
+   def generate_model_card(self, *args, **kwargs) -> ModelCard:
+      card = super().generate_model_card(*args, **kwargs)
+      card.data.metrics = ...  # add metrics to the metadata
+      card.text += ... # append section to the modelcard
+      return card
+```
+
+#### 구성[[config]]
+
+[ModelHubMixin]은 모델 구성을 처리합니다. 모델을 인스턴스화할 때 입력 값들을 자동으로 확인하고 이를 `config.json` 파일에 직렬화합니다. 이렇게 함으로써 두 가지 이점이 제공됩니다:
+
+1. 사용자는 정확히 동일한 매개변수로 모델을 다시 로드할 수 있습니다.
+2. `config.json` 파일이 자동으로 생성되면 Hub에서 분석이 가능해집니다(즉, "다운로드" 횟수가 기록됩니다).
+
+하지만 이것이 실제로 어떻게 작동하는 걸까요? 사용자 관점에서 프로세스가 가능한 매끄럽도록 하기 위해 여러 규칙이 존재합니다:
+- 만약 `__init__` 메소드가 `config` 입력을 기대한다면, 이는 자동으로 `config.json`으로 저장됩니다.
+- 만약 `config` 입력 매개변수에 데이터 클래스 유형(예: `config: Optional[MyConfigClass] = None`)의 어노테이션이 있다면, config 값은 올바르게 역직렬화됩니다.
+- 초기화할 때 전달된 모든 값들도 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이점을 얻을 수 있다는 것을 의미합니다.
+
+예시:
+
+```py
+class MyModel(ModelHubMixin):
+   def __init__(value: str, size: int = 3):
+      self.value = value
+      self.size = size
+
+   (...) # _save_pretrained / _from_pretrained 구현
+
+model = MyModel(value="my_value")
+model.save_pretrained(...)
+
+# config.json 파일에는 전달된 값과 기본 값이 모두 포함됩니다.
+{"value": "my_value", "size": 3}
+```
+
+그러나 값이 JSON으로 직렬화될 수 없는 경우는 어떻게 될까요? 기본적으로 구성 파일을 저장할 때 해당 값은 무시됩니다. 그러나 경우에 따라 라이브러리가 이미 직렬화할 수 없는 사용자 정의 객체를 예상하고 있고 해당 유형을 업데이트하고 싶지 않은 경우가 있습니다. 걱정 마세요! [`ModelHubMixin`]을 상속할 때 어떤 유형에 대한 사용자 지정 인코더/디코더를 전달할 수 있습니다. 이는 조금 더 많은 작업이 필요하지만 내부 로직을 변경하지 않고도 라이브러리를 Hub에 통합할 수 있도록 보장합니다.
+
+여기서 `argparse.Namespace` 구성을 입력으로 받는 클래스의 구체적인 예가 있습니다:
+
+```py
+class VoiceCraft(nn.Module):
+    def __init__(self, args):
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+한 가지 해결책은 `__init__` 시그니처를 `def __init__(self, pattern: str, hidden_size: int)`로 업데이트하고 클래스를 인스턴스화하는 모든 스니펫을 업데이트하는 것입니다. 이 방법은 완벽히 유효한 방법이지만, 여러분의 라이브러리를 사용하는 하위 응용 프로그램을 망가뜨릴 수 있습니다.
+
+다른 해결책은 `argparse.Namespace`를 사전으로 변환하는 간단한 인코더/디코더를 제공하는 것입니다.
+
+```py
+from argparse import Namespace
+
+class VoiceCraft(
+   nn.Module,
+   PytorchModelHubMixin,  # 믹스인을 상속합니다.
+   coders: {
+      Namespace = (
+         lambda x: vars(x),  # Encoder: `Namespace`를 유효한 JSON 형태로 변환하는 방법은 무엇인가요?
+         lambda data: Namespace(**data),  # Decoder: 딕셔너리에서 Namespace를 재구성하는 방법은 무엇인가요?
+      )
+   }
+):
+    def __init__(self, args: Namespace): # `args`에 주석을 답니다.
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+위의 코드 스니펫에서는 클래스의 내부 로직과 `__init__` 시그니처가 변경되지 않았습니다. 이는 기존의 모든 코드 스니펫이 여전히 작동한다는 것을 의미합니다. 이를 달성하기 위해 우리는 다음을 수행했습니다:
+1. 믹스인(`PytorchModelHubMixin` 이 경우)으로부터 상속합니다.
+2. 상속 시 `coders` 매개변수를 전달합니다. 이는 키가 처리하려는 사용자 지정 유형이고, 값은 튜플 `(인코더, 디코더)`입니다.
+   - 인코더는 지정된 유형의 객체를 입력으로 받아서 jsonable 값으로 반환합니다. 이는 `save_pretrained`로 모델을 저장할 때 사용됩니다.
+   - 디코더는 원시 데이터(일반적으로 딕셔너리 타입)를 입력으로 받아서 초기 객체를 재구성합니다. 이는 `from_pretrained`로 모델을 로드할 때 사용됩니다.
+   - `__init__` 시그니처에 유형 주석을 추가합니다. 이는 믹스인에게 클래스가 기대하는 유형과, 따라서 어떤 디코더를 사용해야 하는지를 알려주는 데 중요합니다.
+
+간단함을 위해 위의 예제에서 인코더/디코더 함수는 견고하지 않습니다. 구체적인 구현을 위해서는 대부분의 경우 코너 케이스를 적절하게 처리해야 할 것입니다.
 
 ## 빠른 비교[[quick-comparison]]
 
