@@ -18,7 +18,7 @@ from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPE_MODEL, REPO_TYPES
 from .hf_api import HfApi
-from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
+from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils.sha import sha_fileobj
 
 
@@ -93,7 +93,10 @@ def large_upload(
     logger.info(f"Found {len(paths_list)} candidate files to upload")
 
     # Read metadata for each file
-    items = [(paths, read_upload_metadata(folder_path, paths.path_in_repo)) for paths in paths_list]
+    items = [
+        (paths, read_upload_metadata(folder_path, paths.path_in_repo))
+        for paths in tqdm(paths_list, desc="Recovering from metadata files")
+    ]
 
     # Start workers
     status = LargeUploadStatus(items)
