@@ -498,6 +498,7 @@ def http_get(
             disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
             # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
             # see https://github.com/huggingface/huggingface_hub/pull/2000
+            name="huggingface_hub.http_get",
         )
 
     if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
