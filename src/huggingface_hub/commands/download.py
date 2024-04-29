@@ -102,7 +102,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         download_parser.add_argument(
             "--resume-download",
             action="store_true",
-            help="Deprecated and ignored. Downloading a file to local dir always attempt to resume previously interrupted download.",
+            help="Deprecated and ignored. Downloading a file to local dir always attempts to resume previously interrupted downloads (unless hf-transfer is enabled).",
         )
         download_parser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
