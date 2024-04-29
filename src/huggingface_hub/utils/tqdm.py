@@ -33,11 +33,11 @@ Example:
 
     # Use as normal `tqdm`
     >>> for _ in tqdm(range(5)):
-    ...    do_something()
+    ...    pass
 
     # Still not showing progress bars, as `disable=False` is overwritten to `True`.
     >>> for _ in tqdm(range(5), disable=False):
-    ...    do_something()
+    ...    pass
 
     >>> are_progress_bars_disabled()
     True
@@ -47,7 +47,7 @@ Example:
 
     # Progress bar will be shown !
     >>> for _ in tqdm(range(5)):
-    ...   do_something()
+    ...   pass
     100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
     ```
 
@@ -68,6 +68,16 @@ Group-based control:
     # Check if enabling a subgroup affects the parent group
     >>> assert are_progress_bars_disabled("peft.foo"))
     >>> assert not are_progress_bars_disabled("peft.foo.bar"))
+
+    # No progress bar for `name="peft.foo"`
+    >>> for _ in tqdm(range(5), name="peft.foo"):
+    ...     pass
+
+    # Progress bar will be shown for `name="peft.foo.bar"`
+    >>> for _ in tqdm(range(5), name="peft.foo.bar"):
+    ...     pass
+    100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
+
     ```
 """
 
