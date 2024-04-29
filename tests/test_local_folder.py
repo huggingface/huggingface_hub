@@ -91,8 +91,8 @@ def test_write_download_metadata(tmp_path: Path):
         assert f.readline() == "commit_hash\n"
         assert f.readline() == "123456789\n"
         timestamp = float(f.readline().strip())
-    assert timestamp < time.time()  # in the past
-    assert timestamp > time.time() - 1  # but less than 1 seconds ago (we're not that slow)
+    assert timestamp <= time.time()  # in the past
+    assert timestamp >= time.time() - 1  # but less than 1 seconds ago (we're not that slow)
 
     time.sleep(0.2)  # for deterministic tests
 
