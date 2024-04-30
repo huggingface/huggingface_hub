@@ -407,10 +407,6 @@ def _use_async_streaming_util(code: str) -> str:
         "_async_stream_text_generation_response",
     )
     code = code.replace(
-        "_stream_chat_completion_response_from_text_generation",
-        "_async_stream_chat_completion_response_from_text_generation",
-    )
-    code = code.replace(
         "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
     )
     return code
