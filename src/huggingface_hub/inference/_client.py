@@ -732,6 +732,9 @@ class InferenceClient:
                     # Then we call again `chat_completion` which will render the chat template client side.
                     # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
                     _set_as_non_chat_completion_server(model)
+                    logger.warning(
+                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
+                    )
                     return self.chat_completion(
                         messages=messages,
                         model=model,
