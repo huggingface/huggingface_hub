@@ -754,8 +754,13 @@ class AsyncInferenceClient:
         # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
         if stream:
             raise ValueError(
-                "API endpoint/model is not served via TGI. This means it cannot return output as a stream."
-                " Please pass `stream=False` as input."
+                "Streaming token is not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. Please pass `stream=False` as input."
+            )
+        if tool_choice is not None or tool_prompt is not None or tools is not None:
+            warnings.warn(
+                "Tools are not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. The provided tool parameters will be ignored."
             )
 
         # generate response
