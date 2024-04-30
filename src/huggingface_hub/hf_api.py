@@ -105,7 +105,7 @@ from .constants import (
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
-    IGNORE_GIT_FOLDER_PATTERNS,
+    DEFAULT_IGNORE_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
     GatedRepoError,
@@ -646,7 +646,7 @@ class ModelInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the model.
+            Number of downloads of the model over the last 30 days.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -799,7 +799,7 @@ class DatasetInfo:
             Is the repo gated.
             If so, whether there is manual or automatic approval.
         downloads (`int`):
-            Number of downloads of the dataset.
+            Number of downloads of the dataset over the last 30 days.
         likes (`int`):
             Number of likes of the dataset.
         tags (`List[str]`):
@@ -4676,7 +4676,7 @@ class HfApi:
             ignore_patterns = []
         elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
-        ignore_patterns += IGNORE_GIT_FOLDER_PATTERNS
+        ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
         delete_operations = self._prepare_upload_folder_deletions(
             repo_id=repo_id,
@@ -4955,15 +4955,16 @@ class HfApi:
         revision: Optional[str] = None,
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         force_download: bool = False,
-        force_filename: Optional[str] = None,
         proxies: Optional[Dict] = None,
         etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-        resume_download: bool = False,
         token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
+        # Deprecated args
+        resume_download: Optional[bool] = None,
         legacy_cache_layout: bool = False,
+        force_filename: Optional[str] = None,
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
         """Download a given file if it's not already present in the local cache.
 
@@ -4976,21 +4977,6 @@ class HfApi:
             - snapshots contains one subfolder per commit, each "commit" contains the subset of the files
             that have been resolved at that particular commit. Each filename is a symlink to the blob
             at that particular commit.
-
-        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
-        how you want to move those files:
-        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
-            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
-            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
-            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-            environment variable.
-        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
-            This is optimal in term of disk usage but files must not be manually edited.
-        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
-            local dir. This means disk usage is not optimized.
-        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
-            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
-            they will be re-downloaded entirely.
 
         ```
         [  96]  .
@@ -5010,6 +4996,11 @@ class HfApi:
                     └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
         ```
 
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
+        option, the `cache_dir` will not be used and a `.huggingface/` folder will be created at the root of `local_dir`
+        to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
+        cache-system, it's optimized for regularly pulling the latest version of a repository.
+
         Args:
             repo_id (`str`):
                 A user or an organization name and a repo name separated by a `/`.
@@ -5026,13 +5017,7 @@ class HfApi:
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
-                If provided, the downloaded file will be placed under this directory, either as a symlink (default) or
-                a regular file (see description for more details).
-            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
-                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
-                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
-                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
-                already exists) or downloaded from the Hub and not cached. See description for more details.
+                If provided, the downloaded file will be placed under this directory.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in
                 the local cache.
@@ -5042,8 +5027,6 @@ class HfApi:
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
                 data before giving up which is passed to `requests.request`.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                If `True`, resume a previously interrupted download.
             token (`bool` or `str`, *optional*):
                 A valid authentication token (see https://huggingface.co/settings/token).
                 If `None` or `True` and machine is logged in (through `huggingface-cli login`
@@ -5052,19 +5035,11 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
-            legacy_cache_layout (`bool`, *optional*, defaults to `False`):
-                If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
-                then `cached_download`. This is deprecated as the new cache layout is
-                more powerful.
 
         Returns:
-            Local path (string) of file or if networking is off, last version of
-            file cached on disk.
+            `str`: Local path of file or if networking is off, last version of file cached on disk.
 
-        <Tip>
-
-        Raises the following errors:
-
+        Raises:
             - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             if `token=True` and the token cannot be found.
             - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
@@ -5080,8 +5055,6 @@ class HfApi:
             If the file to download cannot be found.
             - [`~utils.LocalEntryNotFoundError`]
             If network is disabled or unavailable and file is not found in cache.
-
-        </Tip>
         """
         from .file_download import hf_hub_download
 
@@ -5122,10 +5095,8 @@ class HfApi:
         revision: Optional[str] = None,
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
-        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
         proxies: Optional[Dict] = None,
         etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-        resume_download: bool = False,
         force_download: bool = False,
         token: Optional[Union[str, bool]] = None,
         local_files_only: bool = False,
@@ -5133,6 +5104,9 @@ class HfApi:
         ignore_patterns: Optional[Union[List[str], str]] = None,
         max_workers: int = 8,
         tqdm_class: Optional[base_tqdm] = None,
+        # Deprecated args
+        local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+        resume_download: Optional[bool] = None,
     ) -> str:
         """Download repo files.
 
@@ -5141,20 +5115,10 @@ class HfApi:
         to keep their actual filename relative to that folder. You can also filter which files to download using
         `allow_patterns` and `ignore_patterns`.
 
-        If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
-        how you want to move those files:
-        - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
-            files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
-            is to be able to manually edit and save small files without corrupting the cache while saving disk space for
-            binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-            environment variable.
-        - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
-            This is optimal in term of disk usage but files must not be manually edited.
-        - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
-            local dir. This means disk usage is not optimized.
-        - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
-            files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
-            they will be re-downloaded entirely.
+        If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
+        option, the `cache_dir` will not be used and a `.huggingface/` folder will be created at the root of `local_dir`
+        to store some metadata related to the downloaded files.While this mechanism is not as robust as the main
+        cache-system, it's optimized for regularly pulling the latest version of a repository.
 
         An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
         configured. It is also not possible to filter which files to download when cloning a repository using git.
@@ -5171,21 +5135,13 @@ class HfApi:
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored.
             local_dir (`str` or `Path`, *optional*):
-                If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
-                regular files (see description for more details).
-            local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
-                To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
-                duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
-                created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
-                already exists) or downloaded from the Hub and not cached. See description for more details.
+                If provided, the downloaded files will be placed under this directory.
             proxies (`dict`, *optional*):
                 Dictionary mapping protocol to the URL of the proxy passed to
                 `requests.request`.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
                 data before giving up which is passed to `requests.request`.
-            resume_download (`bool`, *optional*, defaults to `False):
-                If `True`, resume a previously interrupted download.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
             token (`bool` or `str`, *optional*):
@@ -5211,20 +5167,15 @@ class HfApi:
                 `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
 
         Returns:
-            Local folder path (string) of repo snapshot
+            `str`: folder path of the repo snapshot.
 
-        <Tip>
-
-        Raises the following errors:
-
-        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-        if `token=True` and the token cannot be found.
-        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-        ETag cannot be determined.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-        if some parameter value is invalid
-
-        </Tip>
+        Raises:
+            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            if `token=True` and the token cannot be found.
+            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+            ETag cannot be determined.
+            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid
         """
         from ._snapshot_download import snapshot_download
 
@@ -8309,7 +8260,7 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def get_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Get a webhook by its id.
 
         Args:
@@ -8360,7 +8311,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -8412,9 +8363,10 @@ class HfApi:
     @validate_hf_hub_args
     def create_webhook(
         self,
-        watched: List[WebhookWatchedItem],
+        *,
         url: str,
-        domains: List[WEBHOOK_DOMAIN_T],
+        watched: List[WebhookWatchedItem],
+        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8440,7 +8392,7 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import create_webhook
+            >>> from huggingface_hub import create_webhook, WebhookWatchedItem
             >>> payload = create_webhook(
             ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8483,9 +8435,10 @@ class HfApi:
     def update_webhook(
         self,
         webhook_id: str,
-        watched: List[WebhookWatchedItem],
-        url: str,
-        domains: List[WEBHOOK_DOMAIN_T],
+        *,
+        watched: Optional[List[WebhookWatchedItem]],
+        url: Optional[str] = None,
+        domains: Optional[List[WEBHOOK_DOMAIN_T]],
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8554,7 +8507,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def enable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Enable a webhook (makes it "active").
 
         Args:
@@ -8605,7 +8558,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def disable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Disable a webhook (makes it "disabled").
 
         Args:
@@ -8656,7 +8609,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def delete_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> None:
+    def delete_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> None:
         """Delete a webhook.
 
         Args:

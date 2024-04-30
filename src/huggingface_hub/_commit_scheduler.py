@@ -9,7 +9,7 @@ from pathlib import Path
 from threading import Lock, Thread
 from typing import Dict, List, Optional, Union
 
-from .hf_api import IGNORE_GIT_FOLDER_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
+from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
 from .utils import filter_repo_objects
 
 
@@ -107,7 +107,7 @@ class CommitScheduler:
             ignore_patterns = []
         elif isinstance(ignore_patterns, str):
             ignore_patterns = [ignore_patterns]
-        self.ignore_patterns = ignore_patterns + IGNORE_GIT_FOLDER_PATTERNS
+        self.ignore_patterns = ignore_patterns + DEFAULT_IGNORE_PATTERNS
 
         if self.folder_path.is_file():
             raise ValueError(f"'folder_path' must be a directory, not a file: '{self.folder_path}'.")

@@ -26,32 +26,58 @@ NOTE: Environment variable `HF_HUB_DISABLE_PROGRESS_BARS` has the priority.
 
 Example:
     ```py
-    from huggingface_hub.utils import (
-        are_progress_bars_disabled,
-        disable_progress_bars,
-        enable_progress_bars,
-        tqdm,
-    )
+    >>> from huggingface_hub.utils import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm
 
     # Disable progress bars globally
-    disable_progress_bars()
+    >>> disable_progress_bars()
 
     # Use as normal `tqdm`
-    for _ in tqdm(range(5)):
-       do_something()
+    >>> for _ in tqdm(range(5)):
+    ...    pass
 
     # Still not showing progress bars, as `disable=False` is overwritten to `True`.
-    for _ in tqdm(range(5), disable=False):
-       do_something()
+    >>> for _ in tqdm(range(5), disable=False):
+    ...    pass
 
-    are_progress_bars_disabled() # True
+    >>> are_progress_bars_disabled()
+    True
 
     # Re-enable progress bars globally
-    enable_progress_bars()
+    >>> enable_progress_bars()
 
     # Progress bar will be shown !
-    for _ in tqdm(range(5)):
-       do_something()
+    >>> for _ in tqdm(range(5)):
+    ...   pass
+    100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
+    ```
+
+Group-based control:
+    ```python
+    # Disable progress bars for a specific group
+    >>> disable_progress_bars("peft.foo")
+
+    # Check state of different groups
+    >>> assert not are_progress_bars_disabled("peft"))
+    >>> assert not are_progress_bars_disabled("peft.something")
+    >>> assert are_progress_bars_disabled("peft.foo"))
+    >>> assert are_progress_bars_disabled("peft.foo.bar"))
+
+    # Enable progress bars for a subgroup
+    >>> enable_progress_bars("peft.foo.bar")
+
+    # Check if enabling a subgroup affects the parent group
+    >>> assert are_progress_bars_disabled("peft.foo"))
+    >>> assert not are_progress_bars_disabled("peft.foo.bar"))
+
+    # No progress bar for `name="peft.foo"`
+    >>> for _ in tqdm(range(5), name="peft.foo"):
+    ...     pass
+
+    # Progress bar will be shown for `name="peft.foo.bar"`
+    >>> for _ in tqdm(range(5), name="peft.foo.bar"):
+    ...     pass
+    100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
+
     ```
 """
 
@@ -59,65 +85,116 @@ import io
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Optional, Union
+from typing import Dict, Iterator, Optional, Union
 
 from tqdm.auto import tqdm as old_tqdm
 
 from ..constants import HF_HUB_DISABLE_PROGRESS_BARS
 
 
-# `HF_HUB_DISABLE_PROGRESS_BARS` is `Optional[bool]` while `_hf_hub_progress_bars_disabled`
-# is a `bool`. If `HF_HUB_DISABLE_PROGRESS_BARS` is set to True or False, it has priority.
-# If `HF_HUB_DISABLE_PROGRESS_BARS` is None, it means the user have not set the
-# environment variable and is free to enable/disable progress bars programmatically.
-# TL;DR: env variable has priority over code.
+# The `HF_HUB_DISABLE_PROGRESS_BARS` environment variable can be True, False, or not set (None),
+# allowing for control over progress bar visibility. When set, this variable takes precedence
+# over programmatic settings, dictating whether progress bars should be shown or hidden globally.
+# Essentially, the environment variable's setting overrides any code-based configurations.
 #
-# By default, progress bars are enabled.
-_hf_hub_progress_bars_disabled: bool = HF_HUB_DISABLE_PROGRESS_BARS or False
+# If `HF_HUB_DISABLE_PROGRESS_BARS` is not defined (None), it implies that users can manage
+# progress bar visibility through code. By default, progress bars are turned on.
 
 
-def disable_progress_bars() -> None:
+progress_bar_states: Dict[str, bool] = {}
+
+
+def disable_progress_bars(name: Optional[str] = None) -> None:
     """
-    Disable globally progress bars used in `huggingface_hub` except if `HF_HUB_DISABLE_PROGRESS_BARS` environment
-    variable has been set.
+    Disable progress bars either globally or for a specified group.
 
-    Use [`~utils.enable_progress_bars`] to re-enable them.
+    This function updates the state of progress bars based on a group name.
+    If no group name is provided, all progress bars are disabled. The operation
+    respects the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable's setting.
+
+    Args:
+        name (`str`, *optional*):
+            The name of the group for which to disable the progress bars. If None,
+            progress bars are disabled globally.
+
+    Raises:
+        Warning: If the environment variable precludes changes.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is False:
         warnings.warn(
-            "Cannot disable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has"
-            " priority."
+            "Cannot disable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=0` is set and has priority."
         )
         return
-    global _hf_hub_progress_bars_disabled
-    _hf_hub_progress_bars_disabled = True
+
+    if name is None:
+        progress_bar_states.clear()
+        progress_bar_states["_global"] = False
+    else:
+        keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
+        for key in keys_to_remove:
+            del progress_bar_states[key]
+        progress_bar_states[name] = False
 
 
-def enable_progress_bars() -> None:
+def enable_progress_bars(name: Optional[str] = None) -> None:
     """
-    Enable globally progress bars used in `huggingface_hub` except if `HF_HUB_DISABLE_PROGRESS_BARS` environment
-    variable has been set.
+    Enable progress bars either globally or for a specified group.
 
-    Use [`~utils.disable_progress_bars`] to disable them.
+    This function sets the progress bars to enabled for the specified group or globally
+    if no group is specified. The operation is subject to the `HF_HUB_DISABLE_PROGRESS_BARS`
+    environment setting.
+
+    Args:
+        name (`str`, *optional*):
+            The name of the group for which to enable the progress bars. If None,
+            progress bars are enabled globally.
+
+    Raises:
+        Warning: If the environment variable precludes changes.
     """
     if HF_HUB_DISABLE_PROGRESS_BARS is True:
         warnings.warn(
-            "Cannot enable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=1` is set and has"
-            " priority."
+            "Cannot enable progress bars: environment variable `HF_HUB_DISABLE_PROGRESS_BARS=1` is set and has priority."
         )
         return
-    global _hf_hub_progress_bars_disabled
-    _hf_hub_progress_bars_disabled = False
+
+    if name is None:
+        progress_bar_states.clear()
+        progress_bar_states["_global"] = True
+    else:
+        keys_to_remove = [key for key in progress_bar_states if key.startswith(f"{name}.")]
+        for key in keys_to_remove:
+            del progress_bar_states[key]
+        progress_bar_states[name] = True
 
 
-def are_progress_bars_disabled() -> bool:
-    """Return whether progress bars are globally disabled or not.
-
-    Progress bars used in `huggingface_hub` can be enable or disabled globally using [`~utils.enable_progress_bars`]
-    and [`~utils.disable_progress_bars`] or by setting `HF_HUB_DISABLE_PROGRESS_BARS` as environment variable.
+def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     """
-    global _hf_hub_progress_bars_disabled
-    return _hf_hub_progress_bars_disabled
+    Check if progress bars are disabled globally or for a specific group.
+
+    This function returns whether progress bars are disabled for a given group or globally.
+    It checks the `HF_HUB_DISABLE_PROGRESS_BARS` environment variable first, then the programmatic
+    settings.
+
+    Args:
+        name (`str`, *optional*):
+            The group name to check; if None, checks the global setting.
+
+    Returns:
+        `bool`: True if progress bars are disabled, False otherwise.
+    """
+    if HF_HUB_DISABLE_PROGRESS_BARS is True:
+        return True
+
+    if name is None:
+        return not progress_bar_states.get("_global", True)
+
+    while name:
+        if name in progress_bar_states:
+            return not progress_bar_states[name]
+        name = ".".join(name.split(".")[:-1])
+
+    return not progress_bar_states.get("_global", True)
 
 
 class tqdm(old_tqdm):
@@ -128,7 +205,8 @@ class tqdm(old_tqdm):
     """
 
     def __init__(self, *args, **kwargs):
-        if are_progress_bars_disabled():
+        name = kwargs.pop("name", None)  # do not pass `name` to `tqdm`
+        if are_progress_bars_disabled(name):
             kwargs["disable"] = True
         super().__init__(*args, **kwargs)
 

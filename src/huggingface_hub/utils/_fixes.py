@@ -79,6 +79,7 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 @contextlib.contextmanager
 def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, None]:
+    """A filelock that won't raise an exception if release fails."""
     lock = FileLock(lock_file)
     lock.acquire()
 

@@ -1,0 +1,152 @@
+interactions:
+- request:
+    body: '{"model": "tgi", "messages": [{"role": "system", "content": "Don''t make
+      assumptions about what values to plug into functions. Ask for clarification
+      if a user request is ambiguous."}, {"role": "user", "content": "What''s the
+      weather like the next 3 days in San Francisco, CA?"}], "frequency_penalty":
+      null, "logit_bias": null, "logprobs": null, "max_tokens": 500, "n": null, "presence_penalty":
+      null, "seed": null, "stop": null, "temperature": null, "tool_choice": "auto",
+      "tool_prompt": null, "tools": [{"type": "function", "function": {"name": "get_current_weather",
+      "description": "Get the current weather", "parameters": {"type": "object", "properties":
+      {"location": {"type": "string", "description": "The city and state, e.g. San
+      Francisco, CA"}, "format": {"type": "string", "enum": ["celsius", "fahrenheit"],
+      "description": "The temperature unit to use. Infer this from the users location."}},
+      "required": ["location", "format"]}}}, {"type": "function", "function": {"name":
+      "get_n_day_weather_forecast", "description": "Get an N-day weather forecast",
+      "parameters": {"type": "object", "properties": {"location": {"type": "string",
+      "description": "The city and state, e.g. San Francisco, CA"}, "format": {"type":
+      "string", "enum": ["celsius", "fahrenheit"], "description": "The temperature
+      unit to use. Infer this from the users location."}, "num_days": {"type": "integer",
+      "description": "The number of days to forecast"}}, "required": ["location",
+      "format", "num_days"]}}}], "top_logprobs": null, "top_p": null, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1535'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - e10745bb-413f-4524-9c8c-b1ebfa08cfa8
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"","object":"text_completion","created":1713800152,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"get_n_day_weather_forecast","arguments":{"format":"fahrenheit","location":"San
+        Francisco, CA","num_days":3}}}]},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":246,"completion_tokens":27,"total_tokens":273}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '483'
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 22 Apr 2024 15:48:55 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '22.899515643'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - MnKOOHNB80yo4t1PKEPsP
+      x-sha:
+      - 5fcb2901844dde3111159f24205b71c25900ffbd
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"model": "tgi", "messages": [{"role": "system", "content": "Don''t make
+      assumptions about what values to plug into functions. Ask for clarification
+      if a user request is ambiguous."}, {"role": "user", "content": "What''s the
+      weather like the next 3 days in San Francisco, CA?"}], "frequency_penalty":
+      null, "logit_bias": null, "logprobs": null, "max_tokens": 500, "n": null, "presence_penalty":
+      null, "seed": null, "stop": null, "temperature": null, "tool_choice": "get_current_weather",
+      "tool_prompt": null, "tools": [{"type": "function", "function": {"name": "get_current_weather",
+      "description": "Get the current weather", "parameters": {"type": "object", "properties":
+      {"location": {"type": "string", "description": "The city and state, e.g. San
+      Francisco, CA"}, "format": {"type": "string", "enum": ["celsius", "fahrenheit"],
+      "description": "The temperature unit to use. Infer this from the users location."}},
+      "required": ["location", "format"]}}}, {"type": "function", "function": {"name":
+      "get_n_day_weather_forecast", "description": "Get an N-day weather forecast",
+      "parameters": {"type": "object", "properties": {"location": {"type": "string",
+      "description": "The city and state, e.g. San Francisco, CA"}, "format": {"type":
+      "string", "enum": ["celsius", "fahrenheit"], "description": "The temperature
+      unit to use. Infer this from the users location."}, "num_days": {"type": "integer",
+      "description": "The number of days to forecast"}}, "required": ["location",
+      "format", "num_days"]}}}], "top_logprobs": null, "top_p": null, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '1550'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 8c946c95-d5eb-4413-9c01-9395d15519a8
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"","object":"text_completion","created":1713800953,"model":"hsramall/hsramall-70b-chat-placeholder","system_fingerprint":"1.4.5-native","choices":[{"index":0,"message":{"role":"assistant","tool_calls":[{"id":0,"type":"function","function":{"description":null,"name":"get_current_weather","arguments":{"format":"fahrenheit","location":"San
+        Francisco, CA"}}}]},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":144,"completion_tokens":16,"total_tokens":160}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 22 Apr 2024 15:49:13 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-origin:
+      - '*'
+      vary:
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '763'
+      x-compute-time:
+      - '18.226054244'
+      x-compute-type:
+      - 8-nvidia-h100-80gb-hbm3
+      x-generated-tokens:
+      - '16'
+      x-inference-time:
+      - '17740'
+      x-prompt-tokens:
+      - '144'
+      x-queue-time:
+      - '458'
+      x-request-id:
+      - 8lseSEbt80Xtv771O-BY9
+      x-sha:
+      - 5fcb2901844dde3111159f24205b71c25900ffbd
+      x-time-per-token:
+      - '1108'
+      x-total-time:
+      - '18226'
+      x-validation-time:
+      - '26'
+    status:
+      code: 200
+      message: OK
+version: 1
