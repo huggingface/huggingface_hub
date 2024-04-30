@@ -1812,6 +1812,13 @@ class AsyncInferenceClient:
 
         To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
 
+        <Tip>
+
+        If you have the model to generate a response based on chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        This method accepts a list of messages instead of a single text prompt and handles the chat templating for you.
+
+        </Tip>
+
         Args:
             prompt (`str`):
                 Input text.
