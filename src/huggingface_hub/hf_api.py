@@ -8392,7 +8392,7 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import create_webhook
+            >>> from huggingface_hub import create_webhook, WebhookWatchedItem
             >>> payload = create_webhook(
             ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
