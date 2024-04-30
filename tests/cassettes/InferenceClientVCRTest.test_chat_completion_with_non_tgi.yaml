@@ -2,8 +2,10 @@ interactions:
 - request:
     body: '{"model": "tgi", "messages": [{"role": "system", "content": "You are a
       helpful assistant."}, {"role": "user", "content": "What is deep learning?"}],
-      "max_tokens": 20, "seed": null, "stop": null, "temperature": 1.0, "top_p": null,
-      "stream": false}'
+      "frequency_penalty": null, "logit_bias": null, "logprobs": null, "max_tokens":
+      20, "n": null, "presence_penalty": null, "seed": null, "stop": null, "temperature":
+      null, "tool_choice": null, "tool_prompt": null, "tools": null, "top_logprobs":
+      null, "top_p": null, "stream": false}'
     headers:
       Accept:
       - '*/*'
@@ -12,13 +14,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '246'
+      - '428'
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 77cd3bdd-15ea-497c-917b-ca099516edb0
+      - 0f793623-22a8-48a6-834b-81b58b19b92c
       user-agent:
-      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
     uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small/v1/chat/completions
@@ -32,7 +34,65 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Mar 2024 18:15:53 GMT
+      - Tue, 30 Apr 2024 10:49:22 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      server:
+      - uvicorn
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.001'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - 2-JgFiFGmvDDPzJchhq6a
+      x-sha:
+      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
+    status:
+      code: 500
+      message: Internal Server Error
+- request:
+    body: '{"inputs": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "parameters": {"do_sample":
+      false, "max_new_tokens": 20, "return_full_text": false, "stop": []}, "stream":
+      false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '244'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 5493238e-8215-44d9-a30d-02bbe8d8fee2
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small
+  response:
+    body:
+      string: '{"error":"The following `model_kwargs` are not used by the model: [''stop'']
+        (note: typos in the generate arguments will also show up in this list)","warnings":["There
+        was an inference error: The following `model_kwargs` are not used by the model:
+        [''stop''] (note: typos in the generate arguments will also show up in this
+        list)"]}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 30 Apr 2024 10:49:22 GMT
       Transfer-Encoding:
       - chunked
       access-control-allow-credentials:
@@ -48,136 +108,16 @@ interactions:
       x-compute-type:
       - cpu
       x-request-id:
-      - zht7CE9kOneA0JFdf2xSO
-      x-sha:
-      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
-    status:
-      code: 500
-      message: Internal Server Error
-- request:
-    body: null
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate, br
-      Connection:
-      - keep-alive
-      X-Amzn-Trace-Id:
-      - bafe8e99-e804-4b64-a5be-3b68351678b7
-      user-agent:
-      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
-        fastcore/1.5.23
-    method: GET
-    uri: https://huggingface.co/api/models/microsoft/DialoGPT-small
-  response:
-    body:
-      string: '{"_id":"621ffdc136468d709f17dec4","id":"microsoft/DialoGPT-small","modelId":"microsoft/DialoGPT-small","author":"microsoft","sha":"49c537161a457d5256512f9d2d38a87d81ae0f0e","lastModified":"2024-02-29T15:48:41.000Z","private":false,"disabled":false,"gated":false,"pipeline_tag":"text-generation","tags":["transformers","pytorch","tf","jax","safetensors","gpt2","text-generation","conversational","arxiv:1911.00536","license:mit","autotrain_compatible","endpoints_compatible","has_space","text-generation-inference","region:us"],"downloads":34593,"library_name":"transformers","widgetData":[{"text":"Hey
-        my name is Julien! How are you?"},{"text":"Hey my name is Thomas! How are
-        you?"},{"text":"Hey my name is Mariama! How are you?"},{"text":"Hey my name
-        is Clara! How are you?"},{"text":"Hey my name is Julien! How are you?"},{"text":"Hi."}],"likes":78,"model-index":null,"config":{"architectures":["GPT2LMHeadModel"],"model_type":"gpt2","tokenizer_config":{"bos_token":"<|endoftext|>","chat_template":"{%
-        for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}","eos_token":"<|endoftext|>","pad_token":null,"unk_token":"<|endoftext|>"}},"cardData":{"thumbnail":"https://huggingface.co/front/thumbnails/dialogpt.png","tags":["conversational"],"license":"mit"},"transformersInfo":{"auto_model":"AutoModelForCausalLM","pipeline_tag":"text-generation","processor":"AutoTokenizer"},"spaces":["HuggingFaceH4/open_llm_leaderboard","gsaivinay/open_llm_leaderboard","GTBench/GTBench","felixz/open_llm_leaderboard","vasu0508/Meena_Chatbot","rushic24/DialoGPT-Covid-Help-Doctor","b1sheng/kg_llm_leaderboard_test","OPTML-Group/UnlearnCanvas-Benchmark","akhaliq/DialoGPT-small","mikeee/convbot","Docfile/open_llm_leaderboard","wop/test","wop/microsoft-DialoGPT-small","rodrigomasini/data_only_open_llm_leaderboard","Codermaker/microsoft-DialoGPT-small","hivemind-personalized-chat/chat-gradio","tomkr000/scottbotai","Teedossantos/microsoft-DialoGPT-small","itsarsile/microsoft-DialoGPT-small","overlordx/critic","EATHARD/chatbot","Youssefk/StoryAI","rabosh/just_deploy_experience","lilyling/Vietnam_QA","lilyling/Spain","lilyling/Italiano_QA","lilyling/Chinese_QA","wdsawdsawdadad/Chatbot_REQUIRES_OPENAI_KEY","iesir/microsoft-DialoGPT-small","fisehara/microsoft-DialoGPT-small","phenixreturn/microsoft-DialoGPT-small","hack3arma/microsoft-DialoGPT-small","rebornrulz/microsoft-DialoGPT-small","Daezi/microsoft-DialoGPT-small","pngwn/open_llm_leaderboard","pngwn/open_llm_leaderboard_two","freddyaboulton/open_llm_leaderboard_two_fix","choco9966/LeaderboardTest","Keyven/KiKi-GPT","choco9966/open-ko-llm-leaderboard","smothiki/open_llm_leaderboard","hmdsdt/microsoft-DialoGPT-small","Alfasign/Check","kevinklam/GuessWhom","Fideloub/microsoft-DialoGPT-small","JenitaChristopher/microsoft-DialoGPT-small","neubla/neubla-llm-evaluation-board","jawill/nlp_chatbot","junkim100/Self-Improving-Leaderboard"],"safetensors":{"parameters":{"F16":175620096},"total":175620096},"siblings":[{"rfilename":".gitattributes"},{"rfilename":"README.md"},{"rfilename":"config.json"},{"rfilename":"flax_model.msgpack"},{"rfilename":"generation_config.json"},{"rfilename":"generation_config_for_conversational.json"},{"rfilename":"merges.txt"},{"rfilename":"model.safetensors"},{"rfilename":"pytorch_model.bin"},{"rfilename":"tf_model.h5"},{"rfilename":"tokenizer_config.json"},{"rfilename":"vocab.json"}],"createdAt":"2022-03-02T23:29:05.000Z"}'
-    headers:
-      Access-Control-Allow-Origin:
-      - https://huggingface.co
-      Access-Control-Expose-Headers:
-      - X-Repo-Commit,X-Request-Id,X-Error-Code,X-Error-Message,ETag,Link,Accept-Ranges,Content-Range
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '3428'
-      Content-Type:
-      - application/json; charset=utf-8
-      Date:
-      - Thu, 14 Mar 2024 18:15:53 GMT
-      ETag:
-      - W/"d64-atgwYMr1LyaFHkv0i0vXsUWWqTg"
-      Referrer-Policy:
-      - strict-origin-when-cross-origin
-      Vary:
-      - Origin
-      Via:
-      - 1.1 a355d8f903a0cf5525893c863fcdf216.cloudfront.net (CloudFront)
-      X-Amz-Cf-Id:
-      - A_blYo_2xR1JlGemvvnKlRCi34oDItnk2sqs88E4F_afAPXKOHZyJw==
-      X-Amz-Cf-Pop:
-      - CDG52-P4
-      X-Cache:
-      - Miss from cloudfront
-      X-Powered-By:
-      - huggingface-moon
-      X-Request-Id:
-      - Root=1-65f33ed9-56e731325d32b4f7757e6deb;bafe8e99-e804-4b64-a5be-3b68351678b7
-      cross-origin-opener-policy:
-      - same-origin
-    status:
-      code: 200
-      message: OK
-- request:
-    body: '{"inputs": "You are a helpful assistant.<|endoftext|>What is deep learning?<|endoftext|>",
-      "parameters": {"best_of": null, "decoder_input_details": false, "details": true,
-      "do_sample": false, "max_new_tokens": 20, "repetition_penalty": null, "return_full_text":
-      false, "seed": null, "stop": [], "temperature": 1.0, "top_k": null, "top_p":
-      null, "truncate": null, "typical_p": null, "watermark": false}, "stream": false}'
-    headers:
-      Accept:
-      - '*/*'
-      Accept-Encoding:
-      - gzip, deflate, br
-      Connection:
-      - keep-alive
-      Content-Length:
-      - '419'
-      Content-Type:
-      - application/json
-      X-Amzn-Trace-Id:
-      - bc827a1b-0d62-4fe9-aa55-0b12e26b2f35
-      user-agent:
-      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
-        fastcore/1.5.23
-    method: POST
-    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small
-  response:
-    body:
-      string: '{"error":"The following `model_kwargs` are not used by the model: [''decoder_input_details'',
-        ''watermark'', ''details'', ''stop''] (note: typos in the generate arguments
-        will also show up in this list)","warnings":["There was an inference error:
-        The following `model_kwargs` are not used by the model: [''decoder_input_details'',
-        ''watermark'', ''details'', ''stop''] (note: typos in the generate arguments
-        will also show up in this list)"]}'
-    headers:
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json
-      Date:
-      - Thu, 14 Mar 2024 18:15:54 GMT
-      Transfer-Encoding:
-      - chunked
-      access-control-allow-credentials:
-      - 'true'
-      access-control-expose-headers:
-      - x-compute-type, x-compute-time
-      server:
-      - uvicorn
-      vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-time:
-      - '0.003'
-      x-compute-type:
-      - cpu
-      x-request-id:
-      - TUW19mGc6wCDceqt7KLQD
+      - KBkATPrqJyS7FlCaYnrWK
       x-sha:
       - 49c537161a457d5256512f9d2d38a87d81ae0f0e
     status:
       code: 400
       message: Bad Request
 - request:
-    body: '{"inputs": "You are a helpful assistant.<|endoftext|>What is deep learning?<|endoftext|>",
-      "parameters": {"do_sample": false, "max_new_tokens": 20, "repetition_penalty":
-      null, "return_full_text": false, "seed": null, "temperature": 1.0, "top_k":
-      null, "top_p": null, "truncate": null, "typical_p": null}, "stream": false}'
+    body: '{"inputs": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "parameters": {"do_sample":
+      false, "max_new_tokens": 20, "return_full_text": false}, "stream": false}'
     headers:
       Accept:
       - '*/*'
@@ -186,13 +126,13 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '321'
+      - '232'
       Content-Type:
       - application/json
       X-Amzn-Trace-Id:
-      - 266750af-5040-46ae-8097-184c267fc4e8
+      - 5fb6d7d3-1604-4957-9111-0a737c90e69b
       user-agent:
-      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
     uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small
@@ -202,28 +142,22 @@ interactions:
     headers:
       Connection:
       - keep-alive
+      Content-Length:
+      - '48'
       Content-Type:
       - application/json
       Date:
-      - Thu, 14 Mar 2024 18:15:54 GMT
-      Transfer-Encoding:
-      - chunked
+      - Tue, 30 Apr 2024 10:49:22 GMT
       access-control-allow-credentials:
       - 'true'
-      access-control-expose-headers:
-      - x-compute-type, x-compute-time
-      server:
-      - uvicorn
       vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-characters:
-      - '76'
       x-compute-time:
-      - '0.179'
+      - '0.146'
       x-compute-type:
-      - cpu
+      - cache
       x-request-id:
-      - 2YOUZmqffbGsBiPEpgwBv
+      - xueA4XZTpX7lVK8Imy-Ys
       x-sha:
       - 49c537161a457d5256512f9d2d38a87d81ae0f0e
     status:
