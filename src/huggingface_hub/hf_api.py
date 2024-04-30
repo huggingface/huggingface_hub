@@ -8260,7 +8260,7 @@ class HfApi:
     ###################
 
     @validate_hf_hub_args
-    def get_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def get_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Get a webhook by its id.
 
         Args:
@@ -8311,7 +8311,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def list_webhooks(self, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
         """List all configured webhooks.
 
         Args:
@@ -8363,9 +8363,10 @@ class HfApi:
     @validate_hf_hub_args
     def create_webhook(
         self,
-        watched: List[WebhookWatchedItem],
+        *,
         url: str,
-        domains: List[WEBHOOK_DOMAIN_T],
+        watched: List[WebhookWatchedItem],
+        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8434,9 +8435,10 @@ class HfApi:
     def update_webhook(
         self,
         webhook_id: str,
-        watched: List[WebhookWatchedItem],
-        url: str,
-        domains: List[WEBHOOK_DOMAIN_T],
+        *,
+        watched: Optional[List[WebhookWatchedItem]],
+        url: Optional[str] = None,
+        domains: Optional[List[WEBHOOK_DOMAIN_T]],
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8505,7 +8507,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def enable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def enable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Enable a webhook (makes it "active").
 
         Args:
@@ -8556,7 +8558,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def disable_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> WebhookInfo:
+    def disable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
         """Disable a webhook (makes it "disabled").
 
         Args:
@@ -8607,7 +8609,7 @@ class HfApi:
         return webhook
 
     @validate_hf_hub_args
-    def delete_webhook(self, webhook_id: str, token: Union[bool, str, None] = None) -> None:
+    def delete_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> None:
         """Delete a webhook.
 
         Args:
