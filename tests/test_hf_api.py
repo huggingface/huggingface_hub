@@ -1093,16 +1093,12 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
-    def test_create_commit_failing_implicit_delete_folder(self):
-        with self.assertRaisesRegex(
-            EntryNotFoundError,
-            'A file with the name "1" does not exist',
-        ):
-            self._api.create_commit(
-                operations=[CommitOperationDelete(path_in_repo="1")],
-                commit_message="Failing delete folder",
-                repo_id=self.repo_id,
-            )
+    def test_create_commit_implicit_delete_folder_is_ok(self):
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1")],
+            commit_message="Failing delete folder",
+            repo_id=self.repo_id,
+        )
 
 
 class HfApiListFilesInfoTest(HfApiCommonTest):
