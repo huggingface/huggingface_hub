@@ -419,7 +419,6 @@ _NON_CHAT_COMPLETION_SERVER: Set[str] = set()
 
 
 def _set_as_non_chat_completion_server(model: str) -> None:
-    print("Set as non chat completion", model)
     _NON_CHAT_COMPLETION_SERVER.add(model)
 
 
