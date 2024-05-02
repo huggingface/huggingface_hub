@@ -8295,7 +8295,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        webhook_data = response.json()
+        webhook_data = response.json()["webhook"]
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
@@ -8410,14 +8410,14 @@ class HfApi:
             )
             ```
         """
+        watched_dicts = [asdict(item) for item in watched]
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks",
-            json={"watched": watched, "url": url, "domains": domains, "secret": secret},
+            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        webhook_data = response.json()
-
+        webhook_data = response.json()["webhook"]
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
         webhook = WebhookInfo(
@@ -8491,7 +8491,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        webhook_data = response.json()
+        webhook_data = response.json()["webhook"]
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
@@ -8542,7 +8542,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        webhook_data = response.json()
+        webhook_data = response.json()["webhook"]
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
@@ -8593,7 +8593,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
-        webhook_data = response.json()
+        webhook_data = response.json()["webhook"]
 
         watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
 
