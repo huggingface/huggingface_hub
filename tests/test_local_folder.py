@@ -53,7 +53,9 @@ def test_local_download_paths(tmp_path: Path):
     # Correct paths (also sanitized on windows)
     assert isinstance(paths, LocalDownloadFilePaths)
     assert paths.file_path == tmp_path / "path" / "in" / "repo.txt"
-    assert paths.metadata_path == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.metadata"
+    assert (
+        paths.metadata_path == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.metadata"
+    )
     assert paths.lock_path == tmp_path / ".cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.lock"
 
     # Paths are usable (parent directories have been created)
