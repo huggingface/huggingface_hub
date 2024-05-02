@@ -8485,9 +8485,10 @@ class HfApi:
                 disabled=False,
             ```
         """
+        watched_dicts = [asdict(item) for item in watched] if watched is not None else []
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
-            json={"watched": watched, "url": url, "domains": domains, "secret": secret},
+            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
