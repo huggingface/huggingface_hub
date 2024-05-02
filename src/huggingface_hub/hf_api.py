@@ -8301,10 +8301,10 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            watched=watched_items,
             url=webhook_data["url"],
-            secret=webhook_data.get("secret"),
+            watched=watched_items,
             domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
             disabled=webhook_data["disabled"],
         )
 
@@ -8351,10 +8351,10 @@ class HfApi:
         return [
             WebhookInfo(
                 id=webhook["id"],
-                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
                 url=webhook["url"],
-                secret=webhook.get("secret"),
+                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
                 domains=webhook["domains"],
+                secret=webhook.get("secret"),
                 disabled=webhook["disabled"],
             )
             for webhook in webhooks_data
@@ -8373,13 +8373,13 @@ class HfApi:
         """Create a new webhook.
 
         Args:
-            watched (`List[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It an be users, orgs, models, datasets or spaces.
             url (`str`):
                 URL to send the payload to.
-            domains (`List[Literal["repo", "discussion"]]`):
+            watched (`List[WebhookWatchedItem]`):
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It an be users, orgs, models, datasets or spaces.
+            domains (`List[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
-            secret (`str`, *optional*):
+            secret (`str`, optional):
                 A secret to sign the payload with.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
@@ -8402,10 +8402,10 @@ class HfApi:
             >>> print(payload)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
-                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                secret="my-secret",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
+                secret="my-secret",
                 disabled=False,
             )
             ```
@@ -8422,10 +8422,10 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            watched=watched_items,
             url=webhook_data["url"],
-            secret=webhook_data.get("secret"),
+            watched=watched_items,
             domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
             disabled=webhook_data["disabled"],
         )
 
@@ -8436,8 +8436,8 @@ class HfApi:
         self,
         webhook_id: str,
         *,
-        watched: Optional[List[WebhookWatchedItem]],
         url: Optional[str] = None,
+        watched: Optional[List[WebhookWatchedItem]],
         domains: Optional[List[WEBHOOK_DOMAIN_T]],
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -8447,12 +8447,12 @@ class HfApi:
         Args:
             webhook_id (`str`):
                 The unique identifier of the webhook to be updated.
-            watched (`List[WebhookWatchedItem]`):
+            url (`str`, optional):
+                The URL to which the payload will be sent.
+            watched (`List[WebhookWatchedItem]`, optional):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details.
-            url (`str`):
-                The URL to which the payload will be sent.
-            domains (`List[Literal["repo", "discussion"]]`):
+            domains (`List[Literal["repo", "discussion"]]`, optional):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
@@ -8470,16 +8470,16 @@ class HfApi:
             >>> from huggingface_hub import update_webhook
             >>> updated_payload = update_webhook(
             ...     webhook_id="654bbbc16f2ec14d77f109cc",
-            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
             ...     domains=["repo"],
             ...     secret="my-secret",
             ... )
             >>> print(updated_payload)
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
-                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo"],
                 secret="my-secret",
                 disabled=False,
@@ -8497,10 +8497,10 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            watched=watched_items,
             url=webhook_data["url"],
-            secret=webhook_data.get("secret"),
+            watched=watched_items,
             domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
             disabled=webhook_data["disabled"],
         )
 
@@ -8529,10 +8529,10 @@ class HfApi:
             >>> enabled_webhook
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
-                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                secret="my-secret",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
+                secret="my-secret",
                 disabled=False,
             )
             ```
@@ -8548,10 +8548,10 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            watched=watched_items,
             url=webhook_data["url"],
-            secret=webhook_data.get("secret"),
+            watched=watched_items,
             domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
             disabled=webhook_data["disabled"],
         )
 
@@ -8580,10 +8580,10 @@ class HfApi:
             >>> disabled_webhook
             WebhookInfo(
                 id="654bbbc16f2ec14d77f109cc",
-                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-                secret="my-secret",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
                 domains=["repo", "discussion"],
+                secret="my-secret",
                 disabled=True,
             )
             ```
@@ -8599,10 +8599,10 @@ class HfApi:
 
         webhook = WebhookInfo(
             id=webhook_data["id"],
-            watched=watched_items,
             url=webhook_data["url"],
-            secret=webhook_data.get("secret"),
+            watched=watched_items,
             domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
             disabled=webhook_data["disabled"],
         )
 
