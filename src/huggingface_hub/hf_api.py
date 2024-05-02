@@ -412,23 +412,23 @@ class WebhookInfo:
     Attributes:
         id (`str`):
             ID of the webhook.
-        watched (`List[WebhookWatchedItem]`):
-            List of items watched by the webhook, see [`WebhookWatchedItem`].
         url (`str`):
             URL of the webhook.
-        secret (`str`, *optional*):
-            Secret of the webhook.
+        watched (`List[WebhookWatchedItem]`):
+            List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`List[WEBHOOK_DOMAIN_T]`):
             List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+        secret (`str`, *optional*):
+            Secret of the webhook.
         disabled (`bool`):
             Whether the webhook is disabled or not.
     """
 
     id: str
-    watched: List[WebhookWatchedItem]
     url: str
-    secret: Optional[str]
+    watched: List[WebhookWatchedItem]
     domains: List[WEBHOOK_DOMAIN_T]
+    secret: Optional[str]
     disabled: bool
 
 
