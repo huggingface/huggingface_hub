@@ -8376,7 +8376,7 @@ class HfApi:
             url (`str`):
                 URL to send the payload to.
             watched (`List[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It an be users, orgs, models, datasets or spaces.
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
             domains (`List[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, optional):
