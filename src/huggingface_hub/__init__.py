@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING
 
 __version__ = "0.23.0.dev0"
 
+
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
