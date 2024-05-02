@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains tests for the `.huggingface` folder in local directories.
+"""Contains tests for the `.cache/huggingface` folder in local directories.
 
 See `huggingface_hub/src/_local_folder.py` for the implementation.
 """
@@ -34,10 +34,10 @@ from huggingface_hub._local_folder import (
 
 
 def test_creates_huggingface_dir_with_gitignore(tmp_path: Path):
-    """Test `.huggingface/` dir is ignored by git."""
+    """Test `.cache/huggingface/` dir is ignored by git."""
     local_dir = tmp_path / "path" / "to" / "local"
     huggingface_dir = _huggingface_dir(local_dir)
-    assert huggingface_dir == local_dir / ".huggingface"
+    assert huggingface_dir == local_dir / ".cache" / "huggingface"
     assert huggingface_dir.exists()  # all subdirectories have been created
     assert huggingface_dir.is_dir()
 
@@ -53,8 +53,8 @@ def test_local_download_paths(tmp_path: Path):
     # Correct paths (also sanitized on windows)
     assert isinstance(paths, LocalDownloadFilePaths)
     assert paths.file_path == tmp_path / "path" / "in" / "repo.txt"
-    assert paths.metadata_path == tmp_path / ".huggingface" / "download" / "path" / "in" / "repo.txt.metadata"
-    assert paths.lock_path == tmp_path / ".huggingface" / "download" / "path" / "in" / "repo.txt.lock"
+    assert paths.metadata_path == tmp_path / "cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.metadata"
+    assert paths.lock_path == tmp_path / "cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.lock"
 
     # Paths are usable (parent directories have been created)
     assert paths.file_path.parent.is_dir()
@@ -64,7 +64,7 @@ def test_local_download_paths(tmp_path: Path):
     # Incomplete path are etag-based
     assert (
         paths.incomplete_path("etag123")
-        == tmp_path / ".huggingface" / "download" / "path" / "in" / "repo.txt.etag123.incomplete"
+        == tmp_path / "cache" / "huggingface" / "download" / "path" / "in" / "repo.txt.etag123.incomplete"
     )
     assert paths.incomplete_path("etag123").parent.is_dir()
 
@@ -83,7 +83,7 @@ def test_write_download_metadata(tmp_path: Path):
     """Test download metadata content is valid."""
     # Write metadata
     write_download_metadata(tmp_path, filename="file.txt", commit_hash="commit_hash", etag="123456789")
-    metadata_path = tmp_path / ".huggingface" / "download" / "file.txt.metadata"
+    metadata_path = tmp_path / "cache" / "huggingface" / "download" / "file.txt.metadata"
     assert metadata_path.exists()
 
     # Metadata is valid
@@ -129,7 +129,7 @@ def test_read_download_metadata_no_metadata(tmp_path: Path):
 def test_read_download_metadata_corrupted_metadata(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """Test reading download metadata when metadata is corrupted."""
     # Write corrupted metadata
-    metadata_path = tmp_path / ".huggingface" / "download" / "file.txt.metadata"
+    metadata_path = tmp_path / "cache" / "huggingface" / "download" / "file.txt.metadata"
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text("invalid content")
 

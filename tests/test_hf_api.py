@@ -530,10 +530,10 @@ class CommitApiTest(HfApiCommonTest):
             path.write_text("content")
 
         _create_file(".git", "file.txt")
-        _create_file(".huggingface", "file.txt")
+        _create_file(".cache", "huggingface", "file.txt")
         _create_file(".git", "folder", "file.txt")
         _create_file("folder", ".git", "file.txt")
-        _create_file("folder", ".huggingface", "file.txt")
+        _create_file("folder", ".cache", "huggingface", "file.txt")
         _create_file("folder", ".git", "folder", "file.txt")
         _create_file(".git_something", "file.txt")
         _create_file("file.git")

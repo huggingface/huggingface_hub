@@ -5003,7 +5003,7 @@ class HfApi:
         ```
 
         If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
-        option, the `cache_dir` will not be used and a `.huggingface/` folder will be created at the root of `local_dir`
+        option, the `cache_dir` will not be used and a `.cache/huggingface/` folder will be created at the root of `local_dir`
         to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
         cache-system, it's optimized for regularly pulling the latest version of a repository.
 
@@ -5122,7 +5122,7 @@ class HfApi:
         `allow_patterns` and `ignore_patterns`.
 
         If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
-        option, the `cache_dir` will not be used and a `.huggingface/` folder will be created at the root of `local_dir`
+        option, the `cache_dir` will not be used and a `.cache/huggingface/` folder will be created at the root of `local_dir`
         to store some metadata related to the downloaded files.While this mechanism is not as robust as the main
         cache-system, it's optimized for regularly pulling the latest version of a repository.
 
