@@ -199,32 +199,32 @@ class SnapshotDownloadTests(unittest.TestCase):
     def test_download_model_with_ignore_pattern_list(self):
         self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
 
-    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 10)  # >10b => "big file"
     def test_download_to_local_dir(self) -> None:
         """Download a repository to local dir.
 
-        Cache dir is used and symlinks are adding to local dir. This test is here to check once the normal behavior
-        with snapshot_download. More combinations of cache_dir/local_dir/use_symlinks are tested separately in
-        `test_file_download.py`.
+        Cache dir is not used.
+        Symlinks are not used.
+
+        This test is here to check once the normal behavior with snapshot_download.
+        More individual tests exists in `test_file_download.py`.
         """
         with SoftTemporaryDirectory() as cache_dir:
             with SoftTemporaryDirectory() as local_dir:
                 returned_path = snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)
 
-                # Files have been downloaded
-                self.assertTrue((Path(local_dir) / "dummy_file.txt").is_file())
-                self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_file())
+                # Files have been downloaded in correct structure
+                assert (Path(local_dir) / "dummy_file.txt").is_file()
+                assert (Path(local_dir) / "dummy_file_2.txt").is_file()
+                assert (Path(local_dir) / "subpath" / "file.txt").is_file()
 
-                # Files are small so duplicated from cache (no symlinks)
-                self.assertFalse((Path(local_dir) / "dummy_file.txt").is_symlink())  # smaller than 10b => duplicated
-                self.assertFalse((Path(local_dir) / "dummy_file_2.txt").is_symlink())  # smaller than 10b => duplicated
-
-                # File structure is preserved (+check content)
-                subpath_file = Path(local_dir) / "subpath" / "file.txt"
-                self.assertTrue(subpath_file.is_file())
-                self.assertEqual(subpath_file.read_text(), "content in subpath")
-                if os.name != "nt":
-                    self.assertTrue(subpath_file.is_symlink())  # bigger than 10b => symlinked
+                # Symlinks are not used anymore
+                assert not (Path(local_dir) / "dummy_file.txt").is_symlink()
+                assert not (Path(local_dir) / "dummy_file_2.txt").is_symlink()
+                assert not (Path(local_dir) / "subpath" / "file.txt").is_symlink()
 
                 # Check returns local dir and not cache dir
-                self.assertEqual(Path(returned_path).resolve(), Path(local_dir).resolve())
+                assert Path(returned_path).resolve() == Path(local_dir).resolve()
+
+                # Nothing has been added to cache dir (except some subfolders created)
+                for path in cache_dir.glob("*"):
+                    assert path.is_dir()

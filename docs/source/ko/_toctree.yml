@@ -82,3 +82,5 @@
       title: TensorBoard 로거
     - local: in_translation
       title: (번역 중) Webhooks server
+    - local: package_reference/serialization
+      title: 직렬화

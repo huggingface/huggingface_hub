@@ -1,11 +1,9 @@
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Union
 
+from huggingface_hub.errors import TemplateError
+
 from ..utils import HfHubHTTPError, RepositoryNotFoundError, is_minijinja_available
-
-
-class TemplateError(Exception):
-    """Any error raised while trying to fetch or render a chat template."""
 
 
 def _import_minijinja():

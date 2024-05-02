@@ -47,9 +47,14 @@ Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default
 ### HF_TOKEN
 
 To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (in `"$HF_HOME/token"`).
+overwrite the token stored on the machine (in either `$HF_TOKEN_PATH` or `"$HF_HOME/token"` if the former is not set).
 
 For more details about authentication, check out [this section](../quick-start#authentication).
+
+### HF_TOKEN_PATH
+
+To configure where `huggingface_hub` should store the User Access Token. Defaults to `"$HF_HOME/token"` (e.g. `~/.cache/huggingface/token` by default).
+
 
 ### HF_HUB_VERBOSITY
 
@@ -62,10 +67,7 @@ For more details, see [logging reference](../package_reference/utilities#hugging
 
 ### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
 
-Integer value to define under which size a file is considered as "small". When downloading files to a local directory,
-small files will be duplicated to ease user experience while bigger files are symlinked to save disk usage.
-
-For more details, see the [download guide](../guides/download#download-files-to-local-folder).
+This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir does not rely on symlinks anymore.
 
 ### HF_HUB_ETAG_TIMEOUT
 

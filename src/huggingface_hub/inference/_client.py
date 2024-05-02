@@ -34,6 +34,7 @@
 # - Only the main parameters are publicly exposed. Power users can always read the docs for more options.
 import base64
 import logging
+import re
 import time
 import warnings
 from typing import (
@@ -63,14 +64,13 @@ from huggingface_hub.inference._common import (
     _bytes_to_image,
     _bytes_to_list,
     _fetch_recommended_models,
+    _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _is_chat_completion_server,
-    _is_tgi_server,
     _open_as_binary,
     _set_as_non_chat_completion_server,
-    _set_as_non_tgi,
+    _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response_from_bytes,
-    _stream_chat_completion_response_from_text_generation,
     _stream_text_generation_response,
     raise_text_generation_error,
 )
@@ -78,9 +78,11 @@ from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
-    ChatCompletionOutputChoice,
-    ChatCompletionOutputChoiceMessage,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -92,6 +94,7 @@ from huggingface_hub.inference._generated.types import (
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
+    TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
     TokenClassificationOutputElement,
@@ -100,7 +103,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._templating import render_chat_prompt
+from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
@@ -114,9 +117,12 @@ from huggingface_hub.utils import (
 
 if TYPE_CHECKING:
     import numpy as np
-    from PIL import Image
+    from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
+
+
+MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
 
 
 class InferenceClient:
@@ -416,10 +422,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput: ...
 
@@ -430,10 +445,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
@@ -444,10 +468,19 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: bool = False,
-        max_tokens: int = 20,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
@@ -457,10 +490,20 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         stream: bool = False,
-        max_tokens: int = 20,
+        # Parameters from ChatCompletionInput (handled manually)
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
         seed: Optional[int] = None,
-        stop: Optional[Union[List[str], str]] = None,
-        temperature: float = 1.0,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
@@ -483,27 +526,52 @@ class InferenceClient:
                 The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
                 See https://huggingface.co/tasks/text-generation for more details.
-            frequency_penalty (`float`, optional):
+            frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
-            max_tokens (`int`, optional):
+            logit_bias (`List[float]`, *optional*):
+                Modify the likelihood of specified tokens appearing in the completion. Accepts a JSON object that maps tokens
+                (specified by their token ID in the tokenizer) to an associated bias value from -100 to 100. Mathematically,
+                the bias is added to the logits generated by the model prior to sampling. The exact effect will vary per model,
+                but values between -1 and 1 should decrease or increase likelihood of selection; values like -100 or 100 should
+                result in a ban or exclusive selection of the relevant token. Defaults to None.
+            logprobs (`bool`, *optional*):
+                Whether to return log probabilities of the output tokens or not. If true, returns the log
+                probabilities of each output token returned in the content of message.
+            max_tokens (`int`, *optional*):
                 Maximum number of tokens allowed in the response. Defaults to 20.
-            seed (Optional[`int`], optional):
+            n (`int`, *optional*):
+                UNUSED.
+            presence_penalty (`float`, *optional*):
+                Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
+                text so far, increasing the model's likelihood to talk about new topics.
+            seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
-            stop (Optional[`str`], optional):
+            stop (Optional[`str`], *optional*):
                 Up to four strings which trigger the end of the response.
                 Defaults to None.
-            stream (`bool`, optional):
+            stream (`bool`, *optional*):
                 Enable realtime streaming of responses. Defaults to False.
-            temperature (`float`, optional):
+            temperature (`float`, *optional*):
                 Controls randomness of the generations. Lower values ensure
                 less random completions. Range: [0, 2]. Defaults to 1.0.
-            top_p (`float`, optional):
+            top_logprobs (`int`, *optional*):
+                An integer between 0 and 5 specifying the number of most likely tokens to return at each token
+                position, each with an associated log probability. logprobs must be set to true if this parameter is
+                used.
+            top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
+            tool_choice ([`ChatCompletionInputToolTypeClass`] or [`ChatCompletionInputToolTypeEnum`], *optional*):
+                The tool to use for the completion. Defaults to "auto".
+            tool_prompt (`str`, *optional*):
+                A prompt to be appended before the tools.
+            tools (List of [`ChatCompletionInputTool`], *optional*):
+                A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
+                provide a list of functions the model may generate JSON inputs for.
 
         Returns:
-            `Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]`:
+            [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
@@ -515,18 +583,20 @@ class InferenceClient:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
         Example:
+
         ```py
+        # Chat example
         >>> from huggingface_hub import InferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
         >>> client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
         >>> client.chat_completion(messages, max_tokens=100)
         ChatCompletionOutput(
             choices=[
-                ChatCompletionOutputChoice(
+                ChatCompletionOutputComplete(
                     finish_reason='eos_token',
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
-                        content='The capital of France is Paris. The official name of the city is "Ville de Paris" (City of Paris) and the name of the country\'s governing body, which is located in Paris, is "La République française" (The French Republic). \nI hope that helps! Let me know if you need any further information.'
+                    message=ChatCompletionOutputMessage(
+                        content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic). \nI hope that helps! Let me know if you need any further information.'
                     )
                 )
             ],
@@ -539,7 +609,87 @@ class InferenceClient:
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
         (...)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
-        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=None, role=None), index=0, finish_reason='length')], created=1710498504)
+
+        # Chat example with tools
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "system",
+        ...         "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.",
+        ...     },
+        ...     {
+        ...         "role": "user",
+        ...         "content": "What's the weather like the next 3 days in San Francisco, CA?",
+        ...     },
+        ... ]
+        >>> tools = [
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_current_weather",
+        ...             "description": "Get the current weather",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format"],
+        ...             },
+        ...         },
+        ...     },
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_n_day_weather_forecast",
+        ...             "description": "Get an N-day weather forecast",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                     "num_days": {
+        ...                         "type": "integer",
+        ...                         "description": "The number of days to forecast",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format", "num_days"],
+        ...             },
+        ...         },
+        ...     },
+        ... ]
+
+        >>> response = client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-70B-Instruct",
+        ...     messages=messages,
+        ...     tools=tools,
+        ...     tool_choice="auto",
+        ...     max_tokens=500,
+        ... )
+        >>> response.choices[0].message.tool_calls[0].function
+        ChatCompletionOutputFunctionDefinition(
+            arguments={
+                'location': 'San Francisco, CA',
+                'format': 'fahrenheit',
+                'num_days': 3
+            },
+            name='get_n_day_weather_forecast',
+            description=None
+        )
         ```
         """
         # determine model
@@ -558,30 +708,44 @@ class InferenceClient:
                     json=dict(
                         model="tgi",  # random string
                         messages=messages,
+                        frequency_penalty=frequency_penalty,
+                        logit_bias=logit_bias,
+                        logprobs=logprobs,
                         max_tokens=max_tokens,
+                        n=n,
+                        presence_penalty=presence_penalty,
                         seed=seed,
                         stop=stop,
                         temperature=temperature,
+                        tool_choice=tool_choice,
+                        tool_prompt=tool_prompt,
+                        tools=tools,
+                        top_logprobs=top_logprobs,
                         top_p=top_p,
                         stream=stream,
                     ),
                     stream=stream,
                 )
-            except HTTPError:
-                # Let's consider the server is not a chat completion server.
-                # Then we call again `chat_completion` which will render the chat template client side.
-                # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
-                _set_as_non_chat_completion_server(model)
-                return self.chat_completion(
-                    messages=messages,
-                    model=model,
-                    stream=stream,
-                    max_tokens=max_tokens,
-                    seed=seed,
-                    stop=stop,
-                    temperature=temperature,
-                    top_p=top_p,
-                )
+            except HTTPError as e:
+                if e.response.status_code in (400, 404, 500):
+                    # Let's consider the server is not a chat completion server.
+                    # Then we call again `chat_completion` which will render the chat template client side.
+                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                    _set_as_non_chat_completion_server(model)
+                    logger.warning(
+                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
+                    )
+                    return self.chat_completion(
+                        messages=messages,
+                        model=model,
+                        stream=stream,
+                        max_tokens=max_tokens,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        top_p=top_p,
+                    )
+                raise
 
             if stream:
                 return _stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
@@ -589,75 +753,46 @@ class InferenceClient:
             return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
         # At this point, we know the server is not a chat completion server.
-        # We need to render the chat template client side based on the information we can fetch from
-        # the Hub API.
-
-        model_id = None
-        if model.startswith(("http://", "https://")):
-            # If URL, we need to know which model is served. This is not always possible.
-            # A workaround is to list the user Inference Endpoints and check if one of them correspond to the model URL.
-            # If not, we raise an error.
-            # TODO: fix when we have a proper API for this (at least for Inference Endpoints)
-            # TODO: what if Sagemaker URL?
-            # TODO: what if Azure URL?
-            from ..hf_api import HfApi
-
-            for endpoint in HfApi(token=self.token).list_inference_endpoints():
-                if endpoint.url == model:
-                    model_id = endpoint.repository
-                    break
-        else:
-            model_id = model
-
-        if model_id is None:
-            # If we don't have the model ID, we can't fetch the chat template.
-            # We raise an error.
+        # It means it's a transformers-backed server for which we can send a list of messages directly to the
+        # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
+        if stream:
             raise ValueError(
-                "Request can't be processed as the model ID can't be inferred from model URL. "
-                "This is needed to fetch the chat template from the Hub since the model is not "
-                "served with a Chat-completion API."
+                "Streaming token is not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. Please pass `stream=False` as input."
+            )
+        if tool_choice is not None or tool_prompt is not None or tools is not None:
+            warnings.warn(
+                "Tools are not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. The provided tool parameters will be ignored."
             )
 
-        # fetch chat template + tokens
-        prompt = render_chat_prompt(model_id=model_id, token=self.token, messages=messages)
-
         # generate response
-        stop_sequences = [stop] if isinstance(stop, str) else stop
         text_generation_output = self.text_generation(
-            prompt=prompt,
-            details=True,
-            stream=stream,
+            prompt=messages,  # type: ignore # Not correct type but works implicitly
             model=model,
+            stream=False,
+            details=False,
             max_new_tokens=max_tokens,
             seed=seed,
-            stop_sequences=stop_sequences,
+            stop_sequences=stop,
             temperature=temperature,
             top_p=top_p,
         )
 
-        created = int(time.time())
-
-        if stream:
-            return _stream_chat_completion_response_from_text_generation(text_generation_output)  # type: ignore [arg-type]
-
-        if isinstance(text_generation_output, TextGenerationOutput):
-            # General use case => format ChatCompletionOutput from text generation details
-            content: str = text_generation_output.generated_text
-            finish_reason: str = text_generation_output.details.finish_reason  # type: ignore[union-attr]
-        else:
-            # Corner case: if server doesn't support details (e.g. if not a TGI server), we only receive an output string.
-            # In such a case, `finish_reason` is set to `"unk"`.
-            content = text_generation_output  # type: ignore[assignment]
-            finish_reason = "unk"
-
+        # Format as a ChatCompletionOutput with dummy values for fields we can't provide
         return ChatCompletionOutput(
-            created=created,
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,  # type: ignore # set to `None` as we don't want to provide false information
+            created=int(time.time()),
             choices=[
-                ChatCompletionOutputChoice(
-                    finish_reason=finish_reason,  # type: ignore
+                ChatCompletionOutputComplete(
+                    finish_reason="unk",  # type: ignore # set to `unk` as we don't want to provide false information
                     index=0,
-                    message=ChatCompletionOutputChoiceMessage(
-                        content=content,
+                    message=ChatCompletionOutputMessage(
+                        content=text_generation_output,
                         role="assistant",
                     ),
                 )
@@ -1055,7 +1190,7 @@ class InferenceClient:
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models currently deployed on the Inference API service.
+        List models deployed on the Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -1063,9 +1198,17 @@ class InferenceClient:
         in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
         frameworks are checked, the more time it will take.
 
+        <Tip warning={true}>
+
+        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        It searches over a cached list of models that were recently available and the list may not be up to date.
+        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
+
+        </Tip>
+
         <Tip>
 
-        This endpoint is mostly useful for discoverability. If you already know which model you want to use and want to
+        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
         check its availability, you can directly use [`~InferenceClient.get_model_status`].
 
         </Tip>
@@ -1475,19 +1618,24 @@ class InferenceClient:
         details: Literal[False] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> str: ...
 
     @overload
@@ -1498,19 +1646,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> TextGenerationOutput: ...
 
     @overload
@@ -1521,19 +1674,24 @@ class InferenceClient:
         details: Literal[False] = ...,
         stream: Literal[True] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Iterable[str]: ...
 
     @overload
@@ -1544,19 +1702,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: Literal[True] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Iterable[TextGenerationStreamOutput]: ...
 
     @overload
@@ -1567,19 +1730,24 @@ class InferenceClient:
         details: Literal[True] = ...,
         stream: bool = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
 
     def text_generation(
@@ -1589,20 +1757,24 @@ class InferenceClient:
         details: bool = False,
         stream: bool = False,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-        decoder_input_details: bool = False,
+        watermark: Optional[bool] = None,
     ) -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
@@ -1615,6 +1787,13 @@ class InferenceClient:
         continues correctly.
 
         To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
+
+        <Tip>
+
+        If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
+
+        </Tip>
 
         Args:
             prompt (`str`):
@@ -1630,38 +1809,46 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
-            do_sample (`bool`):
-                Activate logits sampling
-            max_new_tokens (`int`):
-                Maximum number of generated tokens
-            best_of (`int`):
-                Generate best_of sequences and return the one if the highest token logprobs
-            repetition_penalty (`float`):
-                The parameter for repetition penalty. 1.0 means no penalty. See [this
-                paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
-            return_full_text (`bool`):
-                Whether to prepend the prompt to the generated text
-            seed (`int`):
-                Random sampling seed
-            stop_sequences (`List[str]`):
-                Stop generating tokens if a member of `stop_sequences` is generated
-            temperature (`float`):
-                The value used to module the logits distribution.
-            top_k (`int`):
-                The number of highest probability vocabulary tokens to keep for top-k-filtering.
-            top_p (`float`):
-                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
-                higher are kept for generation.
-            truncate (`int`):
-                Truncate inputs tokens to the given size
-            typical_p (`float`):
-                Typical Decoding mass
-                See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`):
-                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
-            decoder_input_details (`bool`):
+            best_of (`int`, *optional*):
+                Generate best_of sequences and return the one if the highest token logprobs.
+            decoder_input_details (`bool`, *optional*):
                 Return the decoder input token logprobs and ids. You must set `details=True` as well for it to be taken
                 into account. Defaults to `False`.
+            do_sample (`bool`, *optional*):
+                Activate logits sampling
+            frequency_penalty (`float`, *optional*):
+                Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in
+                the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+            grammar ([`TextGenerationInputGrammarType`], *optional*):
+                Grammar constraints. Can be either a JSONSchema or a regex.
+            max_new_tokens (`int`, *optional*):
+                Maximum number of generated tokens
+            repetition_penalty (`float`, *optional*):
+                The parameter for repetition penalty. 1.0 means no penalty. See [this
+                paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+            return_full_text (`bool`, *optional*):
+                Whether to prepend the prompt to the generated text
+            seed (`int`, *optional*):
+                Random sampling seed
+            stop_sequences (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop_sequences` is generated
+            temperature (`float`, *optional*):
+                The value used to module the logits distribution.
+            top_n_tokens (`int`, *optional*):
+                Return information about the `top_n_tokens` most likely tokens at each generation step, instead of
+                just the sampled token.
+            top_k (`int`, *optional`):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`, *optional`):
+                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
+                higher are kept for generation.
+            truncate (`int`, *optional`):
+                Truncate inputs tokens to the given size.
+            typical_p (`float`, *optional`):
+                Typical Decoding mass
+                See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
+            watermark (`bool`, *optional`):
+                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
             `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
@@ -1713,10 +1900,10 @@ class InferenceClient:
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    TextGenerationPrefillToken(id=487, text='The', logprob=None),
-                    TextGenerationPrefillToken(id=53789, text=' hugging', logprob=-13.171875),
+                    TextGenerationPrefillOutputToken(id=487, text='The', logprob=None),
+                    TextGenerationPrefillOutputToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    TextGenerationPrefillToken(id=204, text=' ', logprob=-7.0390625)
+                    TextGenerationPrefillOutputToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
                     TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
@@ -1750,8 +1937,35 @@ class InferenceClient:
             logprob=-0.5703125,
             special=False),
             generated_text='100% open source and built to be easy to use.',
-            details=TextGenerationStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
+            details=TextGenerationStreamOutputStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
+
+        # Case 5: generate constrained output using grammar
+        >>> response = client.text_generation(
+        ...     prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+        ...     model="HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1",
+        ...     max_new_tokens=100,
+        ...     repetition_penalty=1.3,
+        ...     grammar={
+        ...         "type": "json",
+        ...         "value": {
+        ...             "properties": {
+        ...                 "location": {"type": "string"},
+        ...                 "activity": {"type": "string"},
+        ...                 "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+        ...                 "animals": {"type": "array", "items": {"type": "string"}},
+        ...             },
+        ...             "required": ["location", "activity", "animals_seen", "animals"],
+        ...         },
+        ...     },
+        ... )
+        >>> json.loads(response)
+        {
+            "activity": "bike riding",
+            "animals": ["puppy", "cat", "raccoon"],
+            "animals_seen": 3,
+            "location": "park"
+        }
         ```
         """
         if decoder_input_details and not details:
@@ -1762,41 +1976,48 @@ class InferenceClient:
             decoder_input_details = False
 
         # Build payload
+        parameters = {
+            "best_of": best_of,
+            "decoder_input_details": decoder_input_details,
+            "do_sample": do_sample,
+            "frequency_penalty": frequency_penalty,
+            "grammar": grammar,
+            "max_new_tokens": max_new_tokens,
+            "repetition_penalty": repetition_penalty,
+            "return_full_text": return_full_text,
+            "seed": seed,
+            "stop": stop_sequences if stop_sequences is not None else [],
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_n_tokens": top_n_tokens,
+            "top_p": top_p,
+            "truncate": truncate,
+            "typical_p": typical_p,
+            "watermark": watermark,
+        }
+        parameters = {k: v for k, v in parameters.items() if v is not None}
         payload = {
             "inputs": prompt,
-            "parameters": {
-                "best_of": best_of,
-                "decoder_input_details": decoder_input_details,
-                "details": details,
-                "do_sample": do_sample,
-                "max_new_tokens": max_new_tokens,
-                "repetition_penalty": repetition_penalty,
-                "return_full_text": return_full_text,
-                "seed": seed,
-                "stop": stop_sequences if stop_sequences is not None else [],
-                "temperature": temperature,
-                "top_k": top_k,
-                "top_p": top_p,
-                "truncate": truncate,
-                "typical_p": typical_p,
-                "watermark": watermark,
-            },
+            "parameters": parameters,
             "stream": stream,
         }
 
         # Remove some parameters if not a TGI server
-        if not _is_tgi_server(model):
-            parameters: Dict = payload["parameters"]  # type: ignore [assignment]
+        unsupported_kwargs = _get_unsupported_text_generation_kwargs(model)
+        if len(unsupported_kwargs) > 0:
+            # The server does not support some parameters
+            # => means it is not a TGI server
+            # => remove unsupported parameters and warn the user
 
             ignored_parameters = []
-            for key in "watermark", "details", "decoder_input_details", "best_of", "stop", "return_full_text":
-                if parameters[key] is not None:
+            for key in unsupported_kwargs:
+                if parameters.get(key):
                     ignored_parameters.append(key)
-                del parameters[key]
+                parameters.pop(key, None)
             if len(ignored_parameters) > 0:
                 warnings.warn(
-                    "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
-                    f" {ignored_parameters}.",
+                    "API endpoint/model for text-generation is not served via TGI. Ignoring following parameters:"
+                    f" {', '.join(ignored_parameters)}.",
                     UserWarning,
                 )
             if details:
@@ -1816,27 +2037,32 @@ class InferenceClient:
         try:
             bytes_output = self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
         except HTTPError as e:
-            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
-                _set_as_non_tgi(model)
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
+                unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
+                _set_unsupported_text_generation_kwargs(model, unused_params)
                 return self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,
                     model=model,
-                    do_sample=do_sample,
-                    max_new_tokens=max_new_tokens,
                     best_of=best_of,
+                    decoder_input_details=decoder_input_details,
+                    do_sample=do_sample,
+                    frequency_penalty=frequency_penalty,
+                    grammar=grammar,
+                    max_new_tokens=max_new_tokens,
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
                     stop_sequences=stop_sequences,
                     temperature=temperature,
                     top_k=top_k,
+                    top_n_tokens=top_n_tokens,
                     top_p=top_p,
                     truncate=truncate,
                     typical_p=typical_p,
                     watermark=watermark,
-                    decoder_input_details=decoder_input_details,
                 )
             raise_text_generation_error(e)
 
