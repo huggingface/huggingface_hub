@@ -949,7 +949,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
     def test_resume_from_incomplete(self):
         # An incomplete file already exists => use it
-        incomplete_path = self.local_dir / ".huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
         incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_path.write_text("XXXX")  # Here we put fake data to test the resume
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
@@ -957,7 +957,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
     def test_do_not_resume_on_force_download(self):
         # An incomplete file already exists but force_download=True
-        incomplete_path = self.local_dir / ".huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
         incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_path.write_text("XXXX")
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
