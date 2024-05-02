@@ -62,6 +62,8 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    WebhookInfo,
+    WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -3688,3 +3690,69 @@ class UserApiTest(unittest.TestCase):
     def test_user_following(self) -> None:
         following = self.api.list_user_following("julien-c")
         self.assertGreater(len(list(following)), 10)
+
+
+class WebhookApiTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.webhook_url = "https://webhook.site/test"
+        self.watched_items = [
+            WebhookWatchedItem(type="user", name="julien-c"),
+            WebhookWatchedItem(type="org", name="HuggingFaceH4"),
+        ]
+        self.domains = ["repo", "discussion"]
+        self.secret = "my-secret"
+
+        # Create a webhook to be used in the tests
+        self.webhook = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+
+    def tearDown(self) -> None:
+        # Clean up the created webhook
+        self._api.delete_webhook(self.webhook.id)
+        super().tearDown()
+
+    def test_get_webhook(self) -> None:
+        webhook = self._api.get_webhook(self.webhook.id)
+        self.assertIsInstance(webhook, WebhookInfo)
+        self.assertEqual(webhook.id, self.webhook.id)
+        self.assertEqual(webhook.url, self.webhook_url)
+
+    def test_list_webhooks(self) -> None:
+        webhooks = self._api.list_webhooks()
+        self.assertTrue(any(webhook.id == self.webhook.id for webhook in webhooks))
+
+    def test_create_webhook(self) -> None:
+        new_webhook = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self.assertIsInstance(new_webhook, WebhookInfo)
+        self.assertEqual(new_webhook.url, self.webhook_url)
+
+        # Clean up the newly created webhook
+        self._api.delete_webhook(new_webhook.id)
+
+    def test_update_webhook(self) -> None:
+        updated_url = "https://webhook.site/new"
+        updated_webhook = self._api.update_webhook(
+            self.webhook.id, url=updated_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self.assertEqual(updated_webhook.url, updated_url)
+
+    def test_enable_webhook(self) -> None:
+        enabled_webhook = self._api.enable_webhook(self.webhook.id)
+        self.assertFalse(enabled_webhook.disabled)
+
+    def test_disable_webhook(self) -> None:
+        disabled_webhook = self._api.disable_webhook(self.webhook.id)
+        self.assertTrue(disabled_webhook.disabled)
+
+    def test_delete_webhook(self) -> None:
+        # Create another webhook to test deletion
+        webhook_to_delete = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self._api.delete_webhook(webhook_to_delete.id)
+        with self.assertRaises(HTTPError):
+            self._api.get_webhook(webhook_to_delete.id)
