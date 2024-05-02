@@ -532,10 +532,10 @@ class CommitApiTest(HfApiCommonTest):
             path.write_text("content")
 
         _create_file(".git", "file.txt")
-        _create_file(".huggingface", "file.txt")
+        _create_file(".cache", "huggingface", "file.txt")
         _create_file(".git", "folder", "file.txt")
         _create_file("folder", ".git", "file.txt")
-        _create_file("folder", ".huggingface", "file.txt")
+        _create_file("folder", ".cache", "huggingface", "file.txt")
         _create_file("folder", ".git", "folder", "file.txt")
         _create_file(".git_something", "file.txt")
         _create_file("file.git")
@@ -1019,6 +1019,19 @@ class CommitApiTest(HfApiCommonTest):
         # Commit still happened correctly
         assert isinstance(commit, CommitInfo)
 
+    def test_create_file_with_relative_path(self):
+        """Creating a file with a relative path_in_repo is forbidden.
+
+        Previously taken from a regression test for HackerOne report 1928845. The bug enabled attackers to create files
+        outside of the local dir if users downloaded a file with a relative path_in_repo on Windows.
+
+        This is not relevant anymore as the API now forbids such paths.
+        """
+        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=repo_id)
+        assert cm.exception.response.status_code == 422
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
     @classmethod
@@ -1082,16 +1095,12 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
-    def test_create_commit_failing_implicit_delete_folder(self):
-        with self.assertRaisesRegex(
-            EntryNotFoundError,
-            'A file with the name "1" does not exist',
-        ):
-            self._api.create_commit(
-                operations=[CommitOperationDelete(path_in_repo="1")],
-                commit_message="Failing delete folder",
-                repo_id=self.repo_id,
-            )
+    def test_create_commit_implicit_delete_folder_is_ok(self):
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1")],
+            commit_message="Failing delete folder",
+            repo_id=self.repo_id,
+        )
 
 
 class HfApiListFilesInfoTest(HfApiCommonTest):

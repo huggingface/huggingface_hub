@@ -64,8 +64,8 @@
       title: 추론 클라이언트
     - local: package_reference/inference_endpoints
       title: 추론 엔드포인트
-    - local: in_translation
-      title: (번역 중) HfFileSystem
+    - local: package_reference/hf_file_system
+      title: Hf파일시스템
     - local: package_reference/utilities
       title: 유틸리티
     - local: in_translation
@@ -82,3 +82,5 @@
       title: TensorBoard 로거
     - local: in_translation
       title: (번역 중) Webhooks server
+    - local: package_reference/serialization
+      title: 직렬화

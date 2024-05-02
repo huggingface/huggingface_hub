@@ -242,7 +242,7 @@ fuyu/model-00001-of-00002.safetensors
 
 ### Specify cache directory
 
-By default, all files will be download to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can also specify a custom cache using `--cache-dir`:
+If not using `--local_dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache

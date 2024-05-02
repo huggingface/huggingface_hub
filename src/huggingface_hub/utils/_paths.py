@@ -21,19 +21,19 @@ from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
-# Always ignore `.git` and `.huggingface` folders in commits
+# Always ignore `.git` and `.cache/huggingface` folders in commits
 DEFAULT_IGNORE_PATTERNS = [
     ".git",
     ".git/*",
     "*/.git",
     "**/.git/**",
-    ".huggingface",
-    ".huggingface/*",
-    "*/.huggingface",
-    "**/.huggingface/**",
+    ".cache/huggingface",
+    ".cache/huggingface/*",
+    "*/.cache/huggingface",
+    "**/.cache/huggingface/**",
 ]
 # Forbidden to commit these folders
-FORBIDDEN_FOLDERS = [".git", ".huggingface"]
+FORBIDDEN_FOLDERS = [".git", ".cache"]
 
 
 def filter_repo_objects(

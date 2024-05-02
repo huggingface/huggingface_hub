@@ -335,8 +335,10 @@ def _adapt_text_generation_to_async(code: str) -> str:
 def _adapt_chat_completion_to_async(code: str) -> str:
     # Catch `aiohttp` error instead of `requests` error
     code = code.replace(
-        "except HTTPError:",
-        "except _import_aiohttp().ClientResponseError:",
+        """            except HTTPError as e:
+                if e.response.status_code in (400, 404, 500):""",
+        """            except _import_aiohttp().ClientResponseError as e:
+                if e.status in (400, 404, 500):""",
     )
 
     # Await text-generation call
@@ -403,10 +405,6 @@ def _use_async_streaming_util(code: str) -> str:
     code = code.replace(
         "_stream_text_generation_response",
         "_async_stream_text_generation_response",
-    )
-    code = code.replace(
-        "_stream_chat_completion_response_from_text_generation",
-        "_async_stream_chat_completion_response_from_text_generation",
     )
     code = code.replace(
         "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
