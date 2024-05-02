@@ -101,7 +101,7 @@ def _send_telemetry_in_thread(
     user_agent: Union[Dict, str, None] = None,
 ) -> None:
     """Contains the actual data sending data to the Hub.
-    
+
     This function is called directly in gradio's analytics because
     it is not possible to send telemetry from a daemon thread.
 
