@@ -244,7 +244,7 @@ class CommitOperationAdd:
         Returns: `bytes`
         """
         with self.as_file() as file:
-            return base64.b64encode(file.read())
+            return base64.b64encode(file.read().replace(b"\r\n", b"\n"))
 
 
 def _validate_path_in_repo(path_in_repo: str) -> str:

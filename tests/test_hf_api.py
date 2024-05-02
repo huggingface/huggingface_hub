@@ -62,6 +62,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    hf_hub_url,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -827,6 +828,26 @@ class CommitApiTest(HfApiCommonTest):
             commit_message="Test create_commit with huge regular files",
             repo_id=repo_url.repo_id,
         )
+
+    @use_tmp_repo()
+    def test_commit_file_with_windows_newline_encoding(self, repo_url: RepoUrl) -> None:
+        """Test `huggingface_hub` prevents from committing files with \r\n line endings.
+
+        That was previously ensured served-side but https://gitlab.com/gitlab-org/gitaly/-/issues/4425
+        made Gitaly line-ending agnostic. This should be enforced client-side.
+        """
+        self._api.create_commit(
+            operations=[
+                CommitOperationAdd(
+                    path_in_repo="file.txt",
+                    path_or_fileobj=b"Hello Alice\r\nHello Bob\r\nHello Charlie\r\n",
+                )
+            ],
+            commit_message="Test upload file with windows encoding",
+            repo_id=repo_url.repo_id,
+        )
+        url = hf_hub_url(repo_id=repo_url.repo_id, filename="file.txt", endpoint=ENDPOINT_STAGING)
+        assert requests.get(url).text == "Hello Alice\nHello Bob\nHello Charlie\n"
 
     @use_tmp_repo()
     def test_commit_preflight_on_lots_of_lfs_files(self, repo_url: RepoUrl):
