@@ -65,6 +65,9 @@ def generate_async_client_code(code: str) -> str:
     # Adapt list_deployed_models
     code = _adapt_list_deployed_models(code)
 
+    # Adapt /info and /health endpoints
+    code = _adapt_info_and_health_endpoints(code)
+
     return code
 
 
@@ -446,6 +449,32 @@ def _adapt_list_deployed_models(code: str) -> str:
         await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])""".strip()
 
     return code.replace(sync_snippet, async_snippet)
+
+
+def _adapt_info_and_health_endpoints(code: str) -> str:
+    info_sync_snippet = """
+        response = get_session().get(url, headers=self.headers)
+        hf_raise_for_status(response)
+        return response.json()"""
+
+    info_async_snippet = """
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return await response.json()"""
+
+    code = code.replace(info_sync_snippet, info_async_snippet)
+
+    health_sync_snippet = """
+        response = get_session().get(url, headers=self.headers)
+        return response.status_code == 200"""
+
+    health_async_snippet = """
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            return response.status == 200"""
+
+    return code.replace(health_sync_snippet, health_async_snippet)
 
 
 if __name__ == "__main__":
