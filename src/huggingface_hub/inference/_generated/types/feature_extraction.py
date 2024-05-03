@@ -4,16 +4,19 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import List, Optional, Union
 
 from .base import BaseInferenceType
 
 
 @dataclass
 class FeatureExtractionInput(BaseInferenceType):
-    """Inputs for Text Embedding inference"""
+    """Feature Extraction Input.
+    Auto-generated from TEI specs.
+    For more details, check out
+    https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tei-import.ts.
+    """
 
-    inputs: str
-    """The text to get the embeddings of"""
-    parameters: Optional[Dict[str, Any]] = None
-    """Additional inference parameters"""
+    inputs: Union[List[str], str]
+    normalize: Optional[bool] = None
+    truncate: Optional[bool] = None
