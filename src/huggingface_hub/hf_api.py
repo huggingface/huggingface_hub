@@ -1540,13 +1540,13 @@ class HfApi:
 
         >>> api = HfApi()
 
-        >>> # List all models
+        # List all models
         >>> api.list_models()
 
-        >>> # List only the text classification models
+        # List only the text classification models
         >>> api.list_models(filter="text-classification")
 
-        >>> # List only models from the AllenNLP library
+        # List only models from the AllenNLP library
         >>> api.list_models(filter="allennlp")
         ```
 
@@ -1557,10 +1557,10 @@ class HfApi:
 
         >>> api = HfApi()
 
-        >>> # List all models with "bert" in their name
+        # List all models with "bert" in their name
         >>> api.list_models(search="bert")
 
-        >>> # List all models with "bert" in their name made by google
+        # List all models with "bert" in their name made by google
         >>> api.list_models(search="bert", author="google")
         ```
         """
@@ -1698,6 +1698,7 @@ class HfApi:
         language: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
         size_categories: Optional[Union[str, List[str]]] = None,
+        tags: Optional[Union[str, List[str]]] = None,
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
@@ -1736,6 +1737,8 @@ class HfApi:
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
+            tags (`str` or `List`, *optional*):
+                A string tag or a list of tags to filter datasets on the Hub.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
@@ -1775,20 +1778,21 @@ class HfApi:
 
         >>> api = HfApi()
 
-        >>> # List all datasets
+        # List all datasets
         >>> api.list_datasets()
 
 
-        >>> # List only the text classification datasets
+        # List only the text classification datasets
         >>> api.list_datasets(filter="task_categories:text-classification")
 
 
-        >>> # List only the datasets in russian for language modeling
+        # List only the datasets in russian for language modeling
         >>> api.list_datasets(
         ...     filter=("language:ru", "task_ids:language-modeling")
         ... )
 
-        >>> api.list_datasets(filter=filt)
+        # List FiftyOne datasets (identified by the tag "fiftyone" in dataset card)
+        >>> api.list_datasets(tags="fiftyone")
         ```
 
         Example usage with the `search` argument:
@@ -1798,10 +1802,10 @@ class HfApi:
 
         >>> api = HfApi()
 
-        >>> # List all datasets with "text" in their name
+        # List all datasets with "text" in their name
         >>> api.list_datasets(search="text")
 
-        >>> # List all datasets with "text" in their name made by google
+        # List all datasets with "text" in their name made by google
         >>> api.list_datasets(search="text", author="google")
         ```
         """
@@ -1839,6 +1843,8 @@ class HfApi:
                         data = f"{attr}:{data}"
                     filter_list.append(data)
 
+        if tags is not None:
+            filter_list.extend([tags] if isinstance(tags, str) else tags)
         if search:
             params.update({"search": search})
         if sort is not None:
