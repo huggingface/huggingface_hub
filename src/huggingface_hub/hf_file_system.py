@@ -515,6 +515,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         else:
             out = None
             parent_path = self._parent(path)
+            if not expand_info and parent_path not in self.dircache:
+                # Fill the cache with cheap call
+                self.ls(parent_path, expand_info=False)
             if parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
@@ -679,6 +682,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
+        # avoid an unnecessary .info() call with expensive expand_info=True to instantiate .details
+        self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
