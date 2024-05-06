@@ -101,11 +101,11 @@ models = hf_api.list_models()
 
 ### WebhookInfo
 
-[[autodoc]] huggingface_hub.hf_api.WebhooksInfo
+[[autodoc]] huggingface_hub.hf_api.WebhookInfo
 
 ### WatchedWebhookInfo
 
-[[autodoc]] huggingface_hub.hf_api.WatchedWebhookInfo
+[[autodoc]] huggingface_hub.hf_api.WebhookWatchedItem
 
 ## CommitOperation
 
