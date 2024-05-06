@@ -20,7 +20,7 @@ import re
 import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -8624,7 +8624,9 @@ class HfApi:
             )
             ```
         """
-        watched_dicts = [asdict(item) for item in watched]
+        watched_dicts = (
+            [asdict(item) if is_dataclass(item) else item for item in watched] if watched is not None else []
+        )
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
