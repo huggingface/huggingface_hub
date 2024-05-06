@@ -8683,7 +8683,7 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import update_webhook
+            >>> from huggingface_hub import update_webhook, WebhookWatchedItem
             >>> updated_payload = update_webhook(
             ...     webhook_id="654bbbc16f2ec14d77f109cc",
             ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
@@ -8701,7 +8701,9 @@ class HfApi:
                 disabled=False,
             ```
         """
-        watched_dicts = [asdict(item) for item in watched] if watched is not None else []
+        watched_dicts = (
+            [asdict(item) if is_dataclass(item) else item for item in watched] if watched is not None else []
+        )
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
