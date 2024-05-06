@@ -103,7 +103,7 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.WebhookInfo
 
-### WatchedWebhookInfo
+### WebhookWatchedItem
 
 [[autodoc]] huggingface_hub.hf_api.WebhookWatchedItem
 
