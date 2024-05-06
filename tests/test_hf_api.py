@@ -1715,6 +1715,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         datasets = list(self._api.list_datasets(limit=500))
         self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
 
+    def test_filter_datasets_by_tag(self):
+        datasets = list(self._api.list_datasets(tags="fiftyone", limit=5))
+        for dataset in datasets:
+            assert "fiftyone" in dataset.tags
+
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
         self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
