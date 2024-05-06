@@ -197,3 +197,81 @@ the `WEBHOOK_SECRET` environment variable.
 3. We register a webhook with an explicit name. This will create an endpoint at `/webhooks/say_hello`.
 4. We register a webhook with an implicit name. This will create an endpoint at `/webhooks/goodbye`.
 5. We start the server. This is optional as your server will automatically be started at the end of the script.
+
+# Managing Webhooks
+
+Once your webhook server is configured and deployed, you might need to manage your webhooks, such as creating new ones, listing all configured webhooks, updating, enabling, disabling, or deleting them. This section guides you through the procedures using the Hugging Face Hub's API functions.
+
+## Creating a Webhook
+
+To create a new webhook, you need to specify the URL where payloads should be sent, what events should be watched, and optionally set a domain and a secret for security.
+
+```python
+from huggingface_hub import create_webhook, WebhookWatchedItem
+
+# Example: Creating a webhook
+webhook = create_webhook(
+    url="https://webhook.site/your-custom-url",
+    watched=[WebhookWatchedItem(type="user", name="your-username"), WebhookWatchedItem(type="org", name="your-org-name")],
+    domains=["repo", "discussion"],
+    secret="your-secret"
+)
+print(webhook)
+```
+
+## Listing Webhooks
+
+To see all the webhooks you have configured, you can list them. This is useful to review their IDs, URLs, and statuses.
+
+```python
+from huggingface_hub import list_webhooks
+
+# Example: Listing all webhooks
+webhooks = list_webhooks()
+for webhook in webhooks:
+    print(webhook)
+```
+
+## Updating a Webhook
+
+If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using its ID.
+
+```python
+from huggingface_hub import update_webhook, WebhookWatchedItem
+
+# Example: Updating a webhook
+updated_webhook = update_webhook(
+    webhook_id="your-webhook-id",
+    url="https://new.webhook.site/url",
+    watched=[WebhookWatchedItem(type="user", name="new-username")],
+    domains=["repo"]
+)
+print(updated_webhook)
+```
+
+## Enabling and Disabling Webhooks
+
+You might want to temporarily disable a webhook without deleting it. This can be done easily, and the webhook can be re-enabled later.
+
+```python
+from huggingface_hub import enable_webhook, disable_webhook
+
+# Example: Enabling a webhook
+enabled_webhook = enable_webhook("your-webhook-id")
+print("Enabled:", enabled_webhook)
+
+# Example: Disabling a webhook
+disabled_webhook = disable_webhook("your-webhook-id")
+print("Disabled:", disabled_webhook)
+```
+
+## Deleting a Webhook
+
+When a webhook is no longer needed, it can be permanently deleted using its ID.
+
+```python
+from huggingface_hub import delete_webhook
+
+# Example: Deleting a webhook
+delete_webhook("your-webhook-id")
+```
