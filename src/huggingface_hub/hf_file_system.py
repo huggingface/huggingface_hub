@@ -683,7 +683,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 ) from e
             raise
         # avoid an unnecessary .info() call with expensive expand_info=True to instantiate .details
-        self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
+        if kwargs.get("mode", "rb") == "rb":
+            self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
