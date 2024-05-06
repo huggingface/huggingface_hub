@@ -4686,7 +4686,7 @@ class HfApi:
             ignore_patterns = [ignore_patterns]
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
-        delete_operations = self._prepare_upload_folder_deletions(
+        delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
             repo_type=repo_type,
             revision=DEFAULT_REVISION if create_pr else revision,
@@ -4846,6 +4846,98 @@ class HfApi:
             create_pr=create_pr,
             parent_commit=parent_commit,
         )
+    
+    @validate_hf_hub_args
+    def delete_files_r(
+        self,
+        patterns: List[str],
+        repo_id: str,
+        *,
+        token: Union[bool, str, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+    ) -> CommitInfo:
+        """
+        Recursively deletes files in a given repository based on Unix shell-style 
+        file matching patterns.
+
+        Git based under the hood (server-side), meaning if you delete all files 
+        from a directory, git untracks it. It works this way recursively
+        through the sub folders. Meaning a whole directory structure is untracked
+        by deleting their respectives files at all levels.
+
+        Also if one or many of the patterns from the `patterns` argument to
+        this function have a trailing `/` (as in `folder/`),
+        this function will interpret it as `/*` (as in `folder/*`) to comply with Unix
+        patterns (Unix shell standards don't match `folder/a` to `folder/` but 
+        match it to `folder/*`) when deleting all files in the folders(s). 
+        By the previous corollary, the folder(s) will disappear because all
+        their files are deleted.
+
+        Args:
+            path_in_repo (`str`):
+                Relative folder path in the repo, for example: `"checkpoints/1fec34a"`.
+            repo_id (`str`):
+                The repository from which the folder will be deleted, for example:
+                `"username/custom_transformers"`
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+                to the stored token.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the folder is in a dataset or
+                space, `None` or `"model"` if in a model. Default is `None`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary / title / first line of the generated commit. Defaults to
+                `f"Delete folder {path_in_repo} with huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+        """
+        patterns = [p+"*" if p[-1] == "/" else p for p in patterns]
+        operations = self._prepare_folder_deletions(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            delete_patterns=patterns,
+            path_in_repo="",
+            revision=revision
+        )
+        
+        f_patterns="".join(patterns)
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=operations,
+            revision=revision,
+            commit_message=(
+                commit_message if commit_message is not None \
+                    else f"Delete files {f_patterns} with huggingface_hub" 
+            ),
+            commit_description=commit_description,
+            create_pr=create_pr,
+            parent_commit=parent_commit
+        )
+    
 
     @validate_hf_hub_args
     def delete_folder(
@@ -8460,7 +8552,7 @@ class HfApi:
             headers=self.headers,
         )
 
-    def _prepare_upload_folder_deletions(
+    def _prepare_folder_deletions(
         self,
         repo_id: str,
         repo_type: Optional[str],
@@ -8483,7 +8575,6 @@ class HfApi:
 
         # List remote files
         filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
-
         # Compute relative path in repo
         if path_in_repo and path_in_repo not in (".", "./"):
             path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
@@ -8683,6 +8774,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+delete_files_r = api.delete_files_r
 create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch

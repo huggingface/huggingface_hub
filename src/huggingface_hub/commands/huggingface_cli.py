@@ -23,6 +23,7 @@ from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.commands.user import UserCommands
+from huggingface_hub.commands.repo_files import RepoFilesCommand
 
 
 def main():
@@ -33,6 +34,7 @@ def main():
     EnvironmentCommand.register_subcommand(commands_parser)
     UserCommands.register_subcommand(commands_parser)
     UploadCommand.register_subcommand(commands_parser)
+    RepoFilesCommand.register_subcommand(commands_parser)
     DownloadCommand.register_subcommand(commands_parser)
     LfsCommands.register_subcommand(commands_parser)
     ScanCacheCommand.register_subcommand(commands_parser)
