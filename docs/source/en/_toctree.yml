@@ -82,7 +82,7 @@
       title: Collections
     - local: package_reference/tensorboard
       title: TensorBoard logger
-    - local: package_reference/webhooks
-      title: Webhooks
+    - local: package_reference/webhooks_server
+      title: Webhooks server
     - local: package_reference/serialization
       title: Serialization
