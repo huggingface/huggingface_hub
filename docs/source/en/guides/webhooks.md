@@ -2,7 +2,9 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Webhooks Server
+# Webhooks
+
+## Webhooks Server
 
 Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
 all repos belonging to particular users/organizations you're interested in following. This guide will explain how to
@@ -30,7 +32,7 @@ notice. Make sure to pin the version of `huggingface_hub` in your requirements.
 </Tip>
 
 
-## Create an endpoint
+### Create an endpoint
 
 Implementing a webhook endpoint is as simple as decorating a function. Let's see a first example to explain the main
 concepts:
@@ -87,7 +89,7 @@ once even if you have multiple endpoints.
 </Tip>
 
 
-## Configure a Webhook
+### Configure a Webhook
 
 Now that you have a webhook server running, you want to configure a Webhook to start receiving messages.
 Go to https://huggingface.co/settings/webhooks, click on "Add a new webhook" and configure your Webhook. Set the target
@@ -102,7 +104,7 @@ Activity tab of your Webhook to see the events that have been triggered. Now tha
 test it and quickly iterate. If you modify your code and restart the server, your public URL might change. Make sure
 to update the webhook configuration on the Hub if needed.
 
-## Deploy to a Space
+### Deploy to a Space
 
 Now that you have a working webhook server, the goal is to deploy it to a Space. Go to https://huggingface.co/new-space
 to create a Space. Give it a name, select the Gradio SDK and click on "Create Space". Upload your code to the Space
@@ -118,12 +120,12 @@ And this is it! Your Space is now ready to receive webhooks from the Hub. Please
 on a free 'cpu-basic' hardware, it will be shut down after 48 hours of inactivity. If you need a permanent Space, you
 should consider setting to an [upgraded hardware](https://huggingface.co/docs/hub/spaces-gpus#hardware-specs).
 
-## Advanced usage
+### Advanced usage
 
 The guide above explained the quickest way to setup a [`WebhooksServer`]. In this section, we will see how to customize
 it further.
 
-### Multiple endpoints
+#### Multiple endpoints
 
 You can register multiple endpoints on the same server. For example, you might want to have one endpoint to trigger
 a training job and another one to trigger a model evaluation. You can do this by adding multiple `@webhook_endpoint`
@@ -155,7 +157,7 @@ Webhooks are correctly setup and ready to use:
   - POST https://1fadb0f52d8bf825fc.gradio.live/webhooks/trigger_evaluation
 ```
 
-### Custom server
+#### Custom server
 
 To get more flexibility, you can also create a [`WebhooksServer`] object directly. This is useful if you want to
 customize the landing page of your server. You can do this by passing a [Gradio UI](https://gradio.app/docs/#blocks)
@@ -198,11 +200,11 @@ the `WEBHOOK_SECRET` environment variable.
 4. We register a webhook with an implicit name. This will create an endpoint at `/webhooks/goodbye`.
 5. We start the server. This is optional as your server will automatically be started at the end of the script.
 
-# Managing Webhooks
+## Managing Webhooks
 
 Once your webhook server is configured and deployed, you might need to manage your webhooks, such as creating new ones, listing all configured webhooks, updating, enabling, disabling, or deleting them. This section guides you through the procedures using the Hugging Face Hub's API functions.
 
-## Creating a Webhook
+### Creating a Webhook
 
 To create a new webhook, you need to specify the URL where payloads should be sent, what events should be watched, and optionally set a domain and a secret for security.
 
@@ -219,7 +221,7 @@ webhook = create_webhook(
 print(webhook)
 ```
 
-## Listing Webhooks
+### Listing Webhooks
 
 To see all the webhooks you have configured, you can list them. This is useful to review their IDs, URLs, and statuses.
 
@@ -232,7 +234,7 @@ for webhook in webhooks:
     print(webhook)
 ```
 
-## Updating a Webhook
+### Updating a Webhook
 
 If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using its ID.
 
@@ -249,7 +251,7 @@ updated_webhook = update_webhook(
 print(updated_webhook)
 ```
 
-## Enabling and Disabling Webhooks
+### Enabling and Disabling Webhooks
 
 You might want to temporarily disable a webhook without deleting it. This can be done easily, and the webhook can be re-enabled later.
 
@@ -265,7 +267,7 @@ disabled_webhook = disable_webhook("your-webhook-id")
 print("Disabled:", disabled_webhook)
 ```
 
-## Deleting a Webhook
+### Deleting a Webhook
 
 When a webhook is no longer needed, it can be permanently deleted using its ID.
 
