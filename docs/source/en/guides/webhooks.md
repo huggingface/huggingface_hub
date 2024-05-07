@@ -4,15 +4,15 @@ rendered properly in your Markdown viewer.
 
 # Webhooks
 
-## Webhooks Server
-
 Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
 all repos belonging to particular users/organizations you're interested in following. This guide will explain how to
-leverage `huggingface_hub` to create a server listening to webhooks and deploy it to a Space. It assumes you are
+leverage `huggingface_hub` to create a server listening to webhooks and deploy it to a Space. As well as managing them with the `huggingface_hub` API. It assumes you are
 familiar with the concept of webhooks on the Huggingface Hub. To learn more about webhooks themselves, you can read
 this [guide](https://huggingface.co/docs/hub/webhooks) first.
 
-The base class that we will use in this guide is [`WebhooksServer`]. It is a class for easily configuring a server that
+## Webhooks Server
+
+The base class that we will use in this guides section is [`WebhooksServer`]. It is a class for easily configuring a server that
 can receive webhooks from the Huggingface Hub. The server is based on a [Gradio](https://gradio.app/) app. It has a UI
 to display instructions for you or your users and an API to listen to webhooks.
 
