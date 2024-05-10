@@ -45,12 +45,12 @@ CollectionItem(
 
 [`get_collection`]에 의해 반환된 [`Collection`] 객체에는 다음이 포함되어 있습니다:
 - 높은 수준의 메타데이터: `slug`, `owner`, `title`, `description` 등
-- [`CollectionItem`] 객체의 목록; 각 항목은 모델, 데이터셋, 공간 또는 논문을 나타냅니다.
+- [`CollectionItem`] 객체의 목록; 각 항목은 모델, 데이터셋, Space 또는 논문을 나타냅니다.
 
 모든 Collection 항목에는 다음이 보장됩니다:
 - 고유한 `item_object_id`: 데이터베이스에서 Collection 항목의 id
-- 기본 항목(모델, 데이터셋, 공간, 논문)의 Hub에서의 `item_id`; 고유하지 않으며, `item_id`/`item_type` 쌍만 고유합니다.
-- `item_type`: 모델, 데이터셋, 공간, 논문
+- 기본 항목(모델, 데이터셋, Space, 논문)의 Hub에서의 `item_id`; 고유하지 않으며, `item_id`/`item_type` 쌍만 고유합니다.
+- `item_type`: 모델, 데이터셋, Space, 논문
 - Collection에서 항목의 `position`으로, 이를 업데이트하여 Collection을 재구성할 수 있습니다(아래의 [`update_collection_item`] 참조)
 
 각 항목에는 추가 정보(코멘트, 블로그 포스트 링크 등)를 위한 `note`도 첨부될 수 있습니다. 항목에 note가 없으면 해당 속성값은 `None`이 됩니다.
@@ -208,7 +208,7 @@ Collection의 item은 순서가 있습니다. 이 순서는 각 item의 `positio
 >>> collection_slug = "osanseviero/os-week-highlights-sept-18-24-650bfed7f795a59f491afb80"
 >>> collection = get_collection(collection_slug)
 
-# 목록에서 `coqui/xtts` 공간 제거
+# 목록에서 `coqui/xtts` Space 제거
 >>> delete_collection_item(collection_slug=collection_slug, item_object_id=collection.items[0].item_object_id)
 ```
 
