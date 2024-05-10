@@ -430,7 +430,15 @@ def _upload_parts_hf_transfer(
     # see https://github.com/huggingface/huggingface_hub/pull/2000
     disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
 
-    with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
+    with tqdm(
+        unit="B",
+        unit_scale=True,
+        total=total,
+        initial=0,
+        desc=desc,
+        disable=disable,
+        name="huggingface_hub.lfs_upload",
+    ) as progress:
         try:
             output = multipart_upload(
                 file_path=operation.path_or_fileobj,

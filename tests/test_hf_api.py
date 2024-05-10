@@ -530,8 +530,10 @@ class CommitApiTest(HfApiCommonTest):
             path.write_text("content")
 
         _create_file(".git", "file.txt")
+        _create_file(".cache", "huggingface", "file.txt")
         _create_file(".git", "folder", "file.txt")
         _create_file("folder", ".git", "file.txt")
+        _create_file("folder", ".cache", "huggingface", "file.txt")
         _create_file("folder", ".git", "folder", "file.txt")
         _create_file(".git_something", "file.txt")
         _create_file("file.git")
@@ -1015,6 +1017,19 @@ class CommitApiTest(HfApiCommonTest):
         # Commit still happened correctly
         assert isinstance(commit, CommitInfo)
 
+    def test_create_file_with_relative_path(self):
+        """Creating a file with a relative path_in_repo is forbidden.
+
+        Previously taken from a regression test for HackerOne report 1928845. The bug enabled attackers to create files
+        outside of the local dir if users downloaded a file with a relative path_in_repo on Windows.
+
+        This is not relevant anymore as the API now forbids such paths.
+        """
+        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=repo_id)
+        assert cm.exception.response.status_code == 422
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
     @classmethod
@@ -1078,16 +1093,12 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
-    def test_create_commit_failing_implicit_delete_folder(self):
-        with self.assertRaisesRegex(
-            EntryNotFoundError,
-            'A file with the name "1" does not exist',
-        ):
-            self._api.create_commit(
-                operations=[CommitOperationDelete(path_in_repo="1")],
-                commit_message="Failing delete folder",
-                repo_id=self.repo_id,
-            )
+    def test_create_commit_implicit_delete_folder_is_ok(self):
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1")],
+            commit_message="Failing delete folder",
+            repo_id=self.repo_id,
+        )
 
 
 class HfApiListFilesInfoTest(HfApiCommonTest):
@@ -1702,6 +1713,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         datasets = list(self._api.list_datasets(limit=500))
         self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
 
+    def test_filter_datasets_by_tag(self):
+        datasets = list(self._api.list_datasets(tags="fiftyone", limit=5))
+        for dataset in datasets:
+            assert "fiftyone" in dataset.tags
+
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
         self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
@@ -1781,11 +1797,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
     @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
-        self.assertTrue("fill-mask" == models[0].pipeline_tag)
-        self.assertTrue("albert-base-v2" in models[0].modelId)
+        assert models[0].pipeline_tag == "fill-mask"
+        assert "albert" in models[0].modelId
+        assert "base" in models[0].modelId
+        assert "v2" in models[0].modelId
 
         models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
-        self.assertEqual(len(models), 0)
+        assert len(models) == 0
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
@@ -2873,7 +2891,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             force_filename=None,
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             legacy_cache_layout=False,
             headers=None,
@@ -2899,7 +2917,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_dir_use_symlinks="auto",
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,

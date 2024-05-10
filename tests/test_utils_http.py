@@ -202,7 +202,7 @@ class TestConfigureSession(unittest.TestCase):
         sessions = [None] * N
 
         def _get_session_in_thread(index: int) -> None:
-            time.sleep(0.01)
+            time.sleep(0.1)
             sessions[index] = get_session()
 
         # Get main thread session

@@ -39,13 +39,11 @@ def snapshot_download(
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-    resume_download: bool = False,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
@@ -55,6 +53,9 @@ def snapshot_download(
     tqdm_class: Optional[base_tqdm] = None,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    # Deprecated args
+    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+    resume_download: Optional[bool] = None,
 ) -> str:
     """Download repo files.
 
@@ -63,20 +64,10 @@ def snapshot_download(
     to keep their actual filename relative to that folder. You can also filter which files to download using
     `allow_patterns` and `ignore_patterns`.
 
-    If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
-    how you want to move those files:
-      - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
-        files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
-        is to be able to manually edit and save small files without corrupting the cache while saving disk space for
-        binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-        environment variable.
-      - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
-        This is optimal in term of disk usage but files must not be manually edited.
-      - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
-        local dir. This means disk usage is not optimized.
-      - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
-        files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
-        they will be re-downloaded entirely.
+    If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
+    option, the `cache_dir` will not be used and a `.cache/huggingface/` folder will be created at the root of `local_dir`
+    to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
+    cache-system, it's optimized for regularly pulling the latest version of a repository.
 
     An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
     configured. It is also not possible to filter which files to download when cloning a repository using git.
@@ -93,13 +84,7 @@ def snapshot_download(
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         local_dir (`str` or `Path`, *optional*):
-            If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
-            regular files (see description for more details).
-        local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
-            To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
-            duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
-            created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
-            already exists) or downloaded from the Hub and not cached. See description for more details.
+            If provided, the downloaded files will be placed under this directory.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -112,8 +97,6 @@ def snapshot_download(
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False):
-            If `True`, resume a previously interrupted download.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -141,20 +124,15 @@ def snapshot_download(
             `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
 
     Returns:
-        Local folder path (string) of repo snapshot
+        `str`: folder path of the repo snapshot.
 
-    <Tip>
-
-    Raises the following errors:
-
-    - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-      if `token=True` and the token cannot be found.
-    - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-      ETag cannot be determined.
-    - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-      if some parameter value is invalid
-
-    </Tip>
+    Raises:
+        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+        if `token=True` and the token cannot be found.
+        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+        ETag cannot be determined.
+        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        if some parameter value is invalid
     """
     if cache_dir is None:
         cache_dir = HF_HUB_CACHE

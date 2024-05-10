@@ -100,7 +100,15 @@ def _send_telemetry_in_thread(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
 ) -> None:
-    """Contains the actual data sending data to the Hub."""
+    """Contains the actual data sending data to the Hub.
+
+    This function is called directly in gradio's analytics because
+    it is not possible to send telemetry from a daemon thread.
+
+    See here: https://github.com/gradio-app/gradio/pull/8180
+
+    Please do not rename or remove this function.
+    """
     path = "/".join(quote(part) for part in topic.split("/") if len(part) > 0)
     try:
         r = get_session().head(

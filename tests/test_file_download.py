@@ -18,6 +18,7 @@ import shutil
 import stat
 import unittest
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable
 from unittest.mock import Mock, patch
@@ -28,6 +29,7 @@ from requests import Response
 
 import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl
+from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.constants import (
     CONFIG_NAME,
     HUGGINGFACE_HEADER_X_LINKED_ETAG,
@@ -42,7 +44,6 @@ from huggingface_hub.file_download import (
     _get_pointer_path,
     _normalize_etag,
     _request_wrapper,
-    _to_local_dir,
     cached_download,
     filename_to_url,
     get_hf_file_metadata,
@@ -746,162 +747,221 @@ class CachedDownloadTests(unittest.TestCase):
             self.assertTrue(lock_file_exist, "no lock file can be found")
 
 
-@with_production_testing
 @pytest.mark.usefixtures("fx_cache_dir")
 class HfHubDownloadToLocalDir(unittest.TestCase):
+    # `cache_dir` is a temporary directory
+    # `local_dir` is a subdirectory in which files will be downloaded
+    # `hub_cache_dir` is a subdirectory in which files will be cached ("HF cache")
     cache_dir: Path
+    file_name: str = "file.txt"
+    lfs_name: str = "lfs.bin"
 
-    def test_with_local_dir_and_symlinks_and_file_cached(self) -> None:
-        # File already cached
-        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+    @property
+    def local_dir(self) -> Path:
+        path = Path(self.cache_dir) / "local"
+        path.mkdir(exist_ok=True, parents=True)
+        return path
 
+    @property
+    def hub_cache_dir(self) -> Path:
+        path = Path(self.cache_dir) / "cache"
+        path.mkdir(exist_ok=True, parents=True)
+        return path
+
+    @property
+    def file_path(self) -> Path:
+        return self.local_dir / self.file_name
+
+    @property
+    def lfs_path(self) -> Path:
+        return self.local_dir / self.lfs_name
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+        cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
+        commit_1 = cls.api.upload_file(path_or_fileobj=b"content", path_in_repo=cls.file_name, repo_id=cls.repo_id)
+        commit_2 = cls.api.upload_file(path_or_fileobj=b"content", path_in_repo=cls.lfs_name, repo_id=cls.repo_id)
+
+        info = cls.api.get_paths_info(repo_id=cls.repo_id, paths=[cls.file_name, cls.lfs_name])
+        info = {item.path: item for item in info}
+        cls.commit_hash_1 = commit_1.oid
+        cls.commit_hash_2 = commit_2.oid
+        cls.file_etag = info[cls.file_name].blob_id
+        cls.lfs_etag = info[cls.lfs_name].lfs.sha256
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.api.delete_repo(repo_id=cls.repo_id)
+
+    @contextmanager
+    def with_patch_head(self):
+        with patch("huggingface_hub.file_download._get_metadata_or_catch_error") as mock:
+            yield mock
+
+    @contextmanager
+    def with_patch_download(self):
+        with patch("huggingface_hub.file_download._download_to_tmp_and_move") as mock:
+            yield mock
+
+    def test_empty_local_dir(self):
         # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            returned_path = hf_hub_download(
-                DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
-                local_dir=local_dir,
-                local_dir_use_symlinks=True,
+        returned_path = self.api.hf_hub_download(
+            self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir, local_dir=self.local_dir
+        )
+        assert self.local_dir in Path(returned_path).parents
+
+        # Cache directory not used (no blobs, no symlinks in it)
+        for path in self.hub_cache_dir.glob("**/blobs/**"):
+            assert not path.is_file()
+        for path in self.hub_cache_dir.glob("**/snapshots/**"):
+            assert not path.is_file()
+
+    def test_metadata_ok_and_revision_is_a_commit_hash_and_match(self):
+        # File already exists + commit_hash matches (and etag not even required)
+        self.file_path.write_text("content")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag="...")
+
+        # Download to local dir => no HEAD call needed
+        with self.with_patch_head() as mock:
+            self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, revision=self.commit_hash_1, local_dir=self.local_dir
             )
-            config_file = Path(local_dir) / CONFIG_NAME
-            self.assertEqual(returned_path, str(config_file))
-            self.assertTrue(config_file.is_file())
-            self.assertTrue(  # File is symlink (except in Windows CI)
-                config_file.is_symlink() if os.name != "nt" else not config_file.is_symlink()
+        mock.assert_not_called()
+
+    def test_metadata_ok_and_revision_is_a_commit_hash_and_mismatch(self):
+        # 1 HEAD call + 1 download
+        # File already exists + commit_hash mismatch
+        self.file_path.write_text("content")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag="...")
+
+        # Mismatch => download
+        with self.with_patch_download() as mock:
+            self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, revision=self.commit_hash_2, local_dir=self.local_dir
+            )
+        mock.assert_called_once()
+
+    def test_metadata_not_ok_and_revision_is_a_commit_hash(self):
+        # 1 HEAD call + 1 download
+        # File already exists but no metadata
+        self.file_path.write_text("content")
+
+        # Mismatch => download
+        with self.with_patch_download() as mock:
+            self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, revision=self.commit_hash_1, local_dir=self.local_dir
+            )
+        mock.assert_called_once()
+
+    def test_local_files_only_and_file_exists(self):
+        # must return without error
+        self.file_path.write_text("content2")
+
+        path = self.api.hf_hub_download(
+            self.repo_id, filename=self.file_name, local_dir=self.local_dir, local_files_only=True
+        )
+        assert Path(path) == self.file_path
+        assert self.file_path.read_text() == "content2"  # not overwritten even if wrong content
+
+    def test_local_files_only_and_file_missing(self):
+        # must raise
+        with self.assertRaises(LocalEntryNotFoundError):
+            self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, local_dir=self.local_dir, local_files_only=True
             )
 
-    def test_with_local_dir_and_symlinks_and_file_not_cached(self) -> None:
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            returned_path = hf_hub_download(
-                DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
-                local_dir=local_dir,
-                local_dir_use_symlinks=True,
+    def test_metadata_ok_and_etag_match(self):
+        # 1 HEAD call + return early
+        self.file_path.write_text("something")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag=self.file_etag)
+
+        with self.with_patch_download() as mock:
+            # Download from main => commit_hash mismatch but etag match => return early
+            self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        mock.assert_not_called()
+
+    def test_metadata_ok_and_etag_mismatch(self):
+        # 1 HEAD call + 1 download
+        self.file_path.write_text("something")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag="some_other_etag")
+
+        with self.with_patch_download() as mock:
+            # Download from main => commit_hash mismatch but etag match => return early
+            self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        mock.assert_called_once()
+
+    def test_metadata_ok_and_etag_match_and_force_download(self):
+        # force_download=True takes precedence on any other rule
+        self.file_path.write_text("something")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag=self.file_etag)
+
+        with self.with_patch_download() as mock:
+            self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True
             )
-            config_file = Path(local_dir) / CONFIG_NAME
-            self.assertEqual(returned_path, str(config_file))
-            self.assertTrue(config_file.is_file())
-            if os.name != "nt":  # File is symlink (except in Windows CI)
-                self.assertTrue(config_file.is_symlink())
-                blob_path = config_file.resolve()
-                self.assertTrue(self.cache_dir in blob_path.parents)  # blob is cached!
-            else:
-                self.assertFalse(config_file.is_symlink())
+        mock.assert_called_once()
 
-    def test_with_local_dir_and_no_symlink_and_file_cached(self) -> None:
-        # File already cached
-        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)
+    def test_metadata_not_ok_and_lfs_file_and_sha256_match(self):
+        # 1 HEAD call + 1 hash compute + return early
+        self.lfs_path.write_text("content")
 
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            with patch.object(
-                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
-            ) as mock:
-                returned_path = hf_hub_download(
-                    DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
-                    cache_dir=self.cache_dir,
-                    local_dir=local_dir,
-                    local_dir_use_symlinks=False,  # no symlinks
-                )
-                mock.assert_not_called()  # reused file from cache
+        with self.with_patch_download() as mock:
+            # Download from main
+            # => no metadata but it's an LFS file
+            # => compute local hash => matches => return early
+            self.api.hf_hub_download(self.repo_id, filename=self.lfs_name, local_dir=self.local_dir)
+        mock.assert_not_called()
 
-            config_file = Path(local_dir) / CONFIG_NAME
-            self.assertEqual(returned_path, str(config_file))
-            self.assertTrue(config_file.is_file())
-            self.assertFalse(config_file.is_symlink())
+    def test_metadata_not_ok_and_lfs_file_and_sha256_mismatch(self):
+        # 1 HEAD call + 1 file hash + 1 download
+        self.lfs_path.write_text("wrong_content")
 
-    def test_with_local_dir_and_no_symlink_and_file_not_cached(self) -> None:
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            with patch.object(
-                huggingface_hub.file_download, "http_get", wraps=huggingface_hub.file_download.http_get
-            ) as mock:
-                returned_path = hf_hub_download(
-                    DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
-                    cache_dir=self.cache_dir,
-                    local_dir=local_dir,
-                    local_dir_use_symlinks=False,  # no symlinks
-                )
-                mock.assert_called()  # no file cached => had to download it
+        # Download from main
+        # => no metadata but it's an LFS file
+        # => compute local hash => mismatches => download
+        path = self.api.hf_hub_download(self.repo_id, filename=self.lfs_name, local_dir=self.local_dir)
 
-            config_file = Path(local_dir) / CONFIG_NAME
-            self.assertEqual(returned_path, str(config_file))
-            self.assertTrue(config_file.is_file())
-            self.assertFalse(config_file.is_symlink())
+        # existing file overwritten
+        assert Path(path).read_text() == "content"
 
-            # Cache directory not used (no blobs, no symlinks in it)
-            for path in self.cache_dir.glob("**/blobs/**"):
-                self.assertFalse(path.is_file())
-            for path in self.cache_dir.glob("**/snapshots/**"):
-                self.assertFalse(path.is_file())
+    def test_file_exists_in_cache(self):
+        # 1 HEAD call + return early
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir)
 
-    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
-    def test_with_local_dir_and_auto_symlinks_and_file_cached(self) -> None:
-        # File already cached
-        hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir)  # 496 bytes -> small
-        hf_hub_download(DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir)  # 1.11kB -> "big"
-
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            config = hf_hub_download(
-                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
+        with self.with_patch_download() as mock:
+            # Download to local dir
+            # => file is already in Hub cache
+            # => we assume it's faster to make a local copy rather than re-downloading
+            # => duplicate file locally
+            path = self.api.hf_hub_download(
+                self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir, local_dir=self.local_dir
             )
-            readme = hf_hub_download(
-                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
-            )
-            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
-            if os.name != "nt":
-                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
+        mock.assert_not_called()
 
-    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 1024)
-    def test_with_local_dir_and_auto_symlinks_and_file_not_cached(self) -> None:
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            config = hf_hub_download(
-                DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=self.cache_dir, local_dir=local_dir
-            )
-            readme = hf_hub_download(
-                DUMMY_MODEL_ID, filename="README.md", cache_dir=self.cache_dir, local_dir=local_dir
-            )
-            self.assertFalse(Path(config).is_symlink())  # 496b => small => duplicated
-            if os.name != "nt":
-                self.assertTrue(Path(readme).is_symlink())  # 1.11kB => big => symlink
+        assert Path(path) == self.file_path
 
-    def test_with_local_dir_and_symlinks_and_overwrite(self) -> None:
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            config_path = Path(local_dir) / CONFIG_NAME
-            config_path.write_text("this will be overwritten")
-            hf_hub_download(
-                DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
-                local_dir=local_dir,
-                local_dir_use_symlinks=True,
-            )
-            if os.name != "nt":
-                self.assertTrue(config_path.is_symlink())
-            self.assertNotEqual(config_path.read_text(), "this will be overwritten")
+    def test_file_exists_and_overwrites(self):
+        # 1 HEAD call + 1 download
+        self.file_path.write_text("another content")
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        assert self.file_path.read_text() == "content"
 
-    def test_with_local_dir_and_no_symlinks_and_overwrite(self) -> None:
-        # Download to local dir
-        with SoftTemporaryDirectory() as local_dir:
-            config_path = Path(local_dir) / CONFIG_NAME
-            config_path.write_text("this will be overwritten")
-            hf_hub_download(
-                DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
-                cache_dir=self.cache_dir,
-                local_dir=local_dir,
-                local_dir_use_symlinks=False,
-            )
-            self.assertFalse(config_path.is_symlink())
-            self.assertNotEqual(config_path.read_text(), "this will be overwritten")
+    def test_resume_from_incomplete(self):
+        # An incomplete file already exists => use it
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
+        incomplete_path.write_text("XXXX")  # Here we put fake data to test the resume
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        self.file_path.read_text() == "XXXXent"
+
+    def test_do_not_resume_on_force_download(self):
+        # An incomplete file already exists but force_download=True
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path.parent.mkdir(parents=True, exist_ok=True)
+        incomplete_path.write_text("XXXX")
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
+        self.file_path.read_text() == "content"
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -978,21 +1038,11 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
     def setUpClass(cls):
         cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
-        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=cls.repo_id)
         cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=cls.repo_id)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.api.delete_repo(repo_id=cls.repo_id)
-
-    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
-    def test_download_file_in_cache_dir(self) -> None:
-        hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir)
-
-    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
-    def test_download_file_to_local_dir(self) -> None:
-        with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir, local_dir=local_dir)
 
     @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
     def test_download_folder_file_in_cache_dir(self) -> None:
@@ -1015,14 +1065,6 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
         relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
         with self.assertRaises(ValueError):
             _get_pointer_path("path/to/storage", "abcdef", relative_filename)
-
-    def test_to_local_dir_but_invalid_relative_filename(self) -> None:
-        # Cannot happen because of other protections, but just in case.
-        relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
-        with self.assertRaises(ValueError):
-            _to_local_dir(
-                "path/to/file_to_copy", "path/to/local/dir", relative_filename=relative_filename, use_symlinks=False
-            )
 
 
 class TestHttpGet(unittest.TestCase):
