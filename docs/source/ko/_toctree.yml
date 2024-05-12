@@ -48,8 +48,8 @@
       title: 개요
     - local: package_reference/login
       title: 로그인 및 로그아웃
-    - local: in_translation
-      title: (번역 중) Environment variables
+    - local: package_reference/environment_variables
+      title: 환경 변수
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
     - local: package_reference/hf_api
