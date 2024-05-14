@@ -2,25 +2,22 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Environment variables
+# 환경 변수[[environment-variables]]
 
-`huggingface_hub` can be configured using environment variables.
+`huggingface_hub`는 환경 변수를 사용해 설정할 수 있습니다.
 
-If you are unfamiliar with environment variable, here are generic articles about them
-[on macOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)
-and on [Windows](https://phoenixnap.com/kb/windows-set-environment-variable).
+환경 변수에 대해 잘 알지 못하다면 그에 대한 문서인 [macOS and Linux](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/)와 
+[Windows](https://phoenixnap.com/kb/windows-set-environment-variable)를 참고하세요.
 
-This page will guide you through all environment variables specific to `huggingface_hub`
-and their meaning.
+이 문서에서는 `huggingface_hub`와 관련된 모든 환경 변수와 그 의미에 대해 안내합니다.
 
-## Generic
+## 일반적인 변수[[generic]]
 
 ### HF_INFERENCE_ENDPOINT
 
-To configure the inference api base url. You might want to set this variable if your organization
-is pointing at an API Gateway rather than directly at the inference api.
+추론 API 기본 URL을 구성합니다. 조직에서 추론 API를 직접 가리키는 것이 아니라 API 게이트웨이를 가리키는 경우 이 변수를 설정할 수 있습니다.
 
-Defaults to `"https://api-inference.huggingface.com"`.
+기본값은 `"https://api-inference.huggingface.com"`입니다.
 
 ### HF_HOME
 
