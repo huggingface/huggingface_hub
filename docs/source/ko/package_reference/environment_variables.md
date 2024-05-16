@@ -21,32 +21,28 @@ rendered properly in your Markdown viewer.
 
 ### HF_HOME
 
-To configure where `huggingface_hub` will locally store data. In particular, your token
-and the cache will be stored in this folder.
+`huggingface_hub`가 어디에 데이터를 로컬로 저장할 지 위치를 구성합니다. 특히 토큰과 캐시가 이 폴더에 저장됩니다.
 
-Defaults to `"~/.cache/huggingface"` unless [XDG_CACHE_HOME](#xdgcachehome) is set.
+[XDG_CACHE_HOME](#xdgcachehome)이 설정되어 있지 않다면, 기본값은 `"~/.cache/huggingface"`입니다.
 
 ### HF_HUB_CACHE
 
-To configure where repositories from the Hub will be cached locally (models, datasets and
-spaces).
+Hub의 리포지토리가 로컬로 캐시될 위치(모델, 데이터세트 및 스페이스)를 구성합니다.
 
-Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
+기본값은 `"$HF_HOME/hub"` (예로 들면, 기본 설정은 `"~/.cache/huggingface/hub"`)입니다.
 
 ### HF_ASSETS_CACHE
 
-To configure where [assets](../guides/manage-cache#caching-assets) created by downstream libraries
-will be cached locally. Those assets can be preprocessed data, files downloaded from GitHub,
-logs,...
+다운스트림 라이브러리에서 생성된 [assets](../guides/manage-cache#caching-assets)가 로컬로 캐시되는 위치를 구성합니다.
+이 assets은 전처리된 데이터, GitHub에서 다운로드한 파일, 로그, ... 등이 될 수 있습니다.
 
-Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default).
+기본값은 `"$HF_HOME/assets"` (예로 들면, 기본 설정은 `"~/.cache/huggingface/assets"`)입니다.
 
 ### HF_TOKEN
 
-To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (in either `$HF_TOKEN_PATH` or `"$HF_HOME/token"` if the former is not set).
+Hub에 인증하기 위한 사용자 액세스 토큰을 구성합니다. 이 값을 설정하면 머신에 저장된 토큰을 덮어씁니다(`$HF_TOKEN_PATH`, 또는 `$HF_TOKEN_PATH`가 설정되지 않은 경우 `"$HF_HOME/token"`에 저장됨).
 
-For more details about authentication, check out [this section](../quick-start#authentication).
+인증에 대한 자세한 내용은 [이 섹션](../quick-start#인증)을 참조하세요.
 
 ### HF_TOKEN_PATH
 
