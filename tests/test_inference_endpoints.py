@@ -20,8 +20,8 @@ MOCK_INITIALIZING = {
     "provider": {"vendor": "aws", "region": "us-east-1"},
     "compute": {
         "accelerator": "cpu",
-        "instanceType": "c6i",
-        "instanceSize": "medium",
+        "instanceType": "intel-icl",
+        "instanceSize": "x2",
         "scaling": {"minReplica": 0, "maxReplica": 1},
     },
     "model": {
@@ -51,8 +51,8 @@ MOCK_RUNNING = {
     "provider": {"vendor": "aws", "region": "us-east-1"},
     "compute": {
         "accelerator": "cpu",
-        "instanceType": "c6i",
-        "instanceSize": "medium",
+        "instanceType": "intel-icl",
+        "instanceSize": "x2",
         "scaling": {"minReplica": 0, "maxReplica": 1},
     },
     "model": {
@@ -83,8 +83,8 @@ MOCK_FAILED = {
     "provider": {"vendor": "aws", "region": "us-east-1"},
     "compute": {
         "accelerator": "cpu",
-        "instanceType": "c6i",
-        "instanceSize": "medium",
+        "instanceType": "intel-icl",
+        "instanceSize": "x2",
         "scaling": {"minReplica": 0, "maxReplica": 1},
     },
     "model": {
