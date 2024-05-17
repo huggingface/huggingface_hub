@@ -22,8 +22,8 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ...     vendor="aws",
 ...     region="us-east-1",
 ...     type="protected",
-...     instance_size="medium",
-...     instance_type="c6i"
+...     instance_size="x2",
+...     instance_type="intel-icl"
 ... )
 ```
 
@@ -58,8 +58,8 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 ...     vendor="aws",
 ...     region="us-east-1",
 ...     type="protected",
-...     instance_size="medium",
-...     instance_type="g5.2xlarge",
+...     instance_size="x1",
+...     instance_type="nvidia-a10g",
 ...     custom_image={
 ...         "health_route": "/health",
 ...         "env": {
@@ -203,7 +203,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 
 # Update to larger instance
->>> endpoint.update(accelerator="cpu", instance_size="large", instance_type="c6i")
+>>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
 
