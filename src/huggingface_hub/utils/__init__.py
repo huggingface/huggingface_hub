@@ -63,7 +63,7 @@ from ._http import (
     reset_sessions,
 )
 from ._pagination import paginate
-from ._paths import IGNORE_GIT_FOLDER_PATTERNS, filter_repo_objects
+from ._paths import DEFAULT_IGNORE_PATTERNS, FORBIDDEN_FOLDERS, filter_repo_objects
 from ._runtime import (
     dump_environment_info,
     get_aiohttp_version,

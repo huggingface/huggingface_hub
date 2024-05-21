@@ -137,7 +137,7 @@ class ModelHubMixin:
     ...         pretrained_model_name_or_path: Union[str, Path],
     ...         *,
     ...         force_download: bool = False,
-    ...         resume_download: bool = False,
+    ...         resume_download: Optional[bool] = None,
     ...         proxies: Optional[Dict] = None,
     ...         token: Optional[Union[str, bool]] = None,
     ...         cache_dir: Optional[Union[str, Path]] = None,
@@ -400,7 +400,7 @@ class ModelHubMixin:
         pretrained_model_name_or_path: Union[str, Path],
         *,
         force_download: bool = False,
-        resume_download: bool = False,
+        resume_download: Optional[bool] = None,
         proxies: Optional[Dict] = None,
         token: Optional[Union[str, bool]] = None,
         cache_dir: Optional[Union[str, Path]] = None,
@@ -422,8 +422,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
             proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
@@ -538,7 +536,7 @@ class ModelHubMixin:
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
         proxies: Optional[Dict],
-        resume_download: bool,
+        resume_download: Optional[bool],
         local_files_only: bool,
         token: Optional[Union[str, bool]],
         **model_kwargs,
@@ -561,8 +559,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether to delete incompletely received files. Will attempt to resume the download if such a file exists.
             proxies (`Dict[str, str]`, *optional*):
                 A dictionary of proxy servers to use by protocol or endpoint (e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`).
@@ -720,7 +716,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         cache_dir: Optional[Union[str, Path]],
         force_download: bool,
         proxies: Optional[Dict],
-        resume_download: bool,
+        resume_download: Optional[bool],
         local_files_only: bool,
         token: Union[str, bool, None],
         map_location: str = "cpu",

@@ -224,23 +224,25 @@ The examples above show how to download from the latest commit on the main branc
 
 ### Download to a local folder
 
-The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option. The file is downloaded to a tmp file and then moved to the local dir to avoid having partially downloaded files in the local folder.
+The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
 
-<Tip warning={true}>
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local_dir` optimized for pulling only the latest changes.
 
-Downloading to a local directory comes with some downsides. Please check out the limitations in the [Download](./download#download-files-to-local-folder) guide before using `--local-dir`.
+<Tip>
+
+For more details on how downloading to a local file works, check out the [download](./download.md#download-files-to-a-local-folder) guide.
 
 </Tip>
 
 ```bash
->>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir .
+>>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir fuyu
 ...
-./model-00001-of-00002.safetensors
+fuyu/model-00001-of-00002.safetensors
 ```
 
 ### Specify cache directory
 
-By default, all files will be download to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can also specify a custom cache using `--cache-dir`:
+If not using `--local_dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache

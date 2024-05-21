@@ -326,6 +326,19 @@ class InferenceClientVCRTest(InferenceClientTest):
             "location": "San Francisco, CA",
         }
 
+    def test_chat_completion_unprocessable_entity(self) -> None:
+        """Regression test for #2225.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2225.
+        """
+        with self.assertRaises(HfHubHTTPError):
+            self.client.chat_completion(
+                "please output 'Observation'",  # Not a list of messages
+                stop=["Observation", "Final Answer"],
+                max_tokens=200,
+                model="meta-llama/Meta-Llama-3-70B-Instruct",
+            )
+
     @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")

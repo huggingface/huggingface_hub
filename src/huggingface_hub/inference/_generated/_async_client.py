@@ -45,7 +45,6 @@ from huggingface_hub.inference._common import (
     ContentT,
     ModelStatus,
     _async_stream_chat_completion_response_from_bytes,
-    _async_stream_chat_completion_response_from_text_generation,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -91,7 +90,6 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
-from huggingface_hub.inference._templating import render_chat_prompt
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
@@ -728,21 +726,26 @@ class AsyncInferenceClient:
                     ),
                     stream=stream,
                 )
-            except _import_aiohttp().ClientResponseError:
-                # Let's consider the server is not a chat completion server.
-                # Then we call again `chat_completion` which will render the chat template client side.
-                # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
-                _set_as_non_chat_completion_server(model)
-                return await self.chat_completion(
-                    messages=messages,
-                    model=model,
-                    stream=stream,
-                    max_tokens=max_tokens,
-                    seed=seed,
-                    stop=stop,
-                    temperature=temperature,
-                    top_p=top_p,
-                )
+            except _import_aiohttp().ClientResponseError as e:
+                if e.status in (400, 404, 500):
+                    # Let's consider the server is not a chat completion server.
+                    # Then we call again `chat_completion` which will render the chat template client side.
+                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                    _set_as_non_chat_completion_server(model)
+                    logger.warning(
+                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
+                    )
+                    return await self.chat_completion(
+                        messages=messages,
+                        model=model,
+                        stream=stream,
+                        max_tokens=max_tokens,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        top_p=top_p,
+                    )
+                raise
 
             if stream:
                 return _async_stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
@@ -750,44 +753,25 @@ class AsyncInferenceClient:
             return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
         # At this point, we know the server is not a chat completion server.
-        # We need to render the chat template client side based on the information we can fetch from
-        # the Hub API.
-
-        model_id = None
-        if model.startswith(("http://", "https://")):
-            # If URL, we need to know which model is served. This is not always possible.
-            # A workaround is to list the user Inference Endpoints and check if one of them correspond to the model URL.
-            # If not, we raise an error.
-            # TODO: fix when we have a proper API for this (at least for Inference Endpoints)
-            # TODO: what if Sagemaker URL?
-            # TODO: what if Azure URL?
-            from ..hf_api import HfApi
-
-            for endpoint in HfApi(token=self.token).list_inference_endpoints():
-                if endpoint.url == model:
-                    model_id = endpoint.repository
-                    break
-        else:
-            model_id = model
-
-        if model_id is None:
-            # If we don't have the model ID, we can't fetch the chat template.
-            # We raise an error.
+        # It means it's a transformers-backed server for which we can send a list of messages directly to the
+        # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
+        if stream:
             raise ValueError(
-                "Request can't be processed as the model ID can't be inferred from model URL. "
-                "This is needed to fetch the chat template from the Hub since the model is not "
-                "served with a Chat-completion API."
+                "Streaming token is not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. Please pass `stream=False` as input."
             )
-
-        # fetch chat template + tokens
-        prompt = render_chat_prompt(model_id=model_id, token=self.token, messages=messages)
+        if tool_choice is not None or tool_prompt is not None or tools is not None:
+            warnings.warn(
+                "Tools are not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. The provided tool parameters will be ignored."
+            )
 
         # generate response
         text_generation_output = await self.text_generation(
-            prompt=prompt,
-            details=True,
-            stream=stream,
+            prompt=messages,  # type: ignore # Not correct type but works implicitly
             model=model,
+            stream=False,
+            details=False,
             max_new_tokens=max_tokens,
             seed=seed,
             stop_sequences=stop,
@@ -795,34 +779,20 @@ class AsyncInferenceClient:
             top_p=top_p,
         )
 
-        created = int(time.time())
-
-        if stream:
-            return _async_stream_chat_completion_response_from_text_generation(text_generation_output)  # type: ignore [arg-type]
-
-        if isinstance(text_generation_output, TextGenerationOutput):
-            # General use case => format ChatCompletionOutput from text generation details
-            content: str = text_generation_output.generated_text
-            finish_reason: str = text_generation_output.details.finish_reason  # type: ignore[union-attr]
-        else:
-            # Corner case: if server doesn't support details (e.g. if not a TGI server), we only receive an output string.
-            # In such a case, `finish_reason` is set to `"unk"`.
-            content = text_generation_output  # type: ignore[assignment]
-            finish_reason = "unk"
-
+        # Format as a ChatCompletionOutput with dummy values for fields we can't provide
         return ChatCompletionOutput(
             id="dummy",
             model="dummy",
             object="dummy",
             system_fingerprint="dummy",
-            usage=None,  # type: ignore # set to None as we don't want to provide fake information
-            created=created,
+            usage=None,  # type: ignore # set to `None` as we don't want to provide false information
+            created=int(time.time()),
             choices=[
                 ChatCompletionOutputComplete(
-                    finish_reason=finish_reason,  # type: ignore
+                    finish_reason="unk",  # type: ignore # set to `unk` as we don't want to provide false information
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content=content,
+                        content=text_generation_output,
                         role="assistant",
                     ),
                 )
@@ -1841,6 +1811,13 @@ class AsyncInferenceClient:
         continues correctly.
 
         To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
+
+        <Tip>
+
+        If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
+
+        </Tip>
 
         Args:
             prompt (`str`):

@@ -18,7 +18,6 @@ import base64
 import io
 import json
 import logging
-import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -307,24 +306,6 @@ def _format_text_generation_stream_output(
     return output.token.text if not details else output
 
 
-def _stream_chat_completion_response_from_text_generation(
-    text_generation_output: Iterable[TextGenerationStreamOutput],
-) -> Iterable[ChatCompletionStreamOutput]:
-    """Used in `InferenceClient.chat_completion`."""
-    created = int(time.time())
-    for item in text_generation_output:
-        yield _format_chat_completion_stream_output_from_text_generation(item, created)
-
-
-async def _async_stream_chat_completion_response_from_text_generation(
-    text_generation_output: AsyncIterable[TextGenerationStreamOutput],
-) -> AsyncIterable[ChatCompletionStreamOutput]:
-    """Used in `AsyncInferenceClient.chat_completion`."""
-    created = int(time.time())
-    async for item in text_generation_output:
-        yield _format_chat_completion_stream_output_from_text_generation(item, created)
-
-
 def _format_chat_completion_stream_output_from_text_generation(
     item: TextGenerationStreamOutput, created: int
 ) -> ChatCompletionStreamOutput:
@@ -438,7 +419,6 @@ _NON_CHAT_COMPLETION_SERVER: Set[str] = set()
 
 
 def _set_as_non_chat_completion_server(model: str) -> None:
-    print("Set as non chat completion", model)
     _NON_CHAT_COMPLETION_SERVER.add(model)
 
 
