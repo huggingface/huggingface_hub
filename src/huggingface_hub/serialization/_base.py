@@ -14,7 +14,7 @@
 """Contains helpers to split tensors into shards."""
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from .. import logging
 
@@ -46,7 +46,7 @@ def split_state_dict_into_shards_factory(
     get_tensor_size: TensorSizeFn_T,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
     filename_pattern: str = FILENAME_PATTERN,
-    max_shard_size: int = MAX_SHARD_SIZE,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -88,6 +88,8 @@ def split_state_dict_into_shards_factory(
     current_shard: Dict[str, TensorT] = {}
     current_shard_size = 0
     total_size = 0
+
+    max_shard_size = convert_file_size_to_int(max_shard_size)
 
     for key, tensor in state_dict.items():
         # when bnb serialization is used the weights in the state dict can be strings
@@ -167,3 +169,47 @@ def split_state_dict_into_shards_factory(
         filename_to_tensors=filename_to_tensors,
         tensor_to_filename=tensor_name_to_filename,
     )
+
+
+def convert_file_size_to_int(size: Union[int, str]):
+    """
+    Converts a size expressed as a string with digits an unit (like `"5MB"`) to an integer (in bytes).
+
+    Args:
+        size (`int` or `str`): The size to convert. Will be directly returned if an `int`.
+
+    Example:
+
+    ```py
+    >>> convert_file_size_to_int("1MiB")
+    1048576
+    ```
+    """
+    mem_size = -1
+    err_msg = (
+        f"`size` {size} is not in a valid format. Use an integer for bytes, or a string with an unit (like '5.0GB')."
+    )
+    try:
+        if isinstance(size, int):
+            mem_size = size
+        elif size.upper().endswith("GIB"):
+            mem_size = int(float(size[:-3]) * (2**30))
+        elif size.upper().endswith("MIB"):
+            mem_size = int(float(size[:-3]) * (2**20))
+        elif size.upper().endswith("KIB"):
+            mem_size = int(float(size[:-3]) * (2**10))
+        elif size.upper().endswith("GB"):
+            int_size = int(float(size[:-2]) * (10**9))
+            mem_size = int_size // 8 if size.endswith("b") else int_size
+        elif size.upper().endswith("MB"):
+            int_size = int(float(size[:-2]) * (10**6))
+            mem_size = int_size // 8 if size.endswith("b") else int_size
+        elif size.upper().endswith("KB"):
+            int_size = int(float(size[:-2]) * (10**3))
+            mem_size = int_size // 8 if size.endswith("b") else int_size
+    except ValueError:
+        raise ValueError(err_msg)
+
+    if mem_size < 0:
+        raise ValueError(err_msg)
+    return mem_size
