@@ -1,12 +1,17 @@
+import copy
 import datetime
 import io
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from typing import Optional
 from unittest.mock import patch
 
 import fsspec
 import pytest
 
+from huggingface_hub import hf_file_system
 from huggingface_hub.hf_file_system import HfFileSystem, HfFileSystemFile, HfFileSystemStreamFile
 from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
@@ -51,6 +56,8 @@ class HfFileSystemTests(unittest.TestCase):
             repo_type="dataset",
         )
 
+        self.text_file = self.hf_path + "/data/text_data.txt"
+
     def tearDown(self):
         self.api.delete_repo(self.repo_id, repo_type="dataset")
 
@@ -68,7 +75,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIsNotNone(data_dir["last_commit"])
         self.assertIsNotNone(data_dir["tree_id"])
 
-        text_data_file = self.hffs.info(self.hf_path + "/data/text_data.txt")
+        text_data_file = self.hffs.info(self.text_file)
         self.assertEqual(text_data_file["type"], "file")
         self.assertGreater(text_data_file["size"], 0)  # not empty
         self.assertTrue(text_data_file["name"].endswith("/data/text_data.txt"))
@@ -78,7 +85,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIn("security", text_data_file)  # the staging endpoint does not run security checks
 
         # cached info
-        self.assertEqual(self.hffs.info(self.hf_path + "/data/text_data.txt"), text_data_file)
+        self.assertEqual(self.hffs.info(self.text_file), text_data_file)
 
     def test_glob(self):
         self.assertEqual(
@@ -137,7 +144,7 @@ class HfFileSystemTests(unittest.TestCase):
 
     def test_url(self):
         self.assertEqual(
-            self.hffs.url(self.hf_path + "/data/text_data.txt"),
+            self.hffs.url(self.text_file),
             f"{ENDPOINT_STAGING}/datasets/{self.repo_id}/resolve/main/data/text_data.txt",
         )
         self.assertEqual(
@@ -149,12 +156,10 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertTrue(
             self.hffs.isdir(self.hf_path + "/data") and not self.hffs.isdir(self.hf_path + "/.gitattributes")
         )
-        self.assertTrue(
-            self.hffs.isfile(self.hf_path + "/data/text_data.txt") and not self.hffs.isfile(self.hf_path + "/data")
-        )
+        self.assertTrue(self.hffs.isfile(self.text_file) and not self.hffs.isfile(self.hf_path + "/data"))
 
     def test_remove_file(self):
-        self.hffs.rm_file(self.hf_path + "/data/text_data.txt")
+        self.hffs.rm_file(self.text_file)
         self.assertEqual(self.hffs.glob(self.hf_path + "/data/*"), [self.hf_path + "/data/binary_data.bin"])
         self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
         self.assertEqual(self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*"), [])
@@ -166,7 +171,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertNotIn(self.hf_path + "@refs/pr/1" + "/data", self.hffs.ls(self.hf_path))
 
     def test_read_file(self):
-        with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
+        with self.hffs.open(self.text_file, "r") as f:
             self.assertIsInstance(f, io.TextIOWrapper)
             self.assertIsInstance(f.buffer, HfFileSystemFile)
             self.assertEqual(f.read(), "dummy text data")
@@ -210,16 +215,16 @@ class HfFileSystemTests(unittest.TestCase):
 
     @unittest.skip("Not implemented yet")
     def test_append_file(self):
-        with self.hffs.open(self.hf_path + "/data/text_data.txt", "a") as f:
+        with self.hffs.open(self.text_file, "a") as f:
             f.write(" appended text")
 
-        with self.hffs.open(self.hf_path + "/data/text_data.txt", "r") as f:
+        with self.hffs.open(self.text_file, "r") as f:
             self.assertEqual(f.read(), "dummy text data appended text")
 
     def test_copy_file(self):
         # Non-LFS file
-        self.assertIsNone(self.hffs.info(self.hf_path + "/data/text_data.txt")["lfs"])
-        self.hffs.cp_file(self.hf_path + "/data/text_data.txt", self.hf_path + "/data/text_data_copy.txt")
+        self.assertIsNone(self.hffs.info(self.text_file)["lfs"])
+        self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
         with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
             self.assertEqual(f.read(), "dummy text data")
         self.assertIsNone(self.hffs.info(self.hf_path + "/data/text_data_copy.txt")["lfs"])
@@ -231,11 +236,20 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIsNotNone(self.hffs.info(self.hf_path + "/data/binary_data_copy.bin")["lfs"])
 
     def test_modified_time(self):
-        self.assertIsInstance(self.hffs.modified(self.hf_path + "/data/text_data.txt"), datetime.datetime)
+        self.assertIsInstance(self.hffs.modified(self.text_file), datetime.datetime)
         self.assertIsInstance(self.hffs.modified(self.hf_path + "/data"), datetime.datetime)
         # should fail on a non-existing file
         with self.assertRaises(FileNotFoundError):
             self.hffs.modified(self.hf_path + "/data/not_existing_file.txt")
+
+    def test_open_if_not_found(self):
+        # Regression test: opening a missing file should raise a FileNotFoundError. This was not the case before when
+        # opening a file in read mode.
+        with self.assertRaises(FileNotFoundError):
+            self.hffs.open("hf://missing/repo/not_existing_file.txt", mode="r")
+
+        with self.assertRaises(FileNotFoundError):
+            self.hffs.open("hf://missing/repo/not_existing_file.txt", mode="w")
 
     def test_initialize_from_fsspec(self):
         fs, _, paths = fsspec.get_fs_token_paths(
@@ -248,7 +262,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIsInstance(fs, HfFileSystem)
         self.assertEqual(fs._api.endpoint, ENDPOINT_STAGING)
         self.assertEqual(fs.token, TOKEN)
-        self.assertEqual(paths, [self.hf_path + "/data/text_data.txt"])
+        self.assertEqual(paths, [self.text_file])
 
         fs, _, paths = fsspec.get_fs_token_paths(f"hf://{self.repo_id}/data/text_data.txt")
         self.assertIsInstance(fs, HfFileSystem)
@@ -295,7 +309,7 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertIn("security", files[1])  # the staging endpoint does not run security checks
 
     def test_list_data_file_no_revision(self):
-        files = self.hffs.ls(self.hf_path + "/data/text_data.txt")
+        files = self.hffs.ls(self.text_file)
         self.assertEqual(len(files), 1)
 
         self.assertEqual(files[0]["type"], "file")
@@ -378,7 +392,10 @@ class HfFileSystemTests(unittest.TestCase):
             repo_type="dataset",
         )
 
-        files = self.hffs.find(self.hf_path, detail=True)
+        # Copy the result to make it robust to the cache modifications
+        # See discussion in https://github.com/huggingface/huggingface_hub/pull/2103
+        # for info on why this is not done in `HfFileSystem.find` by default
+        files = copy.deepcopy(self.hffs.find(self.hf_path, detail=True))
 
         # some directories not in cache
         self.hffs.dircache.pop(self.hf_path + "/data/sub_data")
@@ -388,8 +405,62 @@ class HfFileSystemTests(unittest.TestCase):
         self.assertEqual(out, files)
 
     def test_find_data_file_no_revision(self):
-        files = self.hffs.find(self.hf_path + "/data/text_data.txt", detail=False)
-        self.assertEqual(files, [self.hf_path + "/data/text_data.txt"])
+        files = self.hffs.find(self.text_file, detail=False)
+        self.assertEqual(files, [self.text_file])
+
+    def test_read_bytes(self):
+        data = self.hffs.read_bytes(self.text_file)
+        self.assertEqual(data, b"dummy text data")
+
+    def test_read_text(self):
+        data = self.hffs.read_text(self.text_file)
+        self.assertEqual(data, "dummy text data")
+
+    def test_open_and_read(self):
+        with self.hffs.open(self.text_file, "r") as f:
+            self.assertEqual(f.read(), "dummy text data")
+
+    def test_partial_read(self):
+        # If partial read => should not download whole file
+        with patch.object(self.hffs, "get_file") as mock:
+            with self.hffs.open(self.text_file, "r") as f:
+                self.assertEqual(f.read(5), "dummy")
+            mock.assert_not_called()
+
+    def test_get_file_with_temporary_file(self):
+        # Test passing a file object works => happens "in-memory" for posix systems
+        with tempfile.TemporaryFile() as temp_file:
+            self.hffs.get_file(self.text_file, temp_file)
+            temp_file.seek(0)
+            assert temp_file.read() == b"dummy text data"
+
+    def test_get_file_with_temporary_folder(self):
+        # Test passing a file path works => compatible with hf_transfer
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = os.path.join(temp_dir, "temp_file.txt")
+            self.hffs.get_file(self.text_file, temp_file)
+            with open(temp_file, "rb") as f:
+                assert f.read() == b"dummy text data"
+
+    def test_get_file_with_kwargs(self):
+        # If custom kwargs are passed, the function should still work but defaults to base implementation
+        with patch.object(hf_file_system, "http_get") as mock:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = os.path.join(temp_dir, "temp_file.txt")
+                self.hffs.get_file(self.text_file, temp_file, custom_kwarg=123)
+            mock.assert_not_called()
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = os.path.join(temp_dir, "temp_file.txt")
+                self.hffs.get_file(self.text_file, temp_file)
+            mock.assert_called_once()
+
+    def test_get_file_on_folder(self):
+        # Test it works with custom kwargs
+        with tempfile.TemporaryDirectory() as temp_dir:
+            assert not (Path(temp_dir) / "data").exists()
+            self.hffs.get_file(self.hf_path + "/data", temp_dir + "/data")
+            assert (Path(temp_dir) / "data").exists()
 
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file"])

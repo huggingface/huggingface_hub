@@ -28,10 +28,11 @@ from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tupl
 from urllib.parse import unquote
 
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
-from huggingface_hub.utils import get_session
 
 from .utils import (
     build_hf_headers,
+    fix_hf_endpoint_in_url,
+    get_session,
     hf_raise_for_status,
     http_backoff,
     logging,
@@ -106,6 +107,7 @@ def post_lfs_batch_info(
     repo_id: str,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
@@ -121,10 +123,10 @@ def post_lfs_batch_info(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`, *optional*):
             The git revision to upload to.
+        headers (`dict`, *optional*):
+            Additional headers to include in the request
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -155,7 +157,12 @@ def post_lfs_batch_info(
     }
     if revision is not None:
         payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
-    headers = {**LFS_HEADERS, **build_hf_headers(token=token or True)}  # Token must be provided or retrieved
+
+    headers = {
+        **LFS_HEADERS,
+        **build_hf_headers(token=token),
+        **(headers or {}),
+    }
     resp = get_session().post(batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
@@ -182,7 +189,13 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
-def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: Optional[str]) -> None:
+def lfs_upload(
+    operation: "CommitOperationAdd",
+    lfs_batch_action: Dict,
+    token: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
@@ -194,8 +207,8 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object. See [`~utils.lfs.post_lfs_batch_info`] for
             more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
+        headers (`dict`, *optional*):
+            Headers to include in the request, including authentication and user agent headers.
 
     Raises:
         - `ValueError` if `lfs_batch_action` is improperly formatted
@@ -219,6 +232,7 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
     # 2. Upload file (either single part or multi-part)
     header = upload_action.get("header", {})
     chunk_size = header.get("chunk_size")
+    upload_url = fix_hf_endpoint_in_url(upload_action["href"], endpoint=endpoint)
     if chunk_size is not None:
         try:
             chunk_size = int(chunk_size)
@@ -226,16 +240,17 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
             raise ValueError(
                 f"Malformed response from LFS batch endpoint: `chunk_size` should be an integer. Got '{chunk_size}'."
             )
-        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_action["href"])
+        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_url)
     else:
-        _upload_single_part(operation=operation, upload_url=upload_action["href"])
+        _upload_single_part(operation=operation, upload_url=upload_url)
 
     # 3. Verify upload went well
     if verify_action is not None:
         _validate_lfs_action(verify_action)
+        verify_url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
         verify_resp = get_session().post(
-            verify_action["href"],
-            headers=build_hf_headers(token=token or True),
+            verify_url,
+            headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
         hf_raise_for_status(verify_resp)
@@ -415,7 +430,15 @@ def _upload_parts_hf_transfer(
     # see https://github.com/huggingface/huggingface_hub/pull/2000
     disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
 
-    with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
+    with tqdm(
+        unit="B",
+        unit_scale=True,
+        total=total,
+        initial=0,
+        desc=desc,
+        disable=disable,
+        name="huggingface_hub.lfs_upload",
+    ) as progress:
         try:
             output = multipart_upload(
                 file_path=operation.path_or_fileobj,

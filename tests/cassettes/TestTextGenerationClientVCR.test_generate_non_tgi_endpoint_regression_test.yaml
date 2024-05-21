@@ -1,0 +1,111 @@
+interactions:
+- request:
+    body: '{"inputs": "How are you today?", "parameters": {"best_of": null, "decoder_input_details":
+      false, "details": false, "do_sample": false, "max_new_tokens": 20, "repetition_penalty":
+      null, "return_full_text": false, "seed": null, "stop": [], "temperature": null,
+      "top_k": null, "top_p": null, "truncate": null, "typical_p": null, "watermark":
+      false}, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '363'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - fb7085c4-07d9-47c5-bbf9-bdc73720398f
+      user-agent:
+      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/google/flan-t5-large
+  response:
+    body:
+      string: '{"error":"The following `model_kwargs` are not used by the model: [''return_full_text'',
+        ''watermark'', ''stop'', ''decoder_input_details''] (note: typos
+        in the generate arguments will also show up in this list)","warnings":["There
+        was an inference error: The following `model_kwargs` are not used by the model:
+        [''return_full_text'', ''watermark'', ''stop'', ''decoder_input_details''] (note: typos in the generate arguments will also show up in this
+        list)"]}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 20 Mar 2024 10:34:43 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-expose-headers:
+      - x-compute-type, x-compute-time
+      server:
+      - uvicorn
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.002'
+      x-compute-type:
+      - cpu
+      x-request-id:
+      - UzkyAdcrW8iGZ1G22NaQm
+      x-sha:
+      - 0613663d0d48ea86ba8cb3d7a44f0f65dc596a2a
+    status:
+      code: 400
+      message: Bad Request
+- request:
+    body: '{"inputs": "How are you today?", "parameters": {"do_sample": false, "max_new_tokens":
+      20, "repetition_penalty": null, "seed": null, "temperature": null, "top_k":
+      null, "top_p": null, "truncate": null, "typical_p": null}, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '237'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - e7ffd399-0e70-4178-9939-12ceb0f6fedb
+      user-agent:
+      - unknown/None; hf_hub/0.22.0.dev0; python/3.10.12; torch/2.2.0; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/google/flan-t5-large
+  response:
+    body:
+      string: '[{"generated_text":"I am at work"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '35'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 20 Mar 2024 10:34:43 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.434'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 0caafN63HGaXbHkujJms2
+      x-sha:
+      - 0613663d0d48ea86ba8cb3d7a44f0f65dc596a2a
+    status:
+      code: 200
+      message: OK
+version: 1

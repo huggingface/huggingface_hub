@@ -3,10 +3,11 @@ import threading
 import time
 import unittest
 from multiprocessing import Process, Queue
-from typing import Generator
+from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
 from uuid import UUID
 
+import pytest
 import requests
 from requests import ConnectTimeout, HTTPError
 
@@ -14,6 +15,7 @@ from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.utils._http import (
     OfflineModeIsEnabled,
     configure_http_backend,
+    fix_hf_endpoint_in_url,
     get_session,
     http_backoff,
     reset_sessions,
@@ -200,7 +202,7 @@ class TestConfigureSession(unittest.TestCase):
         sessions = [None] * N
 
         def _get_session_in_thread(index: int) -> None:
-            time.sleep(0.01)
+            time.sleep(0.1)
             sessions[index] = get_session()
 
         # Get main thread session
@@ -292,3 +294,20 @@ def _is_uuid(string: str) -> bool:
     except ValueError:
         return False
     return str(uuid_obj) == string
+
+
+@pytest.mark.parametrize(
+    ("base_url", "endpoint", "expected_url"),
+    [
+        # Staging url => unchanged
+        ("https://hub-ci.huggingface.co/resolve/...", None, "https://hub-ci.huggingface.co/resolve/..."),
+        # Prod url => unchanged
+        ("https://huggingface.co/resolve/...", None, "https://huggingface.co/resolve/..."),
+        # Custom endpoint + staging url => fixed
+        ("https://hub-ci.huggingface.co/api/models", "https://mirror.co", "https://mirror.co/api/models"),
+        # Custom endpoint + prod url => fixed
+        ("https://huggingface.co/api/models", "https://mirror.co", "https://mirror.co/api/models"),
+    ],
+)
+def test_fix_hf_endpoint_in_url(base_url: str, endpoint: Optional[str], expected_url: str) -> None:
+    assert fix_hf_endpoint_in_url(base_url, endpoint) == expected_url

@@ -30,11 +30,14 @@ _package_versions = {}
 _CANDIDATES = {
     "aiohttp": {"aiohttp"},
     "fastai": {"fastai"},
+    "fastapi": {"fastapi"},
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
     "hf_transfer": {"hf_transfer"},
     "jinja": {"Jinja2"},
+    "keras": {"keras"},
+    "minijinja": {"minijinja"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
     "pydantic": {"pydantic"},
@@ -103,6 +106,15 @@ def get_fastai_version() -> str:
     return _get_version("fastai")
 
 
+# FastAPI
+def is_fastapi_available() -> bool:
+    return is_package_available("fastapi")
+
+
+def get_fastapi_version() -> str:
+    return _get_version("fastapi")
+
+
 # Fastcore
 def is_fastcore_available() -> bool:
     return is_package_available("fastcore")
@@ -137,6 +149,24 @@ def is_hf_transfer_available() -> bool:
 
 def get_hf_transfer_version() -> str:
     return _get_version("hf_transfer")
+
+
+# keras
+def is_keras_available() -> bool:
+    return is_package_available("keras")
+
+
+def get_keras_version() -> str:
+    return _get_version("keras")
+
+
+# Minijinja
+def is_minijinja_available() -> bool:
+    return is_package_available("minijinja")
+
+
+def get_minijinja_version() -> str:
+    return _get_version("minijinja")
 
 
 # Numpy
@@ -322,6 +352,7 @@ def dump_environment_info() -> Dict[str, Any]:
     info["Torch"] = get_torch_version()
     info["Jinja2"] = get_jinja_version()
     info["Graphviz"] = get_graphviz_version()
+    info["keras"] = get_keras_version()
     info["Pydot"] = get_pydot_version()
     info["Pillow"] = get_pillow_version()
     info["hf_transfer"] = get_hf_transfer_version()

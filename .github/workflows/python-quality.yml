@@ -16,6 +16,8 @@ on:
 jobs:
   check_code_quality:
     runs-on: ubuntu-latest
+    env:
+      UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
     steps:
       - uses: actions/checkout@v2
@@ -36,6 +38,7 @@ jobs:
       - run: .venv/bin/ruff check tests src contrib # linter
       - run: .venv/bin/ruff format --check tests src contrib # formatter
       - run: .venv/bin/python utils/check_contrib_list.py
+      - run: .venv/bin/python utils/check_inference_input_params.py
       - run: .venv/bin/python utils/check_static_imports.py
       - run: .venv/bin/python utils/generate_async_inference_client.py
       - run: .venv/bin/python utils/generate_inference_types.py

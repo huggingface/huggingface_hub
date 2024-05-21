@@ -17,6 +17,31 @@ from .automatic_speech_recognition import (
     AutomaticSpeechRecognitionParameters,
 )
 from .base import BaseInferenceType
+from .chat_completion import (
+    ChatCompletionInput,
+    ChatCompletionInputFunctionDefinition,
+    ChatCompletionInputMessage,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolCall,
+    ChatCompletionInputToolTypeClass,
+    ChatCompletionOutput,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputFunctionDefinition,
+    ChatCompletionOutputLogprob,
+    ChatCompletionOutputLogprobs,
+    ChatCompletionOutputMessage,
+    ChatCompletionOutputToolCall,
+    ChatCompletionOutputTopLogprob,
+    ChatCompletionOutputUsage,
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
+    ChatCompletionStreamOutputDeltaToolCall,
+    ChatCompletionStreamOutputFunction,
+    ChatCompletionStreamOutputLogprob,
+    ChatCompletionStreamOutputLogprobs,
+    ChatCompletionStreamOutputTopLogprob,
+)
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
     DocumentQuestionAnsweringInput,
@@ -56,13 +81,17 @@ from .table_question_answering import (
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
 from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
 from .text_generation import (
-    PrefillToken,
     TextGenerationInput,
+    TextGenerationInputGenerateParameters,
+    TextGenerationInputGrammarType,
     TextGenerationOutput,
+    TextGenerationOutputBestOfSequence,
     TextGenerationOutputDetails,
-    TextGenerationParameters,
-    TextGenerationSequenceDetails,
-    Token,
+    TextGenerationOutputPrefillToken,
+    TextGenerationOutputToken,
+    TextGenerationStreamOutput,
+    TextGenerationStreamOutputStreamDetails,
+    TextGenerationStreamOutputToken,
 )
 from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize

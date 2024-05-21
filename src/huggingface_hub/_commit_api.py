@@ -15,15 +15,14 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 
 from tqdm.contrib.concurrent import thread_map
 
-from huggingface_hub import get_session
-
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    FORBIDDEN_FOLDERS,
     EntryNotFoundError,
-    build_hf_headers,
     chunk_iterable,
+    get_session,
     hf_raise_for_status,
     logging,
     tqdm_stream_file,
@@ -256,11 +255,12 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
-    if any(part == ".git" for part in path_in_repo.split("/")):
-        raise ValueError(
-            "Invalid `path_in_repo` in CommitOperation: cannot update files under a '.git/' folder (path:"
-            f" '{path_in_repo}')."
-        )
+    for forbidden in FORBIDDEN_FOLDERS:
+        if any(part == forbidden for part in path_in_repo.split("/")):
+            raise ValueError(
+                f"Invalid `path_in_repo` in CommitOperation: cannot update files under a '{forbidden}/' folder (path:"
+                f" '{path_in_repo}')."
+            )
     return path_in_repo
 
 
@@ -319,7 +319,7 @@ def _upload_lfs_files(
     additions: List[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
     revision: Optional[str] = None,
@@ -338,8 +338,8 @@ def _upload_lfs_files(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
         revision (`str`, *optional*):
@@ -360,11 +360,12 @@ def _upload_lfs_files(
     for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],
-            token=token,
             repo_id=repo_id,
             repo_type=repo_type,
             revision=revision,
             endpoint=endpoint,
+            headers=headers,
+            token=None,  # already passed in 'headers'
         )
 
         # If at least 1 error, we do not retrieve information for other chunks
@@ -399,13 +400,13 @@ def _upload_lfs_files(
     def _wrapped_lfs_upload(batch_action) -> None:
         try:
             operation = oid2addop[batch_action["oid"]]
-            lfs_upload(operation=operation, lfs_batch_action=batch_action, token=token)
+            lfs_upload(operation=operation, lfs_batch_action=batch_action, headers=headers, endpoint=endpoint)
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
     if HF_HUB_ENABLE_HF_TRANSFER:
         logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
-        for action in hf_tqdm(filtered_actions):
+        for action in hf_tqdm(filtered_actions, name="huggingface_hub.lfs_upload"):
             _wrapped_lfs_upload(action)
     elif len(filtered_actions) == 1:
         logger.debug("Uploading 1 LFS file to the Hub")
@@ -443,7 +444,7 @@ def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
@@ -462,8 +463,8 @@ def _fetch_upload_modes(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
         gitignore_content (`str`, *optional*):
@@ -478,7 +479,6 @@ def _fetch_upload_modes(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    headers = build_hf_headers(token=token)
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}
@@ -527,7 +527,7 @@ def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
 ) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
@@ -546,8 +546,8 @@ def _fetch_files_to_copy(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
@@ -563,7 +563,7 @@ def _fetch_files_to_copy(
     """
     from .hf_api import HfApi, RepoFolder
 
-    hf_api = HfApi(endpoint=endpoint, token=token)
+    hf_api = HfApi(endpoint=endpoint, headers=headers)
     files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
@@ -582,7 +582,6 @@ def _fetch_files_to_copy(
                     files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
                 else:
                     # TODO: (optimization) download regular files to copy concurrently
-                    headers = build_hf_headers(token=token)
                     url = hf_hub_url(
                         endpoint=endpoint,
                         repo_type=repo_type,

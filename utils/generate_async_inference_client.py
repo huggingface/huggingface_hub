@@ -49,8 +49,11 @@ def generate_async_client_code(code: str) -> str:
     # Make all tasks-method async
     code = _make_tasks_methods_async(code)
 
-    # Adapt text_generation error catching
+    # Adapt text_generation to async
     code = _adapt_text_generation_to_async(code)
+
+    # Adapt chat_completion to async
+    code = _adapt_chat_completion_to_async(code)
 
     # Update some docstrings
     code = _rename_HTTPError_to_ClientResponseError_in_docstring(code)
@@ -284,26 +287,74 @@ def _adapt_text_generation_to_async(code: str) -> str:
     code = code.replace(
         """
         except HTTPError as e:
-            if isinstance(e, BadRequestError) and "The following `model_kwargs` are not used by the model" in str(e):
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
+            if isinstance(e, BadRequestError) and match:
     """,
         """
         except _import_aiohttp().ClientResponseError as e:
-            error_message = getattr(e, "response_error_payload", {}).get("error", "")
-            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
+            if e.status == 400 and match:
     """,
     )
 
     # Await recursive call
-    code = code.replace("return self.text_generation", "return await self.text_generation")
-
-    # Update return types: Iterable -> AsyncIterable
-    code = code.replace(") -> Iterable[str]:", ") -> AsyncIterable[str]:")
     code = code.replace(
-        ") -> Iterable[TextGenerationStreamResponse]:", ") -> AsyncIterable[TextGenerationStreamResponse]:"
+        "return self.text_generation",
+        "return await self.text_generation",
     )
     code = code.replace(
-        ") -> Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]:",
-        ") -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:",
+        "return self.chat_completion",
+        "return await self.chat_completion",
+    )
+
+    # Update return types: Iterable -> AsyncIterable
+    code = code.replace(
+        ") -> Iterable[str]:",
+        ") -> AsyncIterable[str]:",
+    )
+    code = code.replace(
+        ") -> Union[bytes, Iterable[bytes]]:",
+        ") -> Union[bytes, AsyncIterable[bytes]]:",
+    )
+    code = code.replace(
+        ") -> Iterable[TextGenerationStreamOutput]:",
+        ") -> AsyncIterable[TextGenerationStreamOutput]:",
+    )
+    code = code.replace(
+        ") -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]:",
+        ") -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]:",
+    )
+    code = code.replace(
+        ") -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:",
+        ") -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:",
+    )
+
+    return code
+
+
+def _adapt_chat_completion_to_async(code: str) -> str:
+    # Catch `aiohttp` error instead of `requests` error
+    code = code.replace(
+        """            except HTTPError as e:
+                if e.response.status_code in (400, 404, 500):""",
+        """            except _import_aiohttp().ClientResponseError as e:
+                if e.status in (400, 404, 500):""",
+    )
+
+    # Await text-generation call
+    code = code.replace(
+        "text_generation_output = self.text_generation(",
+        "text_generation_output = await self.text_generation(",
+    )
+
+    # Update return types: Iterable -> AsyncIterable
+    code = code.replace(
+        ") -> Iterable[ChatCompletionStreamOutput]:",
+        ") -> AsyncIterable[ChatCompletionStreamOutput]:",
+    )
+    code = code.replace(
+        ") -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:",
+        ") -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:",
     )
 
     return code
@@ -351,10 +402,14 @@ def _update_examples_in_public_methods(code: str) -> str:
 
 
 def _use_async_streaming_util(code: str) -> str:
-    return code.replace(
+    code = code.replace(
         "_stream_text_generation_response",
         "_async_stream_text_generation_response",
     )
+    code = code.replace(
+        "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
+    )
+    return code
 
 
 def _adapt_get_model_status(code: str) -> str:

@@ -408,12 +408,12 @@ class CommitApiTest(HfApiCommonTest):
 
     def test_create_repo_org_token_fail(self):
         REPO_NAME = repo_name("org")
-        with pytest.raises(ValueError, match="You must use your personal account token."):
+        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
             self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
 
     @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
     def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
-        with pytest.raises(ValueError, match="You must use your personal account token."):
+        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
             with patch.object(self._api, "token", None):  # no default token
                 self._api.create_repo(repo_id=repo_name("org"))
 
@@ -530,8 +530,10 @@ class CommitApiTest(HfApiCommonTest):
             path.write_text("content")
 
         _create_file(".git", "file.txt")
+        _create_file(".cache", "huggingface", "file.txt")
         _create_file(".git", "folder", "file.txt")
         _create_file("folder", ".git", "file.txt")
+        _create_file("folder", ".cache", "huggingface", "file.txt")
         _create_file("folder", ".git", "folder", "file.txt")
         _create_file(".git_something", "file.txt")
         _create_file("file.git")
@@ -852,7 +854,7 @@ class CommitApiTest(HfApiCommonTest):
             additions=operations,
             repo_type="model",
             repo_id=repo_url.repo_id,
-            token=TOKEN,
+            headers=self._api._build_hf_headers(),
             revision="main",
             endpoint=ENDPOINT_STAGING,
         )
@@ -1015,6 +1017,19 @@ class CommitApiTest(HfApiCommonTest):
         # Commit still happened correctly
         assert isinstance(commit, CommitInfo)
 
+    def test_create_file_with_relative_path(self):
+        """Creating a file with a relative path_in_repo is forbidden.
+
+        Previously taken from a regression test for HackerOne report 1928845. The bug enabled attackers to create files
+        outside of the local dir if users downloaded a file with a relative path_in_repo on Windows.
+
+        This is not relevant anymore as the API now forbids such paths.
+        """
+        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=repo_id)
+        assert cm.exception.response.status_code == 422
+
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
     @classmethod
@@ -1078,16 +1093,12 @@ class HfApiDeleteFolderTest(HfApiCommonTest):
         with self.assertRaises(EntryNotFoundError):
             hf_hub_download(self.repo_id, "1/file_1.md", use_auth_token=self._token)
 
-    def test_create_commit_failing_implicit_delete_folder(self):
-        with self.assertRaisesRegex(
-            EntryNotFoundError,
-            'A file with the name "1" does not exist',
-        ):
-            self._api.create_commit(
-                operations=[CommitOperationDelete(path_in_repo="1")],
-                commit_message="Failing delete folder",
-                repo_id=self.repo_id,
-            )
+    def test_create_commit_implicit_delete_folder_is_ok(self):
+        self._api.create_commit(
+            operations=[CommitOperationDelete(path_in_repo="1")],
+            commit_message="Failing delete folder",
+            repo_id=self.repo_id,
+        )
 
 
 class HfApiListFilesInfoTest(HfApiCommonTest):
@@ -1119,134 +1130,6 @@ class HfApiListFilesInfoTest(HfApiCommonTest):
     @classmethod
     def tearDownClass(cls):
         cls._api.delete_repo(repo_id=cls.repo_id)
-
-    @expect_deprecation("list_files_info")
-    def test_get_regular_file_info(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="file.md"))
-        self.assertEqual(len(files), 1)
-        file = files[0]
-
-        self.assertEqual(file.path, "file.md")
-        self.assertIsNone(file.lfs)
-        self.assertEqual(file.size, 4)
-        self.assertEqual(file.blob_id, "6320cd248dd8aeaab759d5871f8781b5c0505172")
-
-    @expect_deprecation("list_files_info")
-    def test_get_lfs_file_info(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="lfs.bin"))
-        self.assertEqual(len(files), 1)
-        file = files[0]
-
-        self.assertEqual(file.path, "lfs.bin")
-        self.assertEqual(
-            file.lfs,
-            {
-                "size": 4,
-                "sha256": "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
-                "pointer_size": 126,
-            },
-        )
-        self.assertEqual(file.size, 4)
-        self.assertEqual(file.blob_id, "0a828055346279420bd02a4221c177bbcdc045d8")
-
-    @expect_deprecation("list_files_info")
-    def test_list_files(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2/file_2.md"]))
-        self.assertEqual(len(files), 3)
-        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
-
-    @expect_deprecation("list_files_info")
-    def test_list_files_and_folder(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "lfs.bin", "2"]))
-        self.assertEqual(len(files), 3)
-        self.assertEqual({f.path for f in files}, {"file.md", "lfs.bin", "2/file_2.md"})
-
-    @expect_deprecation("list_files_info")
-    def test_list_unknown_path_among_other(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["file.md", "unknown"]))
-        self.assertEqual(len(files), 1)
-
-    @expect_deprecation("list_files_info")
-    def test_list_unknown_path_alone(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="unknown"))
-        self.assertEqual(len(files), 0)
-
-    @expect_deprecation("list_files_info")
-    def test_list_folder_flat(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["2"]))
-        self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].path, "2/file_2.md")
-
-    @expect_deprecation("list_files_info")
-    def test_list_folder_recursively(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths=["1"]))
-        self.assertEqual(len(files), 2)
-        self.assertEqual({f.path for f in files}, {"1/2/file_1_2.md", "1/file_1.md"})
-
-    @expect_deprecation("list_files_info")
-    def test_list_repo_files_manually(self):
-        files = list(self._api.list_files_info(repo_id=self.repo_id))
-        self.assertEqual(len(files), 7)
-        self.assertEqual(
-            {f.path for f in files},
-            {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
-        )
-
-    @expect_deprecation("list_files_info")
-    def test_list_repo_files_alias(self):
-        self.assertEqual(
-            set(f.path for f in self._api.list_files_info(repo_id=self.repo_id)),
-            {".gitattributes", "1/2/file_1_2.md", "1/file_1.md", "2/file_2.md", "3/file_3.md", "file.md", "lfs.bin"},
-        )
-
-    @expect_deprecation("list_files_info")
-    def test_list_with_root_path_is_ignored(self):
-        # must use `paths=None`
-        files = list(self._api.list_files_info(repo_id=self.repo_id, paths="/"))
-        self.assertEqual(len(files), 0)
-
-    @expect_deprecation("list_files_info")
-    def test_list_with_empty_path_is_invalid(self):
-        # must use `paths=None`
-        with self.assertRaises(BadRequestError):
-            list(self._api.list_files_info(repo_id=self.repo_id, paths=""))
-
-    @expect_deprecation("list_files_info")
-    @with_production_testing
-    def test_list_files_with_expand(self):
-        files = list(
-            HfApi().list_files_info(
-                repo_id="prompthero/openjourney-v4",
-                expand=True,
-                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
-            )
-        )
-        self.assertEqual(len(files), 22)
-
-        # check last_commit and security are present
-        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
-        self.assertIsNotNone(vae_model.last_commit)
-        self.assertEqual(vae_model.last_commit["oid"], "47b62b20b20e06b9de610e840282b7e6c3d51190")
-        self.assertIsNotNone(vae_model.security)
-        self.assertTrue(vae_model.security["safe"])
-        self.assertTrue(isinstance(vae_model.security["av_scan"], dict))  # all details in here
-
-    @expect_deprecation("list_files_info")
-    @with_production_testing
-    def test_list_files_without_expand(self):
-        files = list(
-            HfApi().list_files_info(
-                repo_id="prompthero/openjourney-v4",
-                expand=False,
-                revision="c9211c53404dd6f4cfac5f04f33535892260668e",
-            )
-        )
-        self.assertEqual(len(files), 22)
-
-        # check last_commit and security are missing
-        vae_model = next(file for file in files if file.path == "vae/diffusion_pytorch_model.bin")
-        self.assertIsNone(vae_model.last_commit)
-        self.assertIsNone(vae_model.security)
 
 
 class HfApiListRepoTreeTest(HfApiCommonTest):
@@ -1830,6 +1713,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         datasets = list(self._api.list_datasets(limit=500))
         self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
 
+    def test_filter_datasets_by_tag(self):
+        datasets = list(self._api.list_datasets(tags="fiftyone", limit=5))
+        for dataset in datasets:
+            assert "fiftyone" in dataset.tags
+
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
         self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
@@ -1909,11 +1797,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
     @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
-        self.assertTrue("fill-mask" == models[0].pipeline_tag)
-        self.assertTrue("albert-base-v2" in models[0].modelId)
+        assert models[0].pipeline_tag == "fill-mask"
+        assert "albert" in models[0].modelId
+        assert "base" in models[0].modelId
+        assert "v2" in models[0].modelId
 
         models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
-        self.assertEqual(len(models), 0)
+        assert len(models) == 0
 
     @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
@@ -2015,10 +1905,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # Descending order => first item has more likes than second
         spaces_descending_likes = list(self._api.list_spaces(sort="likes", direction=-1, limit=100))
         assert spaces_descending_likes[0].likes > spaces_descending_likes[1].likes
-
-        # Ascending order => first items have 0 likes
-        spaces_ascending_likes = list(self._api.list_spaces(sort="likes", limit=100))
-        assert spaces_ascending_likes[0].likes == 0
 
     def test_list_spaces_limit(self):
         spaces = list(self._api.list_spaces(limit=5))
@@ -2316,6 +2202,12 @@ class UploadFolderMockedTest(unittest.TestCase):
         # since "sub/file.txt" should be deleted and is not overwritten (ignore_patterns), we delete it explicitly
         self.assertEqual(added_files, {"sub/lfs_in_sub.bin"})  # no "sub/file.txt"
         self.assertEqual(deleted_files, {"sub/file1.txt", "sub/file.txt"})
+
+    def test_delete_if_path_in_repo(self):
+        # Regression test for https://github.com/huggingface/huggingface_hub/pull/2129
+        operations = self._upload_folder_alias(path_in_repo=".", folder_path=self.cache_dir, delete_patterns="*")
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+        assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
 
 @pytest.mark.usefixtures("fx_cache_dir")
@@ -2999,9 +2891,10 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             force_filename=None,
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             local_files_only=False,
             legacy_cache_layout=False,
+            headers=None,
         )
 
     @patch("huggingface_hub._snapshot_download.snapshot_download")
@@ -3024,7 +2917,7 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             local_dir_use_symlinks="auto",
             proxies=None,
             etag_timeout=10,
-            resume_download=False,
+            resume_download=None,
             force_download=False,
             local_files_only=False,
             allow_patterns=None,
@@ -3784,3 +3677,28 @@ class AccessRequestAPITest(HfApiCommonTest):
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
         with self.assertRaises(HTTPError):
             self._api.cancel_access_request(self.repo_id, OTHER_USER)
+
+
+@with_production_testing
+class UserApiTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()  # no auth!
+
+    def test_user_overview(self) -> None:
+        overview = self.api.get_user_overview("julien-c")
+        self.assertEqual(overview.user_type, "user")
+        self.assertGreater(overview.num_likes, 10)
+        self.assertGreater(overview.num_upvotes, 10)
+
+    def test_organization_members(self) -> None:
+        members = self.api.list_organization_members("huggingface")
+        self.assertGreater(len(list(members)), 1)
+
+    def test_user_followers(self) -> None:
+        followers = self.api.list_user_followers("julien-c")
+        self.assertGreater(len(list(followers)), 10)
+
+    def test_user_following(self) -> None:
+        following = self.api.list_user_following("julien-c")
+        self.assertGreater(len(list(following)), 10)

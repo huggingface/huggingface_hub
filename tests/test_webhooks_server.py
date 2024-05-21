@@ -79,10 +79,40 @@ WEBHOOK_PAYLOAD_UPDATE_DISCUSSION = {  # valid payload but doesn't have a "comme
     "webhook": {"id": "656a05348c99518820a4dd54", "version": 3},
 }
 
+WEBHOOK_PAYLOAD_WITH_UPDATED_REFS = {
+    "event": {"action": "update", "scope": "repo.content"},
+    "repo": {
+        "type": "space",
+        "name": "Wauplin/gradio-user-history",
+        "id": "651311c46de9c503f3f34a9e",
+        "private": False,
+        "subdomain": "wauplin-gradio-user-history",
+        "url": {
+            "web": "https://huggingface.co/spaces/Wauplin/gradio-user-history",
+            "api": "https://huggingface.co/api/spaces/Wauplin/gradio-user-history",
+        },
+        "headSha": "5e7f29fffcc579cb52539fddb14a1a4f85f39e44",
+        "owner": {
+            "id": "6273f303f6d63a28483fde12",
+        },
+    },
+    "webhook": {
+        "id": "65a14fd933eca76f4639fc84",
+        "version": 3,
+    },
+    "updatedRefs": [
+        {
+            "ref": "refs/pr/5",
+            "oldSha": None,
+            "newSha": "227c78346870a85e5de4fff8a585db68df975406",
+        }
+    ],
+}
+
 
 def test_deserialize_payload_example_with_comment() -> None:
     """Confirm that the test stub can actually be deserialized."""
-    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
+    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_CREATE_DISCUSSION)
     assert payload.event.scope == WEBHOOK_PAYLOAD_CREATE_DISCUSSION["event"]["scope"]
     assert payload.comment is not None
     assert payload.comment.content == "Add co2 emissions information to the model card"
@@ -90,9 +120,18 @@ def test_deserialize_payload_example_with_comment() -> None:
 
 def test_deserialize_payload_example_without_comment() -> None:
     """Confirm that the test stub can actually be deserialized."""
-    payload = WebhookPayload.parse_obj(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
+    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_UPDATE_DISCUSSION)
     assert payload.event.scope == WEBHOOK_PAYLOAD_UPDATE_DISCUSSION["event"]["scope"]
     assert payload.comment is None
+
+
+def test_deserialize_payload_example_with_updated_refs() -> None:
+    """Confirm that the test stub can actually be deserialized."""
+    payload = WebhookPayload.model_validate(WEBHOOK_PAYLOAD_WITH_UPDATED_REFS)
+    assert payload.updatedRefs is not None
+    assert payload.updatedRefs[0].ref == "refs/pr/5"
+    assert payload.updatedRefs[0].oldSha is None
+    assert payload.updatedRefs[0].newSha == "227c78346870a85e5de4fff8a585db68df975406"
 
 
 @requires("gradio")
@@ -193,8 +232,9 @@ class TestWebhooksServerRun(unittest.TestCase):
             self.mocked_run_app()
 
         instructions = output.getvalue()
-        self.assertIn("Webhooks are correctly setup and ready to use:", instructions)
-        self.assertIn("- POST http://127.0.0.1:7860/webhooks/test_webhook", instructions)
+        assert "Webhooks are correctly setup and ready to use:" in instructions
+        assert "- POST http://127.0.0.1:" in instructions  # port is usually 7860 but can be dynamic
+        assert "/webhooks/test_webhook" in instructions
 
     def test_run_parse_payload(self):
         """Test that the payload is correctly parsed when running the app."""

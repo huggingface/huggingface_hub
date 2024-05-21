@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.22.0.dev0"
+__version__ = "0.23.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -198,7 +198,6 @@ _SUBMOD_ATTRS = {
         "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
-        "list_files_info",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
@@ -270,6 +269,29 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionOutput",
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
+        "ChatCompletionInput",
+        "ChatCompletionInputFunctionDefinition",
+        "ChatCompletionInputMessage",
+        "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
+        "ChatCompletionInputToolTypeClass",
+        "ChatCompletionOutput",
+        "ChatCompletionOutputComplete",
+        "ChatCompletionOutputFunctionDefinition",
+        "ChatCompletionOutputLogprob",
+        "ChatCompletionOutputLogprobs",
+        "ChatCompletionOutputMessage",
+        "ChatCompletionOutputToolCall",
+        "ChatCompletionOutputTopLogprob",
+        "ChatCompletionOutputUsage",
+        "ChatCompletionStreamOutput",
+        "ChatCompletionStreamOutputChoice",
+        "ChatCompletionStreamOutputDelta",
+        "ChatCompletionStreamOutputDeltaToolCall",
+        "ChatCompletionStreamOutputFunction",
+        "ChatCompletionStreamOutputLogprob",
+        "ChatCompletionStreamOutputLogprobs",
+        "ChatCompletionStreamOutputTopLogprob",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -298,7 +320,6 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
-        "PrefillToken",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -318,10 +339,16 @@ _SUBMOD_ATTRS = {
         "TextClassificationOutputElement",
         "TextClassificationParameters",
         "TextGenerationInput",
+        "TextGenerationInputGenerateParameters",
+        "TextGenerationInputGrammarType",
         "TextGenerationOutput",
+        "TextGenerationOutputBestOfSequence",
         "TextGenerationOutputDetails",
-        "TextGenerationParameters",
-        "TextGenerationSequenceDetails",
+        "TextGenerationOutputPrefillToken",
+        "TextGenerationOutputToken",
+        "TextGenerationStreamOutput",
+        "TextGenerationStreamOutputStreamDetails",
+        "TextGenerationStreamOutputToken",
         "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
@@ -330,7 +357,6 @@ _SUBMOD_ATTRS = {
         "TextToImageOutput",
         "TextToImageParameters",
         "TextToImageTargetSize",
-        "Token",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
@@ -491,14 +517,14 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     def __dir__():
         return __all__
 
-    if os.environ.get("EAGER_IMPORT", ""):
-        for attr in set(attr_to_modules.keys()) | submodules:
-            __getattr__(attr)
-
     return __getattr__, __dir__, list(__all__)
 
 
 __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
+
+if os.environ.get("EAGER_IMPORT", ""):
+    for attr in __all__:
+        __getattr__(attr)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !
@@ -652,7 +678,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
-        list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
@@ -722,6 +747,29 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutput,  # noqa: F401
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
+        ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputFunctionDefinition,  # noqa: F401
+        ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
+        ChatCompletionInputToolTypeClass,  # noqa: F401
+        ChatCompletionOutput,  # noqa: F401
+        ChatCompletionOutputComplete,  # noqa: F401
+        ChatCompletionOutputFunctionDefinition,  # noqa: F401
+        ChatCompletionOutputLogprob,  # noqa: F401
+        ChatCompletionOutputLogprobs,  # noqa: F401
+        ChatCompletionOutputMessage,  # noqa: F401
+        ChatCompletionOutputToolCall,  # noqa: F401
+        ChatCompletionOutputTopLogprob,  # noqa: F401
+        ChatCompletionOutputUsage,  # noqa: F401
+        ChatCompletionStreamOutput,  # noqa: F401
+        ChatCompletionStreamOutputChoice,  # noqa: F401
+        ChatCompletionStreamOutputDelta,  # noqa: F401
+        ChatCompletionStreamOutputDeltaToolCall,  # noqa: F401
+        ChatCompletionStreamOutputFunction,  # noqa: F401
+        ChatCompletionStreamOutputLogprob,  # noqa: F401
+        ChatCompletionStreamOutputLogprobs,  # noqa: F401
+        ChatCompletionStreamOutputTopLogprob,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -750,7 +798,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
-        PrefillToken,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -770,10 +817,16 @@ if TYPE_CHECKING:  # pragma: no cover
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
         TextGenerationInput,  # noqa: F401
+        TextGenerationInputGenerateParameters,  # noqa: F401
+        TextGenerationInputGrammarType,  # noqa: F401
         TextGenerationOutput,  # noqa: F401
+        TextGenerationOutputBestOfSequence,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
-        TextGenerationParameters,  # noqa: F401
-        TextGenerationSequenceDetails,  # noqa: F401
+        TextGenerationOutputPrefillToken,  # noqa: F401
+        TextGenerationOutputToken,  # noqa: F401
+        TextGenerationStreamOutput,  # noqa: F401
+        TextGenerationStreamOutputStreamDetails,  # noqa: F401
+        TextGenerationStreamOutputToken,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
@@ -782,7 +835,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
         TextToImageTargetSize,  # noqa: F401
-        Token,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401

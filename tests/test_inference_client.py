@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,6 +23,10 @@ from PIL import Image
 
 from huggingface_hub import (
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
+    ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -41,7 +46,7 @@ from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFEREN
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -69,6 +74,74 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
+
+CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+CHAT_COMPLETION_MESSAGES = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is deep learning?"},
+]
+CHAT_COMPLETE_NON_TGI_MODEL = "microsoft/DialoGPT-small"
+
+CHAT_COMPLETION_TOOL_INSTRUCTIONS = [
+    {
+        "role": "system",
+        "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.",
+    },
+    {
+        "role": "user",
+        "content": "What's the weather like the next 3 days in San Francisco, CA?",
+    },
+]
+CHAT_COMPLETION_TOOLS = [  # 1 tool to get current weather, 1 to get N-day weather forecast
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                },
+                "required": ["location", "format"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_n_day_weather_forecast",
+            "description": "Get an N-day weather forecast",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                    "num_days": {
+                        "type": "integer",
+                        "description": "The number of days to forecast",
+                    },
+                },
+                "required": ["location", "format", "num_days"],
+            },
+        },
+    },
+]
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -127,6 +200,146 @@ class InferenceClientVCRTest(InferenceClientTest):
             chunks=None,
         )
 
+    def test_chat_completion_no_stream(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETION_MODEL,
+            stream=False,
+        )
+        assert isinstance(output, ChatCompletionOutput)
+        assert output.created < time.time()
+        assert output.choices == [
+            ChatCompletionOutputComplete(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputMessage(
+                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
+                    role="assistant",
+                ),
+            )
+        ]
+
+    def test_chat_completion_with_stream(self) -> None:
+        output = list(
+            self.client.chat_completion(
+                messages=CHAT_COMPLETION_MESSAGES,
+                model=CHAT_COMPLETION_MODEL,
+                stream=True,
+                max_tokens=20,
+            )
+        )
+
+        assert isinstance(output, list)
+        assert all(isinstance(item, ChatCompletionStreamOutput) for item in output)
+        created = output[0].created
+        assert all(item.created == created for item in output)  # all tokens share the same timestamp
+
+        # All items except the last one have a single choice with role/content delta
+        for item in output[:-1]:
+            assert len(item.choices) == 1
+            assert item.choices[0].finish_reason is None
+            assert item.choices[0].index == 0
+            assert item.choices[0].delta.role == "assistant"
+            assert item.choices[0].delta.content is not None
+
+        # Last item has a finish reason but no role/content delta
+        assert output[-1].choices[0].finish_reason == "length"
+        assert output[-1].choices[0].delta.role is None
+        assert output[-1].choices[0].delta.content is None
+
+        # Reconstruct generated text
+        generated_text = "".join(
+            item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
+        )
+        expected_text = "Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to"
+        assert generated_text == expected_text
+
+    def test_chat_completion_with_non_tgi(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETE_NON_TGI_MODEL,
+            stream=False,
+            max_tokens=20,
+        )
+        assert output == ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,
+            choices=[
+                ChatCompletionOutputComplete(
+                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    index=0,
+                    message=ChatCompletionOutputMessage(
+                        content="Deep learning is a thing.",
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=output.created,
+        )
+
+    def test_chat_completion_with_tool(self) -> None:
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="auto",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+
+        # Single message before EOS
+        assert output.finish_reason == "eos_token"
+        assert output.index == 0
+        assert output.message.role == "assistant"
+
+        # No content but a tool call
+        assert output.message.content is None
+        assert len(output.message.tool_calls) == 1
+
+        # Tool
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.type == "function"
+        assert tool_call.function.name == "get_n_day_weather_forecast"
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+            "num_days": 3,
+        }
+
+        # Now, test with tool_choice="get_current_weather"
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="get_current_weather",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.function.name == "get_current_weather"
+        # No need for 'num_days' with this tool
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+        }
+
+    def test_chat_completion_unprocessable_entity(self) -> None:
+        """Regression test for #2225.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2225.
+        """
+        with self.assertRaises(HfHubHTTPError):
+            self.client.chat_completion(
+                "please output 'Observation'",  # Not a list of messages
+                stop=["Observation", "Final Answer"],
+                max_tokens=200,
+                model="meta-llama/Meta-Llama-3-70B-Instruct",
+            )
+
+    @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
         self.assertEqual(
@@ -453,6 +666,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item.label, str)
             self.assertIsInstance(item.score, float)
 
+    @expect_deprecation("InferenceClient.conversational")
     def test_unprocessable_entity_error(self) -> None:
         with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
             self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")

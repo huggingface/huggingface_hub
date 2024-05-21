@@ -126,42 +126,21 @@ files except `vocab.json`.
 >>> snapshot_download(repo_id="gpt2", allow_patterns=["*.md", "*.json"], ignore_patterns="vocab.json")
 ```
 
-## Download file(s) to local folder
+## Download file(s) to a local folder
 
-The recommended (and default) way to download files from the Hub is to use the [cache-system](./manage-cache).
-You can define your cache location by setting `cache_dir` parameter (both in [`hf_hub_download`] and [`snapshot_download`]).
+By default, we recommend using the [cache system](./manage-cache) to download files from the Hub. You can specify a custom cache location using the `cache_dir` parameter in [`hf_hub_download`] and [`snapshot_download`], or by setting the [`HF_HOME`](../package_reference/environment_variables#hf_home) environment variable.
 
-However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow
-closer to what `git` commands offer. You can do that using the `local_dir` and `local_dir_use_symlinks` parameters:
-- `local_dir` must be a path to a folder on your system. The downloaded files will keep the same file structure as in the
-repo. For example if `filename="data/train.csv"` and `local_dir="path/to/folder"`, then the returned filepath will be
-`"path/to/folder/data/train.csv"`.
-- `local_dir_use_symlinks` defines how the file must be saved in your local folder.
-  - The default behavior (`"auto"`) is to duplicate small files (<5MB) and use symlinks for bigger files. Symlinks allow
-    to optimize both bandwidth and disk usage. However manually editing a symlinked file might corrupt the cache, hence
-    the duplication for small files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-    environment variable.
-  - If `local_dir_use_symlinks=True` is set, all files are symlinked for an optimal disk space optimization. This is
-    for example useful when downloading a huge dataset with thousands of small files.
-  - Finally, if you don't want symlinks at all you can disable them (`local_dir_use_symlinks=False`). The cache directory
-    will still be used to check whether the file is already cached or not. If already cached, the file is **duplicated**
-    from the cache (i.e. saves bandwidth but increases disk usage). If the file is not already cached, it will be
-    downloaded and moved directly to the local dir. This means that if you need to reuse it somewhere else later, it
-    will be **re-downloaded**.
+However, if you need to download files to a specific folder, you can pass a `local_dir` parameter to the download function. This is useful to get a workflow closer to what the `git` command offers. The downloaded files will maintain their original file structure within the specified folder. For example, if `filename="data/train.csv"` and `local_dir="path/to/folder"`, the resulting filepath will be `"path/to/folder/data/train.csv"`.
 
-Here is a table that summarizes the different options to help you choose the parameters that best suit your use case.
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local_dir` optimized for pulling only the latest changes.
 
-<!-- Generated with https://www.tablesgenerator.com/markdown_tables -->
-| Parameters | File already cached | Returned path | Can read path? | Can save to path? | Optimized bandwidth | Optimized disk usage |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `local_dir=None` |  | symlink in cache | ✅ | ❌<br>_(save would corrupt the cache)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks="auto"` |  | file or symlink in folder | ✅ | ✅ _(for small files)_ <br> ⚠️ _(for big files do not resolve path before saving)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=True` |  | symlink in folder | ✅ | ⚠️<br>_(do not resolve path before saving)_ | ✅ | ✅ |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | No | file in folder | ✅ | ✅ | ❌<br>_(if re-run, file is re-downloaded)_ | ⚠️<br>(multiple copies if ran in multiple folders) |
-| `local_dir="path/to/folder"`<br>`local_dir_use_symlinks=False` | Yes | file in folder | ✅ | ✅ | ⚠️<br>_(file has to be cached first)_ | ❌<br>_(file is duplicated)_ |
+After completing the download, you can safely remove the `.cache/huggingface/` folder if you no longer need it. However, be aware that re-running your script without this folder may result in longer recovery times, as metadata will be lost. Rest assured that your local data will remain intact and unaffected.
 
-**Note:** if you are on a Windows machine, you need to enable developer mode or run `huggingface_hub` as admin to enable
-symlinks. Check out the [cache limitations](../guides/manage-cache#limitations) section for more details.
+<Tip>
+
+Don't worry about the `.cache/huggingface/` folder when committing changes to the Hub! This folder is automatically ignored by both `git` and [`upload_folder`].
+
+</Tip>
 
 ## Download from the CLI
 

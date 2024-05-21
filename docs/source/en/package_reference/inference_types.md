@@ -49,6 +49,56 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## chat_completion
+
+[[autodoc]] huggingface_hub.ChatCompletionInput
+
+[[autodoc]] huggingface_hub.ChatCompletionInputFunctionDefinition
+
+[[autodoc]] huggingface_hub.ChatCompletionInputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionInputTool
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolTypeClass
+
+[[autodoc]] huggingface_hub.ChatCompletionOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputComplete
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputFunctionDefinition
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputLogprobs
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputTopLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionOutputUsage
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutput
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputChoice
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDelta
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputDeltaToolCall
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputFunction
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputLogprobs
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
+
+
+
 ## depth_estimation
 
 [[autodoc]] huggingface_hub.DepthEstimationInput
@@ -203,19 +253,27 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_generation
 
-[[autodoc]] huggingface_hub.PrefillToken
-
 [[autodoc]] huggingface_hub.TextGenerationInput
+
+[[autodoc]] huggingface_hub.TextGenerationInputGenerateParameters
+
+[[autodoc]] huggingface_hub.TextGenerationInputGrammarType
 
 [[autodoc]] huggingface_hub.TextGenerationOutput
 
+[[autodoc]] huggingface_hub.TextGenerationOutputBestOfSequence
+
 [[autodoc]] huggingface_hub.TextGenerationOutputDetails
 
-[[autodoc]] huggingface_hub.TextGenerationParameters
+[[autodoc]] huggingface_hub.TextGenerationOutputPrefillToken
 
-[[autodoc]] huggingface_hub.TextGenerationSequenceDetails
+[[autodoc]] huggingface_hub.TextGenerationOutputToken
 
-[[autodoc]] huggingface_hub.Token
+[[autodoc]] huggingface_hub.TextGenerationStreamOutput
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutputStreamDetails
+
+[[autodoc]] huggingface_hub.TextGenerationStreamOutputToken
 
 
 
