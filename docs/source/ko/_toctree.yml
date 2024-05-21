@@ -68,8 +68,8 @@
       title: Hf파일시스템
     - local: package_reference/utilities
       title: 유틸리티
-    - local: in_translation
-      title: (번역 중) Discussions and Pull Requests
+    - local: package_reference/community
+      title: Discussions 및 Pull Requests
     - local: package_reference/cache
       title: 캐시 시스템 참조
     - local: package_reference/cards
