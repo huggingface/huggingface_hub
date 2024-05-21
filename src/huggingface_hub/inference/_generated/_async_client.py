@@ -1192,7 +1192,8 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=image, model=model, task="image-to-text")
-        return ImageToTextOutput.parse_obj_as_instance(response)
+        output = ImageToTextOutput.parse_obj(response)
+        return output[0] if isinstance(output, list) else output
 
     async def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
