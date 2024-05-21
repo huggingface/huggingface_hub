@@ -112,9 +112,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 
 [`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 리포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. [`ModelHubMixin`]은 또한 공개 메소드가 문서화되고 타입에 주석이 달려있는지를 확인하며, 허브에서 모델의 다운로드 수를 볼 수 있도록 합니다. 이 모든 것은 [`ModelHubMixin`]에 의해 처리되며 사용자에게 제공됩니다. 
 
-보너스로, [`ModelHubMixin`]은 모델 구성을 자동으로 처리해 줍니다. 만약 당신의 `__init__` 메소드가 `config` 입력을 기대한다면, `save_pretrained`를 호출할 때 자동으로 리포지토리에 저장되고 `load_pretrained`에 의해 올바르게 다시 로드될 것입니다. 더불어, `config` 입력 매개변수가 dataclass 타입으로 주석 처리되어 있다면 (예: `config: Optional[MyConfigClass] = None`), 그렇게 하면 `config` 값이 올바르게 역직렬화됩니다. 마지막으로, 초기화할 때 전달된 모든 jsonable 값은 구성 파일에 저장됩니다. 이는 `config` 입력을 기대하지 않더라도 이를 활용할 수 있다는 것을 의미합니다. 모델 리포지토리에 `config.json` 파일이 있으면 Hub에서 자동으로 분석을 활성화시킵니다 (예: "다운로드" 횟수).
 
-마지막으로, [`ModelHubMixin`]은 모델 카드 생성을 처리해줍니다. [`ModelHubMixin`]을 상속받을 때 `library_name`, `tags`, `repo_url`, `docs_url`과 같은 메타데이터를 정의할 수 있습니다. 이러한 필드는 클래스를 사용하는 모든 모델의 모델 카드를 채우는 데 재사용됩니다. 이는 Hub에서 라이브러리를 사용하는 모든 모델을 쉽게 검색할 수 있도록 만들고, Hub에 착륙하는 사용자에게 일부 리소스 링크를 제공하는 데 매우 유용합니다. 만약 모델 카드 템플릿을 확장하고 싶다면, [`~ModelHubMixin.generate_model_card`] 메소드를 재정의할 수 있습니다.
 
 ### 자세한 예시: PyTorch[[a-concrete-example-pytorch]]
 
