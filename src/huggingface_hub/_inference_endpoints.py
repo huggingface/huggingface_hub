@@ -256,9 +256,9 @@ class InferenceEndpoint:
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference (e.g. `"cpu"`).
             instance_size (`str`, *optional*):
-                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+                The size or type of the instance to be used for hosting the model (e.g. `"x4"`).
             instance_type (`str`, *optional*):
-                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"intel-icl"`).
             min_replica (`int`, *optional*):
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):

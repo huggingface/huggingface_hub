@@ -395,6 +395,7 @@ def _lfs_log_progress():
                         unit="B",
                         unit_scale=True,
                         unit_divisor=1024,
+                        name="huggingface_hub.lfs_upload",
                     ),
                     "past_bytes": int(current_bytes),
                 }

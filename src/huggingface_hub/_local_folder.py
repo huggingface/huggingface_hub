@@ -12,20 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains utilities to handle the `../.huggingface` folder in local directories.
+"""Contains utilities to handle the `../.cache/huggingface` folder in local directories.
 
 First discussed in https://github.com/huggingface/huggingface_hub/issues/1738 to store
 download metadata when downloading files from the hub to a local directory (without
 using the cache).
 
-./.huggingface folder structure:
+./.cache/huggingface folder structure:
 [4.0K]  data
-├── [4.0K]  .huggingface
-│   └── [4.0K]  download
-│       ├── [  16]  file.parquet.metadata
-│       ├── [  16]  file.txt.metadata
-│       └── [4.0K]  folder
-│           └── [  16]  file.parquet.metadata
+├── [4.0K]  .cache
+│   └── [4.0K]  huggingface
+│       └── [4.0K]  download
+│           ├── [  16]  file.parquet.metadata
+│           ├── [  16]  file.txt.metadata
+│           └── [4.0K]  folder
+│               └── [  16]  file.parquet.metadata
 │
 ├── [6.5G]  file.parquet
 ├── [1.5K]  file.txt
@@ -389,12 +390,12 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
 
 @lru_cache()
 def _huggingface_dir(local_dir: Path) -> Path:
-    """Return the path to the `.huggingface` directory in a local directory."""
+    """Return the path to the `.cache/huggingface` directory in a local directory."""
     # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times
-    path = local_dir / ".huggingface"
+    path = local_dir / ".cache" / "huggingface"
     path.mkdir(exist_ok=True, parents=True)
 
-    # Create a .gitignore file in the .huggingface directory if it doesn't exist
+    # Create a .gitignore file in the .cache/huggingface directory if it doesn't exist
     # Should be thread-safe enough like this.
     gitignore = path / ".gitignore"
     gitignore_lock = path / ".gitignore.lock"

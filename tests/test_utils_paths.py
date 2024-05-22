@@ -111,11 +111,11 @@ class TestDefaultIgnorePatterns(unittest.TestCase):
         "path/to/folder/.git",
         "path/to/folder/.git/file.txt",
         "path/to/.git/folder/file.txt",
-        ".huggingface",
-        ".huggingface/file.txt",
-        ".huggingface/folder/file.txt",
-        "path/to/.huggingface",
-        "path/to/.huggingface/file.txt",
+        ".cache/huggingface",
+        ".cache/huggingface/file.txt",
+        ".cache/huggingface/folder/file.txt",
+        "path/to/.cache/huggingface",
+        "path/to/.cache/huggingface/file.txt",
     ]
 
     VALID_PATHS = [
@@ -125,8 +125,8 @@ class TestDefaultIgnorePatterns(unittest.TestCase):
         "path/to/file.git",
         "file.huggingface",
         "path/file.huggingface",
-        ".huggingface_folder",
-        ".huggingface_folder/file.txt",
+        ".cache/huggingface_folder",
+        ".cache/huggingface_folder/file.txt",
     ]
 
     def test_exclude_git_folder(self):

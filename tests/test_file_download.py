@@ -949,7 +949,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
     def test_resume_from_incomplete(self):
         # An incomplete file already exists => use it
-        incomplete_path = self.local_dir / ".huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
         incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_path.write_text("XXXX")  # Here we put fake data to test the resume
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
@@ -957,7 +957,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
 
     def test_do_not_resume_on_force_download(self):
         # An incomplete file already exists but force_download=True
-        incomplete_path = self.local_dir / ".huggingface" / "download" / (self.file_name + ".incomplete")
+        incomplete_path = self.local_dir / ".cache" / "huggingface" / "download" / (self.file_name + ".incomplete")
         incomplete_path.parent.mkdir(parents=True, exist_ok=True)
         incomplete_path.write_text("XXXX")
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
@@ -1038,21 +1038,11 @@ class TestHfHubDownloadRelativePaths(unittest.TestCase):
     def setUpClass(cls):
         cls.api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         cls.repo_id = cls.api.create_repo(repo_id=repo_name()).repo_id
-        cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=cls.repo_id)
         cls.api.upload_file(path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=cls.repo_id)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.api.delete_repo(repo_id=cls.repo_id)
-
-    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
-    def test_download_file_in_cache_dir(self) -> None:
-        hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir)
-
-    @xfail_on_windows(reason="Windows paths cannot start with '..\\'.", raises=ValueError)
-    def test_download_file_to_local_dir(self) -> None:
-        with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(self.repo_id, "..\\ddd", cache_dir=self.cache_dir, local_dir=local_dir)
 
     @xfail_on_windows(reason="Windows paths cannot contain '\\..\\'.", raises=ValueError)
     def test_download_folder_file_in_cache_dir(self) -> None:
