@@ -14,7 +14,7 @@ Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들�
 
 이 가이드에서는 앞의 두 가지 주제에 중점을 둘 것입니다. 우리는 라이브러리를 통합하는 데 사용할 수 있는 두 가지 주요 방법을 소개하고 각각의 장단점을 설명할 것입니다. 두 가지 중 어떤 것을 선택할지에 대한 도움이 되도록 끝 부분에 내용이 요약되어 있습니다. 이는 단지 가이드라는 것을 명심하고 상황에 맞게 적응시킬 수 있는 가이드라는 점을 유념하십시오.
 
-추론 및 위젯에 관심이 있는 경우 [이 가이드](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api)를 참조할 수 있습니다. 양쪽 모두에서 라이브러리를 Hub와 통합하고 [문서](https://huggingface.co/docs/hub/models-libraries)에 목록에 게시하고자 하는 경우에는 언제든지 저희에게 연락하실 수 있습니다.
+추론 및 위젯에 관심이 있는 경우 [이 가이드](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api)를 참조할 수 있습니다. 양쪽 모두에서 라이브러리를 Hub와 통합하고 [문서](https://huggingface.co/docs/hub/models-libraries)에 목록에 게시하고자 하는 경우에는 언제든지 연락하실 수 있습니다.
 
 ## 유연한 접근 방식: 도우미(helper)[[a-flexible-approach-helpers]]
 
@@ -111,8 +111,6 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 3. 완료했습니다!
 
 [`ModelHubMixin`]의 장점은 파일의 직렬화/로드에만 신경을 쓰면 되기 때문에 즉시 사용할 수 있다는 것입니다. 리포지토리 생성, 커밋, PR 또는 리비전과 같은 사항에 대해 걱정할 필요가 없습니다. [`ModelHubMixin`]은 또한 공개 메소드가 문서화되고 타입에 주석이 달려있는지를 확인하며, 허브에서 모델의 다운로드 수를 볼 수 있도록 합니다. 이 모든 것은 [`ModelHubMixin`]에 의해 처리되며 사용자에게 제공됩니다. 
-
-
 
 ### 자세한 예시: PyTorch[[a-concrete-example-pytorch]]
 
@@ -393,7 +391,7 @@ class VoiceCraft(
 
 ## 빠른 비교[[quick-comparison]]
 
-두 가지 접근 방법에 대한 장단점을 간단히 정리해보겠습니다. 아래 표는 단순히 예시일 뿐입니다. 여러분의 프레임워크에는 고려해야 할 특정 사항이 있을 수 있습니다. 이 가이드는 통합을 다루는 아이디어와 지침을 제공하기 위한 것입니다. 언제든지 궁금한 점이 있으면 문의해 주세요!
+두 가지 접근 방법에 대한 장단점을 간단히 정리해보겠습니다. 아래 표는 단순히 예시일 뿐입니다. 각자 다른 프레임워크에는 고려해야 할 특정 사항이 있을 수 있습니다. 이 가이드는 통합을 다루는 아이디어와 지침을 제공하기 위한 것입니다. 언제든지 궁금한 점이 있으면 문의해 주세요!
 
 <!-- Generated using https://www.tablesgenerator.com/markdown_tables -->
 | Integration | Using helpers | Using [`ModelHubMixin`] |
