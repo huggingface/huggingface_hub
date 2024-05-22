@@ -139,11 +139,11 @@ class TestRepoFilesCommand(unittest.TestCase):
 
             
                 if delete_files_r_args is None:
-                    self.assertEqual(delete_files_r_mock.call_count,0)
+                    assert delete_files_r_mock.call_count == 0
                 else:
-                    self.assertEqual(delete_files_r_mock.call_count,1)
+                    assert delete_files_r_mock.call_count == 1
                     # Inspect the captured calls
                     _,kwargs = delete_files_r_mock.call_args_list[0]
-                    self.assertEqual(kwargs, delete_files_r_args)
+                    assert kwargs == delete_files_r_args
 
                 delete_files_r_mock.reset_mock()

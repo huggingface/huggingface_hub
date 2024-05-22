@@ -515,12 +515,8 @@ class CommitApiTest(HfApiCommonTest):
                     repo_id=repo_id
                 )
 
-                self.assertEqual(
-                    url,
-                    f"{self._api.endpoint}/{repo_id}/tree/main/",
-                )
-                self.assertIsInstance(url, CommitInfo)
-
+                assert url == f"{self._api.endpoint}/{repo_id}/tree/main/"
+                assert isinstance(url, CommitInfo)
                 #Will throw error is file doesn't exist
                 hf_hub_download(repo_url.repo_id, "nested/file.bin")
 
@@ -530,7 +526,7 @@ class CommitApiTest(HfApiCommonTest):
                 )
                 if fixture["deleted"]:
                     #File has been deleted, error should be thrown
-                    with self.assertRaises(EntryNotFoundError):
+                    with pytest.raises(EntryNotFoundError):
                         # Should raise a 404
                         hf_hub_download(repo_url.repo_id, "nested/file.bin")
                 else:

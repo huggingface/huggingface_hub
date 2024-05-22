@@ -4922,7 +4922,7 @@ class HfApi:
             revision=revision
         )
         
-        f_patterns="".join(patterns)
+        f_patterns=" ".join(patterns)
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
