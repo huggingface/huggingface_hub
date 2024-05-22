@@ -21,8 +21,8 @@
 ...     vendor="aws",
 ...     region="us-east-1",
 ...     type="protected",
-...     instance_size="medium",
-...     instance_type="c6i"
+...     instance_size="x2",
+...     instance_type="intel-icl"
 ... )
 ```
 
@@ -57,8 +57,8 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 ...     vendor="aws",
 ...     region="us-east-1",
 ...     type="protected",
-...     instance_size="medium",
-...     instance_type="g5.2xlarge",
+...     instance_size="x1",
+...     instance_type="nvidia-a10g",
 ...     custom_image={
 ...         "health_route": "/health",
 ...         "env": {
@@ -202,7 +202,7 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 
 # 더 큰 인스턴스로 업데이트
->>> endpoint.update(accelerator="cpu", instance_size="large", instance_type="c6i")
+>>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
 
