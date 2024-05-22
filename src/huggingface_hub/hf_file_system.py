@@ -74,7 +74,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Access a remote Hugging Face Hub repository as if were a local file system.
 
     Args:
-        token (Union[bool, str, None], optional):
+        token (`str` or `bool`, *optional*):
             A valid user access token (string). Defaults to the locally saved
             token, which is the recommended method for authentication (see
             https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
