@@ -7239,9 +7239,9 @@ class HfApi:
             accelerator (`str`):
                 The hardware accelerator to be used for inference (e.g. `"cpu"`).
             instance_size (`str`):
-                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+                The size or type of the instance to be used for hosting the model (e.g. `"x4"`).
             instance_type (`str`):
-                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"intel-icl"`).
             region (`str`):
                 The cloud region in which the Inference Endpoint will be created (e.g. `"us-east-1"`).
             vendor (`str`):
@@ -7285,8 +7285,8 @@ class HfApi:
             ...     vendor="aws",
             ...     region="us-east-1",
             ...     type="protected",
-            ...     instance_size="medium",
-            ...     instance_type="c6i",
+            ...     instance_size="x2",
+            ...     instance_type="intel-icl",
             ... )
             >>> endpoint
             InferenceEndpoint(name='my-endpoint-name', status="pending",...)
@@ -7309,8 +7309,8 @@ class HfApi:
             ...     vendor="aws",
             ...     region="us-east-1",
             ...     type="protected",
-            ...     instance_size="medium",
-            ...     instance_type="g5.2xlarge",
+            ...     instance_size="x1",
+            ...     instance_type="nvidia-a10g",
             ...     custom_image={
             ...         "health_route": "/health",
             ...         "env": {
@@ -7443,9 +7443,9 @@ class HfApi:
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference (e.g. `"cpu"`).
             instance_size (`str`, *optional*):
-                The size or type of the instance to be used for hosting the model (e.g. `"large"`).
+                The size or type of the instance to be used for hosting the model (e.g. `"x4"`).
             instance_type (`str`, *optional*):
-                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"c6i"`).
+                The cloud instance type where the Inference Endpoint will be deployed (e.g. `"intel-icl"`).
             min_replica (`int`, *optional*):
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):
