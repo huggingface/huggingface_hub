@@ -1,5 +1,7 @@
+import pytest
+
 from huggingface_hub.serialization import split_state_dict_into_shards_factory
-from huggingface_hub.serialization._base import convert_file_size_to_int
+from huggingface_hub.serialization._base import parse_size_to_int
 from huggingface_hub.serialization._numpy import get_tensor_size as get_tensor_size_numpy
 from huggingface_hub.serialization._tensorflow import get_tensor_size as get_tensor_size_tensorflow
 from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_size_torch
@@ -126,11 +128,15 @@ def test_get_tensor_size_torch():
     assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
-def test_convert_file_size_to_int():
-    assert convert_file_size_to_int("1KiB") == 2**10
-    assert convert_file_size_to_int("1KB") == 10**3
-    assert convert_file_size_to_int("1MiB") == 2**20
-    assert convert_file_size_to_int("1MB") == 10**6
-    assert convert_file_size_to_int("1GiB") == 2**30
-    assert convert_file_size_to_int("1GB") == 10**9
-    assert convert_file_size_to_int("5GB") == 5 * 10**9
+def test_parse_size_to_int():
+    assert parse_size_to_int("1KB") == 1 * 10**3
+    assert parse_size_to_int("2MB") == 2 * 10**6
+    assert parse_size_to_int("3GB") == 3 * 10**9
+    assert parse_size_to_int(" 10 KB ") == 10 * 10**3  # ok with whitespace
+    assert parse_size_to_int("20mb") == 20 * 10**6  # ok with lowercase
+
+    with pytest.raises(ValueError, match="Unit 'IB' not supported"):
+        parse_size_to_int("1KiB")  # not a valid unit
+
+    with pytest.raises(ValueError, match="Could not parse the size value"):
+        parse_size_to_int("1ooKB")  # not a float
