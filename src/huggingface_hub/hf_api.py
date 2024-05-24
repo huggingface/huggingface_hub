@@ -20,7 +20,7 @@ import re
 import struct
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
 from itertools import islice
@@ -8585,7 +8585,7 @@ class HfApi:
         self,
         *,
         url: str,
-        watched: List[WebhookWatchedItem],
+        watched: List[Union[Dict, WebhookWatchedItem]],
         domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -8597,6 +8597,7 @@ class HfApi:
                 URL to send the payload to.
             watched (`List[WebhookWatchedItem]`):
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
+                Watched items can also be provided as plain dictionaries.
             domains (`List[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, optional):
@@ -8612,9 +8613,9 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import create_webhook, WebhookWatchedItem
+            >>> from huggingface_hub import create_webhook
             >>> payload = create_webhook(
-            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
             ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
             ...     domains=["repo", "discussion"],
             ...     secret="my-secret",
@@ -8630,9 +8631,8 @@ class HfApi:
             )
             ```
         """
-        watched_dicts = (
-            [asdict(item) if is_dataclass(item) else item for item in watched] if watched is not None else []
-        )
+        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
@@ -8659,8 +8659,8 @@ class HfApi:
         webhook_id: str,
         *,
         url: Optional[str] = None,
-        watched: Optional[List[WebhookWatchedItem]],
-        domains: Optional[List[WEBHOOK_DOMAIN_T]],
+        watched: Optional[List[Union[Dict, WebhookWatchedItem]]] = None,
+        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8673,7 +8673,7 @@ class HfApi:
                 The URL to which the payload will be sent.
             watched (`List[WebhookWatchedItem]`, optional):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
-                Refer to [`WebhookWatchedItem`] for more details.
+                Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
             domains (`List[Literal["repo", "discussion"]]`, optional):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
@@ -8689,11 +8689,11 @@ class HfApi:
 
         Example:
             ```python
-            >>> from huggingface_hub import update_webhook, WebhookWatchedItem
+            >>> from huggingface_hub import update_webhook
             >>> updated_payload = update_webhook(
             ...     webhook_id="654bbbc16f2ec14d77f109cc",
             ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
-            ...     watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
             ...     domains=["repo"],
             ...     secret="my-secret",
             ... )
@@ -8707,9 +8707,10 @@ class HfApi:
                 disabled=False,
             ```
         """
-        watched_dicts = (
-            [asdict(item) if is_dataclass(item) else item for item in watched] if watched is not None else []
-        )
+        if watched is None:
+            watched = []
+        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
         response = get_session().post(
             f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
