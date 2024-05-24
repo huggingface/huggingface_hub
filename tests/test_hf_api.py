@@ -3711,8 +3711,8 @@ class WebhookApiTest(HfApiCommonTest):
         super().setUp()
         self.webhook_url = "https://webhook.site/test"
         self.watched_items = [
-            WebhookWatchedItem(type="user", name="julien-c"),
-            WebhookWatchedItem(type="org", name="HuggingFaceH4"),
+            WebhookWatchedItem(type="user", name="julien-c"),  # can be either a dataclass
+            {"type": "org", "name": "HuggingFaceH4"},  # or a simple dictionary
         ]
         self.domains = ["repo", "discussion"]
         self.secret = "my-secret"
