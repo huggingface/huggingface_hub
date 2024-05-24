@@ -74,8 +74,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Access a remote Hugging Face Hub repository as if were a local file system.
 
     Args:
-        token (`str`, *optional*):
-            Authentication token, obtained with [`HfApi.login`] method. Will default to the stored token.
+        token (`str` or `bool`, *optional*):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
 
     Usage:
 
@@ -105,7 +108,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self,
         *args,
         endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -517,6 +520,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         else:
             out = None
             parent_path = self._parent(path)
+            if not expand_info and parent_path not in self.dircache:
+                # Fill the cache with cheap call
+                self.ls(parent_path, expand_info=False)
             if parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
@@ -681,6 +687,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
+        # avoid an unnecessary .info() call with expensive expand_info=True to instantiate .details
+        if kwargs.get("mode", "rb") == "rb":
+            self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 

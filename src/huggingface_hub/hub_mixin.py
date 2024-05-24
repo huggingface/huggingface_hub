@@ -477,7 +477,7 @@ class ModelHubMixin:
                     model_kwargs[param.name] = config[param.name]
 
             # Check if `config` argument was passed at init
-            if "config" in cls._hub_mixin_init_parameters:
+            if "config" in cls._hub_mixin_init_parameters and "config" not in model_kwargs:
                 # Check if `config` argument is a dataclass
                 config_annotation = cls._hub_mixin_init_parameters["config"].annotation
                 if config_annotation is inspect.Parameter.empty:
@@ -505,7 +505,7 @@ class ModelHubMixin:
                         model_kwargs[key] = value
 
             # Finally, also inject if `_from_pretrained` expects it
-            if cls._hub_mixin_inject_config:
+            if cls._hub_mixin_inject_config and "config" not in model_kwargs:
                 model_kwargs["config"] = config
 
         instance = cls._from_pretrained(
