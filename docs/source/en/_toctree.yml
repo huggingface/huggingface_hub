@@ -38,8 +38,8 @@
       title: Manage your Space
     - local: guides/integrations
       title: Integrate a library
-    - local: guides/webhooks_server
-      title: Webhooks server
+    - local: guides/webhooks
+      title: Webhooks
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http
