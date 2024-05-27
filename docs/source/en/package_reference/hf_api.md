@@ -99,6 +99,14 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
 
+### WebhookInfo
+
+[[autodoc]] huggingface_hub.hf_api.WebhookInfo
+
+### WebhookWatchedItem
+
+[[autodoc]] huggingface_hub.hf_api.WebhookWatchedItem
+
 ## CommitOperation
 
 Below are the supported values for [`CommitOperation`]:

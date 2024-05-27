@@ -13,7 +13,7 @@
 # limitations under the License.
 """Contains numpy-specific helpers."""
 
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Union
 
 from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
@@ -26,7 +26,7 @@ def split_numpy_state_dict_into_shards(
     state_dict: Dict[str, "np.ndarray"],
     *,
     filename_pattern: str = FILENAME_PATTERN,
-    max_shard_size: int = MAX_SHARD_SIZE,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
