@@ -2579,6 +2579,99 @@ class AsyncInferenceClient:
             )
         return model
 
+    async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get information about the deployed endpoint.
+
+        This endpoint is only available on endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        Endpoints powered by `transformers` return an empty payload.
+
+        Args:
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `Dict[str, Any]`: Information about the endpoint.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> await client.get_endpoint_info()
+        {
+            'model_id': 'meta-llama/Meta-Llama-3-70B-Instruct',
+            'model_sha': None,
+            'model_dtype': 'torch.float16',
+            'model_device_type': 'cuda',
+            'model_pipeline_tag': None,
+            'max_concurrent_requests': 128,
+            'max_best_of': 2,
+            'max_stop_sequences': 4,
+            'max_input_length': 8191,
+            'max_total_tokens': 8192,
+            'waiting_served_ratio': 0.3,
+            'max_batch_total_tokens': 1259392,
+            'max_waiting_tokens': 20,
+            'max_batch_size': None,
+            'validation_workers': 32,
+            'max_client_batch_size': 4,
+            'version': '2.0.2',
+            'sha': 'dccab72549635c7eb5ddb17f43f0b7cdff07c214',
+            'docker_label': 'sha-dccab72'
+        }
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith(("http://", "https://")):
+            url = model.rstrip("/") + "/info"
+        else:
+            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return await response.json()
+
+    async def health_check(self, model: Optional[str] = None) -> bool:
+        """
+        Check the health of the deployed endpoint.
+
+        Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        For Inference API, please use [`InferenceClient.get_model_status`] instead.
+
+        Args:
+            model (`str`, *optional*):
+                URL of the Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `bool`: True if everything is working fine.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient("https://jzgu0buei5.us-east-1.aws.endpoints.huggingface.cloud")
+        >>> await client.health_check()
+        True
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if not model.startswith(("http://", "https://")):
+            raise ValueError(
+                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
+            )
+        url = model.rstrip("/") + "/health"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            return response.status == 200
+
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
         Get the status of a model hosted on the Inference API.
