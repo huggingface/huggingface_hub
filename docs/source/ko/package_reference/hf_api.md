@@ -113,14 +113,3 @@ models = hf_api.list_models()
 
 [[autodoc]] CommitScheduler
 
-## Search helpers[[search-helpers]]
-
-`huggingface_hub` 패키지에는 Hub에서 리포지토리를 필터링하는 데 도움되는 도구들이 포함되어 있습니다.
-
-### DatasetFilter[[huggingface_hub.DatasetFilter]]
-
-[[autodoc]] DatasetFilter
-
-### ModelFilter[[huggingface_hub.ModelFilter]]
-
-[[autodoc]] ModelFilter

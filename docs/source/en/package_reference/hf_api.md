@@ -120,15 +120,3 @@ Below are the supported values for [`CommitOperation`]:
 ## CommitScheduler
 
 [[autodoc]] CommitScheduler
-
-## Search helpers
-
-Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
-
-### DatasetFilter
-
-[[autodoc]] DatasetFilter
-
-### ModelFilter
-
-[[autodoc]] ModelFilter
