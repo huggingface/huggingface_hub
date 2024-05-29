@@ -62,6 +62,8 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    WebhookInfo,
+    WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -82,9 +84,7 @@ from huggingface_hub.utils import (
     logging,
 )
 from huggingface_hub.utils.endpoint_helpers import (
-    DatasetFilter,
-    ModelFilter,
-    _is_emission_within_treshold,
+    _is_emission_within_threshold,
 )
 
 from .testing_constants import (
@@ -101,7 +101,6 @@ from .testing_utils import (
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     SAMPLE_DATASET_IDENTIFIER,
-    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -1707,92 +1706,75 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertGreater(len(datasets), 100)
         self.assertIsInstance(datasets[0], DatasetInfo)
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_author_and_name(self):
-        f = DatasetFilter(author="huggingface", dataset_name="DataMeasurementsFiles")
-        datasets = list(self._api.list_datasets(filter=f))
-        self.assertEqual(len(datasets), 1)
-        self.assertTrue("huggingface" in datasets[0].author)
-        self.assertTrue("DataMeasurementsFiles" in datasets[0].id)
+        datasets = list(self._api.list_datasets(author="huggingface", dataset_name="DataMeasurementsFiles"))
+        assert len(datasets) > 0
+        assert "huggingface" in datasets[0].author
+        assert "DataMeasurementsFiles" in datasets[0].id
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_benchmark(self):
-        f = DatasetFilter(benchmark="raft")
-        datasets = list(self._api.list_datasets(filter=f))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("benchmark:raft" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(benchmark="raft"))
+        assert len(datasets) > 0
+        assert "benchmark:raft" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_language_creator(self):
-        f = DatasetFilter(language_creators="crowdsourced")
-        datasets = list(self._api.list_datasets(filter=f))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("language_creators:crowdsourced" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(language_creators="crowdsourced"))
+        assert len(datasets) > 0
+        assert "language_creators:crowdsourced" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_language_only(self):
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(language="en"), limit=100))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("language:en" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(language="en", limit=10))
+        assert len(datasets) > 0
+        assert "language:en" in datasets[0].tags
 
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(language=("en", "fr")), limit=100))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("language:en" in datasets[0].tags)
-        self.assertTrue("language:fr" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(language=("en", "fr"), limit=10))
+        assert len(datasets) > 0
+        assert "language:en" in datasets[0].tags
+        assert "language:fr" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_multilinguality(self):
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(multilinguality="multilingual")))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("multilinguality:multilingual" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(multilinguality="multilingual", limit=10))
+        assert len(datasets) > 0
+        assert "multilinguality:multilingual" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_size_categories(self):
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(size_categories="100K<n<1M")))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("size_categories:100K<n<1M" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(size_categories="100K<n<1M", limit=10))
+        assert len(datasets) > 0
+        assert "size_categories:100K<n<1M" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_task_categories(self):
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(task_categories="audio-classification")))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_categories:audio-classification" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(task_categories="audio-classification", limit=10))
+        assert len(datasets) > 0
+        assert "task_categories:audio-classification" in datasets[0].tags
 
-    @expect_deprecation("DatasetFilter")
     def test_filter_datasets_by_task_ids(self):
-        datasets = list(self._api.list_datasets(filter=DatasetFilter(task_ids="natural-language-inference")))
-        self.assertGreater(len(datasets), 0)
-        self.assertTrue("task_ids:natural-language-inference" in datasets[0].tags)
+        datasets = list(self._api.list_datasets(task_ids="natural-language-inference", limit=10))
+        assert len(datasets) > 0
+        assert "task_ids:natural-language-inference" in datasets[0].tags
 
     def test_list_datasets_full(self):
         datasets = list(self._api.list_datasets(full=True, limit=500))
-        self.assertGreater(len(datasets), 100)
-        dataset = datasets[0]
-        self.assertIsInstance(dataset, DatasetInfo)
-        self.assertTrue(any(dataset.card_data for dataset in datasets))
+        assert len(datasets) > 100
+        assert isinstance(datasets[0], DatasetInfo)
+        assert any(dataset.card_data for dataset in datasets)
 
     def test_list_datasets_author(self):
-        datasets = list(self._api.list_datasets(author="huggingface"))
-        self.assertGreater(len(datasets), 1)
-        self.assertIsInstance(datasets[0], DatasetInfo)
+        datasets = list(self._api.list_datasets(author="huggingface", limit=10))
+        assert len(datasets) > 0
+        assert datasets[0].author == "huggingface"
 
     def test_list_datasets_search(self):
-        datasets = list(self._api.list_datasets(search="wikipedia"))
-        self.assertGreater(len(datasets), 10)
-        self.assertIsInstance(datasets[0], DatasetInfo)
+        datasets = list(self._api.list_datasets(search="wikipedia", limit=10))
+        assert len(datasets) > 5
+        for dataset in datasets:
+            assert "wikipedia" in dataset.id.lower()
 
     def test_filter_datasets_with_card_data(self):
-        datasets = list(self._api.list_datasets(full=True, limit=500))
-        self.assertGreater(
-            sum([getattr(dataset, "card_data", None) is not None for dataset in datasets]),
-            0,
-        )
-        datasets = list(self._api.list_datasets(limit=500))
-        self.assertTrue(all([getattr(dataset, "card_data", None) is None for dataset in datasets]))
+        assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
+        assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
 
     def test_filter_datasets_by_tag(self):
-        datasets = list(self._api.list_datasets(tags="fiftyone", limit=5))
-        for dataset in datasets:
+        for dataset in self._api.list_datasets(tags="fiftyone", limit=5):
             assert "fiftyone" in dataset.tags
 
     def test_dataset_info(self):
@@ -1841,131 +1823,107 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(metrics[0], MetricInfo)
         self.assertTrue(any(metric.description for metric in metrics))
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_by_author(self):
-        models = list(self._api.list_models(filter=ModelFilter(author="muellerzr")))
-        self.assertGreater(len(models), 0)
-        self.assertTrue("muellerzr" in models[0].modelId)
+        models = list(self._api.list_models(author="muellerzr"))
+        assert len(models) > 0
+        assert "muellerzr" in models[0].modelId
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(filter=ModelFilter("facebook", model_name="bart-base")))
-        self.assertTrue("facebook/bart-base" in models[0].modelId)
+        models = list(self._api.list_models(author="facebook", model_name="bart-base"))
+        assert "facebook/bart-base" in models[0].modelId
 
-    @expect_deprecation("ModelFilter")
     def test_failing_filter_models_by_author_and_model_name(self):
         # Test we can search by an author and a name, but the model is not found
-        models = list(self._api.list_models(filter=ModelFilter(author="muellerzr", model_name="testme")))
-        self.assertEqual(len(models), 0)
+        models = list(self._api.list_models(author="muellerzr", model_name="testme"))
+        assert len(models) == 0
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_with_library(self):
-        models = list(
-            self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="tensorflow"))
-        )
-        self.assertEqual(len(models), 0)
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="tensorflow"))
+        assert len(models) == 0
 
-        models = list(
-            self._api.list_models(filter=ModelFilter("microsoft", model_name="wavlm-base-sd", library="pytorch"))
-        )
-        self.assertGreater(len(models), 0)
+        models = list(self._api.list_models(author="microsoft", model_name="wavlm-base-sd", library="pytorch"))
+        assert len(models) > 0
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_with_task(self):
-        models = list(self._api.list_models(filter=ModelFilter(task="fill-mask", model_name="albert-base-v2")))
+        models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
         assert "albert" in models[0].modelId
         assert "base" in models[0].modelId
         assert "v2" in models[0].modelId
 
-        models = list(self._api.list_models(filter=ModelFilter(task="dummytask")))
+        models = list(self._api.list_models(task="dummytask"))
         assert len(models) == 0
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_by_language(self):
         for language in ["en", "fr", "zh"]:
-            for model in self._api.list_models(filter=ModelFilter(language=language), limit=5):
+            for model in self._api.list_models(language=language, limit=5):
                 assert language in model.tags
 
-    @expect_deprecation("ModelFilter")
     def test_filter_models_with_tag(self):
-        models = list(self._api.list_models(filter=ModelFilter(author="HuggingFaceBR4", tags=["tensorboard"])))
-        self.assertTrue("HuggingFaceBR4" == models[0].author)
-        self.assertTrue("tensorboard" in models[0].tags)
+        models = list(self._api.list_models(author="HuggingFaceBR4", tags=["tensorboard"]))
+        assert models[0].id.startswith("HuggingFaceBR4/")
+        assert "tensorboard" in models[0].tags
 
-        models = list(self._api.list_models(filter=ModelFilter(tags="dummytag")))
-        self.assertEqual(len(models), 0)
+        models = list(self._api.list_models(tags="dummytag"))
+        assert len(models) == 0
 
     def test_filter_models_with_card_data(self):
         models = self._api.list_models(filter="co2_eq_emissions", cardData=True)
-        self.assertGreater(
-            sum([getattr(model, "card_data", None) is not None for model in models]),
-            0,
-        )
-        models = self._api.list_models(filter="co2_eq_emissions")
-        self.assertTrue(all([getattr(model, "card_data", None) is None for model in models]))
+        assert any(model.card_data is not None for model in models)
 
-    def test_is_emission_within_treshold(self):
+        models = self._api.list_models(filter="co2_eq_emissions")
+        assert all(model.card_data is None for model in models)
+
+    def test_is_emission_within_threshold(self):
         # tests that dictionary is handled correctly as "emissions" and that
         # 17g is accepted and parsed correctly as a value
         # regression test for #753
         kwargs = {field.name: None for field in fields(ModelInfo) if field.init}
         kwargs = {**kwargs, "card_data": ModelCardData(co2_eq_emissions={"emissions": "17g"})}
         model = ModelInfo(**kwargs)
-        self.assertTrue(_is_emission_within_treshold(model, -1, 100))
+        assert _is_emission_within_threshold(model, -1, 100)
 
     def test_filter_emissions_with_max(self):
-        models = self._api.list_models(emissions_thresholds=(None, 100), cardData=True, limit=1000)
-        self.assertTrue(
-            all(
-                [
-                    model.card_data["co2_eq_emissions"] <= 100
-                    for model in models
-                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
-                ]
-            )
+        assert all(
+            model.card_data["co2_eq_emissions"] <= 100
+            for model in self._api.list_models(emissions_thresholds=(None, 100), cardData=True, limit=1000)
+            if isinstance(model.card_data["co2_eq_emissions"], (float, int))
         )
 
     def test_filter_emissions_with_min(self):
-        models = self._api.list_models(emissions_thresholds=(5, None), cardData=True, limit=1000)
-        self.assertTrue(
-            all(
-                [
-                    model.card_data["co2_eq_emissions"] >= 5
-                    for model in models
-                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
-                ]
-            )
+        assert all(
+            [
+                model.card_data["co2_eq_emissions"] >= 5
+                for model in self._api.list_models(emissions_thresholds=(5, None), cardData=True, limit=1000)
+                if isinstance(model.card_data["co2_eq_emissions"], (float, int))
+            ]
         )
 
     def test_filter_emissions_with_min_and_max(self):
-        models = self._api.list_models(emissions_thresholds=(5, 100), cardData=True, limit=1000)
-        self.assertTrue(
-            all(
-                [
-                    model.card_data["co2_eq_emissions"] >= 5
-                    for model in models
-                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
-                ]
-            )
+        models = list(self._api.list_models(emissions_thresholds=(5, 100), cardData=True, limit=1000))
+        assert all(
+            [
+                model.card_data["co2_eq_emissions"] >= 5
+                for model in models
+                if isinstance(model.card_data["co2_eq_emissions"], (float, int))
+            ]
         )
-        self.assertTrue(
-            all(
-                [
-                    model.card_data["co2_eq_emissions"] <= 100
-                    for model in models
-                    if isinstance(model.card_data["co2_eq_emissions"], (float, int))
-                ]
-            )
+
+        assert all(
+            [
+                model.card_data["co2_eq_emissions"] <= 100
+                for model in models
+                if isinstance(model.card_data["co2_eq_emissions"], (float, int))
+            ]
         )
 
     def test_list_spaces_full(self):
         spaces = list(self._api.list_spaces(full=True, limit=500))
-        self.assertGreater(len(spaces), 100)
+        assert len(spaces) > 100
         space = spaces[0]
-        self.assertIsInstance(space, SpaceInfo)
-        self.assertTrue(any(space.card_data for space in spaces))
+        assert isinstance(space, SpaceInfo)
+        assert any(space.card_data for space in spaces)
 
     def test_list_spaces_author(self):
         spaces = list(self._api.list_spaces(author="julien-c"))
@@ -1974,9 +1932,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
             assert space.id.startswith("julien-c/")
 
     def test_list_spaces_search(self):
-        spaces = list(self._api.list_spaces(search="wikipedia"))
-        space = spaces[0]
-        self.assertTrue("wikipedia" in space.id.lower())
+        spaces = list(self._api.list_spaces(search="wikipedia", limit=10))
+        assert "wikipedia" in spaces[0].id.lower()
 
     def test_list_spaces_sort_and_direction(self):
         # Descending order => first item has more likes than second
@@ -1985,15 +1942,15 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_spaces_limit(self):
         spaces = list(self._api.list_spaces(limit=5))
-        self.assertEqual(len(spaces), 5)
+        assert len(spaces) == 5
 
     def test_list_spaces_with_models(self):
         spaces = list(self._api.list_spaces(models="bert-base-uncased"))
-        self.assertTrue("bert-base-uncased" in getattr(spaces[0], "models", []))
+        assert "bert-base-uncased" in spaces[0].models
 
     def test_list_spaces_with_datasets(self):
         spaces = list(self._api.list_spaces(datasets="wikipedia"))
-        self.assertTrue("wikipedia" in getattr(spaces[0], "datasets", []))
+        assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
         space_id = "HuggingFaceH4/open_llm_leaderboard"
@@ -2015,18 +1972,18 @@ class HfApiPublicProductionTest(unittest.TestCase):
             revision="607bd4c8450a42878aa9ddc051a65a055450ef87",
             repo_type="dataset",
         )
-        self.assertTrue(len(paths_info), 2)
+        assert len(paths_info) == 2
 
-        self.assertEqual(paths_info[0].path, "en")
-        self.assertIsNotNone(paths_info[0].tree_id)
-        self.assertIsNotNone(paths_info[0].last_commit)
+        assert paths_info[0].path == "en"
+        assert paths_info[0].tree_id is not None
+        assert paths_info[0].last_commit is not None
 
-        self.assertEqual(paths_info[1].path, "en/c4-train.00001-of-01024.json.gz")
-        self.assertIsNotNone(paths_info[1].blob_id)
-        self.assertIsNotNone(paths_info[1].last_commit)
-        self.assertIsNotNone(paths_info[1].lfs)
-        self.assertIsNotNone(paths_info[1].security)
-        self.assertGreater(paths_info[1].size, 0)
+        assert paths_info[1].path == "en/c4-train.00001-of-01024.json.gz"
+        assert paths_info[1].blob_id is not None
+        assert paths_info[1].last_commit is not None
+        assert paths_info[1].lfs is not None
+        assert paths_info[1].security is not None
+        assert paths_info[1].size > 0
 
     def test_get_safetensors_metadata_single_file(self) -> None:
         info = self._api.get_safetensors_metadata("bigscience/bloomz-560m")
@@ -3779,3 +3736,69 @@ class UserApiTest(unittest.TestCase):
     def test_user_following(self) -> None:
         following = self.api.list_user_following("julien-c")
         self.assertGreater(len(list(following)), 10)
+
+
+class WebhookApiTest(HfApiCommonTest):
+    def setUp(self) -> None:
+        super().setUp()
+        self.webhook_url = "https://webhook.site/test"
+        self.watched_items = [
+            WebhookWatchedItem(type="user", name="julien-c"),  # can be either a dataclass
+            {"type": "org", "name": "HuggingFaceH4"},  # or a simple dictionary
+        ]
+        self.domains = ["repo", "discussion"]
+        self.secret = "my-secret"
+
+        # Create a webhook to be used in the tests
+        self.webhook = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+
+    def tearDown(self) -> None:
+        # Clean up the created webhook
+        self._api.delete_webhook(self.webhook.id)
+        super().tearDown()
+
+    def test_get_webhook(self) -> None:
+        webhook = self._api.get_webhook(self.webhook.id)
+        self.assertIsInstance(webhook, WebhookInfo)
+        self.assertEqual(webhook.id, self.webhook.id)
+        self.assertEqual(webhook.url, self.webhook_url)
+
+    def test_list_webhooks(self) -> None:
+        webhooks = self._api.list_webhooks()
+        self.assertTrue(any(webhook.id == self.webhook.id for webhook in webhooks))
+
+    def test_create_webhook(self) -> None:
+        new_webhook = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self.assertIsInstance(new_webhook, WebhookInfo)
+        self.assertEqual(new_webhook.url, self.webhook_url)
+
+        # Clean up the newly created webhook
+        self._api.delete_webhook(new_webhook.id)
+
+    def test_update_webhook(self) -> None:
+        updated_url = "https://webhook.site/new"
+        updated_webhook = self._api.update_webhook(
+            self.webhook.id, url=updated_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self.assertEqual(updated_webhook.url, updated_url)
+
+    def test_enable_webhook(self) -> None:
+        enabled_webhook = self._api.enable_webhook(self.webhook.id)
+        self.assertFalse(enabled_webhook.disabled)
+
+    def test_disable_webhook(self) -> None:
+        disabled_webhook = self._api.disable_webhook(self.webhook.id)
+        self.assertTrue(disabled_webhook.disabled)
+
+    def test_delete_webhook(self) -> None:
+        # Create another webhook to test deletion
+        webhook_to_delete = self._api.create_webhook(
+            url=self.webhook_url, watched=self.watched_items, domains=self.domains, secret=self.secret
+        )
+        self._api.delete_webhook(webhook_to_delete.id)
+        with self.assertRaises(HTTPError):
+            self._api.get_webhook(webhook_to_delete.id)

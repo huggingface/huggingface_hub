@@ -28,6 +28,8 @@
       title: 추론 엔드포인트
     - local: guides/community
       title: 커뮤니티
+    - local: guides/collections
+      title: Collections
     - local: in_translation
       title: (번역 중) Cache
     - local: guides/model-cards
