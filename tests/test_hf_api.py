@@ -467,65 +467,75 @@ class CommitApiTest(HfApiCommonTest):
 
         repo_name_with_no_org = self._api.get_full_repo_name("model", organization="org")
         self.assertEqual(repo_name_with_no_org, "org/model")
-    
+
     @use_tmp_repo()
-    def test_delete_files_r(self, repo_url:RepoUrl) -> None:
+    def test_delete_files_r(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
         fixtures = [
             {
-                "patterns": [ "nested/*", ],
-                "deleted": True
+                "patterns": [
+                    "nested/*",
+                ],
+                "deleted": True,
             },
             {
-                "patterns": [ "random", "nested/*", ],
-                "deleted": True
+                "patterns": [
+                    "random",
+                    "nested/*",
+                ],
+                "deleted": True,
             },
             {
-                "patterns": [ "nested/file.bin", ],
-                "deleted": True
+                "patterns": [
+                    "nested/file.bin",
+                ],
+                "deleted": True,
             },
             {
-                "patterns": [ "file.bin", ],
-                "deleted": False 
+                "patterns": [
+                    "file.bin",
+                ],
+                "deleted": False,
             },
             {
-                "patterns": [ "nested/nested2/file.bin", ],
-                "deleted": False 
+                "patterns": [
+                    "nested/nested2/file.bin",
+                ],
+                "deleted": False,
             },
             {
-                "patterns": [ "*.bin", ],
-                "deleted": True 
+                "patterns": [
+                    "*.bin",
+                ],
+                "deleted": True,
             },
             {
-                "patterns": [ "nested/*.bin", ],
-                "deleted": True 
+                "patterns": [
+                    "nested/*.bin",
+                ],
+                "deleted": True,
             },
             {
-                "patterns": [ "nested/", ],
-                "deleted": True
+                "patterns": [
+                    "nested/",
+                ],
+                "deleted": True,
             },
         ]
-        
+
         for fixture in fixtures:
-            with self.subTest(fixture): 
+            with self.subTest(fixture):
                 # Upload is idempotent from this high-level point of view
-                url = self._api.upload_folder(
-                    folder_path=self.tmp_dir, 
-                    path_in_repo="", 
-                    repo_id=repo_id
-                )
+                url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="", repo_id=repo_id)
 
                 assert url == f"{self._api.endpoint}/{repo_id}/tree/main/"
                 assert isinstance(url, CommitInfo)
-                #Will throw error is file doesn't exist
+                # Will throw error is file doesn't exist
                 hf_hub_download(repo_url.repo_id, "nested/file.bin")
 
-                self._api.delete_files_r(
-                    repo_id=repo_id,
-                    patterns=fixture["patterns"]
-                )
+                self._api.delete_files_r(repo_id=repo_id, patterns=fixture["patterns"])
                 if fixture["deleted"]:
-                    #File has been deleted, error should be thrown
+                    # File has been deleted, error should be thrown
                     with pytest.raises(EntryNotFoundError):
                         # Should raise a 404
                         hf_hub_download(repo_url.repo_id, "nested/file.bin")
@@ -533,10 +543,7 @@ class CommitApiTest(HfApiCommonTest):
                     hf_hub_download(repo_url.repo_id, "nested/file.bin")
 
                 # Empty the repo for the next test
-                self._api.delete_files_r(
-                    repo_id=repo_id,
-                    patterns=["*"]
-                )
+                self._api.delete_files_r(repo_id=repo_id, patterns=["*"])
 
     @use_tmp_repo()
     def test_upload_folder(self, repo_url: RepoUrl) -> None:

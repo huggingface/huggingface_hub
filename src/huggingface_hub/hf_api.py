@@ -4846,7 +4846,7 @@ class HfApi:
             create_pr=create_pr,
             parent_commit=parent_commit,
         )
-    
+
     @validate_hf_hub_args
     def delete_files_r(
         self,
@@ -4862,10 +4862,10 @@ class HfApi:
         parent_commit: Optional[str] = None,
     ) -> CommitInfo:
         """
-        Recursively deletes files in a given repository based on Unix shell-style 
+        Recursively deletes files in a given repository based on Unix shell-style
         file matching patterns.
 
-        Git based under the hood (server-side), meaning if you delete all files 
+        Git based under the hood (server-side), meaning if you delete all files
         from a directory, git untracks it. It works this way recursively
         through the sub folders. Meaning a whole directory structure is untracked
         by deleting their respectives files at all levels.
@@ -4873,8 +4873,8 @@ class HfApi:
         Also if one or many of the patterns from the `patterns` argument to
         this function have a trailing `/` (as in `folder/`),
         this function will interpret it as `/*` (as in `folder/*`) to comply with Unix
-        patterns (Unix shell standards don't match `folder/a` to `folder/` but 
-        match it to `folder/*`) when deleting all files in the folders(s). 
+        patterns (Unix shell standards don't match `folder/a` to `folder/` but
+        match it to `folder/*`) when deleting all files in the folders(s).
         By the previous corollary, the folder(s) will disappear because all
         their files are deleted.
 
@@ -4913,16 +4913,12 @@ class HfApi:
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
         """
-        patterns = [p+"*" if p[-1] == "/" else p for p in patterns]
+        patterns = [p + "*" if p[-1] == "/" else p for p in patterns]
         operations = self._prepare_folder_deletions(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            delete_patterns=patterns,
-            path_in_repo="",
-            revision=revision
+            repo_id=repo_id, repo_type=repo_type, delete_patterns=patterns, path_in_repo="", revision=revision
         )
-        
-        f_patterns=" ".join(patterns)
+
+        f_patterns = " ".join(patterns)
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -4930,14 +4926,12 @@ class HfApi:
             operations=operations,
             revision=revision,
             commit_message=(
-                commit_message if commit_message is not None \
-                    else f"Delete files {f_patterns} with huggingface_hub" 
+                commit_message if commit_message is not None else f"Delete files {f_patterns} with huggingface_hub"
             ),
             commit_description=commit_description,
             create_pr=create_pr,
-            parent_commit=parent_commit
+            parent_commit=parent_commit,
         )
-    
 
     @validate_hf_hub_args
     def delete_folder(

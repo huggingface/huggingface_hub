@@ -33,23 +33,23 @@ Usage:
     # delete from different revision / repo-type
     huggingface-cli repo-files <repo_id> delete file.txt --revision=... --repo-type=dataset
 """
-from argparse import  _SubParsersAction
+
+from argparse import _SubParsersAction
 from typing import List, Optional
-import warnings
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 
 logger = logging.get_logger(__name__)
+
 
 class DeleteSubCommand:
     def __init__(self, args):
         self.args = args
         self.repo_id: str = args.repo_id
-        self.token:str = args.token
+        self.token: str = args.token
         self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
         self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
@@ -68,34 +68,35 @@ class DeleteSubCommand:
             revision=self.revision,
         )
 
+
 class RepoFilesCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
         repo_files_parser = parser.add_parser("repo-files", help="Update or delete files from a repo in the Hub")
         repo_files_parser.add_argument(
-            "repo_id", 
-            type=str, help="The ID of the repo to repo_files to (e.g. `username/repo-name`)."
+            "repo_id", type=str, help="The ID of the repo to repo_files to (e.g. `username/repo-name`)."
         )
         repo_files_parser.add_argument(
-            "--token", type=str, 
+            "--token",
+            type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
-            required=False
+            required=False,
         )
         repo_files_subparsers = repo_files_parser.add_subparsers(
             help="Action to execute against the files.",
             description="Action to execute against the files.",
-            required=True
+            required=True,
         )
         delete_subparser = repo_files_subparsers.add_parser(
-            "delete", 
+            "delete",
             description="Delete files from a repo in the Hugging Face Hub.",
-            help="Delete files from a repo in the Hugging Face Hub"
+            help="Delete files from a repo in the Hugging Face Hub",
         )
         delete_subparser.set_defaults(func=lambda args: DeleteSubCommand(args))
         delete_subparser.add_argument(
             "patterns",
             nargs="+",
-            type=str, 
+            type=str,
             help="Glob patterns to match files to delete.",
         )
         delete_subparser.add_argument(
@@ -115,6 +116,3 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
         )
 
         repo_files_parser.set_defaults(func=RepoFilesCommand)
-
-
-
