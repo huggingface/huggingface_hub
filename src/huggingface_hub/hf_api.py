@@ -131,12 +131,9 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
-    DatasetFilter,
-    ModelFilter,
-    _is_emission_within_treshold,
+    _is_emission_within_threshold,
 )
 
 
@@ -1492,7 +1489,7 @@ class HfApi:
     def list_models(
         self,
         *,
-        filter: Union[ModelFilter, str, Iterable[str], None] = None,
+        filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
@@ -1515,9 +1512,8 @@ class HfApi:
         List models hosted on the Huggingface Hub, given some filters.
 
         Args:
-            filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
-                A string or [`ModelFilter`] which can be used to identify models
-                on the Hub.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string or list of string to filter models on the Hub.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
@@ -1612,28 +1608,18 @@ class HfApi:
 
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
-        params = {}
-        filter_list = []
-
-        if filter is not None:
-            if isinstance(filter, ModelFilter):
-                params = self._unpack_model_filter(filter)
-            else:
-                params.update({"filter": filter})
-
-            params.update({"full": True})
+        params: Dict[str, Any] = {}
 
         # Build the filter list
-        if author:
-            params.update({"author": author})
-        if model_name:
-            params.update({"search": model_name})
+        filter_list: List[str] = []
+        if filter:
+            filter_list.extend([filter] if isinstance(filter, str) else filter)
         if library:
             filter_list.extend([library] if isinstance(library, str) else library)
         if task:
             filter_list.extend([task] if isinstance(task, str) else task)
         if trained_dataset:
-            if not isinstance(trained_dataset, (list, tuple)):
+            if isinstance(trained_dataset, str):
                 trained_dataset = [trained_dataset]
             for dataset in trained_dataset:
                 if not dataset.startswith("dataset:"):
@@ -1643,31 +1629,33 @@ class HfApi:
             filter_list.extend([language] if isinstance(language, str) else language)
         if tags:
             filter_list.extend([tags] if isinstance(tags, str) else tags)
+        if len(filter_list) > 0:
+            params["filter"] = filter_list
 
+        # Handle other query params
+        if author:
+            params["author"] = author
+        search_list = []
+        if model_name:
+            search_list.append(model_name)
         if search:
-            params.update({"search": search})
+            search_list.append(search)
+        if len(search_list) > 0:
+            params["search"] = search_list
         if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
         if direction is not None:
-            params.update({"direction": direction})
+            params["direction"] = direction
         if limit is not None:
-            params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-            elif "full" in params:
-                del params["full"]
+            params["limit"] = limit
+        if full:
+            params["full"] = True
         if fetch_config:
-            params.update({"config": True})
+            params["config"] = True
         if cardData:
-            params.update({"cardData": True})
+            params["cardData"] = True
         if pipeline_tag:
-            params.update({"pipeline_tag": pipeline_tag})
-
-        filter_value = params.get("filter", [])
-        if filter_value:
-            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
-        params.update({"filter": filter_list})
+            params["pipeline_tag"] = pipeline_tag
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -1677,63 +1665,14 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             model_info = ModelInfo(**item)
-            if emissions_thresholds is None or _is_emission_within_treshold(model_info, *emissions_thresholds):
+            if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
-
-    def _unpack_model_filter(self, model_filter: ModelFilter):
-        """
-        Unpacks a [`ModelFilter`] into something readable for `list_models`
-        """
-        model_str = ""
-
-        # Handling author
-        if model_filter.author:
-            model_str = f"{model_filter.author}/"
-
-        # Handling model_name
-        if model_filter.model_name:
-            model_str += model_filter.model_name
-
-        filter_list: List[str] = []
-
-        # Handling tasks
-        if model_filter.task:
-            filter_list.extend([model_filter.task] if isinstance(model_filter.task, str) else model_filter.task)
-
-        # Handling dataset
-        if model_filter.trained_dataset:
-            if not isinstance(model_filter.trained_dataset, (list, tuple)):
-                model_filter.trained_dataset = [model_filter.trained_dataset]
-            for dataset in model_filter.trained_dataset:
-                if "dataset:" not in dataset:
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-
-        # Handling library
-        if model_filter.library:
-            filter_list.extend(
-                [model_filter.library] if isinstance(model_filter.library, str) else model_filter.library
-            )
-
-        # Handling tags
-        if model_filter.tags:
-            filter_list.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
-
-        query_dict: Dict[str, Any] = {}
-        if model_str:
-            query_dict["search"] = model_str
-        if isinstance(model_filter.language, list):
-            filter_list.extend(model_filter.language)
-        elif isinstance(model_filter.language, str):
-            filter_list.append(model_filter.language)
-        query_dict["filter"] = tuple(filter_list)
-        return query_dict
 
     @validate_hf_hub_args
     def list_datasets(
         self,
         *,
-        filter: Union[DatasetFilter, str, Iterable[str], None] = None,
+        filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
         dataset_name: Optional[str] = None,
@@ -1755,9 +1694,8 @@ class HfApi:
         List datasets hosted on the Huggingface Hub, given some filters.
 
         Args:
-            filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
-                A string or [`DatasetFilter`] which can be used to identify
-                datasets on the hub.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
             benchmark (`str` or `List`, *optional*):
@@ -1854,55 +1792,54 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
-        params = {}
+        params: Dict[str, Any] = {}
+
+        # Build `filter` list
         filter_list = []
-
         if filter is not None:
-            if isinstance(filter, DatasetFilter):
-                params = self._unpack_dataset_filter(filter)
+            if isinstance(filter, str):
+                filter_list.append(filter)
             else:
-                params.update({"filter": filter})
-
-        # Build the filter list
-        if author:
-            params.update({"author": author})
-        if dataset_name:
-            params.update({"search": dataset_name})
-
-        for attr in (
-            benchmark,
-            language_creators,
-            language,
-            multilinguality,
-            size_categories,
-            task_categories,
-            task_ids,
+                filter_list.extend(filter)
+        for key, value in (
+            ("benchmark", benchmark),
+            ("language_creators", language_creators),
+            ("language", language),
+            ("multilinguality", multilinguality),
+            ("size_categories", size_categories),
+            ("task_categories", task_categories),
+            ("task_ids", task_ids),
         ):
-            if attr:
-                if not isinstance(attr, (list, tuple)):
-                    attr = [attr]
-                for data in attr:
-                    if not data.startswith(f"{attr}:"):
-                        data = f"{attr}:{data}"
+            if value:
+                if isinstance(value, str):
+                    value = [value]
+                for value_item in value:
+                    if not value_item.startswith(f"{key}:"):
+                        data = f"{key}:{value_item}"
                     filter_list.append(data)
-
         if tags is not None:
             filter_list.extend([tags] if isinstance(tags, str) else tags)
-        if search:
-            params.update({"search": search})
-        if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
-        if direction is not None:
-            params.update({"direction": direction})
-        if limit is not None:
-            params.update({"limit": limit})
-        if full:
-            params.update({"full": True})
+        if len(filter_list) > 0:
+            params["filter"] = filter_list
 
-        filter_value = params.get("filter", [])
-        if filter_value:
-            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
-        params.update({"filter": filter_list})
+        # Handle other query params
+        if author:
+            params["author"] = author
+        search_list = []
+        if dataset_name:
+            search_list.append(dataset_name)
+        if search:
+            search_list.append(search)
+        if len(search_list) > 0:
+            params["search"] = search_list
+        if sort is not None:
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
+        if direction is not None:
+            params["direction"] = direction
+        if limit is not None:
+            params["limit"] = limit
+        if full:
+            params["full"] = True
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -1911,47 +1848,6 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             yield DatasetInfo(**item)
-
-    def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
-        """
-        Unpacks a [`DatasetFilter`] into something readable for `list_datasets`
-        """
-        dataset_str = ""
-
-        # Handling author
-        if dataset_filter.author:
-            dataset_str = f"{dataset_filter.author}/"
-
-        # Handling dataset_name
-        if dataset_filter.dataset_name:
-            dataset_str += dataset_filter.dataset_name
-
-        filter_list = []
-        data_attributes = [
-            "benchmark",
-            "language_creators",
-            "language",
-            "multilinguality",
-            "size_categories",
-            "task_categories",
-            "task_ids",
-        ]
-
-        for attr in data_attributes:
-            curr_attr = getattr(dataset_filter, attr)
-            if curr_attr is not None:
-                if not isinstance(curr_attr, (list, tuple)):
-                    curr_attr = [curr_attr]
-                for data in curr_attr:
-                    if f"{attr}:" not in data:
-                        data = f"{attr}:{data}"
-                    filter_list.append(data)
-
-        query_dict: Dict[str, Any] = {}
-        if dataset_str is not None:
-            query_dict["search"] = dataset_str
-        query_dict["filter"] = tuple(filter_list)
-        return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
         """
@@ -2025,25 +1921,25 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
         if filter is not None:
-            params.update({"filter": filter})
+            params["filter"] = filter
         if author is not None:
-            params.update({"author": author})
+            params["author"] = author
         if search is not None:
-            params.update({"search": search})
+            params["search"] = search
         if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
         if direction is not None:
-            params.update({"direction": direction})
+            params["direction"] = direction
         if limit is not None:
-            params.update({"limit": limit})
+            params["limit"] = limit
         if full:
-            params.update({"full": True})
+            params["full"] = True
         if linked:
-            params.update({"linked": True})
+            params["linked"] = True
         if datasets is not None:
-            params.update({"datasets": datasets})
+            params["datasets"] = datasets
         if models is not None:
-            params.update({"models": models})
+            params["models"] = models
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -3373,25 +3269,19 @@ class HfApi:
                 raise
 
     @validate_hf_hub_args
-    @_deprecate_arguments(
-        version="0.24.0", deprecated_args=("organization", "name"), custom_message="Use `repo_id` instead."
-    )
     def update_repo_visibility(
         self,
         repo_id: str,
         private: bool = False,
         *,
         token: Union[str, bool, None] = None,
-        organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 
         Args:
             repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated
-                by a `/`.
+                A namespace (user or an organization) and a repo name separated by a `/`.
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (Union[bool, str, None], optional):
@@ -3418,20 +3308,12 @@ class HfApi:
         </Tip>
         """
         if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
-
-        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
-
-        if organization is None:
-            namespace = self.whoami(token)["name"]
-        else:
-            namespace = organization
-
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
         r = get_session().put(
-            url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=self._build_hf_headers(token=token),
             json={"private": private},
         )

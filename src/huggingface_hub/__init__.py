@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.23.0.dev0"
+__version__ = "0.24.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -444,10 +444,6 @@ _SUBMOD_ATTRS = {
         "get_token",
         "logging",
         "scan_cache_dir",
-    ],
-    "utils.endpoint_helpers": [
-        "DatasetFilter",
-        "ModelFilter",
     ],
 }
 
@@ -927,8 +923,4 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
-    )
-    from .utils.endpoint_helpers import (
-        DatasetFilter,  # noqa: F401
-        ModelFilter,  # noqa: F401
     )

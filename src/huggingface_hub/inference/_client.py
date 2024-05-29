@@ -913,7 +913,14 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    def feature_extraction(
+        self,
+        text: str,
+        *,
+        normalize: Optional[bool] = None,
+        truncate: Optional[bool] = None,
+        model: Optional[str] = None,
+    ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -924,6 +931,12 @@ class InferenceClient:
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
+            normalize (`bool`, *optional*):
+                Whether to normalize the embeddings or not. Defaults to None.
+                Only available on server powered by Text-Embedding-Inference.
+            truncate (`bool`, *optional*):
+                Whether to truncate the embeddings or not. Defaults to None.
+                Only available on server powered by Text-Embedding-Inference.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -945,7 +958,12 @@ class InferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        payload: Dict = {"inputs": text}
+        if normalize is not None:
+            payload["normalize"] = normalize
+        if truncate is not None:
+            payload["truncate"] = truncate
+        response = self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
@@ -1184,7 +1202,8 @@ class InferenceClient:
         ```
         """
         response = self.post(data=image, model=model, task="image-to-text")
-        return ImageToTextOutput.parse_obj_as_instance(response)
+        output = ImageToTextOutput.parse_obj(response)
+        return output[0] if isinstance(output, list) else output
 
     def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
@@ -2527,6 +2546,95 @@ class InferenceClient:
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
         return model
+
+    def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get information about the deployed endpoint.
+
+        This endpoint is only available on endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        Endpoints powered by `transformers` return an empty payload.
+
+        Args:
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `Dict[str, Any]`: Information about the endpoint.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> client.get_endpoint_info()
+        {
+            'model_id': 'meta-llama/Meta-Llama-3-70B-Instruct',
+            'model_sha': None,
+            'model_dtype': 'torch.float16',
+            'model_device_type': 'cuda',
+            'model_pipeline_tag': None,
+            'max_concurrent_requests': 128,
+            'max_best_of': 2,
+            'max_stop_sequences': 4,
+            'max_input_length': 8191,
+            'max_total_tokens': 8192,
+            'waiting_served_ratio': 0.3,
+            'max_batch_total_tokens': 1259392,
+            'max_waiting_tokens': 20,
+            'max_batch_size': None,
+            'validation_workers': 32,
+            'max_client_batch_size': 4,
+            'version': '2.0.2',
+            'sha': 'dccab72549635c7eb5ddb17f43f0b7cdff07c214',
+            'docker_label': 'sha-dccab72'
+        }
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith(("http://", "https://")):
+            url = model.rstrip("/") + "/info"
+        else:
+            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+
+        response = get_session().get(url, headers=self.headers)
+        hf_raise_for_status(response)
+        return response.json()
+
+    def health_check(self, model: Optional[str] = None) -> bool:
+        """
+        Check the health of the deployed endpoint.
+
+        Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        For Inference API, please use [`InferenceClient.get_model_status`] instead.
+
+        Args:
+            model (`str`, *optional*):
+                URL of the Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `bool`: True if everything is working fine.
+
+        Example:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient("https://jzgu0buei5.us-east-1.aws.endpoints.huggingface.cloud")
+        >>> client.health_check()
+        True
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if not model.startswith(("http://", "https://")):
+            raise ValueError(
+                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
+            )
+        url = model.rstrip("/") + "/health"
+
+        response = get_session().get(url, headers=self.headers)
+        return response.status_code == 200
 
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
