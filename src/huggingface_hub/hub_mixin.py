@@ -319,6 +319,7 @@ class ModelHubMixin:
 
     @classmethod
     def _is_optional_type(cls, type_: Type[ARGS_T]) -> bool:
+        """Check if a type is optional, i.e. Optional[type] or type | None."""
         if get_origin(type_) is Union or isinstance(type_, UnionType):
             union_args = get_args(type_)
             if len(union_args) == 2 and type(None) in union_args:
