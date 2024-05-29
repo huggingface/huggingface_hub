@@ -2,8 +2,23 @@ import inspect
 import json
 import os
 from dataclasses import asdict, dataclass, is_dataclass
+from itertools import takewhile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, get_args
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
@@ -303,19 +318,37 @@ class ModelHubMixin:
         return is_jsonable(value)
 
     @classmethod
+    def _is_optional_type(cls, type_: Type[ARGS_T]) -> bool:
+        if get_origin(type_) is Union or isinstance(type_, UnionType):
+            union_args = get_args(type_)
+            if len(union_args) == 2 and type(None) in union_args:
+                return True
+        return False
+
+    @classmethod
     def _encode_arg(cls, arg: Any) -> Any:
         """Encode an argument into a JSON serializable format."""
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
+                if arg is None:
+                    return None
                 return encoder(arg)
         return arg
 
     @classmethod
-    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> ARGS_T:
+    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> Optional[ARGS_T]:
         """Decode a JSON serializable value into an argument."""
+        if cls._is_optional_type(expected_type):
+            expected_type = next(takewhile(lambda x: x is not type(None), get_args(expected_type)))
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
-            if issubclass(expected_type, type_):
-                return decoder(value)
+            if inspect.isclass(expected_type) and issubclass(expected_type, type_):
+                try:
+                    decoded_value = decoder(value)
+                except Exception as e:
+                    if value is None:
+                        return None
+                    raise e
+                return decoded_value
         return value
 
     def save_pretrained(
