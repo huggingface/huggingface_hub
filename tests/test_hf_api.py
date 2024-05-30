@@ -140,18 +140,12 @@ def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
     # for {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    REPO_NAME = repo_name("crud")
 
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with warnings.catch_warnings(record=True) as record:
-            getattr(api, method)(REPO_NAME, repo_type=REPO_TYPE_MODEL, **kwargs)
-        assert not len(record)
+    with warnings.catch_warnings(record=True) as record:
+        repo_id = api.create_repo(repo_name()).repo_id
+        api.update_repo_visibility(repo_id, private=True)
+        api.delete_repo(repo_id)
+    assert not len(record)
 
 
 class HfApiRepoFileExistsTest(HfApiCommonTest):
@@ -229,31 +223,28 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     def test_create_update_and_delete_repo(self):
-        REPO_NAME = repo_name("crud")
-        self._api.create_repo(repo_id=REPO_NAME)
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=False)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=REPO_NAME)
+        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
-        REPO_NAME = repo_name("crud")
-        self._api.create_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=True, repo_type=REPO_TYPE_MODEL)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=False, repo_type=REPO_TYPE_MODEL)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_MODEL).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_MODEL)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_MODEL)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_MODEL)
 
     def test_create_update_and_delete_dataset_repo(self):
-        DATASET_REPO_NAME = dataset_repo_name("crud")
-        self._api.create_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
-        res = self._api.update_repo_visibility(repo_id=DATASET_REPO_NAME, private=True, repo_type=REPO_TYPE_DATASET)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=DATASET_REPO_NAME, private=False, repo_type=REPO_TYPE_DATASET)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_DATASET).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_DATASET)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_DATASET)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_DATASET)
 
     @unittest.skip(
         "Create repo fails on staging endpoint. See"
