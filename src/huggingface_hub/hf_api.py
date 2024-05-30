@@ -4829,12 +4829,12 @@ class HfApi:
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
         """
-        patterns = [p + "*" if p[-1] == "/" else p for p in delete_patterns]
+        #delete_patterns = [p + "*" if p[-1] == "/" else p for p in delete_patterns]
         operations = self._prepare_folder_deletions(
-            repo_id=repo_id, repo_type=repo_type, delete_patterns=patterns, path_in_repo="", revision=revision
+            repo_id=repo_id, repo_type=repo_type, delete_patterns=delete_patterns, path_in_repo="", revision=revision
         )
 
-        f_patterns = " ".join(patterns)
+        f_patterns = " ".join(delete_patterns)
 
         if commit_message is None:
             commit_message = f"Delete files {f_patterns} with huggingface_hub"
