@@ -61,7 +61,7 @@ class DeleteFilesSubCommand:
         logging.set_verbosity_warning()
 
     def _delete(self):
-        return self.api.delete_files_r(
+        return self.api.delete_files(
             patterns=self.patterns,
             repo_id=self.repo_id,
             repo_type=self.repo_type,
@@ -72,25 +72,17 @@ class DeleteFilesSubCommand:
 class RepoFilesCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        repo_files_parser = parser.add_parser("repo-files", help="Update or delete files from a repo in the Hub")
+        repo_files_parser = parser.add_parser("repo-files", help="Manage files in a repo on the Hub")
         repo_files_parser.add_argument(
-            "repo_id", type=str, help="The ID of the repo to repo_files to (e.g. `username/repo-name`)."
-        )
-        repo_files_parser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-            required=False,
+            "repo_id", type=str, help="The ID of the repo to manage (e.g. `username/repo-name`)."
         )
         repo_files_subparsers = repo_files_parser.add_subparsers(
             help="Action to execute against the files.",
-            description="Action to execute against the files.",
             required=True,
         )
         delete_subparser = repo_files_subparsers.add_parser(
             "delete",
-            description="Delete files from a repo in the Hugging Face Hub.",
-            help="Delete files from a repo in the Hugging Face Hub",
+            help="Delete files from a repo on the Hub",
         )
         delete_subparser.set_defaults(func=lambda args: DeleteFilesSubCommand(args))
         delete_subparser.add_argument(
@@ -113,6 +105,12 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
                 "or a PR reference. If revision does not"
                 " exist and `--create-pr` is not set, a branch will be automatically created."
             ),
+        )
+        repo_files_parser.add_argument(
+            "--token",
+            type=str,
+            help="A User Access Token generated from https://huggingface.co/settings/tokens",
+            required=False,
         )
 
         repo_files_parser.set_defaults(func=RepoFilesCommand)

@@ -16,8 +16,8 @@ class TestRepoFilesCommand(unittest.TestCase):
         commands_parser = self.parser.add_subparsers()
         RepoFilesCommand.register_subcommand(commands_parser)
 
-    @patch("huggingface_hub.commands.repo_files.HfApi.delete_files_r")
-    def test_delete(self, delete_files_r_mock: Mock) -> None:
+    @patch("huggingface_hub.commands.repo_files.HfApi.delete_files")
+    def test_delete(self, delete_files_mock: Mock) -> None:
         fixtures = [
             {
                 "input_args": [
@@ -26,7 +26,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "delete",
                     "*",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "*",
                     ],
@@ -42,7 +42,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "delete",
                     "file.txt",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "file.txt",
                     ],
@@ -58,7 +58,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "delete",
                     "folder/",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "folder/",
                     ],
@@ -76,7 +76,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "folder/",
                     "file2.txt",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "file1.txt",
                         "folder/",
@@ -96,7 +96,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "*.json",
                     "folder/*.parquet",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "file.txt *",
                         "*.json",
@@ -118,7 +118,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "--repo-type",
                     "dataset",
                 ],
-                "delete_files_r_args": {
+                "delete_files_args": {
                     "patterns": [
                         "file.txt *",
                     ],
@@ -133,17 +133,17 @@ class TestRepoFilesCommand(unittest.TestCase):
             # subTest is similar to pytest.mark.parametrize, but using the unittest
             # framework
             with self.subTest(expected):
-                delete_files_r_args = expected["delete_files_r_args"]
+                delete_files_args = expected["delete_files_args"]
 
                 cmd = DeleteFilesSubCommand(self.parser.parse_args(expected["input_args"]))
                 cmd.run()
 
-                if delete_files_r_args is None:
-                    assert delete_files_r_mock.call_count == 0
+                if delete_files_args is None:
+                    assert delete_files_mock.call_count == 0
                 else:
-                    assert delete_files_r_mock.call_count == 1
+                    assert delete_files_mock.call_count == 1
                     # Inspect the captured calls
-                    _, kwargs = delete_files_r_mock.call_args_list[0]
-                    assert kwargs == delete_files_r_args
+                    _, kwargs = delete_files_mock.call_args_list[0]
+                    assert kwargs == delete_files_args
 
-                delete_files_r_mock.reset_mock()
+                delete_files_mock.reset_mock()

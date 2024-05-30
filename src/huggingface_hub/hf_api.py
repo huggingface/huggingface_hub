@@ -4773,7 +4773,7 @@ class HfApi:
         )
 
     @validate_hf_hub_args
-    def delete_files_r(
+    def delete_files(
         self,
         patterns: List[str],
         repo_id: str,
@@ -9079,7 +9079,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
-delete_files_r = api.delete_files_r
+delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
