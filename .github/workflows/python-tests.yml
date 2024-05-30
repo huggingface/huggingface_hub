@@ -143,6 +143,7 @@ jobs:
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
+      GIT_CLONE_PROTECTION_ACTIVE: false # See https://github.com/git-lfs/git-lfs/issues/5754
     strategy:
       fail-fast: false
       matrix:
