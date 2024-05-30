@@ -7109,7 +7109,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "my-endpoint-name",
             ...     repository="gpt2",
             ...     framework="pytorch",
@@ -7133,7 +7133,7 @@ class HfApi:
             # Start an Inference Endpoint running Zephyr-7b-beta on TGI
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "aws-zephyr-7b-beta-0486",
             ...     repository="HuggingFaceH4/zephyr-7b-beta",
             ...     framework="pytorch",
