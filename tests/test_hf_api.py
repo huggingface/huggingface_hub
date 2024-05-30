@@ -532,7 +532,7 @@ class CommitApiTest(HfApiCommonTest):
                 # Will throw error is file doesn't exist
                 hf_hub_download(repo_url.repo_id, "nested/file.bin")
 
-                self._api.delete_files(repo_id=repo_id, patterns=fixture["patterns"])
+                self._api.delete_files(repo_id=repo_id, delete_patterns=fixture["patterns"])
                 if fixture["deleted"]:
                     # File has been deleted, error should be thrown
                     with pytest.raises(EntryNotFoundError):
@@ -542,7 +542,7 @@ class CommitApiTest(HfApiCommonTest):
                     hf_hub_download(repo_url.repo_id, "nested/file.bin")
 
                 # Empty the repo for the next test
-                self._api.delete_files(repo_id=repo_id, patterns=["*"])
+                self._api.delete_files(repo_id=repo_id, delete_patterns=["*"])
 
     @use_tmp_repo()
     def test_upload_folder(self, repo_url: RepoUrl) -> None:

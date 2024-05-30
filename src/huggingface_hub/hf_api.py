@@ -4775,8 +4775,8 @@ class HfApi:
     @validate_hf_hub_args
     def delete_files(
         self,
-        patterns: List[str],
         repo_id: str,
+        delete_patterns: List[str],
         *,
         token: Union[bool, str, None] = None,
         repo_type: Optional[str] = None,
@@ -4787,28 +4787,19 @@ class HfApi:
         parent_commit: Optional[str] = None,
     ) -> CommitInfo:
         """
-        Recursively deletes files in a given repository based on Unix shell-style
-        file matching patterns.
+        Delete files from a repository on the Hub.
 
-        Git based under the hood (server-side), meaning if you delete all files
-        from a directory, git untracks it. It works this way recursively
-        through the sub folders. Meaning a whole directory structure is untracked
-        by deleting their respectives files at all levels.
-
-        Also if one or many of the patterns from the `patterns` argument to
-        this function have a trailing `/` (as in `folder/`),
-        this function will interpret it as `/*` (as in `folder/*`) to comply with Unix
-        patterns (Unix shell standards don't match `folder/a` to `folder/` but
-        match it to `folder/*`) when deleting all files in the folders(s).
-        By the previous corollary, the folder(s) will disappear because all
-        their files are deleted.
+        If a folder path is provided, the entire folder is deleted as well as 
+        all files it contained.
 
         Args:
-            path_in_repo (`str`):
-                Relative folder path in the repo, for example: `"checkpoints/1fec34a"`.
             repo_id (`str`):
                 The repository from which the folder will be deleted, for example:
                 `"username/custom_transformers"`
+            delete_patterns (`List[str]`):
+                List of files or folders to delete. Each string can either be 
+                a file path, a folder path or a Unix shell-style wildcard.
+                E.g. `["file.txt", "folder/", "data/*.parquet"]`
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -4816,13 +4807,13 @@ class HfApi:
                 To disable authentication, pass `False`.
                 to the stored token.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if the folder is in a dataset or
-                space, `None` or `"model"` if in a model. Default is `None`.
+                Type of the repo to delete files from. Can be `"model"`, 
+                `"dataset"` or `"space"`. Defaults to `"model"`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
-                The summary / title / first line of the generated commit. Defaults to
-                `f"Delete folder {path_in_repo} with huggingface_hub"`.
+                The summary (first line) of the generated commit. Defaults to
+                `f"Delete files using huggingface_hub"`.
             commit_description (`str` *optional*)
                 The description of the generated commit.
             create_pr (`boolean`, *optional*):
@@ -4838,21 +4829,23 @@ class HfApi:
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
         """
-        patterns = [p + "*" if p[-1] == "/" else p for p in patterns]
+        patterns = [p + "*" if p[-1] == "/" else p for p in delete_patterns]
         operations = self._prepare_folder_deletions(
             repo_id=repo_id, repo_type=repo_type, delete_patterns=patterns, path_in_repo="", revision=revision
         )
 
         f_patterns = " ".join(patterns)
+
+        if commit_message is None:
+            commit_message = f"Delete files {f_patterns} with huggingface_hub"
+
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
             token=token,
             operations=operations,
             revision=revision,
-            commit_message=(
-                commit_message if commit_message is not None else f"Delete files {f_patterns} with huggingface_hub"
-            ),
+            commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
             parent_commit=parent_commit,
@@ -8880,6 +8873,7 @@ class HfApi:
 
         # List remote files
         filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
+
         # Compute relative path in repo
         if path_in_repo and path_in_repo not in (".", "./"):
             path_in_repo = path_in_repo.strip("/") + "/"  # harmonize

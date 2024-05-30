@@ -62,7 +62,7 @@ class DeleteFilesSubCommand:
 
     def _delete(self):
         return self.api.delete_files(
-            patterns=self.patterns,
+            delete_patterns=self.patterns,
             repo_id=self.repo_id,
             repo_type=self.repo_type,
             revision=self.revision,
