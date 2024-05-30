@@ -646,7 +646,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "*",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "*",
                     ],
                     "repo_id": DUMMY_MODEL_ID,
@@ -662,7 +662,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "file.txt",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "file.txt",
                     ],
                     "repo_id": DUMMY_MODEL_ID,
@@ -678,7 +678,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "folder/",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "folder/",
                     ],
                     "repo_id": DUMMY_MODEL_ID,
@@ -696,7 +696,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "file2.txt",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "file1.txt",
                         "folder/",
                         "file2.txt",
@@ -716,7 +716,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "folder/*.parquet",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "file.txt *",
                         "*.json",
                         "folder/*.parquet",
@@ -738,7 +738,7 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "dataset",
                 ],
                 "delete_files_args": {
-                    "patterns": [
+                    "delete_patterns": [
                         "file.txt *",
                     ],
                     "repo_id": DUMMY_MODEL_ID,

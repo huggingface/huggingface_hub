@@ -49,11 +49,11 @@ class DeleteFilesSubCommand:
     def __init__(self, args):
         self.args = args
         self.repo_id: str = args.repo_id
-        self.token: str = args.token
         self.repo_type: Optional[str] = args.repo_type
         self.revision: Optional[str] = args.revision
         self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
         self.patterns: List[str] = args.patterns
+        self.token: str = args.token
 
     def run(self) -> None:
         logging.set_verbosity_info()
@@ -110,7 +110,6 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
             "--token",
             type=str,
             help="A User Access Token generated from https://huggingface.co/settings/tokens",
-            required=False,
         )
 
         repo_files_parser.set_defaults(func=RepoFilesCommand)
