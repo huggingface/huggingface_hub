@@ -31,7 +31,7 @@ Usage:
     huggingface-cli repo-files <repo_id> delete file.txt *.json folder/*.parquet
 
     # delete from different revision / repo-type
-    huggingface-cli repo-files <repo_id> delete file.txt --revision=... --repo-type=dataset
+    huggingface-cli repo-files <repo_id> delete file.txt --revision=refs/pr/1 --repo-type=dataset
 """
 
 from argparse import _SubParsersAction
@@ -45,7 +45,7 @@ from huggingface_hub.hf_api import HfApi
 logger = logging.get_logger(__name__)
 
 
-class DeleteSubCommand:
+class DeleteFilesSubCommand:
     def __init__(self, args):
         self.args = args
         self.repo_id: str = args.repo_id
@@ -92,7 +92,7 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
             description="Delete files from a repo in the Hugging Face Hub.",
             help="Delete files from a repo in the Hugging Face Hub",
         )
-        delete_subparser.set_defaults(func=lambda args: DeleteSubCommand(args))
+        delete_subparser.set_defaults(func=lambda args: DeleteFilesSubCommand(args))
         delete_subparser.add_argument(
             "patterns",
             nargs="+",

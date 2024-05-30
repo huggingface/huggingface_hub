@@ -31,11 +31,11 @@ def main():
     commands_parser = parser.add_subparsers(help="huggingface-cli command helpers")
 
     # Register commands
-    EnvironmentCommand.register_subcommand(commands_parser)
-    UserCommands.register_subcommand(commands_parser)
+    DownloadCommand.register_subcommand(commands_parser)
     UploadCommand.register_subcommand(commands_parser)
     RepoFilesCommand.register_subcommand(commands_parser)
-    DownloadCommand.register_subcommand(commands_parser)
+    EnvironmentCommand.register_subcommand(commands_parser)
+    UserCommands.register_subcommand(commands_parser)
     LfsCommands.register_subcommand(commands_parser)
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)

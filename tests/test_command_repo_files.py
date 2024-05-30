@@ -2,7 +2,7 @@ import unittest
 from argparse import ArgumentParser
 from unittest.mock import Mock, patch
 
-from huggingface_hub.commands.repo_files import DeleteSubCommand, RepoFilesCommand
+from huggingface_hub.commands.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -135,7 +135,7 @@ class TestRepoFilesCommand(unittest.TestCase):
             with self.subTest(expected):
                 delete_files_r_args = expected["delete_files_r_args"]
 
-                cmd = DeleteSubCommand(self.parser.parse_args(expected["input_args"]))
+                cmd = DeleteFilesSubCommand(self.parser.parse_args(expected["input_args"]))
                 cmd.run()
 
                 if delete_files_r_args is None:
