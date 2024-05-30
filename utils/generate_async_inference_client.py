@@ -236,7 +236,10 @@ ASYNC_POST_CODE = """
                         if timeout is not None:
                             timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                         continue
-                    raise error"""
+                    raise error
+                except Exception:
+                    await client.close()
+                    raise"""
 
 
 def _make_post_async(code: str) -> str:
