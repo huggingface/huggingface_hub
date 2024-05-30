@@ -24,7 +24,6 @@ import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
-from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Union
@@ -110,10 +109,6 @@ from .testing_utils import (
 
 
 logger = logging.get_logger(__name__)
-
-dataset_repo_name = partial(repo_name, prefix="my-dataset")
-space_repo_name = partial(repo_name, prefix="my-space")
-large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
 
 WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo")
 LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
@@ -246,26 +241,19 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_DATASET)
 
-    @unittest.skip(
-        "Create repo fails on staging endpoint. See"
-        " https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419"
-        " (internal link)."
-    )
     def test_create_update_and_delete_space_repo(self):
-        SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=None)
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=None)
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk="something")
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk="something")
 
         for sdk in SPACES_SDK_TYPES:
-            SPACE_REPO_NAME = space_repo_name(sdk)
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=sdk)
-            res = self._api.update_repo_visibility(repo_id=SPACE_REPO_NAME, private=True, repo_type=REPO_TYPE_SPACE)
-            self.assertTrue(res["private"])
-            res = self._api.update_repo_visibility(repo_id=SPACE_REPO_NAME, private=False, repo_type=REPO_TYPE_SPACE)
-            self.assertFalse(res["private"])
-            self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
+            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=sdk).repo_id
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_SPACE)
+            assert res["private"]
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_SPACE)
+            assert not res["private"]
+            self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
@@ -3334,10 +3322,9 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
-    @unittest.skip("HTTP 500 currently on staging")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
-        from_repo_name = space_repo_name("original_repo_name")
+        from_repo_name = repo_name()
         from_repo_id = self._api.create_repo(
             repo_id=from_repo_name,
             repo_type="space",
@@ -3354,14 +3341,16 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
 
         to_repo_id = self._api.duplicate_space(from_repo_id).repo_id
 
-        self.assertEqual(to_repo_id, f"{USER}/{from_repo_name}")
-        self.assertEqual(
-            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
-            [".gitattributes", "README.md", "index.html", "style.css", "temp/new_file.md"],
-        )
-        self.assertEqual(
-            self._api.list_repo_files(repo_id=to_repo_id, repo_type="space"),
-            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+        assert to_repo_id == f"{USER}/{from_repo_name}"
+        assert self._api.list_repo_files(repo_id=from_repo_id, repo_type="space") == [
+            ".gitattributes",
+            "README.md",
+            "index.html",
+            "style.css",
+            "temp/new_file.md",
+        ]
+        assert self._api.list_repo_files(repo_id=to_repo_id, repo_type="space") == self._api.list_repo_files(
+            repo_id=from_repo_id, repo_type="space"
         )
 
         self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
