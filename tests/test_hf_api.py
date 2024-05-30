@@ -145,6 +145,7 @@ class HfApiCommonTest(unittest.TestCase):
         self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
         with open(self.nested_tmp_file, "wb+") as f:
             f.truncate(1024 * 1024)
+        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
 
 def test_repo_id_no_warning():
@@ -323,7 +324,6 @@ class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
         self._initialize_temp_dir()
-        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
     def test_upload_file_validation(self) -> None:
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -1471,7 +1471,6 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
         self._initialize_temp_dir()
-        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
     @use_tmp_repo()
     def _run(self, patterns: List[str], deleted: bool, repo_url: Optional[RepoUrl] = None) -> None:
