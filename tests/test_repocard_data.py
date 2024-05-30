@@ -14,7 +14,7 @@ from huggingface_hub.repocard_data import (
 )
 
 
-OPEN_LLM_LEADERBOARD_URL = "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard"
+OPEN_LLM_LEADERBOARD_URL = "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard"
 DUMMY_METADATA_WITH_MODEL_INDEX = """
 language: en
 license: mit
@@ -39,7 +39,7 @@ model-index:
       value: 0.9
     source:
       name: Open LLM Leaderboard
-      url: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+      url: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
 """
 
 

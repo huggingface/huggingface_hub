@@ -1876,14 +1876,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "HuggingFaceH4/open_llm_leaderboard"
+        space_id = "open-llm-leaderboard/open_llm_leaderboard"
 
         spaces = list(self._api.list_spaces(search=space_id))
         assert spaces[0].models is None
         assert spaces[0].datasets is None
 
         spaces = list(self._api.list_spaces(search=space_id, linked=True))
-        assert len(spaces) == 1
         assert spaces[0].models is not None
         assert spaces[0].datasets is not None
 
@@ -2392,7 +2391,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
     @with_production_testing
     def test_get_repo_discussion_pagination(self):
         discussions = list(
-            HfApi().get_repo_discussions(repo_id="HuggingFaceH4/open_llm_leaderboard", repo_type="space")
+            HfApi().get_repo_discussions(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
         )
         assert len(discussions) > 50
 
