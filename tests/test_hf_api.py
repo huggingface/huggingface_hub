@@ -1472,47 +1472,87 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
         super().setUp()
         self._initialize_temp_dir()
         self.addCleanup(rmtree_with_retry, self.tmp_dir)
-    
+
     @use_tmp_repo()
-    def _run(self, patterns:List[str], deleted:bool, repo_url: Optional[RepoUrl]=None) -> None:
+    def _run(self, patterns: List[str], deleted: bool, repo_url: Optional[RepoUrl] = None) -> None:
         assert repo_url is not None
-        self.url = self._api.upload_folder(
-            folder_path=self.tmp_dir, path_in_repo="", repo_id=repo_url.repo_id
-        )
+        self.url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="", repo_id=repo_url.repo_id)
         assert self.url == f"{self._api.endpoint}/{repo_url.repo_id}/tree/main/"
         assert isinstance(self.url, CommitInfo)
-        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp", "nested/file.bin"}
+        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {
+            ".gitattributes",
+            "temp",
+            "nested/file.bin",
+        }
 
         self._api.delete_files(repo_id=repo_url.repo_id, delete_patterns=patterns)
-        if deleted:
-            # File has been deleted
-            assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp"}
-        else:
-            assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp", "nested/file.bin"}
-    
+
+        expected_files = {".gitattributes", "temp"}
+        if not deleted:
+            expected_files.add("nested/file.bin")
+
+        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == expected_files
+
     def test_first(self):
-        self._run( patterns= [ "nested/*", ], deleted=True) 
+        self._run(
+            patterns=[
+                "nested/*",
+            ],
+            deleted=True,
+        )
 
     def test_second(self):
-        self._run( patterns= [ "random", "nested/*", ], deleted=True) 
+        self._run(
+            patterns=[
+                "random",
+                "nested/*",
+            ],
+            deleted=True,
+        )
 
     def test_third(self):
-        self._run( patterns= [ "nested/file.bin", ], deleted=True) 
+        self._run(
+            patterns=[
+                "nested/file.bin",
+            ],
+            deleted=True,
+        )
 
     def test_fourth(self):
-        self._run( patterns= [ "file.bin", ], deleted=False) 
+        self._run(
+            patterns=[
+                "file.bin",
+            ],
+            deleted=False,
+        )
 
     def test_fifth(self):
-        self._run( patterns= [ "nested/nested2/file.bin", ], deleted=False) 
+        self._run(
+            patterns=[
+                "nested/nested2/file.bin",
+            ],
+            deleted=False,
+        )
 
     def test_sixth(self):
-        self._run( patterns= [ "*.bin", ], deleted=True) 
+        self._run(
+            patterns=[
+                "*.bin",
+            ],
+            deleted=True,
+        )
 
     def test_seventh(self):
-        self._run( patterns= [ "nested/*.bin", ], deleted=True) 
+        self._run(
+            patterns=[
+                "nested/*.bin",
+            ],
+            deleted=True,
+        )
 
     def test_tenth(self):
-        self._run( patterns= ["nested/"], deleted=True) 
+        self._run(patterns=["nested/"], deleted=True)
+
 
 class HfApiPublicStagingTest(unittest.TestCase):
     def setUp(self) -> None:

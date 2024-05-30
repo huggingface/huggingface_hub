@@ -39,14 +39,14 @@ from typing import List, Optional
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.hf_api import HfApi
+from huggingface_hub.hf_api import CommitInfo, HfApi
 
 
 logger = logging.get_logger(__name__)
 
 
 class DeleteFilesSubCommand:
-    def __init__(self, args):
+    def __init__(self, args) -> None:
         self.args = args
         self.repo_id: str = args.repo_id
         self.repo_type: Optional[str] = args.repo_type
@@ -60,7 +60,7 @@ class DeleteFilesSubCommand:
         print(self._delete())
         logging.set_verbosity_warning()
 
-    def _delete(self):
+    def _delete(self) -> CommitInfo:
         return self.api.delete_files(
             delete_patterns=self.patterns,
             repo_id=self.repo_id,

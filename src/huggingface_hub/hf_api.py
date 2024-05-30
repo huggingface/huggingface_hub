@@ -4789,7 +4789,7 @@ class HfApi:
         """
         Delete files from a repository on the Hub.
 
-        If a folder path is provided, the entire folder is deleted as well as 
+        If a folder path is provided, the entire folder is deleted as well as
         all files it contained.
 
         Args:
@@ -4797,7 +4797,7 @@ class HfApi:
                 The repository from which the folder will be deleted, for example:
                 `"username/custom_transformers"`
             delete_patterns (`List[str]`):
-                List of files or folders to delete. Each string can either be 
+                List of files or folders to delete. Each string can either be
                 a file path, a folder path or a Unix shell-style wildcard.
                 E.g. `["file.txt", "folder/", "data/*.parquet"]`
             token (Union[bool, str, None], optional):
@@ -4807,7 +4807,7 @@ class HfApi:
                 To disable authentication, pass `False`.
                 to the stored token.
             repo_type (`str`, *optional*):
-                Type of the repo to delete files from. Can be `"model"`, 
+                Type of the repo to delete files from. Can be `"model"`,
                 `"dataset"` or `"space"`. Defaults to `"model"`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.

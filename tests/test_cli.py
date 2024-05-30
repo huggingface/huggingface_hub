@@ -9,11 +9,11 @@ from unittest.mock import Mock, patch
 
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
+from huggingface_hub.commands.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.utils import RevisionNotFoundError, SoftTemporaryDirectory, capture_output
-from huggingface_hub.commands.repo_files import DeleteFilesSubCommand, RepoFilesCommand
 
 from .testing_utils import DUMMY_MODEL_ID
 
@@ -625,6 +625,7 @@ def tmp_current_directory() -> Generator[str, None, None]:
             raise
         finally:
             os.chdir(cwd)
+
 
 class TestRepoFilesCommand(unittest.TestCase):
     def setUp(self) -> None:
