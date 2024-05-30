@@ -55,7 +55,7 @@ class EvalResult:
         source_name (`str`, *optional*):
             The name of the source of the evaluation result. Example: "Open LLM Leaderboard".
         source_url (`str`, *optional*):
-            The URL of the source of the evaluation result. Example: "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard".
+            The URL of the source of the evaluation result. Example: "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard".
     """
 
     # Required
@@ -128,7 +128,7 @@ class EvalResult:
     source_name: Optional[str] = None
 
     # The URL of the source of the evaluation result.
-    # Example: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+    # Example: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
     source_url: Optional[str] = None
 
     @property

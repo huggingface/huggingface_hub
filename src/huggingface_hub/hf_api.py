@@ -6919,7 +6919,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             storage (`str` or [`SpaceStorage`]):
                Storage tier. Either 'small', 'medium', or 'large'.
             token (Union[bool, str, None], optional):
@@ -6957,7 +6957,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
