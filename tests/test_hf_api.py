@@ -1472,40 +1472,23 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
         super().setUp()
         self._initialize_temp_dir()
         self.addCleanup(rmtree_with_retry, self.tmp_dir)
-
-        self.REPO_PREFIX = "delete_files_test"
-        self.REPO_TYPE = "model"
-
-        self.repo_url = self._api.create_repo(
-            repo_id=repo_name(prefix=self.REPO_PREFIX), repo_type=self.REPO_TYPE
-        )
-        self.url = self._api.upload_folder(
-            folder_path=self.tmp_dir, path_in_repo="", repo_id=self.repo_url.repo_id
-        )
-        assert self.url == f"{self._api.endpoint}/{self.repo_url.repo_id}/tree/main/"
-        assert isinstance(self.url, CommitInfo)
     
-    def tearDown(self):
-        self._api.delete_repo(repo_id=self.repo_url.repo_id, repo_type=self.REPO_TYPE)
-
-    def _run(self, patterns:List[str], deleted:bool):
-        self.assertEqual(
-            set(self._api.list_repo_files(repo_id=self.repo_url.repo_id)),
-            {".gitattributes", "temp", "nested/file.bin"},
+    @use_tmp_repo()
+    def _run(self, patterns:List[str], deleted:bool, repo_url: Optional[RepoUrl]=None) -> None:
+        assert repo_url is not None
+        self.url = self._api.upload_folder(
+            folder_path=self.tmp_dir, path_in_repo="", repo_id=repo_url.repo_id
         )
+        assert self.url == f"{self._api.endpoint}/{repo_url.repo_id}/tree/main/"
+        assert isinstance(self.url, CommitInfo)
+        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp", "nested/file.bin"}
 
-        self._api.delete_files(repo_id=self.repo_url.repo_id, delete_patterns=patterns)
+        self._api.delete_files(repo_id=repo_url.repo_id, delete_patterns=patterns)
         if deleted:
             # File has been deleted
-            self.assertEqual(
-                set(self._api.list_repo_files(repo_id=self.repo_url.repo_id)),
-                {".gitattributes", "temp"},
-            )
+            assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp"}
         else:
-            self.assertEqual(
-                set(self._api.list_repo_files(repo_id=self.repo_url.repo_id)),
-                {".gitattributes", "temp", "nested/file.bin"},
-            )
+            assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {".gitattributes", "temp", "nested/file.bin"}
     
     def test_first(self):
         self._run( patterns= [ "nested/*", ], deleted=True) 
