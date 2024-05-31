@@ -7258,6 +7258,7 @@ class HfApi:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
         # Other
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -7292,6 +7293,9 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
 
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
@@ -7317,13 +7321,14 @@ class HfApi:
                     "minReplica": min_replica,
                 },
             }
-        if any(value is not None for value in (repository, framework, revision, task)):
+        if any(value is not None for value in (repository, framework, revision, task, custom_image)):
+            image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
             payload["model"] = {
                 "framework": framework,
                 "repository": repository,
                 "revision": revision,
                 "task": task,
-                "image": {"huggingface": {}},
+                "image": image,
             }
 
         response = get_session().put(
