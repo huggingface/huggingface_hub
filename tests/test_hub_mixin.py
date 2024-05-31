@@ -90,6 +90,14 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
         return cls(**kwargs)
 
 
+class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", library_name="my-cool-library"):
+    pass
+
+
+class DummyModelInherited(BaseModelForInheritance):
+    pass
+
+
 class DummyModelSavingConfig(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Implementation that uses `config.json` to serialize the config.
@@ -414,3 +422,9 @@ class HubMixinTest(unittest.TestCase):
         assert model_reloaded.bar == "bar"
         assert model_reloaded.custom.value == "custom"
         assert model_reloaded.custom_default.value == "default"
+
+    def test_inherited_class(self):
+        """Test MixinInfo attributes are inherited from the parent class."""
+        model = DummyModelInherited()
+        assert model._hub_mixin_info.repo_url == "https://hf.co/my-repo"
+        assert model._hub_mixin_info.model_card_data.library_name == "my-cool-library"
