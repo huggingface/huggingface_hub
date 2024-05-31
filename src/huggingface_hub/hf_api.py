@@ -6919,7 +6919,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             storage (`str` or [`SpaceStorage`]):
                Storage tier. Either 'small', 'medium', or 'large'.
             token (Union[bool, str, None], optional):
@@ -6957,7 +6957,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7109,7 +7109,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "my-endpoint-name",
             ...     repository="gpt2",
             ...     framework="pytorch",
@@ -7133,7 +7133,7 @@ class HfApi:
             # Start an Inference Endpoint running Zephyr-7b-beta on TGI
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "aws-zephyr-7b-beta-0486",
             ...     repository="HuggingFaceH4/zephyr-7b-beta",
             ...     framework="pytorch",

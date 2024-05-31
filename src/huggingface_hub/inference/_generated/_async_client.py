@@ -289,6 +289,9 @@ class AsyncInferenceClient:
                             timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                         continue
                     raise error
+                except Exception:
+                    await client.close()
+                    raise
 
     async def audio_classification(
         self,
