@@ -1485,6 +1485,10 @@ class HfApiDeleteFilesTest(HfApiCommonTest):
         self._api.delete_files(repo_id=self.repo_id, delete_patterns=["nested/*"])
         assert self.remote_files() == {".gitattributes", "file.txt", "lfs.bin"}
 
+    def test_delete_folder_without_pattern(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["nested/"])
+        assert self.remote_files() == {".gitattributes", "file.txt", "lfs.bin"}
+
     def test_unknown_path_do_not_raise(self):
         self._api.delete_files(repo_id=self.repo_id, delete_patterns=["not_existing", "nested/*"])
         assert self.remote_files() == {".gitattributes", "file.txt", "lfs.bin"}
