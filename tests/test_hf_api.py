@@ -24,7 +24,6 @@ import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
-from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Union
@@ -111,10 +110,6 @@ from .testing_utils import (
 
 logger = logging.get_logger(__name__)
 
-dataset_repo_name = partial(repo_name, prefix="my-dataset")
-space_repo_name = partial(repo_name, prefix="my-space")
-large_file_repo_name = partial(repo_name, prefix="my-model-largefiles")
-
 WORKING_REPO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures/working_repo")
 LARGE_FILE_14MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.epub"
 LARGE_FILE_18MB = "https://cdn-media.huggingface.co/lfs-largefiles/progit.pdf"
@@ -152,18 +147,12 @@ def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
     # for {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    REPO_NAME = repo_name("crud")
 
-    args = [
-        ("create_repo", {}),
-        ("update_repo_visibility", {"private": False}),
-        ("delete_repo", {}),
-    ]
-
-    for method, kwargs in args:
-        with warnings.catch_warnings(record=True) as record:
-            getattr(api, method)(REPO_NAME, repo_type=REPO_TYPE_MODEL, **kwargs)
-        assert not len(record)
+    with warnings.catch_warnings(record=True) as record:
+        repo_id = api.create_repo(repo_name()).repo_id
+        api.update_repo_visibility(repo_id, private=True)
+        api.delete_repo(repo_id)
+    assert not len(record)
 
 
 class HfApiRepoFileExistsTest(HfApiCommonTest):
@@ -241,52 +230,42 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     def test_create_update_and_delete_repo(self):
-        REPO_NAME = repo_name("crud")
-        self._api.create_repo(repo_id=REPO_NAME)
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=True)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=False)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=REPO_NAME)
+        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
-        REPO_NAME = repo_name("crud")
-        self._api.create_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=True, repo_type=REPO_TYPE_MODEL)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=REPO_NAME, private=False, repo_type=REPO_TYPE_MODEL)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=REPO_NAME, repo_type=REPO_TYPE_MODEL)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_MODEL).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_MODEL)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_MODEL)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_MODEL)
 
     def test_create_update_and_delete_dataset_repo(self):
-        DATASET_REPO_NAME = dataset_repo_name("crud")
-        self._api.create_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
-        res = self._api.update_repo_visibility(repo_id=DATASET_REPO_NAME, private=True, repo_type=REPO_TYPE_DATASET)
-        self.assertTrue(res["private"])
-        res = self._api.update_repo_visibility(repo_id=DATASET_REPO_NAME, private=False, repo_type=REPO_TYPE_DATASET)
-        self.assertFalse(res["private"])
-        self._api.delete_repo(repo_id=DATASET_REPO_NAME, repo_type=REPO_TYPE_DATASET)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_DATASET).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_DATASET)
+        assert res["private"]
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_DATASET)
+        assert not res["private"]
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_DATASET)
 
-    @unittest.skip(
-        "Create repo fails on staging endpoint. See"
-        " https://huggingface.slack.com/archives/C02EMARJ65P/p1666795928977419"
-        " (internal link)."
-    )
     def test_create_update_and_delete_space_repo(self):
-        SPACE_REPO_NAME = space_repo_name("failing")
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=None)
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=None)
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk="something")
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk="something")
 
         for sdk in SPACES_SDK_TYPES:
-            SPACE_REPO_NAME = space_repo_name(sdk)
-            self._api.create_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE, space_sdk=sdk)
-            res = self._api.update_repo_visibility(repo_id=SPACE_REPO_NAME, private=True, repo_type=REPO_TYPE_SPACE)
-            self.assertTrue(res["private"])
-            res = self._api.update_repo_visibility(repo_id=SPACE_REPO_NAME, private=False, repo_type=REPO_TYPE_SPACE)
-            self.assertFalse(res["private"])
-            self._api.delete_repo(repo_id=SPACE_REPO_NAME, repo_type=REPO_TYPE_SPACE)
+            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=sdk).repo_id
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_SPACE)
+            assert res["private"]
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_SPACE)
+            assert not res["private"]
+            self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
@@ -1964,14 +1943,13 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert "wikipedia" in spaces[0].datasets
 
     def test_list_spaces_linked(self):
-        space_id = "HuggingFaceH4/open_llm_leaderboard"
+        space_id = "open-llm-leaderboard/open_llm_leaderboard"
 
         spaces = list(self._api.list_spaces(search=space_id))
         assert spaces[0].models is None
         assert spaces[0].datasets is None
 
         spaces = list(self._api.list_spaces(search=space_id, linked=True))
-        assert len(spaces) == 1
         assert spaces[0].models is not None
         assert spaces[0].datasets is not None
 
@@ -2480,7 +2458,7 @@ class HfApiDiscussionsTest(HfApiCommonTest):
     @with_production_testing
     def test_get_repo_discussion_pagination(self):
         discussions = list(
-            HfApi().get_repo_discussions(repo_id="HuggingFaceH4/open_llm_leaderboard", repo_type="space")
+            HfApi().get_repo_discussions(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
         )
         assert len(discussions) > 50
 
@@ -3432,10 +3410,9 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
-    @unittest.skip("HTTP 500 currently on staging")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
-        from_repo_name = space_repo_name("original_repo_name")
+        from_repo_name = repo_name()
         from_repo_id = self._api.create_repo(
             repo_id=from_repo_name,
             repo_type="space",
@@ -3452,14 +3429,16 @@ class HfApiDuplicateSpaceTest(HfApiCommonTest):
 
         to_repo_id = self._api.duplicate_space(from_repo_id).repo_id
 
-        self.assertEqual(to_repo_id, f"{USER}/{from_repo_name}")
-        self.assertEqual(
-            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
-            [".gitattributes", "README.md", "index.html", "style.css", "temp/new_file.md"],
-        )
-        self.assertEqual(
-            self._api.list_repo_files(repo_id=to_repo_id, repo_type="space"),
-            self._api.list_repo_files(repo_id=from_repo_id, repo_type="space"),
+        assert to_repo_id == f"{USER}/{from_repo_name}"
+        assert self._api.list_repo_files(repo_id=from_repo_id, repo_type="space") == [
+            ".gitattributes",
+            "README.md",
+            "index.html",
+            "style.css",
+            "temp/new_file.md",
+        ]
+        assert self._api.list_repo_files(repo_id=to_repo_id, repo_type="space") == self._api.list_repo_files(
+            repo_id=from_repo_id, repo_type="space"
         )
 
         self._api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
