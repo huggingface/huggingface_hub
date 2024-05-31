@@ -229,7 +229,7 @@ class ModelHubMixin:
         if docs_url is not None:
             info.docs_url = docs_url
         if languages is not None:
-            info.model_card_data.languages = languages
+            info.model_card_data.language = languages
         if library_name is not None:
             info.model_card_data.library_name = library_name
         if license is not None:
