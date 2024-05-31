@@ -17,4 +17,4 @@
 from ._base import StateDictSplit, split_state_dict_into_shards_factory
 from ._numpy import split_numpy_state_dict_into_shards
 from ._tensorflow import split_tf_state_dict_into_shards
-from ._torch import split_torch_state_dict_into_shards
+from ._torch import get_torch_storage_id, split_torch_state_dict_into_shards

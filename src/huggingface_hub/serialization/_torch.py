@@ -88,11 +88,11 @@ def split_torch_state_dict_into_shards(
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,
         get_tensor_size=get_tensor_size,
-        get_storage_id=get_storage_id,
+        get_storage_id=get_torch_storage_id,
     )
 
 
-def get_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
     """
     Return unique identifier to a tensor storage.
 
