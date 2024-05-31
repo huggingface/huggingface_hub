@@ -225,7 +225,10 @@ class ModelHubMixin:
         info = cls._hub_mixin_info
 
         if languages is not None:
-            warnings.warn("The `languages` argument is deprecated. Use `language` instead. This will be removed in `huggingface_hub>=0.27.0`.", DeprecationWarning)
+            warnings.warn(
+                "The `languages` argument is deprecated. Use `language` instead. This will be removed in `huggingface_hub>=0.27.0`.",
+                DeprecationWarning,
+            )
             language = languages
 
         # Update MixinInfo with metadata
