@@ -57,16 +57,14 @@ class DeleteFilesSubCommand:
 
     def run(self) -> None:
         logging.set_verbosity_info()
-        print(self._delete())
-        logging.set_verbosity_warning()
-
-    def _delete(self) -> CommitInfo:
-        return self.api.delete_files(
+        url = self.api.delete_files(
             delete_patterns=self.patterns,
             repo_id=self.repo_id,
             repo_type=self.repo_type,
             revision=self.revision,
         )
+        print("Files correctly deleted from repo. Commit: {url}.")
+        logging.set_verbosity_warning()
 
 
 class RepoFilesCommand(BaseHuggingfaceCLICommand):
