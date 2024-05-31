@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, get_args
@@ -85,8 +86,8 @@ class ModelHubMixin:
             URL of the library documentation. Used to generate model card.
         model_card_template (`str`, *optional*):
             Template of the model card. Used to generate model card. Defaults to a generic template.
-        languages (`List[str]`, *optional*):
-            Languages supported by the library. Used to generate model card.
+        language (`str` or `List[str]`, *optional*):
+            Language supported by the library. Used to generate model card.
         library_name (`str`, *optional*):
             Name of the library integrating ModelHubMixin. Used to generate model card.
         license (`str`, *optional*):
@@ -191,7 +192,7 @@ class ModelHubMixin:
         # Model card template
         model_card_template: str = DEFAULT_MODEL_CARD,
         # Model card metadata
-        languages: Optional[List[str]] = None,
+        language: Optional[List[str]] = None,
         library_name: Optional[str] = None,
         license: Optional[str] = None,
         license_name: Optional[str] = None,
@@ -205,6 +206,8 @@ class ModelHubMixin:
             # Value is a tuple (encoder, decoder).
             # Example: {MyCustomType: (lambda x: x.value, lambda data: MyCustomType(data))}
         ] = None,
+        # Deprecated arguments
+        languages: Optional[List[str]] = None,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -221,6 +224,10 @@ class ModelHubMixin:
             )
         info = cls._hub_mixin_info
 
+        if languages is not None:
+            warnings.warn("The `languages` argument is deprecated. Use `language` instead. This will be removed in `huggingface_hub>=0.27.0`.", DeprecationWarning)
+            language = languages
+
         # Update MixinInfo with metadata
         if model_card_template is not None and model_card_template != DEFAULT_MODEL_CARD:
             info.model_card_template = model_card_template
@@ -228,8 +235,8 @@ class ModelHubMixin:
             info.repo_url = repo_url
         if docs_url is not None:
             info.docs_url = docs_url
-        if languages is not None:
-            info.model_card_data.language = languages
+        if language is not None:
+            info.model_card_data.language = language
         if library_name is not None:
             info.model_card_data.library_name = library_name
         if license is not None:

@@ -282,7 +282,7 @@ class PytorchHubMixinTest(unittest.TestCase):
     def test_generate_model_card(self):
         model = DummyModelWithModelCard()
         card = model.generate_model_card()
-        assert card.data.languages == ["en", "zh"]
+        assert card.data.language == ["en", "zh"]
         assert card.data.library_name == "my-dummy-lib"
         assert card.data.license == "apache-2.0"
         assert card.data.pipeline_tag == "text-classification"
