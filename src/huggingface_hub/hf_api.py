@@ -4833,10 +4833,8 @@ class HfApi:
             repo_id=repo_id, repo_type=repo_type, delete_patterns=delete_patterns, path_in_repo="", revision=revision
         )
 
-        f_patterns = " ".join(delete_patterns)
-
         if commit_message is None:
-            commit_message = f"Delete files {f_patterns} with huggingface_hub"
+            commit_message = f"Delete files {' '.join(delete_patterns)} with huggingface_hub"
 
         return self.create_commit(
             repo_id=repo_id,
