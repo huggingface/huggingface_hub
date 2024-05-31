@@ -26,7 +26,7 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Set, Union
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -129,18 +129,6 @@ class HfApiCommonTest(unittest.TestCase):
         """Share the valid token in all tests below."""
         cls._token = TOKEN
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    def _initialize_temp_dir(self):
-        self.tmp_dir = tempfile.mkdtemp()
-        self.tmp_file = os.path.join(self.tmp_dir, "temp")
-        self.tmp_file_content = "Content of the file"
-        with open(self.tmp_file, "w+") as f:
-            f.write(self.tmp_file_content)
-        os.makedirs(os.path.join(self.tmp_dir, "nested"))
-        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
-        with open(self.nested_tmp_file, "wb+") as f:
-            f.truncate(1024 * 1024)
-        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
 
 def test_repo_id_no_warning():
@@ -302,7 +290,17 @@ class HfApiEndpointsTest(HfApiCommonTest):
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
-        self._initialize_temp_dir()
+        self.tmp_dir = tempfile.mkdtemp()
+        self.tmp_file = os.path.join(self.tmp_dir, "temp")
+        self.tmp_file_content = "Content of the file"
+        with open(self.tmp_file, "w+") as f:
+            f.write(self.tmp_file_content)
+        os.makedirs(os.path.join(self.tmp_dir, "nested"))
+        self.nested_tmp_file = os.path.join(self.tmp_dir, "nested", "file.bin")
+        with open(self.nested_tmp_file, "wb+") as f:
+            f.truncate(1024 * 1024)
+
+        self.addCleanup(rmtree_with_retry, self.tmp_dir)
 
     def test_upload_file_validation(self) -> None:
         with self.assertRaises(ValueError, msg="Wrong repo type"):
@@ -1449,87 +1447,65 @@ class HfApiBranchEndpointTest(HfApiCommonTest):
 class HfApiDeleteFilesTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()
-        self._initialize_temp_dir()
 
-    @use_tmp_repo()
-    def _run(self, patterns: List[str], deleted: bool, repo_url: Optional[RepoUrl] = None) -> None:
-        assert repo_url is not None
-        self.url = self._api.upload_folder(folder_path=self.tmp_dir, path_in_repo="", repo_id=repo_url.repo_id)
-        assert self.url == f"{self._api.endpoint}/{repo_url.repo_id}/tree/main/"
-        assert isinstance(self.url, CommitInfo)
-        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == {
-            ".gitattributes",
-            "temp",
-            "nested/file.bin",
-        }
-
-        self._api.delete_files(repo_id=repo_url.repo_id, delete_patterns=patterns)
-
-        expected_files = {".gitattributes", "temp"}
-        if not deleted:
-            expected_files.add("nested/file.bin")
-
-        assert set(self._api.list_repo_files(repo_id=repo_url.repo_id)) == expected_files
-
-    def test_first(self):
-        self._run(
-            patterns=[
-                "nested/*",
+        self.repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+        self._api.create_commit(
+            repo_id=self.repo_id,
+            operations=[
+                # Regular files
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="nested/file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="nested/sub/file.txt"),
+                # LFS files
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="nested/lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"data", path_in_repo="nested/sub/lfs.bin"),
             ],
-            deleted=True,
+            commit_message="Init repo structure",
         )
 
-    def test_second(self):
-        self._run(
-            patterns=[
-                "random",
-                "nested/*",
-            ],
-            deleted=True,
-        )
+    def tearDown(self) -> None:
+        self._api.delete_repo(repo_id=self.repo_id)
+        super().tearDown()
 
-    def test_third(self):
-        self._run(
-            patterns=[
-                "nested/file.bin",
-            ],
-            deleted=True,
-        )
+    def remote_files(self) -> Set[set]:
+        return set(self._api.list_repo_files(repo_id=self.repo_id))
 
-    def test_fourth(self):
-        self._run(
-            patterns=[
-                "file.bin",
-            ],
-            deleted=False,
-        )
+    def test_delete_single_file(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["file.txt"])
+        assert "file.txt" not in self.remote_files()
 
-    def test_fifth(self):
-        self._run(
-            patterns=[
-                "nested/nested2/file.bin",
-            ],
-            deleted=False,
-        )
+    def test_delete_multiple_files(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["file.txt", "lfs.bin"])
+        files = self.remote_files()
+        assert "file.txt" not in files
+        assert "lfs.bin" not in files
 
-    def test_sixth(self):
-        self._run(
-            patterns=[
-                "*.bin",
-            ],
-            deleted=True,
-        )
+    def test_delete_folder_with_pattern(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["nested/*"])
+        assert self.remote_files() == {".gitattributes", "file.txt", "lfs.bin"}
 
-    def test_seventh(self):
-        self._run(
-            patterns=[
-                "nested/*.bin",
-            ],
-            deleted=True,
-        )
+    def test_unknown_path_do_not_raise(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["not_existing", "nested/*"])
+        assert self.remote_files() == {".gitattributes", "file.txt", "lfs.bin"}
 
-    def test_tenth(self):
-        self._run(patterns=["nested/"], deleted=True)
+    def test_delete_bin_files_with_patterns(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["*.bin"])
+        files = self.remote_files()
+        assert "lfs.bin" not in files
+        assert "nested/lfs.bin" not in files
+        assert "nested/sub/lfs.bin" not in files
+
+    def test_delete_files_in_folders_with_patterns(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["*/file.txt"])
+        files = self.remote_files()
+        assert "file.txt" in files
+        assert "nested/file.txt" not in files
+        assert "nested/sub/file.txt" not in files
+
+    def test_delete_all_files(self):
+        self._api.delete_files(repo_id=self.repo_id, delete_patterns=["*"])
+        assert self.remote_files() == {".gitattributes"}
 
 
 class HfApiPublicStagingTest(unittest.TestCase):
