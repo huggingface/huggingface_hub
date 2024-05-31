@@ -39,7 +39,7 @@ from typing import List, Optional
 
 from huggingface_hub import logging
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.hf_api import CommitInfo, HfApi
+from huggingface_hub.hf_api import HfApi
 
 
 logger = logging.get_logger(__name__)
@@ -63,7 +63,7 @@ class DeleteFilesSubCommand:
             repo_type=self.repo_type,
             revision=self.revision,
         )
-        print("Files correctly deleted from repo. Commit: {url}.")
+        print(f"Files correctly deleted from repo. Commit: {url}.")
         logging.set_verbosity_warning()
 
 
