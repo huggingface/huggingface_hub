@@ -217,7 +217,7 @@ class ModelHubMixin:
         tags.append("model_hub_mixin")
 
         # Initialize MixinInfo if not existent
-        if getattr(cls, "_hub_mixin_info", None) is None:
+        if not hasattr(cls, "_hub_mixin_info"):
             cls._hub_mixin_info = MixinInfo(
                 model_card_template=model_card_template,
                 model_card_data=ModelCardData(),
