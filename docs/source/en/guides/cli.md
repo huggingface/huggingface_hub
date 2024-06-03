@@ -440,17 +440,19 @@ The `huggingface-cli repo-files "<repo_id>" delete` sub-command allows you to de
 Delete a folder :
 ```bash
 >>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Delete multiple files explicitely: 
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model \
-    delete folder2/file1.txt folder3/file2.py 
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete fold2/file1.txt fold3/file2.py 
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Use Unix-style wildcards to delete sets of files: 
 ```bash
 >>> huggingface-cli repo-files Wauplin/my-cool-model delete folder2/*.txt 
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 ### Specify a token
