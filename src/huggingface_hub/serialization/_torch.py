@@ -15,7 +15,7 @@
 
 import importlib
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Tuple, Union
 
 from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
@@ -28,7 +28,7 @@ def split_torch_state_dict_into_shards(
     state_dict: Dict[str, "torch.Tensor"],
     *,
     filename_pattern: str = FILENAME_PATTERN,
-    max_shard_size: int = MAX_SHARD_SIZE,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -67,7 +67,7 @@ def split_torch_state_dict_into_shards(
 
     >>> def save_state_dict(state_dict: Dict[str, torch.Tensor], save_directory: str):
     ...     state_dict_split = split_torch_state_dict_into_shards(state_dict)
-    ...     for filename, tensors in state_dict_split.filename_to_tensors.values():
+    ...     for filename, tensors in state_dict_split.filename_to_tensors.items():
     ...         shard = {tensor: state_dict[tensor] for tensor in tensors}
     ...         safe_save_file(
     ...             shard,
@@ -88,11 +88,11 @@ def split_torch_state_dict_into_shards(
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,
         get_tensor_size=get_tensor_size,
-        get_storage_id=get_storage_id,
+        get_storage_id=get_torch_storage_id,
     )
 
 
-def get_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
     """
     Return unique identifier to a tensor storage.
 

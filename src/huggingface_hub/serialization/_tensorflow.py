@@ -15,7 +15,7 @@
 
 import math
 import re
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Union
 
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
@@ -28,7 +28,7 @@ def split_tf_state_dict_into_shards(
     state_dict: Dict[str, "tf.Tensor"],
     *,
     filename_pattern: str = "tf_model{suffix}.h5",
-    max_shard_size: int = MAX_SHARD_SIZE,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.

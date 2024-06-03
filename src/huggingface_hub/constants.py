@@ -93,6 +93,9 @@ DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionT
 DiscussionStatusFilter = Literal["all", "open", "closed"]
 DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
+# Webhook subscription types
+WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
+
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
 HF_HOME = os.path.expanduser(

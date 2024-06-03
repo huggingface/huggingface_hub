@@ -25,6 +25,7 @@ work as well.
 
 import asyncio
 import inspect
+from unittest.mock import Mock, patch
 
 import pytest
 from aiohttp import ClientResponseError
@@ -350,3 +351,19 @@ async def test_unprocessable_entity_error() -> None:
         with pytest.warns(FutureWarning, match=".*'InferenceClient.conversational'.*"):
             await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
     assert "Make sure 'conversational' task is supported by the model." in error.value.message
+
+
+class CustomException(Exception):
+    """Mock any exception that could happen while making a POST request."""
+
+
+@patch("aiohttp.ClientSession.post", side_effect=CustomException())
+@patch("aiohttp.ClientSession.close")
+@pytest.mark.asyncio
+async def test_close_connection_on_post_error(mock_close: Mock, mock_post: Mock) -> None:
+    async_client = AsyncInferenceClient()
+
+    with pytest.raises(CustomException):
+        await async_client.post(model="http://127.0.0.1/api", json={})
+
+    mock_close.assert_called_once()

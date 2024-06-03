@@ -27,3 +27,9 @@ rendered properly in your Markdown viewer.
 이것은 각 프레임워크별 헬퍼가 파생되는 기본 틀입니다. 실제로는 아직 지원되지 않는 프레임워크에 맞게 조정할 필요가 있는 경우가 아니면 이 틀을 직접 사용할 것으로 예상되지 않습니다. 그런 경우가 있다면, `huggingface_hub` 리포지토리에 [새로운 이슈를 개설](https://github.com/huggingface/huggingface_hub/issues/new) 하여 알려주세요.
 
 [[autodoc]] huggingface_hub.split_state_dict_into_shards_factory
+
+## 도우미
+
+### get_torch_storage_id[[huggingface_hub.get_torch_storage_id]]
+
+[[autodoc]] huggingface_hub.get_torch_storage_id

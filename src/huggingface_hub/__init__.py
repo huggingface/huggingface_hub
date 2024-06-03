@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.23.0.dev0"
+__version__ = "0.24.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -150,6 +150,8 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "User",
         "UserLikes",
+        "WebhookInfo",
+        "WebhookWatchedItem",
         "accept_access_request",
         "add_collection_item",
         "add_space_secret",
@@ -166,6 +168,7 @@ _SUBMOD_ATTRS = {
         "create_pull_request",
         "create_repo",
         "create_tag",
+        "create_webhook",
         "dataset_info",
         "delete_branch",
         "delete_collection",
@@ -178,8 +181,11 @@ _SUBMOD_ATTRS = {
         "delete_space_storage",
         "delete_space_variable",
         "delete_tag",
+        "delete_webhook",
+        "disable_webhook",
         "duplicate_space",
         "edit_discussion_comment",
+        "enable_webhook",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
@@ -193,6 +199,7 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
+        "get_webhook",
         "grant_access",
         "like",
         "list_accepted_access_requests",
@@ -210,6 +217,7 @@ _SUBMOD_ATTRS = {
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
+        "list_webhooks",
         "merge_pull_request",
         "model_info",
         "move_repo",
@@ -237,6 +245,7 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_visibility",
+        "update_webhook",
         "upload_file",
         "upload_folder",
         "whoami",
@@ -414,6 +423,7 @@ _SUBMOD_ATTRS = {
     ],
     "serialization": [
         "StateDictSplit",
+        "get_torch_storage_id",
         "split_numpy_state_dict_into_shards",
         "split_state_dict_into_shards_factory",
         "split_tf_state_dict_into_shards",
@@ -435,10 +445,6 @@ _SUBMOD_ATTRS = {
         "get_token",
         "logging",
         "scan_cache_dir",
-    ],
-    "utils.endpoint_helpers": [
-        "DatasetFilter",
-        "ModelFilter",
     ],
 }
 
@@ -630,6 +636,8 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
+        WebhookInfo,  # noqa: F401
+        WebhookWatchedItem,  # noqa: F401
         accept_access_request,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
@@ -646,6 +654,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
+        create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_collection,  # noqa: F401
@@ -658,8 +667,11 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
+        delete_webhook,  # noqa: F401
+        disable_webhook,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_webhook,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
@@ -673,6 +685,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
+        get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
         like,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
@@ -690,6 +703,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
@@ -717,6 +731,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_visibility,  # noqa: F401
+        update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         whoami,  # noqa: F401
@@ -888,6 +903,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .repository import Repository  # noqa: F401
     from .serialization import (
         StateDictSplit,  # noqa: F401
+        get_torch_storage_id,  # noqa: F401
         split_numpy_state_dict_into_shards,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
@@ -909,8 +925,4 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
-    )
-    from .utils.endpoint_helpers import (
-        DatasetFilter,  # noqa: F401
-        ModelFilter,  # noqa: F401
     )

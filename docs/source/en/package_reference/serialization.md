@@ -27,3 +27,9 @@ At the moment, this module contains a single helper that takes a state dictionar
 This is the underlying factory from which each framework-specific helper is derived. In practice, you are not expected to use this factory directly except if you need to adapt it to a framework that is not yet supported. If that is the case, please let us know by [opening a new issue](https://github.com/huggingface/huggingface_hub/issues/new) on the `huggingface_hub` repo.
 
 [[autodoc]] huggingface_hub.split_state_dict_into_shards_factory
+
+## Helpers
+
+### get_torch_storage_id
+
+[[autodoc]] huggingface_hub.get_torch_storage_id
