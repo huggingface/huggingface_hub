@@ -4611,7 +4611,7 @@ class HfApi:
             ignore_patterns = [ignore_patterns]
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
-        delete_operations = self._prepare_upload_folder_deletions(
+        delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
             repo_type=repo_type,
             revision=DEFAULT_REVISION if create_pr else revision,
@@ -4759,6 +4759,82 @@ class HfApi:
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
+
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=operations,
+            revision=revision,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def delete_files(
+        self,
+        repo_id: str,
+        delete_patterns: List[str],
+        *,
+        token: Union[bool, str, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+    ) -> CommitInfo:
+        """
+        Delete files from a repository on the Hub.
+
+        If a folder path is provided, the entire folder is deleted as well as
+        all files it contained.
+
+        Args:
+            repo_id (`str`):
+                The repository from which the folder will be deleted, for example:
+                `"username/custom_transformers"`
+            delete_patterns (`List[str]`):
+                List of files or folders to delete. Each string can either be
+                a file path, a folder path or a Unix shell-style wildcard.
+                E.g. `["file.txt", "folder/", "data/*.parquet"]`
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+                to the stored token.
+            repo_type (`str`, *optional*):
+                Type of the repo to delete files from. Can be `"model"`,
+                `"dataset"` or `"space"`. Defaults to `"model"`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary (first line) of the generated commit. Defaults to
+                `f"Delete files using huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+        """
+        operations = self._prepare_folder_deletions(
+            repo_id=repo_id, repo_type=repo_type, delete_patterns=delete_patterns, path_in_repo="", revision=revision
+        )
+
+        if commit_message is None:
+            commit_message = f"Delete files {' '.join(delete_patterns)} with huggingface_hub"
 
         return self.create_commit(
             repo_id=repo_id,
@@ -8771,7 +8847,7 @@ class HfApi:
             headers=self.headers,
         )
 
-    def _prepare_upload_folder_deletions(
+    def _prepare_folder_deletions(
         self,
         repo_id: str,
         repo_type: Optional[str],
@@ -8994,6 +9070,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
