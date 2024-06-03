@@ -429,6 +429,40 @@ By default, the `huggingface-cli upload` command will be verbose. It will print 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## huggingface-cli repo-files
+
+If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
+
+### Delete files
+
+The `huggingface-cli repo-files <repo_id> delete` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder :
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Delete multiple files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete file.txt folder/pytorch_model.bin
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Use Unix-style wildcards to delete sets of files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+### Specify a token
+
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+
+```bash
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt 
+```
+
 ## huggingface-cli scan-cache
 
 Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `huggingface-cli scan-cache`:
