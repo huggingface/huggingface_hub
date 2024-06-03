@@ -81,6 +81,20 @@ class TestPathsUtils(unittest.TestCase):
                 )
             )
 
+    def test_filter_object_with_folder(self) -> None:
+        self._check(
+            items=[
+                "file.txt",
+                "lfs.bin",
+                "path/to/file.txt",
+                "path/to/lfs.bin",
+                "nested/path/to/file.txt",
+                "nested/path/to/lfs.bin",
+            ],
+            expected_items=["path/to/file.txt", "path/to/lfs.bin"],
+            allow_patterns=["path/to/"],
+        )
+
     def _check(
         self,
         items: List[Any],
