@@ -653,6 +653,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "model",
                     "revision": None,
+                    "commit_message": None,
+                    "commit_description": None,
+                    "create_pr": False,
                 },
             },
             {
@@ -669,6 +672,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "model",
                     "revision": None,
+                    "commit_message": None,
+                    "commit_description": None,
+                    "create_pr": False,
                 },
             },
             {
@@ -685,6 +691,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "model",
                     "revision": None,
+                    "commit_message": None,
+                    "commit_description": None,
+                    "create_pr": False,
                 },
             },
             {
@@ -705,6 +714,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "model",
                     "revision": None,
+                    "commit_message": None,
+                    "commit_description": None,
+                    "create_pr": False,
                 },
             },
             {
@@ -725,6 +737,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "model",
                     "revision": None,
+                    "commit_message": None,
+                    "commit_description": None,
+                    "create_pr": False,
                 },
             },
             {
@@ -737,6 +752,11 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "test_revision",
                     "--repo-type",
                     "dataset",
+                    "--commit-message",
+                    "My commit message",
+                    "--commit-description",
+                    "My commit description",
+                    "--create-pr",
                 ],
                 "delete_files_args": {
                     "delete_patterns": [
@@ -745,6 +765,9 @@ class TestRepoFilesCommand(unittest.TestCase):
                     "repo_id": DUMMY_MODEL_ID,
                     "repo_type": "dataset",
                     "revision": "test_revision",
+                    "commit_message": "My commit message",
+                    "commit_description": "My commit description",
+                    "create_pr": True,
                 },
             },
         ]
