@@ -429,6 +429,21 @@ By default, the `huggingface-cli upload` command will be verbose. It will print 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## huggingface-cli repo-files
+
+If you want to update or delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. Use `huggingface-cli repo-files --help` to see which parameters are allowed.
+
+### Delete files
+
+Use the subcommand `huggingface-cli repo-files "<repo_id>" delete` to delete files from a repository.
+
+Basic usage is as such:
+
+```bash
+huggingface-cli repo-files Wauplin/my-cool-model \
+    delete folder/ folder2/file1.txt folder3/folder4/*.py 
+```
+
 ## huggingface-cli scan-cache
 
 Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `huggingface-cli scan-cache`:
