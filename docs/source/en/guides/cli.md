@@ -431,11 +431,11 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## huggingface-cli repo-files
 
-If you want to update or delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
+If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
 
 ### Delete files
 
-The `huggingface-cli repo-files "<repo_id>" delete` sub-command allows you to delete files from a repository. Here are some usage examples.
+The `huggingface-cli repo-files <repo_id> delete` sub-command allows you to delete files from a repository. Here are some usage examples.
 
 Delete a folder :
 ```bash
@@ -443,24 +443,24 @@ Delete a folder :
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
-Delete multiple files explicitely: 
+Delete multiple files: 
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model delete fold2/file1.txt fold3/file2.py 
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete file.txt folder/pytorch_model.bin
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Use Unix-style wildcards to delete sets of files: 
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model delete folder2/*.txt 
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 ### Specify a token
 
-To access private or gated repositories, you must use a token. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
 
 ```bash
->>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete example.txt 
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt 
 ```
 
 ## huggingface-cli scan-cache

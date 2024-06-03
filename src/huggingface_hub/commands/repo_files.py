@@ -56,7 +56,7 @@ class DeleteFilesSubCommand:
         self.commit_message: Optional[str] = args.commit_message
         self.commit_description: Optional[str] = args.commit_description
         self.create_pr: bool = args.create_pr
-        self.token: str = args.token
+        self.token: Optional[str] = args.token
 
     def run(self) -> None:
         logging.set_verbosity_info()
