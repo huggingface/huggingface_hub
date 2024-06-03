@@ -53,6 +53,9 @@ class DeleteFilesSubCommand:
         self.revision: Optional[str] = args.revision
         self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
         self.patterns: List[str] = args.patterns
+        self.commit_message: Optional[str] = args.commit_message
+        self.commit_description: Optional[str] = args.commit_description
+        self.create_pr: bool = args.create_pr
         self.token: str = args.token
 
     def run(self) -> None:
@@ -62,6 +65,9 @@ class DeleteFilesSubCommand:
             repo_id=self.repo_id,
             repo_type=self.repo_type,
             revision=self.revision,
+            commit_message=self.commit_message,
+            commit_description=self.commit_description,
+            create_pr=self.create_pr,
         )
         print(f"Files correctly deleted from repo. Commit: {url}.")
         logging.set_verbosity_warning()
@@ -103,6 +109,15 @@ class RepoFilesCommand(BaseHuggingfaceCLICommand):
                 "or a PR reference. If revision does not"
                 " exist and `--create-pr` is not set, a branch will be automatically created."
             ),
+        )
+        delete_subparser.add_argument(
+            "--commit-message", type=str, help="The summary / title / first line of the generated commit."
+        )
+        delete_subparser.add_argument(
+            "--commit-description", type=str, help="The description of the generated commit."
+        )
+        delete_subparser.add_argument(
+            "--create-pr", action="store_true", help="Whether to create a new Pull Request for these changes."
         )
         repo_files_parser.add_argument(
             "--token",
