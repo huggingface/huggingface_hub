@@ -488,7 +488,7 @@ def http_get(
     )
 
     # Stream file to buffer
-    progress: tqdm = (
+    progress_cm: tqdm = (
         tqdm(  # type: ignore[assignment]
             unit="B",
             unit_scale=True,
@@ -507,7 +507,7 @@ def http_get(
         #   case, the progress bar is not closed when exiting the context manager.
     )
 
-    with progress:
+    with progress_cm as progress:
         if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
             if not supports_callback:
