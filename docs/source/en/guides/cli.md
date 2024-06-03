@@ -431,17 +431,34 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## huggingface-cli repo-files
 
-If you want to update or delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. Use `huggingface-cli repo-files --help` to see which parameters are allowed.
+If you want to update or delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
 
 ### Delete files
 
-Use the subcommand `huggingface-cli repo-files "<repo_id>" delete` to delete files from a repository.
+The `huggingface-cli repo-files "<repo_id>" delete` sub-command allows you to delete files from a repository. Here are some usage examples.
 
-Basic usage is as such:
+Delete a folder :
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+```
+
+Delete multiple files explicitely: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model \
+    delete folder2/file1.txt folder3/file2.py 
+```
+
+Use Unix-style wildcards to delete sets of files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder2/*.txt 
+```
+
+### Specify a token
+
+To access private or gated repositories, you must use a token. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
 
 ```bash
-huggingface-cli repo-files Wauplin/my-cool-model \
-    delete folder/ folder2/file1.txt folder3/folder4/*.py 
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete example.txt 
 ```
 
 ## huggingface-cli scan-cache
