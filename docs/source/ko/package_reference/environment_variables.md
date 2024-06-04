@@ -69,7 +69,7 @@ Hub에 인증하기 위한 사용자 액세스 토큰을 구성합니다. 이 �
 
 파일을 다운로드할 때 서버 응답을 기다리는 시간(초)을 정의하는 정수 값입니다. 요청 시간이 초과되면 TimeoutError가 발생합니다. 연결 속도가 느린 컴퓨터에서는 값을 높게 설정하는 것이 좋습니다. 값이 작을수록 네트워크가 완전히 중단된 경우에 프로세스가 더 빨리 실패합니다. 기본값은 10초입니다.
 
-## Boolean values[[boolean-values]]
+## 불리언 값[[boolean-values]]
 
 다음 환경 변수는 불리언 값을 요구합니다. 변수는 값이 `{"1", "ON", "YES", "TRUE"}`(대소문자 구분 없음) 중 하나이면 `True`로 간주합니다. 다른 값(또는 정의되지 않음)은 `False`로 간주됩니다.
 
@@ -124,7 +124,7 @@ Hub에서 `hf_transfer`를 사용하여 더 빠르게 업로드 및 다운로드
 
 `hf_transfer`를 사용하면 특정 제한 사항이 있다는 점에 유의하세요. 순수 파이썬 기반이 아니므로 오류 디버깅이 어려울 수 있습니다. 또한 `hf_transfer`에는 다운로드 재개 및 프록시와 같은 몇 가지 사용자 친화적인 기능이 없습니다. 이런 부족한 부분은 Rust 로직의 단순성과 속도를 유지하기 위해 의도한 것입니다. 이런 이유들로, `hf_transfer`는 `huggingface_hub`에서 기본적으로 활성화되지 않습니다.
 
-## Deprecated environment variables[[deprecated-environment-variables]]
+## 사용되지 않는 환경 변수[[deprecated-environment-variables]]
 
 Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 변수는 사용되지 않는 것으로 표시되었습니다. 해당 변수는 여전히 작동하지만 더 이상 대체한 변수보다 우선하지 않습니다. 다음 표에는 사용되지 않는 변수와 해당 대체 변수가 간략하게 설명되어 있습니다:
 
@@ -135,7 +135,7 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 | `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
 | `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
 
-## From external tools[[from-external-tools]]
+## 외부 도구[[from-external-tools]]
 
 일부 환경 변수는 `huggingface_hub`에만 특정되지는 않지만 설정 시 함께 고려됩니다.
 
