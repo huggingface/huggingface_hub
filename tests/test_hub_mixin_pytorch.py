@@ -130,11 +130,11 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Push to hub with repo_id
         mocked_model.save_pretrained(save_directory, push_to_hub=True, repo_id="CustomID", config=config)
-        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config)
+        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config, model_card_kwargs={})
 
         # Push to hub with default repo_id (based on dir name)
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
-        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config)
+        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config, model_card_kwargs={})
 
     @patch.object(DummyModel, "_from_pretrained")
     def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
