@@ -28,6 +28,17 @@ This is a dummy model card.
 Arxiv ID: 1234.56789
 """
 
+DUMMY_MODEL_CARD_TEMPLATE_WITH_CUSTOM_KWARGS = """
+---
+{{ card_data }}
+---
+
+This is a dummy model card with kwargs.
+Arxiv ID: 1234.56789
+
+{{ custom_data }}
+"""
+
 if is_torch_available():
     import torch
     import torch.nn as nn
@@ -76,11 +87,20 @@ if is_torch_available():
         def __init__(self, num_classes: int = 42, state: str = "layernorm", config: Optional[Dict] = None, **kwargs):
             super().__init__()
 
+    class DummyModelWithModelCardAndCustomKwargs(
+        nn.Module,
+        PyTorchModelHubMixin,
+        model_card_template=DUMMY_MODEL_CARD_TEMPLATE_WITH_CUSTOM_KWARGS,
+    ):
+        def __init__(self, linear_layer: int = 4):
+            super().__init__()
+
 else:
     DummyModel = None
     DummyModelWithModelCard = None
     DummyModelNoConfig = None
     DummyModelWithConfigAndKwargs = None
+    DummyModelWithModelCardAndCustomKwargs = None
 
 
 @requires("torch")
@@ -130,11 +150,11 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Push to hub with repo_id
         mocked_model.save_pretrained(save_directory, push_to_hub=True, repo_id="CustomID", config=config)
-        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config)
+        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=config, model_card_kwargs={})
 
         # Push to hub with default repo_id (based on dir name)
         mocked_model.save_pretrained(save_directory, push_to_hub=True, config=config)
-        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config)
+        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=config, model_card_kwargs={})
 
     @patch.object(DummyModel, "_from_pretrained")
     def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
@@ -386,3 +406,16 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         reloaded = DummyModelWithConfigAndKwargs.from_pretrained(self.cache_dir)
         assert reloaded._hub_mixin_config == model._hub_mixin_config
+
+    def test_model_card_with_custom_kwargs(self):
+        model_card_kwargs = {"custom_data": "This is a model custom data: 42."}
+
+        # Test creating model with custom kwargs => custom data is saved in model card
+        model = DummyModelWithModelCardAndCustomKwargs()
+        card = model.generate_model_card(**model_card_kwargs)
+        assert model_card_kwargs["custom_data"] in str(card)
+
+        # Test saving card => model card is saved and restored with custom data
+        model.save_pretrained(self.cache_dir, model_card_kwargs=model_card_kwargs)
+        card_reloaded = ModelCard.load(self.cache_dir / "README.md")
+        assert str(card) == str(card_reloaded)
