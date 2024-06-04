@@ -10,10 +10,6 @@ rendered properly in your Markdown viewer.
 
 At the moment, this module contains a single helper that takes a state dictionary (e.g. a mapping between layer names and related tensors) and split it into several shards, while creating a proper index in the process. This helper is available for `torch`, `tensorflow` and `numpy` tensors and is designed to be easily extended to any other ML frameworks.
 
-### split_numpy_state_dict_into_shards
-
-[[autodoc]] huggingface_hub.split_numpy_state_dict_into_shards
-
 ### split_tf_state_dict_into_shards
 
 [[autodoc]] huggingface_hub.split_tf_state_dict_into_shards

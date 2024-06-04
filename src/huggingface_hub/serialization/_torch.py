@@ -14,11 +14,17 @@
 """Contains pytorch-specific helpers."""
 
 import importlib
+import json
+import os
+import re
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
+from .. import constants, logging
+from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
+
+logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
     import torch
@@ -27,7 +33,7 @@ if TYPE_CHECKING:
 def split_torch_state_dict_into_shards(
     state_dict: Dict[str, "torch.Tensor"],
     *,
-    filename_pattern: str = FILENAME_PATTERN,
+    filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
@@ -90,6 +96,68 @@ def split_torch_state_dict_into_shards(
         get_tensor_size=get_tensor_size,
         get_storage_id=get_torch_storage_id,
     )
+
+
+def save_torch_state_dict(
+    state_dict: Dict[str, "torch.Tensor"],
+    save_directory: str,
+    *,
+    safe_serialization: bool = True,
+    filename_pattern: Optional[str] = None,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
+) -> None:
+    # Imports correct library
+    if safe_serialization:
+        filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
+
+        try:
+            from safetensors.torch import save_file as save_file_fn
+        except ImportError as e:
+            raise ImportError(
+                "Please install `safetensors` to use safe serialization. "
+                "You can install it with `pip install safetensors`."
+            ) from e
+
+    else:
+        filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
+
+        from torch import save as save_file_fn
+
+    # Split dict
+    state_dict_split = split_torch_state_dict_into_shards(
+        state_dict, filename_pattern=filename_pattern, max_shard_size=max_shard_size
+    )
+
+    # Clean the folder from previous save
+    existing_files_regex = re.compile(filename_pattern.format(suffix=r"(-\d{5}-of-\d{5})?") + r"(\.index\.json)?")
+    for filename in os.listdir(save_directory):
+        if existing_files_regex.match(filename):
+            try:
+                logger.debug(f"Removing existing file '{filename}' from folder.")
+                os.remove(os.path.join(save_directory, filename))
+            except Exception as e:
+                logger.warning(f"Error when trying to remove existing '{filename}' from folder: {e}. Continuing...")
+
+    # Save each shard
+    safe_file_kwargs = {"metadata": {"format": "pt"}} if safe_serialization else {}
+    for filename, tensors in state_dict_split.filename_to_tensors.values():
+        shard = {tensor: state_dict[tensor] for tensor in tensors}
+        save_file_fn(shard, os.path.join(save_directory, filename), **safe_file_kwargs)
+        logger.debug(f"Shard saved to {filename}")
+
+    # Save the index (if any)
+    if state_dict_split.is_sharded:
+        index_path = filename_pattern.format(suffix="") + ".index.json"
+        index = {"metadata": state_dict_split.metadata, "weight_map": state_dict_split.tensor_to_filename}
+        with open(os.path.join(save_directory, index_path), "w") as f:
+            json.dump(index, f, indent=2)
+        logger.info(
+            f"The model is bigger than the maximum size per checkpoint ({max_shard_size}). "
+            f"Model weighs have been saved in {len(state_dict_split.filename_to_tensors)} checkpoint shards. "
+            f"You can find where each parameters has been saved in the index located at {index_path}."
+        )
+
+    logger.info(f"Model weights successfully saved to {save_directory}!")
 
 
 def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
