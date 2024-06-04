@@ -325,6 +325,7 @@ class ModelHubMixin:
         config: Optional[Union[dict, "DataclassInstance"]] = None,
         repo_id: Optional[str] = None,
         push_to_hub: bool = False,
+        model_card_kwargs: Optional[Dict[str, Any]] = None,
         **push_to_hub_kwargs,
     ) -> Optional[str]:
         """
@@ -340,7 +341,9 @@ class ModelHubMixin:
             repo_id (`str`, *optional*):
                 ID of your repository on the Hub. Used only if `push_to_hub=True`. Will default to the folder name if
                 not provided.
-            kwargs:
+            model_card_kwargs (`Dict[str, Any]`, *optional*):
+                Additional arguments passed to the model card template to customize the model card.
+            push_to_hub_kwargs:
                 Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
         Returns:
             `str` or `None`: url of the commit on the Hub if `push_to_hub=True`, `None` otherwise.
@@ -369,8 +372,9 @@ class ModelHubMixin:
 
         # save model card
         model_card_path = save_directory / "README.md"
+        model_card_kwargs = model_card_kwargs if model_card_kwargs is not None else {}
         if not model_card_path.exists():  # do not overwrite if already exists
-            self.generate_model_card().save(save_directory / "README.md")
+            self.generate_model_card(**model_card_kwargs).save(save_directory / "README.md")
 
         # push to the Hub if required
         if push_to_hub:
@@ -379,7 +383,7 @@ class ModelHubMixin:
                 kwargs["config"] = config
             if repo_id is None:
                 repo_id = save_directory.name  # Defaults to `save_directory` name
-            return self.push_to_hub(repo_id=repo_id, **kwargs)
+            return self.push_to_hub(repo_id=repo_id, model_card_kwargs=model_card_kwargs, **kwargs)
         return None
 
     def _save_pretrained(self, save_directory: Path) -> None:
@@ -588,6 +592,7 @@ class ModelHubMixin:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
+        model_card_kwargs: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -618,6 +623,8 @@ class ModelHubMixin:
                 If provided, files matching any of the patterns are not pushed.
             delete_patterns (`List[str]` or `str`, *optional*):
                 If provided, remote files matching any of the patterns will be deleted from the repo.
+            model_card_kwargs (`Dict[str, Any]`, *optional*):
+                Additional arguments passed to the model card template to customize the model card.
 
         Returns:
             The url of the commit of your model in the given repository.
@@ -628,7 +635,7 @@ class ModelHubMixin:
         # Push the files to the repo in a single commit
         with SoftTemporaryDirectory() as tmp:
             saved_path = Path(tmp) / repo_id
-            self.save_pretrained(saved_path, config=config)
+            self.save_pretrained(saved_path, config=config, model_card_kwargs=model_card_kwargs)
             return api.upload_folder(
                 repo_id=repo_id,
                 repo_type="model",
@@ -647,6 +654,7 @@ class ModelHubMixin:
             template_str=self._hub_mixin_info.model_card_template,
             repo_url=self._hub_mixin_info.repo_url,
             docs_url=self._hub_mixin_info.docs_url,
+            **kwargs,
         )
         return card
 
