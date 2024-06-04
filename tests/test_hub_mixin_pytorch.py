@@ -407,7 +407,6 @@ class PytorchHubMixinTest(unittest.TestCase):
         reloaded = DummyModelWithConfigAndKwargs.from_pretrained(self.cache_dir)
         assert reloaded._hub_mixin_config == model._hub_mixin_config
 
-
     def test_model_card_with_custom_kwargs(self):
         model_card_kwargs = {"custom_data": "This is a model custom data: 42."}
 
