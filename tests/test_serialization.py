@@ -87,6 +87,7 @@ def test_tensor_same_storage():
         get_storage_id=lambda x: (x[0]),  # dummy for test: storage id based on first element
         get_tensor_size=_dummy_get_tensor_size,
         max_shard_size=1,
+        filename_pattern="model{suffix}.safetensors",
     )
     assert state_dict_split.is_sharded
     assert state_dict_split.filename_to_tensors == {
