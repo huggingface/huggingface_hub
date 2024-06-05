@@ -2015,6 +2015,7 @@ class InferenceClient:
         parameters = {
             "best_of": best_of,
             "decoder_input_details": decoder_input_details,
+            "details": details,
             "do_sample": do_sample,
             "frequency_penalty": frequency_penalty,
             "grammar": grammar,
