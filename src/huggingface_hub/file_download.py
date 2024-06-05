@@ -77,6 +77,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_arguments
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.insecure_hashlib import sha256
@@ -994,6 +995,14 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
             pass
 
 
+@_deprecate_arguments(
+    version="0.26.0",
+    deprecated_args=["legacy_cache_layout"],
+    custom_message=(
+        "Legacy cache layout has been deprecated since August 2022 and will soon be removed. "
+        "See https://huggingface.co/docs/huggingface_hub/guides/manage-cache for more details."
+    ),
+)
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
