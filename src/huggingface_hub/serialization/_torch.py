@@ -45,6 +45,14 @@ def split_torch_state_dict_into_shards(
     have tensors of sizes [6GB, 6GB, 2GB, 6GB, 2GB, 2GB] they will get sharded as [6GB], [6+2GB], [6+2+2GB] and not
     [6+2+2GB], [6+2GB], [6GB].
 
+
+    <Tip>
+
+    To save a model state dictionary to the disk, see [`save_torch_state_dict`]. This helper uses
+    `split_torch_state_dict_into_shards` under the hood.
+
+    </Tip>
+
     <Tip warning={true}>
 
     If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
@@ -107,6 +115,52 @@ def save_torch_state_dict(
     filename_pattern: Optional[str] = None,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> None:
+    """
+    Save a model state dictionary to the disk.
+
+    The model state dictionary is split into shards so that each shard is smaller than a given size. The shards are
+    saved in the `save_directory` with the given `filename_pattern`. If the model is too big to fit in a single shard,
+    an index file is saved in the `save_directory` to indicate where each tensor is saved. This helper uses
+    [`split_torch_state_dict_into_shards`] under the hood. If `safe_serialization` is `True`, the shards are saved as
+    safetensors (the default). Otherwise, the shards are saved as pickle.
+
+    Before saving the model, the `save_directory` is cleaned from any previous shard files.
+
+    <Tip warning={true}>
+
+    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    size greater than `max_shard_size`.
+
+    </Tip>
+
+    Args:
+        state_dict (`Dict[str, torch.Tensor]`):
+            The state dictionary to save.
+        save_directory (`str` or `Path`):
+            The directory in which the model will be saved.
+        safe_serialization (`bool`, *optional*):
+            Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
+            Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
+            in a future version.
+        filename_pattern (`str`, *optional*):
+            The pattern to generate the files names in which the model will be saved. Pattern must be a string that
+            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
+            Defaults to `"model{suffix}.safetensors"` or `pytorch_model{suffix}.bin` depending on `safe_serialization`
+            parameter.
+        max_shard_size (`int` or `str`, *optional*):
+            The maximum size of each shard, in bytes. Defaults to 5GB.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import save_torch_state_dict
+    >>> model = ... # A PyTorch model
+
+    # Save state dict to "path/to/folder". The model will be split into shards of 5GB each and saved as safetensors.
+    >>> state_dict = model_to_save.state_dict()
+    >>> save_torch_state_dict(state_dict, "path/to/folder")
+    ```
+    """
     save_directory = str(save_directory)
 
     # Imports correct library
