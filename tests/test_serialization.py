@@ -2,7 +2,6 @@ import pytest
 
 from huggingface_hub.serialization import split_state_dict_into_shards_factory
 from huggingface_hub.serialization._base import parse_size_to_int
-from huggingface_hub.serialization._numpy import get_tensor_size as get_tensor_size_numpy
 from huggingface_hub.serialization._tensorflow import get_tensor_size as get_tensor_size_tensorflow
 from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_size_torch
 
@@ -102,14 +101,6 @@ def test_tensor_same_storage():
         "layer_5": "model-00002-of-00002.safetensors",
     }
     assert state_dict_split.metadata == {"total_size": 3}  # count them once
-
-
-@requires("numpy")
-def test_get_tensor_size_numpy():
-    import numpy as np
-
-    assert get_tensor_size_numpy(np.array([1, 2, 3, 4, 5], dtype=np.float64)) == 5 * 8
-    assert get_tensor_size_numpy(np.array([1, 2, 3, 4, 5], dtype=np.float16)) == 5 * 2
 
 
 @requires("tensorflow")

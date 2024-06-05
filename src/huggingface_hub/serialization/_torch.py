@@ -121,7 +121,7 @@ def save_torch_state_dict(
     else:
         filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
 
-        from torch import save as save_file_fn
+        from torch import save as save_file_fn  # type: ignore[assignment]
 
     # Split dict
     state_dict_split = split_torch_state_dict_into_shards(
