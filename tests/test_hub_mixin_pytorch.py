@@ -302,11 +302,11 @@ class PytorchHubMixinTest(unittest.TestCase):
     def test_generate_model_card(self):
         model = DummyModelWithModelCard()
         card = model.generate_model_card()
-        assert card.data.languages == ["en", "zh"]
+        assert card.data.language == ["en", "zh"]
         assert card.data.library_name == "my-dummy-lib"
         assert card.data.license == "apache-2.0"
         assert card.data.pipeline_tag == "text-classification"
-        assert card.data.tags == ["tag1", "tag2", "pytorch_model_hub_mixin", "model_hub_mixin"]
+        assert card.data.tags == ["model_hub_mixin", "pytorch_model_hub_mixin", "tag1", "tag2"]
 
         # Model card template has been used
         assert "This is a dummy model card." in str(card)
