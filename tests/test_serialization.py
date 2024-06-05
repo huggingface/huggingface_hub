@@ -1,6 +1,10 @@
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List
+
 import pytest
 
-from huggingface_hub.serialization import split_state_dict_into_shards_factory
+from huggingface_hub.serialization import save_torch_state_dict, split_state_dict_into_shards_factory
 from huggingface_hub.serialization._base import parse_size_to_int
 from huggingface_hub.serialization._tensorflow import get_tensor_size as get_tensor_size_tensorflow
 from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_size_torch
@@ -8,13 +12,8 @@ from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_s
 from .testing_utils import requires
 
 
-DUMMY_STATE_DICT = {
-    "layer_1": [6],
-    "layer_2": [10],
-    "layer_3": [30],
-    "layer_4": [2],
-    "layer_5": [2],
-}
+if TYPE_CHECKING:
+    import torch
 
 
 def _dummy_get_storage_id(item):
@@ -25,9 +24,33 @@ def _dummy_get_tensor_size(item):
     return sum(item)
 
 
-def test_single_shard():
+@pytest.fixture
+def dummy_state_dict() -> Dict[str, List[int]]:
+    return {
+        "layer_1": [6],
+        "layer_2": [10],
+        "layer_3": [30],
+        "layer_4": [2],
+        "layer_5": [2],
+    }
+
+
+@pytest.fixture
+def torch_state_dict() -> Dict[str, "torch.Tensor"]:
+    import torch
+
+    return {
+        "layer_1": torch.tensor([4]),
+        "layer_2": torch.tensor([10]),
+        "layer_3": torch.tensor([30]),
+        "layer_4": torch.tensor([2]),
+        "layer_5": torch.tensor([2]),
+    }
+
+
+def test_single_shard(dummy_state_dict):
     state_dict_split = split_state_dict_into_shards_factory(
-        DUMMY_STATE_DICT,
+        dummy_state_dict,
         get_storage_id=_dummy_get_storage_id,
         get_tensor_size=_dummy_get_tensor_size,
         max_shard_size=100,  # large shard size => only one shard
@@ -48,9 +71,9 @@ def test_single_shard():
     assert state_dict_split.metadata == {"total_size": 50}
 
 
-def test_multiple_shards():
+def test_multiple_shards(dummy_state_dict):
     state_dict_split = split_state_dict_into_shards_factory(
-        DUMMY_STATE_DICT,
+        dummy_state_dict,
         get_storage_id=_dummy_get_storage_id,
         get_tensor_size=_dummy_get_tensor_size,
         max_shard_size=10,  # small shard size => multiple shards
@@ -132,3 +155,106 @@ def test_parse_size_to_int():
 
     with pytest.raises(ValueError, match="Could not parse the size value"):
         parse_size_to_int("1ooKB")  # not a float
+
+
+@requires("torch")
+def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+    """Save as safetensors without sharding."""
+    save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB")
+    assert (tmp_path / "model.safetensors").is_file()
+    assert not (tmp_path / "model.safetensors.index.json").is_file()
+
+
+@requires("torch")
+def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+    """Save as safetensors with sharding."""
+    save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30)
+    assert not (tmp_path / "model.safetensors").is_file()
+    assert (tmp_path / "model.safetensors.index.json").is_file()
+    assert (tmp_path / "model-00001-of-00002.safetensors").is_file()
+    assert (tmp_path / "model-00001-of-00002.safetensors").is_file()
+
+    assert json.loads((tmp_path / "model.safetensors.index.json").read_text("utf-8")) == {
+        "metadata": {"total_size": 40},
+        "weight_map": {
+            "layer_1": "model-00001-of-00002.safetensors",
+            "layer_2": "model-00001-of-00002.safetensors",
+            "layer_3": "model-00001-of-00002.safetensors",
+            "layer_4": "model-00002-of-00002.safetensors",
+            "layer_5": "model-00002-of-00002.safetensors",
+        },
+    }
+
+
+@requires("torch")
+def test_save_torch_state_dict_unsafe_not_sharded(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
+) -> None:
+    """Save as pickle without sharding."""
+    with caplog.at_level("WARNING"):
+        save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB", safe_serialization=False)
+    assert "we strongly recommend using safe serialization" in caplog.text
+
+    assert (tmp_path / "pytorch_model.bin").is_file()
+    assert not (tmp_path / "pytorch_model.bin.index.json").is_file()
+
+
+@requires("torch")
+def test_save_torch_state_dict_unsafe_sharded(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
+) -> None:
+    """Save as pickle with sharding."""
+    # Check logs
+    with caplog.at_level("WARNING"):
+        save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30, safe_serialization=False)
+    assert "we strongly recommend using safe serialization" in caplog.text
+
+    assert not (tmp_path / "pytorch_model.bin").is_file()
+    assert (tmp_path / "pytorch_model.bin.index.json").is_file()
+    assert (tmp_path / "pytorch_model-00001-of-00002.bin").is_file()
+    assert (tmp_path / "pytorch_model-00001-of-00002.bin").is_file()
+
+    assert json.loads((tmp_path / "pytorch_model.bin.index.json").read_text("utf-8")) == {
+        "metadata": {"total_size": 40},
+        "weight_map": {
+            "layer_1": "pytorch_model-00001-of-00002.bin",
+            "layer_2": "pytorch_model-00001-of-00002.bin",
+            "layer_3": "pytorch_model-00001-of-00002.bin",
+            "layer_4": "pytorch_model-00002-of-00002.bin",
+            "layer_5": "pytorch_model-00002-of-00002.bin",
+        },
+    }
+
+
+@requires("torch")
+def test_save_torch_state_dict_delete_existing_files(
+    tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]
+) -> None:
+    """Directory is cleaned before saving new files."""
+    (tmp_path / "model.safetensors").touch()
+    (tmp_path / "model.safetensors.index.json").touch()
+    (tmp_path / "model-00001-of-00003.safetensors").touch()
+    (tmp_path / "model-00002-of-00003.safetensors").touch()
+    (tmp_path / "model-00003-of-00003.safetensors").touch()
+
+    (tmp_path / "pytorch_model.bin").touch()
+    (tmp_path / "pytorch_model.bin.index.json").touch()
+    (tmp_path / "pytorch_model-00001-of-00003.bin").touch()
+    (tmp_path / "pytorch_model-00002-of-00003.bin").touch()
+    (tmp_path / "pytorch_model-00003-of-00003.bin").touch()
+
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    assert (tmp_path / "model.safetensors").stat().st_size > 0  # new file
+
+    # Previous shards have been deleted
+    assert not (tmp_path / "model.safetensors.index.json").is_file()  # deleted
+    assert not (tmp_path / "model-00001-of-00003.safetensors").is_file()  # deleted
+    assert not (tmp_path / "model-00002-of-00003.safetensors").is_file()  # deleted
+    assert not (tmp_path / "model-00003-of-00003.safetensors").is_file()  # deleted
+
+    # But not previous pickle files (since saving as safetensors)
+    assert (tmp_path / "pytorch_model.bin").is_file()  # not deleted
+    assert (tmp_path / "pytorch_model.bin.index.json").is_file()
+    assert (tmp_path / "pytorch_model-00001-of-00003.bin").is_file()
+    assert (tmp_path / "pytorch_model-00002-of-00003.bin").is_file()
+    assert (tmp_path / "pytorch_model-00003-of-00003.bin").is_file()

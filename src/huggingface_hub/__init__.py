@@ -424,6 +424,7 @@ _SUBMOD_ATTRS = {
     "serialization": [
         "StateDictSplit",
         "get_torch_storage_id",
+        "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
         "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
@@ -903,6 +904,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .serialization import (
         StateDictSplit,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
+        save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401

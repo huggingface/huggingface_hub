@@ -18,6 +18,7 @@ import json
 import os
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
 from .. import constants, logging
@@ -100,12 +101,14 @@ def split_torch_state_dict_into_shards(
 
 def save_torch_state_dict(
     state_dict: Dict[str, "torch.Tensor"],
-    save_directory: str,
+    save_directory: Union[str, Path],
     *,
     safe_serialization: bool = True,
     filename_pattern: Optional[str] = None,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> None:
+    save_directory = str(save_directory)
+
     # Imports correct library
     if safe_serialization:
         filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
@@ -122,6 +125,12 @@ def save_torch_state_dict(
         filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
 
         from torch import save as save_file_fn  # type: ignore[assignment]
+
+        logger.warning(
+            "You are using unsafe serialization. Due to security reasons, it is recommended not to load "
+            "pickled models from untrusted sources. If you intend to share your model, we strongly recommend "
+            "using safe serialization by installing `safetensors` with `pip install safetensors`."
+        )
 
     # Split dict
     state_dict_split = split_torch_state_dict_into_shards(
@@ -140,7 +149,7 @@ def save_torch_state_dict(
 
     # Save each shard
     safe_file_kwargs = {"metadata": {"format": "pt"}} if safe_serialization else {}
-    for filename, tensors in state_dict_split.filename_to_tensors.values():
+    for filename, tensors in state_dict_split.filename_to_tensors.items():
         shard = {tensor: state_dict[tensor] for tensor in tensors}
         save_file_fn(shard, os.path.join(save_directory, filename), **safe_file_kwargs)
         logger.debug(f"Shard saved to {filename}")
