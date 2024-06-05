@@ -37,15 +37,18 @@ def dummy_state_dict() -> Dict[str, List[int]]:
 
 @pytest.fixture
 def torch_state_dict() -> Dict[str, "torch.Tensor"]:
-    import torch
+    try:
+        import torch
 
-    return {
-        "layer_1": torch.tensor([4]),
-        "layer_2": torch.tensor([10]),
-        "layer_3": torch.tensor([30]),
-        "layer_4": torch.tensor([2]),
-        "layer_5": torch.tensor([2]),
-    }
+        return {
+            "layer_1": torch.tensor([4]),
+            "layer_2": torch.tensor([10]),
+            "layer_3": torch.tensor([30]),
+            "layer_4": torch.tensor([2]),
+            "layer_5": torch.tensor([2]),
+        }
+    except ImportError:
+        pytest.skip("torch is not available")
 
 
 def test_single_shard(dummy_state_dict):
@@ -157,7 +160,6 @@ def test_parse_size_to_int():
         parse_size_to_int("1ooKB")  # not a float
 
 
-@requires("torch")
 def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
     """Save as safetensors without sharding."""
     save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB")
@@ -165,7 +167,6 @@ def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: Dic
     assert not (tmp_path / "model.safetensors.index.json").is_file()
 
 
-@requires("torch")
 def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
     """Save as safetensors with sharding."""
     save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30)
@@ -186,7 +187,6 @@ def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: Dict[st
     }
 
 
-@requires("torch")
 def test_save_torch_state_dict_unsafe_not_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
 ) -> None:
@@ -199,7 +199,6 @@ def test_save_torch_state_dict_unsafe_not_sharded(
     assert not (tmp_path / "pytorch_model.bin.index.json").is_file()
 
 
-@requires("torch")
 def test_save_torch_state_dict_unsafe_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
 ) -> None:
@@ -226,7 +225,6 @@ def test_save_torch_state_dict_unsafe_sharded(
     }
 
 
-@requires("torch")
 def test_save_torch_state_dict_delete_existing_files(
     tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]
 ) -> None:
