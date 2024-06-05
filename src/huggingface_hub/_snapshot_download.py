@@ -127,12 +127,17 @@ def snapshot_download(
         `str`: folder path of the repo snapshot.
 
     Raises:
-        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-        if `token=True` and the token cannot be found.
-        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-        ETag cannot be determined.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-        if some parameter value is invalid
+        [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+        [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If `token=True` and the token cannot be found.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+            ETag cannot be determined.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid.
     """
     if cache_dir is None:
         cache_dir = HF_HUB_CACHE

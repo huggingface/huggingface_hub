@@ -1106,21 +1106,22 @@ def hf_hub_download(
         `str`: Local path of file or if networking is off, last version of file cached on disk.
 
     Raises:
-        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-        if `token=True` and the token cannot be found.
-        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
-        if ETag cannot be determined.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-        if some parameter value is invalid
-        - [`~utils.RepositoryNotFoundError`]
-        If the repository to download from cannot be found. This may be because it doesn't exist,
-        or because it is set to `private` and you do not have access.
-        - [`~utils.RevisionNotFoundError`]
-        If the revision to download from cannot be found.
-        - [`~utils.EntryNotFoundError`]
-        If the file to download cannot be found.
-        - [`~utils.LocalEntryNotFoundError`]
-        If network is disabled or unavailable and file is not found in cache.
+        [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+        [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+        [`~utils.EntryNotFoundError`]
+            If the file to download cannot be found.
+        [`~utils.LocalEntryNotFoundError`]
+            If network is disabled or unavailable and file is not found in cache.
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If `token=True` but the token cannot be found.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+            If ETag cannot be determined.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If some parameter value is invalid.
+
     """
     if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
