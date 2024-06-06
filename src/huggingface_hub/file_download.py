@@ -77,7 +77,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.insecure_hashlib import sha256
@@ -305,6 +305,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
+@_deprecate_method(version="0.26", message="Use `hf_hub_url` instead.")
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
