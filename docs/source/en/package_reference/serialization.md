@@ -8,7 +8,7 @@ rendered properly in your Markdown viewer.
 
 ## Save torch state dict
 
-The main helper of the `serialization` module takes a state dictionary as input (e.g. a mapping between layer names and related tensors), split it into several shards while creating a proper index in the process and save everything to disk. At the moment, only `torch` tensors are supported. Under the hood, it delegates the logic to split the state dictionary to [`split_torch_state_dict_into_shards`].
+The main helper of the `serialization` module takes a state dictionary as input (e.g. a mapping between layer names and related tensors), splits it into several shards while creating a proper index in the process and save everything to disk. At the moment, only `torch` tensors are supported. Under the hood, it delegates the logic to split the state dictionary to [`split_torch_state_dict_into_shards`].
 
 [[autodoc]] huggingface_hub.save_torch_state_dict
 
