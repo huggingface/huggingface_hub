@@ -225,6 +225,21 @@ def test_save_torch_state_dict_unsafe_sharded(
     }
 
 
+def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+    """Custom filename pattern is respected."""
+    # Not sharded
+    save_torch_state_dict(torch_state_dict, tmp_path, filename_pattern="model.variant{suffix}.safetensors")
+    assert (tmp_path / "model.variant.safetensors").is_file()
+
+    # Sharded
+    save_torch_state_dict(
+        torch_state_dict, tmp_path, filename_pattern="model.variant{suffix}.safetensors", max_shard_size=30
+    )
+    assert (tmp_path / "model.variant.safetensors.index.json").is_file()
+    assert (tmp_path / "model.variant-00001-of-00002.safetensors").is_file()
+    assert (tmp_path / "model.variant-00002-of-00002.safetensors").is_file()
+
+
 def test_save_torch_state_dict_delete_existing_files(
     tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]
 ) -> None:

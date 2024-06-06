@@ -163,10 +163,15 @@ def save_torch_state_dict(
     """
     save_directory = str(save_directory)
 
+    if filename_pattern is None:
+        filename_pattern = (
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
+            if safe_serialization
+            else constants.PYTORCH_WEIGHTS_FILE_PATTERN
+        )
+
     # Imports correct library
     if safe_serialization:
-        filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
-
         try:
             from safetensors.torch import save_file as save_file_fn
         except ImportError as e:
@@ -176,8 +181,6 @@ def save_torch_state_dict(
             ) from e
 
     else:
-        filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
-
         from torch import save as save_file_fn  # type: ignore[assignment]
 
         logger.warning(
