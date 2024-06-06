@@ -523,6 +523,7 @@ class CachedDownloadTests(unittest.TestCase):
             "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
         )
 
+    @expect_deprecation("hf_hub_download")
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
