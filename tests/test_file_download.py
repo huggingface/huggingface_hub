@@ -400,7 +400,6 @@ class CachedDownloadTests(unittest.TestCase):
             filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
             self.assertTrue(os.path.exists(filepath))
 
-    @expect_deprecation("cached_download")
     def test_download_from_a_renamed_repo_with_cached_download(self):
         """Checks `cached_download` works also on a renamed repo.
 
@@ -536,7 +535,6 @@ class CachedDownloadTests(unittest.TestCase):
         )
 
     @expect_deprecation("hf_hub_download")
-    @expect_deprecation("filename_to_url")
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
