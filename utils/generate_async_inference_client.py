@@ -186,6 +186,8 @@ ASYNC_POST_CODE = """
         headers = self.headers.copy()
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
+        if "X-wait-for-model" not in headers and url.startswith(INFERENCE_ENDPOINT):
+            headers["X-wait-for-model"] = "1"
 
         t0 = time.time()
         timeout = self.timeout
