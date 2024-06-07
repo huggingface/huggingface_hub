@@ -191,12 +191,14 @@ class StagingDownloadTests(unittest.TestCase):
 @with_production_testing
 class CachedDownloadTests(unittest.TestCase):
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_bogus_url(self):
         url = "https://bogus"
         with self.assertRaisesRegex(ValueError, "Connection error"):
             _ = cached_download(url, legacy_cache_layout=True)
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_no_connection(self):
         invalid_url = hf_hub_url(
             DUMMY_MODEL_ID,
@@ -247,6 +249,7 @@ class CachedDownloadTests(unittest.TestCase):
                 )
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_file_not_found_locally_and_network_disabled_legacy(self):
         # Valid file but missing locally and network is disabled.
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
@@ -318,6 +321,8 @@ class CachedDownloadTests(unittest.TestCase):
             _ = cached_download(url, legacy_cache_layout=True)
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_standard_object(self):
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
@@ -325,6 +330,8 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_standard_object_rev(self):
         # Same object, but different revision
         url = hf_hub_url(
@@ -338,6 +345,8 @@ class CachedDownloadTests(unittest.TestCase):
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_lfs_object(self):
         url = hf_hub_url(DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
@@ -345,6 +354,8 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_dataset_standard_object_rev(self):
         url = hf_hub_url(
             DATASET_ID,
@@ -358,6 +369,8 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_dataset_lfs_object(self):
         url = hf_hub_url(
             DATASET_ID,
@@ -535,6 +548,9 @@ class CachedDownloadTests(unittest.TestCase):
         )
 
     @expect_deprecation("hf_hub_download")
+    @expect_deprecation("cached_download")
+    @expect_deprecation("filename_to_url")
+    @expect_deprecation("url_to_filename")
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
@@ -727,6 +743,7 @@ class CachedDownloadTests(unittest.TestCase):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_cached_download_from_github(self):
         """Regression test for #1449.
 
