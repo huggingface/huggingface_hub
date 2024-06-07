@@ -23,8 +23,14 @@ TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
 StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-MAX_SHARD_SIZE = 5_000_000_000  # 5GB
-FILENAME_PATTERN = "model{suffix}.safetensors"
+MAX_SHARD_SIZE = "5GB"
+SIZE_UNITS = {
+    "TB": 10**12,
+    "GB": 10**9,
+    "MB": 10**6,
+    "KB": 10**3,
+}
+
 
 logger = logging.get_logger(__file__)
 
@@ -44,8 +50,8 @@ def split_state_dict_into_shards_factory(
     state_dict: Dict[str, TensorT],
     *,
     get_tensor_size: TensorSizeFn_T,
+    filename_pattern: str,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
-    filename_pattern: str = FILENAME_PATTERN,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
@@ -75,7 +81,6 @@ def split_state_dict_into_shards_factory(
         filename_pattern (`str`, *optional*):
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
-            Defaults to `"model{suffix}.safetensors"`.
         max_shard_size (`int` or `str`, *optional*):
             The maximum size of each shard, in bytes. Defaults to 5GB.
 
@@ -170,14 +175,6 @@ def split_state_dict_into_shards_factory(
         filename_to_tensors=filename_to_tensors,
         tensor_to_filename=tensor_name_to_filename,
     )
-
-
-SIZE_UNITS = {
-    "TB": 10**12,
-    "GB": 10**9,
-    "MB": 10**6,
-    "KB": 10**3,
-}
 
 
 def parse_size_to_int(size_as_str: str) -> int:
