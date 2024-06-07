@@ -776,7 +776,7 @@ class TestHeadersAndCookies(unittest.TestCase):
             "https://api-inference.huggingface.co/models/username/repo_name",
             json=None,
             data=b"content",
-            headers={"user-agent": expected_user_agent, "X-My-Header": "foo", "X-wait-for-model": "1"},
+            headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
             cookies={"my-cookie": "bar"},
             timeout=None,
             stream=False,
