@@ -274,6 +274,7 @@ def hf_hub_url(
     return url
 
 
+@_deprecate_method(version="0.26", message="Use `hf_hub_download` to benefit from the new cache layout.")
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     """Generate a local filename from a url.
 
@@ -582,6 +583,7 @@ def http_get(
 
 
 @validate_hf_hub_args
+@_deprecate_method(version="0.26", message="Use `hf_hub_download` instead.")
 def cached_download(
     url: str,
     *,
