@@ -14,9 +14,15 @@
 # limitations under the License.
 """Handle typing imports based on system compatibility."""
 
-from itertools import filterfalse
-from types import UnionType
-from typing import Any, Callable, Literal, Type, TypeVar, Union, get_args, get_origin
+import sys
+from typing import Any, Callable, List, Literal, Type, TypeVar, Union, get_args, get_origin
+
+
+UNION_TYPES: List[Any] = [Union]
+if sys.version_info >= (3, 10):
+    from types import UnionType
+
+    UNION_TYPES += [UnionType]
 
 
 HTTP_METHOD_T = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
@@ -54,7 +60,7 @@ def is_jsonable(obj: Any) -> bool:
 
 def is_simple_optional_type(type_: Type) -> bool:
     """Check if a type is optional, i.e. Optional[Type] or Union[Type, None] or Type | None, where Type is a non-composite type."""
-    if get_origin(type_) is Union or isinstance(type_, UnionType):
+    if get_origin(type_) in UNION_TYPES:
         union_args = get_args(type_)
         if len(union_args) == 2 and type(None) in union_args:
             return True
@@ -63,4 +69,7 @@ def is_simple_optional_type(type_: Type) -> bool:
 
 def unwrap_simple_optional_type(optional_type: Type) -> Type:
     """Unwraps a simple optional type, i.e. returns Type from Optional[Type]."""
-    return next(filterfalse(lambda x: x is type(None), get_args(optional_type)))
+    for arg in get_args(optional_type):
+        if arg is not type(None):
+            return arg
+    raise ValueError(f"'{optional_type}' is not an optional type")

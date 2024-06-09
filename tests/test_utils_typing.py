@@ -72,7 +72,7 @@ def test_is_jsonable_failure(data):
     ],
 )
 def test_is_simple_optional_type(type_: Type, is_optional: bool):
-    assert is_simple_optional_type(type_) == is_optional
+    assert is_simple_optional_type(type_) is is_optional
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher")
@@ -90,7 +90,7 @@ def test_is_simple_optional_type(type_: Type, is_optional: bool):
     ],
 )
 def test_is_simple_optional_type_pipe(type_: Type, is_optional: bool):
-    assert is_simple_optional_type(type_) == is_optional
+    assert is_simple_optional_type(type_) is is_optional
 
 
 @pytest.mark.parametrize(
@@ -105,7 +105,13 @@ def test_is_simple_optional_type_pipe(type_: Type, is_optional: bool):
     ],
 )
 def test_unwrap_simple_optional_type(optional_type: Type, inner_type: Type):
-    assert unwrap_simple_optional_type(optional_type) == inner_type
+    assert unwrap_simple_optional_type(optional_type) is inner_type
+
+
+@pytest.mark.parametrize("non_optional_type", [int, None, CustomType])
+def test_unwrap_simple_optional_type_fail(non_optional_type: Type):
+    with pytest.raises(ValueError):
+        unwrap_simple_optional_type(non_optional_type)
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires python3.10 or higher")
@@ -119,4 +125,4 @@ def test_unwrap_simple_optional_type(optional_type: Type, inner_type: Type):
     ],
 )
 def test_unwrap_simple_optional_type_pipe(optional_type: Type, inner_type: Type):
-    assert unwrap_simple_optional_type(optional_type) == inner_type
+    assert unwrap_simple_optional_type(optional_type) is inner_type
