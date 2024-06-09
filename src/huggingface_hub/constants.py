@@ -37,6 +37,12 @@ DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
 HF_TRANSFER_CONCURRENCY = 100
 
+# Constants for serialization
+
+PYTORCH_WEIGHTS_FILE_PATTERN = "pytorch_model{suffix}.bin"  # Unsafe pickle: use safetensors instead
+SAFETENSORS_WEIGHTS_FILE_PATTERN = "model{suffix}.safetensors"
+TF2_WEIGHTS_FILE_PATTERN = "tf_model{suffix}.h5"
+
 # Constants for safetensors repos
 
 SAFETENSORS_SINGLE_FILE = "model.safetensors"
