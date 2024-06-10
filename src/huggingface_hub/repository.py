@@ -542,10 +542,10 @@ class Repository:
             user = self.client.whoami(self.huggingface_token)
 
             if git_email is None:
-                git_email = user["email"]
+                git_email = user.get("email")
 
             if git_user is None:
-                git_user = user["fullname"]
+                git_user = user.get("fullname")
 
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
