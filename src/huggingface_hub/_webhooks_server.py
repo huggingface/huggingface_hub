@@ -184,7 +184,9 @@ class WebhooksServer:
             self.fastapi_app.post(path)(func)
 
         # Print instructions and block main thread
-        url = (ui.share_url or ui.local_url).strip("/")
+        space_host = os.environ.get("SPACE_HOST")
+        url = "https://" + space_host if space_host is not None else (ui.share_url or ui.local_url)
+        url = url.strip("/")
         message = "\nWebhooks are correctly setup and ready to use:"
         message += "\n" + "\n".join(f"  - POST {url}{webhook}" for webhook in self.registered_webhooks)
         message += "\nGo to https://huggingface.co/settings/webhooks to setup your webhooks."

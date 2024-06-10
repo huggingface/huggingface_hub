@@ -55,7 +55,7 @@ class EvalResult:
         source_name (`str`, *optional*):
             The name of the source of the evaluation result. Example: "Open LLM Leaderboard".
         source_url (`str`, *optional*):
-            The URL of the source of the evaluation result. Example: "https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard".
+            The URL of the source of the evaluation result. Example: "https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard".
     """
 
     # Required
@@ -128,7 +128,7 @@ class EvalResult:
     source_name: Optional[str] = None
 
     # The URL of the source of the evaluation result.
-    # Example: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+    # Example: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
     source_url: Optional[str] = None
 
     @property
@@ -242,19 +242,6 @@ class ModelCardData(CardData):
     """Model Card Metadata that is used by Hugging Face Hub when included at the top of your README.md
 
     Args:
-        language (`Union[str, List[str]]`, *optional*):
-            Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
-            639-3 code (two/three letters), or a special value like "code", "multilingual". Defaults to `None`.
-        license (`str`, *optional*):
-            License of this model. Example: apache-2.0 or any license from
-            https://huggingface.co/docs/hub/repositories-licenses. Defaults to None.
-        library_name (`str`, *optional*):
-            Name of library used by this model. Example: keras or any library from
-            https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/model-libraries.ts.
-            Defaults to None.
-        tags (`List[str]`, *optional*):
-            List of tags to add to your model that can be used when filtering on the Hugging
-            Face Hub. Defaults to None.
         base_model (`str` or `List[str]`, *optional*):
             The identifier of the base model from which the model derives. This is applicable for example if your model is a
             fine-tune or adapter of an existing model. The value must be the ID of a model on the Hub (or a list of IDs
@@ -262,17 +249,36 @@ class ModelCardData(CardData):
         datasets (`List[str]`, *optional*):
             List of datasets that were used to train this model. Should be a dataset ID
             found on https://hf.co/datasets. Defaults to None.
-        metrics (`List[str]`, *optional*):
-            List of metrics used to evaluate this model. Should be a metric name that can be found
-            at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         eval_results (`Union[List[EvalResult], EvalResult]`, *optional*):
             List of `huggingface_hub.EvalResult` that define evaluation results of the model. If provided,
             `model_name` is used to as a name on PapersWithCode's leaderboards. Defaults to `None`.
+        language (`Union[str, List[str]]`, *optional*):
+            Language of model's training data or metadata. It must be an ISO 639-1, 639-2 or
+            639-3 code (two/three letters), or a special value like "code", "multilingual". Defaults to `None`.
+        library_name (`str`, *optional*):
+            Name of library used by this model. Example: keras or any library from
+            https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/src/model-libraries.ts.
+            Defaults to None.
+        license (`str`, *optional*):
+            License of this model. Example: apache-2.0 or any license from
+            https://huggingface.co/docs/hub/repositories-licenses. Defaults to None.
+        license_name (`str`, *optional*):
+            Name of the license of this model. Defaults to None. To be used in conjunction with `license_link`.
+            Common licenses (Apache-2.0, MIT, CC-BY-SA-4.0) do not need a name. In that case, use `license` instead.
+        license_link (`str`, *optional*):
+            Link to the license of this model. Defaults to None. To be used in conjunction with `license_name`.
+            Common licenses (Apache-2.0, MIT, CC-BY-SA-4.0) do not need a link. In that case, use `license` instead.
+        metrics (`List[str]`, *optional*):
+            List of metrics used to evaluate this model. Should be a metric name that can be found
+            at https://hf.co/metrics. Example: 'accuracy'. Defaults to None.
         model_name (`str`, *optional*):
             A name for this model. It is used along with
             `eval_results` to construct the `model-index` within the card's metadata. The name
             you supply here is what will be used on PapersWithCode's leaderboards. If None is provided
             then the repo name is used as a default. Defaults to None.
+        tags (`List[str]`, *optional*):
+            List of tags to add to your model that can be used when filtering on the Hugging
+            Face Hub. Defaults to None.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
             the process. Use it at your own risk.
@@ -297,27 +303,33 @@ class ModelCardData(CardData):
     def __init__(
         self,
         *,
-        language: Optional[Union[str, List[str]]] = None,
-        license: Optional[str] = None,
-        library_name: Optional[str] = None,
-        tags: Optional[List[str]] = None,
         base_model: Optional[Union[str, List[str]]] = None,
         datasets: Optional[List[str]] = None,
-        metrics: Optional[List[str]] = None,
         eval_results: Optional[List[EvalResult]] = None,
+        language: Optional[Union[str, List[str]]] = None,
+        library_name: Optional[str] = None,
+        license: Optional[str] = None,
+        license_name: Optional[str] = None,
+        license_link: Optional[str] = None,
+        metrics: Optional[List[str]] = None,
         model_name: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
-        self.language = language
-        self.license = license
-        self.library_name = library_name
-        self.tags = _to_unique_list(tags)
         self.base_model = base_model
         self.datasets = datasets
-        self.metrics = metrics
         self.eval_results = eval_results
+        self.language = language
+        self.library_name = library_name
+        self.license = license
+        self.license_name = license_name
+        self.license_link = license_link
+        self.metrics = metrics
         self.model_name = model_name
+        self.pipeline_tag = pipeline_tag
+        self.tags = _to_unique_list(tags)
 
         model_index = kwargs.pop("model-index", None)
         if model_index:

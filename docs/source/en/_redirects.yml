@@ -12,3 +12,6 @@ package_reference/inference_api: package_reference/inference_client
 
 # Alias for hf-transfer description
 hf_transfer: package_reference/environment_variables#hfhubenablehftransfer
+
+# Rename webhooks_server to webhooks
+guides/webhooks_server: guides/webhooks

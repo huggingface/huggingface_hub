@@ -14,11 +14,18 @@
 """Contains pytorch-specific helpers."""
 
 import importlib
+import json
+import os
+import re
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Union
 
-from ._base import FILENAME_PATTERN, MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
+from .. import constants, logging
+from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
+
+logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
     import torch
@@ -27,8 +34,8 @@ if TYPE_CHECKING:
 def split_torch_state_dict_into_shards(
     state_dict: Dict[str, "torch.Tensor"],
     *,
-    filename_pattern: str = FILENAME_PATTERN,
-    max_shard_size: int = MAX_SHARD_SIZE,
+    filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -37,6 +44,14 @@ def split_torch_state_dict_into_shards(
     made to make each shard as close as possible to the maximum size passed. For example, if the limit is 10GB and we
     have tensors of sizes [6GB, 6GB, 2GB, 6GB, 2GB, 2GB] they will get sharded as [6GB], [6+2GB], [6+2+2GB] and not
     [6+2+2GB], [6+2GB], [6GB].
+
+
+    <Tip>
+
+    To save a model state dictionary to the disk, see [`save_torch_state_dict`]. This helper uses
+    `split_torch_state_dict_into_shards` under the hood.
+
+    </Tip>
 
     <Tip warning={true}>
 
@@ -67,7 +82,7 @@ def split_torch_state_dict_into_shards(
 
     >>> def save_state_dict(state_dict: Dict[str, torch.Tensor], save_directory: str):
     ...     state_dict_split = split_torch_state_dict_into_shards(state_dict)
-    ...     for filename, tensors in state_dict_split.filename_to_tensors.values():
+    ...     for filename, tensors in state_dict_split.filename_to_tensors.items():
     ...         shard = {tensor: state_dict[tensor] for tensor in tensors}
     ...         safe_save_file(
     ...             shard,
@@ -88,11 +103,130 @@ def split_torch_state_dict_into_shards(
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,
         get_tensor_size=get_tensor_size,
-        get_storage_id=get_storage_id,
+        get_storage_id=get_torch_storage_id,
     )
 
 
-def get_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
+def save_torch_state_dict(
+    state_dict: Dict[str, "torch.Tensor"],
+    save_directory: Union[str, Path],
+    *,
+    safe_serialization: bool = True,
+    filename_pattern: Optional[str] = None,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
+) -> None:
+    """
+    Save a model state dictionary to the disk.
+
+    The model state dictionary is split into shards so that each shard is smaller than a given size. The shards are
+    saved in the `save_directory` with the given `filename_pattern`. If the model is too big to fit in a single shard,
+    an index file is saved in the `save_directory` to indicate where each tensor is saved. This helper uses
+    [`split_torch_state_dict_into_shards`] under the hood. If `safe_serialization` is `True`, the shards are saved as
+    safetensors (the default). Otherwise, the shards are saved as pickle.
+
+    Before saving the model, the `save_directory` is cleaned from any previous shard files.
+
+    <Tip warning={true}>
+
+    If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
+    size greater than `max_shard_size`.
+
+    </Tip>
+
+    Args:
+        state_dict (`Dict[str, torch.Tensor]`):
+            The state dictionary to save.
+        save_directory (`str` or `Path`):
+            The directory in which the model will be saved.
+        safe_serialization (`bool`, *optional*):
+            Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
+            Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
+            in a future version.
+        filename_pattern (`str`, *optional*):
+            The pattern to generate the files names in which the model will be saved. Pattern must be a string that
+            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
+            Defaults to `"model{suffix}.safetensors"` or `pytorch_model{suffix}.bin` depending on `safe_serialization`
+            parameter.
+        max_shard_size (`int` or `str`, *optional*):
+            The maximum size of each shard, in bytes. Defaults to 5GB.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import save_torch_state_dict
+    >>> model = ... # A PyTorch model
+
+    # Save state dict to "path/to/folder". The model will be split into shards of 5GB each and saved as safetensors.
+    >>> state_dict = model_to_save.state_dict()
+    >>> save_torch_state_dict(state_dict, "path/to/folder")
+    ```
+    """
+    save_directory = str(save_directory)
+
+    if filename_pattern is None:
+        filename_pattern = (
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
+            if safe_serialization
+            else constants.PYTORCH_WEIGHTS_FILE_PATTERN
+        )
+
+    # Imports correct library
+    if safe_serialization:
+        try:
+            from safetensors.torch import save_file as save_file_fn
+        except ImportError as e:
+            raise ImportError(
+                "Please install `safetensors` to use safe serialization. "
+                "You can install it with `pip install safetensors`."
+            ) from e
+
+    else:
+        from torch import save as save_file_fn  # type: ignore[assignment]
+
+        logger.warning(
+            "You are using unsafe serialization. Due to security reasons, it is recommended not to load "
+            "pickled models from untrusted sources. If you intend to share your model, we strongly recommend "
+            "using safe serialization by installing `safetensors` with `pip install safetensors`."
+        )
+
+    # Split dict
+    state_dict_split = split_torch_state_dict_into_shards(
+        state_dict, filename_pattern=filename_pattern, max_shard_size=max_shard_size
+    )
+
+    # Clean the folder from previous save
+    existing_files_regex = re.compile(filename_pattern.format(suffix=r"(-\d{5}-of-\d{5})?") + r"(\.index\.json)?")
+    for filename in os.listdir(save_directory):
+        if existing_files_regex.match(filename):
+            try:
+                logger.debug(f"Removing existing file '{filename}' from folder.")
+                os.remove(os.path.join(save_directory, filename))
+            except Exception as e:
+                logger.warning(f"Error when trying to remove existing '{filename}' from folder: {e}. Continuing...")
+
+    # Save each shard
+    safe_file_kwargs = {"metadata": {"format": "pt"}} if safe_serialization else {}
+    for filename, tensors in state_dict_split.filename_to_tensors.items():
+        shard = {tensor: state_dict[tensor] for tensor in tensors}
+        save_file_fn(shard, os.path.join(save_directory, filename), **safe_file_kwargs)
+        logger.debug(f"Shard saved to {filename}")
+
+    # Save the index (if any)
+    if state_dict_split.is_sharded:
+        index_path = filename_pattern.format(suffix="") + ".index.json"
+        index = {"metadata": state_dict_split.metadata, "weight_map": state_dict_split.tensor_to_filename}
+        with open(os.path.join(save_directory, index_path), "w") as f:
+            json.dump(index, f, indent=2)
+        logger.info(
+            f"The model is bigger than the maximum size per checkpoint ({max_shard_size}). "
+            f"Model weighs have been saved in {len(state_dict_split.filename_to_tensors)} checkpoint shards. "
+            f"You can find where each parameters has been saved in the index located at {index_path}."
+        )
+
+    logger.info(f"Model weights successfully saved to {save_directory}!")
+
+
+def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
     """
     Return unique identifier to a tensor storage.
 

@@ -400,9 +400,9 @@ def _huggingface_dir(local_dir: Path) -> Path:
     gitignore = path / ".gitignore"
     gitignore_lock = path / ".gitignore.lock"
     if not gitignore.exists():
-        with WeakFileLock(gitignore_lock):
-            gitignore.write_text("*")
         try:
+            with WeakFileLock(gitignore_lock):
+                gitignore.write_text("*")
             gitignore_lock.unlink()
         except OSError:  # FileNotFoundError, PermissionError, etc.
             pass

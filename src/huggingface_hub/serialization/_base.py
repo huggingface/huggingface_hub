@@ -14,7 +14,7 @@
 """Contains helpers to split tensors into shards."""
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from .. import logging
 
@@ -23,8 +23,14 @@ TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
 StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-MAX_SHARD_SIZE = 5_000_000_000  # 5GB
-FILENAME_PATTERN = "model{suffix}.safetensors"
+MAX_SHARD_SIZE = "5GB"
+SIZE_UNITS = {
+    "TB": 10**12,
+    "GB": 10**9,
+    "MB": 10**6,
+    "KB": 10**3,
+}
+
 
 logger = logging.get_logger(__file__)
 
@@ -44,9 +50,9 @@ def split_state_dict_into_shards_factory(
     state_dict: Dict[str, TensorT],
     *,
     get_tensor_size: TensorSizeFn_T,
+    filename_pattern: str,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
-    filename_pattern: str = FILENAME_PATTERN,
-    max_shard_size: int = MAX_SHARD_SIZE,
+    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -75,7 +81,6 @@ def split_state_dict_into_shards_factory(
         filename_pattern (`str`, *optional*):
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
-            Defaults to `"model{suffix}.safetensors"`.
         max_shard_size (`int` or `str`, *optional*):
             The maximum size of each shard, in bytes. Defaults to 5GB.
 
@@ -88,6 +93,9 @@ def split_state_dict_into_shards_factory(
     current_shard: Dict[str, TensorT] = {}
     current_shard_size = 0
     total_size = 0
+
+    if isinstance(max_shard_size, str):
+        max_shard_size = parse_size_to_int(max_shard_size)
 
     for key, tensor in state_dict.items():
         # when bnb serialization is used the weights in the state dict can be strings
@@ -167,3 +175,36 @@ def split_state_dict_into_shards_factory(
         filename_to_tensors=filename_to_tensors,
         tensor_to_filename=tensor_name_to_filename,
     )
+
+
+def parse_size_to_int(size_as_str: str) -> int:
+    """
+    Parse a size expressed as a string with digits and unit (like `"5MB"`) to an integer (in bytes).
+
+    Supported units are "TB", "GB", "MB", "KB".
+
+    Args:
+        size_as_str (`str`): The size to convert. Will be directly returned if an `int`.
+
+    Example:
+
+    ```py
+    >>> parse_size_to_int("5MB")
+    5000000
+    ```
+    """
+    size_as_str = size_as_str.strip()
+
+    # Parse unit
+    unit = size_as_str[-2:].upper()
+    if unit not in SIZE_UNITS:
+        raise ValueError(f"Unit '{unit}' not supported. Supported units are TB, GB, MB, KB. Got '{size_as_str}'.")
+    multiplier = SIZE_UNITS[unit]
+
+    # Parse value
+    try:
+        value = float(size_as_str[:-2].strip())
+    except ValueError as e:
+        raise ValueError(f"Could not parse the size value from '{size_as_str}': {e}") from e
+
+    return int(value * multiplier)

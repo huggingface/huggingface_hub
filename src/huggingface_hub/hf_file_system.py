@@ -74,8 +74,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Access a remote Hugging Face Hub repository as if were a local file system.
 
     Args:
-        token (`str`, *optional*):
-            Authentication token, obtained with [`HfApi.login`] method. Will default to the stored token.
+        token (`str` or `bool`, *optional*):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
 
     Usage:
 
@@ -105,7 +108,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self,
         *args,
         endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)

@@ -90,6 +90,14 @@ class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
         return cls(**kwargs)
 
 
+class BaseModelForInheritance(ModelHubMixin, repo_url="https://hf.co/my-repo", library_name="my-cool-library"):
+    pass
+
+
+class DummyModelInherited(BaseModelForInheritance):
+    pass
+
+
 class DummyModelSavingConfig(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Implementation that uses `config.json` to serialize the config.
@@ -274,11 +282,11 @@ class HubMixinTest(unittest.TestCase):
 
         # Push to hub with repo_id (config is pushed)
         mocked_model.save_pretrained(save_directory, push_to_hub=True, repo_id="CustomID")
-        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=CONFIG_AS_DICT)
+        mocked_model.push_to_hub.assert_called_with(repo_id="CustomID", config=CONFIG_AS_DICT, model_card_kwargs={})
 
         # Push to hub with default repo_id (based on dir name)
         mocked_model.save_pretrained(save_directory, push_to_hub=True)
-        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=CONFIG_AS_DICT)
+        mocked_model.push_to_hub.assert_called_with(repo_id=repo_id, config=CONFIG_AS_DICT, model_card_kwargs={})
 
     @patch.object(DummyModelNoConfig, "_from_pretrained")
     def test_from_pretrained_model_id_only(self, from_pretrained_mock: Mock) -> None:
@@ -414,3 +422,9 @@ class HubMixinTest(unittest.TestCase):
         assert model_reloaded.bar == "bar"
         assert model_reloaded.custom.value == "custom"
         assert model_reloaded.custom_default.value == "default"
+
+    def test_inherited_class(self):
+        """Test MixinInfo attributes are inherited from the parent class."""
+        model = DummyModelInherited()
+        assert model._hub_mixin_info.repo_url == "https://hf.co/my-repo"
+        assert model._hub_mixin_info.model_card_data.library_name == "my-cool-library"

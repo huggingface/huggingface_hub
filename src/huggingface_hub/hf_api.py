@@ -98,17 +98,18 @@ from .constants import (
     SAFETENSORS_MAX_HEADER_LENGTH,
     SAFETENSORS_SINGLE_FILE,
     SPACES_SDK_TYPES,
+    WEBHOOK_DOMAIN_T,
     DiscussionStatusFilter,
     DiscussionTypeFilter,
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
-from .utils import (  # noqa: F401 # imported for backward compatibility
+from .utils import (
     DEFAULT_IGNORE_PATTERNS,
     BadRequestError,
     EntryNotFoundError,
     GatedRepoError,
-    HfFolder,
+    HfFolder,  # noqa: F401 # kept for backward compatibility
     HfHubHTTPError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
@@ -130,12 +131,9 @@ from .utils import (  # noqa: F401 # imported for backward compatibility
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
-from .utils._deprecation import _deprecate_arguments
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import (
-    DatasetFilter,
-    ModelFilter,
-    _is_emission_within_treshold,
+    _is_emission_within_threshold,
 )
 
 
@@ -177,9 +175,9 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
         `None`) and repo_id (`str`).
 
     Raises:
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If URL cannot be parsed.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `repo_type` is unknown.
     """
     input_hf_id = hf_id
@@ -389,6 +387,48 @@ class AccessRequest:
     fields: Optional[Dict[str, Any]] = None
 
 
+@dataclass
+class WebhookWatchedItem:
+    """Data structure containing information about the items watched by a webhook.
+
+    Attributes:
+        type (`Literal["dataset", "model", "org", "space", "user"]`):
+            Type of the item to be watched. Can be one of `["dataset", "model", "org", "space", "user"]`.
+        name (`str`):
+            Name of the item to be watched. Can be the username, organization name, model name, dataset name or space name.
+    """
+
+    type: Literal["dataset", "model", "org", "space", "user"]
+    name: str
+
+
+@dataclass
+class WebhookInfo:
+    """Data structure containing information about a webhook.
+
+    Attributes:
+        id (`str`):
+            ID of the webhook.
+        url (`str`):
+            URL of the webhook.
+        watched (`List[WebhookWatchedItem]`):
+            List of items watched by the webhook, see [`WebhookWatchedItem`].
+        domains (`List[WEBHOOK_DOMAIN_T]`):
+            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+        secret (`str`, *optional*):
+            Secret of the webhook.
+        disabled (`bool`):
+            Whether the webhook is disabled or not.
+    """
+
+    id: str
+    url: str
+    watched: List[WebhookWatchedItem]
+    domains: List[WEBHOOK_DOMAIN_T]
+    secret: Optional[str]
+    disabled: bool
+
+
 class RepoUrl(str):
     """Subclass of `str` describing a repo URL on the Hub.
 
@@ -423,9 +463,9 @@ class RepoUrl(str):
     ```
 
     Raises:
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If URL cannot be parsed.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `repo_type` is unknown.
     """
 
@@ -1449,7 +1489,7 @@ class HfApi:
     def list_models(
         self,
         *,
-        filter: Union[ModelFilter, str, Iterable[str], None] = None,
+        filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
@@ -1472,9 +1512,8 @@ class HfApi:
         List models hosted on the Huggingface Hub, given some filters.
 
         Args:
-            filter ([`ModelFilter`] or `str` or `Iterable`, *optional*):
-                A string or [`ModelFilter`] which can be used to identify models
-                on the Hub.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string or list of string to filter models on the Hub.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
@@ -1569,28 +1608,18 @@ class HfApi:
 
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
-        params = {}
-        filter_list = []
-
-        if filter is not None:
-            if isinstance(filter, ModelFilter):
-                params = self._unpack_model_filter(filter)
-            else:
-                params.update({"filter": filter})
-
-            params.update({"full": True})
+        params: Dict[str, Any] = {}
 
         # Build the filter list
-        if author:
-            params.update({"author": author})
-        if model_name:
-            params.update({"search": model_name})
+        filter_list: List[str] = []
+        if filter:
+            filter_list.extend([filter] if isinstance(filter, str) else filter)
         if library:
             filter_list.extend([library] if isinstance(library, str) else library)
         if task:
             filter_list.extend([task] if isinstance(task, str) else task)
         if trained_dataset:
-            if not isinstance(trained_dataset, (list, tuple)):
+            if isinstance(trained_dataset, str):
                 trained_dataset = [trained_dataset]
             for dataset in trained_dataset:
                 if not dataset.startswith("dataset:"):
@@ -1600,31 +1629,33 @@ class HfApi:
             filter_list.extend([language] if isinstance(language, str) else language)
         if tags:
             filter_list.extend([tags] if isinstance(tags, str) else tags)
+        if len(filter_list) > 0:
+            params["filter"] = filter_list
 
+        # Handle other query params
+        if author:
+            params["author"] = author
+        search_list = []
+        if model_name:
+            search_list.append(model_name)
         if search:
-            params.update({"search": search})
+            search_list.append(search)
+        if len(search_list) > 0:
+            params["search"] = search_list
         if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
         if direction is not None:
-            params.update({"direction": direction})
+            params["direction"] = direction
         if limit is not None:
-            params.update({"limit": limit})
-        if full is not None:
-            if full:
-                params.update({"full": True})
-            elif "full" in params:
-                del params["full"]
+            params["limit"] = limit
+        if full:
+            params["full"] = True
         if fetch_config:
-            params.update({"config": True})
+            params["config"] = True
         if cardData:
-            params.update({"cardData": True})
+            params["cardData"] = True
         if pipeline_tag:
-            params.update({"pipeline_tag": pipeline_tag})
-
-        filter_value = params.get("filter", [])
-        if filter_value:
-            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
-        params.update({"filter": filter_list})
+            params["pipeline_tag"] = pipeline_tag
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -1634,63 +1665,14 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             model_info = ModelInfo(**item)
-            if emissions_thresholds is None or _is_emission_within_treshold(model_info, *emissions_thresholds):
+            if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
-
-    def _unpack_model_filter(self, model_filter: ModelFilter):
-        """
-        Unpacks a [`ModelFilter`] into something readable for `list_models`
-        """
-        model_str = ""
-
-        # Handling author
-        if model_filter.author:
-            model_str = f"{model_filter.author}/"
-
-        # Handling model_name
-        if model_filter.model_name:
-            model_str += model_filter.model_name
-
-        filter_list: List[str] = []
-
-        # Handling tasks
-        if model_filter.task:
-            filter_list.extend([model_filter.task] if isinstance(model_filter.task, str) else model_filter.task)
-
-        # Handling dataset
-        if model_filter.trained_dataset:
-            if not isinstance(model_filter.trained_dataset, (list, tuple)):
-                model_filter.trained_dataset = [model_filter.trained_dataset]
-            for dataset in model_filter.trained_dataset:
-                if "dataset:" not in dataset:
-                    dataset = f"dataset:{dataset}"
-                filter_list.append(dataset)
-
-        # Handling library
-        if model_filter.library:
-            filter_list.extend(
-                [model_filter.library] if isinstance(model_filter.library, str) else model_filter.library
-            )
-
-        # Handling tags
-        if model_filter.tags:
-            filter_list.extend([model_filter.tags] if isinstance(model_filter.tags, str) else model_filter.tags)
-
-        query_dict: Dict[str, Any] = {}
-        if model_str:
-            query_dict["search"] = model_str
-        if isinstance(model_filter.language, list):
-            filter_list.extend(model_filter.language)
-        elif isinstance(model_filter.language, str):
-            filter_list.append(model_filter.language)
-        query_dict["filter"] = tuple(filter_list)
-        return query_dict
 
     @validate_hf_hub_args
     def list_datasets(
         self,
         *,
-        filter: Union[DatasetFilter, str, Iterable[str], None] = None,
+        filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
         dataset_name: Optional[str] = None,
@@ -1712,9 +1694,8 @@ class HfApi:
         List datasets hosted on the Huggingface Hub, given some filters.
 
         Args:
-            filter ([`DatasetFilter`] or `str` or `Iterable`, *optional*):
-                A string or [`DatasetFilter`] which can be used to identify
-                datasets on the hub.
+            filter (`str` or `Iterable[str]`, *optional*):
+                A string or list of string to filter datasets on the hub.
             author (`str`, *optional*):
                 A string which identify the author of the returned datasets.
             benchmark (`str` or `List`, *optional*):
@@ -1811,55 +1792,54 @@ class HfApi:
         """
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
-        params = {}
+        params: Dict[str, Any] = {}
+
+        # Build `filter` list
         filter_list = []
-
         if filter is not None:
-            if isinstance(filter, DatasetFilter):
-                params = self._unpack_dataset_filter(filter)
+            if isinstance(filter, str):
+                filter_list.append(filter)
             else:
-                params.update({"filter": filter})
-
-        # Build the filter list
-        if author:
-            params.update({"author": author})
-        if dataset_name:
-            params.update({"search": dataset_name})
-
-        for attr in (
-            benchmark,
-            language_creators,
-            language,
-            multilinguality,
-            size_categories,
-            task_categories,
-            task_ids,
+                filter_list.extend(filter)
+        for key, value in (
+            ("benchmark", benchmark),
+            ("language_creators", language_creators),
+            ("language", language),
+            ("multilinguality", multilinguality),
+            ("size_categories", size_categories),
+            ("task_categories", task_categories),
+            ("task_ids", task_ids),
         ):
-            if attr:
-                if not isinstance(attr, (list, tuple)):
-                    attr = [attr]
-                for data in attr:
-                    if not data.startswith(f"{attr}:"):
-                        data = f"{attr}:{data}"
+            if value:
+                if isinstance(value, str):
+                    value = [value]
+                for value_item in value:
+                    if not value_item.startswith(f"{key}:"):
+                        data = f"{key}:{value_item}"
                     filter_list.append(data)
-
         if tags is not None:
             filter_list.extend([tags] if isinstance(tags, str) else tags)
-        if search:
-            params.update({"search": search})
-        if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
-        if direction is not None:
-            params.update({"direction": direction})
-        if limit is not None:
-            params.update({"limit": limit})
-        if full:
-            params.update({"full": True})
+        if len(filter_list) > 0:
+            params["filter"] = filter_list
 
-        filter_value = params.get("filter", [])
-        if filter_value:
-            filter_list.extend([filter_value] if isinstance(filter_value, str) else list(filter_value))
-        params.update({"filter": filter_list})
+        # Handle other query params
+        if author:
+            params["author"] = author
+        search_list = []
+        if dataset_name:
+            search_list.append(dataset_name)
+        if search:
+            search_list.append(search)
+        if len(search_list) > 0:
+            params["search"] = search_list
+        if sort is not None:
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
+        if direction is not None:
+            params["direction"] = direction
+        if limit is not None:
+            params["limit"] = limit
+        if full:
+            params["full"] = True
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -1868,47 +1848,6 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             yield DatasetInfo(**item)
-
-    def _unpack_dataset_filter(self, dataset_filter: DatasetFilter):
-        """
-        Unpacks a [`DatasetFilter`] into something readable for `list_datasets`
-        """
-        dataset_str = ""
-
-        # Handling author
-        if dataset_filter.author:
-            dataset_str = f"{dataset_filter.author}/"
-
-        # Handling dataset_name
-        if dataset_filter.dataset_name:
-            dataset_str += dataset_filter.dataset_name
-
-        filter_list = []
-        data_attributes = [
-            "benchmark",
-            "language_creators",
-            "language",
-            "multilinguality",
-            "size_categories",
-            "task_categories",
-            "task_ids",
-        ]
-
-        for attr in data_attributes:
-            curr_attr = getattr(dataset_filter, attr)
-            if curr_attr is not None:
-                if not isinstance(curr_attr, (list, tuple)):
-                    curr_attr = [curr_attr]
-                for data in curr_attr:
-                    if f"{attr}:" not in data:
-                        data = f"{attr}:{data}"
-                    filter_list.append(data)
-
-        query_dict: Dict[str, Any] = {}
-        if dataset_str is not None:
-            query_dict["search"] = dataset_str
-        query_dict["filter"] = tuple(filter_list)
-        return query_dict
 
     def list_metrics(self) -> List[MetricInfo]:
         """
@@ -1982,25 +1921,25 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
         if filter is not None:
-            params.update({"filter": filter})
+            params["filter"] = filter
         if author is not None:
-            params.update({"author": author})
+            params["author"] = author
         if search is not None:
-            params.update({"search": search})
+            params["search"] = search
         if sort is not None:
-            params.update({"sort": "lastModified" if sort == "last_modified" else sort})
+            params["sort"] = "lastModified" if sort == "last_modified" else sort
         if direction is not None:
-            params.update({"direction": direction})
+            params["direction"] = direction
         if limit is not None:
-            params.update({"limit": limit})
+            params["limit"] = limit
         if full:
-            params.update({"full": True})
+            params["full"] = True
         if linked:
-            params.update({"linked": True})
+            params["linked"] = True
         if datasets is not None:
-            params.update({"datasets": datasets})
+            params["datasets"] = datasets
         if models is not None:
-            params.update({"models": models})
+            params["models"] = models
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -3307,7 +3246,7 @@ class HfApi:
                 If `True`, do not raise an error if repo does not exist.
 
         Raises:
-            - [`~utils.RepositoryNotFoundError`]
+            [`~utils.RepositoryNotFoundError`]
               If the repository to delete from cannot be found and `missing_ok` is set to False (default).
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
@@ -3330,25 +3269,19 @@ class HfApi:
                 raise
 
     @validate_hf_hub_args
-    @_deprecate_arguments(
-        version="0.24.0", deprecated_args=("organization", "name"), custom_message="Use `repo_id` instead."
-    )
     def update_repo_visibility(
         self,
         repo_id: str,
         private: bool = False,
         *,
         token: Union[str, bool, None] = None,
-        organization: Optional[str] = None,
         repo_type: Optional[str] = None,
-        name: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
 
         Args:
             repo_id (`str`, *optional*):
-                A namespace (user or an organization) and a repo name separated
-                by a `/`.
+                A namespace (user or an organization) and a repo name separated by a `/`.
             private (`bool`, *optional*, defaults to `False`):
                 Whether the model repo should be private.
             token (Union[bool, str, None], optional):
@@ -3375,20 +3308,12 @@ class HfApi:
         </Tip>
         """
         if repo_type not in REPO_TYPES:
-            raise ValueError("Invalid repo type")
-
-        organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
-
-        if organization is None:
-            namespace = self.whoami(token)["name"]
-        else:
-            namespace = organization
-
+            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
         if repo_type is None:
             repo_type = REPO_TYPE_MODEL  # default repo type
 
         r = get_session().put(
-            url=f"{self.endpoint}/api/{repo_type}s/{namespace}/{name}/settings",
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=self._build_hf_headers(token=token),
             json={"private": private},
         )
@@ -4686,7 +4611,7 @@ class HfApi:
             ignore_patterns = [ignore_patterns]
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
-        delete_operations = self._prepare_upload_folder_deletions(
+        delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
             repo_type=repo_type,
             revision=DEFAULT_REVISION if create_pr else revision,
@@ -4834,6 +4759,82 @@ class HfApi:
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
+
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=operations,
+            revision=revision,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def delete_files(
+        self,
+        repo_id: str,
+        delete_patterns: List[str],
+        *,
+        token: Union[bool, str, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+    ) -> CommitInfo:
+        """
+        Delete files from a repository on the Hub.
+
+        If a folder path is provided, the entire folder is deleted as well as
+        all files it contained.
+
+        Args:
+            repo_id (`str`):
+                The repository from which the folder will be deleted, for example:
+                `"username/custom_transformers"`
+            delete_patterns (`List[str]`):
+                List of files or folders to delete. Each string can either be
+                a file path, a folder path or a Unix shell-style wildcard.
+                E.g. `["file.txt", "folder/", "data/*.parquet"]`
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+                to the stored token.
+            repo_type (`str`, *optional*):
+                Type of the repo to delete files from. Can be `"model"`,
+                `"dataset"` or `"space"`. Defaults to `"model"`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary (first line) of the generated commit. Defaults to
+                `f"Delete files using huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+        """
+        operations = self._prepare_folder_deletions(
+            repo_id=repo_id, repo_type=repo_type, delete_patterns=delete_patterns, path_in_repo="", revision=revision
+        )
+
+        if commit_message is None:
+            commit_message = f"Delete files {' '.join(delete_patterns)} with huggingface_hub"
 
         return self.create_commit(
             repo_id=repo_id,
@@ -5052,21 +5053,21 @@ class HfApi:
             `str`: Local path of file or if networking is off, last version of file cached on disk.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            if `token=True` and the token cannot be found.
-            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
-            if ETag cannot be determined.
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-            If the repository to download from cannot be found. This may be because it doesn't exist,
-            or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-            If the revision to download from cannot be found.
-            - [`~utils.EntryNotFoundError`]
-            If the file to download cannot be found.
-            - [`~utils.LocalEntryNotFoundError`]
-            If network is disabled or unavailable and file is not found in cache.
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            [`~utils.RevisionNotFoundError`]
+                If the revision to download from cannot be found.
+            [`~utils.EntryNotFoundError`]
+                If the file to download cannot be found.
+            [`~utils.LocalEntryNotFoundError`]
+                If network is disabled or unavailable and file is not found in cache.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If `token=True` but the token cannot be found.
+            [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+                If ETag cannot be determined.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If some parameter value is invalid.
         """
         from .file_download import hf_hub_download
 
@@ -5182,12 +5183,17 @@ class HfApi:
             `str`: folder path of the repo snapshot.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            if `token=True` and the token cannot be found.
-            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-            ETag cannot be determined.
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            [`~utils.RevisionNotFoundError`]
+                If the revision to download from cannot be found.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If `token=True` and the token cannot be found.
+            [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+                ETag cannot be determined.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                if some parameter value is invalid.
         """
         from ._snapshot_download import snapshot_download
 
@@ -5258,9 +5264,11 @@ class HfApi:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
 
         Raises:
-            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+            [`NotASafetensorsRepoError`]
+                If the repo is not a safetensors repo i.e. doesn't have either a
               `model.safetensors` or a `model.safetensors.index.json` file.
-            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+            [`SafetensorsParsingError`]
+                If a safetensors file header couldn't be parsed correctly.
 
         Example:
             ```py
@@ -5377,9 +5385,11 @@ class HfApi:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
 
         Raises:
-            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+            [`NotASafetensorsRepoError`]:
+                If the repo is not a safetensors repo i.e. doesn't have either a
               `model.safetensors` or a `model.safetensors.index.json` file.
-            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+            [`SafetensorsParsingError`]:
+                If a safetensors file header couldn't be parsed correctly.
         """
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
@@ -6920,11 +6930,11 @@ class HfApi:
             attributes like `endpoint`, `repo_type` and `repo_id`.
 
         Raises:
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`~utils.RepositoryNotFoundError`]
+            [`~utils.RepositoryNotFoundError`]:
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+              If the HuggingFace API returned an error
 
         Example:
         ```python
@@ -6994,7 +7004,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             storage (`str` or [`SpaceStorage`]):
                Storage tier. Either 'small', 'medium', or 'large'.
             token (Union[bool, str, None], optional):
@@ -7032,7 +7042,7 @@ class HfApi:
 
         Args:
             repo_id (`str`):
-                ID of the Space to update. Example: `"HuggingFaceH4/open_llm_leaderboard"`.
+                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7184,7 +7194,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "my-endpoint-name",
             ...     repository="gpt2",
             ...     framework="pytorch",
@@ -7208,7 +7218,7 @@ class HfApi:
             # Start an Inference Endpoint running Zephyr-7b-beta on TGI
             >>> from huggingface_hub import HfApi
             >>> api = HfApi()
-            >>> create_inference_endpoint(
+            >>> endpoint = api.create_inference_endpoint(
             ...     "aws-zephyr-7b-beta-0486",
             ...     repository="HuggingFaceH4/zephyr-7b-beta",
             ...     framework="pytorch",
@@ -7333,6 +7343,7 @@ class HfApi:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
         # Other
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -7367,6 +7378,9 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
 
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
@@ -7392,13 +7406,14 @@ class HfApi:
                     "minReplica": min_replica,
                 },
             }
-        if any(value is not None for value in (repository, framework, revision, task)):
+        if any(value is not None for value in (repository, framework, revision, task, custom_image)):
+            image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
             payload["model"] = {
                 "framework": framework,
                 "repository": repository,
                 "revision": revision,
                 "task": task,
-                "image": {"huggingface": {}},
+                "image": image,
             }
 
         response = get_session().put(
@@ -7861,12 +7876,12 @@ class HfApi:
         Returns: [`Collection`]
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the item you try to add to the collection does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
 
         Example:
@@ -8050,9 +8065,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8116,9 +8131,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8178,9 +8193,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8262,16 +8277,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the pending list.
         """
         self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
@@ -8304,16 +8319,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the accepted list.
         """
         self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
@@ -8346,16 +8361,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
@@ -8409,14 +8424,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the user already has access to the repo.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
         """
         if repo_type not in REPO_TYPES:
@@ -8431,6 +8446,392 @@ class HfApi:
         )
         hf_raise_for_status(response)
         return response.json()
+
+    ###################
+    # Manage webhooks #
+    ###################
+
+    @validate_hf_hub_args
+    def get_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+        """Get a webhook by its id.
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to get.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`WebhookInfo`]:
+                Info about the webhook.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import get_webhook
+            >>> webhook = get_webhook("654bbbc16f2ec14d77f109cc")
+            >>> print(webhook)
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
+            ```
+        """
+        response = get_session().get(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhook_data = response.json()["webhook"]
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
+
+    @validate_hf_hub_args
+    def list_webhooks(self, *, token: Union[bool, str, None] = None) -> List[WebhookInfo]:
+        """List all configured webhooks.
+
+        Args:
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `List[WebhookInfo]`:
+                List of webhook info objects.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import list_webhooks
+            >>> webhooks = list_webhooks()
+            >>> len(webhooks)
+            2
+            >>> webhooks[0]
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                secret="my-secret",
+                domains=["repo", "discussion"],
+                disabled=False,
+            )
+            ```
+        """
+        response = get_session().get(
+            f"{ENDPOINT}/api/settings/webhooks",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhooks_data = response.json()
+
+        return [
+            WebhookInfo(
+                id=webhook["id"],
+                url=webhook["url"],
+                watched=[WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook["watched"]],
+                domains=webhook["domains"],
+                secret=webhook.get("secret"),
+                disabled=webhook["disabled"],
+            )
+            for webhook in webhooks_data
+        ]
+
+    @validate_hf_hub_args
+    def create_webhook(
+        self,
+        *,
+        url: str,
+        watched: List[Union[Dict, WebhookWatchedItem]],
+        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
+        secret: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> WebhookInfo:
+        """Create a new webhook.
+
+        Args:
+            url (`str`):
+                URL to send the payload to.
+            watched (`List[WebhookWatchedItem]`):
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
+                Watched items can also be provided as plain dictionaries.
+            domains (`List[Literal["repo", "discussion"]]`, optional):
+                List of domains to watch. It can be "repo", "discussion" or both.
+            secret (`str`, optional):
+                A secret to sign the payload with.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`WebhookInfo`]:
+                Info about the newly created webhook.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import create_webhook
+            >>> payload = create_webhook(
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+            ...     domains=["repo", "discussion"],
+            ...     secret="my-secret",
+            ... )
+            >>> print(payload)
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                domains=["repo", "discussion"],
+                secret="my-secret",
+                disabled=False,
+            )
+            ```
+        """
+        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks",
+            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhook_data = response.json()["webhook"]
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
+
+    @validate_hf_hub_args
+    def update_webhook(
+        self,
+        webhook_id: str,
+        *,
+        url: Optional[str] = None,
+        watched: Optional[List[Union[Dict, WebhookWatchedItem]]] = None,
+        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
+        secret: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> WebhookInfo:
+        """Update an existing webhook.
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to be updated.
+            url (`str`, optional):
+                The URL to which the payload will be sent.
+            watched (`List[WebhookWatchedItem]`, optional):
+                List of items to watch. It can be users, orgs, models, datasets, or spaces.
+                Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
+            domains (`List[Literal["repo", "discussion"]]`, optional):
+                The domains to watch. This can include "repo", "discussion", or both.
+            secret (`str`, optional):
+                A secret to sign the payload with, providing an additional layer of security.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`WebhookInfo`]:
+                Info about the updated webhook.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import update_webhook
+            >>> updated_payload = update_webhook(
+            ...     webhook_id="654bbbc16f2ec14d77f109cc",
+            ...     url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+            ...     watched=[{"type": "user", "name": "julien-c"}, {"type": "org", "name": "HuggingFaceH4"}],
+            ...     domains=["repo"],
+            ...     secret="my-secret",
+            ... )
+            >>> print(updated_payload)
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                url="https://new.webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                domains=["repo"],
+                secret="my-secret",
+                disabled=False,
+            ```
+        """
+        if watched is None:
+            watched = []
+        watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
+
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhook_data = response.json()["webhook"]
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
+
+    @validate_hf_hub_args
+    def enable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+        """Enable a webhook (makes it "active").
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to enable.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`WebhookInfo`]:
+                Info about the enabled webhook.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import enable_webhook
+            >>> enabled_webhook = enable_webhook("654bbbc16f2ec14d77f109cc")
+            >>> enabled_webhook
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                domains=["repo", "discussion"],
+                secret="my-secret",
+                disabled=False,
+            )
+            ```
+        """
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhook_data = response.json()["webhook"]
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
+
+    @validate_hf_hub_args
+    def disable_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> WebhookInfo:
+        """Disable a webhook (makes it "disabled").
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to disable.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`WebhookInfo`]:
+                Info about the disabled webhook.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import disable_webhook
+            >>> disabled_webhook = disable_webhook("654bbbc16f2ec14d77f109cc")
+            >>> disabled_webhook
+            WebhookInfo(
+                id="654bbbc16f2ec14d77f109cc",
+                url="https://webhook.site/a2176e82-5720-43ee-9e06-f91cb4c91548",
+                watched=[WebhookWatchedItem(type="user", name="julien-c"), WebhookWatchedItem(type="org", name="HuggingFaceH4")],
+                domains=["repo", "discussion"],
+                secret="my-secret",
+                disabled=True,
+            )
+            ```
+        """
+        response = get_session().post(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        webhook_data = response.json()["webhook"]
+
+        watched_items = [WebhookWatchedItem(type=item["type"], name=item["name"]) for item in webhook_data["watched"]]
+
+        webhook = WebhookInfo(
+            id=webhook_data["id"],
+            url=webhook_data["url"],
+            watched=watched_items,
+            domains=webhook_data["domains"],
+            secret=webhook_data.get("secret"),
+            disabled=webhook_data["disabled"],
+        )
+
+        return webhook
+
+    @validate_hf_hub_args
+    def delete_webhook(self, webhook_id: str, *, token: Union[bool, str, None] = None) -> None:
+        """Delete a webhook.
+
+        Args:
+            webhook_id (`str`):
+                The unique identifier of the webhook to delete.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `None`
+
+        Example:
+            ```python
+            >>> from huggingface_hub import delete_webhook
+            >>> delete_webhook("654bbbc16f2ec14d77f109cc")
+            ```
+        """
+        response = get_session().delete(
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
 
     #############
     # Internals #
@@ -8460,7 +8861,7 @@ class HfApi:
             headers=self.headers,
         )
 
-    def _prepare_upload_folder_deletions(
+    def _prepare_folder_deletions(
         self,
         repo_id: str,
         repo_type: Optional[str],
@@ -8512,7 +8913,7 @@ class HfApi:
             `User`: A [`User`] object with the user's overview.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
@@ -8532,7 +8933,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the organization does not exist on the Hub.
 
         """
@@ -8556,7 +8957,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the followers of the user.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -8580,7 +8981,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -8683,6 +9084,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
@@ -8759,6 +9161,16 @@ cancel_access_request = api.cancel_access_request
 accept_access_request = api.accept_access_request
 reject_access_request = api.reject_access_request
 grant_access = api.grant_access
+
+# Webhooks API
+create_webhook = api.create_webhook
+disable_webhook = api.disable_webhook
+delete_webhook = api.delete_webhook
+enable_webhook = api.enable_webhook
+get_webhook = api.get_webhook
+list_webhooks = api.list_webhooks
+update_webhook = api.update_webhook
+
 
 # User API
 get_user_overview = api.get_user_overview
