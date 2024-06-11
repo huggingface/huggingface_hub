@@ -4,7 +4,19 @@ import os
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, get_args
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+)
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
@@ -16,8 +28,10 @@ from .utils import (
     SoftTemporaryDirectory,
     is_jsonable,
     is_safetensors_available,
+    is_simple_optional_type,
     is_torch_available,
     logging,
+    unwrap_simple_optional_type,
     validate_hf_hub_args,
 )
 
@@ -336,14 +350,20 @@ class ModelHubMixin:
         """Encode an argument into a JSON serializable format."""
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
+                if arg is None:
+                    return None
                 return encoder(arg)
         return arg
 
     @classmethod
-    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> ARGS_T:
+    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> Optional[ARGS_T]:
         """Decode a JSON serializable value into an argument."""
+        if is_simple_optional_type(expected_type):
+            if value is None:
+                return None
+            expected_type = unwrap_simple_optional_type(expected_type)
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
-            if issubclass(expected_type, type_):
+            if inspect.isclass(expected_type) and issubclass(expected_type, type_):
                 return decoder(value)
         return value
 

@@ -113,7 +113,7 @@ from ._safetensors import (
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
 from ._token import get_token
-from ._typing import is_jsonable
+from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import (
     smoothly_deprecate_use_auth_token,
     validate_hf_hub_args,
