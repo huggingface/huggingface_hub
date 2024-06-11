@@ -61,6 +61,8 @@ When you create a repository, you can set your repository visibility with the `p
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_visibility`] function.
 
+If you are part of an organization with an Enterprise plan, you can create a repo in a specific resource group by passing `resource_group_id` as parameter. Resource groups are a security feature to control which members from your org can access a given resource. You can get the resource group ID by copying it from your org settings page url on the Hub (e.g. `"https://huggingface.co/organizations/huggingface/settings/resource-groups/66670e5163145ca562cb1988"` => `"66670e5163145ca562cb1988"`). For more details about resource group, check out this [guide](https://huggingface.co/docs/hub/en/security-resource-groups).
+
 ### Delete a repository
 
 Delete a repository with [`delete_repo`]. Make sure you want to delete a repository because this is an irreversible process!
