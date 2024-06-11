@@ -457,9 +457,33 @@ def http_get(
     if resume_size > 0:
         headers["Range"] = "bytes=%d-" % (resume_size,)
 
-    r = _request_wrapper(
-        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=HF_HUB_DOWNLOAD_TIMEOUT
-    )
+    try:
+        r = _request_wrapper(
+            method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=HF_HUB_DOWNLOAD_TIMEOUT
+        )
+        # Request succeeded so we reset the number of retries.
+        _nb_retries = 5
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
+        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+        # a transient error (network outage?). We log a warning message and try to resume the download a few times
+        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+        if _nb_retries <= 0:
+            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+            raise
+        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+        time.sleep(1)
+        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+        return http_get(
+            url=url,
+            temp_file=temp_file,
+            proxies=proxies,
+            resume_size=resume_size,
+            headers=initial_headers,
+            expected_size=expected_size,
+            _nb_retries=_nb_retries - 1,
+            _tqdm_bar=_tqdm_bar,
+        )
+
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
 
