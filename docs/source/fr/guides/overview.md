@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Guides conceptuels
 
-Dans cette section, vous trouverez des guides pratiques pour vous aider à accomplir un but spécifique.
+Dans cette section, vous trouverez des guides pratiques relatifs à un but spécifique.
 Consultez ces guides pour apprendre à utiliser `huggingface_hub` pour résoudre des problèmes pratiques:
 
 <div class="mt-10">

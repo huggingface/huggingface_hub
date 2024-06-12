@@ -4,4 +4,4 @@ rendered properly in your Markdown viewer.
 
 # Vue d'ensemble
 
-Cette section contiens une description technique et exhaustive des classes `huggingface_hub` et des méthodes.
+Cette section contient une description technique et exhaustive des classes `huggingface_hub` et des méthodes.
