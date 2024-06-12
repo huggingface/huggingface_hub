@@ -15,8 +15,8 @@ from huggingface_hub.repocard import metadata_load, metadata_save
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
 from .lfs import LFS_MULTIPART_UPLOAD_COMMAND
 from .utils import (
-    HfFolder,
     SoftTemporaryDirectory,
+    get_token,
     logging,
     run_subprocess,
     tqdm,
@@ -395,6 +395,7 @@ def _lfs_log_progress():
                         unit="B",
                         unit_scale=True,
                         unit_divisor=1024,
+                        name="huggingface_hub.lfs_upload",
                     ),
                     "past_bytes": int(current_bytes),
                 }
@@ -506,8 +507,8 @@ class Repository:
                 instance will be created if this is left to `None`.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-              if the remote repository set in `clone_from` does not exist.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If the remote repository set in `clone_from` does not exist.
         """
         if isinstance(local_dir, Path):
             local_dir = str(local_dir)
@@ -527,7 +528,7 @@ class Repository:
         else:
             # if `True` -> explicit use of the cached token
             # if `None` -> implicit use of the cached token
-            self.huggingface_token = HfFolder.get_token()
+            self.huggingface_token = get_token()
 
         if clone_from is not None:
             self.clone_from(repo_url=clone_from)
@@ -541,10 +542,10 @@ class Repository:
             user = self.client.whoami(self.huggingface_token)
 
             if git_email is None:
-                git_email = user["email"]
+                git_email = user.get("email")
 
             if git_user is None:
-                git_user = user["fullname"]
+                git_user = user.get("fullname")
 
         if git_user is not None or git_email is not None:
             self.git_config_username_and_email(git_user, git_email)
@@ -579,8 +580,8 @@ class Repository:
         Checks that `git` and `git-lfs` can be run.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-              if `git` or `git-lfs` are not installed.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If `git` or `git-lfs` are not installed.
         """
         try:
             git_version = run_subprocess("git --version", self.local_dir).stdout.strip()

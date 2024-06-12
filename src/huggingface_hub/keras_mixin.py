@@ -2,6 +2,7 @@ import collections.abc as collections
 import json
 import os
 import warnings
+from functools import wraps
 from pathlib import Path
 from shutil import copytree
 from typing import Any, Dict, List, Optional, Union
@@ -18,12 +19,37 @@ from huggingface_hub.utils import (
 from .constants import CONFIG_NAME
 from .hf_api import HfApi
 from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .utils._typing import CallableT
 
 
 logger = logging.get_logger(__name__)
 
+keras = None
 if is_tf_available():
-    import tensorflow as tf  # type: ignore
+    # Depending on which version of TensorFlow is installed, we need to import
+    # keras from the correct location.
+    # See https://github.com/tensorflow/tensorflow/releases/tag/v2.16.1.
+    # Note: saving a keras model only works with Keras<3.0.
+    try:
+        import tf_keras as keras  # type: ignore
+    except ImportError:
+        import tensorflow as tf  # type: ignore
+
+        keras = tf.keras
+
+
+def _requires_keras_2_model(fn: CallableT) -> CallableT:
+    # Wrapper to raise if user tries to save a Keras 3.x model
+    @wraps(fn)
+    def _inner(model, *args, **kwargs):
+        if not hasattr(model, "history"):  # hacky way to check if model is Keras 2.x
+            raise NotImplementedError(
+                f"Cannot use '{fn.__name__}': Keras 3.x is not supported."
+                " Please save models manually and upload them using `upload_folder` or `huggingface-cli upload`."
+            )
+        return fn(model, *args, **kwargs)
+
+    return _inner  # type: ignore [return-value]
 
 
 def _flatten_dict(dictionary, parent_key=""):
@@ -57,21 +83,20 @@ def _flatten_dict(dictionary, parent_key=""):
 
 def _create_hyperparameter_table(model):
     """Parse hyperparameter dictionary into a markdown table."""
+    table = None
     if model.optimizer is not None:
         optimizer_params = model.optimizer.get_config()
         # flatten the configuration
         optimizer_params = _flatten_dict(optimizer_params)
-        optimizer_params["training_precision"] = tf.keras.mixed_precision.global_policy().name
+        optimizer_params["training_precision"] = keras.mixed_precision.global_policy().name
         table = "| Hyperparameters | Value |\n| :-- | :-- |\n"
         for key, value in optimizer_params.items():
             table += f"| {key} | {value} |\n"
-    else:
-        table = None
     return table
 
 
 def _plot_network(model, save_directory):
-    tf.keras.utils.plot_model(
+    keras.utils.plot_model(
         model,
         to_file=f"{save_directory}/model.png",
         show_shapes=False,
@@ -128,6 +153,7 @@ def _create_model_card(
     readme_path.write_text(model_card)
 
 
+@_requires_keras_2_model
 def save_pretrained_keras(
     model,
     save_directory: Union[str, Path],
@@ -162,9 +188,7 @@ def save_pretrained_keras(
             model_save_kwargs will be passed to
             [`tf.keras.models.save_model()`](https://www.tensorflow.org/api_docs/python/tf/keras/models/save_model).
     """
-    if is_tf_available():
-        import tensorflow as tf
-    else:
+    if keras is None:
         raise ImportError("Called a Tensorflow-specific function but could not import it.")
 
     if not model.built:
@@ -210,7 +234,7 @@ def save_pretrained_keras(
                 json.dump(model.history.history, f, indent=2, sort_keys=True)
 
     _create_model_card(model, save_directory, plot_model, metadata)
-    tf.keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
+    keras.models.save_model(model, save_directory, include_optimizer=include_optimizer, **model_save_kwargs)
 
 
 def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
@@ -241,9 +265,6 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
         force_download (`bool`, *optional*, defaults to `False`):
             Whether to force the (re-)download of the model weights and
             configuration files, overriding the cached versions if they exist.
-        resume_download (`bool`, *optional*, defaults to `False`):
-            Whether to delete incompletely received files. Will attempt to
-            resume the download if such a file exists.
         proxies (`Dict[str, str]`, *optional*):
             A dictionary of proxy servers to use by protocol or endpoint, e.g.,
             `{'http': 'foo.bar:3128', 'http://hostname': 'foo.bar:4012'}`. The
@@ -273,6 +294,7 @@ def from_pretrained_keras(*args, **kwargs) -> "KerasModelHubMixin":
 
 
 @validate_hf_hub_args
+@_requires_keras_2_model
 def push_to_hub_keras(
     model,
     repo_id: str,
@@ -444,6 +466,7 @@ class KerasModelHubMixin(ModelHubMixin):
         resume_download,
         local_files_only,
         token,
+        config: Optional[Dict[str, Any]] = None,
         **model_kwargs,
     ):
         """Here we just call [`from_pretrained_keras`] function so both the mixin and
@@ -452,13 +475,8 @@ class KerasModelHubMixin(ModelHubMixin):
                 TODO - Some args above aren't used since we are calling
                 snapshot_download instead of hf_hub_download.
         """
-        if is_tf_available():
-            import tensorflow as tf
-        else:
+        if keras is None:
             raise ImportError("Called a TensorFlow-specific function but could not import it.")
-
-        # TODO - Figure out what to do about these config values. Config is not going to be needed to load model
-        cfg = model_kwargs.pop("config", None)
 
         # Root is either a local filepath matching model_id or a cached snapshot
         if not os.path.isdir(model_id):
@@ -472,9 +490,10 @@ class KerasModelHubMixin(ModelHubMixin):
         else:
             storage_folder = model_id
 
-        model = tf.keras.models.load_model(storage_folder, **model_kwargs)
+        # TODO: change this in a future PR. We are not returning a KerasModelHubMixin instance here...
+        model = keras.models.load_model(storage_folder)
 
         # For now, we add a new attribute, config, to store the config loaded from the hub/a local dir.
-        model.config = cfg
+        model.config = config
 
         return model

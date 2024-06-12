@@ -8,7 +8,6 @@ except ImportError:
         from simplejson import JSONDecodeError  # type: ignore # noqa: F401
     except ImportError:
         from json import JSONDecodeError  # type: ignore  # noqa: F401
-
 import contextlib
 import os
 import shutil
@@ -19,6 +18,7 @@ from pathlib import Path
 from typing import Callable, Generator, Optional, Union
 
 import yaml
+from filelock import BaseFileLock, FileLock
 
 
 # Wrap `yaml.dump` to set `allow_unicode=True` by default.
@@ -40,7 +40,7 @@ def SoftTemporaryDirectory(
     prefix: Optional[str] = None,
     dir: Optional[Union[Path, str]] = None,
     **kwargs,
-) -> Generator[str, None, None]:
+) -> Generator[Path, None, None]:
     """
     Context manager to create a temporary directory and safely delete it.
 
@@ -52,7 +52,7 @@ def SoftTemporaryDirectory(
     See https://www.scivision.dev/python-tempfile-permission-error-windows/.
     """
     tmpdir = tempfile.TemporaryDirectory(prefix=prefix, suffix=suffix, dir=dir, **kwargs)
-    yield tmpdir.name
+    yield Path(tmpdir.name).resolve()
 
     try:
         # First once with normal cleanup
@@ -75,3 +75,20 @@ def SoftTemporaryDirectory(
 def _set_write_permission_and_retry(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+@contextlib.contextmanager
+def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, None]:
+    """A filelock that won't raise an exception if release fails."""
+    lock = FileLock(lock_file)
+    lock.acquire()
+
+    yield lock
+
+    try:
+        return lock.release()
+    except OSError:
+        try:
+            Path(lock_file).unlink()
+        except OSError:
+            pass

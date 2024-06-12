@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle paths in Huggingface Hub."""
+
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
@@ -20,7 +21,19 @@ from typing import Callable, Generator, Iterable, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
-IGNORE_GIT_FOLDER_PATTERNS = [".git", ".git/*", "*/.git", "**/.git/**"]
+# Always ignore `.git` and `.cache/huggingface` folders in commits
+DEFAULT_IGNORE_PATTERNS = [
+    ".git",
+    ".git/*",
+    "*/.git",
+    "**/.git/**",
+    ".cache/huggingface",
+    ".cache/huggingface/*",
+    "*/.cache/huggingface",
+    "**/.cache/huggingface/**",
+]
+# Forbidden to commit these folders
+FORBIDDEN_FOLDERS = [".git", ".cache"]
 
 
 def filter_repo_objects(
@@ -92,6 +105,11 @@ def filter_repo_objects(
     if isinstance(ignore_patterns, str):
         ignore_patterns = [ignore_patterns]
 
+    if allow_patterns is not None:
+        allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
+    if ignore_patterns is not None:
+        ignore_patterns = [_add_wildcard_to_directories(p) for p in ignore_patterns]
+
     if key is None:
 
         def _identity(item: T) -> str:
@@ -115,3 +133,9 @@ def filter_repo_objects(
             continue
 
         yield item
+
+
+def _add_wildcard_to_directories(pattern: str) -> str:
+    if pattern[-1] == "/":
+        return pattern + "*"
+    return pattern

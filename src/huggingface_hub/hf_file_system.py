@@ -1,4 +1,3 @@
-import copy
 import os
 import re
 import tempfile
@@ -6,14 +5,26 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
+from pathlib import Path
 from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
+from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
+from fsspec.utils import isfilelike
+from requests import Response
 
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .constants import DEFAULT_REVISION, ENDPOINT, REPO_TYPE_MODEL, REPO_TYPES_MAPPING, REPO_TYPES_URL_PREFIXES
-from .file_download import hf_hub_url
+from .constants import (
+    DEFAULT_REVISION,
+    ENDPOINT,
+    HF_HUB_DOWNLOAD_TIMEOUT,
+    HF_HUB_ETAG_TIMEOUT,
+    REPO_TYPE_MODEL,
+    REPO_TYPES_MAPPING,
+    REPO_TYPES_URL_PREFIXES,
+)
+from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
     EntryNotFoundError,
@@ -63,8 +74,11 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     Access a remote Hugging Face Hub repository as if were a local file system.
 
     Args:
-        token (`str`, *optional*):
-            Authentication token, obtained with [`HfApi.login`] method. Will default to the stored token.
+        token (`str` or `bool`, *optional*):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
 
     Usage:
 
@@ -94,7 +108,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self,
         *args,
         endpoint: Optional[str] = None,
-        token: Optional[str] = None,
+        token: Union[bool, str, None] = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -113,7 +127,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Tuple[bool, Optional[Exception]]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
-                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type)
+                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type, timeout=HF_HUB_ETAG_TIMEOUT)
             except (RepositoryNotFoundError, HFValidationError) as e:
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)] = False, e
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = False, e
@@ -216,11 +230,15 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         path: str,
         mode: str = "rb",
         revision: Optional[str] = None,
+        block_size: Optional[int] = None,
         **kwargs,
     ) -> "HfFileSystemFile":
         if "a" in mode:
             raise NotImplementedError("Appending to remote files is not yet supported.")
-        return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
+        if block_size == 0:
+            return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
+        else:
+            return HfFileSystemFile(self, path, mode=mode, revision=revision, block_size=block_size, **kwargs)
 
     def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
@@ -244,9 +262,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         **kwargs,
     ) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
-        root_path = REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "") + resolved_path.repo_id
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
-        paths_in_repo = [path[len(root_path) + 1 :] for path in paths if not self.isdir(path)]
+        paths_in_repo = [self.resolve_path(path).path_in_repo for path in paths if not self.isdir(path)]
         operations = [CommitOperationDelete(path_in_repo=path_in_repo) for path_in_repo in paths_in_repo]
         commit_message = f"Delete {path} "
         commit_message += "recursively " if recursive else ""
@@ -384,7 +401,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
                 out.append(cache_path_info)
-        return copy.deepcopy(out)  # copy to not let users modify the dircache
+        return out
 
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
@@ -439,7 +456,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
 
-        if same_repo and self.info(path1, revision=resolved_path1.revision)["lfs"] is not None:
+        if same_repo:
             commit_message = f"Copy {path1} to {path2}"
             self._api.create_commit(
                 repo_id=resolved_path1.repo_id,
@@ -503,6 +520,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         else:
             out = None
             parent_path = self._parent(path)
+            if not expand_info and parent_path not in self.dircache:
+                # Fill the cache with cheap call
+                self.ls(parent_path, expand_info=False)
             if parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
@@ -548,12 +568,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 if not expand_info:
                     out = {k: out[k] for k in ["name", "size", "type"]}
         assert out is not None
-        return copy.deepcopy(out)  # copy to not let users modify the dircache
+        return out
 
     def exists(self, path, **kwargs):
         """Is there a file at the given path"""
         try:
-            self.info(path, expand_info=False, **kwargs)
+            self.info(path, **{**kwargs, "expand_info": False})
             return True
         except:  # noqa: E722
             # any exception allowed bar FileNotFoundError?
@@ -572,6 +592,72 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             return self.info(path, expand_info=False)["type"] == "file"
         except:  # noqa: E722
             return False
+
+    def url(self, path: str) -> str:
+        """Get the HTTP URL of the given path"""
+        resolved_path = self.resolve_path(path)
+        url = hf_hub_url(
+            resolved_path.repo_id,
+            resolved_path.path_in_repo,
+            repo_type=resolved_path.repo_type,
+            revision=resolved_path.revision,
+            endpoint=self.endpoint,
+        )
+        if self.isdir(path):
+            url = url.replace("/resolve/", "/tree/", 1)
+        return url
+
+    def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
+        """Copy single remote file to local."""
+        revision = kwargs.get("revision")
+        unhandled_kwargs = set(kwargs.keys()) - {"revision"}
+        if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
+            # for now, let's not handle custom callbacks
+            # and let's not handle custom kwargs
+            return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
+
+        # Taken from https://github.com/fsspec/filesystem_spec/blob/47b445ae4c284a82dd15e0287b1ffc410e8fc470/fsspec/spec.py#L883
+        if isfilelike(lpath):
+            outfile = lpath
+        elif self.isdir(rpath):
+            os.makedirs(lpath, exist_ok=True)
+            return None
+
+        if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
+            os.makedirs(os.path.dirname(lpath), exist_ok=True)
+
+        # Open file if not already open
+        close_file = False
+        if outfile is None:
+            outfile = open(lpath, "wb")
+            close_file = True
+        initial_pos = outfile.tell()
+
+        # Custom implementation of `get_file` to use `http_get`.
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        expected_size = self.info(rpath, revision=revision)["size"]
+        callback.set_size(expected_size)
+        try:
+            http_get(
+                url=hf_hub_url(
+                    repo_id=resolve_remote_path.repo_id,
+                    revision=resolve_remote_path.revision,
+                    filename=resolve_remote_path.path_in_repo,
+                    repo_type=resolve_remote_path.repo_type,
+                    endpoint=self.endpoint,
+                ),
+                temp_file=outfile,
+                displayed_filename=rpath,
+                expected_size=expected_size,
+                resume_size=0,
+                headers=self._api._build_hf_headers(),
+                _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+            )
+            outfile.seek(initial_pos)
+        finally:
+            # Close file only if we opened it ourselves
+            if close_file:
+                outfile.close()
 
     @property
     def transaction(self):
@@ -593,9 +679,6 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
-        super().__init__(fs, path, **kwargs)
-        self.fs: HfFileSystem
-
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
@@ -603,6 +686,12 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
+            raise
+        # avoid an unnecessary .info() call with expensive expand_info=True to instantiate .details
+        if kwargs.get("mode", "rb") == "rb":
+            self.details = fs.info(self.resolved_path.unresolve(), expand_info=False)
+        super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
+        self.fs: HfFileSystem
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -622,7 +711,13 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             repo_type=self.resolved_path.repo_type,
             endpoint=self.fs.endpoint,
         )
-        r = http_backoff("GET", url, headers=headers)
+        r = http_backoff(
+            "GET",
+            url,
+            headers=headers,
+            retry_on_status_codes=(502, 503, 504),
+            timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+        )
         hf_raise_for_status(r)
         return r.content
 
@@ -650,6 +745,122 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 path=self.resolved_path.unresolve(),
             )
 
+    def read(self, length=-1):
+        """Read remote file.
+
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems and if
+        `hf_transfer` is not enabled, the file is loaded in memory directly. Otherwise, the file is downloaded to a
+        temporary file and read from there.
+        """
+        if self.mode == "rb" and (length is None or length == -1) and self.loc == 0:
+            with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
+                return f.read()
+        return super().read(length)
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
+
+
+class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    def __init__(
+        self,
+        fs: HfFileSystem,
+        path: str,
+        mode: str = "rb",
+        revision: Optional[str] = None,
+        block_size: int = 0,
+        cache_type: str = "none",
+        **kwargs,
+    ):
+        if block_size != 0:
+            raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
+        if cache_type != "none":
+            raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
+        if "w" in mode:
+            raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
+        try:
+            self.resolved_path = fs.resolve_path(path, revision=revision)
+        except FileNotFoundError as e:
+            if "w" in kwargs.get("mode", ""):
+                raise FileNotFoundError(
+                    f"{e}.\nMake sure the repository and revision exist before writing data."
+                ) from e
+        # avoid an unnecessary .info() call to instantiate .details
+        self.details = {"name": self.resolved_path.unresolve(), "size": None}
+        super().__init__(
+            fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
+        )
+        self.response: Optional[Response] = None
+        self.fs: HfFileSystem
+
+    def seek(self, loc: int, whence: int = 0):
+        if loc == 0 and whence == 1:
+            return
+        if loc == self.loc and whence == 0:
+            return
+        raise ValueError("Cannot seek streaming HF file")
+
+    def read(self, length: int = -1):
+        read_args = (length,) if length >= 0 else ()
+        if self.response is None or self.response.raw.isclosed():
+            url = hf_hub_url(
+                repo_id=self.resolved_path.repo_id,
+                revision=self.resolved_path.revision,
+                filename=self.resolved_path.path_in_repo,
+                repo_type=self.resolved_path.repo_type,
+                endpoint=self.fs.endpoint,
+            )
+            self.response = http_backoff(
+                "GET",
+                url,
+                headers=self.fs._api._build_hf_headers(),
+                retry_on_status_codes=(502, 503, 504),
+                stream=True,
+                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+            )
+            hf_raise_for_status(self.response)
+        try:
+            out = self.response.raw.read(*read_args)
+        except Exception:
+            self.response.close()
+
+            # Retry by recreating the connection
+            url = hf_hub_url(
+                repo_id=self.resolved_path.repo_id,
+                revision=self.resolved_path.revision,
+                filename=self.resolved_path.path_in_repo,
+                repo_type=self.resolved_path.repo_type,
+                endpoint=self.fs.endpoint,
+            )
+            self.response = http_backoff(
+                "GET",
+                url,
+                headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
+                retry_on_status_codes=(502, 503, 504),
+                stream=True,
+                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+            )
+            hf_raise_for_status(self.response)
+            try:
+                out = self.response.raw.read(*read_args)
+            except Exception:
+                self.response.close()
+                raise
+        self.loc += len(out)
+        return out
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
+
+    def __del__(self):
+        if not hasattr(self, "resolved_path"):
+            # Means that the constructor failed. Nothing to do.
+            return
+        return super().__del__()
+
+    def __reduce__(self):
+        return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
+
 
 def safe_revision(revision: str) -> str:
     return revision if SPECIAL_REFS_REVISION_REGEX.match(revision) else safe_quote(revision)
@@ -668,3 +879,7 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
     elif isinstance(err, HFValidationError):
         msg = f"{path} (invalid repository id)"
     raise FileNotFoundError(msg) from err
+
+
+def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
+    return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)

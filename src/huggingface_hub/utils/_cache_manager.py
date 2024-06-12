@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to manage the HF cache directory."""
+
 import os
 import shutil
 import time
@@ -28,6 +29,9 @@ from . import logging
 logger = logging.get_logger(__name__)
 
 REPO_TYPE_T = Literal["model", "dataset", "space"]
+
+# List of OS-created helper files that need to be ignored
+FILES_TO_IGNORE = [".DS_Store"]
 
 
 class CacheNotFound(Exception):
@@ -667,6 +671,9 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     # Scan snapshots directory
     cached_revisions: Set[CachedRevisionInfo] = set()
     for revision_path in snapshots_path.iterdir():
+        # Ignore OS-created helper files
+        if revision_path.name in FILES_TO_IGNORE:
+            continue
         if revision_path.is_file():
             raise CorruptedCacheException(f"Snapshots folder corrupted. Found a file: {revision_path}")
 

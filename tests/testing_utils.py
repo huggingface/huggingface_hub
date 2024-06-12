@@ -15,7 +15,11 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from huggingface_hub.utils import is_gradio_available, logging
+from huggingface_hub.utils import (
+    is_package_available,
+    logging,
+    reset_sessions,
+)
 from tests.testing_constants import ENDPOINT_PRODUCTION, ENDPOINT_PRODUCTION_URL_SCHEME
 
 
@@ -114,17 +118,19 @@ def require_git_lfs(test_case):
         return test_case
 
 
-def require_webhooks(test_case):
+def requires(package_name: str):
     """
-    Decorator to mark tests that requires `webhooks` extra (i.e. gradio, fastapi, pydantic).
+    Decorator marking a test that requires PyTorch.
+    These tests are skipped when PyTorch isn't installed.
+    """
 
-    git-lfs requires additional dependencies, and tests are skipped by default. Set the RUN_GIT_LFS_TESTS environment
-    variable to a truthy value to run them.
-    """
-    if not is_gradio_available():
-        return unittest.skip("Skip webhook test")(test_case)
-    else:
-        return test_case
+    def _inner(test_case):
+        if not is_package_available(package_name):
+            return unittest.skip(f"Test requires '{package_name}'")(test_case)
+        else:
+            return test_case
+
+    return _inner
 
 
 class RequestWouldHangIndefinitelyError(Exception):
@@ -193,7 +199,9 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
                     yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
         with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
+            reset_sessions()
             yield
+        reset_sessions()
     else:
         raise ValueError("Please use a value from the OfflineSimulationMode enum.")
 

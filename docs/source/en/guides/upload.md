@@ -11,31 +11,7 @@ Sharing your files and work is an important aspect of the Hub. The `huggingface_
 - with the `commit` context manager.
 - with the [`~Repository.push_to_hub`] function.
 
-Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account:
-
-- Log in to your Hugging Face account with the following command:
-
-  ```bash
-  huggingface-cli login
-  # or using an environment variable
-  huggingface-cli login --token $HUGGINGFACE_TOKEN
-  ```
-
-- Alternatively, you can programmatically login using [`login`] in a notebook or a script:
-
-  ```python
-  >>> from huggingface_hub import login
-  >>> login()
-  ```
-
-  If ran in a Jupyter or Colaboratory notebook, [`login`] will launch a widget from
-  which you can enter your Hugging Face access token. Otherwise, a message will be
-  prompted in the terminal.
-
-  It is also possible to login programmatically without the widget by directly passing
-  the token to [`login`]. If you do so, be careful when sharing your notebook. It is
-  best practice to load the token from a secure vault instead of saving it in plain in
-  your Colaboratory notebook.
+Whenever you want to upload files to the Hub, you need to log in to your Hugging Face account. For more details about authentication, check out [this section](../quick-start#authentication).
 
 ## Upload a file
 
@@ -198,7 +174,7 @@ progress.
 
 The example below will upload the checkpoints folder to a dataset in multiple commits. A PR will be created on the Hub
 and merged automatically once the upload is complete. If you prefer the PR to stay open and review it manually, you can
-pass `create_pr=True`. 
+pass `create_pr=True`.
 
 ```py
 >>> upload_folder(
@@ -457,13 +433,18 @@ servers. For example, if you plan to upload a large number of files, it's best t
 already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never
 be re-uploaded twice but checking it client-side can still save some time.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up
-uploads on machines with very high bandwidth. To use it, you must install it (`pip install hf_transfer`) and enable it
-by setting `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable. You can then use `huggingface_hub` normally.
-Disclaimer: this is a power user tool. It is tested and production-ready but lacks user-friendly features like advanced error handling or proxies. For more details, please refer to this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
+  uploads on machines with very high bandwidth. To use `hf_transfer`:
 
-<Tip>
+    1. Specify the `hf_transfer` extra when installing `huggingface_hub`
+       (e.g. `pip install huggingface_hub[hf_transfer]`).
+    2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
-Progress bars are supported in `hf_transfer` starting from version `0.1.4`. Consider upgrading (`pip install -U hf-transfer`) if you plan to enable faster uploads.
+<Tip warning={true}>
+
+`hf_transfer` is a power user tool!
+It is tested and production-ready,
+but it lacks user-friendly features like advanced error handling or proxies.
+For more details, please take a look at this [section](https://huggingface.co/docs/huggingface_hub/hf_transfer).
 
 </Tip>
 

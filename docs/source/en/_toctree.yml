@@ -38,8 +38,8 @@
       title: Manage your Space
     - local: guides/integrations
       title: Integrate a library
-    - local: guides/webhooks_server
-      title: Webhooks server
+    - local: guides/webhooks
+      title: Webhooks
 - title: "Conceptual guides"
   sections:
     - local: concepts/git_vs_http
@@ -60,6 +60,8 @@
       title: Downloading files
     - local: package_reference/mixins
       title: Mixins & serialization methods
+    - local: package_reference/inference_types
+      title: Inference Types
     - local: package_reference/inference_client
       title: Inference Client
     - local: package_reference/inference_endpoints
@@ -82,3 +84,5 @@
       title: TensorBoard logger
     - local: package_reference/webhooks_server
       title: Webhooks server
+    - local: package_reference/serialization
+      title: Serialization

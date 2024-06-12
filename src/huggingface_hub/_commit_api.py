@@ -1,6 +1,7 @@
 """
 Type definitions and utilities for the `create_commit` API
 """
+
 import base64
 import io
 import os
@@ -14,14 +15,14 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 
 from tqdm.contrib.concurrent import thread_map
 
-from huggingface_hub import get_session
-
 from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
+from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
+    FORBIDDEN_FOLDERS,
     EntryNotFoundError,
-    build_hf_headers,
     chunk_iterable,
+    get_session,
     hf_raise_for_status,
     logging,
     tqdm_stream_file,
@@ -39,7 +40,7 @@ logger = logging.get_logger(__name__)
 
 UploadMode = Literal["lfs", "regular"]
 
-# Max is 1,000 per request on the Hub for HfApi.list_files_info
+# Max is 1,000 per request on the Hub for HfApi.get_paths_info
 # Otherwise we get:
 # HfHubHTTPError: 413 Client Error: Payload Too Large for url: https://huggingface.co/api/datasets/xxx (Request ID: xxx)\n\ntoo many parameters
 # See https://github.com/huggingface/huggingface_hub/issues/1503
@@ -254,11 +255,12 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
-    if any(part == ".git" for part in path_in_repo.split("/")):
-        raise ValueError(
-            "Invalid `path_in_repo` in CommitOperation: cannot update files under a '.git/' folder (path:"
-            f" '{path_in_repo}')."
-        )
+    for forbidden in FORBIDDEN_FOLDERS:
+        if any(part == forbidden for part in path_in_repo.split("/")):
+            raise ValueError(
+                f"Invalid `path_in_repo` in CommitOperation: cannot update files under a '{forbidden}/' folder (path:"
+                f" '{path_in_repo}')."
+            )
     return path_in_repo
 
 
@@ -317,7 +319,7 @@ def _upload_lfs_files(
     additions: List[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     endpoint: Optional[str] = None,
     num_threads: int = 5,
     revision: Optional[str] = None,
@@ -336,20 +338,20 @@ def _upload_lfs_files(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         num_threads (`int`, *optional*):
             The number of concurrent threads to use when uploading. Defaults to 5.
         revision (`str`, *optional*):
             The git revision to upload to.
 
-    Raises: `RuntimeError` if an upload failed for any reason
-
-    Raises: `ValueError` if the server returns malformed responses
-
-    Raises: `requests.HTTPError` if the LFS batch endpoint returned an HTTP
-        error
-
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the server returns malformed responses
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the LFS batch endpoint returned an HTTP error.
     """
     # Step 1: retrieve upload instructions from the LFS batch endpoint.
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching
@@ -358,11 +360,12 @@ def _upload_lfs_files(
     for chunk in chunk_iterable(additions, chunk_size=256):
         batch_actions_chunk, batch_errors_chunk = post_lfs_batch_info(
             upload_infos=[op.upload_info for op in chunk],
-            token=token,
             repo_id=repo_id,
             repo_type=repo_type,
             revision=revision,
             endpoint=endpoint,
+            headers=headers,
+            token=None,  # already passed in 'headers'
         )
 
         # If at least 1 error, we do not retrieve information for other chunks
@@ -397,13 +400,13 @@ def _upload_lfs_files(
     def _wrapped_lfs_upload(batch_action) -> None:
         try:
             operation = oid2addop[batch_action["oid"]]
-            lfs_upload(operation=operation, lfs_batch_action=batch_action, token=token)
+            lfs_upload(operation=operation, lfs_batch_action=batch_action, headers=headers, endpoint=endpoint)
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
     if HF_HUB_ENABLE_HF_TRANSFER:
         logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
-        for action in hf_tqdm(filtered_actions):
+        for action in hf_tqdm(filtered_actions, name="huggingface_hub.lfs_upload"):
             _wrapped_lfs_upload(action)
     elif len(filtered_actions) == 1:
         logger.debug("Uploading 1 LFS file to the Hub")
@@ -441,7 +444,7 @@ def _fetch_upload_modes(
     additions: Iterable[CommitOperationAdd],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
     create_pr: bool = False,
@@ -460,8 +463,8 @@ def _fetch_upload_modes(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
         gitignore_content (`str`, *optional*):
@@ -476,7 +479,6 @@ def _fetch_upload_modes(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
-    headers = build_hf_headers(token=token)
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}
@@ -521,16 +523,19 @@ def _fetch_upload_modes(
 
 
 @validate_hf_hub_args
-def _fetch_lfs_files_to_copy(
+def _fetch_files_to_copy(
     copies: Iterable[CommitOperationCopy],
     repo_type: str,
     repo_id: str,
-    token: Optional[str],
+    headers: Dict[str, str],
     revision: str,
     endpoint: Optional[str] = None,
-) -> Dict[Tuple[str, Optional[str]], "RepoFile"]:
+) -> Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]]:
     """
-    Requests the Hub files information of the LFS files to be copied, including their sha256.
+    Fetch information about the files to copy.
+
+    For LFS files, we only need their metadata (file size and sha256) while for regular files
+    we need to download the raw content from the Hub.
 
     Args:
         copies (`Iterable` of :class:`CommitOperationCopy`):
@@ -541,13 +546,14 @@ def _fetch_lfs_files_to_copy(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
         revision (`str`):
             The git revision to upload the files to. Can be any valid git revision.
 
-    Returns: `Dict[Tuple[str, Optional[str]], RepoFile]]`
-        Key is the file path and revision of the file to copy, value is the repo file.
+    Returns: `Dict[Tuple[str, Optional[str]], Union[RepoFile, bytes]]]`
+        Key is the file path and revision of the file to copy.
+        Value is the raw content as bytes (for regular files) or the file information as a RepoFile (for LFS files).
 
     Raises:
         [`~utils.HfHubHTTPError`]
@@ -555,24 +561,37 @@ def _fetch_lfs_files_to_copy(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    from .hf_api import HfApi
+    from .hf_api import HfApi, RepoFolder
 
-    hf_api = HfApi(endpoint=endpoint, token=token)
-    files_to_copy = {}
+    hf_api = HfApi(endpoint=endpoint, headers=headers)
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
         paths = [op.src_path_in_repo for op in operations]
         for offset in range(0, len(paths), FETCH_LFS_BATCH_SIZE):
-            src_repo_files = hf_api.list_files_info(
+            src_repo_files = hf_api.get_paths_info(
                 repo_id=repo_id,
                 paths=paths[offset : offset + FETCH_LFS_BATCH_SIZE],
                 revision=src_revision or revision,
                 repo_type=repo_type,
             )
             for src_repo_file in src_repo_files:
-                if not src_repo_file.lfs:
-                    raise NotImplementedError("Copying a non-LFS file is not implemented")
-                files_to_copy[(src_repo_file.rfilename, src_revision)] = src_repo_file
+                if isinstance(src_repo_file, RepoFolder):
+                    raise NotImplementedError("Copying a folder is not implemented.")
+                if src_repo_file.lfs:
+                    files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
+                else:
+                    # TODO: (optimization) download regular files to copy concurrently
+                    url = hf_hub_url(
+                        endpoint=endpoint,
+                        repo_type=repo_type,
+                        repo_id=repo_id,
+                        revision=src_revision or revision,
+                        filename=src_repo_file.path,
+                    )
+                    response = get_session().get(url, headers=headers)
+                    hf_raise_for_status(response)
+                    files_to_copy[(src_repo_file.path, src_revision)] = response.content
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
@@ -584,7 +603,7 @@ def _fetch_lfs_files_to_copy(
 
 def _prepare_commit_payload(
     operations: Iterable[CommitOperation],
-    files_to_copy: Dict[Tuple[str, Optional[str]], "RepoFile"],
+    files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]],
     commit_message: str,
     commit_description: Optional[str] = None,
     parent_commit: Optional[str] = None,
@@ -647,16 +666,28 @@ def _prepare_commit_payload(
         # 2.d. Case copying a file or folder
         elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
-            if not file_to_copy.lfs:
-                raise NotImplementedError("Copying a non-LFS file is not implemented")
-            yield {
-                "key": "lfsFile",
-                "value": {
-                    "path": operation.path_in_repo,
-                    "algo": "sha256",
-                    "oid": file_to_copy.lfs["sha256"],
-                },
-            }
+            if isinstance(file_to_copy, bytes):
+                yield {
+                    "key": "file",
+                    "value": {
+                        "content": base64.b64encode(file_to_copy).decode(),
+                        "path": operation.path_in_repo,
+                        "encoding": "base64",
+                    },
+                }
+            elif file_to_copy.lfs:
+                yield {
+                    "key": "lfsFile",
+                    "value": {
+                        "path": operation.path_in_repo,
+                        "algo": "sha256",
+                        "oid": file_to_copy.lfs.sha256,
+                    },
+                }
+            else:
+                raise ValueError(
+                    "Malformed files_to_copy (should be raw file content as bytes or RepoFile objects with LFS info."
+                )
         # 2.e. Never expected to happen
         else:
             raise ValueError(

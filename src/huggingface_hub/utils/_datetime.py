@@ -13,13 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle datetimes in Huggingface Hub."""
-from datetime import datetime, timedelta, timezone
 
-
-# Local machine offset compared to UTC.
-# Taken from https://stackoverflow.com/a/3168394.
-# `utcoffset()` returns `None` if no offset -> empty timedelta.
-UTC_OFFSET = datetime.now(timezone.utc).astimezone().utcoffset() or timedelta()
+from datetime import datetime, timezone
 
 
 def parse_datetime(date_string: str) -> datetime:
@@ -51,16 +46,15 @@ def parse_datetime(date_string: str) -> datetime:
             If `date_string` cannot be parsed.
     """
     try:
-        # Datetime ending with a Z means "UTC". Here we parse the date as local machine
-        # timezone and then move it to the appropriate UTC timezone.
+        # Datetime ending with a Z means "UTC". We parse the date and then explicitly
+        # set the timezone to UTC.
         # See https://en.wikipedia.org/wiki/ISO_8601#Coordinated_Universal_Time_(UTC)
         # Taken from https://stackoverflow.com/a/3168394.
         if len(date_string) == 30:
             # Means timezoned-timestamp with nanoseconds precision. We need to truncate the last 3 digits.
             date_string = date_string[:-4] + "Z"
         dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
-        dt += UTC_OFFSET  # By default, datetime is not timezoned -> move to UTC time
-        return dt.astimezone(timezone.utc)  # Set explicit timezone
+        return dt.replace(tzinfo=timezone.utc)  # Set explicit timezone
     except ValueError as e:
         raise ValueError(
             f"Cannot parse '{date_string}' as a datetime. Date string is expected to"

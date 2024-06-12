@@ -178,6 +178,15 @@ DUMMY_MODELCARD_EMPTY_METADATA = """
 Some cool dataset card.
 """
 
+DUMMY_MODEL_CARD_TEMPLATE = """
+---
+{{ card_data }}
+---
+
+Custom template passed as a string.
+{{ repo_url | default("[More Information Needed]", true) }}
+"""
+
 
 def require_jinja(test_case):
     """
@@ -586,7 +595,8 @@ class RepoCardTest(TestCaseWithHfApi):
         )
 
     @require_jinja
-    def test_repo_card_from_custom_template(self):
+    def test_repo_card_from_custom_template_path(self):
+        # Template is passed as a path (not a raw string)
         template_path = SAMPLE_CARDS_DIR / "sample_template.md"
         card = RepoCard.from_template(
             card_data=CardData(
@@ -605,6 +615,15 @@ class RepoCardTest(TestCaseWithHfApi):
             "Custom template didn't set jinja variable correctly",
         )
 
+    @require_jinja
+    def test_repo_card_from_custom_template_string(self):
+        # Template is passed as a raw string (not a path)
+        card = RepoCard.from_template(
+            card_data=CardData(language="en", license="mit"),
+            template_str=DUMMY_MODEL_CARD_TEMPLATE,
+        )
+        assert "Custom template passed as a string." in str(card)
+
     def test_repo_card_data_must_be_dict(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_card_data.md"
         with pytest.raises(ValueError, match="repo card metadata block should be a dict"):
@@ -613,8 +632,14 @@ class RepoCardTest(TestCaseWithHfApi):
     def test_repo_card_without_metadata(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_no_metadata.md"
 
-        with self.assertWarnsRegex(UserWarning, "Repo card metadata block was not found. Setting CardData to empty."):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             card = RepoCard(sample_path.read_text())
+        self.assertTrue(
+            any(
+                "Repo card metadata block was not found. Setting CardData to empty." in log
+                for log in warning_logs.output
+            )
+        )
         self.assertEqual(card.data, CardData())
 
     def test_validate_repocard(self):
@@ -729,8 +754,11 @@ class ModelCardTest(TestCaseWithHfApi):
         Some information is lost.
         """
         sample_path = SAMPLE_CARDS_DIR / "sample_invalid_model_index.md"
-        with self.assertWarnsRegex(UserWarning, "Invalid model-index. Not loading eval results into CardData."):
+        with self.assertLogs("huggingface_hub", level="WARNING") as warning_logs:
             card = ModelCard.load(sample_path, ignore_metadata_errors=True)
+        self.assertTrue(
+            any("Invalid model-index. Not loading eval results into CardData." in log for log in warning_logs.output)
+        )
         self.assertIsNone(card.data.eval_results)
 
     def test_model_card_with_model_index(self):

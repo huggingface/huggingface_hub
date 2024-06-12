@@ -13,9 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
+
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from .utils import is_pydantic_available
+
+
+if is_pydantic_available():
+    from pydantic import BaseModel
+else:
+    # Define a dummy BaseModel to avoid import errors when pydantic is not installed
+    # Import error will be raised when trying to use the class
+
+    class BaseModel:  # type: ignore [no-redef]
+        def __init__(self, *args, **kwargs) -> None:
+            raise ImportError(
+                "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
+                " should be installed separately. Please run `pip install --upgrade pydantic` and retry."
+            )
 
 
 # This is an adaptation of the ReportV3 interface implemented in moon-landing. V0, V1 and V2 have been ignored as they
@@ -106,6 +121,12 @@ class WebhookPayloadRepo(ObjectId):
     url: WebhookPayloadUrl
 
 
+class WebhookPayloadUpdatedRef(BaseModel):
+    ref: str
+    oldSha: Optional[str] = None
+    newSha: Optional[str] = None
+
+
 class WebhookPayload(BaseModel):
     event: WebhookPayloadEvent
     repo: WebhookPayloadRepo
@@ -113,3 +134,4 @@ class WebhookPayload(BaseModel):
     comment: Optional[WebhookPayloadComment] = None
     webhook: WebhookPayloadWebhook
     movedTo: Optional[WebhookPayloadMovedTo] = None
+    updatedRefs: Optional[List[WebhookPayloadUpdatedRef]] = None

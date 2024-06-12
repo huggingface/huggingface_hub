@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.20.0.dev0"
+__version__ = "0.24.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -150,9 +150,13 @@ _SUBMOD_ATTRS = {
         "RepoUrl",
         "User",
         "UserLikes",
+        "WebhookInfo",
+        "WebhookWatchedItem",
+        "accept_access_request",
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "cancel_access_request",
         "change_discussion_status",
         "comment_discussion",
         "create_branch",
@@ -164,6 +168,7 @@ _SUBMOD_ATTRS = {
         "create_pull_request",
         "create_repo",
         "create_tag",
+        "create_webhook",
         "dataset_info",
         "delete_branch",
         "delete_collection",
@@ -176,8 +181,11 @@ _SUBMOD_ATTRS = {
         "delete_space_storage",
         "delete_space_variable",
         "delete_tag",
+        "delete_webhook",
+        "disable_webhook",
         "duplicate_space",
         "edit_discussion_comment",
+        "enable_webhook",
         "file_exists",
         "get_collection",
         "get_dataset_tags",
@@ -191,20 +199,25 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
+        "get_webhook",
+        "grant_access",
         "like",
+        "list_accepted_access_requests",
         "list_collections",
         "list_datasets",
-        "list_files_info",
         "list_inference_endpoints",
         "list_liked_repos",
         "list_metrics",
         "list_models",
+        "list_pending_access_requests",
+        "list_rejected_access_requests",
         "list_repo_commits",
         "list_repo_files",
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
+        "list_webhooks",
         "merge_pull_request",
         "model_info",
         "move_repo",
@@ -212,6 +225,7 @@ _SUBMOD_ATTRS = {
         "pause_inference_endpoint",
         "pause_space",
         "preupload_lfs_files",
+        "reject_access_request",
         "rename_discussion",
         "repo_exists",
         "repo_info",
@@ -220,6 +234,7 @@ _SUBMOD_ATTRS = {
         "request_space_storage",
         "restart_space",
         "resume_inference_endpoint",
+        "revision_exists",
         "run_as_future",
         "scale_to_zero_inference_endpoint",
         "set_space_sleep_time",
@@ -230,6 +245,7 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_visibility",
+        "update_webhook",
         "upload_file",
         "upload_folder",
         "whoami",
@@ -238,6 +254,7 @@ _SUBMOD_ATTRS = {
         "HfFileSystem",
         "HfFileSystemFile",
         "HfFileSystemResolvedPath",
+        "HfFileSystemStreamFile",
     ],
     "hub_mixin": [
         "ModelHubMixin",
@@ -249,6 +266,131 @@ _SUBMOD_ATTRS = {
     ],
     "inference._generated._async_client": [
         "AsyncInferenceClient",
+    ],
+    "inference._generated.types": [
+        "AudioClassificationInput",
+        "AudioClassificationOutputElement",
+        "AudioClassificationParameters",
+        "AudioToAudioInput",
+        "AudioToAudioOutputElement",
+        "AutomaticSpeechRecognitionGenerationParameters",
+        "AutomaticSpeechRecognitionInput",
+        "AutomaticSpeechRecognitionOutput",
+        "AutomaticSpeechRecognitionOutputChunk",
+        "AutomaticSpeechRecognitionParameters",
+        "ChatCompletionInput",
+        "ChatCompletionInputFunctionDefinition",
+        "ChatCompletionInputMessage",
+        "ChatCompletionInputTool",
+        "ChatCompletionInputToolCall",
+        "ChatCompletionInputToolTypeClass",
+        "ChatCompletionOutput",
+        "ChatCompletionOutputComplete",
+        "ChatCompletionOutputFunctionDefinition",
+        "ChatCompletionOutputLogprob",
+        "ChatCompletionOutputLogprobs",
+        "ChatCompletionOutputMessage",
+        "ChatCompletionOutputToolCall",
+        "ChatCompletionOutputTopLogprob",
+        "ChatCompletionOutputUsage",
+        "ChatCompletionStreamOutput",
+        "ChatCompletionStreamOutputChoice",
+        "ChatCompletionStreamOutputDelta",
+        "ChatCompletionStreamOutputDeltaToolCall",
+        "ChatCompletionStreamOutputFunction",
+        "ChatCompletionStreamOutputLogprob",
+        "ChatCompletionStreamOutputLogprobs",
+        "ChatCompletionStreamOutputTopLogprob",
+        "DepthEstimationInput",
+        "DepthEstimationOutput",
+        "DocumentQuestionAnsweringInput",
+        "DocumentQuestionAnsweringInputData",
+        "DocumentQuestionAnsweringOutputElement",
+        "DocumentQuestionAnsweringParameters",
+        "FeatureExtractionInput",
+        "FillMaskInput",
+        "FillMaskOutputElement",
+        "FillMaskParameters",
+        "ImageClassificationInput",
+        "ImageClassificationOutputElement",
+        "ImageClassificationParameters",
+        "ImageSegmentationInput",
+        "ImageSegmentationOutputElement",
+        "ImageSegmentationParameters",
+        "ImageToImageInput",
+        "ImageToImageOutput",
+        "ImageToImageParameters",
+        "ImageToImageTargetSize",
+        "ImageToTextGenerationParameters",
+        "ImageToTextInput",
+        "ImageToTextOutput",
+        "ImageToTextParameters",
+        "ObjectDetectionBoundingBox",
+        "ObjectDetectionInput",
+        "ObjectDetectionOutputElement",
+        "ObjectDetectionParameters",
+        "QuestionAnsweringInput",
+        "QuestionAnsweringInputData",
+        "QuestionAnsweringOutputElement",
+        "QuestionAnsweringParameters",
+        "SentenceSimilarityInput",
+        "SentenceSimilarityInputData",
+        "SummarizationGenerationParameters",
+        "SummarizationInput",
+        "SummarizationOutput",
+        "TableQuestionAnsweringInput",
+        "TableQuestionAnsweringInputData",
+        "TableQuestionAnsweringOutputElement",
+        "Text2TextGenerationInput",
+        "Text2TextGenerationOutput",
+        "Text2TextGenerationParameters",
+        "TextClassificationInput",
+        "TextClassificationOutputElement",
+        "TextClassificationParameters",
+        "TextGenerationInput",
+        "TextGenerationInputGenerateParameters",
+        "TextGenerationInputGrammarType",
+        "TextGenerationOutput",
+        "TextGenerationOutputBestOfSequence",
+        "TextGenerationOutputDetails",
+        "TextGenerationOutputPrefillToken",
+        "TextGenerationOutputToken",
+        "TextGenerationStreamOutput",
+        "TextGenerationStreamOutputStreamDetails",
+        "TextGenerationStreamOutputToken",
+        "TextToAudioGenerationParameters",
+        "TextToAudioInput",
+        "TextToAudioOutput",
+        "TextToAudioParameters",
+        "TextToImageInput",
+        "TextToImageOutput",
+        "TextToImageParameters",
+        "TextToImageTargetSize",
+        "TokenClassificationInput",
+        "TokenClassificationOutputElement",
+        "TokenClassificationParameters",
+        "TranslationGenerationParameters",
+        "TranslationInput",
+        "TranslationOutput",
+        "VideoClassificationInput",
+        "VideoClassificationOutputElement",
+        "VideoClassificationParameters",
+        "VisualQuestionAnsweringInput",
+        "VisualQuestionAnsweringInputData",
+        "VisualQuestionAnsweringOutputElement",
+        "VisualQuestionAnsweringParameters",
+        "ZeroShotClassificationInput",
+        "ZeroShotClassificationInputData",
+        "ZeroShotClassificationOutputElement",
+        "ZeroShotClassificationParameters",
+        "ZeroShotImageClassificationInput",
+        "ZeroShotImageClassificationInputData",
+        "ZeroShotImageClassificationOutputElement",
+        "ZeroShotImageClassificationParameters",
+        "ZeroShotObjectDetectionBoundingBox",
+        "ZeroShotObjectDetectionInput",
+        "ZeroShotObjectDetectionInputData",
+        "ZeroShotObjectDetectionOutputElement",
     ],
     "inference_api": [
         "InferenceApi",
@@ -279,6 +421,14 @@ _SUBMOD_ATTRS = {
     "repository": [
         "Repository",
     ],
+    "serialization": [
+        "StateDictSplit",
+        "get_torch_storage_id",
+        "save_torch_state_dict",
+        "split_state_dict_into_shards_factory",
+        "split_tf_state_dict_into_shards",
+        "split_torch_state_dict_into_shards",
+    ],
     "utils": [
         "CacheNotFound",
         "CachedFileInfo",
@@ -292,12 +442,9 @@ _SUBMOD_ATTRS = {
         "configure_http_backend",
         "dump_environment_info",
         "get_session",
+        "get_token",
         "logging",
         "scan_cache_dir",
-    ],
-    "utils.endpoint_helpers": [
-        "DatasetFilter",
-        "ModelFilter",
     ],
 }
 
@@ -376,14 +523,14 @@ def _attach(package_name, submodules=None, submod_attrs=None):
     def __dir__():
         return __all__
 
-    if os.environ.get("EAGER_IMPORT", ""):
-        for attr in set(attr_to_modules.keys()) | submodules:
-            __getattr__(attr)
-
     return __getattr__, __dir__, list(__all__)
 
 
 __getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)
+
+if os.environ.get("EAGER_IMPORT", ""):
+    for attr in __all__:
+        __getattr__(attr)
 
 # WARNING: any content below this statement is generated automatically. Any manual edit
 # will be lost when re-generating this file !
@@ -489,9 +636,13 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoUrl,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
+        WebhookInfo,  # noqa: F401
+        WebhookWatchedItem,  # noqa: F401
+        accept_access_request,  # noqa: F401
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        cancel_access_request,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
         create_branch,  # noqa: F401
@@ -503,6 +654,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
         create_tag,  # noqa: F401
+        create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
         delete_collection,  # noqa: F401
@@ -515,8 +667,11 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
         delete_tag,  # noqa: F401
+        delete_webhook,  # noqa: F401
+        disable_webhook,  # noqa: F401
         duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_webhook,  # noqa: F401
         file_exists,  # noqa: F401
         get_collection,  # noqa: F401
         get_dataset_tags,  # noqa: F401
@@ -530,20 +685,25 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
+        get_webhook,  # noqa: F401
+        grant_access,  # noqa: F401
         like,  # noqa: F401
+        list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
         list_datasets,  # noqa: F401
-        list_files_info,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
+        list_pending_access_requests,  # noqa: F401
+        list_rejected_access_requests,  # noqa: F401
         list_repo_commits,  # noqa: F401
         list_repo_files,  # noqa: F401
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
@@ -551,6 +711,7 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
@@ -559,6 +720,7 @@ if TYPE_CHECKING:  # pragma: no cover
         request_space_storage,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
+        revision_exists,  # noqa: F401
         run_as_future,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
@@ -569,6 +731,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_visibility,  # noqa: F401
+        update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         whoami,  # noqa: F401
@@ -577,6 +740,7 @@ if TYPE_CHECKING:  # pragma: no cover
         HfFileSystem,  # noqa: F401
         HfFileSystemFile,  # noqa: F401
         HfFileSystemResolvedPath,  # noqa: F401
+        HfFileSystemStreamFile,  # noqa: F401
     )
     from .hub_mixin import (
         ModelHubMixin,  # noqa: F401
@@ -587,6 +751,131 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceTimeoutError,  # noqa: F401
     )
     from .inference._generated._async_client import AsyncInferenceClient  # noqa: F401
+    from .inference._generated.types import (
+        AudioClassificationInput,  # noqa: F401
+        AudioClassificationOutputElement,  # noqa: F401
+        AudioClassificationParameters,  # noqa: F401
+        AudioToAudioInput,  # noqa: F401
+        AudioToAudioOutputElement,  # noqa: F401
+        AutomaticSpeechRecognitionGenerationParameters,  # noqa: F401
+        AutomaticSpeechRecognitionInput,  # noqa: F401
+        AutomaticSpeechRecognitionOutput,  # noqa: F401
+        AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
+        AutomaticSpeechRecognitionParameters,  # noqa: F401
+        ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputFunctionDefinition,  # noqa: F401
+        ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolCall,  # noqa: F401
+        ChatCompletionInputToolTypeClass,  # noqa: F401
+        ChatCompletionOutput,  # noqa: F401
+        ChatCompletionOutputComplete,  # noqa: F401
+        ChatCompletionOutputFunctionDefinition,  # noqa: F401
+        ChatCompletionOutputLogprob,  # noqa: F401
+        ChatCompletionOutputLogprobs,  # noqa: F401
+        ChatCompletionOutputMessage,  # noqa: F401
+        ChatCompletionOutputToolCall,  # noqa: F401
+        ChatCompletionOutputTopLogprob,  # noqa: F401
+        ChatCompletionOutputUsage,  # noqa: F401
+        ChatCompletionStreamOutput,  # noqa: F401
+        ChatCompletionStreamOutputChoice,  # noqa: F401
+        ChatCompletionStreamOutputDelta,  # noqa: F401
+        ChatCompletionStreamOutputDeltaToolCall,  # noqa: F401
+        ChatCompletionStreamOutputFunction,  # noqa: F401
+        ChatCompletionStreamOutputLogprob,  # noqa: F401
+        ChatCompletionStreamOutputLogprobs,  # noqa: F401
+        ChatCompletionStreamOutputTopLogprob,  # noqa: F401
+        DepthEstimationInput,  # noqa: F401
+        DepthEstimationOutput,  # noqa: F401
+        DocumentQuestionAnsweringInput,  # noqa: F401
+        DocumentQuestionAnsweringInputData,  # noqa: F401
+        DocumentQuestionAnsweringOutputElement,  # noqa: F401
+        DocumentQuestionAnsweringParameters,  # noqa: F401
+        FeatureExtractionInput,  # noqa: F401
+        FillMaskInput,  # noqa: F401
+        FillMaskOutputElement,  # noqa: F401
+        FillMaskParameters,  # noqa: F401
+        ImageClassificationInput,  # noqa: F401
+        ImageClassificationOutputElement,  # noqa: F401
+        ImageClassificationParameters,  # noqa: F401
+        ImageSegmentationInput,  # noqa: F401
+        ImageSegmentationOutputElement,  # noqa: F401
+        ImageSegmentationParameters,  # noqa: F401
+        ImageToImageInput,  # noqa: F401
+        ImageToImageOutput,  # noqa: F401
+        ImageToImageParameters,  # noqa: F401
+        ImageToImageTargetSize,  # noqa: F401
+        ImageToTextGenerationParameters,  # noqa: F401
+        ImageToTextInput,  # noqa: F401
+        ImageToTextOutput,  # noqa: F401
+        ImageToTextParameters,  # noqa: F401
+        ObjectDetectionBoundingBox,  # noqa: F401
+        ObjectDetectionInput,  # noqa: F401
+        ObjectDetectionOutputElement,  # noqa: F401
+        ObjectDetectionParameters,  # noqa: F401
+        QuestionAnsweringInput,  # noqa: F401
+        QuestionAnsweringInputData,  # noqa: F401
+        QuestionAnsweringOutputElement,  # noqa: F401
+        QuestionAnsweringParameters,  # noqa: F401
+        SentenceSimilarityInput,  # noqa: F401
+        SentenceSimilarityInputData,  # noqa: F401
+        SummarizationGenerationParameters,  # noqa: F401
+        SummarizationInput,  # noqa: F401
+        SummarizationOutput,  # noqa: F401
+        TableQuestionAnsweringInput,  # noqa: F401
+        TableQuestionAnsweringInputData,  # noqa: F401
+        TableQuestionAnsweringOutputElement,  # noqa: F401
+        Text2TextGenerationInput,  # noqa: F401
+        Text2TextGenerationOutput,  # noqa: F401
+        Text2TextGenerationParameters,  # noqa: F401
+        TextClassificationInput,  # noqa: F401
+        TextClassificationOutputElement,  # noqa: F401
+        TextClassificationParameters,  # noqa: F401
+        TextGenerationInput,  # noqa: F401
+        TextGenerationInputGenerateParameters,  # noqa: F401
+        TextGenerationInputGrammarType,  # noqa: F401
+        TextGenerationOutput,  # noqa: F401
+        TextGenerationOutputBestOfSequence,  # noqa: F401
+        TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationOutputPrefillToken,  # noqa: F401
+        TextGenerationOutputToken,  # noqa: F401
+        TextGenerationStreamOutput,  # noqa: F401
+        TextGenerationStreamOutputStreamDetails,  # noqa: F401
+        TextGenerationStreamOutputToken,  # noqa: F401
+        TextToAudioGenerationParameters,  # noqa: F401
+        TextToAudioInput,  # noqa: F401
+        TextToAudioOutput,  # noqa: F401
+        TextToAudioParameters,  # noqa: F401
+        TextToImageInput,  # noqa: F401
+        TextToImageOutput,  # noqa: F401
+        TextToImageParameters,  # noqa: F401
+        TextToImageTargetSize,  # noqa: F401
+        TokenClassificationInput,  # noqa: F401
+        TokenClassificationOutputElement,  # noqa: F401
+        TokenClassificationParameters,  # noqa: F401
+        TranslationGenerationParameters,  # noqa: F401
+        TranslationInput,  # noqa: F401
+        TranslationOutput,  # noqa: F401
+        VideoClassificationInput,  # noqa: F401
+        VideoClassificationOutputElement,  # noqa: F401
+        VideoClassificationParameters,  # noqa: F401
+        VisualQuestionAnsweringInput,  # noqa: F401
+        VisualQuestionAnsweringInputData,  # noqa: F401
+        VisualQuestionAnsweringOutputElement,  # noqa: F401
+        VisualQuestionAnsweringParameters,  # noqa: F401
+        ZeroShotClassificationInput,  # noqa: F401
+        ZeroShotClassificationInputData,  # noqa: F401
+        ZeroShotClassificationOutputElement,  # noqa: F401
+        ZeroShotClassificationParameters,  # noqa: F401
+        ZeroShotImageClassificationInput,  # noqa: F401
+        ZeroShotImageClassificationInputData,  # noqa: F401
+        ZeroShotImageClassificationOutputElement,  # noqa: F401
+        ZeroShotImageClassificationParameters,  # noqa: F401
+        ZeroShotObjectDetectionBoundingBox,  # noqa: F401
+        ZeroShotObjectDetectionInput,  # noqa: F401
+        ZeroShotObjectDetectionInputData,  # noqa: F401
+        ZeroShotObjectDetectionOutputElement,  # noqa: F401
+    )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
         KerasModelHubMixin,  # noqa: F401
@@ -612,6 +901,14 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceCardData,  # noqa: F401
     )
     from .repository import Repository  # noqa: F401
+    from .serialization import (
+        StateDictSplit,  # noqa: F401
+        get_torch_storage_id,  # noqa: F401
+        save_torch_state_dict,  # noqa: F401
+        split_state_dict_into_shards_factory,  # noqa: F401
+        split_tf_state_dict_into_shards,  # noqa: F401
+        split_torch_state_dict_into_shards,  # noqa: F401
+    )
     from .utils import (
         CachedFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
@@ -625,10 +922,7 @@ if TYPE_CHECKING:  # pragma: no cover
         configure_http_backend,  # noqa: F401
         dump_environment_info,  # noqa: F401
         get_session,  # noqa: F401
+        get_token,  # noqa: F401
         logging,  # noqa: F401
         scan_cache_dir,  # noqa: F401
-    )
-    from .utils.endpoint_helpers import (
-        DatasetFilter,  # noqa: F401
-        ModelFilter,  # noqa: F401
     )

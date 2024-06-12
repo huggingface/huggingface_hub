@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 
-from huggingface_hub.utils import IGNORE_GIT_FOLDER_PATTERNS, filter_repo_objects
+from huggingface_hub.utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 
 
 @dataclass
@@ -81,6 +81,20 @@ class TestPathsUtils(unittest.TestCase):
                 )
             )
 
+    def test_filter_object_with_folder(self) -> None:
+        self._check(
+            items=[
+                "file.txt",
+                "lfs.bin",
+                "path/to/file.txt",
+                "path/to/lfs.bin",
+                "nested/path/to/file.txt",
+                "nested/path/to/lfs.bin",
+            ],
+            expected_items=["path/to/file.txt", "path/to/lfs.bin"],
+            allow_patterns=["path/to/"],
+        )
+
     def _check(
         self,
         items: List[Any],
@@ -103,25 +117,34 @@ class TestPathsUtils(unittest.TestCase):
         )
 
 
-class TestGitFolderExclusion(unittest.TestCase):
-    GIT_FOLDER_PATHS = [
+class TestDefaultIgnorePatterns(unittest.TestCase):
+    PATHS_TO_IGNORE = [
         ".git",
         ".git/file.txt",
         ".git/folder/file.txt",
         "path/to/folder/.git",
         "path/to/folder/.git/file.txt",
         "path/to/.git/folder/file.txt",
+        ".cache/huggingface",
+        ".cache/huggingface/file.txt",
+        ".cache/huggingface/folder/file.txt",
+        "path/to/.cache/huggingface",
+        "path/to/.cache/huggingface/file.txt",
     ]
 
-    NOT_GIT_FOLDER_PATHS = [
+    VALID_PATHS = [
         ".gitignore",
         "path/foo.git/file.txt",
         "path/.git_bar/file.txt",
         "path/to/file.git",
+        "file.huggingface",
+        "path/file.huggingface",
+        ".cache/huggingface_folder",
+        ".cache/huggingface_folder/file.txt",
     ]
 
     def test_exclude_git_folder(self):
         filtered_paths = filter_repo_objects(
-            items=self.GIT_FOLDER_PATHS + self.NOT_GIT_FOLDER_PATHS, ignore_patterns=IGNORE_GIT_FOLDER_PATTERNS
+            items=self.PATHS_TO_IGNORE + self.VALID_PATHS, ignore_patterns=DEFAULT_IGNORE_PATTERNS
         )
-        self.assertListEqual(list(filtered_paths), self.NOT_GIT_FOLDER_PATHS)
+        self.assertListEqual(list(filtered_paths), self.VALID_PATHS)

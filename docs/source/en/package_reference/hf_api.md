@@ -35,6 +35,10 @@ models = hf_api.list_models()
 
 ## API Dataclasses
 
+### AccessRequest
+
+[[autodoc]] huggingface_hub.hf_api.AccessRequest
+
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
@@ -95,6 +99,14 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
 
+### WebhookInfo
+
+[[autodoc]] huggingface_hub.hf_api.WebhookInfo
+
+### WebhookWatchedItem
+
+[[autodoc]] huggingface_hub.hf_api.WebhookWatchedItem
+
 ## CommitOperation
 
 Below are the supported values for [`CommitOperation`]:
@@ -108,25 +120,3 @@ Below are the supported values for [`CommitOperation`]:
 ## CommitScheduler
 
 [[autodoc]] CommitScheduler
-
-## Token helper
-
-`huggingface_hub` stores the authentication information locally so that it may be re-used in subsequent
-methods.
-
-It does this using the [`HfFolder`] utility, which saves data at the root of the user.
-
-[[autodoc]] HfFolder
-
-## Search helpers
-
-Some helpers to filter repositories on the Hub are available in the `huggingface_hub` package.
-
-### DatasetFilter
-
-[[autodoc]] DatasetFilter
-
-### ModelFilter
-
-[[autodoc]] ModelFilter
-

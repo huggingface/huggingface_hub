@@ -1,13 +1,15 @@
-- title: "Get started"
+- title: "Introduction"
   sections:
     - local: index
       title: Home
     - local: quick-start
-      title: Introduction rapide
+      title: Démarrage rapide
     - local: installation
       title: Installation
-- title: "Guides"
+- title: "Concepts"
   sections:
+    - local: concepts/git_vs_http
+      title: Git ou HTTP?
     - local: guides/overview
       title: Vue d'ensemble
     - local: guides/download
@@ -81,4 +83,4 @@
     - local: package_reference/tensorboard
       title: Logger Tensorboard
     - local: package_reference/webhooks_server
-      title: Webhooks
+      title: Webhooks    

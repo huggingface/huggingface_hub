@@ -27,7 +27,7 @@ Once installed, you can check that the CLI is correctly setup:
 usage: huggingface-cli <command> [<args>]
 
 positional arguments:
-  {env,login,whoami,logout,repo,upload,download,lfs-enable-largefiles,lfs-multipart-upload,scan-cache,delete-cache}
+  {env,login,whoami,logout,repo,upload,download,lfs-enable-largefiles,lfs-multipart-upload,scan-cache,delete-cache,tag}
                         huggingface-cli command helpers
     env                 Print information about the environment.
     login               Log in using a token from huggingface.co/settings/tokens
@@ -40,18 +40,47 @@ positional arguments:
                         Configure your repository to enable upload of files > 5GB.
     scan-cache          Scan cache directory.
     delete-cache        Delete revisions from the cache directory.
+    tag                 (create, list, delete) tags for a repo in the hub
 
 options:
   -h, --help            show this help message and exit
 ```
 
-If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide. 
+If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: huggingface-cli`, please refer to the [Installation](../installation) guide.
 
 <Tip>
 
 The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `huggingface-cli upload --help` provides more information on how to upload files using the CLI.
 
 </Tip>
+
+### Alternative install
+
+#### Using pkgx
+
+[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
+
+```bash
+>>> pkgx install huggingface-cli
+```
+
+Or you can run huggingface-cli directly:
+
+```bash
+>>> pkgx huggingface-cli --help
+```
+
+Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+
+#### Using Homebrew
+
+You can also install the CLI using [Homebrew](https://brew.sh/):
+
+```bash
+>>> brew install huggingface-cli
+```
+
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
 
 ## huggingface-cli login
 
@@ -73,8 +102,8 @@ _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|    
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
 To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Token: 
-Add token as git credential? (Y/n) 
+Token:
+Add token as git credential? (Y/n)
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
@@ -85,19 +114,21 @@ Alternatively, if you want to log-in without being prompted, you can pass the to
 
 ```bash
 # Or using an environment variable
->>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential 
+>>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 ```
 
+For more details about authentication, check out [this section](../quick-start#authentication).
+
 ## huggingface-cli whoami
 
 If you want to know if you are logged in, you can use `huggingface-cli whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
 
 ```bash
-huggingface-cli whoami                                                                     
+huggingface-cli whoami
 Wauplin
 orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ```
@@ -193,23 +224,25 @@ The examples above show how to download from the latest commit on the main branc
 
 ### Download to a local folder
 
-The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
+The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
 
-<Tip warning={true}>
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local-dir` optimized for pulling only the latest changes.
 
-Downloading to a local directory comes with some downsides. Please check out the limitations in the [Download](./download#download-files-to-local-folder) guide before using `--local-dir`.
+<Tip>
+
+For more details on how downloading to a local file works, check out the [download](./download.md#download-files-to-a-local-folder) guide.
 
 </Tip>
 
 ```bash
->>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir .
+>>> huggingface-cli download adept/fuyu-8b model-00001-of-00002.safetensors --local-dir fuyu
 ...
-./model-00001-of-00002.safetensors
+fuyu/model-00001-of-00002.safetensors
 ```
 
 ### Specify cache directory
 
-By default, all files will be download to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can also specify a custom cache using `--cache-dir`:
+If not using `--local-dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache
@@ -234,6 +267,20 @@ By default, the `huggingface-cli download` command will be verbose. It will prin
 >>> huggingface-cli download gpt2 --quiet
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
+
+### Download timeout
+
+On machines with slow connections, you might encounter timeout issues like this one:
+```bash
+`requests.exceptions.ReadTimeout: (ReadTimeoutError("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+```
+
+To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
+```bash
+export HF_HUB_DOWNLOAD_TIMEOUT=30
+```
+
+For more details, check out the [environment variables reference](../package_reference/environment_variables#hfhubdownloadtimeout).And rerun your download command.
 
 ## huggingface-cli upload
 
@@ -296,7 +343,7 @@ https://huggingface.co/Wauplin/my-cool-model/blob/main/vae/model.safetensors
 
 ### Upload multiple files
 
-To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`: 
+To upload multiple files from a folder at once without uploading the entire folder, use the `--include` and `--exclude` patterns. It can also be combined with the `--delete` option to delete files on the repo while uploading new ones. In the example below, we sync the local Space by deleting remote files and uploading all files except the ones in `/logs`:
 
 ```bash
 # Sync local Space with Hub (upload new files except from logs/, delete removed files)
@@ -382,6 +429,40 @@ By default, the `huggingface-cli upload` command will be verbose. It will print 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
+## huggingface-cli repo-files
+
+If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
+
+### Delete files
+
+The `huggingface-cli repo-files <repo_id> delete` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder :
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Delete multiple files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete file.txt folder/pytorch_model.bin
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Use Unix-style wildcards to delete sets of files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+### Specify a token
+
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+
+```bash
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt 
+```
+
 ## huggingface-cli scan-cache
 
 Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `huggingface-cli scan-cache`:
@@ -406,6 +487,68 @@ For more details about how to scan your cache directory, please refer to the [Ma
 ## huggingface-cli delete-cache
 
 `huggingface-cli delete-cache` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+
+## huggingface-cli tag
+
+The `huggingface-cli tag` command allows you to tag, untag, and list tags for repositories.
+
+### Tag a model
+
+To tag a repo, you need to provide the `repo_id` and the `tag` name:
+
+```bash
+>>> huggingface-cli tag Wauplin/my-cool-model v1.0
+You are about to create tag v1.0 on model Wauplin/my-cool-model
+Tag v1.0 created on Wauplin/my-cool-model
+```
+
+### Tag a model at a specific revision
+
+If you want to tag a specific revision, you can use the `--revision` option. By default, the tag will be created on the `main` branch:
+
+```bash
+>>> huggingface-cli tag Wauplin/my-cool-model v1.0 --revision refs/pr/104
+You are about to create tag v1.0 on model Wauplin/my-cool-model
+Tag v1.0 created on Wauplin/my-cool-model
+```
+
+### Tag a dataset or a Space
+
+If you want to tag a dataset or Space, you must specify the `--repo-type` option:
+
+```bash
+>>> huggingface-cli tag bigcode/the-stack v1.0 --repo-type dataset
+You are about to create tag v1.0 on dataset bigcode/the-stack
+Tag v1.0 created on bigcode/the-stack
+```
+
+### List tags
+
+To list all tags for a repository, use the `-l` or `--list` option:
+
+```bash
+>>> huggingface-cli tag Wauplin/gradio-space-ci -l --repo-type space
+Tags for space Wauplin/gradio-space-ci:
+0.2.2
+0.2.1
+0.2.0
+0.1.2
+0.0.2
+0.0.1
+```
+
+### Delete a tag
+
+To delete a tag, use the `-d` or `--delete` option:
+
+```bash
+>>> huggingface-cli tag -d Wauplin/my-cool-model v1.0
+You are about to delete tag v1.0 on model Wauplin/my-cool-model
+Proceed? [Y/n] y
+Tag v1.0 deleted on Wauplin/my-cool-model
+```
+
+You can also pass `-y` to skip the confirmation step.
 
 ## huggingface-cli env
 

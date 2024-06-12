@@ -37,6 +37,12 @@ DEFAULT_REQUEST_TIMEOUT = 10
 DOWNLOAD_CHUNK_SIZE = 10 * 1024 * 1024
 HF_TRANSFER_CONCURRENCY = 100
 
+# Constants for serialization
+
+PYTORCH_WEIGHTS_FILE_PATTERN = "pytorch_model{suffix}.bin"  # Unsafe pickle: use safetensors instead
+SAFETENSORS_WEIGHTS_FILE_PATTERN = "model{suffix}.safetensors"
+TF2_WEIGHTS_FILE_PATTERN = "tf_model{suffix}.h5"
+
 # Constants for safetensors repos
 
 SAFETENSORS_SINGLE_FILE = "model.safetensors"
@@ -52,7 +58,9 @@ HUGGINGFACE_CO_URL_HOME = "https://huggingface.co/"
 
 _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
-ENDPOINT = os.getenv("HF_ENDPOINT") or ("https://hub-ci.huggingface.co" if _staging_mode else "https://huggingface.co")
+_HF_DEFAULT_ENDPOINT = "https://huggingface.co"
+_HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
+ENDPOINT = os.getenv("HF_ENDPOINT") or (_HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT)
 
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
@@ -91,6 +99,9 @@ DISCUSSION_TYPES: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionT
 DiscussionStatusFilter = Literal["all", "open", "closed"]
 DISCUSSION_STATUS: Tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
+# Webhook subscription types
+WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
+
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
 HF_HOME = os.path.expanduser(
@@ -115,19 +126,24 @@ HF_ASSETS_CACHE = os.getenv("HF_ASSETS_CACHE", HUGGINGFACE_ASSETS_CACHE)
 HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
 
 # Opt-out from telemetry requests
-HF_HUB_DISABLE_TELEMETRY = _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY") or os.environ.get("DISABLE_TELEMETRY"))
+HF_HUB_DISABLE_TELEMETRY = (
+    _is_true(os.environ.get("HF_HUB_DISABLE_TELEMETRY"))  # HF-specific env variable
+    or _is_true(os.environ.get("DISABLE_TELEMETRY"))
+    or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://consoledonottrack.com/
+)
 
 # In the past, token was stored in a hardcoded location
 # `_OLD_HF_TOKEN_PATH` is deprecated and will be removed "at some point".
 # See https://github.com/huggingface/huggingface_hub/issues/1232
 _OLD_HF_TOKEN_PATH = os.path.expanduser("~/.huggingface/token")
-HF_TOKEN_PATH = os.path.join(HF_HOME, "token")
+HF_TOKEN_PATH = os.environ.get("HF_TOKEN_PATH", os.path.join(HF_HOME, "token"))
 
 
 if _staging_mode:
     # In staging mode, we use a different cache to ensure we don't mix up production and staging data or tokens
     _staging_home = os.path.join(os.path.expanduser("~"), ".cache", "huggingface_staging")
     HUGGINGFACE_HUB_CACHE = os.path.join(_staging_home, "hub")
+    _OLD_HF_TOKEN_PATH = os.path.join(_staging_home, "_old_token")
     HF_TOKEN_PATH = os.path.join(_staging_home, "token")
 
 # Here, `True` will disable progress bars globally without possibility of enabling it
@@ -156,9 +172,8 @@ HF_HUB_DISABLE_IMPLICIT_TOKEN: bool = _is_true(os.environ.get("HF_HUB_DISABLE_IM
 HF_HUB_ENABLE_HF_TRANSFER: bool = _is_true(os.environ.get("HF_HUB_ENABLE_HF_TRANSFER"))
 
 
-# Used if download to `local_dir` and `local_dir_use_symlinks="auto"`
-# Files smaller than 5MB are copy-pasted while bigger files are symlinked. The idea is to save disk-usage by symlinking
-# huge files (i.e. LFS files most of the time) while allowing small files to be manually edited in local folder.
+# UNUSED
+# We don't use symlinks in local dir anymore.
 HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD: int = (
     _as_int(os.environ.get("HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD")) or 5 * 1024 * 1024
 )
@@ -190,7 +205,6 @@ ALL_INFERENCE_API_FRAMEWORKS = MAIN_INFERENCE_API_FRAMEWORKS + [
     "fastai",
     "fasttext",
     "flair",
-    "generic",
     "k2",
     "keras",
     "mindspore",

@@ -19,10 +19,11 @@
 # To re-generate the code, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
 # WARNING
 import asyncio
+import base64
 import logging
+import re
 import time
 import warnings
-from dataclasses import asdict
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -38,11 +39,12 @@ from typing import (
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
-    InferenceTimeoutError,
     ModelStatus,
+    _async_stream_chat_completion_response_from_bytes,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -50,27 +52,46 @@ from huggingface_hub.inference._common import (
     _bytes_to_image,
     _bytes_to_list,
     _fetch_recommended_models,
+    _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _is_tgi_server,
+    _is_chat_completion_server,
     _open_as_binary,
-    _set_as_non_tgi,
-)
-from huggingface_hub.inference._text_generation import (
-    TextGenerationParameters,
-    TextGenerationRequest,
-    TextGenerationResponse,
-    TextGenerationStreamResponse,
+    _set_as_non_chat_completion_server,
+    _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
+from huggingface_hub.inference._generated.types import (
+    AudioClassificationOutputElement,
+    AudioToAudioOutputElement,
+    AutomaticSpeechRecognitionOutput,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolTypeClass,
+    ChatCompletionOutput,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
+    ChatCompletionStreamOutput,
+    DocumentQuestionAnsweringOutputElement,
+    FillMaskOutputElement,
+    ImageClassificationOutputElement,
+    ImageSegmentationOutputElement,
+    ImageToTextOutput,
+    ObjectDetectionOutputElement,
+    QuestionAnsweringOutputElement,
+    SummarizationOutput,
+    TableQuestionAnsweringOutputElement,
+    TextClassificationOutputElement,
+    TextGenerationInputGrammarType,
+    TextGenerationOutput,
+    TextGenerationStreamOutput,
+    TokenClassificationOutputElement,
+    TranslationOutput,
+    VisualQuestionAnsweringOutputElement,
+    ZeroShotClassificationOutputElement,
+    ZeroShotImageClassificationOutputElement,
+)
+from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
 from huggingface_hub.inference._types import (
-    ClassificationOutput,
-    ConversationalOutput,
-    FillMaskOutput,
-    ImageSegmentationOutput,
-    ObjectDetectionOutput,
-    QuestionAnsweringOutput,
-    TableQuestionAnsweringOutput,
-    TokenClassificationOutput,
+    ConversationalOutput,  # soon to be removed
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -81,9 +102,12 @@ from .._common import _async_yield_from, _import_aiohttp
 
 if TYPE_CHECKING:
     import numpy as np
-    from PIL import Image
+    from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
+
+
+MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
 
 
 class AsyncInferenceClient:
@@ -98,9 +122,9 @@ class AsyncInferenceClient:
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `bigcode/starcoder`
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
-        token (`str`, *optional*):
-            Hugging Face token. Will default to the locally saved token. Pass `token=False` if you don't want to send
-            your token to the server.
+        token (`str` or `bool`, *optional*):
+            Hugging Face token. Will default to the locally saved token if not provided.
+            Pass `token=False` if you don't want to send your token to the server.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
             API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
@@ -120,6 +144,7 @@ class AsyncInferenceClient:
         cookies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.model: Optional[str] = model
+        self.token: Union[str, bool, None] = token
         self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -138,8 +163,18 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         task: Optional[str] = None,
         stream: Literal[False] = ...,
-    ) -> bytes:
-        pass
+    ) -> bytes: ...
+
+    @overload
+    async def post(  # type: ignore[misc]
+        self,
+        *,
+        json: Optional[Union[str, Dict, List]] = None,
+        data: Optional[ContentT] = None,
+        model: Optional[str] = None,
+        task: Optional[str] = None,
+        stream: Literal[True] = ...,
+    ) -> AsyncIterable[bytes]: ...
 
     @overload
     async def post(
@@ -149,9 +184,8 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        stream: Literal[True] = ...,
-    ) -> AsyncIterable[bytes]:
-        pass
+        stream: bool = False,
+    ) -> Union[bytes, AsyncIterable[bytes]]: ...
 
     async def post(
         self,
@@ -255,13 +289,16 @@ class AsyncInferenceClient:
                             timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                         continue
                     raise error
+                except Exception:
+                    await client.close()
+                    raise
 
     async def audio_classification(
         self,
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ClassificationOutput]:
+    ) -> List[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
 
@@ -275,7 +312,7 @@ class AsyncInferenceClient:
                 audio classification will be used.
 
         Returns:
-            `List[Dict]`: The classification output containing the predicted label and its confidence.
+            `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -289,18 +326,66 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.audio_classification("audio.flac")
-        [{'score': 0.4976358711719513, 'label': 'hap'}, {'score': 0.3677836060523987, 'label': 'neu'},...]
+        [
+            AudioClassificationOutputElement(score=0.4976358711719513, label='hap'),
+            AudioClassificationOutputElement(score=0.3677836060523987, label='neu'),
+            ...
+        ]
         ```
         """
         response = await self.post(data=audio, model=model, task="audio-classification")
-        return _bytes_to_list(response)
+        return AudioClassificationOutputElement.parse_obj_as_list(response)
+
+    async def audio_to_audio(
+        self,
+        audio: ContentT,
+        *,
+        model: Optional[str] = None,
+    ) -> List[AudioToAudioOutputElement]:
+        """
+        Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
+
+        Args:
+            audio (Union[str, Path, bytes, BinaryIO]):
+                The audio content for the model. It can be raw audio bytes, a local audio file, or a URL pointing to an
+                audio file.
+            model (`str`, *optional*):
+                The model can be any model which takes an audio file and returns another audio file. Can be a model ID hosted on the Hugging Face Hub
+                or a URL to a deployed Inference Endpoint. If not provided, the default recommended model for
+                audio_to_audio will be used.
+
+        Returns:
+            `List[AudioToAudioOutputElement]`: A list of [`AudioToAudioOutputElement`] items containing audios label, content-type, and audio content in blob.
+
+        Raises:
+            `InferenceTimeoutError`:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> audio_output = await client.audio_to_audio("audio.flac")
+        >>> async for i, item in enumerate(audio_output):
+        >>>     with open(f"output_{i}.flac", "wb") as f:
+                    f.write(item.blob)
+        ```
+        """
+        response = await self.post(data=audio, model=model, task="audio-to-audio")
+        audio_output = AudioToAudioOutputElement.parse_obj_as_list(response)
+        for item in audio_output:
+            item.blob = base64.b64decode(item.blob)
+        return audio_output
 
     async def automatic_speech_recognition(
         self,
         audio: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> str:
+    ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
 
@@ -312,7 +397,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
 
         Returns:
-            str: The transcribed text.
+            [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -325,12 +410,414 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> await client.automatic_speech_recognition("hello_world.flac")
+        >>> await client.automatic_speech_recognition("hello_world.flac").text
         "hello world"
         ```
         """
         response = await self.post(data=audio, model=model, task="automatic-speech-recognition")
-        return _bytes_to_dict(response)["text"]
+        return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
+
+    @overload
+    async def chat_completion(  # type: ignore
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[False] = False,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
+        top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
+    ) -> ChatCompletionOutput: ...
+
+    @overload
+    async def chat_completion(  # type: ignore
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: Literal[True] = True,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
+        top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
+    ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
+
+    @overload
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
+        top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
+
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        stream: bool = False,
+        # Parameters from ChatCompletionInput (handled manually)
+        frequency_penalty: Optional[float] = None,
+        logit_bias: Optional[List[float]] = None,
+        logprobs: Optional[bool] = None,
+        max_tokens: Optional[int] = None,
+        n: Optional[int] = None,
+        presence_penalty: Optional[float] = None,
+        seed: Optional[int] = None,
+        stop: Optional[List[str]] = None,
+        temperature: Optional[float] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_prompt: Optional[str] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
+        top_logprobs: Optional[int] = None,
+        top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
+    ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
+        """
+        A method for completing conversations using a specified language model.
+
+        <Tip>
+
+        If the model is served by a server supporting chat-completion, the method will directly call the server's
+        `/v1/chat/completions` endpoint. If the server does not support chat-completion, the method will render the
+        chat template client-side based on the information fetched from the Hub API. In this case, you will need to
+        have `minijinja` template engine installed. Run `pip install "huggingface_hub[inference]"` or `pip install minijinja`
+        to install it.
+
+        </Tip>
+
+        Args:
+            messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
+                Conversation history consisting of roles and content pairs.
+            model (`str`, *optional*):
+                The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
+                See https://huggingface.co/tasks/text-generation for more details.
+            frequency_penalty (`float`, *optional*):
+                Penalizes new tokens based on their existing frequency
+                in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
+            logit_bias (`List[float]`, *optional*):
+                Modify the likelihood of specified tokens appearing in the completion. Accepts a JSON object that maps tokens
+                (specified by their token ID in the tokenizer) to an associated bias value from -100 to 100. Mathematically,
+                the bias is added to the logits generated by the model prior to sampling. The exact effect will vary per model,
+                but values between -1 and 1 should decrease or increase likelihood of selection; values like -100 or 100 should
+                result in a ban or exclusive selection of the relevant token. Defaults to None.
+            logprobs (`bool`, *optional*):
+                Whether to return log probabilities of the output tokens or not. If true, returns the log
+                probabilities of each output token returned in the content of message.
+            max_tokens (`int`, *optional*):
+                Maximum number of tokens allowed in the response. Defaults to 20.
+            n (`int`, *optional*):
+                UNUSED.
+            presence_penalty (`float`, *optional*):
+                Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
+                text so far, increasing the model's likelihood to talk about new topics.
+            seed (Optional[`int`], *optional*):
+                Seed for reproducible control flow. Defaults to None.
+            stop (Optional[`str`], *optional*):
+                Up to four strings which trigger the end of the response.
+                Defaults to None.
+            stream (`bool`, *optional*):
+                Enable realtime streaming of responses. Defaults to False.
+            temperature (`float`, *optional*):
+                Controls randomness of the generations. Lower values ensure
+                less random completions. Range: [0, 2]. Defaults to 1.0.
+            top_logprobs (`int`, *optional*):
+                An integer between 0 and 5 specifying the number of most likely tokens to return at each token
+                position, each with an associated log probability. logprobs must be set to true if this parameter is
+                used.
+            top_p (`float`, *optional*):
+                Fraction of the most likely next words to sample from.
+                Must be between 0 and 1. Defaults to 1.0.
+            tool_choice ([`ChatCompletionInputToolTypeClass`] or [`ChatCompletionInputToolTypeEnum`], *optional*):
+                The tool to use for the completion. Defaults to "auto".
+            tool_prompt (`str`, *optional*):
+                A prompt to be appended before the tools.
+            tools (List of [`ChatCompletionInputTool`], *optional*):
+                A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
+                provide a list of functions the model may generate JSON inputs for.
+            model_id (`str`, *optional*):
+                The model ID to use for chat-completion. Only used when `model` is a URL to a deployed Text Generation Inference server.
+                It is passed to the server as the `model` parameter. This parameter has no impact on the URL that will be used to
+                send the request.
+
+        Returns:
+            [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
+            Generated text returned from the server:
+            - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
+            - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
+
+        Raises:
+            [`InferenceTimeoutError`]:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+
+        ```py
+        # Must be run in an async context
+        # Chat example
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+        >>> client = AsyncInferenceClient("HuggingFaceH4/zephyr-7b-beta")
+        >>> await client.chat_completion(messages, max_tokens=100)
+        ChatCompletionOutput(
+            choices=[
+                ChatCompletionOutputComplete(
+                    finish_reason='eos_token',
+                    index=0,
+                    message=ChatCompletionOutputMessage(
+                        content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic). \nI hope that helps! Let me know if you need any further information.'
+                    )
+                )
+            ],
+            created=1710498360
+        )
+
+        >>> async for token in await client.chat_completion(messages, max_tokens=10, stream=True):
+        ...     print(token)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content='The', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        (...)
+        ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+
+        # Chat example with tools
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "system",
+        ...         "content": "Don't make assumptions about what values to plug into functions. Ask async for clarification if a user request is ambiguous.",
+        ...     },
+        ...     {
+        ...         "role": "user",
+        ...         "content": "What's the weather like the next 3 days in San Francisco, CA?",
+        ...     },
+        ... ]
+        >>> tools = [
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_current_weather",
+        ...             "description": "Get the current weather",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format"],
+        ...             },
+        ...         },
+        ...     },
+        ...     {
+        ...         "type": "function",
+        ...         "function": {
+        ...             "name": "get_n_day_weather_forecast",
+        ...             "description": "Get an N-day weather forecast",
+        ...             "parameters": {
+        ...                 "type": "object",
+        ...                 "properties": {
+        ...                     "location": {
+        ...                         "type": "string",
+        ...                         "description": "The city and state, e.g. San Francisco, CA",
+        ...                     },
+        ...                     "format": {
+        ...                         "type": "string",
+        ...                         "enum": ["celsius", "fahrenheit"],
+        ...                         "description": "The temperature unit to use. Infer this from the users location.",
+        ...                     },
+        ...                     "num_days": {
+        ...                         "type": "integer",
+        ...                         "description": "The number of days to forecast",
+        ...                     },
+        ...                 },
+        ...                 "required": ["location", "format", "num_days"],
+        ...             },
+        ...         },
+        ...     },
+        ... ]
+
+        >>> response = await client.chat_completion(
+        ...     model="meta-llama/Meta-Llama-3-70B-Instruct",
+        ...     messages=messages,
+        ...     tools=tools,
+        ...     tool_choice="auto",
+        ...     max_tokens=500,
+        ... )
+        >>> response.choices[0].message.tool_calls[0].function
+        ChatCompletionOutputFunctionDefinition(
+            arguments={
+                'location': 'San Francisco, CA',
+                'format': 'fahrenheit',
+                'num_days': 3
+            },
+            name='get_n_day_weather_forecast',
+            description=None
+        )
+        ```
+        """
+        # determine model
+        model = model or self.model or self.get_recommended_model("text-generation")
+
+        if _is_chat_completion_server(model):
+            # First, let's consider the server has a `/v1/chat/completions` endpoint.
+            # If that's the case, we don't have to render the chat template client-side.
+            model_url = self._resolve_url(model)
+            if not model_url.endswith("/chat/completions"):
+                model_url += "/v1/chat/completions"
+
+            # `model_id` sent in the payload. Not used by the server but can be useful for debugging/routing.
+            if model_id is None:
+                if not model.startswith("http") and model.count("/") == 1:
+                    # If it's a ID on the Hub => use it
+                    model_id = model
+                else:
+                    # Otherwise, we use a random string
+                    model_id = "tgi"
+
+            try:
+                data = await self.post(
+                    model=model_url,
+                    json=dict(
+                        model=model_id,
+                        messages=messages,
+                        frequency_penalty=frequency_penalty,
+                        logit_bias=logit_bias,
+                        logprobs=logprobs,
+                        max_tokens=max_tokens,
+                        n=n,
+                        presence_penalty=presence_penalty,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        tool_choice=tool_choice,
+                        tool_prompt=tool_prompt,
+                        tools=tools,
+                        top_logprobs=top_logprobs,
+                        top_p=top_p,
+                        stream=stream,
+                    ),
+                    stream=stream,
+                )
+            except _import_aiohttp().ClientResponseError as e:
+                if e.status in (400, 404, 500):
+                    # Let's consider the server is not a chat completion server.
+                    # Then we call again `chat_completion` which will render the chat template client side.
+                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                    _set_as_non_chat_completion_server(model)
+                    logger.warning(
+                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
+                    )
+                    return await self.chat_completion(
+                        messages=messages,
+                        model=model,
+                        stream=stream,
+                        max_tokens=max_tokens,
+                        seed=seed,
+                        stop=stop,
+                        temperature=temperature,
+                        top_p=top_p,
+                    )
+                raise
+
+            if stream:
+                return _async_stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
+
+            return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+
+        # At this point, we know the server is not a chat completion server.
+        # It means it's a transformers-backed server for which we can send a list of messages directly to the
+        # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
+        if stream:
+            raise ValueError(
+                "Streaming token is not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. Please pass `stream=False` as input."
+            )
+        if tool_choice is not None or tool_prompt is not None or tools is not None:
+            warnings.warn(
+                "Tools are not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. The provided tool parameters will be ignored."
+            )
+
+        # generate response
+        text_generation_output = await self.text_generation(
+            prompt=messages,  # type: ignore # Not correct type but works implicitly
+            model=model,
+            stream=False,
+            details=False,
+            max_new_tokens=max_tokens,
+            seed=seed,
+            stop_sequences=stop,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        # Format as a ChatCompletionOutput with dummy values for fields we can't provide
+        return ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,  # type: ignore # set to `None` as we don't want to provide false information
+            created=int(time.time()),
+            choices=[
+                ChatCompletionOutputComplete(
+                    finish_reason="unk",  # type: ignore # set to `unk` as we don't want to provide false information
+                    index=0,
+                    message=ChatCompletionOutputMessage(
+                        content=text_generation_output,
+                        role="assistant",
+                    ),
+                )
+            ],
+        )
 
     async def conversational(
         self,
@@ -343,6 +830,13 @@ class AsyncInferenceClient:
     ) -> ConversationalOutput:
         """
         Generate conversational responses based on the given input text (i.e. chat with the API).
+
+        <Tip warning={true}>
+
+        [`InferenceClient.conversational`] API is deprecated and will be removed in a future release. Please use
+        [`InferenceClient.chat_completion`] instead.
+
+        </Tip>
 
         Args:
             text (`str`):
@@ -384,6 +878,11 @@ class AsyncInferenceClient:
         ... )
         ```
         """
+        warnings.warn(
+            "'InferenceClient.conversational' is deprecated and will be removed starting from huggingface_hub>=0.25. "
+            "Please use the more appropriate 'InferenceClient.chat_completion' API instead.",
+            FutureWarning,
+        )
         payload: Dict[str, Any] = {"inputs": {"text": text}}
         if generated_responses is not None:
             payload["inputs"]["generated_responses"] = generated_responses
@@ -394,58 +893,13 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="conversational")
         return _bytes_to_dict(response)  # type: ignore
 
-    async def visual_question_answering(
-        self,
-        image: ContentT,
-        question: str,
-        *,
-        model: Optional[str] = None,
-    ) -> List[str]:
-        """
-        Answering open-ended questions based on an image.
-
-        Args:
-            image (`Union[str, Path, bytes, BinaryIO]`):
-                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
-            question (`str`):
-                Question to be answered.
-            model (`str`, *optional*):
-                The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
-                Defaults to None.
-
-        Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
-
-        Raises:
-            `InferenceTimeoutError`:
-                If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
-                If the request fails with an HTTP error status code other than HTTP 503.
-
-        Example:
-        ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> await client.visual_question_answering(
-        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
-        ...     question="What is the animal doing?"
-        ... )
-        [{'score': 0.778609573841095, 'answer': 'laying down'},{'score': 0.6957435607910156, 'answer': 'sitting'}, ...]
-        ```
-        """
-        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
-        response = await self.post(json=payload, model=model, task="visual-question-answering")
-        return _bytes_to_list(response)
-
     async def document_question_answering(
         self,
         image: ContentT,
         question: str,
         *,
         model: Optional[str] = None,
-    ) -> List[QuestionAnsweringOutput]:
+    ) -> List[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
 
@@ -460,7 +914,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label, associated probability, word ids, and page number.
+            `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -474,14 +928,21 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
-        [{'score': 0.42515629529953003, 'answer': 'us-001', 'start': 16, 'end': 16}]
+        [DocumentQuestionAnsweringOutputElement(score=0.42515629529953003, answer='us-001', start=16, end=16)]
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         response = await self.post(json=payload, model=model, task="document-question-answering")
-        return _bytes_to_list(response)
+        return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
-    async def feature_extraction(self, text: str, *, model: Optional[str] = None) -> "np.ndarray":
+    async def feature_extraction(
+        self,
+        text: str,
+        *,
+        normalize: Optional[bool] = None,
+        truncate: Optional[bool] = None,
+        model: Optional[str] = None,
+    ) -> "np.ndarray":
         """
         Generate embeddings for a given text.
 
@@ -492,6 +953,12 @@ class AsyncInferenceClient:
                 The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
+            normalize (`bool`, *optional*):
+                Whether to normalize the embeddings or not. Defaults to None.
+                Only available on server powered by Text-Embedding-Inference.
+            truncate (`bool`, *optional*):
+                Whether to truncate the embeddings or not. Defaults to None.
+                Only available on server powered by Text-Embedding-Inference.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -514,11 +981,16 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="feature-extraction")
+        payload: Dict = {"inputs": text}
+        if normalize is not None:
+            payload["normalize"] = normalize
+        if truncate is not None:
+            payload["truncate"] = truncate
+        response = await self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
-    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutput]:
+    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -531,7 +1003,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of fill mask output dictionaries containing the predicted label, associated
+            `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
 
         Raises:
@@ -546,25 +1018,21 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.fill_mask("The goal of life is <mask>.")
-        [{'score': 0.06897063553333282,
-        'token': 11098,
-        'token_str': ' happiness',
-        'sequence': 'The goal of life is happiness.'},
-        {'score': 0.06554922461509705,
-        'token': 45075,
-        'token_str': ' immortality',
-        'sequence': 'The goal of life is immortality.'}]
+        [
+            FillMaskOutputElement(score=0.06897063553333282, token=11098, token_str=' happiness', sequence='The goal of life is happiness.'),
+            FillMaskOutputElement(score=0.06554922461509705, token=45075, token_str=' immortality', sequence='The goal of life is immortality.')
+        ]
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
-        return _bytes_to_list(response)
+        return FillMaskOutputElement.parse_obj_as_list(response)
 
     async def image_classification(
         self,
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ClassificationOutput]:
+    ) -> List[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
 
@@ -576,7 +1044,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+            `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -590,18 +1058,18 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
-        [{'score': 0.9779096841812134, 'label': 'Blenheim spaniel'}, ...]
+        [ImageClassificationOutputElement(score=0.9779096841812134, label='Blenheim spaniel'), ...]
         ```
         """
         response = await self.post(data=image, model=model, task="image-classification")
-        return _bytes_to_list(response)
+        return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     async def image_segmentation(
         self,
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ImageSegmentationOutput]:
+    ) -> List[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
 
@@ -619,7 +1087,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
 
         Returns:
-            `List[Dict]`: A list of dictionaries containing the segmented masks and associated attributes.
+            `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -633,19 +1101,13 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.image_segmentation("cat.jpg"):
-        [{'score': 0.989008, 'label': 'LABEL_184', 'mask': <PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>}, ...]
+        [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-
-        # Segment
         response = await self.post(data=image, model=model, task="image-segmentation")
-        output = _bytes_to_dict(response)
-
-        # Parse masks as PIL Image
-        if not isinstance(output, list):
-            raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
+        output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item["mask"] = _b64_to_image(item["mask"])
+            item.mask = _b64_to_image(item.mask)
         return output
 
     async def image_to_image(
@@ -733,7 +1195,7 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, data=data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
-    async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> str:
+    async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
         """
         Takes an input image and return text.
 
@@ -748,7 +1210,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `str`: The generated text.
+            [`ImageToTextOutput`]: The generated text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -768,13 +1230,14 @@ class AsyncInferenceClient:
         ```
         """
         response = await self.post(data=image, model=model, task="image-to-text")
-        return _bytes_to_dict(response)[0]["generated_text"]
+        output = ImageToTextOutput.parse_obj(response)
+        return output[0] if isinstance(output, list) else output
 
     async def list_deployed_models(
         self, frameworks: Union[None, str, Literal["all"], List[str]] = None
     ) -> Dict[str, List[str]]:
         """
-        List models currently deployed on the Inference API service.
+        List models deployed on the Serverless Inference API service.
 
         This helper checks deployed models framework by framework. By default, it will check the 4 main frameworks that
         are supported and account for 95% of the hosted models. However, if you want a complete list of models you can
@@ -782,9 +1245,17 @@ class AsyncInferenceClient:
         in, you can also restrict to search to this one (e.g. `frameworks="text-generation-inference"`). The more
         frameworks are checked, the more time it will take.
 
+        <Tip warning={true}>
+
+        This endpoint method does not return a live list of all models available for the Serverless Inference API service.
+        It searches over a cached list of models that were recently available and the list may not be up to date.
+        If you want to know the live status of a specific model, use [`~InferenceClient.get_model_status`].
+
+        </Tip>
+
         <Tip>
 
-        This endpoint is mostly useful for discoverability. If you already know which model you want to use and want to
+        This endpoint method is mostly useful for discoverability. If you already know which model you want to use and want to
         check its availability, you can directly use [`~InferenceClient.get_model_status`].
 
         </Tip>
@@ -856,7 +1327,7 @@ class AsyncInferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-    ) -> List[ObjectDetectionOutput]:
+    ) -> List[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
 
@@ -874,7 +1345,7 @@ class AsyncInferenceClient:
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
 
         Returns:
-            `List[ObjectDetectionOutput]`: A list of dictionaries containing the bounding boxes and associated attributes.
+            `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -890,19 +1361,16 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.object_detection("people.jpg"):
-        [{"score":0.9486683011054993,"label":"person","box":{"xmin":59,"ymin":39,"xmax":420,"ymax":510}}, ... ]
+        [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         # detect objects
         response = await self.post(data=image, model=model, task="object-detection")
-        output = _bytes_to_dict(response)
-        if not isinstance(output, list):
-            raise ValueError(f"Server output must be a list. Got {type(output)}: {str(output)[:200]}...")
-        return output
+        return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     async def question_answering(
         self, question: str, context: str, *, model: Optional[str] = None
-    ) -> QuestionAnsweringOutput:
+    ) -> QuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from a given text.
 
@@ -916,7 +1384,7 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint.
 
         Returns:
-            `Dict`: a dictionary of question answering output containing the score, start index, end index, and answer.
+            [`QuestionAnsweringOutputElement`]: an question answering output containing the score, start index, end index, and answer.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -930,7 +1398,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
-        {'score': 0.9326562285423279, 'start': 11, 'end': 16, 'answer': 'Clara'}
+        QuestionAnsweringOutputElement(score=0.9326562285423279, start=11, end=16, answer='Clara')
         ```
         """
 
@@ -940,7 +1408,7 @@ class AsyncInferenceClient:
             model=model,
             task="question-answering",
         )
-        return _bytes_to_dict(response)  # type: ignore
+        return QuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -996,7 +1464,7 @@ class AsyncInferenceClient:
         *,
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
-    ) -> str:
+    ) -> SummarizationOutput:
         """
         Generate a summary of a given text using a specified model.
 
@@ -1011,7 +1479,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `str`: The generated summary text.
+            [`SummarizationOutput`]: The generated summary text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1025,18 +1493,18 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.summarization("The Eiffel tower...")
-        'The Eiffel tower is one of the most famous landmarks in the world....'
+        SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
         response = await self.post(json=payload, model=model, task="summarization")
-        return _bytes_to_dict(response)[0]["summary_text"]
+        return SummarizationOutput.parse_obj_as_list(response)[0]
 
     async def table_question_answering(
         self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
-    ) -> TableQuestionAnsweringOutput:
+    ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
 
@@ -1051,7 +1519,7 @@ class AsyncInferenceClient:
                 Hub or a URL to a deployed Inference Endpoint.
 
         Returns:
-            `Dict`: a dictionary of table question answering output containing the answer, coordinates, cells and the aggregator used.
+            [`TableQuestionAnsweringOutputElement`]: a table question answering output containing the answer, coordinates, cells and the aggregator used.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1067,7 +1535,7 @@ class AsyncInferenceClient:
         >>> query = "How many stars does the transformers repository have?"
         >>> table = {"Repository": ["Transformers", "Datasets", "Tokenizers"], "Stars": ["36542", "4512", "3934"]}
         >>> await client.table_question_answering(table, query, model="google/tapas-base-finetuned-wtq")
-        {'answer': 'AVERAGE > 36542', 'coordinates': [[0, 1]], 'cells': ['36542'], 'aggregator': 'AVERAGE'}
+        TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
         response = await self.post(
@@ -1078,18 +1546,19 @@ class AsyncInferenceClient:
             model=model,
             task="table-question-answering",
         )
-        return _bytes_to_dict(response)  # type: ignore
+        return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
-    async def tabular_classification(self, table: Dict[str, Any], *, model: str) -> List[str]:
+    async def tabular_classification(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
         Args:
             table (`Dict[str, Any]`):
                 Set of attributes to classify.
-            model (`str`):
-                The model to use for the tabular-classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint.
+            model (`str`, *optional*):
+                The model to use for the tabular classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended tabular classification model will be used.
+                Defaults to None.
 
         Returns:
             `List`: a list of labels, one per row in the initial table.
@@ -1125,16 +1594,17 @@ class AsyncInferenceClient:
         response = await self.post(json={"table": table}, model=model, task="tabular-classification")
         return _bytes_to_list(response)
 
-    async def tabular_regression(self, table: Dict[str, Any], *, model: str) -> List[float]:
+    async def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
         Args:
             table (`Dict[str, Any]`):
                 Set of attributes stored in a table. The attributes used to predict the target can be both numerical and categorical.
-            model (`str`):
-                The model to use for the tabular-regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint.
+            model (`str`, *optional*):
+                The model to use for the tabular regression task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended tabular regression model will be used.
+                Defaults to None.
 
         Returns:
             `List`: a list of predicted numerical target values.
@@ -1165,7 +1635,9 @@ class AsyncInferenceClient:
         response = await self.post(json={"table": table}, model=model, task="tabular-regression")
         return _bytes_to_list(response)
 
-    async def text_classification(self, text: str, *, model: Optional[str] = None) -> List[ClassificationOutput]:
+    async def text_classification(
+        self, text: str, *, model: Optional[str] = None
+    ) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
 
@@ -1178,7 +1650,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: a list of dictionaries containing the predicted label and associated probability.
+            `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1192,11 +1664,14 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.text_classification("I like you")
-        [{'label': 'POSITIVE', 'score': 0.9998695850372314}, {'label': 'NEGATIVE', 'score': 0.0001304351753788069}]
+        [
+            TextClassificationOutputElement(label='POSITIVE', score=0.9998695850372314),
+            TextClassificationOutputElement(label='NEGATIVE', score=0.0001304351753788069),
+        ]
         ```
         """
         response = await self.post(json={"inputs": text}, model=model, task="text-classification")
-        return _bytes_to_list(response)[0]
+        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
     async def text_generation(  # type: ignore
@@ -1206,21 +1681,25 @@ class AsyncInferenceClient:
         details: Literal[False] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-    ) -> str:
-        ...
+        watermark: Optional[bool] = None,
+    ) -> str: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1230,21 +1709,25 @@ class AsyncInferenceClient:
         details: Literal[True] = ...,
         stream: Literal[False] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-    ) -> TextGenerationResponse:
-        ...
+        watermark: Optional[bool] = None,
+    ) -> TextGenerationOutput: ...
 
     @overload
     async def text_generation(  # type: ignore
@@ -1254,21 +1737,53 @@ class AsyncInferenceClient:
         details: Literal[False] = ...,
         stream: Literal[True] = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-    ) -> AsyncIterable[str]:
-        ...
+        watermark: Optional[bool] = None,
+    ) -> AsyncIterable[str]: ...
+
+    @overload
+    async def text_generation(  # type: ignore
+        self,
+        prompt: str,
+        *,
+        details: Literal[True] = ...,
+        stream: Literal[True] = ...,
+        model: Optional[str] = None,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
+        repetition_penalty: Optional[float] = None,
+        return_full_text: Optional[bool] = False,  # Manual default value
+        seed: Optional[int] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        truncate: Optional[int] = None,
+        typical_p: Optional[float] = None,
+        watermark: Optional[bool] = None,
+    ) -> AsyncIterable[TextGenerationStreamOutput]: ...
 
     @overload
     async def text_generation(
@@ -1276,23 +1791,27 @@ class AsyncInferenceClient:
         prompt: str,
         *,
         details: Literal[True] = ...,
-        stream: Literal[True] = ...,
+        stream: bool = ...,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-    ) -> AsyncIterable[TextGenerationStreamResponse]:
-        ...
+        watermark: Optional[bool] = None,
+    ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
 
     async def text_generation(
         self,
@@ -1301,26 +1820,27 @@ class AsyncInferenceClient:
         details: bool = False,
         stream: bool = False,
         model: Optional[str] = None,
-        do_sample: bool = False,
-        max_new_tokens: int = 20,
+        # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
         best_of: Optional[int] = None,
+        decoder_input_details: Optional[bool] = None,
+        do_sample: Optional[bool] = False,  # Manual default value
+        frequency_penalty: Optional[float] = None,
+        grammar: Optional[TextGenerationInputGrammarType] = None,
+        max_new_tokens: Optional[int] = None,
         repetition_penalty: Optional[float] = None,
-        return_full_text: bool = False,
+        return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
+        top_n_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
         truncate: Optional[int] = None,
         typical_p: Optional[float] = None,
-        watermark: bool = False,
-        decoder_input_details: bool = False,
-    ) -> Union[str, TextGenerationResponse, AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+        watermark: Optional[bool] = None,
+    ) -> Union[str, TextGenerationOutput, AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
         """
         Given a prompt, generate the following text.
-
-        It is recommended to have Pydantic installed in order to get inputs validated. This is preferable as it allow
-        early failures.
 
         API endpoint is supposed to run with the `text-generation-inference` backend (TGI). This backend is the
         go-to solution to run large language models at scale. However, for some smaller models (e.g. "gpt2") the
@@ -1330,6 +1850,13 @@ class AsyncInferenceClient:
         continues correctly.
 
         To learn more about the TGI project, please refer to https://github.com/huggingface/text-generation-inference.
+
+        <Tip>
+
+        If you want to generate a response from chat messages, you should use the [`InferenceClient.chat_completion`] method.
+        It accepts a list of messages instead of a single text prompt and handles the chat templating for you.
+
+        </Tip>
 
         Args:
             prompt (`str`):
@@ -1345,46 +1872,54 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
-            do_sample (`bool`):
-                Activate logits sampling
-            max_new_tokens (`int`):
-                Maximum number of generated tokens
-            best_of (`int`):
-                Generate best_of sequences and return the one if the highest token logprobs
-            repetition_penalty (`float`):
-                The parameter for repetition penalty. 1.0 means no penalty. See [this
-                paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
-            return_full_text (`bool`):
-                Whether to prepend the prompt to the generated text
-            seed (`int`):
-                Random sampling seed
-            stop_sequences (`List[str]`):
-                Stop generating tokens if a member of `stop_sequences` is generated
-            temperature (`float`):
-                The value used to module the logits distribution.
-            top_k (`int`):
-                The number of highest probability vocabulary tokens to keep for top-k-filtering.
-            top_p (`float`):
-                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
-                higher are kept for generation.
-            truncate (`int`):
-                Truncate inputs tokens to the given size
-            typical_p (`float`):
-                Typical Decoding mass
-                See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
-            watermark (`bool`):
-                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
-            decoder_input_details (`bool`):
+            best_of (`int`, *optional*):
+                Generate best_of sequences and return the one if the highest token logprobs.
+            decoder_input_details (`bool`, *optional*):
                 Return the decoder input token logprobs and ids. You must set `details=True` as well for it to be taken
                 into account. Defaults to `False`.
+            do_sample (`bool`, *optional*):
+                Activate logits sampling
+            frequency_penalty (`float`, *optional*):
+                Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in
+                the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+            grammar ([`TextGenerationInputGrammarType`], *optional*):
+                Grammar constraints. Can be either a JSONSchema or a regex.
+            max_new_tokens (`int`, *optional*):
+                Maximum number of generated tokens
+            repetition_penalty (`float`, *optional*):
+                The parameter for repetition penalty. 1.0 means no penalty. See [this
+                paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
+            return_full_text (`bool`, *optional*):
+                Whether to prepend the prompt to the generated text
+            seed (`int`, *optional*):
+                Random sampling seed
+            stop_sequences (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop_sequences` is generated
+            temperature (`float`, *optional*):
+                The value used to module the logits distribution.
+            top_n_tokens (`int`, *optional*):
+                Return information about the `top_n_tokens` most likely tokens at each generation step, instead of
+                just the sampled token.
+            top_k (`int`, *optional`):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`, *optional`):
+                If set to < 1, only the smallest set of most probable tokens with probabilities that add up to `top_p` or
+                higher are kept for generation.
+            truncate (`int`, *optional`):
+                Truncate inputs tokens to the given size.
+            typical_p (`float`, *optional`):
+                Typical Decoding mass
+                See [Typical Decoding for Natural Language Generation](https://arxiv.org/abs/2202.00666) for more information
+            watermark (`bool`, *optional`):
+                Watermarking with [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226)
 
         Returns:
-            `Union[str, TextGenerationResponse, Iterable[str], Iterable[TextGenerationStreamResponse]]`:
+            `Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]`:
             Generated text returned from the server:
             - if `stream=False` and `details=False`, the generated text is returned as a `str` (default)
             - if `stream=True` and `details=False`, the generated text is returned token by token as a `Iterable[str]`
-            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.inference._text_generation.TextGenerationResponse`]
-            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.inference._text_generation.TextGenerationStreamResponse`]
+            - if `stream=False` and `details=True`, the generated text is returned with more details as a [`~huggingface_hub.TextGenerationOutput`]
+            - if `details=True` and `stream=True`, the generated text is returned token by token as a iterable of [`~huggingface_hub.TextGenerationStreamOutput`]
 
         Raises:
             `ValidationError`:
@@ -1422,23 +1957,23 @@ class AsyncInferenceClient:
 
         # Case 3: get more details about the generation process.
         >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True)
-        TextGenerationResponse(
+        TextGenerationOutput(
             generated_text='100% open source and built to be easy to use.',
-            details=Details(
-                finish_reason=<FinishReason.Length: 'length'>,
+            details=TextGenerationDetails(
+                finish_reason='length',
                 generated_tokens=12,
                 seed=None,
                 prefill=[
-                    InputToken(id=487, text='The', logprob=None),
-                    InputToken(id=53789, text=' hugging', logprob=-13.171875),
+                    TextGenerationPrefillOutputToken(id=487, text='The', logprob=None),
+                    TextGenerationPrefillOutputToken(id=53789, text=' hugging', logprob=-13.171875),
                     (...)
-                    InputToken(id=204, text=' ', logprob=-7.0390625)
+                    TextGenerationPrefillOutputToken(id=204, text=' ', logprob=-7.0390625)
                 ],
                 tokens=[
-                    Token(id=1425, text='100', logprob=-1.0175781, special=False),
-                    Token(id=16, text='%', logprob=-0.0463562, special=False),
+                    TokenElement(id=1425, text='100', logprob=-1.0175781, special=False),
+                    TokenElement(id=16, text='%', logprob=-0.0463562, special=False),
                     (...)
-                    Token(id=25, text='.', logprob=-0.5703125, special=False)
+                    TokenElement(id=25, text='.', logprob=-0.5703125, special=False)
                 ],
                 best_of_sequences=None
             )
@@ -1449,30 +1984,54 @@ class AsyncInferenceClient:
         >>> async for details in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, details=True, stream=True):
         ...     print(details)
         ...
-        TextGenerationStreamResponse(token=Token(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
-        TextGenerationStreamResponse(token=Token(
+        TextGenerationStreamOutput(token=TokenElement(id=1425, text='100', logprob=-1.0175781, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=16, text='%', logprob=-0.0463562, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1314, text=' open', logprob=-1.3359375, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3178, text=' source', logprob=-0.28100586, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=273, text=' and', logprob=-0.5961914, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=3426, text=' built', logprob=-1.9423828, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-1.4121094, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=314, text=' be', logprob=-1.5224609, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=1833, text=' easy', logprob=-2.1132812, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=271, text=' to', logprob=-0.08520508, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(id=745, text=' use', logprob=-0.39453125, special=False), generated_text=None, details=None)
+        TextGenerationStreamOutput(token=TokenElement(
             id=25,
             text='.',
             logprob=-0.5703125,
             special=False),
             generated_text='100% open source and built to be easy to use.',
-            details=StreamDetails(finish_reason=<FinishReason.Length: 'length'>, generated_tokens=12, seed=None)
+            details=TextGenerationStreamOutputStreamDetails(finish_reason='length', generated_tokens=12, seed=None)
         )
+
+        # Case 5: generate constrained output using grammar
+        >>> response = await client.text_generation(
+        ...     prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+        ...     model="HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1",
+        ...     max_new_tokens=100,
+        ...     repetition_penalty=1.3,
+        ...     grammar={
+        ...         "type": "json",
+        ...         "value": {
+        ...             "properties": {
+        ...                 "location": {"type": "string"},
+        ...                 "activity": {"type": "string"},
+        ...                 "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+        ...                 "animals": {"type": "array", "items": {"type": "string"}},
+        ...             },
+        ...             "required": ["location", "activity", "animals_seen", "animals"],
+        ...         },
+        ...     },
+        ... )
+        >>> json.loads(response)
+        {
+            "activity": "bike riding",
+            "animals": ["puppy", "cat", "raccoon"],
+            "animals_seen": 3,
+            "location": "park"
+        }
         ```
         """
-        # NOTE: Text-generation integration is taken from the text-generation-inference project. It has more features
-        # like input/output validation (if Pydantic is installed). See `_text_generation.py` header for more details.
-
         if decoder_input_details and not details:
             warnings.warn(
                 "`decoder_input_details=True` has been passed to the server but `details=False` is set meaning that"
@@ -1480,38 +2039,50 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
-        # Validate parameters
-        parameters = TextGenerationParameters(
-            best_of=best_of,
-            details=details,
-            do_sample=do_sample,
-            max_new_tokens=max_new_tokens,
-            repetition_penalty=repetition_penalty,
-            return_full_text=return_full_text,
-            seed=seed,
-            stop=stop_sequences if stop_sequences is not None else [],
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            truncate=truncate,
-            typical_p=typical_p,
-            watermark=watermark,
-            decoder_input_details=decoder_input_details,
-        )
-        request = TextGenerationRequest(inputs=prompt, stream=stream, parameters=parameters)
-        payload = asdict(request)
+        # Build payload
+        parameters = {
+            "best_of": best_of,
+            "decoder_input_details": decoder_input_details,
+            "details": details,
+            "do_sample": do_sample,
+            "frequency_penalty": frequency_penalty,
+            "grammar": grammar,
+            "max_new_tokens": max_new_tokens,
+            "repetition_penalty": repetition_penalty,
+            "return_full_text": return_full_text,
+            "seed": seed,
+            "stop": stop_sequences if stop_sequences is not None else [],
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_n_tokens": top_n_tokens,
+            "top_p": top_p,
+            "truncate": truncate,
+            "typical_p": typical_p,
+            "watermark": watermark,
+        }
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        payload = {
+            "inputs": prompt,
+            "parameters": parameters,
+            "stream": stream,
+        }
 
         # Remove some parameters if not a TGI server
-        if not _is_tgi_server(model):
+        unsupported_kwargs = _get_unsupported_text_generation_kwargs(model)
+        if len(unsupported_kwargs) > 0:
+            # The server does not support some parameters
+            # => means it is not a TGI server
+            # => remove unsupported parameters and warn the user
+
             ignored_parameters = []
-            for key in "watermark", "stop", "details", "decoder_input_details":
-                if payload["parameters"][key] is not None:
+            for key in unsupported_kwargs:
+                if parameters.get(key):
                     ignored_parameters.append(key)
-                del payload["parameters"][key]
+                parameters.pop(key, None)
             if len(ignored_parameters) > 0:
                 warnings.warn(
-                    "API endpoint/model for text-generation is not served via TGI. Ignoring parameters"
-                    f" {ignored_parameters}.",
+                    "API endpoint/model for text-generation is not served via TGI. Ignoring following parameters:"
+                    f" {', '.join(ignored_parameters)}.",
                     UserWarning,
                 )
             if details:
@@ -1531,28 +2102,32 @@ class AsyncInferenceClient:
         try:
             bytes_output = await self.post(json=payload, model=model, task="text-generation", stream=stream)  # type: ignore
         except _import_aiohttp().ClientResponseError as e:
-            error_message = getattr(e, "response_error_payload", {}).get("error", "")
-            if e.code == 400 and "The following `model_kwargs` are not used by the model" in error_message:
-                _set_as_non_tgi(model)
+            match = MODEL_KWARGS_NOT_USED_REGEX.search(e.response_error_payload["error"])
+            if e.status == 400 and match:
+                unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
+                _set_unsupported_text_generation_kwargs(model, unused_params)
                 return await self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
                     stream=stream,
                     model=model,
-                    do_sample=do_sample,
-                    max_new_tokens=max_new_tokens,
                     best_of=best_of,
+                    decoder_input_details=decoder_input_details,
+                    do_sample=do_sample,
+                    frequency_penalty=frequency_penalty,
+                    grammar=grammar,
+                    max_new_tokens=max_new_tokens,
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
                     stop_sequences=stop_sequences,
                     temperature=temperature,
                     top_k=top_k,
+                    top_n_tokens=top_n_tokens,
                     top_p=top_p,
                     truncate=truncate,
                     typical_p=typical_p,
                     watermark=watermark,
-                    decoder_input_details=decoder_input_details,
                 )
             raise_text_generation_error(e)
 
@@ -1560,8 +2135,8 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]
-        return TextGenerationResponse(**data) if details else data["generated_text"]
+        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
+        return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(
         self,
@@ -1677,7 +2252,9 @@ class AsyncInferenceClient:
         """
         return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
 
-    async def token_classification(self, text: str, *, model: Optional[str] = None) -> List[TokenClassificationOutput]:
+    async def token_classification(
+        self, text: str, *, model: Optional[str] = None
+    ) -> List[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
@@ -1691,7 +2268,7 @@ class AsyncInferenceClient:
                 Defaults to None.
 
         Returns:
-            `List[Dict]`: List of token classification outputs containing the entity group, confidence score, word, start and end index.
+            `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1705,16 +2282,22 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        [{'entity_group': 'PER',
-        'score': 0.9971321225166321,
-        'word': 'Sarah Jessica Parker',
-        'start': 11,
-        'end': 31},
-        {'entity_group': 'PER',
-        'score': 0.9773476123809814,
-        'word': 'Jessica',
-        'start': 52,
-        'end': 59}]
+        [
+            TokenClassificationOutputElement(
+                entity_group='PER',
+                score=0.9971321225166321,
+                word='Sarah Jessica Parker',
+                start=11,
+                end=31,
+            ),
+            TokenClassificationOutputElement(
+                entity_group='PER',
+                score=0.9773476123809814,
+                word='Jessica',
+                start=52,
+                end=59,
+            )
+        ]
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
@@ -1723,11 +2306,11 @@ class AsyncInferenceClient:
             model=model,
             task="token-classification",
         )
-        return _bytes_to_list(response)
+        return TokenClassificationOutputElement.parse_obj_as_list(response)
 
     async def translation(
         self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
-    ) -> str:
+    ) -> TranslationOutput:
         """
         Convert text from one language to another.
 
@@ -1750,7 +2333,7 @@ class AsyncInferenceClient:
                 Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.
 
         Returns:
-            `str`: The generated translated text.
+            [`TranslationOutput`]: The generated translated text.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1768,7 +2351,7 @@ class AsyncInferenceClient:
         >>> await client.translation("My name is Wolfgang and I live in Berlin")
         'Mein Name ist Wolfgang und ich lebe in Berlin.'
         >>> await client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
-        "Je m'appelle Wolfgang et je vis à Berlin."
+        TranslationOutput(translation_text='Je m\'appelle Wolfgang et je vis à Berlin.')
         ```
 
         Specifying languages:
@@ -1789,11 +2372,59 @@ class AsyncInferenceClient:
         if src_lang and tgt_lang:
             payload["parameters"] = {"src_lang": src_lang, "tgt_lang": tgt_lang}
         response = await self.post(json=payload, model=model, task="translation")
-        return _bytes_to_dict(response)[0]["translation_text"]
+        return TranslationOutput.parse_obj_as_list(response)[0]
+
+    async def visual_question_answering(
+        self,
+        image: ContentT,
+        question: str,
+        *,
+        model: Optional[str] = None,
+    ) -> List[VisualQuestionAnsweringOutputElement]:
+        """
+        Answering open-ended questions based on an image.
+
+        Args:
+            image (`Union[str, Path, bytes, BinaryIO]`):
+                The input image for the context. It can be raw bytes, an image file, or a URL to an online image.
+            question (`str`):
+                Question to be answered.
+            model (`str`, *optional*):
+                The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
+                a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
+                Defaults to None.
+
+        Returns:
+            `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
+
+        Raises:
+            `InferenceTimeoutError`:
+                If the model is unavailable or the request times out.
+            `aiohttp.ClientResponseError`:
+                If the request fails with an HTTP error status code other than HTTP 503.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.visual_question_answering(
+        ...     image="https://huggingface.co/datasets/mishig/sample_images/resolve/main/tiger.jpg",
+        ...     question="What is the animal doing?"
+        ... )
+        [
+            VisualQuestionAnsweringOutputElement(score=0.778609573841095, answer='laying down'),
+            VisualQuestionAnsweringOutputElement(score=0.6957435607910156, answer='sitting'),
+        ]
+        ```
+        """
+        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        response = await self.post(json=payload, model=model, task="visual-question-answering")
+        return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     async def zero_shot_classification(
         self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
 
@@ -1809,7 +2440,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1830,19 +2461,19 @@ class AsyncInferenceClient:
         >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
         >>> await client.zero_shot_classification(text, labels)
         [
-            {"label": "scientific discovery", "score": 0.7961668968200684},
-            {"label": "space & cosmos", "score": 0.18570658564567566},
-            {"label": "microbiology", "score": 0.00730885099619627},
-            {"label": "archeology", "score": 0.006258360575884581},
-            {"label": "robots", "score": 0.004559356719255447},
+            ZeroShotClassificationOutputElement(label='scientific discovery', score=0.7961668968200684),
+            ZeroShotClassificationOutputElement(label='space & cosmos', score=0.18570658564567566),
+            ZeroShotClassificationOutputElement(label='microbiology', score=0.00730885099619627),
+            ZeroShotClassificationOutputElement(label='archeology', score=0.006258360575884581),
+            ZeroShotClassificationOutputElement(label='robots', score=0.004559356719255447),
         ]
         >>> await client.zero_shot_classification(text, labels, multi_label=True)
         [
-            {"label": "scientific discovery", "score": 0.9829297661781311},
-            {"label": "space & cosmos", "score": 0.755190908908844},
-            {"label": "microbiology", "score": 0.0005462635890580714},
-            {"label": "archeology", "score": 0.00047131875180639327},
-            {"label": "robots", "score": 0.00030448526376858354},
+            ZeroShotClassificationOutputElement(label='scientific discovery', score=0.9829297661781311),
+            ZeroShotClassificationOutputElement(label='space & cosmos', score=0.755190908908844),
+            ZeroShotClassificationOutputElement(label='microbiology', score=0.0005462635890580714),
+            ZeroShotClassificationOutputElement(label='archeology', score=0.00047131875180639327),
+            ZeroShotClassificationOutputElement(label='robots', score=0.00030448526376858354),
         ]
         ```
         """
@@ -1862,11 +2493,14 @@ class AsyncInferenceClient:
             task="zero-shot-classification",
         )
         output = _bytes_to_dict(response)
-        return [{"label": label, "score": score} for label, score in zip(output["labels"], output["scores"])]
+        return [
+            ZeroShotClassificationOutputElement.parse_obj_as_instance({"label": label, "score": score})
+            for label, score in zip(output["labels"], output["scores"])
+        ]
 
     async def zero_shot_image_classification(
         self, image: ContentT, labels: List[str], *, model: Optional[str] = None
-    ) -> List[ClassificationOutput]:
+    ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
 
@@ -1880,7 +2514,7 @@ class AsyncInferenceClient:
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
 
         Returns:
-            `List[Dict]`: List of classification outputs containing the predicted labels and their confidence.
+            `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1898,7 +2532,7 @@ class AsyncInferenceClient:
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
         ...     labels=["dog", "cat", "horse"],
         ... )
-        [{"label": "dog", "score": 0.956}, ...]
+        [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
         # Raise ValueError if input is less than 2 labels
@@ -1910,7 +2544,7 @@ class AsyncInferenceClient:
             model=model,
             task="zero-shot-image-classification",
         )
-        return _bytes_to_list(response)
+        return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model
@@ -1965,6 +2599,99 @@ class AsyncInferenceClient:
                 " explicitly. Visit https://huggingface.co/tasks for more info."
             )
         return model
+
+    async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get information about the deployed endpoint.
+
+        This endpoint is only available on endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        Endpoints powered by `transformers` return an empty payload.
+
+        Args:
+            model (`str`, *optional*):
+                The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
+                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `Dict[str, Any]`: Information about the endpoint.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> await client.get_endpoint_info()
+        {
+            'model_id': 'meta-llama/Meta-Llama-3-70B-Instruct',
+            'model_sha': None,
+            'model_dtype': 'torch.float16',
+            'model_device_type': 'cuda',
+            'model_pipeline_tag': None,
+            'max_concurrent_requests': 128,
+            'max_best_of': 2,
+            'max_stop_sequences': 4,
+            'max_input_length': 8191,
+            'max_total_tokens': 8192,
+            'waiting_served_ratio': 0.3,
+            'max_batch_total_tokens': 1259392,
+            'max_waiting_tokens': 20,
+            'max_batch_size': None,
+            'validation_workers': 32,
+            'max_client_batch_size': 4,
+            'version': '2.0.2',
+            'sha': 'dccab72549635c7eb5ddb17f43f0b7cdff07c214',
+            'docker_label': 'sha-dccab72'
+        }
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if model.startswith(("http://", "https://")):
+            url = model.rstrip("/") + "/info"
+        else:
+            url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return await response.json()
+
+    async def health_check(self, model: Optional[str] = None) -> bool:
+        """
+        Check the health of the deployed endpoint.
+
+        Health check is only available with Inference Endpoints powered by Text-Generation-Inference (TGI) or Text-Embedding-Inference (TEI).
+        For Inference API, please use [`InferenceClient.get_model_status`] instead.
+
+        Args:
+            model (`str`, *optional*):
+                URL of the Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+
+        Returns:
+            `bool`: True if everything is working fine.
+
+        Example:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient("https://jzgu0buei5.us-east-1.aws.endpoints.huggingface.cloud")
+        >>> await client.health_check()
+        True
+        ```
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError("Model id not provided.")
+        if not model.startswith(("http://", "https://")):
+            raise ValueError(
+                "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
+            )
+        url = model.rstrip("/") + "/health"
+
+        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            response = await client.get(url)
+            return response.status == 200
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """

@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
+import requests
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
@@ -13,8 +14,17 @@ from .constants import (
     REPO_TYPES,
 )
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
-from .hf_api import HfApi
-from .utils import filter_repo_objects, logging, validate_hf_hub_args
+from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
+from .utils import (
+    GatedRepoError,
+    LocalEntryNotFoundError,
+    OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+    filter_repo_objects,
+    logging,
+    validate_hf_hub_args,
+)
 from .utils import tqdm as hf_tqdm
 
 
@@ -29,13 +39,11 @@ def snapshot_download(
     revision: Optional[str] = None,
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
-    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
     etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
-    resume_download: bool = False,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
@@ -43,7 +51,11 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[base_tqdm] = None,
+    headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
+    # Deprecated args
+    local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+    resume_download: Optional[bool] = None,
 ) -> str:
     """Download repo files.
 
@@ -52,20 +64,10 @@ def snapshot_download(
     to keep their actual filename relative to that folder. You can also filter which files to download using
     `allow_patterns` and `ignore_patterns`.
 
-    If `local_dir` is provided, the file structure from the repo will be replicated in this location. You can configure
-    how you want to move those files:
-      - If `local_dir_use_symlinks="auto"` (default), files are downloaded and stored in the cache directory as blob
-        files. Small files (<5MB) are duplicated in `local_dir` while a symlink is created for bigger files. The goal
-        is to be able to manually edit and save small files without corrupting the cache while saving disk space for
-        binary files. The 5MB threshold can be configured with the `HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD`
-        environment variable.
-      - If `local_dir_use_symlinks=True`, files are downloaded, stored in the cache directory and symlinked in `local_dir`.
-        This is optimal in term of disk usage but files must not be manually edited.
-      - If `local_dir_use_symlinks=False` and the blob files exist in the cache directory, they are duplicated in the
-        local dir. This means disk usage is not optimized.
-      - Finally, if `local_dir_use_symlinks=False` and the blob files do not exist in the cache directory, then the
-        files are downloaded and directly placed under `local_dir`. This means if you need to download them again later,
-        they will be re-downloaded entirely.
+    If `local_dir` is provided, the file structure from the repo will be replicated in this location. When using this
+    option, the `cache_dir` will not be used and a `.cache/huggingface/` folder will be created at the root of `local_dir`
+    to store some metadata related to the downloaded files. While this mechanism is not as robust as the main
+    cache-system, it's optimized for regularly pulling the latest version of a repository.
 
     An alternative would be to clone the repo but this requires git and git-lfs to be installed and properly
     configured. It is also not possible to filter which files to download when cloning a repository using git.
@@ -82,13 +84,7 @@ def snapshot_download(
         cache_dir (`str`, `Path`, *optional*):
             Path to the folder where cached files are stored.
         local_dir (`str` or `Path`, *optional*):
-            If provided, the downloaded files will be placed under this directory, either as symlinks (default) or
-            regular files (see description for more details).
-        local_dir_use_symlinks (`"auto"` or `bool`, defaults to `"auto"`):
-            To be used with `local_dir`. If set to "auto", the cache directory will be used and the file will be either
-            duplicated or symlinked to the local directory depending on its size. It set to `True`, a symlink will be
-            created, no matter the file size. If set to `False`, the file will either be duplicated from cache (if
-            already exists) or downloaded from the Hub and not cached. See description for more details.
+            If provided, the downloaded files will be placed under this directory.
         library_name (`str`, *optional*):
             The name of the library to which the object corresponds.
         library_version (`str`, *optional*):
@@ -101,8 +97,6 @@ def snapshot_download(
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
             data before giving up which is passed to `requests.request`.
-        resume_download (`bool`, *optional*, defaults to `False):
-            If `True`, resume a previously interrupted download.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -110,6 +104,8 @@ def snapshot_download(
                 - If `True`, the token is read from the HuggingFace config
                   folder.
                 - If a string, it's used as the authentication token.
+        headers (`dict`, *optional*):
+            Additional headers to include in the request. Those headers take precedence over the others.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
@@ -128,20 +124,20 @@ def snapshot_download(
             `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
 
     Returns:
-        Local folder path (string) of repo snapshot
+        `str`: folder path of the repo snapshot.
 
-    <Tip>
-
-    Raises the following errors:
-
-    - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-      if `token=True` and the token cannot be found.
-    - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-      ETag cannot be determined.
-    - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-      if some parameter value is invalid
-
-    </Tip>
+    Raises:
+        [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+        [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If `token=True` and the token cannot be found.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+            ETag cannot be determined.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            if some parameter value is invalid.
     """
     if cache_dir is None:
         cache_dir = HF_HUB_CACHE
@@ -157,37 +153,101 @@ def snapshot_download(
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
-    # if we have no internet connection we will look for an
-    # appropriate folder in the cache
-    # If the specified revision is a commit hash, look inside "snapshots".
-    # If the specified revision is a branch or tag, look inside "refs".
-    if local_files_only:
+    repo_info: Union[ModelInfo, DatasetInfo, SpaceInfo, None] = None
+    api_call_error: Optional[Exception] = None
+    if not local_files_only:
+        # try/except logic to handle different errors => taken from `hf_hub_download`
+        try:
+            # if we have internet connection we want to list files to download
+            api = HfApi(
+                library_name=library_name,
+                library_version=library_version,
+                user_agent=user_agent,
+                endpoint=endpoint,
+                headers=headers,
+            )
+            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
+            # Actually raise for those subclasses of ConnectionError
+            raise
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            OfflineModeIsEnabled,
+        ) as error:
+            # Internet connection is down
+            # => will try to use local files only
+            api_call_error = error
+            pass
+        except RevisionNotFoundError:
+            # The repo was found but the revision doesn't exist on the Hub (never existed or got deleted)
+            raise
+        except requests.HTTPError as error:
+            # Multiple reasons for an http error:
+            # - Repository is private and invalid/missing token sent
+            # - Repository is gated and invalid/missing token sent
+            # - Hub is down (error 500 or 504)
+            # => let's switch to 'local_files_only=True' to check if the files are already cached.
+            #    (if it's not the case, the error will be re-raised)
+            api_call_error = error
+            pass
+
+    # At this stage, if `repo_info` is None it means either:
+    # - internet connection is down
+    # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
+    # - repo is private/gated and invalid/missing token sent
+    # - Hub is down
+    # => let's look if we can find the appropriate folder in the cache:
+    #    - if the specified revision is a commit hash, look inside "snapshots".
+    #    - f the specified revision is a branch or tag, look inside "refs".
+    if repo_info is None:
+        # Try to get which commit hash corresponds to the specified revision
+        commit_hash = None
         if REGEX_COMMIT_HASH.match(revision):
             commit_hash = revision
         else:
-            # retrieve commit_hash from file
             ref_path = os.path.join(storage_folder, "refs", revision)
-            with open(ref_path) as f:
-                commit_hash = f.read()
+            if os.path.exists(ref_path):
+                # retrieve commit_hash from refs file
+                with open(ref_path) as f:
+                    commit_hash = f.read()
 
-        snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+        # Try to locate snapshot folder for this commit hash
+        if commit_hash is not None:
+            snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
+            if os.path.exists(snapshot_folder):
+                # Snapshot folder exists => let's return it
+                # (but we can't check if all the files are actually there)
+                return snapshot_folder
 
-        if os.path.exists(snapshot_folder):
-            return snapshot_folder
+        # If we couldn't find the appropriate folder on disk, raise an error.
+        if local_files_only:
+            raise LocalEntryNotFoundError(
+                "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
+                "outgoing traffic has been disabled. To enable repo look-ups and downloads online, pass "
+                "'local_files_only=False' as input."
+            )
+        elif isinstance(api_call_error, OfflineModeIsEnabled):
+            raise LocalEntryNotFoundError(
+                "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
+                "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
+                "'HF_HUB_OFFLINE=0' as environment variable."
+            ) from api_call_error
+        elif isinstance(api_call_error, RepositoryNotFoundError) or isinstance(api_call_error, GatedRepoError):
+            # Repo not found => let's raise the actual error
+            raise api_call_error
+        else:
+            # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
+            raise LocalEntryNotFoundError(
+                "An error happened while trying to locate the files on the Hub and we cannot find the appropriate"
+                " snapshot folder for the specified revision on the local disk. Please check your internet connection"
+                " and try again."
+            ) from api_call_error
 
-        raise ValueError(
-            "Cannot find an appropriate cached snapshot folder for the specified"
-            " revision on the local disk and outgoing traffic has been disabled. To"
-            " enable repo look-ups and downloads online, set 'local_files_only' to"
-            " False."
-        )
-
-    # if we have internet connection we retrieve the correct folder name from the huggingface api
-    api = HfApi(library_name=library_name, library_version=library_version, user_agent=user_agent, endpoint=endpoint)
-    repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+    # At this stage, internet connection is up and running
+    # => let's download the files!
     assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
     assert repo_info.siblings is not None, "Repo info returned from server must have a siblings list."
-
     filtered_repo_files = list(
         filter_repo_objects(
             items=[f.rfilename for f in repo_info.siblings],
@@ -227,6 +287,7 @@ def snapshot_download(
             resume_download=resume_download,
             force_download=force_download,
             token=token,
+            headers=headers,
         )
 
     if HF_HUB_ENABLE_HF_TRANSFER:

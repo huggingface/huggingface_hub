@@ -16,6 +16,7 @@
 Usage:
     huggingface-cli env
 """
+
 from argparse import _SubParsersAction
 
 from ..utils import dump_environment_info

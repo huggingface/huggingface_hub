@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities used by both the sync and async inference clients."""
+
 import base64
 import io
 import json
@@ -31,6 +32,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    NoReturn,
     Optional,
     Set,
     Union,
@@ -38,6 +40,15 @@ from typing import (
 )
 
 from requests import HTTPError
+
+from huggingface_hub.errors import (
+    GenerationError,
+    IncompleteGenerationError,
+    OverloadedError,
+    TextGenerationError,
+    UnknownError,
+    ValidationError,
+)
 
 from ..constants import ENDPOINT
 from ..utils import (
@@ -48,12 +59,17 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ._text_generation import TextGenerationStreamResponse, _parse_text_generation_error
+from ._generated.types import (
+    ChatCompletionStreamOutput,
+    ChatCompletionStreamOutputChoice,
+    ChatCompletionStreamOutputDelta,
+    TextGenerationStreamOutput,
+)
 
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse, ClientSession
-    from PIL import Image
+    from PIL.Image import Image
 
 # TYPES
 UrlT = str
@@ -84,8 +100,9 @@ class ModelStatus:
             backend. Loadable models are automatically loaded when the user first
             requests inference on the endpoint. This means it is transparent for the
             user to load a model, except that the first call takes longer to complete.
-        compute_type (`str`):
-            The type of compute resource the model is using or will use, such as 'gpu' or 'cpu'.
+        compute_type (`Dict`):
+            Information about the compute resource the model is using or will use, such as 'gpu' type and number of
+            replicas.
         framework (`str`):
             The name of the framework that the model was built with, such as 'transformers'
             or 'text-generation-inference'.
@@ -93,12 +110,8 @@ class ModelStatus:
 
     loaded: bool
     state: str
-    compute_type: str
+    compute_type: Dict
     framework: str
-
-
-class InferenceTimeoutError(HTTPError, TimeoutError):
-    """Error raised when a model is unavailable or the request times out."""
 
 
 ## IMPORT UTILS
@@ -162,13 +175,15 @@ def _first_or_none(items: List[Any]) -> Optional[Any]:
 
 
 @overload
-def _open_as_binary(content: ContentT) -> ContextManager[BinaryT]:
-    ...  # means "if input is not None, output is not None"
+def _open_as_binary(
+    content: ContentT,
+) -> ContextManager[BinaryT]: ...  # means "if input is not None, output is not None"
 
 
 @overload
-def _open_as_binary(content: Literal[None]) -> ContextManager[Literal[None]]:
-    ...  # means "if input is None, output is None"
+def _open_as_binary(
+    content: Literal[None],
+) -> ContextManager[Literal[None]]: ...  # means "if input is None, output is None"
 
 
 @contextmanager  # type: ignore
@@ -252,48 +267,117 @@ def _bytes_to_image(content: bytes) -> "Image":
 
 def _stream_text_generation_response(
     bytes_output_as_lines: Iterable[bytes], details: bool
-) -> Union[Iterable[str], Iterable[TextGenerationStreamResponse]]:
+) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
+    """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
     for byte_payload in bytes_output_as_lines:
-        # Skip line
-        if byte_payload == b"\n":
-            continue
-
-        payload = byte_payload.decode("utf-8")
-
-        # Event data
-        if payload.startswith("data:"):
-            # Decode payload
-            json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Either an error as being returned
-            if json_payload.get("error") is not None:
-                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
-            # Or parse token payload
-            output = TextGenerationStreamResponse(**json_payload)
-            yield output.token.text if not details else output
+        output = _format_text_generation_stream_output(byte_payload, details)
+        if output is not None:
+            yield output
 
 
 async def _async_stream_text_generation_response(
     bytes_output_as_lines: AsyncIterable[bytes], details: bool
-) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamResponse]]:
+) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
+    """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
     async for byte_payload in bytes_output_as_lines:
-        # Skip line
-        if byte_payload == b"\n":
-            continue
+        output = _format_text_generation_stream_output(byte_payload, details)
+        if output is not None:
+            yield output
 
-        payload = byte_payload.decode("utf-8")
 
-        # Event data
-        if payload.startswith("data:"):
-            # Decode payload
-            json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
-            # Either an error as being returned
-            if json_payload.get("error") is not None:
-                raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
-            # Or parse token payload
-            output = TextGenerationStreamResponse(**json_payload)
-            yield output.token.text if not details else output
+def _format_text_generation_stream_output(
+    byte_payload: bytes, details: bool
+) -> Optional[Union[str, TextGenerationStreamOutput]]:
+    if not byte_payload.startswith(b"data:"):
+        return None  # empty line
+
+    # Decode payload
+    payload = byte_payload.decode("utf-8")
+    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+
+    # Either an error as being returned
+    if json_payload.get("error") is not None:
+        raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
+
+    # Or parse token payload
+    output = TextGenerationStreamOutput.parse_obj_as_instance(json_payload)
+    return output.token.text if not details else output
+
+
+def _format_chat_completion_stream_output_from_text_generation(
+    item: TextGenerationStreamOutput, created: int
+) -> ChatCompletionStreamOutput:
+    if item.details is None:
+        # new token generated => return delta
+        return ChatCompletionStreamOutput(
+            # explicitly set 'dummy' values to reduce expectations from users
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            choices=[
+                ChatCompletionStreamOutputChoice(
+                    delta=ChatCompletionStreamOutputDelta(
+                        role="assistant",
+                        content=item.token.text,
+                    ),
+                    finish_reason=None,
+                    index=0,
+                )
+            ],
+            created=created,
+        )
+    else:
+        # generation is completed => return finish reason
+        return ChatCompletionStreamOutput(
+            # explicitly set 'dummy' values to reduce expectations from users
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            choices=[
+                ChatCompletionStreamOutputChoice(
+                    delta=ChatCompletionStreamOutputDelta(role="assistant"),
+                    finish_reason=item.details.finish_reason,
+                    index=0,
+                )
+            ],
+            created=created,
+        )
+
+
+def _stream_chat_completion_response_from_bytes(
+    bytes_lines: Iterable[bytes],
+) -> Iterable[ChatCompletionStreamOutput]:
+    """Used in `InferenceClient.chat_completion` if model is served with TGI."""
+    for item in bytes_lines:
+        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        if output is not None:
+            yield output
+
+
+async def _async_stream_chat_completion_response_from_bytes(
+    bytes_lines: AsyncIterable[bytes],
+) -> AsyncIterable[ChatCompletionStreamOutput]:
+    """Used in `AsyncInferenceClient.chat_completion`."""
+    async for item in bytes_lines:
+        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        if output is not None:
+            yield output
+
+
+def _format_chat_completion_stream_output_from_text_generation_from_bytes(
+    byte_payload: bytes,
+) -> Optional[ChatCompletionStreamOutput]:
+    if not byte_payload.startswith(b"data:"):
+        return None  # empty line
+
+    # Decode payload
+    payload = byte_payload.decode("utf-8")
+    json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+    return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
 async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
@@ -310,18 +394,79 @@ async def _async_yield_from(client: "ClientSession", response: "ClientResponse")
 # Both approaches have very similar APIs, but not exactly the same. What we do first in
 # the `text_generation` method is to assume the model is served via TGI. If we realize
 # it's not the case (i.e. we receive an HTTP 400 Bad Request), we fallback to the
-# default API with a warning message. We remember for each model if it's a TGI server
-# or not using `_NON_TGI_SERVERS` global variable.
+# default API with a warning message. When that's the case, We remember the unsupported
+# attributes for this model in the `_UNSUPPORTED_TEXT_GENERATION_KWARGS` global variable.
+#
+# In addition, TGI servers have a built-in API route for chat-completion, which is not
+# available on the default API. We use this route to provide a more consistent behavior
+# when available.
 #
 # For more details, see https://github.com/huggingface/text-generation-inference and
 # https://huggingface.co/docs/api-inference/detailed_parameters#text-generation-task.
 
-_NON_TGI_SERVERS: Set[Optional[str]] = set()
+_UNSUPPORTED_TEXT_GENERATION_KWARGS: Dict[Optional[str], List[str]] = {}
 
 
-def _set_as_non_tgi(model: Optional[str]) -> None:
-    _NON_TGI_SERVERS.add(model)
+def _set_unsupported_text_generation_kwargs(model: Optional[str], unsupported_kwargs: List[str]) -> None:
+    _UNSUPPORTED_TEXT_GENERATION_KWARGS.setdefault(model, []).extend(unsupported_kwargs)
 
 
-def _is_tgi_server(model: Optional[str]) -> bool:
-    return model not in _NON_TGI_SERVERS
+def _get_unsupported_text_generation_kwargs(model: Optional[str]) -> List[str]:
+    return _UNSUPPORTED_TEXT_GENERATION_KWARGS.get(model, [])
+
+
+_NON_CHAT_COMPLETION_SERVER: Set[str] = set()
+
+
+def _set_as_non_chat_completion_server(model: str) -> None:
+    _NON_CHAT_COMPLETION_SERVER.add(model)
+
+
+def _is_chat_completion_server(model: str) -> bool:
+    return model not in _NON_CHAT_COMPLETION_SERVER
+
+
+# TEXT GENERATION ERRORS
+# ----------------------
+# Text-generation errors are parsed separately to handle as much as possible the errors returned by the text generation
+# inference project (https://github.com/huggingface/text-generation-inference).
+# ----------------------
+
+
+def raise_text_generation_error(http_error: HTTPError) -> NoReturn:
+    """
+    Try to parse text-generation-inference error message and raise HTTPError in any case.
+
+    Args:
+        error (`HTTPError`):
+            The HTTPError that have been raised.
+    """
+    # Try to parse a Text Generation Inference error
+
+    try:
+        # Hacky way to retrieve payload in case of aiohttp error
+        payload = getattr(http_error, "response_error_payload", None) or http_error.response.json()
+        error = payload.get("error")
+        error_type = payload.get("error_type")
+    except Exception:  # no payload
+        raise http_error
+
+    # If error_type => more information than `hf_raise_for_status`
+    if error_type is not None:
+        exception = _parse_text_generation_error(error, error_type)
+        raise exception from http_error
+
+    # Otherwise, fallback to default error
+    raise http_error
+
+
+def _parse_text_generation_error(error: Optional[str], error_type: Optional[str]) -> TextGenerationError:
+    if error_type == "generation":
+        return GenerationError(error)  # type: ignore
+    if error_type == "incomplete_generation":
+        return IncompleteGenerationError(error)  # type: ignore
+    if error_type == "overloaded":
+        return OverloadedError(error)  # type: ignore
+    if error_type == "validation":
+        return ValidationError(error)  # type: ignore
+    return UnknownError(error)  # type: ignore

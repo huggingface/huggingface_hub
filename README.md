@@ -12,7 +12,7 @@
     <a href="https://huggingface.co/docs/huggingface_hub/en/index"><img alt="Documentation" src="https://img.shields.io/website/http/huggingface.co/docs/huggingface_hub/index.svg?down_color=red&down_message=offline&up_message=online&label=doc"></a>
     <a href="https://github.com/huggingface/huggingface_hub/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/huggingface/huggingface_hub.svg"></a>
     <a href="https://github.com/huggingface/huggingface_hub"><img alt="PyPi version" src="https://img.shields.io/pypi/pyversions/huggingface_hub.svg"></a>
-    <a href="https://pypi.org/project/huggingface-hub"><img alt="downloads" src="https://static.pepy.tech/badge/huggingface_hub/month"></a>
+    <a href="https://pypi.org/project/huggingface-hub"><img alt="PyPI - Downloads" src="https://img.shields.io/pypi/dm/huggingface_hub"></a>
     <a href="https://codecov.io/gh/huggingface/huggingface_hub"><img alt="Code coverage" src="https://codecov.io/gh/huggingface/huggingface_hub/branch/main/graph/badge.svg?token=RXP95LE2XL"></a>
 </p>
 
@@ -20,10 +20,12 @@
     <p>
         <b>English</b> |
         <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_de.md">Deutsch</a> |
-        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_hi.md">हिंदी</a> | 
-        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_ko.md">한국어</a>
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_hi.md">हिंदी</a> |
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_ko.md">한국어</a> |
+        <a href="https://github.com/huggingface/huggingface_hub/blob/main/README_cn.md">中文（简体）</a>
     <p>
 </h4>
+
 ---
 
 **Documentation**: <a href="https://hf.co/docs/huggingface_hub" target="_blank">https://hf.co/docs/huggingface_hub</a>
@@ -140,7 +142,7 @@ The advantages are:
 
 - Free model or dataset hosting for libraries and their users.
 - Built-in file versioning, even with very large files, thanks to a git-based approach.
-- Hosted inference API for all models publicly available.
+- Serverless inference API for all models publicly available.
 - In-browser widgets to play with the uploaded models.
 - Anyone can upload a new model for your library, they just need to add the corresponding tag for the model to be discoverable.
 - Fast downloads! We use Cloudfront (a CDN) to geo-replicate downloads so they're blazing fast from anywhere on the globe.

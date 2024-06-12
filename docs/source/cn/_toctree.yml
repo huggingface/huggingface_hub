@@ -1,0 +1,16 @@
+- title: "Starten"
+  sections:
+    - local: index
+      title: 索引
+    - local: quick-start
+      title: 快速入门指南
+    - local: installation
+      title: 安装
+- title: "guides"
+  sections:
+    - local: guides/repository
+      title: 储存库
+- title: "concepts"
+  sections:
+    - local: concepts/git_vs_http
+      title: Git vs HTTP 范式

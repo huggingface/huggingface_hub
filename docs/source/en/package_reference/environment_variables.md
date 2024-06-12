@@ -47,9 +47,14 @@ Defaults to `"$HF_HOME/assets"` (e.g. `"~/.cache/huggingface/assets"` by default
 ### HF_TOKEN
 
 To configure the User Access Token to authenticate to the Hub. If set, this value will
-overwrite the token stored on the machine (in `"$HF_HOME/token"`).
+overwrite the token stored on the machine (in either `$HF_TOKEN_PATH` or `"$HF_HOME/token"` if the former is not set).
 
-See [login reference](../package_reference/login) for more details.
+For more details about authentication, check out [this section](../quick-start#authentication).
+
+### HF_TOKEN_PATH
+
+To configure where `huggingface_hub` should store the User Access Token. Defaults to `"$HF_HOME/token"` (e.g. `~/.cache/huggingface/token` by default).
+
 
 ### HF_HUB_VERBOSITY
 
@@ -62,10 +67,7 @@ For more details, see [logging reference](../package_reference/utilities#hugging
 
 ### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD
 
-Integer value to define under which size a file is considered as "small". When downloading files to a local directory,
-small files will be duplicated to ease user experience while bigger files are symlinked to save disk usage.
-
-For more details, see the [download guide](../guides/download#download-files-to-local-folder).
+This environment variable has been deprecated and is now ignored by `huggingface_hub`. Downloading files to the local dir does not rely on symlinks anymore.
 
 ### HF_HUB_ETAG_TIMEOUT
 
@@ -83,13 +85,11 @@ as `True` if its value is one of `{"1", "ON", "YES", "TRUE"}` (case-insensitive)
 
 ### HF_HUB_OFFLINE
 
-If set, no HTTP calls will me made when trying to fetch files. Only files that are already
-cached will be accessed. This is useful in case your network is slow and you don't care
-about having absolutely the latest version of a file.
+If set, no HTTP calls will me made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
 
-**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers
-a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will
-skip this call which speeds up your loading time.
+If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of [`HfApi`], an [`~huggingface_hub.utils.OfflineModeIsEnabled`] exception will be raised.
+
+**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will skip this call which speeds up your loading time.
 
 ### HF_HUB_DISABLE_IMPLICIT_TOKEN
 
@@ -139,7 +139,18 @@ You can set `HF_HUB_DISABLE_TELEMETRY=1` as environment variable to globally dis
 
 Set to `True` for faster uploads and downloads from the Hub using `hf_transfer`.
 
-By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions. Although these are reliable and versatile, they may not be the most efficient choice for machines with high bandwidth. [`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to maximize the bandwidth used by dividing large files into smaller parts and transferring them simultaneously using multiple threads. This approach can potentially double the transfer speed. To use `hf_transfer`, you need to install it separately [from PyPI](https://pypi.org/project/hf-transfer/) and set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
+By default, `huggingface_hub` uses the Python-based `requests.get` and `requests.post` functions.
+Although these are reliable and versatile,
+they may not be the most efficient choice for machines with high bandwidth.
+[`hf_transfer`](https://github.com/huggingface/hf_transfer) is a Rust-based package developed to
+maximize the bandwidth used by dividing large files into smaller parts
+and transferring them simultaneously using multiple threads.
+This approach can potentially double the transfer speed.
+To use `hf_transfer`:
+
+1. Specify the `hf_transfer` extra when installing `huggingface_hub`
+   (e.g. `pip install huggingface_hub[hf_transfer]`).
+2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 Please note that using `hf_transfer` comes with certain limitations. Since it is not purely Python-based, debugging errors may be challenging. Additionally, `hf_transfer` lacks several user-friendly features such as resumable downloads and proxies. These omissions are intentional to maintain the simplicity and speed of the Rust logic. Consequently, `hf_transfer` is not enabled by default in `huggingface_hub`.
 
@@ -159,6 +170,10 @@ In order to standardize all environment variables within the Hugging Face ecosys
 
 Some environment variables are not specific to `huggingface_hub` but are still taken into account when they are set.
 
+### DO_NOT_TRACK
+
+Boolean value. Equivalent to `HF_HUB_DISABLE_TELEMETRY`. When set to true, telemetry is globally disabled in the Hugging Face Python ecosystem (`transformers`, `diffusers`, `gradio`, etc.). See https://consoledonottrack.com/ for more details.
+
 ### NO_COLOR
 
 Boolean value. When set, `huggingface-cli` tool will not print any ANSI color.
@@ -169,7 +184,7 @@ See [no-color.org](https://no-color.org/).
 Used only when `HF_HOME` is not set!
 
 This is the default way to configure where [user-specific non-essential (cached) data should be written](https://wiki.archlinux.org/title/XDG_Base_Directory)
-on linux machines. 
+on linux machines.
 
 If `HF_HOME` is not set, the default home will be `"$XDG_CACHE_HOME/huggingface"` instead
 of `"~/.cache/huggingface"`.

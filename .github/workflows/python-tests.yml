@@ -12,12 +12,12 @@ on:
     paths-ignore:
       - "docs/**"
 
-env:
-  HUGGINGFACE_PRODUCTION_USER_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
-
 jobs:
   build-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      UV_HTTP_TIMEOUT: 600 # max 10min to install deps
+
     strategy:
       fail-fast: false
       matrix:
@@ -47,11 +47,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
+      - name: Setup venv + uv
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
+          pip install --upgrade uv
+          uv venv
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          uv pip install "huggingface_hub[testing] @ ."
 
           case "${{ matrix.test_name }}" in
 
@@ -66,38 +72,35 @@ jobs:
               ;;
 
             fastai | torch)
-              pip install .[${{ matrix.test_name }}]
+              uv pip install "huggingface_hub[${{ matrix.test_name }}] @ ."
               ;;
 
             tensorflow)
               sudo apt update
               sudo apt install -y graphviz
-              pip install .[tensorflow]
+              uv pip install "huggingface_hub[tensorflow-testing] @ ."
               ;;
 
           esac
-
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: pip freeze
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none"
+          source ../.venv/bin/activate
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504||not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
 
             "Repository only")
               # Run repo tests concurrently
-              PYTEST="$PYTEST ../tests -k 'TestRepository' -n4"
+              PYTEST="$PYTEST ../tests -k 'TestRepository' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
 
             "Everything else")
-              PYTEST="$PYTEST ../tests -k 'not TestRepository'"
+              PYTEST="$PYTEST ../tests -k 'not TestRepository' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -115,10 +118,12 @@ jobs:
               # Cannot be on same line since '_tf*' checks if tensorflow is NOT imported by default
               eval "$PYTEST ../tests/test_tf*"
               eval "$PYTEST ../tests/test_keras*"
+              eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
             torch)
-              eval "$PYTEST ../tests/test_hubmixin*"
+            eval "$PYTEST ../tests/test_hub_mixin*"
+            eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
           esac
@@ -137,6 +142,8 @@ jobs:
     runs-on: windows-latest
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
+      UV_HTTP_TIMEOUT: 600 # max 10min to install deps
+      GIT_CLONE_PROTECTION_ACTIVE: false # See https://github.com/git-lfs/git-lfs/issues/5754
     strategy:
       fail-fast: false
       matrix:
@@ -149,21 +156,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install dependencies
-      - name: Configure and install dependencies
+      # Setup venv
+      # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.
+      - name: Setup venv + uv
         run: |
-          pip install --upgrade pip
-          pip install .[testing]
-        # sudo apt install -y libsndfile1-dev
+          pip install --upgrade uv
+          uv venv
 
-      # Easy debugging if CI is broken
-      - name: Pip freeze
-        run: pip freeze
+      # Install dependencies
+      - name: Install dependencies
+        run: uv pip install "huggingface_hub[testing] @ ."
 
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
-        run: python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none ../tests
+        run: |
+          ..\.venv\Scripts\activate
+          python -m pytest -n 4 --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 5 --reruns-delay 1 --only-rerun '(OSError|Timeout|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)' ../tests
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action

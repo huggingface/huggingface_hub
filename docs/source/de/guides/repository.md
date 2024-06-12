@@ -63,7 +63,7 @@ Geben Sie die `repo_id` des Repositories an, das Sie löschen möchten:
 
 ### Ein Repository duplizieren (nur für Spaces)
 
-In einigen Fällen möchten Sie möglicherweise das Repo von jemand anderem kopieren, um es an Ihren Anwendungsfall anzupassen. Dies ist für Spaces mit der Methode [`duplicate_space`] möglich. Es wird das gesamte Repository dupliziert. 
+In einigen Fällen möchten Sie möglicherweise das Repo von jemand anderem kopieren, um es an Ihren Anwendungsfall anzupassen. Dies ist für Spaces mit der Methode [`duplicate_space`] möglich. Es wird das gesamte Repository dupliziert.
 Sie müssen jedoch noch Ihre eigenen Einstellungen konfigurieren (Hardware, Schlafzeit, Speicher, Variablen und Geheimnisse). Weitere Informationen finden Sie in unserem Leitfaden [Verwalten Ihres Spaces](./manage-spaces).
 
 ```py
@@ -80,8 +80,8 @@ Diese 2 Themen verdienen ihre eigenen Leitfäden. Bitte beziehen Sie sich auf di
 
 ## Branches und Tags
 
-Git-Repositories verwenden oft Branches, um verschiedene Versionen eines gleichen Repositories zu speichern. 
-Tags können auch verwendet werden, um einen bestimmten Zustand Ihres Repositories zu kennzeichnen, z. B. bei der Veröffentlichung einer Version. 
+Git-Repositories verwenden oft Branches, um verschiedene Versionen eines gleichen Repositories zu speichern.
+Tags können auch verwendet werden, um einen bestimmten Zustand Ihres Repositories zu kennzeichnen, z. B. bei der Veröffentlichung einer Version.
 Allgemeiner gesagt, werden Branches und Tags als [git-Referenzen](https://git-scm.com/book/en/v2/Git-Internals-Git-References) bezeichnet.
 
 ### Branches und Tags erstellen
@@ -117,7 +117,7 @@ GitRefs(
          GitRefInfo(name='v1.0', ref='refs/tags/v1.0', target_commit='c37a8cd1e382064d8aced5e05543c5f7753834da')
    ]
 )
-``` 
+```
 
 ## Repository-Einstellungen ändern
 

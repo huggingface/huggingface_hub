@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to handle HTTP requests in Huggingface Hub."""
+
 import io
 import os
 import threading
@@ -20,13 +21,16 @@ import time
 import uuid
 from functools import lru_cache
 from http import HTTPStatus
-from typing import Callable, Tuple, Type, Union
+from typing import Callable, Optional, Tuple, Type, Union
 
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest
 
+from huggingface_hub.errors import OfflineModeIsEnabled
+
+from .. import constants
 from . import logging
 from ._typing import HTTP_METHOD_T
 
@@ -68,10 +72,21 @@ class UniqueRequestIdAdapter(HTTPAdapter):
             raise
 
 
+class OfflineAdapter(HTTPAdapter):
+    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        raise OfflineModeIsEnabled(
+            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+        )
+
+
 def _default_backend_factory() -> requests.Session:
     session = requests.Session()
-    session.mount("http://", UniqueRequestIdAdapter())
-    session.mount("https://", UniqueRequestIdAdapter())
+    if constants.HF_HUB_OFFLINE:
+        session.mount("http://", OfflineAdapter())
+        session.mount("https://", OfflineAdapter())
+    else:
+        session.mount("http://", UniqueRequestIdAdapter())
+        session.mount("https://", UniqueRequestIdAdapter())
     return session
 
 
@@ -289,3 +304,16 @@ def http_backoff(
 
         # Update sleep time for next retry
         sleep_time = min(max_wait_time, sleep_time * 2)  # Exponential backoff
+
+
+def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
+    """Replace the default endpoint in a URL by a custom one.
+
+    This is useful when using a proxy and the Hugging Face Hub returns a URL with the default endpoint.
+    """
+    endpoint = endpoint or constants.ENDPOINT
+    # check if a proxy has been set => if yes, update the returned URL to use the proxy
+    if endpoint not in (None, constants._HF_DEFAULT_ENDPOINT, constants._HF_DEFAULT_STAGING_ENDPOINT):
+        url = url.replace(constants._HF_DEFAULT_ENDPOINT, endpoint)
+        url = url.replace(constants._HF_DEFAULT_STAGING_ENDPOINT, endpoint)
+    return url

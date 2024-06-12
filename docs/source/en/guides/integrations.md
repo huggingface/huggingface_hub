@@ -98,8 +98,8 @@ common to offer parameters like:
 - `token`: to download from a private repo
 - `revision`: to download from a specific branch
 - `cache_dir`: to cache files in a specific directory
-- `force_download`/`resume_download`/`local_files_only`: to reuse the cache or not
-- `api_endpoint`/`proxies`: configure HTTP session
+- `force_download`/`local_files_only`: to reuse the cache or not
+- `proxies`: configure HTTP session
 
 When pushing models, similar parameters are supported:
 - `commit_message`: custom commit message
@@ -108,7 +108,6 @@ When pushing models, similar parameters are supported:
 - `branch`: push to a branch instead of the `main` branch
 - `allow_patterns`/`ignore_patterns`: filter which files to upload
 - `token`
-- `api_endpoint`
 - ...
 
 All of these parameters can be added to the implementations we saw above and passed to the `huggingface_hub` methods.
@@ -144,15 +143,11 @@ your library, you should:
     model. The method must download the relevant files and load them.
 3. You are done!
 
-The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you
-are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. All
-of this is handled by the mixin and is available to your users. The Mixin also ensures that public methods are well
-documented and type annotated.
+The advantage of using [`ModelHubMixin`] is that once you take care of the serialization/loading of the files, you are ready to go. You don't need to worry about stuff like repo creation, commits, PRs, or revisions. The [`ModelHubMixin`] also ensures public methods are documented and type annotated, and you'll be able to view your model's download count on the Hub. All of this is handled by the [`ModelHubMixin`] and available to your users.
 
 ### A concrete example: PyTorch
 
-A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a
-ready-to-use integration.
+A good example of what we saw above is [`PyTorchModelHubMixin`], our integration for the PyTorch framework. This is a ready-to-use integration.
 
 #### How to use it?
 
@@ -163,16 +158,31 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 >>> import torch.nn as nn
 >>> from huggingface_hub import PyTorchModelHubMixin
 
-# 1. Define your Pytorch model exactly the same way you are used to
->>> class MyModel(nn.Module, PyTorchModelHubMixin): # multiple inheritance
-...     def __init__(self):
-...         super().__init__() 
-...         self.param = nn.Parameter(torch.rand(3, 4))
-...         self.linear = nn.Linear(4, 5)
+
+# Define your Pytorch model exactly the same way you are used to
+>>> class MyModel(
+...         nn.Module,
+...         PyTorchModelHubMixin, # multiple inheritance
+...         library_name="keras-nlp",
+...         tags=["keras"],
+...         repo_url="https://github.com/keras-team/keras-nlp",
+...         docs_url="https://keras.io/keras_nlp/",
+...         # ^ optional metadata to generate model card
+...     ):
+...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
+...         super().__init__()
+...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
+...         self.linear = nn.Linear(output_size, vocab_size)
 
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)
->>> model = MyModel()
+
+# 1. Create model
+>>> model = MyModel(hidden_size=128)
+
+# Config is automatically created based on input + default values
+>>> model.param.shape[0]
+128
 
 # 2. (optional) Save model to local directory
 >>> model.save_pretrained("path/to/my-awesome-model")
@@ -180,8 +190,18 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 # 3. Push model weights to the Hub
 >>> model.push_to_hub("my-awesome-model")
 
-# 4. Initialize model from the Hub
+# 4. Initialize model from the Hub => config has been preserved
 >>> model = MyModel.from_pretrained("username/my-awesome-model")
+>>> model.param.shape[0]
+128
+
+# Model card has been correctly populated
+>>> from huggingface_hub import ModelCard
+>>> card = ModelCard.load("username/my-awesome-model")
+>>> card.data.tags
+["keras", "pytorch_model_hub_mixin", "model_hub_mixin"]
+>>> card.data.library_name
+"keras-nlp"
 ```
 
 #### Implementation
@@ -200,25 +220,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
 2. Implement the `_save_pretrained` method:
 
 ```py
-from huggingface_hub import ModelCard, ModelCardData
+from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
    (...)
 
-   def _save_pretrained(self, save_directory: Path):
-      """Generate Model Card and save weights from a Pytorch model to a local directory."""
-      model_card = ModelCard.from_template(
-         card_data=ModelCardData(
-            license='mit',
-            library_name="pytorch",
-            ...
-         ),
-         model_summary=...,
-         model_type=...,
-         ...
-      )
-      (save_directory / "README.md").write_text(str(model))
-      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
+    def _save_pretrained(self, save_directory: Path) -> None:
+        """Save weights from a Pytorch model to a local directory."""
+        save_model_as_safetensor(self.module, str(save_directory / SAFETENSORS_SINGLE_FILE))
+
 ```
 
 3. Implement the `_from_pretrained` method:
@@ -244,13 +254,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
       **model_kwargs,
    ):
       """Load Pytorch pretrained weights and return the loaded model."""
-      if os.path.isdir(model_id): # Can either be a local directory
-         print("Loading weights from local directory")
-         model_file = os.path.join(model_id, "pytorch_model.bin")
-      else: # Or a model on the Hub
-         model_file = hf_hub_download( # Download from the hub, passing same input args
+        model = cls(**model_kwargs)
+        if os.path.isdir(model_id):
+            print("Loading weights from local directory")
+            model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
+            return cls._load_as_safetensor(model, model_file, map_location, strict)
+
+         model_file = hf_hub_download(
             repo_id=model_id,
-            filename="pytorch_model.bin",
+            filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
@@ -258,17 +270,157 @@ class PyTorchModelHubMixin(ModelHubMixin):
             resume_download=resume_download,
             token=token,
             local_files_only=local_files_only,
-         )
-
-      # Load model and return - custom logic depending on your framework
-      model = cls(**model_kwargs)
-      state_dict = torch.load(model_file, map_location=torch.device(map_location))
-      model.load_state_dict(state_dict, strict=strict)
-      model.eval()
-      return model
+            )
+         return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
+
+### Advanced usage
+
+In the section above, we quickly discussed how the [`ModelHubMixin`] works. In this section, we will see some of its more advanced features to improve your library integration with the Hugging Face Hub.
+
+#### Model card
+
+[`ModelHubMixin`] generates the model card for you. Model cards are files that accompany the models and provide important information about them. Under the hood, model cards are simple Markdown files with additional metadata. Model cards are essential for discoverability, reproducibility, and sharing! Check out the [Model Cards guide](https://huggingface.co/docs/hub/model-cards) for more details.
+
+Generating model cards semi-automatically is a good way to ensure that all models pushed with your library will share common metadata: `library_name`, `tags`, `license`, `pipeline_tag`, etc. This makes all models backed by your library easily searchable on the Hub and provides some resource links for users landing on the Hub. You can define the metadata directly when inheriting from [`ModelHubMixin`]:
+
+```py
+class UniDepthV1(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="unidepth",
+   repo_url="https://github.com/lpiccinelli-eth/UniDepth",
+   docs_url=...,
+   pipeline_tag="depth-estimation",
+   license="cc-by-nc-4.0",
+   tags=["monocular-metric-depth-estimation", "arxiv:1234.56789"]
+):
+   ...
+```
+
+By default, a generic model card will be generated with the info you've provided (example: [pyp1/VoiceCraft_giga830M](https://huggingface.co/pyp1/VoiceCraft_giga830M)). But you can define your own model card template as well!
+
+In this example, all models pushed with the `VoiceCraft` class will automatically include a citation section and license details. For more details on how to define a model card template, please check the [Model Cards guide](./model-cards).
+
+```py
+MODEL_CARD_TEMPLATE = """
+---
+# For reference on model card metadata, see the spec: https://github.com/huggingface/hub-docs/blob/main/modelcard.md?plain=1
+# Doc / guide: https://huggingface.co/docs/hub/model-cards
+{{ card_data }}
+---
+
+This is a VoiceCraft model. For more details, please check out the official Github repo: https://github.com/jasonppy/VoiceCraft. This model is shared under a Attribution-NonCommercial-ShareAlike 4.0 International license.
+
+## Citation
+
+@article{peng2024voicecraft,
+  author    = {Peng, Puyuan and Huang, Po-Yao and Li, Daniel and Mohamed, Abdelrahman and Harwath, David},
+  title     = {VoiceCraft: Zero-Shot Speech Editing and Text-to-Speech in the Wild},
+  journal   = {arXiv},
+  year      = {2024},
+}
+"""
+
+class VoiceCraft(
+   nn.Module,
+   PyTorchModelHubMixin,
+   library_name="voicecraft",
+   model_card_template=MODEL_CARD_TEMPLATE,
+   ...
+):
+   ...
+```
+
+
+Finally, if you want to extend the model card generation process with dynamic values, you can override the [`~ModelHubMixin.generate_model_card`] method:
+
+```py
+from huggingface_hub import ModelCard, PyTorchModelHubMixin
+
+class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
+   (...)
+
+   def generate_model_card(self, *args, **kwargs) -> ModelCard:
+      card = super().generate_model_card(*args, **kwargs)
+      card.data.metrics = ...  # add metrics to the metadata
+      card.text += ... # append section to the modelcard
+      return card
+```
+
+#### Config
+
+[`ModelHubMixin`] handles the model configuration for you. It automatically checks the input values when you instantiate the model and serializes them in a `config.json` file. This provides 2 benefits:
+1. Users will be able to reload the model with the exact same parameters as you.
+2. Having a `config.json` file automatically enables analytics on the Hub (i.e. the "downloads" count).
+
+But how does it work in practice? Several rules make the process as smooth as possible from a user perspective:
+- if your `__init__` method expects a `config` input, it will be automatically saved in the repo as `config.json`.
+- if the `config` input parameter is annotated with a dataclass type (e.g. `config: Optional[MyConfigClass] = None`), then the `config` value will be correctly deserialized for you.
+- all values passed at initialization will also be stored in the config file. This means you don't necessarily have to expect a `config` input to benefit from it.
+
+Example:
+
+```py
+class MyModel(ModelHubMixin):
+   def __init__(value: str, size: int = 3):
+      self.value = value
+      self.size = size
+
+   (...) # implement _save_pretrained / _from_pretrained
+
+model = MyModel(value="my_value")
+model.save_pretrained(...)
+
+# config.json contains passed and default values
+{"value": "my_value", "size": 3}
+```
+
+But what if a value cannot be serialized as JSON? By default, the value will be ignored when saving the config file. However, in some cases your library already expects a custom object as input that cannot be serialized, and you don't want to update your internal logic to update its type. No worries! You can pass custom encoders/decoders for any type when inheriting from [`ModelHubMixin`]. This is a bit more work but ensures your internal logic is untouched when integrating your library with the Hub.
+
+Here is a concrete example where a class expects a `argparse.Namespace` config as input:
+
+```py
+class VoiceCraft(nn.Module):
+    def __init__(self, args):
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+One solution can be to update the `__init__` signature to `def __init__(self, pattern: str, hidden_size: int)` and update all snippets that instantiates your class. This is a perfectly valid way to fix it but it might break downstream applications using your library.
+
+Another solution is to provide a simple encoder/decoder to convert `argparse.Namespace` to a dictionary.
+
+```py
+from argparse import Namespace
+
+class VoiceCraft(
+   nn.Module,
+   PyTorchModelHubMixin,  # inherit from mixin
+   coders={
+      Namespace : (
+         lambda x: vars(x),  # Encoder: how to convert a `Namespace` to a valid jsonable value?
+         lambda data: Namespace(**data),  # Decoder: how to reconstruct a `Namespace` from a dictionary?
+      )
+   }
+):
+    def __init__(self, args: Namespace): # annotate `args`
+      self.pattern = self.args.pattern
+      self.hidden_size = self.args.hidden_size
+      ...
+```
+
+In the snippet above, both the internal logic and the `__init__` signature of the class did not change. This means all existing code snippets for your library will continue to work. To achieve this, we had to:
+1. Inherit from the mixin (`PytorchModelHubMixin` in this case).
+2. Pass a `coders` parameter in the inheritance. This is a dictionary where keys are custom types you want to process. Values are a tuple `(encoder, decoder)`.
+   - The encoder expects an object of the specified type as input and returns a jsonable value. This will be used when saving a model with `save_pretrained`.
+   - The decoder expects raw data (typically a dictionary) as input and reconstructs the initial object. This will be used when loading the model with `from_pretrained`.
+3. Add a type annotation to the `__init__` signature. This is important to let the mixin know which type is expected by the class and, therefore, which decoder to use.
+
+For the sake of simplicity, the encoder/decoder functions in the example above are not robust. For a concrete implementation, you would most likely have to handle corner cases properly.
 
 ## Quick comparison
 
@@ -283,3 +435,5 @@ ideas on how to handle integration. In any case, feel free to contact us if you 
 | Flexibility | Very flexible.<br>You fully control the implementation. | Less flexible.<br>Your framework must have a model class. |
 | Maintenance | More maintenance to add support for configuration, and new features. Might also require fixing issues reported by users. | Less maintenance as most of the interactions with the Hub are implemented in `huggingface_hub`. |
 | Documentation / Type annotation | To be written manually. | Partially handled by `huggingface_hub`. |
+| Download counter | To be handled manually. | Enabled by default if class has a `config` attribute. |
+| Model card | To be handled manually | Generated by default with library_name, tags, etc. |

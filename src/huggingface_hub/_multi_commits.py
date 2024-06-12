@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains utilities to multi-commits (i.e. push changes iteratively on a PR)."""
+
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterable, List, Optional, Set, Tuple, Union
@@ -272,8 +273,8 @@ def multi_commit_create_pull_request(
     commit_message: str,
     commit_description: Optional[str],
     strategy: MultiCommitStrategy,
-    token: Optional[str],
     repo_type: Optional[str],
+    token: Union[str, bool, None] = None,
 ) -> DiscussionWithDetails:
     return api.create_pull_request(
         repo_id=repo_id,

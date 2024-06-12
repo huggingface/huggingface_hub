@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -20,12 +21,33 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub import (
+    AutomaticSpeechRecognitionOutput,
+    ChatCompletionOutput,
+    ChatCompletionOutputComplete,
+    ChatCompletionOutputMessage,
+    ChatCompletionStreamOutput,
+    DocumentQuestionAnsweringOutputElement,
+    FillMaskOutputElement,
+    ImageClassificationOutputElement,
+    ImageToTextOutput,
+    InferenceClient,
+    ObjectDetectionOutputElement,
+    QuestionAnsweringOutputElement,
+    SummarizationOutput,
+    TableQuestionAnsweringOutputElement,
+    TextClassificationOutputElement,
+    TokenClassificationOutputElement,
+    TranslationOutput,
+    VisualQuestionAnsweringOutputElement,
+    ZeroShotClassificationOutputElement,
+    hf_hub_download,
+)
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -37,6 +59,7 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "document-question-answering": "naver-clova-ix/donut-base-finetuned-docvqa",
     "feature-extraction": "facebook/bart-base",
     "image-classification": "google/vit-base-patch16-224",
+    "image-to-text": "Salesforce/blip-image-captioning-base",
     "image-segmentation": "facebook/detr-resnet-50-panoptic",
     "object-detection": "facebook/detr-resnet-50",
     "sentence-similarity": "sentence-transformers/all-MiniLM-L6-v2",
@@ -53,6 +76,74 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "zero-shot-classification": "facebook/bart-large-mnli",
     "zero-shot-image-classification": "openai/clip-vit-base-patch32",
 }
+
+CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+CHAT_COMPLETION_MESSAGES = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is deep learning?"},
+]
+CHAT_COMPLETE_NON_TGI_MODEL = "microsoft/DialoGPT-small"
+
+CHAT_COMPLETION_TOOL_INSTRUCTIONS = [
+    {
+        "role": "system",
+        "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.",
+    },
+    {
+        "role": "user",
+        "content": "What's the weather like the next 3 days in San Francisco, CA?",
+    },
+]
+CHAT_COMPLETION_TOOLS = [  # 1 tool to get current weather, 1 to get N-day weather forecast
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                },
+                "required": ["location", "format"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_n_day_weather_forecast",
+            "description": "Get an N-day weather forecast",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The temperature unit to use. Infer this from the users location.",
+                    },
+                    "num_days": {
+                        "type": "integer",
+                        "description": "The number of days to forecast",
+                    },
+                },
+                "required": ["location", "format", "num_days"],
+            },
+        },
+    },
+]
 
 
 class InferenceClientTest(unittest.TestCase):
@@ -92,13 +183,165 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+            self.assertIsInstance(item.score, float)
+            self.assertIsInstance(item.label, str)
+
+    def test_audio_to_audio(self) -> None:
+        output = self.client.audio_to_audio(self.audio_file)
+        assert isinstance(output, list)
+        assert len(output) > 0
+        for item in output:
+            assert isinstance(item.label, str)
+            assert isinstance(item.blob, bytes)
+            assert item.content_type == "audio/flac"
 
     def test_automatic_speech_recognition(self) -> None:
         output = self.client.automatic_speech_recognition(self.audio_file)
-        self.assertEqual(output, "A MAN SAID TO THE UNIVERSE SIR I EXIST")
+        assert output == AutomaticSpeechRecognitionOutput(
+            text="A MAN SAID TO THE UNIVERSE SIR I EXIST",
+            chunks=None,
+        )
 
+    def test_chat_completion_no_stream(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETION_MODEL,
+            stream=False,
+        )
+        assert isinstance(output, ChatCompletionOutput)
+        assert output.created < time.time()
+        assert output.choices == [
+            ChatCompletionOutputComplete(
+                finish_reason="length",
+                index=0,
+                message=ChatCompletionOutputMessage(
+                    content="Deep learning is a subfield of machine learning that focuses on training artificial neural networks with multiple layers of",
+                    role="assistant",
+                ),
+            )
+        ]
+
+    def test_chat_completion_with_stream(self) -> None:
+        output = list(
+            self.client.chat_completion(
+                messages=CHAT_COMPLETION_MESSAGES,
+                model=CHAT_COMPLETION_MODEL,
+                stream=True,
+                max_tokens=20,
+            )
+        )
+
+        assert isinstance(output, list)
+        assert all(isinstance(item, ChatCompletionStreamOutput) for item in output)
+        created = output[0].created
+        assert all(item.created == created for item in output)  # all tokens share the same timestamp
+
+        # All items except the last one have a single choice with role/content delta
+        for item in output[:-1]:
+            assert len(item.choices) == 1
+            assert item.choices[0].finish_reason is None
+            assert item.choices[0].index == 0
+            assert item.choices[0].delta.role == "assistant"
+            assert item.choices[0].delta.content is not None
+
+        # Last item has a finish reason but no role/content delta
+        assert output[-1].choices[0].finish_reason == "length"
+        assert output[-1].choices[0].delta.role is None
+        assert output[-1].choices[0].delta.content is None
+
+        # Reconstruct generated text
+        generated_text = "".join(
+            item.choices[0].delta.content for item in output if item.choices[0].delta.content is not None
+        )
+        expected_text = "Deep learning is a subfield of machine learning that is based on artificial neural networks with multiple layers to"
+        assert generated_text == expected_text
+
+    def test_chat_completion_with_non_tgi(self) -> None:
+        output = self.client.chat_completion(
+            messages=CHAT_COMPLETION_MESSAGES,
+            model=CHAT_COMPLETE_NON_TGI_MODEL,
+            stream=False,
+            max_tokens=20,
+        )
+        assert output == ChatCompletionOutput(
+            id="dummy",
+            model="dummy",
+            object="dummy",
+            system_fingerprint="dummy",
+            usage=None,
+            choices=[
+                ChatCompletionOutputComplete(
+                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    index=0,
+                    message=ChatCompletionOutputMessage(
+                        content="Deep learning is a thing.",
+                        role="assistant",
+                    ),
+                )
+            ],
+            created=output.created,
+        )
+
+    def test_chat_completion_with_tool(self) -> None:
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="auto",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+
+        # Single message before EOS
+        assert output.finish_reason == "eos_token"
+        assert output.index == 0
+        assert output.message.role == "assistant"
+
+        # No content but a tool call
+        assert output.message.content is None
+        assert len(output.message.tool_calls) == 1
+
+        # Tool
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.type == "function"
+        assert tool_call.function.name == "get_n_day_weather_forecast"
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+            "num_days": 3,
+        }
+
+        # Now, test with tool_choice="get_current_weather"
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_TOOL_INSTRUCTIONS,
+            tools=CHAT_COMPLETION_TOOLS,
+            tool_choice="get_current_weather",
+            max_tokens=500,
+        )
+        output = response.choices[0]
+        tool_call = output.message.tool_calls[0]
+        assert tool_call.function.name == "get_current_weather"
+        # No need for 'num_days' with this tool
+        assert tool_call.function.arguments == {
+            "format": "fahrenheit",
+            "location": "San Francisco, CA",
+        }
+
+    def test_chat_completion_unprocessable_entity(self) -> None:
+        """Regression test for #2225.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2225.
+        """
+        with self.assertRaises(HfHubHTTPError):
+            self.client.chat_completion(
+                "please output 'Observation'",  # Not a list of messages
+                stop=["Observation", "Final Answer"],
+                max_tokens=200,
+                model="meta-llama/Meta-Llama-3-70B-Instruct",
+            )
+
+    @expect_deprecation("InferenceClient.conversational")
     def test_conversational(self) -> None:
         output = self.client.conversational("Hi, who are you?")
         self.assertEqual(
@@ -132,7 +375,14 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_document_question_answering(self) -> None:
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
-        self.assertEqual(output, [{"answer": "$1,000,000,000"}])
+        self.assertEqual(
+            output,
+            [
+                DocumentQuestionAnsweringOutputElement(
+                    answer="$1,000,000,000", end=None, score=None, start=None, words=None
+                )
+            ],
+        )
 
     def test_feature_extraction_with_transformers(self) -> None:
         embedding = self.client.feature_extraction("Hi, who are you?")
@@ -147,13 +397,43 @@ class InferenceClientVCRTest(InferenceClientTest):
     def test_fill_mask(self) -> None:
         model = "distilroberta-base"
         output = self.client.fill_mask("The goal of life is <mask>.", model=model)
-        self.assertIsInstance(output, list)
-        self.assertEqual(len(output[0]), 4)
-        self.assertIsInstance(output[0], dict)
-        self.assertEqual(
-            set(k for el in output for k in el.keys()),
-            {"score", "sequence", "token", "token_str"},
-        )
+        assert output == [
+            FillMaskOutputElement(
+                score=0.06897063553333282,
+                sequence="The goal of life is happiness.",
+                token=11098,
+                token_str=" happiness",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.06554922461509705,
+                sequence="The goal of life is immortality.",
+                token=45075,
+                token_str=" immortality",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.0323575921356678,
+                sequence="The goal of life is yours.",
+                token=14314,
+                token_str=" yours",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.02431388944387436,
+                sequence="The goal of life is liberation.",
+                token=22211,
+                token_str=" liberation",
+                fill_mask_output_token_str=None,
+            ),
+            FillMaskOutputElement(
+                score=0.023767812177538872,
+                sequence="The goal of life is simplicity.",
+                token=25342,
+                token_str=" simplicity",
+                fill_mask_output_token_str=None,
+            ),
+        ]
 
     def test_get_recommended_model_has_recommendation(self) -> None:
         assert self.client.get_recommended_model("feature-extraction") == "facebook/bart-base"
@@ -165,22 +445,24 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+        assert output == [
+            ImageClassificationOutputElement(label="brassiere, bra, bandeau", score=0.1176738440990448),
+            ImageClassificationOutputElement(label="sombrero", score=0.0957278460264206),
+            ImageClassificationOutputElement(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
+            ImageClassificationOutputElement(label="bonnet, poke bonnet", score=0.06615243852138519),
+            ImageClassificationOutputElement(label="fur coat", score=0.06151164695620537),
+        ]
 
     def test_image_segmentation(self) -> None:
         output = self.client.image_segmentation(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
+        assert isinstance(output, list)
+        assert len(output) > 0
         for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["mask"], Image.Image)
-            self.assertEqual(item["mask"].height, 512)
-            self.assertEqual(item["mask"].width, 512)
+            assert isinstance(item.score, float)
+            assert isinstance(item.label, str)
+            assert isinstance(item.mask, Image.Image)
+            assert item.mask.height == 512
+            assert item.mask.width == 512
 
     # ERROR 500 from server
     # Only during tests, not when running locally. Has to be investigated.
@@ -190,34 +472,23 @@ class InferenceClientVCRTest(InferenceClientTest):
     #     self.assertEqual(image.height, 512)
     #     self.assertEqual(image.width, 512)
 
-    # ERROR 500 from server
-    # Only during tests, not when running locally. Has to be investigated.
-    # def test_image_to_text(self) -> None:
-    #     caption = self.client.image_to_text(self.image_file)
-    #     self.assertEqual(caption, "")
+    def test_image_to_text(self) -> None:
+        caption = self.client.image_to_text(self.image_file)
+        assert isinstance(caption, ImageToTextOutput)
+        assert caption.generated_text == "a woman in a hat and dress posing for a photo"
 
     def test_object_detection(self) -> None:
         output = self.client.object_detection(self.image_file)
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["box"], dict)
-            self.assertIn("xmin", item["box"])
-            self.assertIn("ymin", item["box"])
-            self.assertIn("xmax", item["box"])
-            self.assertIn("ymax", item["box"])
+        assert output == [
+            ObjectDetectionOutputElement(
+                box={"xmin": 59, "ymin": 39, "xmax": 420, "ymax": 510}, label="person", score=0.9486683011054993
+            )
+        ]
 
     def test_question_answering(self) -> None:
         model = "deepset/roberta-base-squad2"
         output = self.client.question_answering(question="What is the meaning of life?", context="42", model=model)
-        self.assertIsInstance(output, dict)
-        self.assertGreater(len(output), 0)
-        self.assertIsInstance(output["score"], float)
-        self.assertIsInstance(output["start"], int)
-        self.assertIsInstance(output["end"], int)
-        self.assertEqual(output["answer"], "42")
+        assert output == QuestionAnsweringOutputElement(answer="42", end=2, score=1.4291124728060822e-08, start=0)
 
     def test_sentence_similarity(self) -> None:
         scores = self.client.sentence_similarity(
@@ -241,11 +512,12 @@ class InferenceClientVCRTest(InferenceClientTest):
             " metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure"
             " in France after the Millau Viaduct."
         )
-        self.assertEqual(
-            summary,
-            "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is"
-            " square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower"
-            " surpassed the Washington Monument to become the tallest man-made structure in the world.",
+        assert summary == SummarizationOutput.parse_obj(
+            {
+                "summary_text": "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is"
+                " square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower"
+                " surpassed the Washington Monument to become the tallest man-made structure in the world.",
+            }
         )
 
     @pytest.mark.skip(reason="This model is not available on InferenceAPI")
@@ -286,20 +558,16 @@ class InferenceClientVCRTest(InferenceClientTest):
         }
         query = "How many stars does the transformers repository have?"
         output = self.client.table_question_answering(query=query, table=table)
-        self.assertEqual(type(output), dict)
-        self.assertEqual(len(output), 4)
-        self.assertEqual(
-            set(output.keys()),
-            {"aggregator", "answer", "cells", "coordinates"},
+        assert output == TableQuestionAnsweringOutputElement(
+            answer="AVERAGE > 36542", cells=["36542"], coordinates=[[0, 1]], aggregator="AVERAGE"
         )
 
     def test_text_classification(self) -> None:
         output = self.client.text_classification("I like you")
-        self.assertIsInstance(output, list)
-        self.assertEqual(len(output), 2)
-        for item in output:
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["label"], str)
+        assert output == [
+            TextClassificationOutputElement(label="POSITIVE", score=0.9998695850372314),
+            TextClassificationOutputElement(label="NEGATIVE", score=0.0001304351753788069),
+        ]
 
     def test_text_generation(self) -> None:
         """Tested separately in `test_inference_text_generation.py`."""
@@ -322,13 +590,13 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_translation(self) -> None:
         output = self.client.translation("Hello world")
-        self.assertEqual(output, "Hallo Welt")
+        assert output == TranslationOutput(translation_text="Hallo Welt")
 
     def test_translation_with_source_and_target_language(self) -> None:
         output_with_langs = self.client.translation(
             "Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX"
         )
-        self.assertIsInstance(output_with_langs, str)
+        assert isinstance(output_with_langs, TranslationOutput)
 
         with self.assertRaises(ValueError):
             self.client.translation("Hello world", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX")
@@ -338,27 +606,24 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     def test_token_classification(self) -> None:
         output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
-        self.assertIsInstance(output, list)
-        self.assertGreater(len(output), 0)
-        for item in output:
-            self.assertIsInstance(item["entity_group"], str)
-            self.assertIsInstance(item["score"], float)
-            self.assertIsInstance(item["word"], str)
-            self.assertIsInstance(item["start"], int)
-            self.assertIsInstance(item["end"], int)
+        assert output == [
+            TokenClassificationOutputElement(
+                label=None, score=0.9991335868835449, end=31, entity_group="PER", start=11, word="Sarah Jessica Parker"
+            ),
+            TokenClassificationOutputElement(
+                label=None, score=0.9979913234710693, end=59, entity_group="PER", start=52, word="Jessica"
+            ),
+        ]
 
     def test_visual_question_answering(self) -> None:
         output = self.client.visual_question_answering(self.image_file, "Who's in the picture?")
-        self.assertEqual(
-            output,
-            [
-                {"score": 0.9386941194534302, "answer": "woman"},
-                {"score": 0.34311845898628235, "answer": "girl"},
-                {"score": 0.08407749235630035, "answer": "lady"},
-                {"score": 0.0507517009973526, "answer": "female"},
-                {"score": 0.01777094043791294, "answer": "man"},
-            ],
-        )
+        assert output == [
+            VisualQuestionAnsweringOutputElement(label=None, score=0.9386941194534302, answer="woman"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.34311845898628235, answer="girl"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.08407749235630035, answer="lady"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.0507517009973526, answer="female"),
+            VisualQuestionAnsweringOutputElement(label=None, score=0.01777094043791294, answer="man"),
+        ]
 
     def test_zero_shot_classification_single_label(self) -> None:
         output = self.client.zero_shot_classification(
@@ -386,25 +651,23 @@ class InferenceClientVCRTest(InferenceClientTest):
             labels=["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"],
             multi_label=True,
         )
-        self.assertEqual(
-            output,
-            [
-                {"label": "scientific discovery", "score": 0.9829297661781311},
-                {"label": "space & cosmos", "score": 0.755190908908844},
-                {"label": "microbiology", "score": 0.0005462635890580714},
-                {"label": "archeology", "score": 0.00047131875180639327},
-                {"label": "robots", "score": 0.00030448526376858354},
-            ],
-        )
+        assert output == [
+            ZeroShotClassificationOutputElement(label="scientific discovery", score=0.9829297661781311),
+            ZeroShotClassificationOutputElement(label="space & cosmos", score=0.755190908908844),
+            ZeroShotClassificationOutputElement(label="microbiology", score=0.0005462635890580714),
+            ZeroShotClassificationOutputElement(label="archeology", score=0.00047131875180639327),
+            ZeroShotClassificationOutputElement(label="robots", score=0.00030448526376858354),
+        ]
 
     def test_zero_shot_image_classification(self) -> None:
         output = self.client.zero_shot_image_classification(self.image_file, ["tree", "woman", "cat"])
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
         for item in output:
-            self.assertIsInstance(item["label"], str)
-            self.assertIsInstance(item["score"], float)
+            self.assertIsInstance(item.label, str)
+            self.assertIsInstance(item.score, float)
 
+    @expect_deprecation("InferenceClient.conversational")
     def test_unprocessable_entity_error(self) -> None:
         with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
             self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
@@ -544,10 +807,10 @@ class TestModelStatus(unittest.TestCase):
     def test_loaded_model(self) -> None:
         client = InferenceClient()
         model_status = client.get_model_status("bigscience/bloom")
-        self.assertTrue(model_status.loaded)
-        self.assertEqual(model_status.state, "Loaded")
-        self.assertEqual(model_status.compute_type, "gpu")
-        self.assertEqual(model_status.framework, "text-generation-inference")
+        assert model_status.loaded
+        assert model_status.state == "Loaded"
+        assert isinstance(model_status.compute_type, dict)  # e.g. {'gpu': {'gpu': 'a100', 'count': 8}}
+        assert model_status.framework == "text-generation-inference"
 
     def test_unknown_model(self) -> None:
         client = InferenceClient()

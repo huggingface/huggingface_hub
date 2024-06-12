@@ -3,13 +3,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import requests
-
 from huggingface_hub import CommitOperationAdd, HfApi, snapshot_download
-from huggingface_hub.utils import HfFolder, SoftTemporaryDirectory
+from huggingface_hub.utils import LocalEntryNotFoundError, RepositoryNotFoundError, SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
-from .testing_utils import repo_name
+from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 
 class SnapshotDownloadTests(unittest.TestCase):
@@ -101,14 +99,14 @@ class SnapshotDownloadTests(unittest.TestCase):
 
         # Test download fails without token
         with SoftTemporaryDirectory() as tmpdir:
-            with self.assertRaisesRegex(requests.exceptions.HTTPError, "401 Client Error"):
+            with self.assertRaises(RepositoryNotFoundError):
                 _ = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
 
         # Test we can download with token from cache
-        with SoftTemporaryDirectory() as tmpdir:
-            HfFolder.save_token(TOKEN)
-            storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
-            self.assertTrue(self.second_commit_hash in storage_folder)
+        with patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN):
+            with SoftTemporaryDirectory() as tmpdir:
+                storage_folder = snapshot_download(self.repo_id, revision="main", cache_dir=tmpdir)
+                self.assertTrue(self.second_commit_hash in storage_folder)
 
         # Test we can download with explicit token
         with SoftTemporaryDirectory() as tmpdir:
@@ -143,6 +141,18 @@ class SnapshotDownloadTests(unittest.TestCase):
                 self.repo_id, revision=self.first_commit_hash, cache_dir=tmpdir, local_files_only=True
             )
             self.assertTrue(self.first_commit_hash in storage_folder)  # has expected revision
+
+    def test_download_model_offline_mode_not_cached(self):
+        """Test when connection error but cache is empty."""
+        with SoftTemporaryDirectory() as tmpdir:
+            with self.assertRaises(LocalEntryNotFoundError):
+                snapshot_download(self.repo_id, cache_dir=tmpdir, local_files_only=True)
+
+        for offline_mode in OfflineSimulationMode:
+            with offline(mode=offline_mode):
+                with SoftTemporaryDirectory() as tmpdir:
+                    with self.assertRaises(LocalEntryNotFoundError):
+                        snapshot_download(self.repo_id, cache_dir=tmpdir)
 
     def test_download_model_local_only_multiple(self):
         # cache multiple commits and make sure correct commit is taken
@@ -189,32 +199,32 @@ class SnapshotDownloadTests(unittest.TestCase):
     def test_download_model_with_ignore_pattern_list(self):
         self.check_download_model_with_pattern(["*.git*", "*.pt"], allow=False)
 
-    @patch("huggingface_hub.constants.HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD", 10)  # >10b => "big file"
     def test_download_to_local_dir(self) -> None:
         """Download a repository to local dir.
 
-        Cache dir is used and symlinks are adding to local dir. This test is here to check once the normal behavior
-        with snapshot_download. More combinations of cache_dir/local_dir/use_symlinks are tested separately in
-        `test_file_download.py`.
+        Cache dir is not used.
+        Symlinks are not used.
+
+        This test is here to check once the normal behavior with snapshot_download.
+        More individual tests exists in `test_file_download.py`.
         """
         with SoftTemporaryDirectory() as cache_dir:
             with SoftTemporaryDirectory() as local_dir:
                 returned_path = snapshot_download(self.repo_id, cache_dir=cache_dir, local_dir=local_dir)
 
-                # Files have been downloaded
-                self.assertTrue((Path(local_dir) / "dummy_file.txt").is_file())
-                self.assertTrue((Path(local_dir) / "dummy_file_2.txt").is_file())
+                # Files have been downloaded in correct structure
+                assert (Path(local_dir) / "dummy_file.txt").is_file()
+                assert (Path(local_dir) / "dummy_file_2.txt").is_file()
+                assert (Path(local_dir) / "subpath" / "file.txt").is_file()
 
-                # Files are small so duplicated from cache (no symlinks)
-                self.assertFalse((Path(local_dir) / "dummy_file.txt").is_symlink())  # smaller than 10b => duplicated
-                self.assertFalse((Path(local_dir) / "dummy_file_2.txt").is_symlink())  # smaller than 10b => duplicated
-
-                # File structure is preserved (+check content)
-                subpath_file = Path(local_dir) / "subpath" / "file.txt"
-                self.assertTrue(subpath_file.is_file())
-                self.assertEqual(subpath_file.read_text(), "content in subpath")
-                if os.name != "nt":
-                    self.assertTrue(subpath_file.is_symlink())  # bigger than 10b => symlinked
+                # Symlinks are not used anymore
+                assert not (Path(local_dir) / "dummy_file.txt").is_symlink()
+                assert not (Path(local_dir) / "dummy_file_2.txt").is_symlink()
+                assert not (Path(local_dir) / "subpath" / "file.txt").is_symlink()
 
                 # Check returns local dir and not cache dir
-                self.assertEqual(Path(returned_path).resolve(), Path(local_dir).resolve())
+                assert Path(returned_path).resolve() == Path(local_dir).resolve()
+
+                # Nothing has been added to cache dir (except some subfolders created)
+                for path in cache_dir.glob("*"):
+                    assert path.is_dir()

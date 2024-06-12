@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
+
 import inspect
 import io
 import os
@@ -26,12 +27,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
 from urllib.parse import unquote
 
-from requests.auth import HTTPBasicAuth
-
 from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
-from huggingface_hub.utils import get_session
 
-from .utils import get_token_to_send, hf_raise_for_status, http_backoff, logging, tqdm, validate_hf_hub_args
+from .utils import (
+    build_hf_headers,
+    fix_hf_endpoint_in_url,
+    get_session,
+    hf_raise_for_status,
+    http_backoff,
+    logging,
+    tqdm,
+    validate_hf_hub_args,
+)
 from .utils.sha import sha256, sha_fileobj
 
 
@@ -100,6 +107,7 @@ def post_lfs_batch_info(
     repo_id: str,
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[dict], List[dict]]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
@@ -115,10 +123,10 @@ def post_lfs_batch_info(
         repo_id (`str`):
             A namespace (user or an organization) and a repo name separated
             by a `/`.
-        token (`str`, *optional*):
-            An authentication token ( See https://huggingface.co/settings/tokens )
         revision (`str`, *optional*):
             The git revision to upload to.
+        headers (`dict`, *optional*):
+            Additional headers to include in the request
 
     Returns:
         `LfsBatchInfo`: 2-tuple:
@@ -126,9 +134,10 @@ def post_lfs_batch_info(
             - Second element is an list of errors, if any
 
     Raises:
-        `ValueError`: If an argument is invalid or the server response is malformed
-
-        `HTTPError`: If the server returned an error
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If an argument is invalid or the server response is malformed.
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the server returned an error.
     """
     endpoint = endpoint if endpoint is not None else ENDPOINT
     url_prefix = ""
@@ -149,15 +158,13 @@ def post_lfs_batch_info(
     }
     if revision is not None:
         payload["ref"] = {"name": unquote(revision)}  # revision has been previously 'quoted'
-    resp = get_session().post(
-        batch_url,
-        headers=LFS_HEADERS,
-        json=payload,
-        auth=HTTPBasicAuth(
-            "access_token",
-            get_token_to_send(token or True),  # type: ignore  # Token must be provided or retrieved
-        ),
-    )
+
+    headers = {
+        **LFS_HEADERS,
+        **build_hf_headers(token=token),
+        **(headers or {}),
+    }
+    resp = get_session().post(batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
 
@@ -183,7 +190,13 @@ class CompletionPayloadT(TypedDict):
     parts: List[PayloadPartT]
 
 
-def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: Optional[str]) -> None:
+def lfs_upload(
+    operation: "CommitOperationAdd",
+    lfs_batch_action: Dict,
+    token: Optional[str] = None,
+    headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
+) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.
 
@@ -195,12 +208,14 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object. See [`~utils.lfs.post_lfs_batch_info`] for
             more details.
-        token (`str`, *optional*):
-            A [user access token](https://hf.co/settings/tokens) to authenticate requests against the Hub
+        headers (`dict`, *optional*):
+            Headers to include in the request, including authentication and user agent headers.
 
     Raises:
-        - `ValueError` if `lfs_batch_action` is improperly formatted
-        - `HTTPError` if the upload resulted in an error
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If `lfs_batch_action` is improperly formatted
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the upload resulted in an error
     """
     # 0. If LFS file is already present, skip upload
     _validate_batch_actions(lfs_batch_action)
@@ -220,6 +235,7 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
     # 2. Upload file (either single part or multi-part)
     header = upload_action.get("header", {})
     chunk_size = header.get("chunk_size")
+    upload_url = fix_hf_endpoint_in_url(upload_action["href"], endpoint=endpoint)
     if chunk_size is not None:
         try:
             chunk_size = int(chunk_size)
@@ -227,16 +243,17 @@ def lfs_upload(operation: "CommitOperationAdd", lfs_batch_action: Dict, token: O
             raise ValueError(
                 f"Malformed response from LFS batch endpoint: `chunk_size` should be an integer. Got '{chunk_size}'."
             )
-        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_action["href"])
+        _upload_multi_part(operation=operation, header=header, chunk_size=chunk_size, upload_url=upload_url)
     else:
-        _upload_single_part(operation=operation, upload_url=upload_action["href"])
+        _upload_single_part(operation=operation, upload_url=upload_url)
 
     # 3. Verify upload went well
     if verify_action is not None:
         _validate_lfs_action(verify_action)
+        verify_url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
         verify_resp = get_session().post(
-            verify_action["href"],
-            auth=HTTPBasicAuth(username="USER", password=get_token_to_send(token or True)),  # type: ignore
+            verify_url,
+            headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
         )
         hf_raise_for_status(verify_resp)
@@ -293,11 +310,13 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
 
     Returns: `requests.Response`
 
-    Raises: `requests.HTTPError` if the upload resulted in an error
+    Raises:
+     [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        If the upload resulted in an error.
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
-        response = http_backoff("PUT", upload_url, data=fileobj, retry_on_status_codes=(500, 503))
+        response = http_backoff("PUT", upload_url, data=fileobj, retry_on_status_codes=(500, 502, 503, 504))
         hf_raise_for_status(response)
 
 
@@ -382,7 +401,7 @@ def _upload_parts_iteratively(
             ) as fileobj_slice:
                 # S3 might raise a transient 500 error -> let's retry if that happens
                 part_upload_res = http_backoff(
-                    "PUT", part_upload_url, data=fileobj_slice, retry_on_status_codes=(500, 503)
+                    "PUT", part_upload_url, data=fileobj_slice, retry_on_status_codes=(500, 502, 503, 504)
                 )
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
@@ -411,9 +430,20 @@ def _upload_parts_hf_transfer(
     desc = operation.path_in_repo
     if len(desc) > 40:
         desc = f"(…){desc[-40:]}"
-    disable = bool(logger.getEffectiveLevel() == logging.NOTSET)
 
-    with tqdm(unit="B", unit_scale=True, total=total, initial=0, desc=desc, disable=disable) as progress:
+    # set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+    # see https://github.com/huggingface/huggingface_hub/pull/2000
+    disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
+
+    with tqdm(
+        unit="B",
+        unit_scale=True,
+        total=total,
+        initial=0,
+        desc=desc,
+        disable=disable,
+        name="huggingface_hub.lfs_upload",
+    ) as progress:
         try:
             output = multipart_upload(
                 file_path=operation.path_or_fileobj,

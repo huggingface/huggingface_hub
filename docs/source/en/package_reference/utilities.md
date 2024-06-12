@@ -60,9 +60,8 @@ when downloading or uploading files). `huggingface_hub` exposes a [`~utils.tqdm`
 consistent way across the library.
 
 By default, progress bars are enabled. You can disable them globally by setting `HF_HUB_DISABLE_PROGRESS_BARS`
-environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and 
+environment variable. You can also enable/disable them using [`~utils.enable_progress_bars`] and
 [`~utils.disable_progress_bars`]. If set, the environment variable has priority on the helpers.
-
 
 ```py
 >>> from huggingface_hub import snapshot_download
@@ -79,6 +78,34 @@ True
 
 >>> # Re-enable progress bars globally
 >>> enable_progress_bars()
+```
+
+### Group-specific control of progress bars
+
+You can also enable or disable progress bars for specific groups. This allows you to manage progress bar visibility more granularly within different parts of your application or library. When a progress bar is disabled for a group, all subgroups under it are also affected unless explicitly overridden.
+
+```py
+# Disable progress bars for a specific group
+>>> disable_progress_bars("peft.foo")
+>>> assert not are_progress_bars_disabled("peft")
+>>> assert not are_progress_bars_disabled("peft.something")
+>>> assert are_progress_bars_disabled("peft.foo")
+>>> assert are_progress_bars_disabled("peft.foo.bar")
+
+# Re-enable progress bars for a subgroup
+>>> enable_progress_bars("peft.foo.bar")
+>>> assert are_progress_bars_disabled("peft.foo")
+>>> assert not are_progress_bars_disabled("peft.foo.bar")
+
+# Use groups with tqdm
+# No progress bar for `name="peft.foo"`
+>>> for _ in tqdm(range(5), name="peft.foo"):
+...     pass
+
+# Progress bar will be shown for `name="peft.foo.bar"`
+>>> for _ in tqdm(range(5), name="peft.foo.bar"):
+...     pass
+100%|███████████████████████████████████████| 5/5 [00:00<00:00, 117817.53it/s]
 ```
 
 ### are_progress_bars_disabled
@@ -175,6 +202,10 @@ user as possible.
 #### LocalEntryNotFoundError
 
 [[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+
+#### OfflineModeIsEnabled
+
+[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
 
 ## Telemetry
 

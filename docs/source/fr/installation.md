@@ -137,9 +137,9 @@ Task: text-generation
 
 ## Les limitations Windows
 
-Afin de démocratiser le machine learning pour tous, nous avons développé `huggingface_hub`
-de manière cross-platform et en particulier, pour qu'elle fonctionne sur un maximum de systèmes d'exploitation différents.
-Toutefois, `huggingface_hub` connaît dans certains cas des limiations sur Windows.
+Afin de démocratiser le machine learning au plus grand nombre, nous avons développé `huggingface_hub`
+de manière cross-platform et en particulier, pour qu'elle fonctionne sur une maximum de systèmes d'exploitation différents. Toutefois
+`huggingface_hub` connaît dans certains cas des limitations sur Windows.
 Nous avons listés ci-dessous les problèmes connus. N'hésitez pas à nous signaler si vous rencontrez un problème
 non documenté en ouvrant une [issue sur Github](https://github.com/huggingface/huggingface_hub/issues/new/choose).
 

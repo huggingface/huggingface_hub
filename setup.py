@@ -14,41 +14,47 @@ def get_version() -> str:
 install_requires = [
     "filelock",
     "fsspec>=2023.5.0",
+    "packaging>=20.9",
+    "pyyaml>=5.1",
     "requests",
     "tqdm>=4.42.1",
-    "pyyaml>=5.1",
     "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
-    "packaging>=20.9",
 ]
 
 extras = {}
 
 extras["cli"] = [
-    "InquirerPy==0.3.4",
-    # Note: installs `prompt-toolkit` in the background
+    "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
 ]
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
-    # On Python 3.8, Pydantic 2.x and tensorflow don't play well together
-    # Let's limit pydantic to 1.x for now. Since Tensorflow 2.14, Python3.8 is not supported anyway so impact should be
-    # limited. We still trigger some CIs on Python 3.8 so we need this workaround.
-    # NOTE: when relaxing constraint to support v3.x, make sure to adapt `src/huggingface_hub/inference/_text_generation.py`.
-    "pydantic>1.1,<3.0; python_version>'3.8'",
-    "pydantic>1.1,<2.0; python_version=='3.8'",
+    "minijinja>=1.0",  # for chat-completion if not TGI-served
 ]
 
 extras["torch"] = [
     "torch",
+    "safetensors",
 ]
-
+extras["hf_transfer"] = [
+    "hf_transfer>=0.1.4",  # Pin for progress bars
+]
 extras["fastai"] = [
     "toml",
     "fastai>=2.4",
     "fastcore>=1.3.27",
 ]
 
-extras["tensorflow"] = ["tensorflow", "pydot", "graphviz"]
+extras["tensorflow"] = [
+    "tensorflow",
+    "pydot",
+    "graphviz",
+]
+
+extras["tensorflow-testing"] = [
+    "tensorflow",
+    "keras<3.0",
+]
 
 
 extras["testing"] = (
@@ -63,11 +69,13 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
+        "pytest-rerunfailures",  # to rerun flaky tests in CI
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
         "gradio",  # to test webhooks
         "numpy",  # for embeddings
+        "fastapi",  # To build the documentation
     ]
 )
 
@@ -84,20 +92,13 @@ extras["typing"] = [
 ]
 
 extras["quality"] = [
-    "ruff>=0.1.3",
+    "ruff>=0.3.0",
     "mypy==1.5.1",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]
 
 extras["dev"] = extras["all"]
-
-extras["docs"] = extras["all"] + [
-    # CI builds documentation using doc builder from source
-    "hf-doc-builder @ git+https://github.com/huggingface/doc-builder@main",
-    "watchdog",
-]
-
 
 setup(
     name="huggingface_hub",

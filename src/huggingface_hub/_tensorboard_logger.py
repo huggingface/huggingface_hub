@@ -12,21 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
+
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from huggingface_hub._commit_scheduler import CommitScheduler
 
-from .utils import experimental, is_tensorboard_available
+from .utils import experimental
 
 
-if is_tensorboard_available():
+# Depending on user's setup, SummaryWriter can come either from 'tensorboardX'
+# or from 'torch.utils.tensorboard'. Both are compatible so let's try to load
+# from either of them.
+try:
     from tensorboardX import SummaryWriter
 
-    # TODO: clarify: should we import from torch.utils.tensorboard ?
+    is_summary_writer_available = True
 
-else:
-    SummaryWriter = object  # Dummy class to avoid failing at import. Will raise on instance creation.
+except ImportError:
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+
+        is_summary_writer_available = False
+    except ImportError:
+        # Dummy class to avoid failing at import. Will raise on instance creation.
+        SummaryWriter = object
+        is_summary_writer_available = False
 
 if TYPE_CHECKING:
     from tensorboardX import SummaryWriter
@@ -105,7 +116,7 @@ class HFSummaryWriter(SummaryWriter):
 
     @experimental
     def __new__(cls, *args, **kwargs) -> "HFSummaryWriter":
-        if not is_tensorboard_available():
+        if not is_summary_writer_available:
             raise ImportError(
                 "You must have `tensorboard` installed to use `HFSummaryWriter`. Please run `pip install --upgrade"
                 " tensorboardX` first."
