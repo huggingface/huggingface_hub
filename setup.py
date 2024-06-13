@@ -63,7 +63,7 @@ extras["testing"] = (
     + [
         "jedi",
         "Jinja2",
-        "pytest",
+        "pytest>=8.1.1",
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
