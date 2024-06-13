@@ -224,9 +224,9 @@ The examples above show how to download from the latest commit on the main branc
 
 ### Download to a local folder
 
-The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local_dir` option.
+The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
 
-A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local_dir` optimized for pulling only the latest changes.
+A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local-dir` optimized for pulling only the latest changes.
 
 <Tip>
 
@@ -242,7 +242,7 @@ fuyu/model-00001-of-00002.safetensors
 
 ### Specify cache directory
 
-If not using `--local_dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
+If not using `--local-dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
 
 ```bash
 >>> huggingface-cli download adept/fuyu-8b --cache-dir ./path/to/cache
@@ -427,6 +427,40 @@ By default, the `huggingface-cli upload` command will be verbose. It will print 
 ```bash
 >>> huggingface-cli upload Wauplin/my-cool-model ./models . --quiet
 https://huggingface.co/Wauplin/my-cool-model/tree/main
+```
+
+## huggingface-cli repo-files
+
+If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
+
+### Delete files
+
+The `huggingface-cli repo-files <repo_id> delete` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder :
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Delete multiple files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete file.txt folder/pytorch_model.bin
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+Use Unix-style wildcards to delete sets of files: 
+```bash
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
+Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
+```
+
+### Specify a token
+
+To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
+
+```bash
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt 
 ```
 
 ## huggingface-cli scan-cache

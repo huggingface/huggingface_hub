@@ -399,9 +399,9 @@ from argparse import Namespace
 
 class VoiceCraft(
    nn.Module,
-   PytorchModelHubMixin,  # inherit from mixin
-   coders: {
-      Namespace = (
+   PyTorchModelHubMixin,  # inherit from mixin
+   coders={
+      Namespace : (
          lambda x: vars(x),  # Encoder: how to convert a `Namespace` to a valid jsonable value?
          lambda data: Namespace(**data),  # Decoder: how to reconstruct a `Namespace` from a dictionary?
       )

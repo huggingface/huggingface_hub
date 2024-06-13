@@ -175,9 +175,9 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
         `None`) and repo_id (`str`).
 
     Raises:
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If URL cannot be parsed.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `repo_type` is unknown.
     """
     input_hf_id = hf_id
@@ -463,9 +463,9 @@ class RepoUrl(str):
     ```
 
     Raises:
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If URL cannot be parsed.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `repo_type` is unknown.
     """
 
@@ -3246,7 +3246,7 @@ class HfApi:
                 If `True`, do not raise an error if repo does not exist.
 
         Raises:
-            - [`~utils.RepositoryNotFoundError`]
+            [`~utils.RepositoryNotFoundError`]
               If the repository to delete from cannot be found and `missing_ok` is set to False (default).
         """
         organization, name = repo_id.split("/") if "/" in repo_id else (None, repo_id)
@@ -4611,7 +4611,7 @@ class HfApi:
             ignore_patterns = [ignore_patterns]
         ignore_patterns += DEFAULT_IGNORE_PATTERNS
 
-        delete_operations = self._prepare_upload_folder_deletions(
+        delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
             repo_type=repo_type,
             revision=DEFAULT_REVISION if create_pr else revision,
@@ -4759,6 +4759,82 @@ class HfApi:
         )
 
         operations = [CommitOperationDelete(path_in_repo=path_in_repo)]
+
+        return self.create_commit(
+            repo_id=repo_id,
+            repo_type=repo_type,
+            token=token,
+            operations=operations,
+            revision=revision,
+            commit_message=commit_message,
+            commit_description=commit_description,
+            create_pr=create_pr,
+            parent_commit=parent_commit,
+        )
+
+    @validate_hf_hub_args
+    def delete_files(
+        self,
+        repo_id: str,
+        delete_patterns: List[str],
+        *,
+        token: Union[bool, str, None] = None,
+        repo_type: Optional[str] = None,
+        revision: Optional[str] = None,
+        commit_message: Optional[str] = None,
+        commit_description: Optional[str] = None,
+        create_pr: Optional[bool] = None,
+        parent_commit: Optional[str] = None,
+    ) -> CommitInfo:
+        """
+        Delete files from a repository on the Hub.
+
+        If a folder path is provided, the entire folder is deleted as well as
+        all files it contained.
+
+        Args:
+            repo_id (`str`):
+                The repository from which the folder will be deleted, for example:
+                `"username/custom_transformers"`
+            delete_patterns (`List[str]`):
+                List of files or folders to delete. Each string can either be
+                a file path, a folder path or a Unix shell-style wildcard.
+                E.g. `["file.txt", "folder/", "data/*.parquet"]`
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+                to the stored token.
+            repo_type (`str`, *optional*):
+                Type of the repo to delete files from. Can be `"model"`,
+                `"dataset"` or `"space"`. Defaults to `"model"`.
+            revision (`str`, *optional*):
+                The git revision to commit from. Defaults to the head of the `"main"` branch.
+            commit_message (`str`, *optional*):
+                The summary (first line) of the generated commit. Defaults to
+                `f"Delete files using huggingface_hub"`.
+            commit_description (`str` *optional*)
+                The description of the generated commit.
+            create_pr (`boolean`, *optional*):
+                Whether or not to create a Pull Request with that commit. Defaults to `False`.
+                If `revision` is not set, PR is opened against the `"main"` branch. If
+                `revision` is set and is a branch, PR is opened against this branch. If
+                `revision` is set and is not a branch name (example: a commit oid), an
+                `RevisionNotFoundError` is returned by the server.
+            parent_commit (`str`, *optional*):
+                The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
+                If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
+                If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
+                Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
+                especially useful if the repo is updated / committed to concurrently.
+        """
+        operations = self._prepare_folder_deletions(
+            repo_id=repo_id, repo_type=repo_type, delete_patterns=delete_patterns, path_in_repo="", revision=revision
+        )
+
+        if commit_message is None:
+            commit_message = f"Delete files {' '.join(delete_patterns)} with huggingface_hub"
 
         return self.create_commit(
             repo_id=repo_id,
@@ -4977,21 +5053,21 @@ class HfApi:
             `str`: Local path of file or if networking is off, last version of file cached on disk.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            if `token=True` and the token cannot be found.
-            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
-            if ETag cannot be determined.
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
-            - [`~utils.RepositoryNotFoundError`]
-            If the repository to download from cannot be found. This may be because it doesn't exist,
-            or because it is set to `private` and you do not have access.
-            - [`~utils.RevisionNotFoundError`]
-            If the revision to download from cannot be found.
-            - [`~utils.EntryNotFoundError`]
-            If the file to download cannot be found.
-            - [`~utils.LocalEntryNotFoundError`]
-            If network is disabled or unavailable and file is not found in cache.
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            [`~utils.RevisionNotFoundError`]
+                If the revision to download from cannot be found.
+            [`~utils.EntryNotFoundError`]
+                If the file to download cannot be found.
+            [`~utils.LocalEntryNotFoundError`]
+                If network is disabled or unavailable and file is not found in cache.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If `token=True` but the token cannot be found.
+            [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+                If ETag cannot be determined.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If some parameter value is invalid.
         """
         from .file_download import hf_hub_download
 
@@ -5107,12 +5183,17 @@ class HfApi:
             `str`: folder path of the repo snapshot.
 
         Raises:
-            - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-            if `token=True` and the token cannot be found.
-            - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
-            ETag cannot be determined.
-            - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            if some parameter value is invalid
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+            [`~utils.RevisionNotFoundError`]
+                If the revision to download from cannot be found.
+            [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+                If `token=True` and the token cannot be found.
+            [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
+                ETag cannot be determined.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                if some parameter value is invalid.
         """
         from ._snapshot_download import snapshot_download
 
@@ -5183,9 +5264,11 @@ class HfApi:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
 
         Raises:
-            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+            [`NotASafetensorsRepoError`]
+                If the repo is not a safetensors repo i.e. doesn't have either a
               `model.safetensors` or a `model.safetensors.index.json` file.
-            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+            [`SafetensorsParsingError`]
+                If a safetensors file header couldn't be parsed correctly.
 
         Example:
             ```py
@@ -5302,9 +5385,11 @@ class HfApi:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
 
         Raises:
-            - [`NotASafetensorsRepoError`]: if the repo is not a safetensors repo i.e. doesn't have either a
+            [`NotASafetensorsRepoError`]:
+                If the repo is not a safetensors repo i.e. doesn't have either a
               `model.safetensors` or a `model.safetensors.index.json` file.
-            - [`SafetensorsParsingError`]: if a safetensors file header couldn't be parsed correctly.
+            [`SafetensorsParsingError`]:
+                If a safetensors file header couldn't be parsed correctly.
         """
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
@@ -6845,11 +6930,11 @@ class HfApi:
             attributes like `endpoint`, `repo_type` and `repo_id`.
 
         Raises:
-            - [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-              if the HuggingFace API returned an error
-            - [`~utils.RepositoryNotFoundError`]
+            [`~utils.RepositoryNotFoundError`]:
               If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
               or because it is set to `private` and you do not have access.
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+              If the HuggingFace API returned an error
 
         Example:
         ```python
@@ -7258,6 +7343,7 @@ class HfApi:
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
         # Other
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -7292,6 +7378,9 @@ class HfApi:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
 
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
@@ -7317,13 +7406,14 @@ class HfApi:
                     "minReplica": min_replica,
                 },
             }
-        if any(value is not None for value in (repository, framework, revision, task)):
+        if any(value is not None for value in (repository, framework, revision, task, custom_image)):
+            image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
             payload["model"] = {
                 "framework": framework,
                 "repository": repository,
                 "revision": revision,
                 "task": task,
-                "image": {"huggingface": {}},
+                "image": image,
             }
 
         response = get_session().put(
@@ -7786,12 +7876,12 @@ class HfApi:
         Returns: [`Collection`]
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the item you try to add to the collection does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 409 if the item you try to add to the collection is already in the collection (and exists_ok=False)
 
         Example:
@@ -7975,9 +8065,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8041,9 +8131,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8103,9 +8193,9 @@ class HfApi:
             be populated with user's answers.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
 
@@ -8187,16 +8277,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the pending list.
         """
         self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
@@ -8229,16 +8319,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the accepted list.
         """
         self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
@@ -8271,16 +8361,16 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request cannot be found.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
@@ -8334,14 +8424,14 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the repo is not gated.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 400 if the user already has access to the repo.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 403 if you only have read-only access to the repo. This can be the case if you don't have `write`
                 or `admin` role in the organization the repo belongs to or if you passed a `read` token.
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
         """
         if repo_type not in REPO_TYPES:
@@ -8771,7 +8861,7 @@ class HfApi:
             headers=self.headers,
         )
 
-    def _prepare_upload_folder_deletions(
+    def _prepare_folder_deletions(
         self,
         repo_id: str,
         repo_type: Optional[str],
@@ -8823,7 +8913,7 @@ class HfApi:
             `User`: A [`User`] object with the user's overview.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
@@ -8843,7 +8933,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the members of the organization.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the organization does not exist on the Hub.
 
         """
@@ -8867,7 +8957,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the followers of the user.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -8891,7 +8981,7 @@ class HfApi:
             `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
 
         Raises:
-            `HTTPError`:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
 
         """
@@ -8994,6 +9084,7 @@ upload_file = api.upload_file
 upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
+delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch

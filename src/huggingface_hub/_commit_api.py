@@ -345,13 +345,13 @@ def _upload_lfs_files(
         revision (`str`, *optional*):
             The git revision to upload to.
 
-    Raises: `RuntimeError` if an upload failed for any reason
-
-    Raises: `ValueError` if the server returns malformed responses
-
-    Raises: `requests.HTTPError` if the LFS batch endpoint returned an HTTP
-        error
-
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the server returns malformed responses
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the LFS batch endpoint returned an HTTP error.
     """
     # Step 1: retrieve upload instructions from the LFS batch endpoint.
     #         Upload instructions are retrieved by chunk of 256 files to avoid reaching

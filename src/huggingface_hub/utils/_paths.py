@@ -105,6 +105,11 @@ def filter_repo_objects(
     if isinstance(ignore_patterns, str):
         ignore_patterns = [ignore_patterns]
 
+    if allow_patterns is not None:
+        allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
+    if ignore_patterns is not None:
+        ignore_patterns = [_add_wildcard_to_directories(p) for p in ignore_patterns]
+
     if key is None:
 
         def _identity(item: T) -> str:
@@ -128,3 +133,9 @@ def filter_repo_objects(
             continue
 
         yield item
+
+
+def _add_wildcard_to_directories(pattern: str) -> str:
+    if pattern[-1] == "/":
+        return pattern + "*"
+    return pattern
