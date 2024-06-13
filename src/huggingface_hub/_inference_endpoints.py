@@ -329,7 +329,9 @@ class InferenceEndpoint:
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
-        obj = self._api.resume_inference_endpoint(name=self.name, namespace=self.namespace, running_ok=running_ok,token=self._token)  # type: ignore [arg-type]
+        obj = self._api.resume_inference_endpoint(
+            name=self.name, namespace=self.namespace, running_ok=running_ok, token=self._token
+        )  # type: ignore [arg-type]
         self.raw = obj.raw
         self._populate_from_raw()
         return self

@@ -7489,7 +7489,12 @@ class HfApi:
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
     def resume_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, running_ok:bool=True, token: Union[bool, str, None] = None
+        self,
+        name: str,
+        *,
+        namespace: Optional[str] = None,
+        running_ok: bool = True,
+        token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Resume an Inference Endpoint.
 
