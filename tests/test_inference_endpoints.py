@@ -256,4 +256,4 @@ def test_resume(mock: Mock):
     endpoint = InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo")
     mock.return_value = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
     endpoint.resume()
-    mock.assert_called_once_with(namespace="foo", name="my-endpoint-name", token=None)
+    mock.assert_called_once_with(namespace="foo", name="my-endpoint-name", token=None, running_ok=True)
