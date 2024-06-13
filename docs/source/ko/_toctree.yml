@@ -34,8 +34,8 @@
       title: 모델 카드
     - local: guides/manage-spaces
       title: Space 관리
-    - local: in_translation
-      title: (번역 중) Integrate a library
+    - local: guides/integrations
+      title: 라이브러리 통합
     - local: guides/webhooks_server
       title: 웹훅 서버
 - title: "(번역 중) 개념 가이드"
