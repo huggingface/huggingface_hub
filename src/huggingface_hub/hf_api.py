@@ -140,6 +140,32 @@ from .utils.endpoint_helpers import (
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 
+ExpandModelProperty_T = Literal[
+    "author",
+    "cardData",
+    "config",
+    "createdAt",
+    "disabled",
+    "downloads",
+    "downloadsAllTime",
+    "gated",
+    "gitalyUid",
+    "lastModified",
+    "library_name",
+    "likes",
+    "mask_token",
+    "model-index",
+    "pipeline_tag",
+    "private",
+    "safetensors",
+    "sha",
+    "siblings",
+    "spaces",
+    "tags",
+    "transformersInfo",
+    "widgetData",
+]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
@@ -644,6 +670,8 @@ class ModelInfo:
             If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the model over the last 30 days.
+        downloads_all_time (`int`):
+            Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -678,13 +706,14 @@ class ModelInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
-    downloads: int
-    likes: int
+    downloads: Optional[int]
+    downloads_all_time: Optional[int]
+    likes: Optional[int]
     library_name: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     pipeline_tag: Optional[str]
     mask_token: Optional[str]
     card_data: Optional[ModelCardData]
@@ -704,13 +733,14 @@ class ModelInfo:
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
         self.created_at = parse_datetime(created_at) if created_at else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
-        self.downloads = kwargs.pop("downloads")
-        self.likes = kwargs.pop("likes")
+        self.downloads = kwargs.pop("downloads", None)
+        self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
+        self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
@@ -1489,6 +1519,7 @@ class HfApi:
     def list_models(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         library: Optional[Union[str, List[str]]] = None,
@@ -1498,15 +1529,18 @@ class HfApi:
         trained_dataset: Optional[Union[str, List[str]]] = None,
         tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
+        # Sorting and pagination parameters
         sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         full: Optional[bool] = None,
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
-        pipeline_tag: Optional[str] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1537,6 +1571,8 @@ class HfApi:
                 as `text-generation` or `spacy`.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
+            pipeline_tag (`str`, *optional*):
+                A string pipeline tag to filter models on the Hub by, such as `summarization`.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
@@ -1549,6 +1585,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
+            expand (`List[ExpandModelProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1565,8 +1605,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            pipeline_tag (`str`, *optional*):
-                A string pipeline tag to filter models on the Hub by, such as `summarization`
 
 
         Returns:
@@ -1603,6 +1641,9 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
+        if expand and (full or cardData or fetch_config):
+            raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
+
         if emissions_thresholds is not None and cardData is None:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
@@ -1635,6 +1676,8 @@ class HfApi:
         # Handle other query params
         if author:
             params["author"] = author
+        if pipeline_tag:
+            params["pipeline_tag"] = pipeline_tag
         search_list = []
         if model_name:
             search_list.append(model_name)
@@ -1648,14 +1691,16 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
+
+        # Request additional data
         if full:
             params["full"] = True
         if fetch_config:
             params["config"] = True
         if cardData:
             params["cardData"] = True
-        if pipeline_tag:
-            params["pipeline_tag"] = pipeline_tag
+        if expand:
+            params["expand"] = expand
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -2188,6 +2233,7 @@ class HfApi:
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> ModelInfo:
         """
@@ -2210,6 +2256,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandModelProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2231,17 +2281,22 @@ class HfApi:
 
         </Tip>
         """
+        if expand and (securityStatus or files_metadata):
+            raise ValueError("`expand` cannot be used if `securityStatus` or `files_metadata` are set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if securityStatus:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         data = r.json()

@@ -26,7 +26,7 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Set, Union
+from typing import List, Optional, Set, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -55,6 +55,7 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    ExpandModelProperty_T,
     MetricInfo,
     ModelInfo,
     RepoSibling,
@@ -1573,6 +1574,40 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in self._api.list_models(filter="adapter-transformers", fetch_config=False, limit=20):
             self.assertIsNone(model.config)
 
+    def test_list_models_expand_author(self):
+        # Only the selected field is returned
+        models = list(self._api.list_models(expand=["author"], limit=5))
+        for model in models:
+            assert model.author is not None
+            assert model.id is not None
+            assert model.downloads is None
+            assert model.created_at is None
+            assert model.last_modified is None
+
+    def test_list_models_expand_multiple(self):
+        # Only the selected fields are returned
+        models = list(self._api.list_models(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        for model in models:
+            assert model.author is not None
+            assert model.downloads_all_time is not None
+            assert model.downloads is None
+            assert model.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_models_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_models(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_models_expand_cannot_be_used_with_other_params(self):
+        # `expand` cannot be used with other params
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], full=True))
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], fetch_config=True))
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], cardData=True))
+
     def test_model_info(self):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
@@ -1656,6 +1691,39 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_model_info_with_widget_data(self):
         info = self._api.model_info("HuggingFaceH4/zephyr-7b-beta")
         assert info.widget_data is not None
+
+    def test_model_info_expand_author(self):
+        # Only the selected field is returned
+        model = self._api.model_info(repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author"])
+        assert model.author == "HuggingFaceH4"
+        assert model.downloads is None
+        assert model.created_at is None
+        assert model.last_modified is None
+
+    def test_model_info_expand_multiple(self):
+        # Only the selected fields are returned
+        model = self._api.model_info(
+            repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author", "downloadsAllTime", "gitalyUid"]
+        )
+        assert model.author == "HuggingFaceH4"
+        assert model.downloads is None
+        assert model.downloads_all_time is not None
+        assert model.gitalyUid is not None  # not a field except if requested explicitly
+        assert model.created_at is None
+        assert model.last_modified is None
+
+    def test_model_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_model_info_expand_cannot_be_used_with_other_params(self):
+        # `expand` cannot be used with other params
+        with self.assertRaises(ValueError):
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["author"], securityStatus=True)
+        with self.assertRaises(ValueError):
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["author"], files_metadata=True)
 
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
@@ -3772,3 +3840,31 @@ class WebhookApiTest(HfApiCommonTest):
         self._api.delete_webhook(webhook_to_delete.id)
         with self.assertRaises(HTTPError):
             self._api.get_webhook(webhook_to_delete.id)
+
+
+class TestExpandPropertyType(HfApiCommonTest):
+    @use_tmp_repo()
+    def test_expand_model_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        try:
+            self._api.model_info(repo_id=repo_url.repo_id, expand=["does_not_exist"])
+            raise Exception("Should have raised an exception")
+        except HfHubHTTPError as e:
+            assert e.response.status_code == 400
+            message = e.response.json()["error"]
+
+        assert message.startswith('"expand" must be one of ')
+        defined_args = set(get_args(ExpandModelProperty_T))
+        expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
+
+        if defined_args != expected_args:
+            should_be_removed = defined_args - expected_args
+            should_be_added = expected_args - defined_args
+
+            msg = "Literal `ExpandModelProperty_T` is outdated! This is probably due to a server-side update."
+            if should_be_removed:
+                msg += f"\nArg(s) not supported anymore: {', '.join(should_be_removed)}"
+            if should_be_added:
+                msg += f"\nNew arg(s) to support: {', '.join(should_be_added)}"
+            msg += "\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `ExpandModelProperty_T` should be updated as well as `model_info` and `list_models` docstrings."
+            msg += "\nThanks you in advance!"
+            raise ValueError(msg)
