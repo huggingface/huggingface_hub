@@ -325,7 +325,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert card.data.tags == ["model_hub_mixin", "pytorch_model_hub_mixin", "tag1", "tag2"]
 
         # Model card template has been used
-        assert "This is a dummy model card." in str(card)
+        assert "This is a dummy model card with kwargs." in str(card)
 
         model.save_pretrained(self.cache_dir)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
