@@ -2456,7 +2456,7 @@ class InferenceClient:
         ...    labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
-        ...)
+        ... )
         >>> print(output) 
         [
             ZeroShotClassificationOutputElement(label='negative', score=0.9231801629066467),
