@@ -2392,7 +2392,7 @@ class InferenceClient:
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def zero_shot_classification(
-        self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
+        self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None, hypothesis_template: str = "This example is {}."
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -2455,6 +2455,7 @@ class InferenceClient:
                 "parameters": {
                     "candidate_labels": ",".join(labels),
                     "multi_label": multi_label,
+                    "hypothesis_template": hypothesis_template,
                 },
             },
             model=model,
