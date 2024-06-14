@@ -2403,7 +2403,7 @@ class InferenceClient:
             labels (`List[str]`):
                 List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`):
-                Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0. 
+                Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0.
                 If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -2445,7 +2445,7 @@ class InferenceClient:
             ZeroShotClassificationOutputElement(label='robots', score=0.00030448526376858354),
         ]
         ```
-        
+
         Example for multi_label=True and custom hypothesis_template:
         ```py
         >>> from huggingface_hub import InferenceClient
@@ -2457,7 +2457,7 @@ class InferenceClient:
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
         ... )
-        >>> print(output) 
+        >>> print(output)
         [
             ZeroShotClassificationOutputElement(label='negative', score=0.9231801629066467),
             ZeroShotClassificationOutputElement(label='pessimistic', score=0.8760990500450134),
