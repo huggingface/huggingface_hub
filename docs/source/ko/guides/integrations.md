@@ -365,9 +365,9 @@ from argparse import Namespace
 
 class VoiceCraft(
    nn.Module,
-   PytorchModelHubMixin,  # 믹스인을 상속합니다.
-   coders: {
-      Namespace = (
+   PyTorchModelHubMixin,  # 믹스인을 상속합니다.
+   coders={
+      Namespace: (
          lambda x: vars(x),  # Encoder: `Namespace`를 유효한 JSON 형태로 변환하는 방법은 무엇인가요?
          lambda data: Namespace(**data),  # Decoder: 딕셔너리에서 Namespace를 재구성하는 방법은 무엇인가요?
       )
