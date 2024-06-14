@@ -2,6 +2,7 @@ import json
 import os
 import struct
 import unittest
+from argparse import Namespace
 from pathlib import Path
 from typing import Any, Dict, Optional, TypeVar
 from unittest.mock import Mock, patch
@@ -94,6 +95,22 @@ if is_torch_available():
     ):
         def __init__(self, linear_layer: int = 4):
             super().__init__()
+
+
+    class DummyModelWithEncodedConfig(
+            nn.Module,
+            PyTorchModelHubMixin,
+            coders= {
+                Namespace : (
+                    lambda x: vars(x),
+                    lambda data: Namespace(**data),
+                )
+            },
+    ):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/2334
+        def __init__(self, config: Namespace):
+            super().__init__()
+            self.config = config
 
 else:
     DummyModel = None
@@ -419,3 +436,19 @@ class PytorchHubMixinTest(unittest.TestCase):
         model.save_pretrained(self.cache_dir, model_card_kwargs=model_card_kwargs)
         card_reloaded = ModelCard.load(self.cache_dir / "README.md")
         assert str(card) == str(card_reloaded)
+
+    def test_config_with_custom_coders(self):
+        """
+        Regression test for #2334. When `config` is encoded with custom coders, it should be decoded correctly.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2334.
+        """
+        model = DummyModelWithEncodedConfig(Namespace(a=1, b=2))
+        model.save_pretrained(self.cache_dir)
+        assert model.config.a == 1
+        assert model.config.b == 2
+
+        reloaded = DummyModelWithEncodedConfig.from_pretrained(self.cache_dir)
+        assert isinstance(reloaded.config, Namespace)
+        assert reloaded.config.a == 1
+        assert reloaded.config.b == 2
