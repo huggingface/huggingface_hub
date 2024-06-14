@@ -15,7 +15,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    get_args,
 )
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE

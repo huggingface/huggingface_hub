@@ -96,16 +96,15 @@ if is_torch_available():
         def __init__(self, linear_layer: int = 4):
             super().__init__()
 
-
     class DummyModelWithEncodedConfig(
-            nn.Module,
-            PyTorchModelHubMixin,
-            coders= {
-                Namespace : (
-                    lambda x: vars(x),
-                    lambda data: Namespace(**data),
-                )
-            },
+        nn.Module,
+        PyTorchModelHubMixin,
+        coders={
+            Namespace: (
+                lambda x: vars(x),
+                lambda data: Namespace(**data),
+            )
+        },
     ):
         # Regression test for https://github.com/huggingface/huggingface_hub/issues/2334
         def __init__(self, config: Namespace):
