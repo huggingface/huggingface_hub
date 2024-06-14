@@ -362,7 +362,7 @@ class ModelHubMixin:
             expected_type = unwrap_simple_optional_type(expected_type)
         # Dataclass => handle it
         if is_dataclass(expected_type):
-            return _load_dataclass(expected_type, value)
+            return _load_dataclass(expected_type, value)  # type: ignore[return-value]
         # Otherwise => check custom decoders
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
             if inspect.isclass(expected_type) and issubclass(expected_type, type_):
