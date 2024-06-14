@@ -2446,14 +2446,14 @@ class InferenceClient:
         ```
         """
         # Raise ValueError if input is less than 2 labels
-        if len(labels) < 2:
-            raise ValueError("You must specify at least 2 classes to compare.")
+        #if len(labels) < 2:
+        #    raise ValueError("You must specify at least 2 classes to compare.")
 
         response = self.post(
             json={
                 "inputs": text,
                 "parameters": {
-                    "candidate_labels": ",".join(labels),
+                    "candidate_labels": labels,  #",".join(labels),
                     "multi_label": multi_label,
                     "hypothesis_template": hypothesis_template,
                 },
