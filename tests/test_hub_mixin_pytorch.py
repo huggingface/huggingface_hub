@@ -444,8 +444,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         """
         model = DummyModelWithEncodedConfig(Namespace(a=1, b=2))
         model.save_pretrained(self.cache_dir)
-        assert model.config.a == 1
-        assert model.config.b == 2
+        assert model._hub_mixin_config["a"] == 1
+        assert model._hub_mixin_config["b"] == 2
 
         reloaded = DummyModelWithEncodedConfig.from_pretrained(self.cache_dir)
         assert isinstance(reloaded.config, Namespace)
