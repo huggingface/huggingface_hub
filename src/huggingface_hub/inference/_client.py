@@ -289,6 +289,8 @@ class InferenceClient:
                     # ...or wait 1s and retry
                     logger.info(f"Waiting for model to be loaded on the server: {error}")
                     time.sleep(1)
+                    if "X-wait-for-model" not in headers and url.startswith(INFERENCE_ENDPOINT):
+                        headers["X-wait-for-model"] = "1"
                     if timeout is not None:
                         timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                     continue
@@ -436,6 +438,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -459,6 +462,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -482,6 +486,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
 
     def chat_completion(
@@ -505,6 +510,7 @@ class InferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
+        model_id: Optional[str] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -569,6 +575,10 @@ class InferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
+            model_id (`str`, *optional*):
+                The model ID to use for chat-completion. Only used when `model` is a URL to a deployed Text Generation Inference server.
+                It is passed to the server as the `model` parameter. This parameter has no impact on the URL that will be used to
+                send the request.
 
         Returns:
             [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
@@ -702,11 +712,20 @@ class InferenceClient:
             if not model_url.endswith("/chat/completions"):
                 model_url += "/v1/chat/completions"
 
+            # `model_id` sent in the payload. Not used by the server but can be useful for debugging/routing.
+            if model_id is None:
+                if not model.startswith("http") and model.count("/") == 1:
+                    # If it's a ID on the Hub => use it
+                    model_id = model
+                else:
+                    # Otherwise, we use a random string
+                    model_id = "tgi"
+
             try:
                 data = self.post(
                     model=model_url,
                     json=dict(
-                        model="tgi",  # random string
+                        model=model_id,
                         messages=messages,
                         frequency_penalty=frequency_penalty,
                         logit_bias=logit_bias,
@@ -1998,6 +2017,7 @@ class InferenceClient:
         parameters = {
             "best_of": best_of,
             "decoder_input_details": decoder_input_details,
+            "details": details,
             "do_sample": do_sample,
             "frequency_penalty": frequency_penalty,
             "grammar": grammar,

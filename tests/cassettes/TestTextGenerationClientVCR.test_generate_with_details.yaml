@@ -1,23 +1,23 @@
 interactions:
 - request:
-    body: '{"inputs": "test", "parameters": {"do_sample": false, "max_new_tokens":
-      1, "repetition_penalty": null, "return_full_text": false, "stop": [], "seed":
-      null, "temperature": null, "top_k": null, "top_p": null, "truncate": null, "typical_p":
-      null, "best_of": null, "watermark": false, "details": true, "decoder_input_details":
-      true}, "stream": false}'
+    body: '{"inputs": "test", "parameters": {"decoder_input_details": true, "details":
+      true, "do_sample": false, "max_new_tokens": 1, "return_full_text": false, "stop":
+      []}, "stream": false}'
     headers:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Connection:
       - keep-alive
       Content-Length:
-      - '346'
+      - '179'
       Content-Type:
       - application/json
+      X-Amzn-Trace-Id:
+      - 197c67b8-3fed-4e3a-bf8f-4f4ce1bf4a83
       user-agent:
-      - unknown/None; hf_hub/0.16.0.dev0; python/3.10.6; torch/1.12.1; tensorflow/2.11.0;
+      - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
         fastcore/1.5.23
     method: POST
     uri: https://api-inference.huggingface.co/models/google/flan-t5-xxl
@@ -28,24 +28,42 @@ interactions:
     headers:
       Connection:
       - keep-alive
-      Content-Length:
-      - '212'
       Content-Type:
       - application/json
       Date:
-      - Mon, 19 Jun 2023 15:22:10 GMT
+      - Wed, 05 Jun 2024 10:04:17 GMT
+      Transfer-Encoding:
+      - chunked
       access-control-allow-credentials:
       - 'true'
+      access-control-allow-origin:
+      - '*'
       vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '4'
       x-compute-time:
-      - '56'
+      - '0.064899795'
       x-compute-type:
-      - cache
+      - 2-a10-g
+      x-generated-tokens:
+      - '1'
+      x-inference-time:
+      - '64'
+      x-prompt-tokens:
+      - '2'
+      x-queue-time:
+      - '0'
       x-request-id:
-      - mYbIoIndwB6eIqjB5CNM5
+      - S1BqZrjWRZzJihJGnQV_i
       x-sha:
-      - ad196ce8c46191d6a52592960835ff96d30152b5
+      - ae7c9136adc7555eeccc78cdd960dfd60fb346ce
+      x-time-per-token:
+      - '64'
+      x-total-time:
+      - '64'
+      x-validation-time:
+      - '0'
     status:
       code: 200
       message: OK

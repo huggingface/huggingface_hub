@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import errno
 import fnmatch
@@ -76,6 +77,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.insecure_hashlib import sha256
@@ -272,6 +274,7 @@ def hf_hub_url(
     return url
 
 
+@_deprecate_method(version="0.26", message="Use `hf_hub_download` to benefit from the new cache layout.")
 def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     """Generate a local filename from a url.
 
@@ -303,6 +306,7 @@ def url_to_filename(url: str, etag: Optional[str] = None) -> str:
     return filename
 
 
+@_deprecate_method(version="0.26", message="Use `hf_hub_url` instead.")
 def filename_to_url(
     filename,
     cache_dir: Optional[str] = None,
@@ -487,9 +491,8 @@ def http_get(
     )
 
     # Stream file to buffer
-    progress = _tqdm_bar
-    if progress is None:
-        progress = tqdm(
+    progress_cm: tqdm = (
+        tqdm(  # type: ignore[assignment]
             unit="B",
             unit_scale=True,
             total=total,
@@ -500,71 +503,76 @@ def http_get(
             # see https://github.com/huggingface/huggingface_hub/pull/2000
             name="huggingface_hub.http_get",
         )
+        if _tqdm_bar is None
+        else contextlib.nullcontext(_tqdm_bar)
+        # ^ `contextlib.nullcontext` mimics a context manager that does nothing
+        #   Makes it easier to use the same code path for both cases but in the later
+        #   case, the progress bar is not closed when exiting the context manager.
+    )
 
-    if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
-        supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
-        if not supports_callback:
-            warnings.warn(
-                "You are using an outdated version of `hf_transfer`. "
-                "Consider upgrading to latest version to enable progress bars "
-                "using `pip install -U hf_transfer`."
-            )
-        try:
-            hf_transfer.download(
-                url=url,
-                filename=temp_file.name,
-                max_files=HF_TRANSFER_CONCURRENCY,
-                chunk_size=DOWNLOAD_CHUNK_SIZE,
-                headers=headers,
-                parallel_failures=3,
-                max_retries=5,
-                **({"callback": progress.update} if supports_callback else {}),
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "An error occurred while downloading using `hf_transfer`. Consider"
-                " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
-            ) from e
-        if not supports_callback:
-            progress.update(total)
-        if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
-            raise EnvironmentError(
-                consistency_error_message.format(
-                    actual_size=os.path.getsize(temp_file.name),
+    with progress_cm as progress:
+        if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
+            supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
+            if not supports_callback:
+                warnings.warn(
+                    "You are using an outdated version of `hf_transfer`. "
+                    "Consider upgrading to latest version to enable progress bars "
+                    "using `pip install -U hf_transfer`."
                 )
+            try:
+                hf_transfer.download(
+                    url=url,
+                    filename=temp_file.name,
+                    max_files=HF_TRANSFER_CONCURRENCY,
+                    chunk_size=DOWNLOAD_CHUNK_SIZE,
+                    headers=headers,
+                    parallel_failures=3,
+                    max_retries=5,
+                    **({"callback": progress.update} if supports_callback else {}),
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "An error occurred while downloading using `hf_transfer`. Consider"
+                    " disabling HF_HUB_ENABLE_HF_TRANSFER for better error handling."
+                ) from e
+            if not supports_callback:
+                progress.update(total)
+            if expected_size is not None and expected_size != os.path.getsize(temp_file.name):
+                raise EnvironmentError(
+                    consistency_error_message.format(
+                        actual_size=os.path.getsize(temp_file.name),
+                    )
+                )
+            return
+        new_resume_size = resume_size
+        try:
+            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+                if chunk:  # filter out keep-alive new chunks
+                    progress.update(len(chunk))
+                    temp_file.write(chunk)
+                    new_resume_size += len(chunk)
+                    # Some data has been downloaded from the server so we reset the number of retries.
+                    _nb_retries = 5
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
+            # a transient error (network outage?). We log a warning message and try to resume the download a few times
+            # before giving up. Tre retry mechanism is basic but should be enough in most cases.
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                proxies=proxies,
+                resume_size=new_resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                _nb_retries=_nb_retries - 1,
+                _tqdm_bar=_tqdm_bar,
             )
-        return
-    new_resume_size = resume_size
-    try:
-        for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
-            if chunk:  # filter out keep-alive new chunks
-                progress.update(len(chunk))
-                temp_file.write(chunk)
-                new_resume_size += len(chunk)
-                # Some data has been downloaded from the server so we reset the number of retries.
-                _nb_retries = 5
-    except (requests.ConnectionError, requests.ReadTimeout) as e:
-        # If ConnectionError (SSLError) or ReadTimeout happen while streaming data from the server, it is most likely
-        # a transient error (network outage?). We log a warning message and try to resume the download a few times
-        # before giving up. Tre retry mechanism is basic but should be enough in most cases.
-        if _nb_retries <= 0:
-            logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-            raise
-        logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-        time.sleep(1)
-        reset_sessions()  # In case of SSLError it's best to reset the shared requests.Session objects
-        return http_get(
-            url=url,
-            temp_file=temp_file,
-            proxies=proxies,
-            resume_size=new_resume_size,
-            headers=initial_headers,
-            expected_size=expected_size,
-            _nb_retries=_nb_retries - 1,
-            _tqdm_bar=_tqdm_bar,
-        )
-
-    progress.close()
 
     if expected_size is not None and expected_size != temp_file.tell():
         raise EnvironmentError(
@@ -575,6 +583,7 @@ def http_get(
 
 
 @validate_hf_hub_args
+@_deprecate_method(version="0.26", message="Use `hf_hub_download` instead.")
 def cached_download(
     url: str,
     *,
@@ -989,6 +998,14 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
             pass
 
 
+@_deprecate_arguments(
+    version="0.26.0",
+    deprecated_args=["legacy_cache_layout"],
+    custom_message=(
+        "Legacy cache layout has been deprecated since August 2022 and will soon be removed. "
+        "See https://huggingface.co/docs/huggingface_hub/guides/manage-cache for more details."
+    ),
+)
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -1101,21 +1118,22 @@ def hf_hub_download(
         `str`: Local path of file or if networking is off, last version of file cached on disk.
 
     Raises:
-        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-        if `token=True` and the token cannot be found.
-        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
-        if ETag cannot be determined.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-        if some parameter value is invalid
-        - [`~utils.RepositoryNotFoundError`]
-        If the repository to download from cannot be found. This may be because it doesn't exist,
-        or because it is set to `private` and you do not have access.
-        - [`~utils.RevisionNotFoundError`]
-        If the revision to download from cannot be found.
-        - [`~utils.EntryNotFoundError`]
-        If the file to download cannot be found.
-        - [`~utils.LocalEntryNotFoundError`]
-        If network is disabled or unavailable and file is not found in cache.
+        [`~utils.RepositoryNotFoundError`]
+            If the repository to download from cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+        [`~utils.RevisionNotFoundError`]
+            If the revision to download from cannot be found.
+        [`~utils.EntryNotFoundError`]
+            If the file to download cannot be found.
+        [`~utils.LocalEntryNotFoundError`]
+            If network is disabled or unavailable and file is not found in cache.
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If `token=True` but the token cannot be found.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+            If ETag cannot be determined.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If some parameter value is invalid.
+
     """
     if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value

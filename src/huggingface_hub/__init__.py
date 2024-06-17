@@ -424,7 +424,7 @@ _SUBMOD_ATTRS = {
     "serialization": [
         "StateDictSplit",
         "get_torch_storage_id",
-        "split_numpy_state_dict_into_shards",
+        "save_torch_state_dict",
         "split_state_dict_into_shards_factory",
         "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
@@ -503,10 +503,18 @@ def _attach(package_name, submodules=None, submod_attrs=None):
 
     def __getattr__(name):
         if name in submodules:
-            return importlib.import_module(f"{package_name}.{name}")
+            try:
+                return importlib.import_module(f"{package_name}.{name}")
+            except Exception as e:
+                print(f"Error importing {package_name}.{name}: {e}")
+                raise
         elif name in attr_to_modules:
             submod_path = f"{package_name}.{attr_to_modules[name]}"
-            submod = importlib.import_module(submod_path)
+            try:
+                submod = importlib.import_module(submod_path)
+            except Exception as e:
+                print(f"Error importing {submod_path}: {e}")
+                raise
             attr = getattr(submod, name)
 
             # If the attribute lives in a file (module) with the same
@@ -904,7 +912,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .serialization import (
         StateDictSplit,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
-        split_numpy_state_dict_into_shards,  # noqa: F401
+        save_torch_state_dict,  # noqa: F401
         split_state_dict_into_shards_factory,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
