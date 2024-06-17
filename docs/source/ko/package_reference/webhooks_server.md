@@ -2,83 +2,74 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Webhooks Server
+# 웹훅 서버[[webhooks-server]]
 
-Webhooks are a foundation for MLOps-related features. They allow you to listen for new changes on specific repos or to
-all repos belonging to particular users/organizations you're interested in following. To learn
-more about webhooks on the Huggingface Hub, you can read the Webhooks [guide](https://huggingface.co/docs/hub/webhooks).
+웹훅은 MLOps 관련 기능의 기반이 됩니다. 이를 통해 특정 저장소의 새로운 변경 사항을 수신하거나, 관심 있는 특정 사용자/조직에 속한 모든 저장소의 변경 사항을 받아볼 수 있습니다. 
+Huggingface Hub의 웹훅에 대해 더 자세히 알아보려면 이 [가이드](https://huggingface.co/docs/hub/webhooks)를 읽어보세요. 
 
 <Tip>
 
-Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your webhooks server and
-deploy it as a Space.
+웹훅 서버를 설정하고 Space로 배포하는 방법은 이 단계별 [가이드](../guides/webhooks_server)를 확인하세요.
 
 </Tip>
 
 <Tip warning={true}>
 
-This is an experimental feature. This means that we are still working on improving the API. Breaking changes might be
-introduced in the future without prior notice. Make sure to pin the version of `huggingface_hub` in your requirements.
-A warning is triggered when you use an experimental feature. You can disable it by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as an environment variable.
+이 기능은 실험적인 기능입니다. 이는 API를 개선하기 위해 지속적으로 노력중이며, 향후 사전통지 없이도 큰 변경 사항이 반영될 수 있음을 의미합니다. `requirements`에 `huggingface_hub` 버전을 반드시 고정해 주세요. 참고로 실험적 기능을 사용하면 경고가 트리거 됩니다. 이 경고 트리거를 비활성화 시키길 원한다면 환경변수 `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1`를 설정하세요.
 
 </Tip>
 
-## Server
+## 서버[[server]]
+여기서 서버는 하나의 [Gradio](https://gradio.app/) 앱을 의미합니다. Gradio에는 사용자 또는 사용자에게 지침을 표시하는 UI와 웹훅을 수신하기 위한 API가 있습니다. 웹훅 엔드포인트를 구현하는 것은 함수를 꾸미는 것만큼이나 간단합니다. 서버를 Space에 배포하기 전에 Gradio 터널을 사용하여 웹훅을 머신으로 리디렉션하여 디버깅할 수 있습니다.
 
-The server is a [Gradio](https://gradio.app/) app. It has a UI to display instructions for you or your users and an API
-to listen to webhooks. Implementing a webhook endpoint is as simple as decorating a function. You can then debug it
-by redirecting the Webhooks to your machine (using a Gradio tunnel) before deploying it to a Space.
-
-### WebhooksServer
+### WebhooksServer[[huggingface_hub.WebhooksServer]]
 
 [[autodoc]] huggingface_hub.WebhooksServer
 
-### @webhook_endpoint
+### @webhook_endpoint[[huggingface_hub.webhook_endpoint]]
 
 [[autodoc]] huggingface_hub.webhook_endpoint
 
-## Payload
+## 페이로드[[huggingface_hub.WebhookPayload]]
 
-[`WebhookPayload`] is the main data structure that contains the payload from Webhooks. This is
-a `pydantic` class which makes it very easy to use with FastAPI. If you pass it as a parameter to a webhook endpoint, it
-will be automatically validated and parsed as a Python object.
+[`WebhookPayload`] 는 웹훅의 페이로드를 포함하는 기본 데이터 구조입니다. 이것은 `pydantic` 클래스로서 FastAPI에서 매우 쉽게 사용할 수 있습니다. 즉 WebhookPayload를 웹후크 엔드포인트에 매개변수로 전달하면 자동으로 유효성이 검사되고 파이썬 객체로 파싱됩니다.
 
-For more information about webhooks payload, you can refer to the Webhooks Payload [guide](https://huggingface.co/docs/hub/webhooks#webhook-payloads).
+웹훅 페이로드에 대한 자세한 사항은 이 [가이드](https://huggingface.co/docs/hub/webhooks#webhook-payloads)를 참고하세요.
 
 [[autodoc]] huggingface_hub.WebhookPayload
 
-### WebhookPayload
+### WebhookPayload[[huggingface_hub.WebhookPayload]]
 
 [[autodoc]] huggingface_hub.WebhookPayload
 
-### WebhookPayloadComment
+### WebhookPayloadComment[[huggingface_hub.WebhookPayloadComment]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadComment
 
-### WebhookPayloadDiscussion
+### WebhookPayloadDiscussion[[huggingface_hub.WebhookPayloadDiscussion]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadDiscussion
 
-### WebhookPayloadDiscussionChanges
+### WebhookPayloadDiscussionChanges[[huggingface_hub.WebhookPayloadDiscussionChanges]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadDiscussionChanges
 
-### WebhookPayloadEvent
+### WebhookPayloadEvent[[huggingface_hub.WebhookPayloadEvent]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadEvent
 
-### WebhookPayloadMovedTo
+### WebhookPayloadMovedTo[[huggingface_hub.WebhookPayloadMovedTo]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadMovedTo
 
-### WebhookPayloadRepo
+### WebhookPayloadRepo[[huggingface_hub.WebhookPayloadRepo]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadRepo
 
-### WebhookPayloadUrl
+### WebhookPayloadUrl[[huggingface_hub.WebhookPayloadUrl]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadUrl
 
-### WebhookPayloadWebhook
+### WebhookPayloadWebhook[[huggingface_hub.WebhookPayloadWebhook]]
 
 [[autodoc]] huggingface_hub.WebhookPayloadWebhook
