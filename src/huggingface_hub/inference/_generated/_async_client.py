@@ -2459,16 +2459,15 @@ class AsyncInferenceClient:
 
         Example with `multi_label=False`:
         ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
         >>> text = (
-        ...     "A new model offers an explanation async for how the Galilean satellites formed around the solar system's"
+        ...     "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
         ...     "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
-        ...     " mysteries when he went async for a run up a hill in Nice, France."
+        ...     " mysteries when he went for a run up a hill in Nice, France."
         ... )
         >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
-        >>> await client.zero_shot_classification(text, labels)
+        >>> client.zero_shot_classification(text, labels)
         [
             ZeroShotClassificationOutputElement(label='scientific discovery', score=0.7961668968200684),
             ZeroShotClassificationOutputElement(label='space & cosmos', score=0.18570658564567566),
@@ -2476,7 +2475,7 @@ class AsyncInferenceClient:
             ZeroShotClassificationOutputElement(label='archeology', score=0.006258360575884581),
             ZeroShotClassificationOutputElement(label='robots', score=0.004559356719255447),
         ]
-        >>> await client.zero_shot_classification(text, labels, multi_label=True)
+        >>> client.zero_shot_classification(text, labels, multi_label=True)
         [
             ZeroShotClassificationOutputElement(label='scientific discovery', score=0.9829297661781311),
             ZeroShotClassificationOutputElement(label='space & cosmos', score=0.755190908908844),
@@ -2488,9 +2487,9 @@ class AsyncInferenceClient:
 
         Example with `multi_label=True` and a custom `hypothesis_template`:
         ```py
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> await client.zero_shot_classification(
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
         ...    labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
