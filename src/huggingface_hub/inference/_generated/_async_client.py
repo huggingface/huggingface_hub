@@ -2425,7 +2425,13 @@ class AsyncInferenceClient:
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     async def zero_shot_classification(
-        self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
+        self,
+        text: str,
+        labels: List[str],
+        *,
+        multi_label: bool = False,
+        model: Optional[str] = None,
+        hypothesis_template: str = "This example is {}.",
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -2434,9 +2440,10 @@ class AsyncInferenceClient:
             text (`str`):
                 The input text to classify.
             labels (`List[str]`):
-                List of string possible labels. There must be at least 2 labels.
+                List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`):
-                Boolean that is set to True if classes can overlap.
+                Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0.
+                If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -2450,7 +2457,7 @@ class AsyncInferenceClient:
             `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
-        Example:
+        Example with `multi_label=False`:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
@@ -2478,17 +2485,33 @@ class AsyncInferenceClient:
             ZeroShotClassificationOutputElement(label='robots', score=0.00030448526376858354),
         ]
         ```
+
+        Example with `multi_label=True` and a custom `hypothesis_template`:
+        ```py
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.zero_shot_classification(
+        ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
+        ...    labels=["positive", "negative", "pessimistic", "optimistic"],
+        ...    multi_label=True,
+        ...    hypothesis_template="This text is {} towards the weather"
+        ... )
+        [
+            ZeroShotClassificationOutputElement(label='negative', score=0.9231801629066467),
+            ZeroShotClassificationOutputElement(label='pessimistic', score=0.8760990500450134),
+            ZeroShotClassificationOutputElement(label='optimistic', score=0.0008674879791215062),
+            ZeroShotClassificationOutputElement(label='positive', score=0.0005250611575320363)
+        ]
+        ```
         """
-        # Raise ValueError if input is less than 2 labels
-        if len(labels) < 2:
-            raise ValueError("You must specify at least 2 classes to compare.")
 
         response = await self.post(
             json={
                 "inputs": text,
                 "parameters": {
-                    "candidate_labels": ",".join(labels),
+                    "candidate_labels": labels,
                     "multi_label": multi_label,
+                    "hypothesis_template": hypothesis_template,
                 },
             },
             model=model,
