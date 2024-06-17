@@ -85,7 +85,7 @@ as `True` if its value is one of `{"1", "ON", "YES", "TRUE"}` (case-insensitive)
 
 ### HF_HUB_OFFLINE
 
-If set, no HTTP calls will me made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
+If set, no HTTP calls will be made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
 
 If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of [`HfApi`], an [`~huggingface_hub.utils.OfflineModeIsEnabled`] exception will be raised.
 
