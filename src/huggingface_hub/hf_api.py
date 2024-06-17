@@ -7489,7 +7489,12 @@ class HfApi:
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
     def resume_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        name: str,
+        *,
+        namespace: Optional[str] = None,
+        running_ok: bool = True,
+        token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Resume an Inference Endpoint.
 
@@ -7500,6 +7505,9 @@ class HfApi:
                 The name of the Inference Endpoint to resume.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            running_ok (`bool`, *optional*):
+                If `True`, the method will not raise an error if the Inference Endpoint is already running. Defaults to
+                `True`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7515,7 +7523,14 @@ class HfApi:
             f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
             headers=self._build_hf_headers(token=token),
         )
-        hf_raise_for_status(response)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as error:
+            # If already running (and it's ok), then fetch current status and return
+            if running_ok and error.response.status_code == 400 and "already running" in error.response.text:
+                return self.get_inference_endpoint(name, namespace=namespace, token=token)
+            # Otherwise, raise the error
+            raise
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
