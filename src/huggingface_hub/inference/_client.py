@@ -2418,7 +2418,7 @@ class InferenceClient:
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
-        Example for multi_label=False:
+        Example with `multi_label=False`:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
@@ -2446,18 +2446,16 @@ class InferenceClient:
         ]
         ```
 
-        Example for multi_label=True and custom hypothesis_template:
+        Example with `multi_label=True` and a custom `hypothesis_template`:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> output = client.zero_shot_classification(
-        ...    model=endpont.url,
+        >>> client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
         ...    labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
         ... )
-        >>> print(output)
         [
             ZeroShotClassificationOutputElement(label='negative', score=0.9231801629066467),
             ZeroShotClassificationOutputElement(label='pessimistic', score=0.8760990500450134),
