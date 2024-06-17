@@ -82,7 +82,7 @@
       title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거
-    - local: in_translation
-      title: (번역 중) Webhooks server
+    - local: package_reference/webhooks_server
+      title: 웹훅 서버
     - local: package_reference/serialization
       title: 직렬화
