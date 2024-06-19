@@ -403,6 +403,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out.append(cache_path_info)
         return out
 
+    def walk(self, path, **kwargs):
+        # Set expand_info=False by default to get a x10 speed boost
+        kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
+        path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
+        yield from super().walk(path, **kwargs)
+
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
