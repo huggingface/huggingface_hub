@@ -2,15 +2,13 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Manage `huggingface_hub` cache-system[[manage-huggingfacehub-cache-system]]
+# `huggingface_hub` 캐시 시스템 관리하기[[manage-huggingfacehub-cache-system]]
 
-## Understand caching[[understand-caching]]
+## 캐싱 이해하기[[understand-caching]]
 
-The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
-that depend on the Hub. It has been updated in v0.8.0 to prevent re-downloading same files
-between revisions.
+Hugging Face Hub 캐시 시스템은 Hub에 의존하는 라이브러리들 간에 공유되는 중앙 캐시로 설계되었습니다. v0.8.0에서 수정한 파일 간에 다시 다운로드하는 것을 방지하도록 업데이트되었습니다.
 
-The caching system is designed as follows:
+캐시 시스템은 다음과 같이 설계되었습니다:
 
 ```
 <CACHE_DIR>
@@ -19,11 +17,9 @@ The caching system is designed as follows:
 ├─ <SPACES>
 ```
 
-The `<CACHE_DIR>` is usually your user's home directory. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
+`<CACHE_DIR>`는 보통 사용자의 홈 디렉토리입니다. 그러나 모든 메서드에서 `cache_dir` 인수를 사용하거나 `HF_HOME` 또는 `HF_HUB_CACHE` 환경 변수를 지정하여 사용자 정의할 수 있습니다.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
-repository type, the namespace (organization or username) if it exists and the
-repository name:
+모델, 데이터셋, 스페이스는 공통된 루트를 공유합니다. 각 리포지토리는 리포지토리 유형, 존재할 경우 네임스페이스(조직 또는 사용자 이름), 그리고 리포지토리 이름을 포함합니다:
 
 ```
 <CACHE_DIR>
@@ -35,12 +31,10 @@ repository name:
 ├─ spaces--dalle-mini--dalle-mini
 ```
 
-It is within these folders that all files will now be downloaded from the Hub. Caching ensures that
-a file isn't downloaded twice if it already exists and wasn't updated; but if it was updated,
-and you're asking for the latest file, then it will download the latest file (while keeping
-the previous file intact in case you need it again).
+이 폴더들 안에서 모든 파일이 Hub에서 다운로드됩니다. 캐싱은 파일이 이미 존재하고 업데이트되지 않았다면 파일을 두 번 다운로드하지 않도록 방지합니다. 
+하지만 파일이 업데이트되었고 최신 파일을 요청하면, 최신 파일을 다운로드합니다 (이전 파일은 나중에 필요할 경우를 위해 그대로 유지됩니다).
 
-In order to achieve this, all folders contain the same skeleton:
+이를 위해 모든 폴더는 동일한 구조를 가집니다:
 
 ```
 <CACHE_DIR>
@@ -51,87 +45,64 @@ In order to achieve this, all folders contain the same skeleton:
 ...
 ```
 
-Each folder is designed to contain the following:
+각 폴더는 다음과 같은 내용을 포함하도록 구성되었습니다:
 
 ### Refs[[refs]]
 
-The `refs` folder contains files which indicates the latest revision of the given reference. For example,
-if we have previously fetched a file from the `main` branch of a repository, the `refs`
-folder will contain a file named `main`, which will itself contain the commit identifier of the current head.
+`refs` 폴더에는 주어진 참조의 최신 수정 버전을 나타내는 파일이 포함되어 있습니다. 예를 들어, 이전에 리포지토리의 `main` 브랜치에서 파일을 가져온 경우, `refs` 폴더에는 `main`이라는 이름의 파일이 포함되며, 이 파일 자체에는 현재 헤드의 커밋 식별자가 들어 있습니다.
 
-If the latest commit of `main` has `aaaaaa` as identifier, then it will contain `aaaaaa`.
+만약 `main`의 최신 커밋 식별자가 `aaaaaa`라면, 그 파일에는 `aaaaaa`가 들어 있습니다.
 
-If that same branch gets updated with a new commit, that has `bbbbbb` as an identifier, then
-re-downloading a file from that reference will update the `refs/main` file to contain `bbbbbb`.
+같은 브랜치가 새로운 커밋으로 업데이트되어 `bbbbbb`라는 식별자를 갖게 되면, 해당 참조에서 파일을 다시 다운로드할 때 `refs/main` 파일은 `bbbbbb`로 업데이트됩니다.
 
 ### Blobs[[blobs]]
 
-The `blobs` folder contains the actual files that we have downloaded. The name of each file is their hash.
+`blobs` 폴더에는 실제로 다운로드된 파일이 포함되어 있습니다. 각 파일의 이름은 해당 파일의 해시값입니다.
 
 ### Snapshots[[snapshots]]
+`snapshots` 폴더에는 위에서 언급한 blobs에 대한 심볼릭 링크가 포함되어 있습니다. 이 폴더는 여러 개의 하위 폴더로 구성되어 있으며, 각 폴더는 알려진 수정 버전을 나타냅니다.
 
-The `snapshots` folder contains symlinks to the blobs mentioned above. It is itself made up of several folders:
-one per known revision!
+위 설명에서, 처음에 `aaaaaa` 버전에서 파일을 가져왔고, 그 후에 `bbbbbb` 버전에서 파일을 가져왔습니다. 이 상황에서 `snapshots` 폴더에는 `aaaaaa`와 `bbbbbb`라는 두 개의 폴더가 있습니다.
 
-In the explanation above, we had initially fetched a file from the `aaaaaa` revision, before fetching a file from
-the `bbbbbb` revision. In this situation, we would now have two folders in the `snapshots` folder: `aaaaaa`
-and `bbbbbb`.
-
-In each of these folders, live symlinks that have the names of the files that we have downloaded. For example,
-if we had downloaded the `README.md` file at revision `aaaaaa`, we would have the following path:
+이 각 폴더에는 다운로드한 파일의 이름을 가진 심볼릭 링크가 있습니다. 예를 들어, `aaaaaa` 버전에서 `README.md` 파일을 다운로드했다면, 다음과 같은 경로가 생깁니다:
 
 ```
 <CACHE_DIR>/<REPO_NAME>/snapshots/aaaaaa/README.md
 ```
 
-That `README.md` file is actually a symlink linking to the blob that has the hash of the file.
+그 `README.md` 파일은 실제로 해당 파일의 해시를 가진 blob에 대한 심볼릭 링크입니다.
 
-By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
-revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
+이와 같은 구조를 생성함으로써 파일 공유 메커니즘이 열리게 됩니다. 동일한 파일이 `bbbbbb` 버전에서 가져온 경우, 동일한 해시를 가지게 되어 파일을 다시 다운로드할 필요가 없습니다.
 
 ### .no_exist (advanced)[[noexist-advanced]]
-
-In addition to the `blobs`, `refs` and `snapshots` folders, you might also find a `.no_exist` folder
-in your cache. This folder keeps track of files that you've tried to download once but don't exist
-on the Hub. Its structure is the same as the `snapshots` folder with 1 subfolder per known revision:
+`blobs`, `refs`, `snapshots` 폴더 외에도 캐시에서 `.no_exist` 폴더를 찾을 수 있습니다. 이 폴더는 한 번 다운로드하려고 시도했지만 Hub에 존재하지 않는 파일을 기록합니다. 이 폴더의 구조는 `snapshots` 폴더와 동일하며, 알려진 각 수정 버전에 대해 하나의 하위 폴더를 갖습니다:
 
 ```
 <CACHE_DIR>/<REPO_NAME>/.no_exist/aaaaaa/config_that_does_not_exist.json
 ```
+`snapshots` 폴더와 달리, 파일은 단순히 빈 파일(심볼릭 링크 없음)입니다. 이 예에서, 파일 `"config_that_does_not_exist.json"`은 버전 `"aaaaaa"`에 대해 Hub에 존재하지 않습니다. 빈 파일만 저장하므로, 이 폴더는 디스크 사용량을 크게 차지하지 않기에 무시할 수 있습니다.
 
-Unlike the `snapshots` folder, files are simple empty files (no symlinks). In this example,
-the file `"config_that_does_not_exist.json"` does not exist on the Hub for the revision `"aaaaaa"`.
-As it only stores empty files, this folder is neglectable is term of disk usage.
+그래서 지금 궁금해할 수 있습니다. 이 정보가 왜 중요할까요? 경우에 따라 프레임워크가 모델에 대해 선택사항으로 제공되는 파일을 로드하려고 시도합니다. 선택사항으로 제공되는 파일을 저장하면 가능한 각 선택사항으로 제공되는 파일당 1개의 HTTP 호출을 저장하여 모델을 로드하는 데 더 빠르게 만들 수 있습니다. 이는 예를 들어 각 토크나이저가 추가 파일을 지원하는 `transformers`에서 발생합니다. 처음으로 토크나이저를 로드할 때, 다음 초기화를 위해 로딩 시간을 더 빠르게 하기 위해 선택사항으로 제공되는 파일이 존재하는지 여부를 캐시합니다.
 
-So now you might wonder, why is this information even relevant?
-In some cases, a framework tries to load optional files for a model. Saving the non-existence
-of optional files makes it faster to load a model as it saves 1 HTTP call per possible optional file.
-This is for example the case in `transformers` where each tokenizer can support additional files.
-The first time you load the tokenizer on your machine, it will cache which optional files exists (and
-which doesn't) to make the loading time faster for the next initializations.
-
-To test if a file is cached locally (without making any HTTP request), you can use the [`try_to_load_from_cache`]
-helper. It will either return the filepath (if exists and cached), the object `_CACHED_NO_EXIST` (if non-existence
-is cached) or `None` (if we don't know).
+로컬로 캐시된 파일이 있는지 테스트하려면 (HTTP 요청을 만들지 않고), [`try_to_load_from_cache`] 도우미를 사용할 수 있습니다. 이는 파일 경로(존재하고 캐시된 경우), `_CACHED_NO_EXIST` 객체(존재하지 않음이 캐시된 경우) 또는 `None` (알 수 없는 경우)를 반환합니다.
 
 ```python
 from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
 
 filepath = try_to_load_from_cache()
 if isinstance(filepath, str):
-    # file exists and is cached
+    # 파일이 존재하고 캐시됩니다
     ...
 elif filepath is _CACHED_NO_EXIST:
-    # non-existence of file is cached
+    # 파일의 존재여부가 캐시됩니다
     ...
 else:
-    # file is not cached
+    # 파일은 캐시되지 않습니다
     ...
 ```
 
-### In practice[[in-practice]]
-
-In practice, your cache should look like the following tree:
+### 캐시 구조 예시[[in-practice]]
+실제로는 캐시는 다음과 같은 트리 구조를 가질 것입니다:
 
 ```text
     [  96]  .
@@ -151,55 +122,30 @@ In practice, your cache should look like the following tree:
                 └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
 ```
 
-### Limitations[[limitations]]
+### 제한사항[[limitations]]
+효율적인 캐시 시스템을 갖기 위해 `huggingface-hub`은 심볼릭 링크를 사용합니다. 그러나 모든 기기에서 심볼릭 링크를 지원하지는 않습니다. 특히 Windows에서는 이것이 알려진 제한 사항입니다. 이런 경우에는 `huggingface_hub`이 `blobs/` 디렉터리를 사용하지 않고 대신 직접 파일을 `snapshots/` 디렉터리에 저장합니다. 이 해결책을 통해 사용자는 Hub에서 파일을 다운로드하고 캐시하는 방식을 정확히 동일하게 사용할 수 있습니다. 캐시를 검사하고 삭제하는 도구들도 지원됩니다. 그러나 캐시 시스템은 동일한 리포지토리의 여러 수정 버전을 다운로드하는 경우 같은 파일이 여러 번 다운로드될 수 있기 때문에 효율적이지 않을 수 있습니다.
 
-In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
-symlinks are not supported on all machines. This is a known limitation especially on
-Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
-directly stores the files in the `snapshots/` directory instead. This workaround allows
-users to download and cache files from the Hub exactly the same way. Tools to inspect
-and delete the cache (see below) are also supported. However, the cache-system is less
-efficient as a single file might be downloaded several times if multiple revisions of
-the same repo is downloaded.
+Windows 기기에서 심볼릭 링크 기반 캐시 시스템의 이점을 누리려면, [개발자 모드를 활성화](https://docs.microsoft.com/ko-kr/windows/apps/get-started/enable-your-device-for-development)하거나 Python을 관리자 권한으로 실행해야 합니다.
 
-If you want to benefit from the symlink-based cache-system on a Windows machine, you
-either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
-or to run Python as an administrator.
+심볼릭 링크가 지원되지 않는 경우, 사용자에게 캐시 시스템의 낮은 버전을 사용 중임을 알리는 경고 메시지가 표시됩니다. 이 경고는 `HF_HUB_DISABLE_SYMLINKS_WARNING` 환경 변수를 true로 설정하여 비활성화할 수 있습니다.
 
-When symlinks are not supported, a warning message is displayed to the user to alert
-them they are using a degraded version of the cache-system. This warning can be disabled
-by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
+## 캐싱 자산[[caching-assets]]
 
-## Caching assets[[caching-assets]]
-
-In addition to caching files from the Hub, downstream libraries often requires to cache
-other files related to HF but not handled directly by `huggingface_hub` (example: file
-downloaded from GitHub, preprocessed data, logs,...). In order to cache those files,
-called `assets`, one can use [`cached_assets_path`]. This small helper generates paths
-in the HF cache in a unified way based on the name of the library requesting it and
-optionally on a namespace and a subfolder name. The goal is to let every downstream
-libraries manage its assets its own way (e.g. no rule on the structure) as long as it
-stays in the right assets folder. Those libraries can then leverage tools from
-`huggingface_hub` to manage the cache, in particular scanning and deleting parts of the
-assets from a CLI command.
+Hub에서 파일을 캐시하는 것 외에도, 하위 라이브러리들은 종종 `huggingface_hub`에 직접 처리되지 않는 HF와 관련된 다른 파일을 캐시해야 할 때가 있습니다 (예: GitHub에서 다운로드한 파일, 전처리된 데이터, 로그 등). 이러한 파일, 즉 '자산(assets)'을 캐시하기 위해 [`cached_assets_path`]를 사용할 수 있습니다. 이 도우미는 요청한 라이브러리의 이름과 선택적으로 네임스페이스 및 하위 폴더 이름을 기반으로 HF 캐시의 경로를 통일된 방식으로 생성합니다. 목표는 모든 하위 라이브러리가 자산을 자체 방식대로(예: 구조에 대한 규칙 없음) 관리할 수 있도록 하는 것입니다. 그러나 올바른 자산 폴더 내에 있어야 합니다. 그러한 라이브러리는 `huggingface_hub`의 도구를 활용하여 캐시를 관리할 수 있으며, 특히 CLI 명령을 통해 자산의 일부를 스캔하고 삭제할 수 있습니다.
 
 ```py
 from huggingface_hub import cached_assets_path
 
 assets_path = cached_assets_path(library_name="datasets", namespace="SQuAD", subfolder="download")
-something_path = assets_path / "something.json" # Do anything you like in your assets folder !
+something_path = assets_path / "something.json" # 자산 폴더에서 원하는 대로 작업하세요!
 ```
 
 <Tip>
-
-[`cached_assets_path`] is the recommended way to store assets but is not mandatory. If
-your library already uses its own cache, feel free to use it!
-
+[`cached_assets_path`]는 자산을 저장하는 권장 방법이지만 필수적인 것은 아닙니다. 이미 라이브러리가 자체 캐시를 사용하는 경우 해당 캐시를 자유롭게 사용하세요!
 </Tip>
 
-### Assets in practice[[assets-in-practice]]
-
-In practice, your assets cache should look like the following tree:
+### 자산 캐시 구조 예시[[assets-in-practice]]
+실제로는 자산 캐시는 다음과 같은 트리 구조를 가질 것입니다:
 
 ```text
     assets/
@@ -232,22 +178,13 @@ In practice, your assets cache should look like the following tree:
                 └── (...)
 ```
 
-## Scan your cache[[scan-your-cache]]
+## 캐시 스캔하기[[scan-your-cache]]
+현재 캐시된 파일은 로컬 디렉토리에서 삭제되지 않습니다. 브랜치의 새로운 수정 버전을 다운로드할 때 이전 파일은 다시 필요할 경우를 대비하여 보관됩니다. 따라서 디스크 공간을 많이 차지하는 리포지토리와 수정 버전을 파악하기 위해 캐시 디렉토리를 스캔하는 것이 유용할 수 있습니다. `huggingface_hub`은 이를 수행할 수 있는 도우미를 제공하며, `huggingface-cli`를 통해 또는 Python 스크립트에서 사용할 수 있습니다.
 
-At the moment, cached files are never deleted from your local directory: when you download
-a new revision of a branch, previous files are kept in case you need them again.
-Therefore it can be useful to scan your cache directory in order to know which repos
-and revisions are taking the most disk space. `huggingface_hub` provides an helper to
-do so that can be used via `huggingface-cli` or in a python script.
+### 터미널에서 캐시 스캔하기[[scan-cache-from-the-terminal]]
+HF 캐시 시스템을 스캔하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `scan-cache` 명령을 사용하는 것입니다. 이 명령은 캐시를 스캔하고 리포지토리 ID, 리포지토리 유형, 디스크 사용량, 참조 및 전체 로컬 경로와 같은 정보가 포함된 보고서를 출력합니다.
 
-### Scan cache from the terminal[[scan-cache-from-the-terminal]]
-
-The easiest way to scan your HF cache-system is to use the `scan-cache` command from
-`huggingface-cli` tool. This command scans the cache and prints a report with information
-like repo id, repo type, disk usage, refs and full local path.
-
-The snippet below shows a scan report in a folder in which 4 models and 2 datasets are
-cached.
+아래 코드 조각은 4개의 모델과 2개의 데이터셋이 캐시된 폴더에서의 스캔 보고서를 보여줍니다.
 
 ```text
 ➜ huggingface-cli scan-cache
@@ -263,13 +200,7 @@ t5-small                    model           970.7M       11 3 days ago    3 days
 Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
-
-To get a more detailed report, use the `--verbose` option. For each repo, you get a
-list of all revisions that have been downloaded. As explained above, the files that don't
-change between 2 revisions are shared thanks to the symlinks. This means that the size of
-the repo on disk is expected to be less than the sum of the size of each of its revisions.
-For example, here `bert-base-cased` has 2 revisions of 1.4G and 1.5G but the total disk
-usage is only 1.9G.
+더 자세한 보고서를 얻으려면 `--verbose` 옵션을 사용하세요. 각 리포지토리에 대해 다운로드된 모든 수정 버전의 목록을 얻게 됩니다. 위에서 설명한대로, 2개의 수정 버전 사이에 변경되지 않는 파일들은 심볼릭 링크를 통해 공유됩니다. 이는 디스크 상의 리포지토리 크기가 각 수정 버전의 크기의 합보다 작을 것으로 예상됨을 의미합니다. 예를 들어, 여기서 `bert-base-cased`는 1.4G와 1.5G의 두 가지 수정 버전이 있지만 총 디스크 사용량은 단 1.9G입니다.
 
 ```text
 ➜ huggingface-cli scan-cache -v
@@ -291,11 +222,8 @@ Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
 Got 1 warning(s) while scanning. Use -vvv to print details.
 ```
 
-#### Grep example[[grep-example]]
-
-Since the output is in tabular format, you can combine it with any `grep`-like tools to
-filter the entries. Here is an example to filter only revisions from the "t5-small"
-model on a Unix-based machine.
+#### Grep 예시[[grep-example]]
+출력이 테이블 형식으로 되어 있기 때문에 `grep`과 유사한 도구를 사용하여 항목을 필터링할 수 있습니다. 여기에는 Unix 기반 머신에서 "t5-small" 모델의 수정 버전만 필터링하는 예제가 있습니다.
 
 ```text
 ➜ eval "huggingface-cli scan-cache -v" | grep "t5-small"
@@ -304,19 +232,17 @@ t5-small                    model     d0a119eedb3718e34c648e594394474cf95e0617  
 t5-small                    model     d78aea13fa7ecd06c29e3e46195d6341255065d5       970.7M        9 1 week ago    main        /home/wauplin/.cache/huggingface/hub/models--t5-small/snapshots/d78aea13fa7ecd06c29e3e46195d6341255065d5
 ```
 
-### Scan cache from Python[[scan-cache-from-python]]
+### 파이썬에서 캐시 스캔하[[scan-cache-from-python]]
+더 고급 사용을 위해 CLI 도구에서 호출되는 파이썬 유틸리티인 [`scan_cache_dir`]을 사용할 수 있습니다.
 
-For a more advanced usage, use [`scan_cache_dir`] which is the python utility called by
-the CLI tool.
+이를 사용하여 4가지 데이터 클래스를 중심으로 구조화된 자세한 보고서를 얻을 수 있습니다:
 
-You can use it to get a detailed report structured around 4 dataclasses:
+- [`HFCacheInfo`]: [`scan_cache_dir`]에 의해 반환되는 완전한 보고서
+- [`CachedRepoInfo`]: 캐시된 리포지토리에 관한 정보
+- [`CachedRevisionInfo`]: 리포지토리 내의 캐시된 수정 버전(예: "snapshot")에 관한 정보
+- [`CachedFileInfo`]: 스냅샷 내의 캐시된 파일에 관한 정보
 
-- [`HFCacheInfo`]: complete report returned by [`scan_cache_dir`]
-- [`CachedRepoInfo`]: information about a cached repo
-- [`CachedRevisionInfo`]: information about a cached revision (e.g. "snapshot") inside a repo
-- [`CachedFileInfo`]: information about a cached file in a snapshot
-
-Here is a simple usage example. See reference for details.
+다음은 간단한 사용 예시입니다. 자세한 내용은 참조 문서를 참고하세요.
 
 ```py
 >>> from huggingface_hub import scan_cache_dir
@@ -338,7 +264,7 @@ HFCacheInfo(
                     commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
                     size_on_disk=970726339,
                     snapshot_path=PosixPath(...),
-                    # No `last_accessed` as blobs are shared among revisions
+                    # 수정 버전 간에 blobs가 공유되기 때문에 `last_accessed`가 없습니다.
                     last_modified=1662971107.3567169,
                     files=frozenset({
                         CachedFileInfo(
@@ -368,90 +294,58 @@ HFCacheInfo(
 )
 ```
 
-## Clean your cache[[clean-your-cache]]
+## 캐시 정리하기[[clean-your-cache]]
 
-Scanning your cache is interesting but what you really want to do next is usually to
-delete some portions to free up some space on your drive. This is possible using the
-`delete-cache` CLI command. One can also programmatically use the
-[`~HFCacheInfo.delete_revisions`] helper from [`HFCacheInfo`] object returned when
-scanning the cache.
+캐시를 스캔하는 것은 흥미로울 수 있지만 실제로 해야 할 다음 작업은 일반적으로 드라이브의 일부 공간을 확보하기 위해 일부 부분을 삭제하는 것입니다. 이는 `delete-cache` CLI 명령을 사용하여 가능합니다. 또한 캐시를 스캔할 때 반환되는 [`HFCacheInfo`] 객체에서 [`~HFCacheInfo.delete_revisions`] 도우미를 사용하여 프로그래밍 방식으로도 사용할 수 있습니다.
 
-### Delete strategy[[delete-strategy]]
+### 전략적인 삭제[[delete-strategy]]
 
-To delete some cache, you need to pass a list of revisions to delete. The tool will
-define a strategy to free up the space based on this list. It returns a
-[`DeleteCacheStrategy`] object that describes which files and folders will be deleted.
-The [`DeleteCacheStrategy`] allows give you how much space is expected to be freed.
-Once you agree with the deletion, you must execute it to make the deletion effective. In
-order to avoid discrepancies, you cannot edit a strategy object manually.
+캐시를 삭제하려면 삭제할 수정 버전 목록을 전달해야 합니다. 도구는 이 목록을 기반으로 공간을 확보하기 위한 전략을 정의합니다. 이 목록에 따라 어떤 파일과 폴더가 삭제될지를 설명하는 [`DeleteCacheStrategy`] 객체가 반환됩니다. [`DeleteCacheStrategy`]는 예상되는 공간 확보량을 제공합니다. 삭제에 동의하면 삭제를 실행하여 삭제를 유효하게 만들어야 합니다. 불일치를 피하기 위해 전략 객체를 수동으로 편집할 수 없습니다.
 
-The strategy to delete revisions is the following:
+수정 버전을 삭제하기 위한 전략은 다음과 같습니다:
 
-- the `snapshot` folder containing the revision symlinks is deleted.
-- blobs files that are targeted only by revisions to be deleted are deleted as well.
-- if a revision is linked to 1 or more `refs`, references are deleted.
-- if all revisions from a repo are deleted, the entire cached repository is deleted.
+- 수정 버전 심볼릭 링크가 있는 `snapshot` 폴더가 삭제됩니다.
+- 삭제할 수정 버전에만 대상이 되는 blobs 파일도 삭제됩니다.
+- 수정 버전이 1개 이상의 `refs`에 연결되어 있는 경우, 참조가 삭제됩니다.
+- 리포지토리의 모든 수정 버전이 삭제되는 경우 전체 캐시된 리포지토리가 삭제됩니다.
 
 <Tip>
-
-Revision hashes are unique across all repositories. This means you don't need to
-provide any `repo_id` or `repo_type` when removing revisions.
-
+수정 버전 해시는 모든 리포지토리를 통틀어 고유합니다. 이는 수정 버전을 제거할 때 `repo_id`나 `repo_type`을 제공할 필요가 없음을 의미합니다.
 </Tip>
 
 <Tip warning={true}>
-
-If a revision is not found in the cache, it will be silently ignored. Besides, if a file
-or folder cannot be found while trying to delete it, a warning will be logged but no
-error is thrown. The deletion continues for other paths contained in the
-[`DeleteCacheStrategy`] object.
-
+캐시에서 수정 버전을 찾을 수 없는 경우 무시됩니다. 또한 삭제 중에 파일 또는 폴더를 찾을 수 없는 경우 경고가 기록되지만 오류가 발생하지 않습니다. [`DeleteCacheStrategy`] 객체에 포함된 다른 경로에 대해 삭제가 계속됩니다.
 </Tip>
 
-### Clean cache from the terminal[[clean-cache-from-the-terminal]]
+### 터미널에서 캐시 정리하기[[clean-cache-from-the-terminal]]
 
-The easiest way to delete some revisions from your HF cache-system is to use the
-`delete-cache` command from `huggingface-cli` tool. The command has two modes. By
-default, a TUI (Terminal User Interface) is displayed to the user to select which
-revisions to delete. This TUI is currently in beta as it has not been tested on all
-platforms. If the TUI doesn't work on your machine, you can disable it using the
-`--disable-tui` flag.
+HF 캐시 시스템에서 일부 수정 버전을 삭제하는 가장 쉬운 방법은 `huggingface-cli` 도구의 `delete-cache` 명령을 사용하는 것입니다. 이 명령에는 두 가지 모드가 있습니다. 기본적으로 사용자에게 삭제할 수정 버전을 선택하도록 TUI(터미널 사용자 인터페이스)가 표시됩니다. 이 TUI는 현재 베타 버전으로, 모든 플랫폼에서 테스트되지 않았습니다. 만약 TUI가 작동하지 않는다면 `--disable-tui` 플래그를 사용하여 비활성화할 수 있습니다.
 
-#### Using the TUI[[using-the-tui]]
-
-This is the default mode. To use it, you first need to install extra dependencies by
-running the following command:
+#### TUI 사용기[[using-the-tui]]
+기본 모드입니다. 이를 사용하려면 먼저 다음 명령을 실행하여 추가 종속성을 설치해야 합니다:
 
 ```
 pip install huggingface_hub["cli"]
 ```
 
-Then run the command:
+그러고 명령어를 실행합니다:
 
 ```
 huggingface-cli delete-cache
 ```
-
-You should now see a list of revisions that you can select/deselect:
+이제 선택/선택 해제할 수 있는 수정 버전 목록이 표시됩니다:
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/delete-cache-tui.png"/>
 </div>
+사용방법:
+   - `<up>` 및 `<down>` 키를 사용하여 커서를 이동합니다.
+   - `<space>` 키를 눌러 항목을 토글(선택/선택 해제)합니다.
+   - 수정 버전이 선택된 경우 첫 번째 줄이 업데이트되어 얼마나 많은 공간이 해제될지 표시됩니다.
+   - 선택을 확인하려면 `<enter>` 키를 누릅니다.
+   - 작업을 취소하고 종료하려면 첫 번째 항목("None of the following")을 선택합니다. 이 항목이 선택된 경우, 다른 항목이 선택되었는지 여부에 관계없이 삭제 프로세스가 취소됩니다. 그렇지 않으면 `<ctrl+c>`를 눌러 TUI를 종료할 수도 있습니다.
 
-Instructions:
-    - Press keyboard arrow keys `<up>` and `<down>` to move the cursor.
-    - Press `<space>` to toggle (select/unselect) an item.
-    - When a revision is selected, the first line is updated to show you how much space
-      will be freed.
-    - Press `<enter>` to confirm your selection.
-    - If you want to cancel the operation and quit, you can select the first item
-      ("None of the following"). If this item is selected, the delete process will be
-      cancelled, no matter what other items are selected. Otherwise you can also press
-      `<ctrl+c>` to quit the TUI.
-
-Once you've selected the revisions you want to delete and pressed `<enter>`, a last
-confirmation message will be prompted. Press `<enter>` again and the deletion will be
-effective. If you want to cancel, enter `n`.
+삭제할 수정 버전을 선택하고 `<enter>`를 누르면 마지막 확인 메시지가 표시됩니다. 다시 `<enter>`를 누르면 삭제됩니다. 취소하려면 `n`을 입력하세요.
 
 ```txt
 ✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
@@ -461,21 +355,12 @@ Start deletion.
 Done. Deleted 1 repo(s) and 0 revision(s) for a total of 3.1G.
 ```
 
-#### Without TUI[[without-tui]]
+#### TUI 없이 작업하기[[without-tui]]
+위에서 언급한대로, TUI 모드는 현재 베타 버전이며 선택 사항입니다. 사용 중인 기기에서 작동하지 않을 수도 있거나 편리하지 않을 수 있습니다.
 
-As mentioned above, the TUI mode is currently in beta and is optional. It may be the
-case that it doesn't work on your machine or that you don't find it convenient.
+다른 방법은 `--disable-tui` 플래그를 사용하는 것입니다. 이 프로세스는 매우 유사합니다. 삭제할 수정 버전 목록을 수동으로 검토하라는 요청이 표시됩니다. 그러나 이 수동 단계는 터미널에서 직접 발생하는 것이 아니라 임시 파일에 자동으로 생성되며 해당 파일을 수동으로 편집할 수 있습니다.
 
-Another approach is to use the `--disable-tui` flag. The process is very similar as you
-will be asked to manually review the list of revisions to delete. However, this manual
-step will not take place in the terminal directly but in a temporary file generated on
-the fly and that you can manually edit.
-
-This file has all the instructions you need in the header. Open it in your favorite text
-editor. To select/deselect a revision, simply comment/uncomment it with a `#`. Once the
-manual review is done and the file is edited, you can save it. Go back to your terminal
-and press `<enter>`. By default it will compute how much space would be freed with the
-updated list of revisions. You can continue to edit the file or confirm with `"y"`.
+이 파일에는 헤더에 필요한 모든 사용방법이 포함되어 있습니다. 텍스트 편집기에 이 파일을 엽니다. 수정 버전을 선택/선택 해제하려면 간단히 `#`로 주석 처리/해제하면 됩니다. 수동 검토가 완료되고 파일이 편집되면 저장하세요. 터미널로 돌아가 `<enter>`를 누릅니다. 기본적으로 업데이트된 수정 버전 목록으로 얼마나 많은 공간을 해제할지를 계산합니다. 파일을 계속 편집하거나 `"y"`로 확인할 수 있습니다.
 
 ```sh
 huggingface-cli delete-cache --disable-tui
@@ -522,10 +407,8 @@ Example of command file:
 #    9cfa5647b32c0a30d0adfca06bf198d82192a0d1 # Refs: main # modified 5 days ago
 ```
 
-### Clean cache from Python[[clean-cache-from-python]]
-
-For more flexibility, you can also use the [`~HFCacheInfo.delete_revisions`] method
-programmatically. Here is a simple example. See reference for details.
+### 파이썬에서 캐시 정리하기[[clean-cache-from-python]]
+더 유연성을 위해 프로그래밍 방식으로 [`~HFCacheInfo.delete_revisions`] 메서드를 사용할 수도 있습니다. 간단한 예제를 살펴보겠습니다. 자세한 내용은 참조 문서를 확인하세요.
 
 ```py
 >>> from huggingface_hub import scan_cache_dir
