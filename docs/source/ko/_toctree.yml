@@ -30,7 +30,7 @@
       title: 커뮤니티
     - local: guides/collections
       title: Collections
-    - local: in_translation
+    - local: guides/manage-cache
       title: 캐시 관리
     - local: guides/model-cards
       title: 모델 카드
