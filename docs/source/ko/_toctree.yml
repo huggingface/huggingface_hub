@@ -6,7 +6,7 @@
       title: 둘러보기
     - local: installation
       title: 설치 방법
-- title: "(번역 중) How-to 가이드"
+- title: "How-to 가이드"
   sections:
     - local: guides/overview
       title: 개요
@@ -31,7 +31,7 @@
     - local: guides/collections
       title: Collections
     - local: in_translation
-      title: (번역 중) Cache
+      title: 캐시 관리
     - local: guides/model-cards
       title: 모델 카드
     - local: guides/manage-spaces
@@ -40,7 +40,7 @@
       title: 라이브러리 통합
     - local: guides/webhooks_server
       title: 웹훅 서버
-- title: "(번역 중) 개념 가이드"
+- title: "개념 가이드"
   sections:
     - local: concepts/git_vs_http
       title: Git 대 HTTP 패러다임
