@@ -77,7 +77,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 ```
 
 Ceci n'est qu'un exemple. Si vous êtes intéressés par des manipulations plus complexes (supprimer des fichiers distants,
-upload des poids à la volée, maintenir les poids localement, etc.) consultez le guide [upload des fichiers](./upload)
+upload des poids à la volée, maintenir les poids localement, etc.) consultez le guide [upload des fichiers](./upload).
 
 ### Limitations
 
