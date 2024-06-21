@@ -64,7 +64,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
       # Sauvegardez les poids
       save_model(model, tmpdir / "model.safetensors")
 
-      # Générez le chemin du modèle
+      # Générez la model card
       card = generate_model_card(model)
       (tmpdir / "README.md").write_text(card)
 
