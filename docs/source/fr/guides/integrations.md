@@ -94,7 +94,7 @@ Lorsque vous pushez des modèles, des paramètres similaires sont utilisables:
 - `commit_message`: message de commit personnalisé
 - `private`: créé un dépôt privé s'il en manque un
 - `create_pr`: créé un pull request aulieu de push vers `main`
-- `branch`: push vers une branche aulieu de push sur `main`
+- `branch`: push vers une branche au lieu de push sur `main`
 - `allow_patterns`/`ignore_patterns`: filtre les fichiers à upload
 - `token`
 - `api_endpoint`
