@@ -8,10 +8,7 @@ Le Hugging Face Hub facilite l'hébergement et le partage de modèles et de jeux
 Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) sont intégrées à cet écosysteme. La communauté travaille constamment à en intégrer de nouvelles et contribue ainsi à faciliter la collaboration dans le milieu du machine learning. La librairie `huggingface_hub` joue un rôle clé dans ce processus puisqu'elle permet d'interagir avec le Hub depuis n'importe quel script Python.
 
 Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
-1. **Push to Hub**  implémente une méthode pour upload un modèle vers le Hub. Ceci inclus les poids du modèle, la
-   [carte du modèle](https://huggingface.co/docs/huggingface_hub/how-to-model-cards) et toute autre information
-   pertinente ou donnée nécessaire pour faire tourner modèle (par exemple, les logs d'entrainement). Cette méthode est
-   souvent appelée `push_to_hub()`.
+1. **Push to Hub**  implémente une méthode pour upload un modèle sur le Hub. Cela inclut les paramètres du modèle, sa fiche descriptive (appelée [Model Card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards)) et toute autre information pertinente lié au modèle (par exemple, les logs d'entrainement). Cette méthode est souvent appelée `push_to_hub()`.
 2. **Download from Hub** implémente une méthode pour charger un modèlle depuis le Hub. La méthode doit télécharger la
    configuration et les poids du modèle et charger le modèle. Cette méthode est souvent appelée `from_pretrained` ou
    `load_from_hub()`.
