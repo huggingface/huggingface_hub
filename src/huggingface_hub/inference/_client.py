@@ -157,6 +157,7 @@ class InferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
+        proxy: Optional[str] = None,
     ) -> None:
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token
@@ -165,6 +166,7 @@ class InferenceClient:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
+        self.proxy = proxy
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -264,6 +266,7 @@ class InferenceClient:
                         cookies=self.cookies,
                         timeout=self.timeout,
                         stream=stream,
+                        proxies=self.proxy,
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
