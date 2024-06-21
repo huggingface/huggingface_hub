@@ -9,9 +9,7 @@ Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) s
 
 Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
 1. **Push to Hub**  implémente une méthode pour upload un modèle sur le Hub. Cela inclut les paramètres du modèle, sa fiche descriptive (appelée [Model Card](https://huggingface.co/docs/huggingface_hub/how-to-model-cards)) et toute autre information pertinente lié au modèle (par exemple, les logs d'entrainement). Cette méthode est souvent appelée `push_to_hub()`.
-2. **Download from Hub** implémente une méthode pour charger un modèlle depuis le Hub. La méthode doit télécharger la
-   configuration et les poids du modèle et charger le modèle. Cette méthode est souvent appelée `from_pretrained` ou
-   `load_from_hub()`.
+2. **Download from Hub** implémente une méthode pour charger un modèle depuis le Hub. La méthode doit télécharger la configuration et les poids du modèle puis instancier celui-ci. Cette méthode est souvent appelée `from_pretrained` ou `load_from_hub()`.
 3. **Inference API** utilise nos serveurs pour faire de l'inférence gratuitement sur des modèles supportés par votre librairie.
 4. **Widgets** affiche un widget sur la page d'acceuil de votre modèle dans le Hub. Widgets permet aux utilisateur de rapidement
 essayer un modèle depuis le navigateur.
