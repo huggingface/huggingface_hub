@@ -13,10 +13,7 @@ Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
 3. **Inference API** utilise nos serveurs pour faire de l'inférence gratuitement sur des modèles supportés par votre librairie.
 4. **Widgets** affiche un widget sur la page d'accueil de votre modèle dans le Hub. Les widgets permettent aux utilisateurs de rapidement tester un modèle depuis le navigateur.
 
-Dans ce guide, nous nous concentreront sur les deux premiers sujets. Nous présenterons les deux approches principales
-que vous pouvez utiliser pour intégrer une librairie, avec leur avantages et leur défauts. Tout est résumé à la fin du guide
-pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, vous êtes libres de
-les adapter à votre cas d'usage.
+Dans ce guide, nous nous concentreront sur les deux premiers sujets. Nous présenterons les deux approches principales que vous pouvez utiliser pour intégrer une librairie, avec leurs avantages et leurs inconvénients. Tout est résumé à la fin du guide pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, et vous êtes libres de les adapter à votre cas d'usage.
 
 Si Inferenc API et Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api).
 Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au HUb et que vous voulez apparaître
