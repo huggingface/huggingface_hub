@@ -15,9 +15,7 @@ Il existe quatre façons principales d'intégrer une bibliothèque au Hub :
 
 Dans ce guide, nous nous concentreront sur les deux premiers sujets. Nous présenterons les deux approches principales que vous pouvez utiliser pour intégrer une librairie, avec leurs avantages et leurs inconvénients. Tout est résumé à la fin du guide pour vous aider à choisir entre les deux. Veuillez garder à l'esprit que ce ne sont que des conseils, et vous êtes libres de les adapter à votre cas d'usage.
 
-Si Inferenc API et Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api).
-Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au HUb et que vous voulez apparaître
-[dans notre documentation](https://huggingface.co/docs/hub/models-libraries).
+Si l'Inference API et les Widgets vous intéressent, vous pouvez suivre [ce guide](https://huggingface.co/docs/hub/models-adding-libraries#set-up-the-inference-api). Dans les deux cas, vous pouvez nous contacter si vous intégrez une librairie au Hub et que vous voulez être listée [dans la documentation officielle](https://huggingface.co/docs/hub/models-libraries).
 
 ## Une approche flexible: les helpers
 
