@@ -113,7 +113,7 @@ un outil qui utilise l'héritage de classe. Regardons comment ça marche !
 
 Dans beaucoup de cas, une librairie définit déjà les modèles comme des classes Python. La classe contient les
 propriétés du modèle et des méthodes pour charger, lancer, entrainer et évaluer le modèle. Notre approche est d'étendre
-cette classe pour inclure les fonctionnalités upload et download en utilisant les mixins. Un [mixin](https://stackoverflow.com/a/547714)
+cette classe pour inclure les fonctionnalités upload et download en utilisant les mixins. Une [mixin](https://stackoverflow.com/a/547714)
 est une classe qui est faite pour étendre une classe existante avec une liste de fonctionnalités spécifiques en utilisant plusieurs héritages.
 `huggingface_hub` offre son propre mixin, le [`ModelHubMixin`]. La clef ici est de comprendre son comportement et comment le customiser.
 
