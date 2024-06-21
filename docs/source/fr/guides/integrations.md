@@ -22,8 +22,8 @@ Si l'Inference API et les Widgets vous intéressent, vous pouvez suivre [ce guid
 La première approche pour intégrer une librairie au Hub est d'implémenter les méthodes `push_to_hub` et `from_pretrained` 
 vous même. Ceci vous donne une flexibilité totale sur le choix du fichier que vous voulez upload/download et sur comment
 gérer les inputs spécifiques à votre framework. Vous pouvez vous référer aux guides : [upload des fichiers](./upload)
-et [télécharger des fichiers](./download) pour en savoir plus sur la manière de faire. C'est de cette manière que l'intégration
-de FastAI est implémentée par exemple (voir [`push_to_hub_fastai`] et [`from_pretrained_fastai`]).
+et [télécharger des fichiers](./download) pour en savoir plus sur la manière de faire. Par example, c'est de cette manière que l'intégration
+de FastAI est implémentée (voir [`push_to_hub_fastai`] et [`from_pretrained_fastai`]).
 
 L'implémentation peut varier entre différentes librairies, mais le workflow est souvent similaire.
 
