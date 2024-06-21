@@ -126,7 +126,7 @@ devez implémenter. Ainsi, pour intégrer votre librairie, vous devez :
 2. Implémenter les méthodes privées:
     - [`~ModelHubMixin._save_pretrained`]: méthode qui prend en entrée un chemin vers un directory et qui sauvegarde le modèle. 
     Vous devez écrire toute la logique pour dump votre modèle de cette manière: model card, poids du modèle, fichiers de configuration,
-    logs d'entrainement et chiffres. Toute information pertinente pour ce modèle doit être gérée par cette méthode. Les
+    et logs d'entrainement. Toute information pertinente pour ce modèle doit être gérée par cette méthode. Les
     [model cards](https://huggingface.co/docs/hub/model-cards) sont particulièrement importantes pour décrire votre modèle. Vérifiez
     [notre guide d'implémentation](./model-cards) pour plus de détails.
     - [`~ModelHubMixin._from_pretrained`]: **méthode de classe** prenant en entrée un `model_id` et qui retourne un modèle instancié.
