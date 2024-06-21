@@ -83,7 +83,7 @@ upload des poids à la volée, maintenir les poids localement, etc.) consultez l
 
 Bien que très flexible, cette approche a quelques défauts, particulièrement en terme de maintenance. Les utilisateurs
 d'Hugging Face sont habitués à utiliser des certaines fonctionnalités lorsqu'ils travaillent avec `huggingface_hub`. Par exemple,
-lors du chargement de fichiers depuis le Hub, il est commun de passer ds paramètres tels que:
+lors du chargement de fichiers depuis le Hub, il est commun de passer des paramètres tels que:
 - `token`: pour télécharger depuis un dépôt privé
 - `revision`: pour télécharger depuis une branche spécifique
 - `cache_dir`: pour mettre en cache des fichiers d'un chemin spécifique
