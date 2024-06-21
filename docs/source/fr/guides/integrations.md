@@ -104,7 +104,7 @@ Tous ces paramètres peuvent être ajoutés aux implémentations vues ci dessus 
 Toutefois, si un paramètre change ou qu'une nouvelle fonctionnalité est ajoutée, vous devrez mettre à jour votre package.
 Supporter ces paramètres implique aussi plus de documentation à maintenir de votre côté. Dans la prochaine section, nous allons voir comment dépasser ces limitations.
 
-## Une approche plus complexe: class inheritance
+## Une approche plus complexe: l'héritage de classe
 
 Comme vu ci dessus, il y a deux méthodes principales à inclure dans votre librairie pour l'intégrer avec le Hub:
 la méthode permettant d'upload des fichiers (`push_to_hub`) et celle pour télécharger des fichiers (`from_pretrained`).
