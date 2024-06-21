@@ -190,7 +190,7 @@ Voici comment n'importe quel utilisateur peut charger/enregistrer un modèle Pyt
 
 #### Implémentation
 
-L'implémentation est enfait très direct, l'implémentation complète peut être retrouvée [ici](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py).
+L'implémentation est très succincte (voir [ici](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/hub_mixin.py)).
 
 1. Premièrement, faites hériter votre classe de `ModelHubMixin`:
 
