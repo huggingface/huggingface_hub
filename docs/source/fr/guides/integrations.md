@@ -102,8 +102,7 @@ Lorsque vous pushez des modèles, des paramètres similaires sont utilisables:
 
 Tous ces paramètres peuvent être ajoutés aux implémentations vues ci dessus et passés aux méthodes de `huggingface_hub`.
 Toutefois, si un paramètre change ou qu'une nouvelle fonctionnalité est ajoutée, vous devrez mettre à jour votre package.
-Avoir du support pour ces paramètres implique aussi plus de documentation à maintenir de votre côté. Pour voir comment
-outrepasser ces limitations, regardons dans notre prochaine section **class inheritance**.
+Supporter ces paramètres implique aussi plus de documentation à maintenir de votre côté. Dans la prochaine section, nous allons voir comment dépasser ces limitations.
 
 ## Une approche plus complexe: class inheritance
 
