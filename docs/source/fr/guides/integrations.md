@@ -41,7 +41,7 @@ def from_pretrained(model_id: str) -> MyModelClass:
       library_version=get_fastai_version(),
    )
 
-   # Chargement du modèle
+   # Instanciation du modèle
     return load_model(cached_model)
 ```
 
