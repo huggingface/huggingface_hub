@@ -145,7 +145,7 @@ devez implémenter. Ainsi, pour intégrer votre librairie, vous devez :
     [model cards](https://huggingface.co/docs/hub/model-cards) sont particulièrement importantes pour décrire votre modèle. Vérifiez
     [notre guide d'implémentation](./model-cards) pour plus de détails.
     - [`~ModelHubMixin._from_pretrained`]: **méthode de classe** prenant en entrée un `model_id` et qui return un modèle instantié.
-    Cette méthode doit télécharger le fichier pertinent et les charger.
+    Cette méthode doit télécharger un ou plusieurs fichier(s) et le(s) charger.
 3. Fini!
 
 L'avantage d'utiliser [`ModelHubMixin`] est qu'une fois que vous vous êtes occupés de la sérialisation et du chargement du fichier,
