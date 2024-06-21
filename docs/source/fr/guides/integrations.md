@@ -29,7 +29,7 @@ L'implémentation peut varier entre différentes librairies, mais le workflow es
 
 ### from_pretrained
 
-Voici comment une méthode `from_pretrained` fonctionne d'habitude:
+Voici un exemple classique pour implémenter la méthode `from_pretrained`:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
