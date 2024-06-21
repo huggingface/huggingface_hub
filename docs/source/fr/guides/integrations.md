@@ -276,9 +276,9 @@ Et c'est fini ! Votre librairie permet maintenant aux utilisateurs d'upload et d
 
 ## Comparaison
 
-Résumons rapidement les deux approches que nous avons vu avec leurs avantages et leurs défauts. Les table ci-dessous
-sont uniquement indicatives. Votre framework aura peut-êre des spécifités que vous devez prendre en compte. Ce guide
-est ici uniquement pour vous donner des indications et des idées sur comment gérer l'intégration. Dans tous les cas,
+Résumons rapidement les deux approches que nous avons vu avec leurs avantages et leurs défauts. Le tableau ci-dessous
+est purement indicatif. Votre framework aura peut-êre des spécifités à prendre en compte. Ce guide
+est ici pour vous donner des indications et des idées sur comment gérer l'intégration. Dans tous les cas,
 n'hésitez pas à nous contacter si vous avez une question !
 
 <!-- Généré en utilisant https://www.tablesgenerator.com/markdown_tables -->
