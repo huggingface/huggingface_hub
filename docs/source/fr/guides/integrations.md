@@ -111,7 +111,7 @@ la méthode permettant d'upload des fichiers (`push_to_hub`) et celle pour tél�
 Vous pouvez implémenter ces méthodes vous-même mais cela a des inconvénients. Pour gérer ça, `huggingface_hub` fournit
 un outil qui utilise l'héritage de classe. Regardons comment ça marche !
 
-Dans beaucoup de cas, une librairie implémente déjà les modèles en utilisant une classe Python. La classe contient les
+Dans beaucoup de cas, une librairie définit déjà les modèles comme des classes Python. La classe contient les
 propriétés du modèle et des méthodes pour charger, lancer, entrainer et évaluer le modèle. Notre approche est d'étendre
 cette classe pour inclure les fonctionnalités upload et download en utilisant les mixins. Un [mixin](https://stackoverflow.com/a/547714)
 est une classe qui est faite pour étendre une classe existante avec une liste de fonctionnalités spécifiques en utilisant plusieurs héritages.
