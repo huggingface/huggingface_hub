@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Intégrez n'importe quel framework de ML avec le Hub
 
-Le Hub Hugging face rend l'hébergement et le partage de modèles avec la communauté facile.
+Le Hugging Face Hub facilite l'hébergement et le partage de modèles et de jeux de données.
 Il supporte des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries)
 dans l'écosystem open source. Nous somme constamment entrain de travailler pour étendre ce support
 afin de pousser vers l'avant le machine learning collaboratif. La librairie `huggingface_hub` joue un rôle
