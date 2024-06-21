@@ -86,7 +86,7 @@ d'Hugging Face sont habitués à utiliser des certaines fonctionnalités lorsqu'
 lors du chargement de fichiers depuis le Hub, il est commun de passer des paramètres tels que:
 - `token`: pour télécharger depuis un dépôt privé
 - `revision`: pour télécharger depuis une branche spécifique
-- `cache_dir`: pour mettre en cache des fichiers d'un chemin spécifique
+- `cache_dir`: pour paramétrer la mise en cache des fichiers
 - `force_download`/`resume_download`/`local_files_only`: pour réutiliser le cache ou pas
 - `api_endpoint`/`proxies`: pour configurer la session HTTP
 
