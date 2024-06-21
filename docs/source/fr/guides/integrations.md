@@ -33,7 +33,7 @@ Voici un exemple classique pour implémenter la méthode `from_pretrained`:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-   # Téléchargement du modèles depuis le Hub
+   # Téléchargement des paramètres depuis le Hub
    cached_model = hf_hub_download(
       repo_id=repo_id,
       filename="model.pkl",
