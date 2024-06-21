@@ -48,7 +48,7 @@ def from_pretrained(model_id: str) -> MyModelClass:
 ### push_to_hub
 
 La méthode `push_to_hub` demande souvent un peu plus de complexité pour gérer la création du dépôt git, générer la model card et enregistrer les paramètres.
-Une approche commune est de sauvegarder tous ces fichiers dans un dossier temporaire, les upload et ensuite les supprimer.
+Une approche commune est de sauvegarder tous ces fichiers dans un dossier temporaire, les transférer sur le Hub avant de les supprimer localement.
 
 ```python
 def push_to_hub(model: MyModelClass, repo_name: str) -> None:
