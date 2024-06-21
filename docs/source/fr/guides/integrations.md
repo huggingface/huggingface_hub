@@ -122,7 +122,7 @@ sont les méthodes que vos utilisateurs appeleront pour charger/enregistrer des 
 [`ModelHubMixin`] définit aussi 2 méthodes *private* (`_save_pretrained` et `from_pretrained`). Ce sont celle que vous
 devez implémenter. Ainsi, pour intégrer votre librairie, vous devez :
 
-1. Faure en sorte que votre classe Model hérite de [`ModelHubMixin`].
+1. Faire en sorte que votre classe Model hérite de [`ModelHubMixin`].
 2. Implémenter les méthodes privées:
     - [`~ModelHubMixin._save_pretrained`]: méthode qui prend en entrée un chemin vers un directory et qui sauvegarde le modèle. 
     Vous devez écrire toute la logique pour dump votre modèle de cette manière: model card, poids du modèle, fichiers de configuration,
