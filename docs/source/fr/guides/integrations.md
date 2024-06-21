@@ -151,7 +151,7 @@ devez implémenter. Ainsi, pour intégrer votre librairie, vous devez :
 L'avantage d'utiliser [`ModelHubMixin`] est qu'une fois que vous vous êtes occupés de la sérialisation et du chargement du fichier,
 vous êtes prêts. Vous n'avez pas besoin de vous soucier de la création du dépôt, des commits, des pull requests ou des révisions.
 Tout ceci est géré par le mixin et est disponible pour vos utilisateurs. Le Mixin s'assure aussi que les méthodes publiques sont
-bien documentées et que le type est spécifié.
+bien documentées et que les annotations de typage sont spécifiées.
 
 ### Un exemple concret: PyTorch
 
