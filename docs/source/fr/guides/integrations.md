@@ -87,7 +87,7 @@ lors du chargement de fichiers depuis le Hub, il est commun de passer des param�
 - `token`: pour télécharger depuis un dépôt privé
 - `revision`: pour télécharger depuis une branche spécifique
 - `cache_dir`: pour paramétrer la mise en cache des fichiers
-- `force_download`/`resume_download`/`local_files_only`: pour réutiliser le cache ou pas
+- `force_download`: pour désactiver le cache
 - `api_endpoint`/`proxies`: pour configurer la session HTTP
 
 Lorsque vous pushez des modèles, des paramètres similaires sont utilisables:
