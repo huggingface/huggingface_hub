@@ -108,7 +108,7 @@ Supporter ces paramètres implique aussi plus de documentation à maintenir de v
 
 Comme vu ci-dessus, deux méthodes principales sont à inclure dans votre librairie pour l'intégrer avec le Hub:
 la méthode permettant d'upload des fichiers (`push_to_hub`) et celle pour télécharger des fichiers (`from_pretrained`).
-Vous pouvez implémenter ces méthodes vous même mais cela a des inconvénients. Pour gérer ça, `huggingface_hub` fournit
+Vous pouvez implémenter ces méthodes vous-même mais cela a des inconvénients. Pour gérer ça, `huggingface_hub` fournit
 un outil qui utilise l'héritage de classe. Regardons comment ça marche !
 
 Dans beaucoup de cas, une librairie implémente déjà les modèles en utilisant une classe Python. La classe contient les
