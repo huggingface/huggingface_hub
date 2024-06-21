@@ -160,7 +160,7 @@ C'est une intégration prête à l'emploi.
 
 #### Comment l'utiliser ?
 
-Voici comment n'import quel utilisateur peut charger/enregistrer un modèle Pytorch depuis/vers le Hub:
+Voici comment n'importe quel utilisateur peut charger/enregistrer un modèle Pytorch depuis/vers le Hub:
 
 ```python
 >>> import torch
