@@ -106,7 +106,7 @@ Supporter ces paramètres implique aussi plus de documentation à maintenir de v
 
 ## Une approche plus complexe: l'héritage de classe
 
-Comme vu ci dessus, il y a deux méthodes principales à inclure dans votre librairie pour l'intégrer avec le Hub:
+Comme vu ci-dessus, deux méthodes principales sont à inclure dans votre librairie pour l'intégrer avec le Hub:
 la méthode permettant d'upload des fichiers (`push_to_hub`) et celle pour télécharger des fichiers (`from_pretrained`).
 Vous pouvez implémenter ces méthodes vous même mais cela a des inconvénients. Pour gérer ça, `huggingface_hub` fournit
 un outil qui utilise l'héritage de classe. Regardons comment ça marche !
