@@ -5,10 +5,7 @@ rendered properly in your Markdown viewer.
 # Intégrez n'importe quel framework de ML avec le Hub
 
 Le Hugging Face Hub facilite l'hébergement et le partage de modèles et de jeux de données.
-Il supporte des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries)
-dans l'écosystem open source. Nous somme constamment entrain de travailler pour étendre ce support
-afin de pousser vers l'avant le machine learning collaboratif. La librairie `huggingface_hub` joue un rôle
-clé dans ce processus, ce qui permet à n'import quel script Python de push et télécharger des fichiers facilement.
+Des [dizaines de librairies](https://huggingface.co/docs/hub/models-libraries) sont intégrées à cet écosysteme. La communauté travaille constamment à en intégrer de nouvelles et contribue ainsi à faciliter la collaboration dans le milieu du machine learning. La librairie `huggingface_hub` joue un rôle clé dans ce processus puisqu'elle permet d'interagir avec le Hub depuis n'importe quel script Python.
 
 Il y a quatre manière principales d'intégrer une librairie avec le Hub:
 1. **Push to Hub**  implémente une méthode pour upload un modèle vers le Hub. Ceci inclus les poids du modèle, la
