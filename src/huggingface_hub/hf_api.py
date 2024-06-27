@@ -3144,6 +3144,7 @@ class HfApi:
         private: bool = False,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
+        resource_group_id: Optional[str] = None,
         space_sdk: Optional[str] = None,
         space_hardware: Optional[SpaceHardware] = None,
         space_storage: Optional[SpaceStorage] = None,
@@ -3170,6 +3171,11 @@ class HfApi:
                 `None`.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the repo. Resource groups is only available for organizations and
+                allow to define which members of the organization can access the resource. The ID of a resource group
+                can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
+                To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
@@ -3237,8 +3243,11 @@ class HfApi:
             # Testing purposes only.
             # See https://github.com/huggingface/huggingface_hub/pull/733/files#r820604472
             json["lfsmultipartthresh"] = self._lfsmultipartthresh  # type: ignore
-        headers = self._build_hf_headers(token=token)
 
+        if resource_group_id is not None:
+            json["resourceGroupId"] = resource_group_id
+
+        headers = self._build_hf_headers(token=token)
         while True:
             r = get_session().post(path, headers=headers, json=json)
             if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
@@ -7544,7 +7553,12 @@ class HfApi:
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
     def resume_inference_endpoint(
-        self, name: str, *, namespace: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        name: str,
+        *,
+        namespace: Optional[str] = None,
+        running_ok: bool = True,
+        token: Union[bool, str, None] = None,
     ) -> InferenceEndpoint:
         """Resume an Inference Endpoint.
 
@@ -7555,6 +7569,9 @@ class HfApi:
                 The name of the Inference Endpoint to resume.
             namespace (`str`, *optional*):
                 The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            running_ok (`bool`, *optional*):
+                If `True`, the method will not raise an error if the Inference Endpoint is already running. Defaults to
+                `True`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -7570,7 +7587,14 @@ class HfApi:
             f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
             headers=self._build_hf_headers(token=token),
         )
-        hf_raise_for_status(response)
+        try:
+            hf_raise_for_status(response)
+        except HfHubHTTPError as error:
+            # If already running (and it's ok), then fetch current status and return
+            if running_ok and error.response.status_code == 400 and "already running" in error.response.text:
+                return self.get_inference_endpoint(name, namespace=namespace, token=token)
+            # Otherwise, raise the error
+            raise
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 

@@ -50,8 +50,8 @@
       title: 개요
     - local: package_reference/login
       title: 로그인 및 로그아웃
-    - local: in_translation
-      title: (번역 중) Environment variables
+    - local: package_reference/environment_variables
+      title: 환경 변수
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
     - local: package_reference/hf_api
@@ -82,7 +82,7 @@
       title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거
-    - local: in_translation
-      title: (번역 중) Webhooks server
+    - local: package_reference/webhooks_server
+      title: 웹훅 서버
     - local: package_reference/serialization
       title: 직렬화
