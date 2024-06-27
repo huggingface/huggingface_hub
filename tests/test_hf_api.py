@@ -57,6 +57,7 @@ from huggingface_hub.hf_api import (
     DatasetInfo,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
+    ExpandSpaceProperty_T,
     MetricInfo,
     ModelInfo,
     RepoSibling,
@@ -1917,6 +1918,32 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert space.author == "HuggingFaceH4"
         assert isinstance(space.runtime, SpaceRuntime)
 
+    def test_space_info_expand_author(self):
+        # Only the selected field is returned
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author"])
+        assert space.author == "HuggingFaceH4"
+        assert space.created_at is None
+        assert space.last_modified is None
+
+    def test_space_info_expand_multiple(self):
+        # Only the selected fields are returned
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author", "gitalyUid"])
+        assert space.author == "HuggingFaceH4"
+        assert space.gitalyUid is not None  # not a field except if requested explicitly
+        assert space.created_at is None
+        assert space.last_modified is None
+
+    def test_space_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_space_info_expand_cannot_be_used_with_files_metadata(self):
+        # `expand` cannot be used with other files_metadata
+        with self.assertRaises(ValueError):
+            self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["author"], files_metadata=True)
+
     def test_list_metrics(self):
         metrics = self._api.list_metrics()
         self.assertGreater(len(metrics), 10)
@@ -2062,6 +2089,33 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces = list(self._api.list_spaces(search=space_id, linked=True))
         assert spaces[0].models is not None
         assert spaces[0].datasets is not None
+
+    def test_list_spaces_expand_author(self):
+        # Only the selected field is returned
+        spaces = list(self._api.list_spaces(expand=["author"], limit=5))
+        for space in spaces:
+            assert space.author is not None
+            assert space.id is not None
+            assert space.created_at is None
+            assert space.last_modified is None
+
+    def test_list_spaces_expand_multiple(self):
+        # Only the selected fields are returned
+        spaces = list(self._api.list_spaces(expand=["author", "gitalyUid"], limit=5))
+        for space in spaces:
+            assert space.author is not None
+            assert space.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_spaces_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_spaces(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_spaces_expand_cannot_be_used_with_full(self):
+        # `expand` cannot be used with full
+        with self.assertRaises(ValueError):
+            next(self._api.list_spaces(expand=["author"], full=True))
 
     def test_get_paths_info(self):
         paths_info = self._api.get_paths_info(
@@ -3913,11 +3967,23 @@ class TestExpandPropertyType(HfApiCommonTest):
     def test_expand_dataset_property_type_is_up_to_date(self, repo_url: RepoUrl):
         self._check_expand_property_is_up_to_date(repo_url)
 
+    @use_tmp_repo(repo_type="space")
+    def test_expand_space_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
     def _check_expand_property_is_up_to_date(self, repo_url: RepoUrl):
         repo_id = repo_url.repo_id
         repo_type = repo_url.repo_type
-        property_type = ExpandModelProperty_T if repo_type == "model" else ExpandDatasetProperty_T
-        property_type_name = "ExpandModelProperty_T" if repo_type == "model" else "ExpandDatasetProperty_T"
+        property_type = (
+            ExpandModelProperty_T
+            if repo_type == "model"
+            else (ExpandDatasetProperty_T if repo_type == "dataset" else ExpandSpaceProperty_T)
+        )
+        property_type_name = (
+            "ExpandModelProperty_T"
+            if repo_type == "model"
+            else ("ExpandDatasetProperty_T" if repo_type == "dataset" else "ExpandSpaceProperty_T")
+        )
 
         try:
             self._api.repo_info(repo_id=repo_id, repo_type=repo_type, expand=["does_not_exist"])

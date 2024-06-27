@@ -186,6 +186,25 @@ ExpandDatasetProperty_T = Literal[
     "tags",
 ]
 
+ExpandSpaceProperty_T = Literal[
+    "author",
+    "cardData",
+    "datasets",
+    "disabled",
+    "gitalyUid",
+    "lastModified",
+    "createdAt",
+    "likes",
+    "private",
+    "runtime",
+    "sdk",
+    "siblings",
+    "sha",
+    "subdomain",
+    "tags",
+    "models",
+]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
@@ -983,14 +1002,14 @@ class SpaceInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     host: Optional[str]
     subdomain: Optional[str]
-    likes: int
+    likes: Optional[int]
     sdk: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     siblings: Optional[List[RepoSibling]]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
@@ -1005,14 +1024,14 @@ class SpaceInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
         self.host = kwargs.pop("host", None)
         self.subdomain = kwargs.pop("subdomain", None)
-        self.likes = kwargs.pop("likes")
+        self.likes = kwargs.pop("likes", None)
         self.sdk = kwargs.pop("sdk", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1950,15 +1969,19 @@ class HfApi:
     def list_spaces(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["last_modified"], str, None] = None,
-        direction: Optional[Literal[-1]] = None,
-        limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
         models: Union[str, Iterable[str], None] = None,
         linked: bool = False,
+        # Sorting and pagination parameters
+        sort: Union[Literal["last_modified"], str, None] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandSpaceProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[SpaceInfo]:
@@ -1972,6 +1995,14 @@ class HfApi:
                 A string which identify the author of the returned Spaces.
             search (`str`, *optional*):
                 A string that will be contained in the returned Spaces.
+            datasets (`str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a dataset.
+                The name of a specific dataset can be passed as a string.
+            models (`str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a model.
+                The name of a specific model can be passed as a string.
+            linked (`bool`, *optional*):
+                Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
                 values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
@@ -1981,14 +2012,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
-            datasets (`str` or `Iterable`, *optional*):
-                Whether to return Spaces that make use of a dataset.
-                The name of a specific dataset can be passed as a string.
-            models (`str` or `Iterable`, *optional*):
-                Whether to return Spaces that make use of a model.
-                The name of a specific model can be passed as a string.
-            linked (`bool`, *optional*):
-                Whether to return Spaces that make use of either a model or a dataset.
+            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2001,6 +2028,9 @@ class HfApi:
         Returns:
             `Iterable[SpaceInfo]`: an iterable of [`huggingface_hub.hf_api.SpaceInfo`] objects.
         """
+        if expand and full:
+            raise ValueError("`expand` cannot be used if `full` is passed.")
+
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
@@ -2016,14 +2046,18 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
-        if full:
-            params["full"] = True
         if linked:
             params["linked"] = True
         if datasets is not None:
             params["datasets"] = datasets
         if models is not None:
             params["models"] = models
+
+        # Request additional data
+        if expand:
+            params["expand"] = expand
+        if full:
+            params["full"] = True
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -2422,6 +2456,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> SpaceInfo:
         """
@@ -2441,6 +2476,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2462,15 +2501,20 @@ class HfApi:
 
         </Tip>
         """
+        if expand and files_metadata:
+            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2486,7 +2530,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
-        expand: Optional[Union[ExpandModelProperty_T, ExpandDatasetProperty_T]] = None,
+        expand: Optional[Union[ExpandModelProperty_T, ExpandDatasetProperty_T, ExpandSpaceProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
@@ -2504,7 +2548,7 @@ class HfApi:
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
-            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T`, *optional*):
+            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T` or `ExpandSpaceProperty_T`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
                 For an exhaustive list of available properties, check out [`model_info`], [`dataset_info`] or [`space_info`].
@@ -2547,7 +2591,7 @@ class HfApi:
             revision=revision,
             token=token,
             timeout=timeout,
-            expand=expand,
+            expand=expand,  # type: ignore[arg-type]
             files_metadata=files_metadata,
         )
 
