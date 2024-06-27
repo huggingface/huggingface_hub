@@ -142,7 +142,7 @@ class AsyncInferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
-        proxy: Optional[str] = None,
+        proxies: Optional[Any] = None,
     ) -> None:
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token
@@ -151,7 +151,7 @@ class AsyncInferenceClient:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
-        self.proxy = proxy
+        self.proxies = proxies
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -252,7 +252,7 @@ class AsyncInferenceClient:
                 )
 
                 try:
-                    response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxy)
+                    response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
                     response_error_payload = None
                     if response.status != 200:
                         try:
