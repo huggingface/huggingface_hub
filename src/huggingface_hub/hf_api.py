@@ -166,6 +166,26 @@ ExpandModelProperty_T = Literal[
     "widgetData",
 ]
 
+ExpandDatasetProperty_T = Literal[
+    "author",
+    "cardData",
+    "citation",
+    "createdAt",
+    "disabled",
+    "description",
+    "downloads",
+    "downloadsAllTime",
+    "gated",
+    "gitalyUid",
+    "lastModified",
+    "likes",
+    "paperswithcode_id",
+    "private",
+    "siblings",
+    "sha",
+    "tags",
+]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
@@ -827,6 +847,8 @@ class DatasetInfo:
             If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset over the last 30 days.
+        downloads_all_time (`int`):
+            Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the dataset.
         tags (`List[str]`):
@@ -842,13 +864,14 @@ class DatasetInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
-    downloads: int
-    likes: int
+    downloads: Optional[int]
+    downloads_all_time: Optional[int]
+    likes: Optional[int]
     paperswithcode_id: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     card_data: Optional[DatasetCardData]
     siblings: Optional[List[RepoSibling]]
 
@@ -860,13 +883,14 @@ class DatasetInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
-        self.downloads = kwargs.pop("downloads")
-        self.likes = kwargs.pop("likes")
+        self.downloads = kwargs.pop("downloads", None)
+        self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
+        self.likes = kwargs.pop("likes", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1717,6 +1741,7 @@ class HfApi:
     def list_datasets(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
@@ -1729,9 +1754,12 @@ class HfApi:
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
+        # Sorting and pagination parameters
         sort: Optional[Union[Literal["last_modified"], str]] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[DatasetInfo]:
@@ -1784,6 +1812,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
+            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -1835,6 +1867,9 @@ class HfApi:
         >>> api.list_datasets(search="text", author="google")
         ```
         """
+        if expand and full:
+            raise ValueError("`expand` cannot be used if `full` is passed.")
+
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
@@ -1883,6 +1918,10 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
+
+        # Request additional data
+        if expand:
+            params["expand"] = expand
         if full:
             params["full"] = True
 
@@ -2310,6 +2349,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandDatasetProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> DatasetInfo:
         """
@@ -2329,6 +2369,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `files_metadata` is passed.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2350,15 +2394,20 @@ class HfApi:
 
         </Tip>
         """
+        if expand and files_metadata:
+            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2437,6 +2486,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[Union[ExpandModelProperty_T, ExpandDatasetProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
@@ -2454,6 +2504,10 @@ class HfApi:
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `files_metadata` is passed.
+                For an exhaustive list of available properties, check out [`model_info`], [`dataset_info`] or [`space_info`].
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
@@ -2493,6 +2547,7 @@ class HfApi:
             revision=revision,
             token=token,
             timeout=timeout,
+            expand=expand,
             files_metadata=files_metadata,
         )
 

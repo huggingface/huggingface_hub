@@ -55,6 +55,7 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     MetricInfo,
     ModelInfo,
@@ -1807,6 +1808,36 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for dataset in datasets:
             assert "wikipedia" in dataset.id.lower()
 
+    def test_list_datasets_expand_author(self):
+        # Only the selected field is returned
+        datasets = list(self._api.list_datasets(expand=["author"], limit=5))
+        for dataset in datasets:
+            assert dataset.author is not None
+            assert dataset.id is not None
+            assert dataset.downloads is None
+            assert dataset.created_at is None
+            assert dataset.last_modified is None
+
+    def test_list_datasets_expand_multiple(self):
+        # Only the selected fields are returned
+        datasets = list(self._api.list_datasets(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        for dataset in datasets:
+            assert dataset.author is not None
+            assert dataset.downloads_all_time is not None
+            assert dataset.downloads is None
+            assert dataset.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_datasets_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_datasets(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_datasets_expand_cannot_be_used_with_full(self):
+        # `expand` cannot be used with `full`
+        with self.assertRaises(ValueError):
+            next(self._api.list_datasets(expand=["author"], full=True))
+
     def test_filter_datasets_with_card_data(self):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
@@ -1841,13 +1872,44 @@ class HfApiPublicProductionTest(unittest.TestCase):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
-            self.assertTrue(isinstance(file.blob_id, str))
-            self.assertTrue(isinstance(file.size, int))
+            assert isinstance(file.blob_id, str)
+            assert isinstance(file.size, int)
             if file.lfs is not None:
                 at_least_one_lfs = True
-                self.assertTrue(isinstance(file.lfs, dict))
-                self.assertTrue("sha256" in file.lfs)
-        self.assertTrue(at_least_one_lfs)
+                assert isinstance(file.lfs, dict)
+                assert "sha256" in file.lfs
+        assert at_least_one_lfs
+
+    def test_dataset_info_expand_author(self):
+        # Only the selected field is returned
+        dataset = self._api.dataset_info(repo_id="HuggingFaceH4/no_robots", expand=["author"])
+        assert dataset.author == "HuggingFaceH4"
+        assert dataset.downloads is None
+        assert dataset.created_at is None
+        assert dataset.last_modified is None
+
+    def test_dataset_info_expand_multiple(self):
+        # Only the selected fields are returned
+        dataset = self._api.dataset_info(
+            repo_id="HuggingFaceH4/no_robots", expand=["author", "downloadsAllTime", "gitalyUid"]
+        )
+        assert dataset.author == "HuggingFaceH4"
+        assert dataset.downloads is None
+        assert dataset.downloads_all_time is not None
+        assert dataset.gitalyUid is not None  # not a field except if requested explicitly
+        assert dataset.created_at is None
+        assert dataset.last_modified is None
+
+    def test_dataset_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.dataset_info("HuggingFaceH4/no_robots", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_dataset_info_expand_cannot_be_used_with_files_metadata(self):
+        # `expand` cannot be used with other `files_metadata`
+        with self.assertRaises(ValueError):
+            self._api.dataset_info("HuggingFaceH4/no_robots", expand=["author"], files_metadata=True)
 
     def test_space_info(self) -> None:
         space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
@@ -3843,28 +3905,40 @@ class WebhookApiTest(HfApiCommonTest):
 
 
 class TestExpandPropertyType(HfApiCommonTest):
-    @use_tmp_repo()
+    @use_tmp_repo(repo_type="model")
     def test_expand_model_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
+    @use_tmp_repo(repo_type="dataset")
+    def test_expand_dataset_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
+    def _check_expand_property_is_up_to_date(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        repo_type = repo_url.repo_type
+        property_type = ExpandModelProperty_T if repo_type == "model" else ExpandDatasetProperty_T
+        property_type_name = "ExpandModelProperty_T" if repo_type == "model" else "ExpandDatasetProperty_T"
+
         try:
-            self._api.model_info(repo_id=repo_url.repo_id, expand=["does_not_exist"])
+            self._api.repo_info(repo_id=repo_id, repo_type=repo_type, expand=["does_not_exist"])
             raise Exception("Should have raised an exception")
         except HfHubHTTPError as e:
             assert e.response.status_code == 400
             message = e.response.json()["error"]
 
         assert message.startswith('"expand" must be one of ')
-        defined_args = set(get_args(ExpandModelProperty_T))
+        defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args
             should_be_added = expected_args - defined_args
 
-            msg = "Literal `ExpandModelProperty_T` is outdated! This is probably due to a server-side update."
+            msg = f"Literal `{property_type_name}` is outdated! This is probably due to a server-side update."
             if should_be_removed:
                 msg += f"\nArg(s) not supported anymore: {', '.join(should_be_removed)}"
             if should_be_added:
                 msg += f"\nNew arg(s) to support: {', '.join(should_be_added)}"
-            msg += "\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `ExpandModelProperty_T` should be updated as well as `model_info` and `list_models` docstrings."
+            msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
             msg += "\nThanks you in advance!"
             raise ValueError(msg)
