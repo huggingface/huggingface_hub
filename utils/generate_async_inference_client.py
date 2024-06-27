@@ -198,7 +198,7 @@ ASYNC_POST_CODE = """
                 )
 
                 try:
-                    response = await client.post(url, json=json, data=data_as_binary)
+                    response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
                     response_error_payload = None
                     if response.status != 200:
                         try:
