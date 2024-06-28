@@ -436,8 +436,13 @@ def use_tmp_repo(repo_type: str = "model") -> Callable[[T], T]:
         def _inner(*args, **kwargs):
             self = args[0]
             assert isinstance(self, unittest.TestCase)
+            create_repo_kwargs = {}
+            if repo_type == "space":
+                create_repo_kwargs["space_sdk"] = "gradio"
 
-            repo_url = self._api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type)
+            repo_url = self._api.create_repo(
+                repo_id=repo_name(prefix=repo_type), repo_type=repo_type, **create_repo_kwargs
+            )
             try:
                 return test_fn(*args, **kwargs, repo_url=repo_url)
             finally:

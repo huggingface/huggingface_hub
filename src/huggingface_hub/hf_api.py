@@ -140,6 +140,71 @@ from .utils.endpoint_helpers import (
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 
+ExpandModelProperty_T = Literal[
+    "author",
+    "cardData",
+    "config",
+    "createdAt",
+    "disabled",
+    "downloads",
+    "downloadsAllTime",
+    "gated",
+    "gitalyUid",
+    "lastModified",
+    "library_name",
+    "likes",
+    "mask_token",
+    "model-index",
+    "pipeline_tag",
+    "private",
+    "safetensors",
+    "sha",
+    "siblings",
+    "spaces",
+    "tags",
+    "transformersInfo",
+    "widgetData",
+]
+
+ExpandDatasetProperty_T = Literal[
+    "author",
+    "cardData",
+    "citation",
+    "createdAt",
+    "disabled",
+    "description",
+    "downloads",
+    "downloadsAllTime",
+    "gated",
+    "gitalyUid",
+    "lastModified",
+    "likes",
+    "paperswithcode_id",
+    "private",
+    "siblings",
+    "sha",
+    "tags",
+]
+
+ExpandSpaceProperty_T = Literal[
+    "author",
+    "cardData",
+    "datasets",
+    "disabled",
+    "gitalyUid",
+    "lastModified",
+    "createdAt",
+    "likes",
+    "private",
+    "runtime",
+    "sdk",
+    "siblings",
+    "sha",
+    "subdomain",
+    "tags",
+    "models",
+]
+
 USERNAME_PLACEHOLDER = "hf_user"
 _REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
 
@@ -644,6 +709,8 @@ class ModelInfo:
             If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the model over the last 30 days.
+        downloads_all_time (`int`):
+            Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -678,13 +745,14 @@ class ModelInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
-    downloads: int
-    likes: int
+    downloads: Optional[int]
+    downloads_all_time: Optional[int]
+    likes: Optional[int]
     library_name: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     pipeline_tag: Optional[str]
     mask_token: Optional[str]
     card_data: Optional[ModelCardData]
@@ -704,13 +772,14 @@ class ModelInfo:
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         created_at = kwargs.pop("createdAt", None) or kwargs.pop("created_at", None)
         self.created_at = parse_datetime(created_at) if created_at else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
-        self.downloads = kwargs.pop("downloads")
-        self.likes = kwargs.pop("likes")
+        self.downloads = kwargs.pop("downloads", None)
+        self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
+        self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
@@ -797,6 +866,8 @@ class DatasetInfo:
             If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the dataset over the last 30 days.
+        downloads_all_time (`int`):
+            Cumulated number of downloads of the model since its creation.
         likes (`int`):
             Number of likes of the dataset.
         tags (`List[str]`):
@@ -812,13 +883,14 @@ class DatasetInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
-    downloads: int
-    likes: int
+    downloads: Optional[int]
+    downloads_all_time: Optional[int]
+    likes: Optional[int]
     paperswithcode_id: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     card_data: Optional[DatasetCardData]
     siblings: Optional[List[RepoSibling]]
 
@@ -830,13 +902,14 @@ class DatasetInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
-        self.downloads = kwargs.pop("downloads")
-        self.likes = kwargs.pop("likes")
+        self.downloads = kwargs.pop("downloads", None)
+        self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
+        self.likes = kwargs.pop("likes", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -929,14 +1002,14 @@ class SpaceInfo:
     sha: Optional[str]
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
-    private: bool
+    private: Optional[bool]
     gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     host: Optional[str]
     subdomain: Optional[str]
-    likes: int
+    likes: Optional[int]
     sdk: Optional[str]
-    tags: List[str]
+    tags: Optional[List[str]]
     siblings: Optional[List[RepoSibling]]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
@@ -951,14 +1024,14 @@ class SpaceInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
-        self.private = kwargs.pop("private")
+        self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
         self.host = kwargs.pop("host", None)
         self.subdomain = kwargs.pop("subdomain", None)
-        self.likes = kwargs.pop("likes")
+        self.likes = kwargs.pop("likes", None)
         self.sdk = kwargs.pop("sdk", None)
-        self.tags = kwargs.pop("tags")
+        self.tags = kwargs.pop("tags", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1489,6 +1562,7 @@ class HfApi:
     def list_models(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         library: Optional[Union[str, List[str]]] = None,
@@ -1498,15 +1572,18 @@ class HfApi:
         trained_dataset: Optional[Union[str, List[str]]] = None,
         tags: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
         emissions_thresholds: Optional[Tuple[float, float]] = None,
+        # Sorting and pagination parameters
         sort: Union[Literal["last_modified"], str, None] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         full: Optional[bool] = None,
         cardData: bool = False,
         fetch_config: bool = False,
         token: Union[bool, str, None] = None,
-        pipeline_tag: Optional[str] = None,
     ) -> Iterable[ModelInfo]:
         """
         List models hosted on the Huggingface Hub, given some filters.
@@ -1537,6 +1614,8 @@ class HfApi:
                 as `text-generation` or `spacy`.
             search (`str`, *optional*):
                 A string that will be contained in the returned model ids.
+            pipeline_tag (`str`, *optional*):
+                A string pipeline tag to filter models on the Hub by, such as `summarization`.
             emissions_thresholds (`Tuple`, *optional*):
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
@@ -1549,6 +1628,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of models fetched. Leaving this option
                 to `None` fetches all models.
+            expand (`List[ExpandModelProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1565,8 +1648,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            pipeline_tag (`str`, *optional*):
-                A string pipeline tag to filter models on the Hub by, such as `summarization`
 
 
         Returns:
@@ -1603,6 +1684,9 @@ class HfApi:
         >>> api.list_models(search="bert", author="google")
         ```
         """
+        if expand and (full or cardData or fetch_config):
+            raise ValueError("`expand` cannot be used if `full`, `cardData` or `fetch_config` are passed.")
+
         if emissions_thresholds is not None and cardData is None:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
 
@@ -1635,6 +1719,8 @@ class HfApi:
         # Handle other query params
         if author:
             params["author"] = author
+        if pipeline_tag:
+            params["pipeline_tag"] = pipeline_tag
         search_list = []
         if model_name:
             search_list.append(model_name)
@@ -1648,14 +1734,16 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
+
+        # Request additional data
         if full:
             params["full"] = True
         if fetch_config:
             params["config"] = True
         if cardData:
             params["cardData"] = True
-        if pipeline_tag:
-            params["pipeline_tag"] = pipeline_tag
+        if expand:
+            params["expand"] = expand
 
         # `items` is a generator
         items = paginate(path, params=params, headers=headers)
@@ -1672,6 +1760,7 @@ class HfApi:
     def list_datasets(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
@@ -1684,9 +1773,12 @@ class HfApi:
         task_categories: Optional[Union[str, List[str]]] = None,
         task_ids: Optional[Union[str, List[str]]] = None,
         search: Optional[str] = None,
+        # Sorting and pagination parameters
         sort: Optional[Union[Literal["last_modified"], str]] = None,
         direction: Optional[Literal[-1]] = None,
         limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandDatasetProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[DatasetInfo]:
@@ -1739,6 +1831,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of datasets fetched. Leaving this option
                 to `None` fetches all datasets.
+            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -1790,6 +1886,9 @@ class HfApi:
         >>> api.list_datasets(search="text", author="google")
         ```
         """
+        if expand and full:
+            raise ValueError("`expand` cannot be used if `full` is passed.")
+
         path = f"{self.endpoint}/api/datasets"
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
@@ -1838,6 +1937,10 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
+
+        # Request additional data
+        if expand:
+            params["expand"] = expand
         if full:
             params["full"] = True
 
@@ -1866,15 +1969,19 @@ class HfApi:
     def list_spaces(
         self,
         *,
+        # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         search: Optional[str] = None,
-        sort: Union[Literal["last_modified"], str, None] = None,
-        direction: Optional[Literal[-1]] = None,
-        limit: Optional[int] = None,
         datasets: Union[str, Iterable[str], None] = None,
         models: Union[str, Iterable[str], None] = None,
         linked: bool = False,
+        # Sorting and pagination parameters
+        sort: Union[Literal["last_modified"], str, None] = None,
+        direction: Optional[Literal[-1]] = None,
+        limit: Optional[int] = None,
+        # Additional data to fetch
+        expand: Optional[List[ExpandSpaceProperty_T]] = None,
         full: Optional[bool] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterable[SpaceInfo]:
@@ -1888,6 +1995,14 @@ class HfApi:
                 A string which identify the author of the returned Spaces.
             search (`str`, *optional*):
                 A string that will be contained in the returned Spaces.
+            datasets (`str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a dataset.
+                The name of a specific dataset can be passed as a string.
+            models (`str` or `Iterable`, *optional*):
+                Whether to return Spaces that make use of a model.
+                The name of a specific model can be passed as a string.
+            linked (`bool`, *optional*):
+                Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
                 The key with which to sort the resulting Spaces. Possible
                 values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
@@ -1897,14 +2012,10 @@ class HfApi:
             limit (`int`, *optional*):
                 The limit on the number of Spaces fetched. Leaving this option
                 to `None` fetches all Spaces.
-            datasets (`str` or `Iterable`, *optional*):
-                Whether to return Spaces that make use of a dataset.
-                The name of a specific dataset can be passed as a string.
-            models (`str` or `Iterable`, *optional*):
-                Whether to return Spaces that make use of a model.
-                The name of a specific model can be passed as a string.
-            linked (`bool`, *optional*):
-                Whether to return Spaces that make use of either a model or a dataset.
+            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -1917,6 +2028,9 @@ class HfApi:
         Returns:
             `Iterable[SpaceInfo]`: an iterable of [`huggingface_hub.hf_api.SpaceInfo`] objects.
         """
+        if expand and full:
+            raise ValueError("`expand` cannot be used if `full` is passed.")
+
         path = f"{self.endpoint}/api/spaces"
         headers = self._build_hf_headers(token=token)
         params: Dict[str, Any] = {}
@@ -1932,14 +2046,18 @@ class HfApi:
             params["direction"] = direction
         if limit is not None:
             params["limit"] = limit
-        if full:
-            params["full"] = True
         if linked:
             params["linked"] = True
         if datasets is not None:
             params["datasets"] = datasets
         if models is not None:
             params["models"] = models
+
+        # Request additional data
+        if expand:
+            params["expand"] = expand
+        if full:
+            params["full"] = True
 
         items = paginate(path, params=params, headers=headers)
         if limit is not None:
@@ -2188,6 +2306,7 @@ class HfApi:
         timeout: Optional[float] = None,
         securityStatus: Optional[bool] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> ModelInfo:
         """
@@ -2210,6 +2329,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandModelProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2231,17 +2354,22 @@ class HfApi:
 
         </Tip>
         """
+        if expand and (securityStatus or files_metadata):
+            raise ValueError("`expand` cannot be used if `securityStatus` or `files_metadata` are set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/models/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/models/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if securityStatus:
             params["securityStatus"] = True
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
         data = r.json()
@@ -2255,6 +2383,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandDatasetProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> DatasetInfo:
         """
@@ -2274,6 +2403,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandDatasetProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `files_metadata` is passed.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2295,15 +2428,20 @@ class HfApi:
 
         </Tip>
         """
+        if expand and files_metadata:
+            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/datasets/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/datasets/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2318,6 +2456,7 @@ class HfApi:
         revision: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[List[ExpandModelProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> SpaceInfo:
         """
@@ -2337,6 +2476,10 @@ class HfApi:
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
+            expand (`List[ExpandSpaceProperty_T]`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `full` is passed.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2358,15 +2501,20 @@ class HfApi:
 
         </Tip>
         """
+        if expand and files_metadata:
+            raise ValueError("`expand` cannot be used if `files_metadata` is set.")
+
         headers = self._build_hf_headers(token=token)
         path = (
             f"{self.endpoint}/api/spaces/{repo_id}"
             if revision is None
             else (f"{self.endpoint}/api/spaces/{repo_id}/revision/{quote(revision, safe='')}")
         )
-        params = {}
+        params: Dict = {}
         if files_metadata:
             params["blobs"] = True
+        if expand:
+            params["expand"] = expand
 
         r = get_session().get(path, headers=headers, timeout=timeout, params=params)
         hf_raise_for_status(r)
@@ -2382,6 +2530,7 @@ class HfApi:
         repo_type: Optional[str] = None,
         timeout: Optional[float] = None,
         files_metadata: bool = False,
+        expand: Optional[Union[ExpandModelProperty_T, ExpandDatasetProperty_T, ExpandSpaceProperty_T]] = None,
         token: Union[bool, str, None] = None,
     ) -> Union[ModelInfo, DatasetInfo, SpaceInfo]:
         """
@@ -2399,6 +2548,10 @@ class HfApi:
                 `None` or `"model"` if getting repository info from a model. Default is `None`.
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
+            expand (`ExpandModelProperty_T` or `ExpandDatasetProperty_T` or `ExpandSpaceProperty_T`, *optional*):
+                List properties to return in the response. When used, only the properties in the list will be returned.
+                This parameter cannot be used if `files_metadata` is passed.
+                For an exhaustive list of available properties, check out [`model_info`], [`dataset_info`] or [`space_info`].
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
@@ -2438,6 +2591,7 @@ class HfApi:
             revision=revision,
             token=token,
             timeout=timeout,
+            expand=expand,  # type: ignore[arg-type]
             files_metadata=files_metadata,
         )
 
