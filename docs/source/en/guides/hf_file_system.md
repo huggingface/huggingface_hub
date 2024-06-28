@@ -45,6 +45,10 @@ The [`HfFileSystem`] can be used with any library that integrates `fsspec`, prov
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 ```
 
+<div class="flex justify-center">
+<img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/huggingface_hub/hf_urls.png"/>
+</div>
+
 The `repo_type_prefix` is `datasets/` for datasets, `spaces/` for spaces, and models don't need a prefix in the URL.
 
 Some interesting integrations where [`HfFileSystem`] simplifies interacting with the Hub are listed below:
