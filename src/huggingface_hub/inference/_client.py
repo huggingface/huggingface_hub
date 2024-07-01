@@ -940,6 +940,7 @@ class InferenceClient:
         text: str,
         *,
         normalize: Optional[bool] = None,
+        prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
@@ -956,6 +957,12 @@ class InferenceClient:
             normalize (`bool`, *optional*):
                 Whether to normalize the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            prompt_name (`str`, *optional*):
+                The name of the prompt that should be used by for encoding. If not set, no prompt will be applied.
+                Must be a key in the `Sentence Transformers` configuration `prompts` dictionary.
+                For example if ``prompt_name`` is "query" and the ``prompts`` is {"query": "query: ",...},
+                then the sentence "What is the capital of France?" will be encoded as "query: What is the capital of France?"
+                because the prompt text will be prepended before any text to encode.
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
@@ -983,6 +990,8 @@ class InferenceClient:
         payload: Dict = {"inputs": text}
         if normalize is not None:
             payload["normalize"] = normalize
+        if prompt_name is not None:
+            payload["prompt_name"] = prompt_name
         if truncate is not None:
             payload["truncate"] = truncate
         response = self.post(json=payload, model=model, task="feature-extraction")
