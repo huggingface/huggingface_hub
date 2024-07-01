@@ -942,6 +942,7 @@ class InferenceClient:
         normalize: Optional[bool] = None,
         prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
+        truncation_direction: Optional[Literal["Left", "Right"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -966,6 +967,8 @@ class InferenceClient:
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            truncation_direction (`Literal["Left", "Right"]`, *optional*):
+                Which side of the input should be truncated when `truncate=True` is passed.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -994,6 +997,8 @@ class InferenceClient:
             payload["prompt_name"] = prompt_name
         if truncate is not None:
             payload["truncate"] = truncate
+        if truncation_direction is not None:
+            payload["truncation_direction"] = truncation_direction
         response = self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
