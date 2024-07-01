@@ -77,7 +77,7 @@ def format_source_code(code: str) -> str:
         filepath = Path(tmpdir) / "async_client.py"
         filepath.write_text(code)
         ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix", "--quiet"])
+        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "check", str(filepath), "--fix", "--quiet"])
         os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
         return filepath.read_text()
 
