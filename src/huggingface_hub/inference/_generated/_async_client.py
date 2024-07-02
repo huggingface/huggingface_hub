@@ -957,7 +957,9 @@ class AsyncInferenceClient:
         text: str,
         *,
         normalize: Optional[bool] = None,
+        prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
+        truncation_direction: Optional[Literal["Left", "Right"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -973,9 +975,17 @@ class AsyncInferenceClient:
             normalize (`bool`, *optional*):
                 Whether to normalize the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            prompt_name (`str`, *optional*):
+                The name of the prompt that should be used by for encoding. If not set, no prompt will be applied.
+                Must be a key in the `Sentence Transformers` configuration `prompts` dictionary.
+                For example if ``prompt_name`` is "query" and the ``prompts`` is {"query": "query: ",...},
+                then the sentence "What is the capital of France?" will be encoded as "query: What is the capital of France?"
+                because the prompt text will be prepended before any text to encode.
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            truncation_direction (`Literal["Left", "Right"]`, *optional*):
+                Which side of the input should be truncated when `truncate=True` is passed.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -1001,8 +1011,12 @@ class AsyncInferenceClient:
         payload: Dict = {"inputs": text}
         if normalize is not None:
             payload["normalize"] = normalize
+        if prompt_name is not None:
+            payload["prompt_name"] = prompt_name
         if truncate is not None:
             payload["truncate"] = truncate
+        if truncation_direction is not None:
+            payload["truncation_direction"] = truncation_direction
         response = await self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
