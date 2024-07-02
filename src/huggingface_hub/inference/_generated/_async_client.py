@@ -603,7 +603,7 @@ class AsyncInferenceClient:
         # Chat example
         >>> from huggingface_hub import AsyncInferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
-        >>> client = AsyncInferenceClient("HuggingFaceH4/zephyr-7b-beta")
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
         >>> await client.chat_completion(messages, max_tokens=100)
         ChatCompletionOutput(
             choices=[
@@ -611,11 +611,24 @@ class AsyncInferenceClient:
                     finish_reason='eos_token',
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic). \nI hope that helps! Let me know if you need any further information.'
-                    )
+                        role='assistant',
+                        content='The capital of France is Paris.',
+                        name=None,
+                        tool_calls=None
+                    ),
+                    logprobs=None
                 )
             ],
-            created=1710498360
+            created=1719907176,
+            id='',
+            model='meta-llama/Meta-Llama-3-8B-Instruct',
+            object='text_completion',
+            system_fingerprint='2.0.4-sha-f426a33',
+            usage=ChatCompletionOutputUsage(
+                completion_tokens=8,
+                prompt_tokens=17,
+                total_tokens=25
+            )
         )
 
         >>> async for token in await client.chat_completion(messages, max_tokens=10, stream=True):

@@ -38,13 +38,47 @@ Let's get started with a text-to-image task:
 >>> client = InferenceClient()
 
 >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
->>> image.save("astronaut.png")
+>>> image.save("astronaut.png")  # 'image' is a PIL.Image object
 ```
 
-We initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want
-to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
-example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
-file.
+In the example above, we initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
+
+Let's now see an example using the `chat_completion` API. This task uses an LLM to generate a response from a list of messages:
+
+```python
+>>> from huggingface_hub import InferenceClient
+>>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+>>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
+>>> client.chat_completion(messages, max_tokens=100)
+ChatCompletionOutput(
+    choices=[
+        ChatCompletionOutputComplete(
+            finish_reason='eos_token',
+            index=0,
+            message=ChatCompletionOutputMessage(
+                role='assistant',
+                content='The capital of France is Paris.',
+                name=None,
+                tool_calls=None
+            ),
+            logprobs=None
+        )
+    ],
+    created=1719907176,
+    id='',
+    model='meta-llama/Meta-Llama-3-8B-Instruct',
+    object='text_completion',
+    system_fingerprint='2.0.4-sha-f426a33',
+    usage=ChatCompletionOutputUsage(
+        completion_tokens=8,
+        prompt_tokens=17,
+        total_tokens=25
+    )
+)
+```
+
+In this example, we specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). You can find a list of compatible models [on this page](https://huggingface.co/models?other=conversational&sort=likes). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be access with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+
 
 <Tip warning={true}>
 
