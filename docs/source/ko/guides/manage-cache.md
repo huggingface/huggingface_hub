@@ -356,7 +356,7 @@ huggingface-cli delete-cache
    - 선택을 확인하려면 `<enter>` 키를 누릅니다.
    - 작업을 취소하고 종료하려면 첫 번째 항목("None of the following")을 선택합니다. 이 항목이 선택된 경우, 다른 항목이 선택되었는지 여부에 관계없이 삭제 프로세스가 취소됩니다. 그렇지 않으면 `ctrl+c` 를 눌러 TUI를 종료할 수도 있습니다.
 
-삭제할 수정 버전을 선택하고 `<enter>`를 누르면 마지막 확인 메시지가 표시됩니다. 다시 `<enter>`를 누르면 삭제됩니다. 취소하려면 `n`을 입력하세요.
+삭제할 수정 버전을 선택하고 `enter` 를 누르면 마지막 확인 메시지가 표시됩니다. 다시 `enter` 를 누르면 삭제됩니다. 취소하려면 `n`을 입력하세요.
 
 ```txt
 ✗ huggingface-cli delete-cache --dir ~/.cache/huggingface/hub
