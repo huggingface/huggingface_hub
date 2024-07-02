@@ -48,7 +48,7 @@ Let's now see an example using the chat-completion API. This task uses an LLM to
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
->>> client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
+>>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
 >>> client.chat_completion(messages, max_tokens=100)
 ChatCompletionOutput(
     choices=[
@@ -56,15 +56,28 @@ ChatCompletionOutput(
             finish_reason='eos_token',
             index=0,
             message=ChatCompletionOutputMessage(
-                content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic).'
-            )
+                role='assistant',
+                content='The capital of France is Paris.',
+                name=None,
+                tool_calls=None
+            ),
+            logprobs=None
         )
     ],
-    created=1710498360
+    created=1719907176,
+    id='',
+    model='meta-llama/Meta-Llama-3-8B-Instruct',
+    object='text_completion',
+    system_fingerprint='2.0.4-sha-f426a33',
+    usage=ChatCompletionOutputUsage(
+        completion_tokens=8,
+        prompt_tokens=17,
+        total_tokens=25
+    )
 )
 ```
 
-In this example, we specified which model we want to use (`"HuggingFaceH4/zephyr-7b-beta"`), we gave a list of messages to complete (here, a single question) and we passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be access with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In this example, we specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). You can find a list of compatible models [on this page](https://huggingface.co/models?other=conversational&sort=likes). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be access with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 <Tip warning={true}>
