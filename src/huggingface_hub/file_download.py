@@ -1939,7 +1939,12 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
         cache_dir_mode = Path(tmp_file).stat().st_mode
         os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
     finally:
-        tmp_file.unlink()
+        try:
+            tmp_file.unlink()
+        except OSError:
+            # fails if `tmp_file.touch()` failed => do nothing
+            # See https://github.com/huggingface/huggingface_hub/issues/2359
+            pass
 
     shutil.move(str(src), str(dst))
 
