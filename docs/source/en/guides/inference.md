@@ -38,13 +38,34 @@ Let's get started with a text-to-image task:
 >>> client = InferenceClient()
 
 >>> image = client.text_to_image("An astronaut riding a horse on the moon.")
->>> image.save("astronaut.png")
+>>> image.save("astronaut.png")  # 'image' is a PIL.Image object
 ```
 
-We initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want
-to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our
-example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a
-file.
+In the example above, we initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
+
+Let's now see an example using the chat-completion API. This task uses an LLM to generate a response from a list of messages:
+
+```python
+>>> from huggingface_hub import InferenceClient
+>>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+>>> client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
+>>> client.chat_completion(messages, max_tokens=100)
+ChatCompletionOutput(
+    choices=[
+        ChatCompletionOutputComplete(
+            finish_reason='eos_token',
+            index=0,
+            message=ChatCompletionOutputMessage(
+                content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic).'
+            )
+        )
+    ],
+    created=1710498360
+)
+```
+
+In this example, we specified which model we want to use (`"HuggingFaceH4/zephyr-7b-beta"`), we gave a list of messages to complete (here, a single question) and we passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be access with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+
 
 <Tip warning={true}>
 
