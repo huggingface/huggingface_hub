@@ -43,7 +43,7 @@ Let's get started with a text-to-image task:
 
 In the example above, we initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
 
-Let's now see an example using the chat-completion API. This task uses an LLM to generate a response from a list of messages:
+Let's now see an example using the `chat_completion` API. This task uses an LLM to generate a response from a list of messages:
 
 ```python
 >>> from huggingface_hub import InferenceClient
