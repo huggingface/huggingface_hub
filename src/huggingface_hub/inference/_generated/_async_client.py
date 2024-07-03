@@ -585,7 +585,7 @@ class AsyncInferenceClient:
                 send the request.
 
         Returns:
-            [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
+            [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
