@@ -2442,7 +2442,7 @@ class InferenceClient:
                 Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0.
                 If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
             hypothesis_template (`str`, *optional*):
-                A template sentence string with curly brackets to which the label strings are added. The label strings are added at the position of the curly brackets "{}". 
+                A template sentence string with curly brackets to which the label strings are added. The label strings are added at the position of the curly brackets "{}".
                 Zero-shot classifiers are based on NLI models, which evaluate if a hypothesis is entailed in another text or not.
                 For example, with hypothesis_template="This text is about {}." and labels=["economics", "politics"], the system internally creates the two hypotheses "This text is about economics." and "This text is about politics.".
                 The model then evaluates for both hypotheses if they are entailed in the provided `text` or not.
