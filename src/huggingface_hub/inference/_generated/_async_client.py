@@ -633,7 +633,7 @@ class AsyncInferenceClient:
         >>> messages = [
         ...     {
         ...         "role": "system",
-        ...         "content": "Don't make assumptions about what values to plug into functions. Ask async for clarification if a user request is ambiguous.",
+        ...         "content": "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.",
         ...     },
         ...     {
         ...         "role": "user",
@@ -877,7 +877,7 @@ class AsyncInferenceClient:
         >>> client = AsyncInferenceClient()
         >>> output = await client.conversational("Hi, who are you?")
         >>> output
-        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 async for open-end generation.']}
+        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
         >>> await client.conversational(
         ...     "Wow, that's scary!",
         ...     generated_responses=output["conversation"]["generated_responses"],
@@ -1960,7 +1960,7 @@ class AsyncInferenceClient:
         >>> await client.text_generation("The huggingface_hub library is ", max_new_tokens=12)
         '100% open source and built to be easy to use.'
 
-        # Case 2: iterate over the generated tokens. Useful async for large generation.
+        # Case 2: iterate over the generated tokens. Useful for large generation.
         >>> async for token in await client.text_generation("The huggingface_hub library is ", max_new_tokens=12, stream=True):
         ...     print(token)
         100
@@ -2483,15 +2483,16 @@ class AsyncInferenceClient:
 
         Example with `multi_label=False`:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
         >>> text = (
         ...     "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
         ...     "largest world. Konstantin Batygin did not set out to solve one of the solar system's most puzzling"
         ...     " mysteries when he went for a run up a hill in Nice, France."
         ... )
         >>> labels = ["space & cosmos", "scientific discovery", "microbiology", "robots", "archeology"]
-        >>> client.zero_shot_classification(text, labels)
+        >>> await client.zero_shot_classification(text, labels)
         [
             ZeroShotClassificationOutputElement(label='scientific discovery', score=0.7961668968200684),
             ZeroShotClassificationOutputElement(label='space & cosmos', score=0.18570658564567566),
@@ -2499,7 +2500,7 @@ class AsyncInferenceClient:
             ZeroShotClassificationOutputElement(label='archeology', score=0.006258360575884581),
             ZeroShotClassificationOutputElement(label='robots', score=0.004559356719255447),
         ]
-        >>> client.zero_shot_classification(text, labels, multi_label=True)
+        >>> await client.zero_shot_classification(text, labels, multi_label=True)
         [
             ZeroShotClassificationOutputElement(label='scientific discovery', score=0.9829297661781311),
             ZeroShotClassificationOutputElement(label='space & cosmos', score=0.755190908908844),
@@ -2511,9 +2512,10 @@ class AsyncInferenceClient:
 
         Example with `multi_label=True` and a custom `hypothesis_template`:
         ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient()
-        >>> client.zero_shot_classification(
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient()
+        >>> await client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
         ...    labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,

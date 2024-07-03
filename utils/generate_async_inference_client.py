@@ -377,7 +377,7 @@ def _update_example_code_block(code_block: str) -> str:
     code_block = "\n        # Must be run in an async context" + code_block
     code_block = code_block.replace("InferenceClient", "AsyncInferenceClient")
     code_block = code_block.replace("client.", "await client.")
-    code_block = code_block.replace(" for ", " async for ")
+    code_block = code_block.replace(">>> for ", ">>> async for ")
     return code_block
 
 
@@ -385,7 +385,7 @@ def _update_examples_in_public_methods(code: str) -> str:
     for match in re.finditer(
         r"""
         \n\s*
-        Example:\n\s* # example section
+        Example.*?:\n\s* # example section
         ```py # start
         (.*?) # code block
         ``` # end
