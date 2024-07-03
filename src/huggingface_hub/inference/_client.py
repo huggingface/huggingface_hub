@@ -2427,7 +2427,7 @@ class InferenceClient:
         labels: List[str],
         *,
         multi_label: bool = False,
-        hypothesis_template: Optional[str] = "This example is {}.",
+        hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
     ) -> List[ZeroShotClassificationOutputElement]:
         """
@@ -2505,18 +2505,18 @@ class InferenceClient:
         ]
         ```
         """
+        
+        parameters = {"candidate_labels": labels, "multi_label": multi_label}
+        if hypothesis_template is not None:
+            parameters["hypothesis_template"] = hypothesis_template
 
         response = self.post(
             json={
                 "inputs": text,
-                "parameters": {
-                    "candidate_labels": labels,
-                    "multi_label": multi_label,
-                    "hypothesis_template": hypothesis_template,
-                },
+                "parameters": parameters,
             },
-            model=model,
             task="zero-shot-classification",
+            model=model,
         )
         output = _bytes_to_dict(response)
         return [
