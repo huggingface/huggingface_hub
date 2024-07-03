@@ -2427,8 +2427,8 @@ class InferenceClient:
         labels: List[str],
         *,
         multi_label: bool = False,
-        model: Optional[str] = None,
         hypothesis_template: str = "This example is {}.",
+        model: Optional[str] = None,
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
