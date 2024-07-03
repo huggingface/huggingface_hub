@@ -519,16 +519,6 @@ class AsyncInferenceClient:
         """
         A method for completing conversations using a specified language model.
 
-        <Tip>
-
-        If the model is served by a server supporting chat-completion, the method will directly call the server's
-        `/v1/chat/completions` endpoint. If the server does not support chat-completion, the method will render the
-        chat template client-side based on the information fetched from the Hub API. In this case, you will need to
-        have `minijinja` template engine installed. Run `pip install "huggingface_hub[inference]"` or `pip install minijinja`
-        to install it.
-
-        </Tip>
-
         Args:
             messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
                 Conversation history consisting of roles and content pairs.
@@ -585,7 +575,7 @@ class AsyncInferenceClient:
                 send the request.
 
         Returns:
-            [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
+            [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
