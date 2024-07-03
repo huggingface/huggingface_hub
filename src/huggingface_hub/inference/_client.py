@@ -2505,7 +2505,7 @@ class InferenceClient:
         ]
         ```
         """
-        
+
         parameters = {"candidate_labels": labels, "multi_label": multi_label}
         if hypothesis_template is not None:
             parameters["hypothesis_template"] = hypothesis_template
