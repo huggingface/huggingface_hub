@@ -63,7 +63,7 @@ extras["testing"] = (
     + [
         "jedi",
         "Jinja2",
-        "pytest>=8.1.1",
+        "pytest>=8.1.1,<8.2.2",  # at least until 8.2.3 is released with https://github.com/pytest-dev/pytest/pull/12436
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
