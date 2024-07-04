@@ -1,13 +1,20 @@
 import json
+import struct
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List
+from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
 
-from huggingface_hub.serialization import save_torch_state_dict, split_state_dict_into_shards_factory
+from huggingface_hub.serialization import (
+    get_tf_storage_size,
+    get_torch_storage_size,
+    save_torch_model,
+    save_torch_state_dict,
+    split_state_dict_into_shards_factory,
+)
 from huggingface_hub.serialization._base import parse_size_to_int
-from huggingface_hub.serialization._tensorflow import get_tensor_size as get_tensor_size_tensorflow
-from huggingface_hub.serialization._torch import get_tensor_size as get_tensor_size_torch
 
 from .testing_utils import requires
 
@@ -20,7 +27,7 @@ def _dummy_get_storage_id(item):
     return None
 
 
-def _dummy_get_tensor_size(item):
+def _dummy_get_storage_size(item):
     return sum(item)
 
 
@@ -51,11 +58,28 @@ def torch_state_dict() -> Dict[str, "torch.Tensor"]:
         pytest.skip("torch is not available")
 
 
+@pytest.fixture
+def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
+    try:
+        import torch
+
+        shared_layer = torch.tensor([4])
+
+        return {
+            "shared_1": shared_layer,
+            "unique_1": torch.tensor([10]),
+            "unique_2": torch.tensor([30]),
+            "shared_2": shared_layer,
+        }
+    except ImportError:
+        pytest.skip("torch is not available")
+
+
 def test_single_shard(dummy_state_dict):
     state_dict_split = split_state_dict_into_shards_factory(
         dummy_state_dict,
         get_storage_id=_dummy_get_storage_id,
-        get_tensor_size=_dummy_get_tensor_size,
+        get_storage_size=_dummy_get_storage_size,
         max_shard_size=100,  # large shard size => only one shard
         filename_pattern="file{suffix}.dummy",
     )
@@ -78,7 +102,7 @@ def test_multiple_shards(dummy_state_dict):
     state_dict_split = split_state_dict_into_shards_factory(
         dummy_state_dict,
         get_storage_id=_dummy_get_storage_id,
-        get_tensor_size=_dummy_get_tensor_size,
+        get_storage_size=_dummy_get_storage_size,
         max_shard_size=10,  # small shard size => multiple shards
         filename_pattern="file{suffix}.dummy",
     )
@@ -111,7 +135,7 @@ def test_tensor_same_storage():
             "layer_5": [1],
         },
         get_storage_id=lambda x: (x[0]),  # dummy for test: storage id based on first element
-        get_tensor_size=_dummy_get_tensor_size,
+        get_storage_size=_dummy_get_storage_size,
         max_shard_size=1,
         filename_pattern="model{suffix}.safetensors",
     )
@@ -131,19 +155,19 @@ def test_tensor_same_storage():
 
 
 @requires("tensorflow")
-def test_get_tensor_size_tensorflow():
+def test_get_tf_storage_size():
     import tensorflow as tf
 
-    assert get_tensor_size_tensorflow(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
-    assert get_tensor_size_tensorflow(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
+    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
+    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
 
 
 @requires("torch")
-def test_get_tensor_size_torch():
+def test_get_torch_storage_size():
     import torch
 
-    assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
-    assert get_tensor_size_torch(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
+    assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
+    assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
 def test_parse_size_to_int():
@@ -158,6 +182,30 @@ def test_parse_size_to_int():
 
     with pytest.raises(ValueError, match="Could not parse the size value"):
         parse_size_to_int("1ooKB")  # not a float
+
+
+def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
+    """Test `save_torch_model` is only a wrapper around `save_torch_state_dict`."""
+    model_mock = Mock()
+    safe_state_dict_mock = mocker.patch("huggingface_hub.serialization._torch.save_torch_state_dict")
+    save_torch_model(
+        model_mock,
+        save_directory=tmp_path,
+        filename_pattern="my-pattern",
+        force_contiguous=True,
+        max_shard_size="3GB",
+        metadata={"foo": "bar"},
+        safe_serialization=True,
+    )
+    safe_state_dict_mock.assert_called_once_with(
+        state_dict=model_mock.state_dict.return_value,
+        save_directory=tmp_path,
+        filename_pattern="my-pattern",
+        force_contiguous=True,
+        max_shard_size="3GB",
+        metadata={"foo": "bar"},
+        safe_serialization=True,
+    )
 
 
 def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
@@ -223,6 +271,47 @@ def test_save_torch_state_dict_unsafe_sharded(
             "layer_5": "pytorch_model-00002-of-00002.bin",
         },
     }
+
+
+def test_save_torch_state_dict_shared_layers_not_sharded(
+    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+) -> None:
+    from safetensors.torch import load_file
+
+    save_torch_state_dict(torch_state_dict_shared_layers, tmp_path, safe_serialization=True)
+    safetensors_file = tmp_path / "model.safetensors"
+    assert safetensors_file.is_file()
+
+    # Check shared layer not duplicated in file
+    state_dict = load_file(safetensors_file)
+    assert "shared_1" in state_dict
+    assert "shared_2" not in state_dict
+
+    # Check shared layer info in metadata
+    file_bytes = safetensors_file.read_bytes()
+    metadata_str = file_bytes[
+        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
+    ].decode()  # TODO: next time add helper for this
+    assert json.loads(metadata_str)["__metadata__"]["shared_2"] == "shared_1"
+
+
+def test_save_torch_state_dict_shared_layers_sharded(
+    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+) -> None:
+    from safetensors.torch import load_file
+
+    save_torch_state_dict(torch_state_dict_shared_layers, tmp_path, max_shard_size=2, safe_serialization=True)
+    index_file = tmp_path / "model.safetensors.index.json"
+    assert index_file.is_file()
+
+    # Check shared layer info in index metadata
+    index = json.loads(index_file.read_text())
+    assert index["metadata"]["shared_2"] == "shared_1"
+
+    # Check shared layer not duplicated in files
+    for filename in index["weight_map"].values():
+        state_dict = load_file(tmp_path / filename)
+        assert "shared_2" not in state_dict
 
 
 def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:

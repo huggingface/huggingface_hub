@@ -63,11 +63,11 @@ def split_tf_state_dict_into_shards(
         state_dict,
         max_shard_size=max_shard_size,
         filename_pattern=filename_pattern,
-        get_tensor_size=get_tensor_size,
+        get_storage_size=get_tf_storage_size,
     )
 
 
-def get_tensor_size(tensor: "tf.Tensor") -> int:
+def get_tf_storage_size(tensor: "tf.Tensor") -> int:
     # Return `math.ceil` since dtype byte size can be a float (e.g., 0.125 for tf.bool).
     # Better to overestimate than underestimate.
     return math.ceil(tensor.numpy().size * _dtype_byte_size_tf(tensor.dtype))
