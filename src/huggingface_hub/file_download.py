@@ -1373,7 +1373,7 @@ def _hf_hub_download_to_cache_dir(
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
     # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it is an extended path by using the "\\?\" prefix.
+    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
     if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
         lock_path = "\\\\?\\" + os.path.abspath(lock_path)
 
@@ -1420,6 +1420,10 @@ def _hf_hub_download_to_local_dir(
 
     Method should not be called directly. Please use `hf_hub_download` instead.
     """
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
+    if os.name == "nt" and len(os.path.abspath(local_dir)) > 255:
+        local_dir = "\\\\?\\" + os.path.abspath(local_dir)
     local_dir = Path(local_dir)
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
