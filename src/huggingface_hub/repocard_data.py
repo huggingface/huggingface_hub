@@ -350,7 +350,7 @@ class ModelCardData(CardData):
         super().__init__(**kwargs)
 
         if self.eval_results:
-            if type(self.eval_results) == EvalResult:
+            if isinstance(self.eval_results, EvalResult):
                 self.eval_results = [self.eval_results]
             if self.model_name is None:
                 raise ValueError("Passing `eval_results` requires `model_name` to be set.")

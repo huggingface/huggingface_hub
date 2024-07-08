@@ -157,6 +157,7 @@ class InferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
+        proxies: Optional[Any] = None,
     ) -> None:
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token
@@ -165,6 +166,7 @@ class InferenceClient:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
+        self.proxies = proxies
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -264,6 +266,7 @@ class InferenceClient:
                         cookies=self.cookies,
                         timeout=self.timeout,
                         stream=stream,
+                        proxies=self.proxies,
                     )
                 except TimeoutError as error:
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
@@ -515,16 +518,6 @@ class InferenceClient:
         """
         A method for completing conversations using a specified language model.
 
-        <Tip>
-
-        If the model is served by a server supporting chat-completion, the method will directly call the server's
-        `/v1/chat/completions` endpoint. If the server does not support chat-completion, the method will render the
-        chat template client-side based on the information fetched from the Hub API. In this case, you will need to
-        have `minijinja` template engine installed. Run `pip install "huggingface_hub[inference]"` or `pip install minijinja`
-        to install it.
-
-        </Tip>
-
         Args:
             messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
                 Conversation history consisting of roles and content pairs.
@@ -581,7 +574,7 @@ class InferenceClient:
                 send the request.
 
         Returns:
-            [`ChatCompletionOutput] or Iterable of [`ChatCompletionStreamOutput`]:
+            [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
             Generated text returned from the server:
             - if `stream=False`, the generated text is returned as a [`ChatCompletionOutput`] (default).
             - if `stream=True`, the generated text is returned token by token as a sequence of [`ChatCompletionStreamOutput`].
@@ -598,7 +591,7 @@ class InferenceClient:
         # Chat example
         >>> from huggingface_hub import InferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
-        >>> client = InferenceClient("HuggingFaceH4/zephyr-7b-beta")
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
         >>> client.chat_completion(messages, max_tokens=100)
         ChatCompletionOutput(
             choices=[
@@ -606,11 +599,24 @@ class InferenceClient:
                     finish_reason='eos_token',
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content='The capital of France is Paris. The official name of the city is Ville de Paris (City of Paris) and the name of the country governing body, which is located in Paris, is La République française (The French Republic). \nI hope that helps! Let me know if you need any further information.'
-                    )
+                        role='assistant',
+                        content='The capital of France is Paris.',
+                        name=None,
+                        tool_calls=None
+                    ),
+                    logprobs=None
                 )
             ],
-            created=1710498360
+            created=1719907176,
+            id='',
+            model='meta-llama/Meta-Llama-3-8B-Instruct',
+            object='text_completion',
+            system_fingerprint='2.0.4-sha-f426a33',
+            usage=ChatCompletionOutputUsage(
+                completion_tokens=8,
+                prompt_tokens=17,
+                total_tokens=25
+            )
         )
 
         >>> for token in client.chat_completion(messages, max_tokens=10, stream=True):
@@ -937,7 +943,9 @@ class InferenceClient:
         text: str,
         *,
         normalize: Optional[bool] = None,
+        prompt_name: Optional[str] = None,
         truncate: Optional[bool] = None,
+        truncation_direction: Optional[Literal["Left", "Right"]] = None,
         model: Optional[str] = None,
     ) -> "np.ndarray":
         """
@@ -953,9 +961,17 @@ class InferenceClient:
             normalize (`bool`, *optional*):
                 Whether to normalize the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            prompt_name (`str`, *optional*):
+                The name of the prompt that should be used by for encoding. If not set, no prompt will be applied.
+                Must be a key in the `Sentence Transformers` configuration `prompts` dictionary.
+                For example if ``prompt_name`` is "query" and the ``prompts`` is {"query": "query: ",...},
+                then the sentence "What is the capital of France?" will be encoded as "query: What is the capital of France?"
+                because the prompt text will be prepended before any text to encode.
             truncate (`bool`, *optional*):
                 Whether to truncate the embeddings or not. Defaults to None.
                 Only available on server powered by Text-Embedding-Inference.
+            truncation_direction (`Literal["Left", "Right"]`, *optional*):
+                Which side of the input should be truncated when `truncate=True` is passed.
 
         Returns:
             `np.ndarray`: The embedding representing the input text as a float32 numpy array.
@@ -980,8 +996,12 @@ class InferenceClient:
         payload: Dict = {"inputs": text}
         if normalize is not None:
             payload["normalize"] = normalize
+        if prompt_name is not None:
+            payload["prompt_name"] = prompt_name
         if truncate is not None:
             payload["truncate"] = truncate
+        if truncation_direction is not None:
+            payload["truncation_direction"] = truncation_direction
         response = self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
@@ -2392,7 +2412,13 @@ class InferenceClient:
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def zero_shot_classification(
-        self, text: str, labels: List[str], *, multi_label: bool = False, model: Optional[str] = None
+        self,
+        text: str,
+        labels: List[str],
+        *,
+        multi_label: bool = False,
+        hypothesis_template: Optional[str] = None,
+        model: Optional[str] = None,
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -2401,9 +2427,15 @@ class InferenceClient:
             text (`str`):
                 The input text to classify.
             labels (`List[str]`):
-                List of string possible labels. There must be at least 2 labels.
+                List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`):
-                Boolean that is set to True if classes can overlap.
+                Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0.
+                If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
+            hypothesis_template (`str`, *optional*):
+                A template sentence string with curly brackets to which the label strings are added. The label strings are added at the position of the curly brackets "{}".
+                Zero-shot classifiers are based on NLI models, which evaluate if a hypothesis is entailed in another text or not.
+                For example, with hypothesis_template="This text is about {}." and labels=["economics", "politics"], the system internally creates the two hypotheses "This text is about economics." and "This text is about politics.".
+                The model then evaluates for both hypotheses if they are entailed in the provided `text` or not.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
@@ -2417,7 +2449,7 @@ class InferenceClient:
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
-        Example:
+        Example with `multi_label=False`:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
@@ -2444,21 +2476,37 @@ class InferenceClient:
             ZeroShotClassificationOutputElement(label='robots', score=0.00030448526376858354),
         ]
         ```
+
+        Example with `multi_label=True` and a custom `hypothesis_template`:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient()
+        >>> client.zero_shot_classification(
+        ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
+        ...    labels=["positive", "negative", "pessimistic", "optimistic"],
+        ...    multi_label=True,
+        ...    hypothesis_template="This text is {} towards the weather"
+        ... )
+        [
+            ZeroShotClassificationOutputElement(label='negative', score=0.9231801629066467),
+            ZeroShotClassificationOutputElement(label='pessimistic', score=0.8760990500450134),
+            ZeroShotClassificationOutputElement(label='optimistic', score=0.0008674879791215062),
+            ZeroShotClassificationOutputElement(label='positive', score=0.0005250611575320363)
+        ]
+        ```
         """
-        # Raise ValueError if input is less than 2 labels
-        if len(labels) < 2:
-            raise ValueError("You must specify at least 2 classes to compare.")
+
+        parameters = {"candidate_labels": labels, "multi_label": multi_label}
+        if hypothesis_template is not None:
+            parameters["hypothesis_template"] = hypothesis_template
 
         response = self.post(
             json={
                 "inputs": text,
-                "parameters": {
-                    "candidate_labels": ",".join(labels),
-                    "multi_label": multi_label,
-                },
+                "parameters": parameters,
             },
-            model=model,
             task="zero-shot-classification",
+            model=model,
         )
         output = _bytes_to_dict(response)
         return [

@@ -767,7 +767,9 @@ class TestHeadersAndCookies(unittest.TestCase):
     @patch("huggingface_hub.inference._client.get_session")
     def test_mocked_post(self, get_session_mock: MagicMock) -> None:
         """Test that headers and cookies are correctly passed to the request."""
-        client = InferenceClient(headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"})
+        client = InferenceClient(
+            headers={"X-My-Header": "foo"}, cookies={"my-cookie": "bar"}, proxies="custom proxies"
+        )
         response = client.post(data=b"content", model="username/repo_name")
         self.assertEqual(response, get_session_mock().post.return_value.content)
 
@@ -780,6 +782,7 @@ class TestHeadersAndCookies(unittest.TestCase):
             cookies={"my-cookie": "bar"},
             timeout=None,
             stream=False,
+            proxies="custom proxies",
         )
 
     @patch("huggingface_hub.inference._client._bytes_to_image")

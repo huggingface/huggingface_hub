@@ -77,7 +77,7 @@ def format_source_code(code: str) -> str:
         filepath = Path(tmpdir) / "async_client.py"
         filepath.write_text(code)
         ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", str(filepath), "--fix", "--quiet"])
+        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "check", str(filepath), "--fix", "--quiet"])
         os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
         return filepath.read_text()
 
@@ -198,7 +198,7 @@ ASYNC_POST_CODE = """
                 )
 
                 try:
-                    response = await client.post(url, json=json, data=data_as_binary)
+                    response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
                     response_error_payload = None
                     if response.status != 200:
                         try:
@@ -377,7 +377,7 @@ def _update_example_code_block(code_block: str) -> str:
     code_block = "\n        # Must be run in an async context" + code_block
     code_block = code_block.replace("InferenceClient", "AsyncInferenceClient")
     code_block = code_block.replace("client.", "await client.")
-    code_block = code_block.replace(" for ", " async for ")
+    code_block = code_block.replace(">>> for ", ">>> async for ")
     return code_block
 
 
@@ -385,7 +385,7 @@ def _update_examples_in_public_methods(code: str) -> str:
     for match in re.finditer(
         r"""
         \n\s*
-        Example:\n\s* # example section
+        Example.*?:\n\s* # example section
         ```py # start
         (.*?) # code block
         ``` # end
