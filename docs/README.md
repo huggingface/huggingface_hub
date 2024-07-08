@@ -62,7 +62,7 @@ To preview the docs, run the following command:
 doc-builder preview huggingface_hub docs/source/en/
 ```
 
-The docs will be viewable at [http://localhost:3000](http://localhost:3000). You can also preview the docs once you
+The docs will be viewable at [http://localhost:5173](http://localhost:5173). You can also preview the docs once you
 have opened a PR. You will see a bot add a comment to a link where the documentation with your changes lives.
 
 ---
