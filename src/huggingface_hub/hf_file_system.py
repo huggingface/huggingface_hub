@@ -896,11 +896,13 @@ def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: 
 for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunction):
     parent = getattr(fsspec.AbstractFileSystem, name, None)
     if parent is not None and parent.__doc__ is not None:
+        parent_doc = parent.__doc__
+        parent_doc.replace("-" * 10, "\n").replace("-" * 7, "\n")
         function.__doc__ = (
             (
                 "\n_Docstring taken from "
                 f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})_"
             )
             + "\n\n"
-            + parent.__doc__
+            + parent_doc
         )
