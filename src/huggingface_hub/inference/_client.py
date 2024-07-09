@@ -724,7 +724,7 @@ class InferenceClient:
         Example using response_format:
         ```py
         >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
         >>> messages = [
         ...     {
         ...         "role": "user",
@@ -744,7 +744,6 @@ class InferenceClient:
         ...     },
         ... }
         >>> response = client.chat_completion(
-        ...     model="meta-llama/Meta-Llama-3-70B-Instruct",
         ...     messages=messages,
         ...     response_format=response_format,
         ...     max_tokens=500,

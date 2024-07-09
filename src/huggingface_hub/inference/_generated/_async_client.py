@@ -729,7 +729,7 @@ class AsyncInferenceClient:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
         >>> messages = [
         ...     {
         ...         "role": "user",
@@ -749,7 +749,6 @@ class AsyncInferenceClient:
         ...     },
         ... }
         >>> response = await client.chat_completion(
-        ...     model="meta-llama/Meta-Llama-3-70B-Instruct",
         ...     messages=messages,
         ...     response_format=response_format,
         ...     max_tokens=500,
