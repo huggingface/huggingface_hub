@@ -315,7 +315,6 @@ def _format_chat_completion_stream_output_from_text_generation(
             # explicitly set 'dummy' values to reduce expectations from users
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             choices=[
                 ChatCompletionStreamOutputChoice(
@@ -335,7 +334,6 @@ def _format_chat_completion_stream_output_from_text_generation(
             # explicitly set 'dummy' values to reduce expectations from users
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             choices=[
                 ChatCompletionStreamOutputChoice(
