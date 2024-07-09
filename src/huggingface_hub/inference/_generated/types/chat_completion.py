@@ -10,33 +10,55 @@ from .base import BaseInferenceType
 
 
 @dataclass
-class ChatCompletionInputFunctionDefinition(BaseInferenceType):
-    arguments: Any
-    name: str
-    description: Optional[str] = None
+class ChatCompletionInputURL(BaseInferenceType):
+    url: str
+
+
+ChatCompletionInputMessageChunkType = Literal["text", "image_url"]
 
 
 @dataclass
-class ChatCompletionInputToolCall(BaseInferenceType):
-    function: ChatCompletionInputFunctionDefinition
-    id: int
-    type: str
+class ChatCompletionInputMessageChunk(BaseInferenceType):
+    type: "ChatCompletionInputMessageChunkType"
+    image_url: Optional[ChatCompletionInputURL] = None
+    text: Optional[str] = None
 
 
 @dataclass
 class ChatCompletionInputMessage(BaseInferenceType):
+    content: Union[List[ChatCompletionInputMessageChunk], str]
     role: str
-    content: Optional[str] = None
     name: Optional[str] = None
-    tool_calls: Optional[List[ChatCompletionInputToolCall]] = None
+
+
+ChatCompletionInputGrammarTypeType = Literal["json", "regex"]
+
+
+@dataclass
+class ChatCompletionInputGrammarType(BaseInferenceType):
+    type: "ChatCompletionInputGrammarTypeType"
+    value: Any
+    """A string that represents a [JSON Schema](https://json-schema.org/).
+    JSON Schema is a declarative language that allows to annotate JSON documents
+    with types and descriptions.
+    """
+
+
+@dataclass
+class ChatCompletionInputFunctionName(BaseInferenceType):
+    name: str
 
 
 @dataclass
 class ChatCompletionInputToolTypeClass(BaseInferenceType):
-    function_name: str
+    function: Optional[ChatCompletionInputFunctionName] = None
 
 
-ChatCompletionInputToolTypeEnum = Literal["OneOf"]
+@dataclass
+class ChatCompletionInputFunctionDefinition(BaseInferenceType):
+    arguments: Any
+    name: str
+    description: Optional[str] = None
 
 
 @dataclass
@@ -55,10 +77,6 @@ class ChatCompletionInput(BaseInferenceType):
 
     messages: List[ChatCompletionInputMessage]
     """A list of messages comprising the conversation so far."""
-    model: str
-    """[UNUSED] ID of the model to use. See the model endpoint compatibility table for details
-    on which models work with the Chat API.
-    """
     frequency_penalty: Optional[float] = None
     """Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing
     frequency in the text so far,
@@ -83,6 +101,10 @@ class ChatCompletionInput(BaseInferenceType):
     """
     max_tokens: Optional[int] = None
     """The maximum number of tokens that can be generated in the chat completion."""
+    model: Optional[str] = None
+    """[UNUSED] ID of the model to use. See the model endpoint compatibility table for details
+    on which models work with the Chat API.
+    """
     n: Optional[int] = None
     """UNUSED
     How many chat completion choices to generate for each input message. Note that you will
@@ -94,6 +116,7 @@ class ChatCompletionInput(BaseInferenceType):
     appear in the text so far,
     increasing the model's likelihood to talk about new topics
     """
+    response_format: Optional[ChatCompletionInputGrammarType] = None
     seed: Optional[int] = None
     stop: Optional[List[str]] = None
     """Up to 4 sequences where the API will stop generating further tokens."""
@@ -104,7 +127,7 @@ class ChatCompletionInput(BaseInferenceType):
     lower values like 0.2 will make it more focused and deterministic.
     We generally recommend altering this or `top_p` but not both.
     """
-    tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, "ChatCompletionInputToolTypeEnum"]] = None
+    tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None
     tool_prompt: Optional[str] = None
     """A prompt to be appended before the tools"""
     tools: Optional[List[ChatCompletionInputTool]] = None
@@ -153,7 +176,7 @@ class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
 @dataclass
 class ChatCompletionOutputToolCall(BaseInferenceType):
     function: ChatCompletionOutputFunctionDefinition
-    id: int
+    id: str
     type: str
 
 
@@ -161,7 +184,6 @@ class ChatCompletionOutputToolCall(BaseInferenceType):
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
-    name: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
 
 
@@ -192,7 +214,6 @@ class ChatCompletionOutput(BaseInferenceType):
     created: int
     id: str
     model: str
-    object: str
     system_fingerprint: str
     usage: ChatCompletionOutputUsage
 
@@ -256,5 +277,4 @@ class ChatCompletionStreamOutput(BaseInferenceType):
     created: int
     id: str
     model: str
-    object: str
     system_fingerprint: str
