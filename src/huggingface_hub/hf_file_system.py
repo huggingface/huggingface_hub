@@ -901,7 +901,7 @@ for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunct
         function.__doc__ = (
             (
                 "\n_Docstring taken from "
-                f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})_"
+                f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})._"
             )
             + "\n\n"
             + parent_doc
