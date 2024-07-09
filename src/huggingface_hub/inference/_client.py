@@ -1677,6 +1677,7 @@ class InferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1705,6 +1706,7 @@ class InferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1733,6 +1735,7 @@ class InferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1761,6 +1764,7 @@ class InferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1789,6 +1793,7 @@ class InferenceClient:
         stream: bool = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1816,6 +1821,7 @@ class InferenceClient:
         stream: bool = False,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1867,6 +1873,8 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            adapter_id (`str`, *optional*):
+                Lora adapter id.
             best_of (`int`, *optional*):
                 Generate best_of sequences and return the one if the highest token logprobs.
             decoder_input_details (`bool`, *optional*):
@@ -2035,6 +2043,7 @@ class InferenceClient:
 
         # Build payload
         parameters = {
+            "adapter_id": adapter_id,
             "best_of": best_of,
             "decoder_input_details": decoder_input_details,
             "details": details,
@@ -2105,6 +2114,7 @@ class InferenceClient:
                     details=details,
                     stream=stream,
                     model=model,
+                    adapter_id=adapter_id,
                     best_of=best_of,
                     decoder_input_details=decoder_input_details,
                     do_sample=do_sample,
