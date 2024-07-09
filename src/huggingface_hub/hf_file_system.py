@@ -897,7 +897,8 @@ for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunct
     parent = getattr(fsspec.AbstractFileSystem, name, None)
     if parent is not None and parent.__doc__ is not None:
         parent_doc = parent.__doc__
-        parent_doc.replace("-" * 10, "\n").replace("-" * 7, "\n")
+        parent_doc = parent_doc.replace("Parameters\n        ----------\n", "Args:\n")
+        parent_doc = parent_doc.replace("Returns\n        -------\n", "Return:\n")
         function.__doc__ = (
             (
                 "\n_Docstring taken from "
