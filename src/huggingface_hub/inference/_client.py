@@ -674,7 +674,6 @@ class InferenceClient:
             api_key=...,
         )
 
-
         output = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
