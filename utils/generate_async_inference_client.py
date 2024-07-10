@@ -68,6 +68,9 @@ def generate_async_client_code(code: str) -> str:
     # Adapt /info and /health endpoints
     code = _adapt_info_and_health_endpoints(code)
 
+    # Adapt the proxy client (for client.chat.completions.create)
+    code = _adapt_proxy_client(code)
+
     return code
 
 
@@ -480,6 +483,13 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
             return response.status == 200"""
 
     return code.replace(health_sync_snippet, health_async_snippet)
+
+
+def _adapt_proxy_client(code: str) -> str:
+    return code.replace(
+        "def __init__(self, client: InferenceClient):",
+        "def __init__(self, client: AsyncInferenceClient):",
+    )
 
 
 if __name__ == "__main__":

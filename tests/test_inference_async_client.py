@@ -367,3 +367,60 @@ async def test_close_connection_on_post_error(mock_close: Mock, mock_post: Mock)
         await async_client.post(model="http://127.0.0.1/api", json={})
 
     mock_close.assert_called_once()
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_openai_compatibility_base_url_and_api_key():
+    client = AsyncInferenceClient(
+        base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
+        api_key="my-api-key",
+    )
+    output = await client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Count to 10"},
+        ],
+        stream=False,
+        max_tokens=1024,
+    )
+    assert output.choices[0].message.content == "1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_openai_compatibility_without_base_url():
+    client = AsyncInferenceClient()
+    output = await client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Count to 10"},
+        ],
+        stream=False,
+        max_tokens=1024,
+    )
+    assert output.choices[0].message.content == "1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_openai_compatibility_with_stream_true():
+    client = AsyncInferenceClient(token="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")
+    output = await client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Count to 10"},
+        ],
+        stream=True,
+        max_tokens=1024,
+    )
+
+    chunked_text = [chunk.choices[0].delta.content async for chunk in output]
+    assert len(chunked_text) == 34
+    assert "".join(chunked_text) == "Here it goes:\n\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"

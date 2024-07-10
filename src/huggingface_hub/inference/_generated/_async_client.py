@@ -96,6 +96,7 @@ from huggingface_hub.inference._types import (
 from huggingface_hub.utils import (
     build_hf_headers,
 )
+from huggingface_hub.utils._deprecation import _deprecate_positional_args
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -133,25 +134,39 @@ class AsyncInferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
+        base_url (`str`, `optional`):
+            Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
+            follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
+        api_key (`str`, `optional`):
+            Token to use for authentication. This is a duplicated argument from `token` to make [`InferenceClient`]
+            follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
+    @_deprecate_positional_args(version="0.26")
     def __init__(
         self,
         model: Optional[str] = None,
+        *,
         token: Union[str, bool, None] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         proxies: Optional[Any] = None,
+        # OpenAI compatibility
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
     ) -> None:
         self.model: Optional[str] = model
-        self.token: Union[str, bool, None] = token
-        self.headers = CaseInsensitiveDict(build_hf_headers(token=token))  # contains 'authorization' + 'user-agent'
+        self.token: Union[str, bool, None] = token or api_key
+        self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
+
+        # OpenAI compatibility
+        self.base_url = base_url
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -442,7 +457,6 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        model_id: Optional[str] = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
@@ -466,7 +480,6 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        model_id: Optional[str] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
 
     @overload
@@ -490,7 +503,6 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        model_id: Optional[str] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
@@ -514,7 +526,6 @@ class AsyncInferenceClient:
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
-        model_id: Optional[str] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
         """
         A method for completing conversations using a specified language model.
@@ -526,6 +537,9 @@ class AsyncInferenceClient:
                 The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for chat-based text-generation will be used.
                 See https://huggingface.co/tasks/text-generation for more details.
+
+                If `model` is a model ID, it is passed to the server as the `model` parameter. If you want to define a
+                custom URL while setting `model` in the request payload, you must set `base_url` when initializing [`InferenceClient`].
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
@@ -569,10 +583,6 @@ class AsyncInferenceClient:
             tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
-            model_id (`str`, *optional*):
-                The model ID to use for chat-completion. Only used when `model` is a URL to a deployed Text Generation Inference server.
-                It is passed to the server as the `model` parameter. This parameter has no impact on the URL that will be used to
-                send the request.
 
         Returns:
             [`ChatCompletionOutput`] or Iterable of [`ChatCompletionStreamOutput`]:
@@ -627,8 +637,11 @@ class AsyncInferenceClient:
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
         (...)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ```
 
-        # Chat example with tools
+        Example using tools:
+        ```py
+        # Must be run in an async context
         >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
         >>> messages = [
         ...     {
@@ -710,8 +723,11 @@ class AsyncInferenceClient:
         )
         ```
         """
-        # determine model
-        model = model or self.model or self.get_recommended_model("text-generation")
+        # Determine model
+        # `self.xxx` takes precedence over the method argument only in `chat_completion`
+        # since `chat_completion(..., model=xxx)` is also a payload parameter for the
+        # server, we need to handle it differently
+        model = self.base_url or self.model or model or self.get_recommended_model("text-generation")
 
         if _is_chat_completion_server(model):
             # First, let's consider the server has a `/v1/chat/completions` endpoint.
@@ -720,14 +736,13 @@ class AsyncInferenceClient:
             if not model_url.endswith("/chat/completions"):
                 model_url += "/v1/chat/completions"
 
-            # `model_id` sent in the payload. Not used by the server but can be useful for debugging/routing.
-            if model_id is None:
-                if not model.startswith("http") and model.count("/") == 1:
-                    # If it's a ID on the Hub => use it
-                    model_id = model
-                else:
-                    # Otherwise, we use a random string
-                    model_id = "tgi"
+            # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
+            if not model.startswith("http") and model.count("/") == 1:
+                # If it's a ID on the Hub => use it
+                model_id = model
+            else:
+                # Otherwise, we use a random string
+                model_id = "tgi"
 
             try:
                 data = await self.post(
@@ -2597,7 +2612,7 @@ class AsyncInferenceClient:
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
-        model = model or self.model
+        model = model or self.model or self.base_url
 
         # If model is already a URL, ignore `task` and return directly
         if model is not None and (model.startswith("http://") or model.startswith("https://")):
@@ -2795,3 +2810,30 @@ class AsyncInferenceClient:
             compute_type=response_data["compute_type"],
             framework=response_data["framework"],
         )
+
+    @property
+    def chat(self) -> "ProxyClientChat":
+        return ProxyClientChat(self)
+
+
+class _ProxyClient:
+    """Proxy class to be able to call `client.chat.completion.create(...)` as OpenAI client."""
+
+    def __init__(self, client: AsyncInferenceClient):
+        self._client = client
+
+
+class ProxyClientChat(_ProxyClient):
+    """Proxy class to be able to call `client.chat.completion.create(...)` as OpenAI client."""
+
+    @property
+    def completions(self) -> "ProxyClientChatCompletions":
+        return ProxyClientChatCompletions(self._client)
+
+
+class ProxyClientChatCompletions(_ProxyClient):
+    """Proxy class to be able to call `client.chat.completion.create(...)` as OpenAI client."""
+
+    @property
+    def create(self):
+        return self._client.chat_completion
