@@ -410,7 +410,7 @@ async def test_openai_compatibility_without_base_url():
 @pytest.mark.asyncio
 @with_production_testing
 async def test_openai_compatibility_with_stream_true():
-    client = AsyncInferenceClient(token="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")
+    client = AsyncInferenceClient()
     output = await client.chat.completions.create(
         model="meta-llama/Meta-Llama-3-8B-Instruct",
         messages=[
