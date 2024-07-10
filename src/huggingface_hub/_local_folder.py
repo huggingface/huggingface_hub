@@ -139,6 +139,26 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it as an extended path by using the "\\?\" prefix
+    if os.name == "nt":
+        if len(os.path.abspath(lock_path)) > 255:
+            file_path = (
+                file_path
+                if str(file_path.absolute()).startswith("\\\\?\\")
+                else Path("\\\\?\\" + os.path.abspath(file_path))
+            )
+            lock_path = (
+                lock_path
+                if str(lock_path.absolute()).startswith("\\\\?\\")
+                else Path("\\\\?\\" + os.path.abspath(lock_path))
+            )
+            metadata_path = (
+                metadata_path
+                if str(metadata_path.absolute()).startswith("\\\\?\\")
+                else Path("\\\\?\\" + os.path.abspath(metadata_path))
+            )
+
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     return LocalDownloadFilePaths(file_path=file_path, lock_path=lock_path, metadata_path=metadata_path)
