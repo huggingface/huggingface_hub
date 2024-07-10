@@ -903,3 +903,11 @@ class TestOpenAICompatibility(unittest.TestCase):
         chunked_text = [chunk.choices[0].delta.content for chunk in output]
         assert len(chunked_text) == 34
         assert "".join(chunked_text) == "Here it goes:\n\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+    def test_token_and_api_key_mutually_exclusive(self):
+        with self.assertRaises(ValueError):
+            InferenceClient(token="my-token", api_key="my-api-key")
+
+    def test_model_and_base_url_mutually_exclusive(self):
+        with self.assertRaises(ValueError):
+            InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")

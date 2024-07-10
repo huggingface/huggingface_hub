@@ -43,7 +43,7 @@ Let's get started with a text-to-image task:
 
 In the example above, we initialized an [`InferenceClient`] with the default parameters. The only thing you need to know is the [task](#supported-tasks) you want to perform. By default, the client will connect to the Inference API and select a model to complete the task. In our example, we generated an image from a text prompt. The returned value is a `PIL.Image` object that can be saved to a file. For more details, check out the [`~InferenceClient.text_to_image`] documentation.
 
-Let's now see an example using the `chat_completion` API. This task uses an LLM to generate a response from a list of messages:
+Let's now see an example using the [~`InferenceClient.chat_completion`] API. This task uses an LLM to generate a response from a list of messages:
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -144,6 +144,65 @@ your token as an instance parameter:
 Authentication is NOT mandatory when using the Inference API. However, authenticated users get a higher free-tier to
 play with the service. Token is also mandatory if you want to run inference on your private models or on private
 endpoints.
+
+</Tip>
+
+## OpenAI compatibility
+
+The `chat_completion` task follows [OpenAI's Python client](https://github.com/openai/openai-python) syntax. What does it mean for you? It means that if you are used to play with `OpenAI`'s APIs you will be able to switch to `huggingface_hub.InferenceClient` to work with open-source models by updating just 2 line of code!
+
+```py
+# instead of `from openai import OpenAI`
+from huggingface_hub import InferenceClient
+
+# instead of `client = OpenAI(...)`
+client = InferenceClient(
+    base_url=...,
+    api_key=...,
+)
+
+
+output = client.chat.completions.create(
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Count to 10"},
+    ],
+    stream=True,
+    max_tokens=1024,
+)
+
+for chunk in output:
+    print(chunk.choices[0].delta.content)
+```
+
+And that's it! The only required changes are to replace `from openai import OpenAI` by `from huggingface_hub import InferenceClient` and `client = OpenAI(...)` by `client = InferenceClient(...)`. You can chose any LLM model from the Hugging Face Hub by passing its model id as `model` parameter. [Here is a list](https://huggingface.co/models?pipeline_tag=text-generation&other=conversational,text-generation-inference&sort=trending) of supported models. For authentication, you should pass a valid [User Access Token](https://huggingface.co/settings/tokens) as `api_key` or authenticate using `huggingface_hub` (see the [authentication guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)).
+
+All input parameters and output format are strictly the same. In particular, you can pass `stream=True` to receive tokens as they are generated. You can also use the [`AsyncInferenceClient`] to run inference using `asyncio`:
+
+```py
+import asyncio
+# instead of `from openai import AsyncOpenAI`
+from huggingface_hub import AsyncInferenceClient
+
+# instead of `client = AsyncOpenAI()`
+client = AsyncOpenAI()
+
+async def main():
+    stream = await client.chat.completions.create(
+        model="meta-llama/Meta-Llama-3-8B-Instruct",
+        messages=[{"role": "user", "content": "Say this is a test"}],
+        stream=True,
+    )
+    async for chunk in stream:
+        print(chunk.choices[0].delta.content or "", end="")
+
+asyncio.run(main())
+```
+
+<Tip>
+
+`InferenceClient.chat.completions.create` is simply an alias for `InferenceClient.chat_completion`. Check out the package reference of [`~InferenceClient.chat_completion`] for more details. `base_url` and `api_key` parameters when instantiating the client are also aliases for `model` and `token`. These aliases have been defined to reduce friction when switching from `OpenAI` to `InferenceClient`.
 
 </Tip>
 

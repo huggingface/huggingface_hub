@@ -135,12 +135,16 @@ class InferenceClient:
 
     Args:
         model (`str`, `optional`):
-            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `bigcode/starcoder`
+            The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
+            Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
+            arguments are mutually exclusive and have the exact same behavior.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
+            Note: for better compatibility with OpenAI's client, `token` has been aliased as `api_key`. Those 2
+            arguments are mutually exclusive and have the exact same behavior.
         timeout (`float`, `optional`):
             The maximum number of seconds to wait for a response from the server. Loading a new model in Inference
             API can take up to several minutes. Defaults to None, meaning it will loop until the server is available.
@@ -171,6 +175,19 @@ class InferenceClient:
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> None:
+        if model is not None and base_url is not None:
+            raise ValueError(
+                "Received both `model` and `base_url` arguments. Please provide only one of them."
+                " `base_url` is an alias for `model` to make the API compatible with OpenAI's client."
+                " It has the exact same behavior as `model`."
+            )
+        if token is not None and api_key is not None:
+            raise ValueError(
+                "Received both `token` and `api_key` arguments. Please provide only one of them."
+                " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
+                " It has the exact same behavior as `token`."
+            )
+
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token or api_key
         self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
@@ -529,6 +546,15 @@ class InferenceClient:
         """
         A method for completing conversations using a specified language model.
 
+        <Tip>
+
+        The `client.chat_completion` method is aliased as `client.chat.completions.create` for compatibility with OpenAI's client.
+        Inputs and outputs are strictly the same and using either syntax will yield the same results.
+        Check out the [Inference guide](https://huggingface.co/docs/huggingface_hub/guides/inference#openai-compatibility)
+        for more details about OpenAI's compatibility.
+
+        </Tip>
+
         Args:
             messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
                 Conversation history consisting of roles and content pairs.
@@ -635,6 +661,32 @@ class InferenceClient:
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' capital', role='assistant'), index=0, finish_reason=None)], created=1710498504)
         (...)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content=' may', role='assistant'), index=0, finish_reason=None)], created=1710498504)
+        ```
+
+        Example using OpenAI's syntax:
+        ```py
+        # instead of `from openai import OpenAI`
+        from huggingface_hub import InferenceClient
+
+        # instead of `client = OpenAI(...)`
+        client = InferenceClient(
+            base_url=...,
+            api_key=...,
+        )
+
+
+        output = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Count to 10"},
+            ],
+            stream=True,
+            max_tokens=1024,
+        )
+
+        for chunk in output:
+            print(chunk.choices[0].delta.content)
         ```
 
         Example using tools:
@@ -2744,7 +2796,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> client.get_model_status("bigcode/starcoder")
+        >>> client.get_model_status("meta-llama/Meta-Llama-3-8B-Instruct")
         ModelStatus(loaded=True, state='Loaded', compute_type='gpu', framework='text-generation-inference')
         ```
         """
