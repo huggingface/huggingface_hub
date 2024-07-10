@@ -151,12 +151,12 @@ endpoints.
 
 The `chat_completion` task follows [OpenAI's Python client](https://github.com/openai/openai-python) syntax. What does it mean for you? It means that if you are used to play with `OpenAI`'s APIs you will be able to switch to `huggingface_hub.InferenceClient` to work with open-source models by updating just 2 line of code!
 
-```py
-# instead of `from openai import OpenAI`
-from huggingface_hub import InferenceClient
+```diff
+- from openai import OpenAI
++ from huggingface_hub import InferenceClient
 
-# instead of `client = OpenAI(...)`
-client = InferenceClient(
+- client = OpenAI(
++ client = InferenceClient(
     base_url=...,
     api_key=...,
 )
@@ -180,13 +180,13 @@ And that's it! The only required changes are to replace `from openai import Open
 
 All input parameters and output format are strictly the same. In particular, you can pass `stream=True` to receive tokens as they are generated. You can also use the [`AsyncInferenceClient`] to run inference using `asyncio`:
 
-```py
+```diff
 import asyncio
-# instead of `from openai import AsyncOpenAI`
-from huggingface_hub import AsyncInferenceClient
+- from openai import AsyncOpenAI
++ from huggingface_hub import AsyncInferenceClient
 
-# instead of `client = AsyncOpenAI()`
-client = AsyncOpenAI()
+- client = AsyncOpenAI()
++ client = AsyncInferenceClient()
 
 async def main():
     stream = await client.chat.completions.create(
