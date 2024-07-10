@@ -3390,6 +3390,7 @@ class RepoUrlTest(unittest.TestCase):
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
+    @unittest.skip("Duplicating Space doesn't work on staging.")
     def test_duplicate_space_success(self) -> None:
         """Check `duplicate_space` works."""
         from_repo_name = repo_name()
