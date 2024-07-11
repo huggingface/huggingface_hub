@@ -82,9 +82,9 @@ def test_local_download_paths_are_cached(tmp_path: Path):
     assert paths1 is paths2
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
 def test_local_download_paths_long_paths(tmp_path: Path):
     """Test long path handling on Windows."""
-    if os.name == "nt":
         long_file_name = "a" * 255
         paths = get_local_download_paths(tmp_path, f"path/long/{long_file_name}.txt")
 
