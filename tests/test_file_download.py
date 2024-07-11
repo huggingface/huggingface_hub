@@ -992,6 +992,27 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
         self.file_path.read_text() == "content"
 
+    @patch("huggingface_hub.file_download.build_hf_headers")
+    def test_passing_token_false_is_respected(self, mock: Mock):
+        """Regression test for #2385.
+
+        A bug introduced in 0.23.0 was causing the `token` parameter to be ignored when set to `False`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2385.
+        """
+        # Download to local dir
+        mock.reset_mock(return_value={})
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, token=False)
+        mock.assert_called()
+        for call in mock.call_args_list:
+            assert call.kwargs["token"] is False
+
+        # Download to cache dir
+        mock.reset_mock(return_value={})
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, cache_dir=self.local_dir, token=False)
+        mock.assert_called()
+        for call in mock.call_args_list:
+            assert call.kwargs["token"] is False
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):

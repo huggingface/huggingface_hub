@@ -1226,10 +1226,11 @@ def hf_hub_download(
             filename=filename,
             revision=revision,
             # HTTP info
-            proxies=proxies,
+            endpoint=endpoint,
             etag_timeout=etag_timeout,
             headers=headers,
-            endpoint=endpoint,
+            proxies=proxies,
+            token=token,
             # Additional options
             cache_dir=cache_dir,
             force_download=force_download,
@@ -1245,10 +1246,11 @@ def hf_hub_download(
             repo_type=repo_type,
             revision=revision,
             # HTTP info
+            endpoint=endpoint,
+            etag_timeout=etag_timeout,
             headers=headers,
             proxies=proxies,
-            etag_timeout=etag_timeout,
-            endpoint=endpoint,
+            token=token,
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
@@ -1265,10 +1267,11 @@ def _hf_hub_download_to_cache_dir(
     repo_type: str,
     revision: str,
     # HTTP info
+    endpoint: Optional[str],
+    etag_timeout: float,
     headers: Dict[str, str],
     proxies: Optional[Dict],
-    etag_timeout: float,
-    endpoint: Optional[str],
+    token: Optional[Union[bool, str]],
     # Additional options
     local_files_only: bool,
     force_download: bool,
@@ -1306,6 +1309,7 @@ def _hf_hub_download_to_cache_dir(
         proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
+        token=token,
         local_files_only=local_files_only,
         storage_folder=storage_folder,
         relative_filename=relative_filename,
@@ -1407,10 +1411,11 @@ def _hf_hub_download_to_local_dir(
     filename: str,
     revision: str,
     # HTTP info
-    proxies: Optional[Dict],
+    endpoint: Optional[str],
     etag_timeout: float,
     headers: Dict[str, str],
-    endpoint: Optional[str],
+    proxies: Optional[Dict],
+    token: Union[bool, str, None],
     # Additional options
     cache_dir: str,
     force_download: bool,
@@ -1444,6 +1449,7 @@ def _hf_hub_download_to_local_dir(
         proxies=proxies,
         etag_timeout=etag_timeout,
         headers=headers,
+        token=token,
         local_files_only=local_files_only,
     )
 
@@ -1695,6 +1701,7 @@ def _get_metadata_or_catch_error(
     proxies: Optional[Dict],
     etag_timeout: Optional[float],
     headers: Dict[str, str],  # mutated inplace!
+    token: Union[bool, str, None],
     local_files_only: bool,
     relative_filename: Optional[str] = None,  # only used to store `.no_exists` in cache
     storage_folder: Optional[str] = None,  # only used to store `.no_exists` in cache
@@ -1737,7 +1744,7 @@ def _get_metadata_or_catch_error(
     if not local_files_only:
         try:
             try:
-                metadata = get_hf_file_metadata(url=url, proxies=proxies, timeout=etag_timeout, headers=headers)
+                metadata = get_hf_file_metadata(url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token)
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
