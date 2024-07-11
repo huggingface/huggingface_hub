@@ -18,8 +18,9 @@ See `huggingface_hub/src/_local_folder.py` for the implementation.
 """
 
 import logging
+import os
 import time
-from pathlib import Path
+from pathlib import Path, WindowsPath
 
 import pytest
 
@@ -79,6 +80,23 @@ def test_local_download_paths_are_cached(tmp_path: Path):
     paths1 = get_local_download_paths(tmp_path, "path/in/repo.txt")
     paths2 = get_local_download_paths(tmp_path, "path/in/repo.txt")
     assert paths1 is paths2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+def test_local_download_paths_long_paths(tmp_path: Path):
+    """Test long path handling on Windows."""
+    long_file_name = "a" * 255
+    paths = get_local_download_paths(tmp_path, f"path/long/{long_file_name}.txt")
+
+    # WindowsPath on Windows platform
+    assert isinstance(paths.file_path, WindowsPath)
+    assert isinstance(paths.lock_path, WindowsPath)
+    assert isinstance(paths.metadata_path, WindowsPath)
+
+    # Correct path prefixes
+    assert str(paths.file_path).startswith("\\\\?\\")
+    assert str(paths.lock_path).startswith("\\\\?\\")
+    assert str(paths.metadata_path).startswith("\\\\?\\")
 
 
 def test_write_download_metadata(tmp_path: Path):
