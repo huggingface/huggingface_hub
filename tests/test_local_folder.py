@@ -85,18 +85,18 @@ def test_local_download_paths_are_cached(tmp_path: Path):
 @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
 def test_local_download_paths_long_paths(tmp_path: Path):
     """Test long path handling on Windows."""
-        long_file_name = "a" * 255
-        paths = get_local_download_paths(tmp_path, f"path/long/{long_file_name}.txt")
+    long_file_name = "a" * 255
+    paths = get_local_download_paths(tmp_path, f"path/long/{long_file_name}.txt")
 
-        # WindowsPath on Windows platform
-        assert isinstance(paths.file_path, WindowsPath)
-        assert isinstance(paths.lock_path, WindowsPath)
-        assert isinstance(paths.metadata_path, WindowsPath)
+    # WindowsPath on Windows platform
+    assert isinstance(paths.file_path, WindowsPath)
+    assert isinstance(paths.lock_path, WindowsPath)
+    assert isinstance(paths.metadata_path, WindowsPath)
 
-        # Correct path prefixes
-        assert str(paths.file_path).startswith("\\\\?\\")
-        assert str(paths.lock_path).startswith("\\\\?\\")
-        assert str(paths.metadata_path).startswith("\\\\?\\")
+    # Correct path prefixes
+    assert str(paths.file_path).startswith("\\\\?\\")
+    assert str(paths.lock_path).startswith("\\\\?\\")
+    assert str(paths.metadata_path).startswith("\\\\?\\")
 
 
 def test_write_download_metadata(tmp_path: Path):
