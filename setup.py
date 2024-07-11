@@ -63,13 +63,14 @@ extras["testing"] = (
     + [
         "jedi",
         "Jinja2",
-        "pytest>=8.1.1",
+        "pytest>=8.1.1,<8.2.2",  # at least until 8.2.3 is released with https://github.com/pytest-dev/pytest/pull/12436
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
         "pytest-rerunfailures",  # to rerun flaky tests in CI
+        "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",

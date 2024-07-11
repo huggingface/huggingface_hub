@@ -8,7 +8,11 @@ rendered properly in your Markdown viewer.
 
 ## Save torch state dict
 
-The main helper of the `serialization` module takes a state dictionary as input (e.g. a mapping between layer names and related tensors), splits it into several shards while creating a proper index in the process and save everything to disk. At the moment, only `torch` tensors are supported. Under the hood, it delegates the logic to split the state dictionary to [`split_torch_state_dict_into_shards`].
+The main helper of the `serialization` module takes a torch `nn.Module` as input and saves it to disk. It handles the logic to save shared tensors (see [safetensors explanation](https://huggingface.co/docs/safetensors/torch_shared_tensors)) as well as logic to split the state dictionary into shards, using [`split_torch_state_dict_into_shards`] under the hood. At the moment, only `torch` framework is supported.
+
+If you want to save a state dictionary (e.g. a mapping between layer names and related tensors) instead of a `nn.Module`, you can use [`save_torch_state_dict`] which provides the same features. This is useful for example if you want to apply custom logic to the state dict before saving it.
+
+[[autodoc]] huggingface_hub.save_torch_model
 
 [[autodoc]] huggingface_hub.save_torch_state_dict
 
@@ -35,3 +39,7 @@ This is the underlying factory from which each framework-specific helper is deri
 ### get_torch_storage_id
 
 [[autodoc]] huggingface_hub.get_torch_storage_id
+
+### get_torch_storage_size
+
+[[autodoc]] huggingface_hub.get_torch_storage_size
