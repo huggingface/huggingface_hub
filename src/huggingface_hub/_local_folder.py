@@ -182,9 +182,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
                     )
             except Exception as e:
                 # remove the metadata file if it is corrupted / not the right format
-                logger.warning(
-                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
-                )
+                logger.warning(f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue.")
                 try:
                     paths.metadata_path.unlink()
                 except Exception as e:
@@ -193,9 +191,7 @@ def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDown
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
                 stat = paths.file_path.stat()
-                if (
-                    stat.st_mtime - 1 <= metadata.timestamp
-                ):  # allow 1s difference as stat.st_mtime might not be precise
+                if stat.st_mtime - 1 <= metadata.timestamp:  # allow 1s difference as stat.st_mtime might not be precise
                     return metadata
                 logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
             except FileNotFoundError:
