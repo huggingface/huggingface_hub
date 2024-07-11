@@ -142,22 +142,10 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix
     if os.name == "nt":
-        if len(os.path.abspath(lock_path)) > 255:
-            file_path = (
-                file_path
-                if str(file_path.absolute()).startswith("\\\\?\\")
-                else Path("\\\\?\\" + os.path.abspath(file_path))
-            )
-            lock_path = (
-                lock_path
-                if str(lock_path.absolute()).startswith("\\\\?\\")
-                else Path("\\\\?\\" + os.path.abspath(lock_path))
-            )
-            metadata_path = (
-                metadata_path
-                if str(metadata_path.absolute()).startswith("\\\\?\\")
-                else Path("\\\\?\\" + os.path.abspath(metadata_path))
-            )
+        if not str(local_dir).startswith("\\\\?\\") and len(os.path.abspath(lock_path)) > 255:
+            file_path = Path("\\\\?\\" + os.path.abspath(file_path))
+            lock_path = Path("\\\\?\\" + os.path.abspath(lock_path))
+            metadata_path = Path("\\\\?\\" + os.path.abspath(metadata_path))
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
