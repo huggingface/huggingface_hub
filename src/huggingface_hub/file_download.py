@@ -1744,7 +1744,9 @@ def _get_metadata_or_catch_error(
     if not local_files_only:
         try:
             try:
-                metadata = get_hf_file_metadata(url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token)
+                metadata = get_hf_file_metadata(
+                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token
+                )
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file

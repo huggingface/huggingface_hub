@@ -1014,6 +1014,7 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
         for call in mock.call_args_list:
             assert call.kwargs["token"] is False
 
+
 @pytest.mark.usefixtures("fx_cache_dir")
 class StagingCachedDownloadOnAwfulFilenamesTest(unittest.TestCase):
     """Implement regression tests for #1161.
