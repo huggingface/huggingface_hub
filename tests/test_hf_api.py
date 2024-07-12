@@ -343,8 +343,8 @@ class CommitApiTest(HfApiCommonTest):
     @use_tmp_repo()
     def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
-        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="README.md", repo_id=repo_url.repo_id)
-        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_url.repo_id))
+        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="file.txt", repo_id=repo_url.repo_id)
+        self.assertIn("file.txt", self._api.list_repo_files(repo_id=repo_url.repo_id))
 
     @use_tmp_repo()
     def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
@@ -939,7 +939,7 @@ class CommitApiTest(HfApiCommonTest):
             CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content1"),
             CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
             CommitOperationAdd(path_in_repo="lfs2.bin", path_or_fileobj=b"content2"),
-            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="file2.txt", path_or_fileobj=b"content"),
         ]
 
         # First: preupload 1 by 1
