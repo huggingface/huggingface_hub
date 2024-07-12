@@ -33,6 +33,6 @@ def test_sha_fileobj():
 def test_git_hash():
     """Test the `git_hash` output is the same as `git hash-object` command."""
     output = subprocess.run(
-        "echo 'Hello, World!' | git hash-object -w --stdin", shell=True, capture_output=True, text=True
+        "echo -n 'Hello, World!' | git hash-object -w --stdin", shell=True, capture_output=True, text=True
     )
-    assert output.stdout.strip() == git_hash(b"Hello, World!\n")
+    assert output.stdout.strip() == git_hash(b"Hello, World!")
