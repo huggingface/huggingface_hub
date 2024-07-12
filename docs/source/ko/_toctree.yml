@@ -6,7 +6,7 @@
       title: 둘러보기
     - local: installation
       title: 설치 방법
-- title: "(번역 중) How-to 가이드"
+- title: "How-to 가이드"
   sections:
     - local: guides/overview
       title: 개요
@@ -30,17 +30,17 @@
       title: 커뮤니티
     - local: guides/collections
       title: Collections
-    - local: in_translation
-      title: (번역 중) Cache
+    - local: guides/manage-cache
+      title: 캐시 관리
     - local: guides/model-cards
       title: 모델 카드
     - local: guides/manage-spaces
       title: Space 관리
-    - local: in_translation
-      title: (번역 중) Integrate a library
+    - local: guides/integrations
+      title: 라이브러리 통합
     - local: guides/webhooks_server
       title: 웹훅 서버
-- title: "(번역 중) 개념 가이드"
+- title: "개념 가이드"
   sections:
     - local: concepts/git_vs_http
       title: Git 대 HTTP 패러다임
@@ -50,8 +50,8 @@
       title: 개요
     - local: package_reference/login
       title: 로그인 및 로그아웃
-    - local: in_translation
-      title: (번역 중) Environment variables
+    - local: package_reference/environment_variables
+      title: 환경 변수
     - local: package_reference/repository
       title: 로컬 및 온라인 리포지토리 관리
     - local: package_reference/hf_api
@@ -82,7 +82,7 @@
       title: Space 런타임
     - local: package_reference/tensorboard
       title: TensorBoard 로거
-    - local: in_translation
-      title: (번역 중) Webhooks server
+    - local: package_reference/webhooks_server
+      title: 웹훅 서버
     - local: package_reference/serialization
       title: 직렬화

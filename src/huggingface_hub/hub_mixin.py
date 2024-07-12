@@ -4,7 +4,18 @@ import os
 import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, get_args
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
 from .file_download import hf_hub_download
@@ -16,8 +27,10 @@ from .utils import (
     SoftTemporaryDirectory,
     is_jsonable,
     is_safetensors_available,
+    is_simple_optional_type,
     is_torch_available,
     logging,
+    unwrap_simple_optional_type,
     validate_hf_hub_args,
 )
 
@@ -312,12 +325,11 @@ class ModelHubMixin:
                 if instance._is_jsonable(value)  # Only if jsonable or we have a custom encoder
             },
         }
-        init_config.pop("config", {})
+        passed_config = init_config.pop("config", {})
 
         # Populate `init_config` with provided config
-        provided_config = passed_values.get("config")
-        if isinstance(provided_config, dict):
-            init_config.update(provided_config)
+        if isinstance(passed_config, dict):
+            init_config.update(passed_config)
 
         # Set `config` attribute and return
         if init_config != {}:
@@ -336,15 +348,26 @@ class ModelHubMixin:
         """Encode an argument into a JSON serializable format."""
         for type_, (encoder, _) in cls._hub_mixin_coders.items():
             if isinstance(arg, type_):
+                if arg is None:
+                    return None
                 return encoder(arg)
         return arg
 
     @classmethod
-    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> ARGS_T:
+    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> Optional[ARGS_T]:
         """Decode a JSON serializable value into an argument."""
+        if is_simple_optional_type(expected_type):
+            if value is None:
+                return None
+            expected_type = unwrap_simple_optional_type(expected_type)
+        # Dataclass => handle it
+        if is_dataclass(expected_type):
+            return _load_dataclass(expected_type, value)  # type: ignore[return-value]
+        # Otherwise => check custom decoders
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
-            if issubclass(expected_type, type_):
+            if inspect.isclass(expected_type) and issubclass(expected_type, type_):
                 return decoder(value)
+        # Otherwise => don't decode
         return value
 
     def save_pretrained(
@@ -511,18 +534,9 @@ class ModelHubMixin:
 
             # Check if `config` argument was passed at init
             if "config" in cls._hub_mixin_init_parameters and "config" not in model_kwargs:
-                # Check if `config` argument is a dataclass
+                # Decode `config` argument if it was passed
                 config_annotation = cls._hub_mixin_init_parameters["config"].annotation
-                if config_annotation is inspect.Parameter.empty:
-                    pass  # no annotation
-                elif is_dataclass(config_annotation):
-                    config = _load_dataclass(config_annotation, config)
-                else:
-                    # if Optional/Union annotation => check if a dataclass is in the Union
-                    for _sub_annotation in get_args(config_annotation):
-                        if is_dataclass(_sub_annotation):
-                            config = _load_dataclass(_sub_annotation, config)
-                            break
+                config = cls._decode_arg(config_annotation, config)
 
                 # Forward config to model initialization
                 model_kwargs["config"] = config

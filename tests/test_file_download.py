@@ -190,11 +190,15 @@ class StagingDownloadTests(unittest.TestCase):
 
 @with_production_testing
 class CachedDownloadTests(unittest.TestCase):
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_bogus_url(self):
         url = "https://bogus"
         with self.assertRaisesRegex(ValueError, "Connection error"):
             _ = cached_download(url, legacy_cache_layout=True)
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_no_connection(self):
         invalid_url = hf_hub_url(
             DUMMY_MODEL_ID,
@@ -211,6 +215,7 @@ class CachedDownloadTests(unittest.TestCase):
                     _ = cached_download(valid_url, force_download=True, legacy_cache_layout=True)
                 self.assertIsNotNone(cached_download(valid_url, legacy_cache_layout=True))
 
+    @expect_deprecation("cached_download")
     def test_file_not_found_on_repo(self):
         # Valid revision (None) but missing file on repo.
         url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
@@ -243,6 +248,8 @@ class CachedDownloadTests(unittest.TestCase):
                     local_files_only=True,
                 )
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_file_not_found_locally_and_network_disabled_legacy(self):
         # Valid file but missing locally and network is disabled.
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
@@ -289,6 +296,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Set permission back for cleanup
             _recursive_chmod(tmpdir, 0o777)
 
+    @expect_deprecation("cached_download")
     def test_revision_not_found(self):
         # Valid file but missing revision
         url = hf_hub_url(
@@ -302,6 +310,7 @@ class CachedDownloadTests(unittest.TestCase):
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
+    @expect_deprecation("cached_download")
     def test_repo_not_found(self):
         # Invalid model file.
         url = hf_hub_url("bert-base", filename="pytorch_model.bin")
@@ -311,12 +320,18 @@ class CachedDownloadTests(unittest.TestCase):
         ):
             _ = cached_download(url, legacy_cache_layout=True)
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_standard_object(self):
         url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_standard_object_rev(self):
         # Same object, but different revision
         url = hf_hub_url(
@@ -329,12 +344,18 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
         # Caution: check that the etag is *not* equal to the one from `test_standard_object`
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_lfs_object(self):
         url = hf_hub_url(DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_dataset_standard_object_rev(self):
         url = hf_hub_url(
             DATASET_ID,
@@ -347,6 +368,9 @@ class CachedDownloadTests(unittest.TestCase):
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
+    @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
+    @expect_deprecation("filename_to_url")
     def test_dataset_lfs_object(self):
         url = hf_hub_url(
             DATASET_ID,
@@ -523,6 +547,10 @@ class CachedDownloadTests(unittest.TestCase):
             "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
         )
 
+    @expect_deprecation("hf_hub_download")
+    @expect_deprecation("cached_download")
+    @expect_deprecation("filename_to_url")
+    @expect_deprecation("url_to_filename")
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
@@ -715,6 +743,7 @@ class CachedDownloadTests(unittest.TestCase):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
     @expect_deprecation("cached_download")
+    @expect_deprecation("url_to_filename")
     def test_cached_download_from_github(self):
         """Regression test for #1449.
 
@@ -962,6 +991,28 @@ class HfHubDownloadToLocalDir(unittest.TestCase):
         incomplete_path.write_text("XXXX")
         self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, force_download=True)
         self.file_path.read_text() == "content"
+
+    @patch("huggingface_hub.file_download.build_hf_headers")
+    def test_passing_token_false_is_respected(self, mock: Mock):
+        """Regression test for #2385.
+
+        A bug introduced in 0.23.0 was causing the `token` parameter to be ignored when set to `False`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2385.
+        """
+        # Download to local dir
+        mock.reset_mock(return_value={})
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir, token=False)
+        mock.assert_called()
+        for call in mock.call_args_list:
+            assert call.kwargs["token"] is False
+
+        # Download to cache dir
+        mock.reset_mock(return_value={})
+        self.api.hf_hub_download(self.repo_id, filename=self.file_name, cache_dir=self.local_dir, token=False)
+        mock.assert_called()
+        for call in mock.call_args_list:
+            assert call.kwargs["token"] is False
 
 
 @pytest.mark.usefixtures("fx_cache_dir")

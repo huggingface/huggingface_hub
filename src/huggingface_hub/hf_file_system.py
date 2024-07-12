@@ -1,3 +1,4 @@
+import inspect
 import os
 import re
 import tempfile
@@ -402,6 +403,12 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
                 out.append(cache_path_info)
         return out
+
+    def walk(self, path, *args, **kwargs):
+        # Set expand_info=False by default to get a x10 speed boost
+        kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
+        path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
+        yield from super().walk(path, *args, **kwargs)
 
     def glob(self, path, **kwargs):
         # Set expand_info=False by default to get a x10 speed boost
@@ -883,3 +890,20 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
+
+
+# Add docstrings to the methods of HfFileSystem from fsspec.AbstractFileSystem
+for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunction):
+    parent = getattr(fsspec.AbstractFileSystem, name, None)
+    if parent is not None and parent.__doc__ is not None:
+        parent_doc = parent.__doc__
+        parent_doc = parent_doc.replace("Parameters\n        ----------\n", "Args:\n")
+        parent_doc = parent_doc.replace("Returns\n        -------\n", "Return:\n")
+        function.__doc__ = (
+            (
+                "\n_Docstring taken from "
+                f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})._"
+            )
+            + "\n\n"
+            + parent_doc
+        )

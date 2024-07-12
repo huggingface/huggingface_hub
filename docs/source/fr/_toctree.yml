@@ -10,3 +10,7 @@
   sections:
     - local: concepts/git_vs_http
       title: Git ou HTTP?
+- title: "Guides"
+  sections:
+    - local: guides/integrations
+      title: Intégrer dans une librarie

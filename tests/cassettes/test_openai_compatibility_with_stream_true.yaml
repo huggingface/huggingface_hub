@@ -1,0 +1,148 @@
+interactions:
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.3.1; tensorflow/2.15.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: 'data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"Here"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        it"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        goes"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":":\n\n"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"1"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604399,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"2"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"3"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"4"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"5"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"6"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"7"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"8"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"9"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":","},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"
+        "},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"10"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":"!"},"logprobs":null,"finish_reason":null}]}
+
+
+        data:{"id":"","object":"text_completion","created":1720604400,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":"eos_token"}]}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '8690'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 10 Jul 2024 09:43:22 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 5ZjP6frO9z95MsZ37xFRk
+      x-sha:
+      - e1945c40cd546c78e41f1151f4db032b271faeaa
+    status:
+      code: 200
+      message: OK
+version: 1
