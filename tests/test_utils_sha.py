@@ -30,9 +30,13 @@ def test_sha_fileobj():
         assert sha_fileobj(BytesIO(content), 50_000) == sha
 
 
-def test_git_hash():
+def test_git_hash(tmpdir):
     """Test the `git_hash` output is the same as `git hash-object` command."""
+    path = os.path.join(tmpdir, "file.txt")
+    with open(path, "wb") as file:
+        file.write(b"Hello, World!")
+
     output = subprocess.run(
-        "echo -n 'Hello, World!' | git hash-object -w --stdin", shell=True, capture_output=True, text=True
+        f"git hash-object -t blob {path}", shell=True, capture_output=True, text=True
     )
     assert output.stdout.strip() == git_hash(b"Hello, World!")
