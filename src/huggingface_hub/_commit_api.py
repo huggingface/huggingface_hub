@@ -260,7 +260,7 @@ class CommitOperationAdd:
 
         For LFS files, the OID corresponds to the SHA256 of the file content (used a LFS ref).
         For regular files, the OID corresponds to the SHA1 of the file content.
-        Note: this is slightly different to git OID computation since the oid of an LFS file is usually the SHA1 of the
+        Note: this is slightly different to git OID computation since the oid of an LFS file is usually the git-SHA1 of the
               pointer file content (not the actual file content). However, using the SHA256 is enough to detect changes
               and more convenient client-side.
         """

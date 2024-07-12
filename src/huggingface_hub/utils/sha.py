@@ -31,7 +31,7 @@ def sha_fileobj(fileobj: BinaryIO, chunk_size: Optional[int] = None) -> bytes:
 
 def git_hash(data: bytes) -> str:
     """
-    Computes the sha1 hash of the given bytes, using the same algorithm as git.
+    Computes the git-sha1 hash of the given bytes, using the same algorithm as git.
 
     This is equivalent to running `git hash-object`. See https://git-scm.com/docs/git-hash-object
     for more details.
