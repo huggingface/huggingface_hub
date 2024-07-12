@@ -36,7 +36,5 @@ def test_git_hash(tmpdir):
     with open(path, "wb") as file:
         file.write(b"Hello, World!")
 
-    output = subprocess.run(
-        f"git hash-object -t blob {path}", shell=True, capture_output=True, text=True
-    )
+    output = subprocess.run(f"git hash-object -t blob {path}", shell=True, capture_output=True, text=True)
     assert output.stdout.strip() == git_hash(b"Hello, World!")
