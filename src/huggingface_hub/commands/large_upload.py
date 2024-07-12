@@ -23,10 +23,10 @@ from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
 
 from huggingface_hub import logging
+from huggingface_hub._large_upload import large_upload
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.large_upload import large_upload
 
 from ._cli_utils import ANSI
 

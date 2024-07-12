@@ -1,7 +1,17 @@
-"""
-EXPERIMENTAL
-"""
-
+# coding=utf-8
+# Copyright 2024-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import enum
 import logging
 import os
@@ -14,6 +24,7 @@ from pathlib import Path
 from threading import Lock
 from typing import List, Optional, Tuple, Union
 
+from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPE_MODEL, REPO_TYPES
@@ -30,6 +41,7 @@ REPORT_STATUS_EVERY = 60  # seconds
 def large_upload(
     repo_id: str,
     folder_path: Union[str, Path],
+    *,
     api: Optional[HfApi] = None,
     repo_type: Optional[str] = None,
     revision: Optional[str] = None,
@@ -323,7 +335,12 @@ def _worker_job(
                 logger.debug("Job: get upload mode (no other worker getting upload mode)")
 
             # 7. Compute LFS file if at least 1 file
-            elif status.queue_preupload_lfs.qsize() > 0:
+            #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
+            elif (
+                status.queue_preupload_lfs.qsize() > 0
+                and status.nb_workers_preupload_lfs == 0
+                or not constants.HF_HUB_ENABLE_HF_TRANSFER
+            ):
                 status.nb_workers_preupload_lfs += 1
                 next_job = (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
                 logger.debug("Job: preupload LFS")
