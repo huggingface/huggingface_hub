@@ -16,6 +16,8 @@ import enum
 import logging
 import os
 import queue
+import shutil
+import sys
 import threading
 import time
 import traceback
@@ -50,6 +52,7 @@ def large_upload(
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     num_workers: Optional[int] = None,
+    print_report: bool = True,
 ):
     """Used to upload a large folder in the most resilient way possible.
 
@@ -130,8 +133,11 @@ def large_upload(
     for thread in threads:
         thread.start()
 
+    if print_report:
+        print("\n\n" + status.current_report())
     while True:
-        logger.info(status.current_report())
+        if print_report:
+            _print_overwrite(status.current_report())
         time.sleep(REPORT_STATUS_EVERY)
         if status.is_done():
             logging.info("Is done: exiting main loop")
@@ -154,7 +160,7 @@ class WorkerJob(enum.Enum):
     GET_UPLOAD_MODE = enum.auto()
     PREUPLOAD_LFS = enum.auto()
     COMMIT = enum.auto()
-    WAIT = enum.auto() # if no tasks are available but we don't want to exit
+    WAIT = enum.auto()  # if no tasks are available but we don't want to exit
 
 
 JOB_ITEM_T = Tuple[LocalUploadFilePaths, LocalUploadFileMetadata]
@@ -235,27 +241,26 @@ class LargeUploadStatus:
             elapsed = now - self._started_at
             elapsed_str = str(elapsed).split(".")[0]  # remove milliseconds
 
-            message = "\n\n" + "#" * 10 + "\n"
-            message += "Large upload status:\n"
-            message += "  Progress:\n"
-            message += f"    {nb_hashed}/{total_files} hashed files ({_format_size(size_hashed)}/{total_size_str})\n"
-            message += f"    {nb_preuploaded}/{nb_lfs} preuploaded LFS files ({_format_size(size_preuploaded)}/{total_size_str})"
+            message = "\n" + "-" * 10
+            message += f" {now_str} ({elapsed_str}) "
+            message += "-" * 10 + "\n"
+
+            message += "Files:   "
+            message += f"hashed {nb_hashed}/{total_files} ({_format_size(size_hashed)}/{total_size_str}) | "
+            message += f"pre-uploaded: {nb_preuploaded}/{nb_lfs} ({_format_size(size_preuploaded)}/{total_size_str})"
             if nb_lfs_unsure > 0:
-                message += f" (+{nb_lfs_unsure} files with unknown upload mode yet)"
-            message += "\n"
-            message += (
-                f"    {nb_committed}/{total_files} committed files ({_format_size(size_committed)}/{total_size_str})\n"
-            )
-            message += f"    ({ignored_files} gitignored files)\n"
-            message += "  Jobs:\n"
-            message += f"    sha256: {self.nb_workers_sha256} workers ({self.queue_sha256.qsize()} items in queue)\n"
-            message += f"    get_upload_mode: {self.nb_workers_get_upload_mode} workers ({self.queue_get_upload_mode.qsize()} items in queue)\n"
-            message += f"    preupload_lfs: {self.nb_workers_preupload_lfs} workers ({self.queue_preupload_lfs.qsize()} items in queue)\n"
-            message += f"    commit: {self.nb_workers_commit} workers ({self.queue_commit.qsize()} items in queue)\n"
-            message += f"    waiting: {self.nb_workers_waiting} workers\n"
-            message += f"  Elapsed time: {elapsed_str}\n"
-            message += f"  Current time: {now_str}\n"
-            message += "#" * 10 + "\n\n"
+                message += f" (+{nb_lfs_unsure} unsure)"
+            message += f" | committed: {nb_committed}/{total_files} ({_format_size(size_committed)}/{total_size_str})"
+            message += f" | ignored: {ignored_files}\n"
+
+            message += "Workers: "
+            message += f"hashing: {self.nb_workers_sha256} | "
+            message += f"get upload mode: {self.nb_workers_get_upload_mode} | "
+            message += f"pre-uploading: {self.nb_workers_preupload_lfs} | "
+            message += f"committing: {self.nb_workers_commit} | "
+            message += f"waiting: {self.nb_workers_waiting}\n"
+            message += "-" * 51
+
             return message
 
     def is_done(self) -> bool:
@@ -560,3 +565,29 @@ def _format_size(num: int) -> str:
             return f"{num_f:3.1f}{unit}"
         num_f /= 1000.0
     return f"{num_f:.1f}Y"
+
+
+def _print_overwrite(report: str) -> None:
+    """Print a report, overwriting the previous lines.
+
+    Since tqdm in using `sys.stderr` to (re-)write progress bars, we need to use `sys.stdout`
+    to print the report.
+
+    Note: works well only if no other process is writing to `sys.stdout`!
+    """
+    report += "\n"
+    # Get terminal width
+    terminal_width = shutil.get_terminal_size().columns
+
+    # Count number of lines that should be cleared
+    nb_lines = sum(len(line) // terminal_width + 1 for line in report.splitlines())
+
+    # Clear previous lines based on the number of lines in the report
+    for _ in range(nb_lines):
+        sys.stdout.write("\r\033[K")  # Clear line
+        sys.stdout.write("\033[F")  # Move cursor up one line
+
+    # Print the new report, filling remaining space with whitespace
+    sys.stdout.write(report)
+    sys.stdout.write(" " * (terminal_width - len(report.splitlines()[-1])))
+    sys.stdout.flush()

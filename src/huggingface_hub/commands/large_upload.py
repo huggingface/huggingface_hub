@@ -74,6 +74,9 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         large_upload_parser.add_argument(
             "--num-workers", type=int, help="Number of workers to use to hash, upload and commit files."
         )
+        large_upload_parser.add_argument(
+            "--no-report", action="store_true", help="Whether to regularly print a status report."
+        )
         large_upload_parser.set_defaults(func=LargeUploadCommand)
 
     def __init__(self, args: Namespace) -> None:
@@ -89,6 +92,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         self.api: HfApi = HfApi(token=args.token, library_name="huggingface-cli")
 
         self.num_workers: Optional[int] = args.num_workers
+        self.no_report: bool = args.no_report
 
         if not os.path.isdir(self.local_path):
             raise ValueError("Large upload is only supported for folders.")
@@ -135,4 +139,5 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
             allow_patterns=self.include,
             ignore_patterns=self.exclude,
             num_workers=self.num_workers,
+            print_report=not self.no_report,
         )
