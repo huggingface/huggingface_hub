@@ -274,16 +274,16 @@ def _worker_job(
         4. Commit (multiple files, max 50)
 
     Order of priority:
-        1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
-        2. Commit if at least 25 files are ready to commit.
-        3. Get upload mode if at least 10 files.
-        4. Preupload LFS file if at least 1 file and no worker is preuploading LFS.
-        5. Compute sha256 if at least 1 file and no worker is computing sha256.
-        6. Get upload mode if at least 1 file and no worker is getting upload mode.
-        7. Compute LFS file if at least 1 file.
-        8. Compute sha256 if at least 1 file.
-        9. Get upload mode if at least 1 file.
-        10. Commit if at least 1 file.
+        1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
+        2. Commit if at least 25 files are ready to commit
+        3. Get upload mode if at least 10 files
+        4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
+        5. Compute sha256 if at least 1 file and no worker is computing sha256
+        6. Get upload mode if at least 1 file and no worker is getting upload mode
+        7. Preupload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time)
+        8. Compute sha256 if at least 1 file
+        9. Get upload mode if at least 1 file
+        10. Commit if at least 1 file
 
     Special rules:
         - TODO: If `hf_transfer` => only 1 LFS uploader at a time.
@@ -334,12 +334,10 @@ def _worker_job(
                 next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
                 logger.debug("Job: get upload mode (no other worker getting upload mode)")
 
-            # 7. Compute LFS file if at least 1 file
+            # 7. Preupload LFS file if at least 1 file
             #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
-            elif (
-                status.queue_preupload_lfs.qsize() > 0
-                and status.nb_workers_preupload_lfs == 0
-                or not constants.HF_HUB_ENABLE_HF_TRANSFER
+            elif status.queue_preupload_lfs.qsize() > 0 and (
+                status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
             ):
                 status.nb_workers_preupload_lfs += 1
                 next_job = (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
