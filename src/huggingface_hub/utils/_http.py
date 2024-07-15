@@ -278,7 +278,16 @@ def http_backoff(
 
             # Perform request and return if status_code is not in the retry list.
             response = session.request(method=method, url=url, **kwargs)
-            if response.status_code not in retry_on_status_codes:
+
+            # Handle Retry-After header for 429 status code
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After")
+                if retry_after is not None:
+                    try:
+                        sleep_time += float(retry_after)
+                    except ValueError:
+                        pass
+            elif response.status_code not in retry_on_status_codes:
                 return response
 
             # Wrong status code returned (HTTP 503 for instance)

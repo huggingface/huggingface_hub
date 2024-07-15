@@ -146,6 +146,36 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
+    def test_backoff_respects_retry_after_header(self) -> None:
+        """Test `http_backoff` respects `Retry-After` header on 429 status codes."""
+        mock_429_with_retry_after = Mock()
+        mock_429_with_retry_after.status_code = 429
+        mock_429_with_retry_after.headers = {"Retry-After": "2"}
+        mock_200 = Mock()
+        mock_200.status_code = 200
+
+        sleep_times = []
+
+        def _side_effect_timer() -> Generator[None, None, None]:
+            t0 = time.time()
+            while True:
+                yield mock_429_with_retry_after
+                t1 = time.time()
+                sleep_times.append(round(t1 - t0, 1))
+                t0 = t1
+                yield mock_200
+
+        self.mock_request.side_effect = _side_effect_timer()
+
+        response = http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
+
+        self.assertEqual(self.mock_request.call_count, 2)
+        self.assertIs(response, mock_200)
+
+        # Assert sleep times respect `Retry-After` header and base_wait_time
+        expected_sleep_times = [2.1]
+        self.assertListEqual(sleep_times, expected_sleep_times)
+
 
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
