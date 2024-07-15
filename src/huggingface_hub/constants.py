@@ -49,6 +49,9 @@ SAFETENSORS_SINGLE_FILE = "model.safetensors"
 SAFETENSORS_INDEX_FILE = "model.safetensors.index.json"
 SAFETENSORS_MAX_HEADER_LENGTH = 25_000_000
 
+# Timeout of aquiring file lock and logging the attempt
+FILELOCK_LOG_EVERY_SECONDS = 10
+
 # Git-related constants
 
 DEFAULT_REVISION = "main"
