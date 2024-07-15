@@ -3820,6 +3820,7 @@ class AccessRequestAPITest(HfApiCommonTest):
         request = requests[0]
         assert isinstance(request, AccessRequest)
         assert request.username == OTHER_USER
+        assert request.email is None  # email not shared when granted access manually
         assert request.status == "accepted"
         assert isinstance(request.timestamp, datetime.datetime)
 

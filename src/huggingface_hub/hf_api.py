@@ -433,8 +433,9 @@ class AccessRequest:
             Username of the user who requested access.
         fullname (`str`):
             Fullname of the user who requested access.
-        email (`str`):
+        email (`Optional[str]`):
             Email of the user who requested access.
+            Can only be `None` in the /accepted list if the user was granted access manually.
         timestamp (`datetime`):
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
@@ -445,7 +446,7 @@ class AccessRequest:
 
     username: str
     fullname: str
-    email: str
+    email: Optional[str]
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
 
@@ -8422,7 +8423,7 @@ class HfApi:
             AccessRequest(
                 username=request["user"]["user"],
                 fullname=request["user"]["fullname"],
-                email=request["user"]["email"],
+                email=request["user"].get("email"),
                 status=request["status"],
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form
