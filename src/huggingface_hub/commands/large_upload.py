@@ -15,7 +15,6 @@
 """Contains command to upload a large folder with the CLI.
 
 NOTE: this is still experimental! Might change in the future.
-TODO: refactor stuff.
 """
 
 import os
@@ -27,6 +26,7 @@ from huggingface_hub._large_upload import large_upload
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
 from huggingface_hub.hf_api import HfApi
+from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import ANSI
 
@@ -77,6 +77,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         large_upload_parser.add_argument(
             "--no-report", action="store_true", help="Whether to regularly print a status report."
         )
+        large_upload_parser.add_argument("--no-bars", action="store_true", help="Whether to disable progress bars.")
         large_upload_parser.set_defaults(func=LargeUploadCommand)
 
     def __init__(self, args: Namespace) -> None:
@@ -93,6 +94,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
 
         self.num_workers: Optional[int] = args.num_workers
         self.no_report: bool = args.no_report
+        self.no_bars: bool = args.no_bars
 
         if not os.path.isdir(self.local_path):
             raise ValueError("Large upload is only supported for folders.")
@@ -128,6 +130,9 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
                 "Feedback is very welcome! Don't forget to report back how it went on https://github.com/huggingface/huggingface_hub/pull/2254"
             )
         )
+
+        if self.no_bars:
+            disable_progress_bars()
 
         large_upload(
             repo_id=self.repo_id,

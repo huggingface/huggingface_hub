@@ -37,7 +37,6 @@ from .utils.sha import sha_fileobj
 
 logger = logging.getLogger(__name__)
 
-REPORT_STATUS_EVERY = 60  # seconds
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 
 
@@ -53,6 +52,7 @@ def large_upload(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     num_workers: Optional[int] = None,
     print_report: bool = True,
+    print_report_every: int = 60,
 ):
     """Used to upload a large folder in the most resilient way possible.
 
@@ -138,7 +138,7 @@ def large_upload(
     while True:
         if print_report:
             _print_overwrite(status.current_report())
-        time.sleep(REPORT_STATUS_EVERY)
+        time.sleep(print_report_every)
         if status.is_done():
             logging.info("Is done: exiting main loop")
             break
@@ -389,6 +389,8 @@ def _worker_job(
             try:
                 _compute_sha256(item)
                 status.queue_get_upload_mode.put(item)
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
                 logger.error(f"Failed to compute sha256: {e}")
                 traceback.format_exc()
@@ -400,6 +402,8 @@ def _worker_job(
         elif job == WorkerJob.GET_UPLOAD_MODE:
             try:
                 _get_upload_mode(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
                 logger.error(f"Failed to get upload mode: {e}")
                 traceback.format_exc()
@@ -428,6 +432,8 @@ def _worker_job(
             try:
                 _preupload_lfs(item, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
                 status.queue_commit.put(item)
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
                 logger.error(f"Failed to preupload LFS: {e}")
                 traceback.format_exc()
@@ -439,6 +445,8 @@ def _worker_job(
         elif job == WorkerJob.COMMIT:
             try:
                 _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
                 logger.error(f"Failed to commit: {e}")
                 traceback.format_exc()
