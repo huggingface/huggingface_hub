@@ -18,8 +18,13 @@ from pathlib import Path
 from typing import Callable, Generator, Optional, Union
 
 import yaml
-from filelock import BaseFileLock, FileLock
+from filelock import BaseFileLock, FileLock, Timeout
 
+from .. import constants
+from . import logging
+
+
+logger = logging.get_logger(__name__)
 
 # Wrap `yaml.dump` to set `allow_unicode=True` by default.
 #
@@ -80,8 +85,14 @@ def _set_write_permission_and_retry(func, path, excinfo):
 @contextlib.contextmanager
 def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, None]:
     """A filelock that won't raise an exception if release fails."""
-    lock = FileLock(lock_file)
-    lock.acquire()
+    lock = FileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+    while True:
+        try:
+            lock.acquire()
+        except Timeout:
+            logger.info("still waiting to acquire lock on %s", lock_file)
+        else:
+            break
 
     yield lock
 
