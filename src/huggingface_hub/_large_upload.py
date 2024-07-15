@@ -36,6 +36,7 @@ from .utils.sha import sha_fileobj
 logger = logging.getLogger(__name__)
 
 REPORT_STATUS_EVERY = 60  # seconds
+WAITING_TIME_IF_NO_TASKS = 10  # seconds
 
 
 def large_upload(
@@ -153,6 +154,7 @@ class WorkerJob(enum.Enum):
     GET_UPLOAD_MODE = enum.auto()
     PREUPLOAD_LFS = enum.auto()
     COMMIT = enum.auto()
+    WAIT = enum.auto() # if no tasks are available but we don't want to exit
 
 
 JOB_ITEM_T = Tuple[LocalUploadFilePaths, LocalUploadFileMetadata]
@@ -173,6 +175,7 @@ class LargeUploadStatus:
         self.nb_workers_get_upload_mode: int = 0
         self.nb_workers_preupload_lfs: int = 0
         self.nb_workers_commit: int = 0
+        self.nb_workers_waiting: int = 0
         self.last_commit_attempt: Optional[float] = None
 
         self._started_at = datetime.now()
@@ -249,6 +252,7 @@ class LargeUploadStatus:
             message += f"    get_upload_mode: {self.nb_workers_get_upload_mode} workers ({self.queue_get_upload_mode.qsize()} items in queue)\n"
             message += f"    preupload_lfs: {self.nb_workers_preupload_lfs} workers ({self.queue_preupload_lfs.qsize()} items in queue)\n"
             message += f"    commit: {self.nb_workers_commit} workers ({self.queue_commit.qsize()} items in queue)\n"
+            message += f"    waiting: {self.nb_workers_waiting} workers\n"
             message += f"  Elapsed time: {elapsed_str}\n"
             message += f"  Current time: {now_str}\n"
             message += "#" * 10 + "\n\n"
@@ -361,10 +365,16 @@ def _worker_job(
                 next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
                 logger.debug("Job: commit")
 
-            # End of job
-            else:
-                logger.debug("No more tasks to perform!")
+            # 11. If all queues are empty, exit
+            elif all(metadata.is_committed or metadata.should_ignore for _, metadata in status.items):
+                logger.info("All files have been processed! Exiting worker.")
                 return
+
+            # 12. If no task is available, wait
+            else:
+                status.nb_workers_waiting += 1
+                next_job = (WorkerJob.WAIT, [])
+                logger.debug(f"No task available, waiting... ({WAITING_TIME_IF_NO_TASKS}s)")
 
         # Perform task
         job, items = next_job
@@ -432,6 +442,11 @@ def _worker_job(
             with status.lock:
                 status.last_commit_attempt = time.time()
                 status.nb_workers_commit -= 1
+
+        elif job == WorkerJob.WAIT:
+            time.sleep(WAITING_TIME_IF_NO_TASKS)
+            with status.lock:
+                status.nb_workers_waiting -= 1
 
 
 ####################
