@@ -464,7 +464,8 @@ class PytorchHubMixinTest(unittest.TestCase):
         """
         Test tags are not shared between sibling classes.
 
-        Regression test.
+        Regression test for #2394.
+        See https://github.com/huggingface/huggingface_hub/pull/2394.
         """
         assert DummyModelWithTag1._hub_mixin_info.model_card_data.tags == [
             "model_hub_mixin",
