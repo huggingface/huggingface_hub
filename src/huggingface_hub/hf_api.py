@@ -3779,6 +3779,46 @@ class HfApi:
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
+
+        # Remove no-op operations (files that have not changed)
+        operations_without_no_op = []
+        for operation in operations:
+            if (
+                isinstance(operation, CommitOperationAdd)
+                and operation._remote_oid is not None
+                and operation._remote_oid == operation._local_oid
+            ):
+                # File already exists on the Hub and has not changed: we can skip it.
+                logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
+                continue
+            operations_without_no_op.append(operation)
+        if len(operations) != len(operations_without_no_op):
+            logger.info(
+                f"Removing {len(operations) - len(operations_without_no_op)} file(s) from commit that have not changed."
+            )
+
+        # Return early if empty commit
+        if len(operations_without_no_op) == 0:
+            logger.warning("No files have been modified since last commit. Skipping to prevent empty commit.")
+
+            # Get latest commit info
+            try:
+                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
+
+            # Return commit info based on latest commit
+            url_prefix = self.endpoint
+            if repo_type is not None and repo_type != REPO_TYPE_MODEL:
+                url_prefix = f"{url_prefix}/{repo_type}s"
+            return CommitInfo(
+                commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
+                commit_message=commit_message,
+                commit_description=commit_description,
+                oid=info.sha,  # type: ignore[arg-type]
+            )
+
         files_to_copy = _fetch_files_to_copy(
             copies=copies,
             repo_type=repo_type,

@@ -346,8 +346,8 @@ class CommitApiTest(HfApiCommonTest):
     @use_tmp_repo()
     def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
-        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="README.md", repo_id=repo_url.repo_id)
-        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_url.repo_id))
+        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="file.txt", repo_id=repo_url.repo_id)
+        self.assertIn("file.txt", self._api.list_repo_files(repo_id=repo_url.repo_id))
 
     @use_tmp_repo()
     def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
@@ -599,7 +599,9 @@ class CommitApiTest(HfApiCommonTest):
 
         # Create PR against non-main branch works
         resp = self._api.create_commit(
-            operations=[],
+            operations=[
+                CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            ],
             commit_message="PR against existing branch",
             repo_id=repo_id,
             revision="test_branch",
@@ -610,7 +612,9 @@ class CommitApiTest(HfApiCommonTest):
         # Create PR against a oid fails
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_commit(
-                operations=[],
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                ],
                 commit_message="PR against a oid",
                 repo_id=repo_id,
                 revision=head,
@@ -620,7 +624,9 @@ class CommitApiTest(HfApiCommonTest):
         # Create PR against a non-existing branch fails
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_commit(
-                operations=[],
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                ],
                 commit_message="PR against missing branch",
                 repo_id=repo_id,
                 revision="missing_branch",
@@ -718,32 +724,26 @@ class CommitApiTest(HfApiCommonTest):
 
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
-        # Test once with empty commit and once with an addition commit.
-        for route, operations in (
-            ("commit", []),
-            ("preupload", [CommitOperationAdd("config.json", b"content")]),
-        ):
-            with self.subTest():
-                with self.assertRaises(RepositoryNotFoundError) as context:
-                    self._api.create_commit(
-                        repo_id=f"{USER}/repo_that_do_not_exist",
-                        operations=operations,
-                        commit_message="fake_message",
-                    )
+        with self.assertRaises(RepositoryNotFoundError) as context:
+            self._api.create_commit(
+                repo_id=f"{USER}/repo_that_do_not_exist",
+                operations=[CommitOperationAdd("config.json", b"content")],
+                commit_message="fake_message",
+            )
 
-                request_id = context.exception.response.headers.get("X-Request-Id")
-                expected_message = (
-                    f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
-                    " Found for url:"
-                    f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
-                    " make sure you specified the correct `repo_id` and"
-                    " `repo_type`.\nIf you are trying to access a private or gated"
-                    " repo, make sure you are authenticated.\nNote: Creating a commit"
-                    " assumes that the repo already exists on the Huggingface Hub."
-                    " Please use `create_repo` if it's not the case."
-                )
+        request_id = context.exception.response.headers.get("X-Request-Id")
+        expected_message = (
+            f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
+            " Found for url:"
+            f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
+            " make sure you specified the correct `repo_id` and"
+            " `repo_type`.\nIf you are trying to access a private or gated"
+            " repo, make sure you are authenticated.\nNote: Creating a commit"
+            " assumes that the repo already exists on the Huggingface Hub."
+            " Please use `create_repo` if it's not the case."
+        )
 
-                self.assertEqual(str(context.exception), expected_message)
+        assert str(context.exception) == expected_message
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_create_commit_lfs_file_implicit_token(self, get_token_mock: Mock) -> None:
@@ -942,7 +942,7 @@ class CommitApiTest(HfApiCommonTest):
             CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content1"),
             CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
             CommitOperationAdd(path_in_repo="lfs2.bin", path_or_fileobj=b"content2"),
-            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="file2.txt", path_or_fileobj=b"content"),
         ]
 
         # First: preupload 1 by 1
@@ -1010,6 +1010,134 @@ class CommitApiTest(HfApiCommonTest):
         with self.assertRaises(HfHubHTTPError) as cm:
             self._api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=repo_id)
         assert cm.exception.response.status_code == 422
+
+    @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_op(self, repo_url: RepoUrl) -> None:
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(repo_id=repo_url.repo_id, commit_message="Empty commit", operations=[])
+        assert (
+            logs.records[0].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[0].levelname == "WARNING"
+
+    @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_new_addition(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="Empty commit",
+                operations=[
+                    CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                    CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+                ],
+            )
+        assert logs.records[0].message == "Removing 2 file(s) from commit that have not changed."
+        assert logs.records[0].levelname == "INFO"
+
+        assert (
+            logs.records[1].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[1].levelname == "WARNING"
+
+    @use_tmp_repo()
+    def test_continue_commit_without_existing_files(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # Change => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"content 2.1", path_in_repo="file2.txt"),
+                    # New file => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"content 3.0", path_in_repo="file3.txt"),
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                    # Change => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 2.1", path_in_repo="lfs2.bin"),
+                    # New file => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 3.0", path_in_repo="lfs3.bin"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
+        assert "Skipping upload for 'lfs.bin' as the file has not changed." in debug_logs
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        paths_info = {
+            item.path: item.last_commit
+            for item in self._api.get_paths_info(
+                repo_id=repo_url.repo_id,
+                paths=["file.txt", "file2.txt", "file3.txt", "lfs.bin", "lfs2.bin", "lfs3.bin"],
+                expand=True,
+            )
+        }
+
+        # Check which files are in the last commit
+        assert paths_info["file.txt"].title == "initial commit"
+        assert paths_info["file2.txt"].title == "second commit"
+        assert paths_info["file3.txt"].title == "second commit"
+        assert paths_info["lfs.bin"].title == "initial commit"
+        assert paths_info["lfs2.bin"].title == "second commit"
+        assert paths_info["lfs3.bin"].title == "second commit"
+
+    @use_tmp_repo()
+    def test_continue_commit_if_only_deletion(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # Delete operation => kept in any case
+                    CommitOperationDelete(path_in_repo="file2.txt"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
+        assert "Removing 1 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        remote_files = self._api.list_repo_files(repo_id=repo_url.repo_id)
+        assert "file.txt" in remote_files
+        assert "file2.txt" not in remote_files
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
