@@ -280,10 +280,13 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionParameters",
         "ChatCompletionInput",
         "ChatCompletionInputFunctionDefinition",
+        "ChatCompletionInputFunctionName",
+        "ChatCompletionInputGrammarType",
         "ChatCompletionInputMessage",
+        "ChatCompletionInputMessageChunk",
         "ChatCompletionInputTool",
-        "ChatCompletionInputToolCall",
         "ChatCompletionInputToolTypeClass",
+        "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
         "ChatCompletionOutputFunctionDefinition",
@@ -775,10 +778,13 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
         ChatCompletionInputFunctionDefinition,  # noqa: F401
+        ChatCompletionInputFunctionName,  # noqa: F401
+        ChatCompletionInputGrammarType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
-        ChatCompletionInputToolCall,  # noqa: F401
         ChatCompletionInputToolTypeClass,  # noqa: F401
+        ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
         ChatCompletionOutputFunctionDefinition,  # noqa: F401

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import io
+import json
 import time
 import unittest
 from pathlib import Path
@@ -145,6 +146,26 @@ CHAT_COMPLETION_TOOLS = [  # 1 tool to get current weather, 1 to get N-day weath
     },
 ]
 
+CHAT_COMPLETION_RESPONSE_FORMAT_MESSAGE = [
+    {
+        "role": "user",
+        "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+    },
+]
+
+CHAT_COMPLETION_RESPONSE_FORMAT = {
+    "type": "json",
+    "value": {
+        "properties": {
+            "location": {"type": "string"},
+            "activity": {"type": "string"},
+            "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+            "animals": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["location", "activity", "animals_seen", "animals"],
+    },
+}
+
 
 class InferenceClientTest(unittest.TestCase):
     @classmethod
@@ -266,7 +287,6 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert output == ChatCompletionOutput(
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             usage=None,
             choices=[
@@ -326,6 +346,21 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert tool_call.function.arguments == {
             "format": "fahrenheit",
             "location": "San Francisco, CA",
+        }
+
+    def test_chat_completion_with_response_format(self) -> None:
+        response = self.client.chat_completion(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",
+            messages=CHAT_COMPLETION_RESPONSE_FORMAT_MESSAGE,
+            response_format=CHAT_COMPLETION_RESPONSE_FORMAT,
+            max_tokens=500,
+        )
+        output = response.choices[0].message.content
+        assert json.loads(output) == {
+            "activity": "bike ride",
+            "animals": ["puppy", "cat", "raccoon"],
+            "animals_seen": 3,
+            "location": "park",
         }
 
     def test_chat_completion_unprocessable_entity(self) -> None:
