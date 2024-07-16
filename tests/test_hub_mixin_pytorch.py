@@ -111,12 +111,20 @@ if is_torch_available():
             super().__init__()
             self.config = config
 
+    class DummyModelWithTag1(nn.Module, PyTorchModelHubMixin, tags=["tag1"]):
+        """Used to test tags not shared between sibling classes (only inheritance)."""
+
+    class DummyModelWithTag2(nn.Module, PyTorchModelHubMixin, tags=["tag2"]):
+        """Used to test tags not shared between sibling classes (only inheritance)."""
+
 else:
     DummyModel = None
     DummyModelWithModelCard = None
     DummyModelNoConfig = None
     DummyModelWithConfigAndKwargs = None
     DummyModelWithModelCardAndCustomKwargs = None
+    DummyModelWithTag1 = None
+    DummyModelWithTag2 = None
 
 
 @requires("torch")
@@ -451,3 +459,20 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert isinstance(reloaded.config, Namespace)
         assert reloaded.config.a == 1
         assert reloaded.config.b == 2
+
+    def test_inheritance_and_sibling_classes(self):
+        """
+        Test tags are not shared between sibling classes.
+
+        Regression test.
+        """
+        assert DummyModelWithTag1._hub_mixin_info.model_card_data.tags == [
+            "model_hub_mixin",
+            "pytorch_model_hub_mixin",
+            "tag1",
+        ]
+        assert DummyModelWithTag2._hub_mixin_info.model_card_data.tags == [
+            "model_hub_mixin",
+            "pytorch_model_hub_mixin",
+            "tag2",
+        ]
