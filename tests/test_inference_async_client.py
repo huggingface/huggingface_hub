@@ -191,7 +191,6 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
     assert output == ChatCompletionOutput(
         id="dummy",
         model="dummy",
-        object="dummy",
         system_fingerprint="dummy",
         usage=None,
         choices=[

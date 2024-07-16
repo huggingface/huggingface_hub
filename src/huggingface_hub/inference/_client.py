@@ -921,7 +921,6 @@ class InferenceClient:
         return ChatCompletionOutput(
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             usage=None,  # type: ignore # set to `None` as we don't want to provide false information
             created=int(time.time()),
