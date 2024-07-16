@@ -26,7 +26,7 @@ from concurrent.futures import Future
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Set, Union
+from typing import List, Optional, Set, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import quote, urlparse
 
@@ -55,6 +55,9 @@ from huggingface_hub.hf_api import (
     Collection,
     CommitInfo,
     DatasetInfo,
+    ExpandDatasetProperty_T,
+    ExpandModelProperty_T,
+    ExpandSpaceProperty_T,
     MetricInfo,
     ModelInfo,
     RepoSibling,
@@ -343,8 +346,8 @@ class CommitApiTest(HfApiCommonTest):
     @use_tmp_repo()
     def test_upload_file_pathlib_path(self, repo_url: RepoUrl) -> None:
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/1246."""
-        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="README.md", repo_id=repo_url.repo_id)
-        self.assertIn("README.md", self._api.list_repo_files(repo_id=repo_url.repo_id))
+        self._api.upload_file(path_or_fileobj=Path(self.tmp_file), path_in_repo="file.txt", repo_id=repo_url.repo_id)
+        self.assertIn("file.txt", self._api.list_repo_files(repo_id=repo_url.repo_id))
 
     @use_tmp_repo()
     def test_upload_file_fileobj(self, repo_url: RepoUrl) -> None:
@@ -596,7 +599,9 @@ class CommitApiTest(HfApiCommonTest):
 
         # Create PR against non-main branch works
         resp = self._api.create_commit(
-            operations=[],
+            operations=[
+                CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            ],
             commit_message="PR against existing branch",
             repo_id=repo_id,
             revision="test_branch",
@@ -607,7 +612,9 @@ class CommitApiTest(HfApiCommonTest):
         # Create PR against a oid fails
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_commit(
-                operations=[],
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                ],
                 commit_message="PR against a oid",
                 repo_id=repo_id,
                 revision=head,
@@ -617,7 +624,9 @@ class CommitApiTest(HfApiCommonTest):
         # Create PR against a non-existing branch fails
         with self.assertRaises(RevisionNotFoundError):
             self._api.create_commit(
-                operations=[],
+                operations=[
+                    CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+                ],
                 commit_message="PR against missing branch",
                 repo_id=repo_id,
                 revision="missing_branch",
@@ -715,32 +724,26 @@ class CommitApiTest(HfApiCommonTest):
 
     def test_create_commit_repo_does_not_exist(self) -> None:
         """Test error message is detailed when creating a commit on a missing repo."""
-        # Test once with empty commit and once with an addition commit.
-        for route, operations in (
-            ("commit", []),
-            ("preupload", [CommitOperationAdd("config.json", b"content")]),
-        ):
-            with self.subTest():
-                with self.assertRaises(RepositoryNotFoundError) as context:
-                    self._api.create_commit(
-                        repo_id=f"{USER}/repo_that_do_not_exist",
-                        operations=operations,
-                        commit_message="fake_message",
-                    )
+        with self.assertRaises(RepositoryNotFoundError) as context:
+            self._api.create_commit(
+                repo_id=f"{USER}/repo_that_do_not_exist",
+                operations=[CommitOperationAdd("config.json", b"content")],
+                commit_message="fake_message",
+            )
 
-                request_id = context.exception.response.headers.get("X-Request-Id")
-                expected_message = (
-                    f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
-                    " Found for url:"
-                    f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/{route}/main.\nPlease"
-                    " make sure you specified the correct `repo_id` and"
-                    " `repo_type`.\nIf you are trying to access a private or gated"
-                    " repo, make sure you are authenticated.\nNote: Creating a commit"
-                    " assumes that the repo already exists on the Huggingface Hub."
-                    " Please use `create_repo` if it's not the case."
-                )
+        request_id = context.exception.response.headers.get("X-Request-Id")
+        expected_message = (
+            f"404 Client Error. (Request ID: {request_id})\n\nRepository Not"
+            " Found for url:"
+            f" {self._api.endpoint}/api/models/{USER}/repo_that_do_not_exist/preupload/main.\nPlease"
+            " make sure you specified the correct `repo_id` and"
+            " `repo_type`.\nIf you are trying to access a private or gated"
+            " repo, make sure you are authenticated.\nNote: Creating a commit"
+            " assumes that the repo already exists on the Huggingface Hub."
+            " Please use `create_repo` if it's not the case."
+        )
 
-                self.assertEqual(str(context.exception), expected_message)
+        assert str(context.exception) == expected_message
 
     @patch("huggingface_hub.utils._headers.get_token", return_value=TOKEN)
     def test_create_commit_lfs_file_implicit_token(self, get_token_mock: Mock) -> None:
@@ -939,7 +942,7 @@ class CommitApiTest(HfApiCommonTest):
             CommitOperationAdd(path_in_repo="lfs.bin", path_or_fileobj=b"content1"),
             CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
             CommitOperationAdd(path_in_repo="lfs2.bin", path_or_fileobj=b"content2"),
-            CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=b"content"),
+            CommitOperationAdd(path_in_repo="file2.txt", path_or_fileobj=b"content"),
         ]
 
         # First: preupload 1 by 1
@@ -1007,6 +1010,134 @@ class CommitApiTest(HfApiCommonTest):
         with self.assertRaises(HfHubHTTPError) as cm:
             self._api.upload_file(path_or_fileobj=b"content", path_in_repo="..\\ddd", repo_id=repo_id)
         assert cm.exception.response.status_code == 422
+
+    @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_op(self, repo_url: RepoUrl) -> None:
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(repo_id=repo_url.repo_id, commit_message="Empty commit", operations=[])
+        assert (
+            logs.records[0].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[0].levelname == "WARNING"
+
+    @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_new_addition(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="Empty commit",
+                operations=[
+                    CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                    CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+                ],
+            )
+        assert logs.records[0].message == "Removing 2 file(s) from commit that have not changed."
+        assert logs.records[0].levelname == "INFO"
+
+        assert (
+            logs.records[1].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[1].levelname == "WARNING"
+
+    @use_tmp_repo()
+    def test_continue_commit_without_existing_files(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # Change => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"content 2.1", path_in_repo="file2.txt"),
+                    # New file => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"content 3.0", path_in_repo="file3.txt"),
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                    # Change => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 2.1", path_in_repo="lfs2.bin"),
+                    # New file => will be kept
+                    CommitOperationAdd(path_or_fileobj=b"LFS content 3.0", path_in_repo="lfs3.bin"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
+        assert "Skipping upload for 'lfs.bin' as the file has not changed." in debug_logs
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        paths_info = {
+            item.path: item.last_commit
+            for item in self._api.get_paths_info(
+                repo_id=repo_url.repo_id,
+                paths=["file.txt", "file2.txt", "file3.txt", "lfs.bin", "lfs2.bin", "lfs3.bin"],
+                expand=True,
+            )
+        }
+
+        # Check which files are in the last commit
+        assert paths_info["file.txt"].title == "initial commit"
+        assert paths_info["file2.txt"].title == "second commit"
+        assert paths_info["file3.txt"].title == "second commit"
+        assert paths_info["lfs.bin"].title == "initial commit"
+        assert paths_info["lfs2.bin"].title == "second commit"
+        assert paths_info["lfs3.bin"].title == "second commit"
+
+    @use_tmp_repo()
+    def test_continue_commit_if_only_deletion(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # Delete operation => kept in any case
+                    CommitOperationDelete(path_in_repo="file2.txt"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
+        assert "Removing 1 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        remote_files = self._api.list_repo_files(repo_id=repo_url.repo_id)
+        assert "file.txt" in remote_files
+        assert "file2.txt" not in remote_files
 
 
 class HfApiUploadEmptyFileTest(HfApiCommonTest):
@@ -1573,6 +1704,40 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in self._api.list_models(filter="adapter-transformers", fetch_config=False, limit=20):
             self.assertIsNone(model.config)
 
+    def test_list_models_expand_author(self):
+        # Only the selected field is returned
+        models = list(self._api.list_models(expand=["author"], limit=5))
+        for model in models:
+            assert model.author is not None
+            assert model.id is not None
+            assert model.downloads is None
+            assert model.created_at is None
+            assert model.last_modified is None
+
+    def test_list_models_expand_multiple(self):
+        # Only the selected fields are returned
+        models = list(self._api.list_models(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        for model in models:
+            assert model.author is not None
+            assert model.downloads_all_time is not None
+            assert model.downloads is None
+            assert model.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_models_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_models(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_models_expand_cannot_be_used_with_other_params(self):
+        # `expand` cannot be used with other params
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], full=True))
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], fetch_config=True))
+        with self.assertRaises(ValueError):
+            next(self._api.list_models(expand=["author"], cardData=True))
+
     def test_model_info(self):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
@@ -1657,6 +1822,39 @@ class HfApiPublicProductionTest(unittest.TestCase):
         info = self._api.model_info("HuggingFaceH4/zephyr-7b-beta")
         assert info.widget_data is not None
 
+    def test_model_info_expand_author(self):
+        # Only the selected field is returned
+        model = self._api.model_info(repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author"])
+        assert model.author == "HuggingFaceH4"
+        assert model.downloads is None
+        assert model.created_at is None
+        assert model.last_modified is None
+
+    def test_model_info_expand_multiple(self):
+        # Only the selected fields are returned
+        model = self._api.model_info(
+            repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author", "downloadsAllTime", "gitalyUid"]
+        )
+        assert model.author == "HuggingFaceH4"
+        assert model.downloads is None
+        assert model.downloads_all_time is not None
+        assert model.gitalyUid is not None  # not a field except if requested explicitly
+        assert model.created_at is None
+        assert model.last_modified is None
+
+    def test_model_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_model_info_expand_cannot_be_used_with_other_params(self):
+        # `expand` cannot be used with other params
+        with self.assertRaises(ValueError):
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["author"], securityStatus=True)
+        with self.assertRaises(ValueError):
+            self._api.model_info("HuggingFaceH4/zephyr-7b-beta", expand=["author"], files_metadata=True)
+
     def test_list_repo_files(self):
         files = self._api.list_repo_files(repo_id=DUMMY_MODEL_ID)
         expected_files = [
@@ -1739,6 +1937,36 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for dataset in datasets:
             assert "wikipedia" in dataset.id.lower()
 
+    def test_list_datasets_expand_author(self):
+        # Only the selected field is returned
+        datasets = list(self._api.list_datasets(expand=["author"], limit=5))
+        for dataset in datasets:
+            assert dataset.author is not None
+            assert dataset.id is not None
+            assert dataset.downloads is None
+            assert dataset.created_at is None
+            assert dataset.last_modified is None
+
+    def test_list_datasets_expand_multiple(self):
+        # Only the selected fields are returned
+        datasets = list(self._api.list_datasets(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        for dataset in datasets:
+            assert dataset.author is not None
+            assert dataset.downloads_all_time is not None
+            assert dataset.downloads is None
+            assert dataset.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_datasets_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_datasets(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_datasets_expand_cannot_be_used_with_full(self):
+        # `expand` cannot be used with `full`
+        with self.assertRaises(ValueError):
+            next(self._api.list_datasets(expand=["author"], full=True))
+
     def test_filter_datasets_with_card_data(self):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
         assert all(dataset.card_data is None for dataset in self._api.list_datasets(full=False, limit=50))
@@ -1773,19 +2001,76 @@ class HfApiPublicProductionTest(unittest.TestCase):
         """Check requested metadata has been received from the server."""
         at_least_one_lfs = False
         for file in files:
-            self.assertTrue(isinstance(file.blob_id, str))
-            self.assertTrue(isinstance(file.size, int))
+            assert isinstance(file.blob_id, str)
+            assert isinstance(file.size, int)
             if file.lfs is not None:
                 at_least_one_lfs = True
-                self.assertTrue(isinstance(file.lfs, dict))
-                self.assertTrue("sha256" in file.lfs)
-        self.assertTrue(at_least_one_lfs)
+                assert isinstance(file.lfs, dict)
+                assert "sha256" in file.lfs
+        assert at_least_one_lfs
+
+    def test_dataset_info_expand_author(self):
+        # Only the selected field is returned
+        dataset = self._api.dataset_info(repo_id="HuggingFaceH4/no_robots", expand=["author"])
+        assert dataset.author == "HuggingFaceH4"
+        assert dataset.downloads is None
+        assert dataset.created_at is None
+        assert dataset.last_modified is None
+
+    def test_dataset_info_expand_multiple(self):
+        # Only the selected fields are returned
+        dataset = self._api.dataset_info(
+            repo_id="HuggingFaceH4/no_robots", expand=["author", "downloadsAllTime", "gitalyUid"]
+        )
+        assert dataset.author == "HuggingFaceH4"
+        assert dataset.downloads is None
+        assert dataset.downloads_all_time is not None
+        assert dataset.gitalyUid is not None  # not a field except if requested explicitly
+        assert dataset.created_at is None
+        assert dataset.last_modified is None
+
+    def test_dataset_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.dataset_info("HuggingFaceH4/no_robots", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_dataset_info_expand_cannot_be_used_with_files_metadata(self):
+        # `expand` cannot be used with other `files_metadata`
+        with self.assertRaises(ValueError):
+            self._api.dataset_info("HuggingFaceH4/no_robots", expand=["author"], files_metadata=True)
 
     def test_space_info(self) -> None:
         space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat")
         assert space.id == "HuggingFaceH4/zephyr-chat"
         assert space.author == "HuggingFaceH4"
         assert isinstance(space.runtime, SpaceRuntime)
+
+    def test_space_info_expand_author(self):
+        # Only the selected field is returned
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author"])
+        assert space.author == "HuggingFaceH4"
+        assert space.created_at is None
+        assert space.last_modified is None
+
+    def test_space_info_expand_multiple(self):
+        # Only the selected fields are returned
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author", "gitalyUid"])
+        assert space.author == "HuggingFaceH4"
+        assert space.gitalyUid is not None  # not a field except if requested explicitly
+        assert space.created_at is None
+        assert space.last_modified is None
+
+    def test_space_info_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["foo"])
+        assert cm.exception.response.status_code == 400
+
+    def test_space_info_expand_cannot_be_used_with_files_metadata(self):
+        # `expand` cannot be used with other files_metadata
+        with self.assertRaises(ValueError):
+            self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["author"], files_metadata=True)
 
     def test_list_metrics(self):
         metrics = self._api.list_metrics()
@@ -1932,6 +2217,33 @@ class HfApiPublicProductionTest(unittest.TestCase):
         spaces = list(self._api.list_spaces(search=space_id, linked=True))
         assert spaces[0].models is not None
         assert spaces[0].datasets is not None
+
+    def test_list_spaces_expand_author(self):
+        # Only the selected field is returned
+        spaces = list(self._api.list_spaces(expand=["author"], limit=5))
+        for space in spaces:
+            assert space.author is not None
+            assert space.id is not None
+            assert space.created_at is None
+            assert space.last_modified is None
+
+    def test_list_spaces_expand_multiple(self):
+        # Only the selected fields are returned
+        spaces = list(self._api.list_spaces(expand=["author", "gitalyUid"], limit=5))
+        for space in spaces:
+            assert space.author is not None
+            assert space.gitalyUid is not None  # not a field except if requested explicitly
+
+    def test_list_spaces_expand_unexpected_value(self):
+        # Unexpected value => HTTP 400
+        with self.assertRaises(HfHubHTTPError) as cm:
+            list(self._api.list_spaces(expand=["foo"]))
+        assert cm.exception.response.status_code == 400
+
+    def test_list_spaces_expand_cannot_be_used_with_full(self):
+        # `expand` cannot be used with full
+        with self.assertRaises(ValueError):
+            next(self._api.list_spaces(expand=["author"], full=True))
 
     def test_get_paths_info(self):
         paths_info = self._api.get_paths_info(
@@ -3636,6 +3948,7 @@ class AccessRequestAPITest(HfApiCommonTest):
         request = requests[0]
         assert isinstance(request, AccessRequest)
         assert request.username == OTHER_USER
+        assert request.email is None  # email not shared when granted access manually
         assert request.status == "accepted"
         assert isinstance(request.timestamp, datetime.datetime)
 
@@ -3773,3 +4086,55 @@ class WebhookApiTest(HfApiCommonTest):
         self._api.delete_webhook(webhook_to_delete.id)
         with self.assertRaises(HTTPError):
             self._api.get_webhook(webhook_to_delete.id)
+
+
+class TestExpandPropertyType(HfApiCommonTest):
+    @use_tmp_repo(repo_type="model")
+    def test_expand_model_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
+    @use_tmp_repo(repo_type="dataset")
+    def test_expand_dataset_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
+    @use_tmp_repo(repo_type="space")
+    def test_expand_space_property_type_is_up_to_date(self, repo_url: RepoUrl):
+        self._check_expand_property_is_up_to_date(repo_url)
+
+    def _check_expand_property_is_up_to_date(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        repo_type = repo_url.repo_type
+        property_type = (
+            ExpandModelProperty_T
+            if repo_type == "model"
+            else (ExpandDatasetProperty_T if repo_type == "dataset" else ExpandSpaceProperty_T)
+        )
+        property_type_name = (
+            "ExpandModelProperty_T"
+            if repo_type == "model"
+            else ("ExpandDatasetProperty_T" if repo_type == "dataset" else "ExpandSpaceProperty_T")
+        )
+
+        try:
+            self._api.repo_info(repo_id=repo_id, repo_type=repo_type, expand=["does_not_exist"])
+            raise Exception("Should have raised an exception")
+        except HfHubHTTPError as e:
+            assert e.response.status_code == 400
+            message = e.response.json()["error"]
+
+        assert message.startswith('"expand" must be one of ')
+        defined_args = set(get_args(property_type))
+        expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
+
+        if defined_args != expected_args:
+            should_be_removed = defined_args - expected_args
+            should_be_added = expected_args - defined_args
+
+            msg = f"Literal `{property_type_name}` is outdated! This is probably due to a server-side update."
+            if should_be_removed:
+                msg += f"\nArg(s) not supported anymore: {', '.join(should_be_removed)}"
+            if should_be_added:
+                msg += f"\nNew arg(s) to support: {', '.join(should_be_added)}"
+            msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
+            msg += "\nThanks you in advance!"
+            raise ValueError(msg)

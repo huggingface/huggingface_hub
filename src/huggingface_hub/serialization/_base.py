@@ -49,7 +49,7 @@ class StateDictSplit:
 def split_state_dict_into_shards_factory(
     state_dict: Dict[str, TensorT],
     *,
-    get_tensor_size: TensorSizeFn_T,
+    get_storage_size: TensorSizeFn_T,
     filename_pattern: str,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
@@ -72,8 +72,8 @@ def split_state_dict_into_shards_factory(
     Args:
         state_dict (`Dict[str, Tensor]`):
             The state dictionary to save.
-        get_tensor_size (`Callable[[Tensor], int]`):
-            A function that returns the size of a tensor in bytes.
+        get_storage_size (`Callable[[Tensor], int]`):
+            A function that returns the size of a tensor when saved on disk in bytes.
         get_storage_id (`Callable[[Tensor], Optional[Any]]`, *optional*):
             A function that returns a unique identifier to a tensor storage. Multiple different tensors can share the
             same underlying storage. This identifier is guaranteed to be unique and constant for this tensor's storage
@@ -117,7 +117,7 @@ def split_state_dict_into_shards_factory(
                 storage_id_to_tensors[storage_id] = [key]
 
         # Compute tensor size
-        tensor_size = get_tensor_size(tensor)
+        tensor_size = get_storage_size(tensor)
 
         # If this tensor is bigger than the maximal size, we put it in its own shard
         if tensor_size > max_shard_size:

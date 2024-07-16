@@ -1,0 +1,75 @@
+interactions:
+- request:
+    body: '{"model": "tgi", "messages": [{"role": "system", "content": "You are a
+      helpful assistant."}, {"role": "user", "content": "Count to 10"}], "frequency_penalty":
+      null, "logit_bias": null, "logprobs": null, "max_tokens": 1024, "n": null, "presence_penalty":
+      null, "seed": null, "stop": null, "temperature": null, "tool_choice": null,
+      "tool_prompt": null, "tools": null, "top_logprobs": null, "top_p": null, "stream":
+      false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '419'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 0edbb1d5-e548-491b-8781-3c413bff44e9
+      authorization:
+      - Bearer my-api-key
+      user-agent:
+      - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.3.1; tensorflow/2.15.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"","object":"text_completion","created":1720603621,"model":"meta-llama/Meta-Llama-3-8B-Instruct","system_fingerprint":"2.0.4-sha-f426a33","choices":[{"index":0,"message":{"role":"assistant","content":"1,
+        2, 3, 4, 5, 6, 7, 8, 9, 10!"},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":25,"completion_tokens":30,"total_tokens":55}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 10 Jul 2024 09:27:01 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-origin:
+      - '*'
+      vary:
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '209'
+      x-compute-time:
+      - '0.669188581'
+      x-compute-type:
+      - 2-a10-g
+      x-generated-tokens:
+      - '30'
+      x-inference-time:
+      - '655'
+      x-prompt-tokens:
+      - '26'
+      x-queue-time:
+      - '13'
+      x-request-id:
+      - N9kl_-NDF8oojD5QSbqPN
+      x-sha:
+      - e1945c40cd546c78e41f1151f4db032b271faeaa
+      x-time-per-token:
+      - '21'
+      x-total-time:
+      - '669'
+      x-validation-time:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

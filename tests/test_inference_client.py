@@ -890,3 +890,60 @@ class TestListDeployedModels(unittest.TestCase):
 
         self.assertIn("text-generation", models_by_task)
         self.assertIn("bigscience/bloom", models_by_task["text-generation"])
+
+
+@pytest.mark.vcr
+@with_production_testing
+class TestOpenAICompatibility(unittest.TestCase):
+    def test_base_url_and_api_key(self):
+        client = InferenceClient(
+            base_url="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct",
+            api_key="my-api-key",
+        )
+        output = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Count to 10"},
+            ],
+            stream=False,
+            max_tokens=1024,
+        )
+        assert output.choices[0].message.content == "1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+    def test_without_base_url(self):
+        client = InferenceClient()
+        output = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Count to 10"},
+            ],
+            stream=False,
+            max_tokens=1024,
+        )
+        assert output.choices[0].message.content == "1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+    def test_with_stream_true(self):
+        client = InferenceClient()
+        output = client.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Count to 10"},
+            ],
+            stream=True,
+            max_tokens=1024,
+        )
+
+        chunked_text = [chunk.choices[0].delta.content for chunk in output]
+        assert len(chunked_text) == 34
+        assert "".join(chunked_text) == "Here it goes:\n\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+    def test_token_and_api_key_mutually_exclusive(self):
+        with self.assertRaises(ValueError):
+            InferenceClient(token="my-token", api_key="my-api-key")
+
+    def test_model_and_base_url_mutually_exclusive(self):
+        with self.assertRaises(ValueError):
+            InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")

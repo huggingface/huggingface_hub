@@ -25,6 +25,7 @@ from .utils import (
     get_session,
     hf_raise_for_status,
     logging,
+    sha,
     tqdm_stream_file,
     validate_hf_hub_args,
 )
@@ -146,6 +147,10 @@ class CommitOperationAdd:
     # (server-side check)
     _should_ignore: Optional[bool] = field(init=False, repr=False, default=None)
 
+    # set to the remote OID of the file if it has already been uploaded
+    # useful to determine if a commit will be empty or not
+    _remote_oid: Optional[str] = field(init=False, repr=False, default=None)
+
     # set to True once the file has been uploaded as LFS
     _is_uploaded: bool = field(init=False, repr=False, default=False)
 
@@ -245,6 +250,29 @@ class CommitOperationAdd:
         """
         with self.as_file() as file:
             return base64.b64encode(file.read())
+
+    @property
+    def _local_oid(self) -> Optional[str]:
+        """Return the OID of the local file.
+
+        This OID is then compared to `self._remote_oid` to check if the file has changed compared to the remote one.
+        If the file did not change, we won't upload it again to prevent empty commits.
+
+        For LFS files, the OID corresponds to the SHA256 of the file content (used a LFS ref).
+        For regular files, the OID corresponds to the SHA1 of the file content.
+        Note: this is slightly different to git OID computation since the oid of an LFS file is usually the git-SHA1 of the
+              pointer file content (not the actual file content). However, using the SHA256 is enough to detect changes
+              and more convenient client-side.
+        """
+        if self._upload_mode is None:
+            return None
+        elif self._upload_mode == "lfs":
+            return self.upload_info.sha256.hex()
+        else:
+            # Regular file => compute sha1
+            # => no need to read by chunk since the file is guaranteed to be <=5MB.
+            with self.as_file() as file:
+                return sha.git_hash(file.read())
 
 
 def _validate_path_in_repo(path_in_repo: str) -> str:
@@ -483,6 +511,7 @@ def _fetch_upload_modes(
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}
     should_ignore_info: Dict[str, bool] = {}
+    oid_info: Dict[str, Optional[str]] = {}
 
     for chunk in chunk_iterable(additions, 256):
         payload: Dict = {
@@ -491,7 +520,6 @@ def _fetch_upload_modes(
                     "path": op.path_in_repo,
                     "sample": base64.b64encode(op.upload_info.sample).decode("ascii"),
                     "size": op.upload_info.size,
-                    "sha": op.upload_info.sha256.hex(),
                 }
                 for op in chunk
             ]
@@ -509,11 +537,13 @@ def _fetch_upload_modes(
         preupload_info = _validate_preupload_info(resp.json())
         upload_modes.update(**{file["path"]: file["uploadMode"] for file in preupload_info["files"]})
         should_ignore_info.update(**{file["path"]: file["shouldIgnore"] for file in preupload_info["files"]})
+        oid_info.update(**{file["path"]: file.get("oid") for file in preupload_info["files"]})
 
     # Set upload mode for each addition operation
     for addition in additions:
         addition._upload_mode = upload_modes[addition.path_in_repo]
         addition._should_ignore = should_ignore_info[addition.path_in_repo]
+        addition._remote_oid = oid_info[addition.path_in_repo]
 
     # Empty files cannot be uploaded as LFS (S3 would fail with a 501 Not Implemented)
     # => empty files are uploaded as "regular" to still allow users to commit them.
