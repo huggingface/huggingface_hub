@@ -164,7 +164,6 @@ async def test_async_chat_completion_no_stream() -> None:
     assert output == ChatCompletionOutput(
         id="",
         model="HuggingFaceH4/zephyr-7b-beta",
-        object="text_completion",
         system_fingerprint="1.4.3-sha-e6bb3ff",
         usage=ChatCompletionOutputUsage(completion_tokens=10, prompt_tokens=47, total_tokens=57),
         choices=[
