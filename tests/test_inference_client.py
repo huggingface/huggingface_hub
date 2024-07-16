@@ -287,7 +287,6 @@ class InferenceClientVCRTest(InferenceClientTest):
         assert output == ChatCompletionOutput(
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             usage=None,
             choices=[
