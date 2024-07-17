@@ -1716,12 +1716,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_models_expand_multiple(self):
         # Only the selected fields are returned
-        models = list(self._api.list_models(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        models = list(self._api.list_models(expand=["author", "downloadsAllTime"], limit=5))
         for model in models:
             assert model.author is not None
             assert model.downloads_all_time is not None
             assert model.downloads is None
-            assert model.gitalyUid is not None  # not a field except if requested explicitly
 
     def test_list_models_expand_unexpected_value(self):
         # Unexpected value => HTTP 400
@@ -1832,13 +1831,10 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_model_info_expand_multiple(self):
         # Only the selected fields are returned
-        model = self._api.model_info(
-            repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author", "downloadsAllTime", "gitalyUid"]
-        )
+        model = self._api.model_info(repo_id="HuggingFaceH4/zephyr-7b-beta", expand=["author", "downloadsAllTime"])
         assert model.author == "HuggingFaceH4"
         assert model.downloads is None
         assert model.downloads_all_time is not None
-        assert model.gitalyUid is not None  # not a field except if requested explicitly
         assert model.created_at is None
         assert model.last_modified is None
 
@@ -1949,12 +1945,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_datasets_expand_multiple(self):
         # Only the selected fields are returned
-        datasets = list(self._api.list_datasets(expand=["author", "downloadsAllTime", "gitalyUid"], limit=5))
+        datasets = list(self._api.list_datasets(expand=["author", "downloadsAllTime"], limit=5))
         for dataset in datasets:
             assert dataset.author is not None
             assert dataset.downloads_all_time is not None
             assert dataset.downloads is None
-            assert dataset.gitalyUid is not None  # not a field except if requested explicitly
 
     def test_list_datasets_expand_unexpected_value(self):
         # Unexpected value => HTTP 400
@@ -2019,13 +2014,10 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_dataset_info_expand_multiple(self):
         # Only the selected fields are returned
-        dataset = self._api.dataset_info(
-            repo_id="HuggingFaceH4/no_robots", expand=["author", "downloadsAllTime", "gitalyUid"]
-        )
+        dataset = self._api.dataset_info(repo_id="HuggingFaceH4/no_robots", expand=["author", "downloadsAllTime"])
         assert dataset.author == "HuggingFaceH4"
         assert dataset.downloads is None
         assert dataset.downloads_all_time is not None
-        assert dataset.gitalyUid is not None  # not a field except if requested explicitly
         assert dataset.created_at is None
         assert dataset.last_modified is None
 
@@ -2055,11 +2047,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_space_info_expand_multiple(self):
         # Only the selected fields are returned
-        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author", "gitalyUid"])
+        space = self._api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author", "likes"])
         assert space.author == "HuggingFaceH4"
-        assert space.gitalyUid is not None  # not a field except if requested explicitly
         assert space.created_at is None
         assert space.last_modified is None
+        assert space.likes is not None
 
     def test_space_info_expand_unexpected_value(self):
         # Unexpected value => HTTP 400
@@ -2229,10 +2221,10 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_spaces_expand_multiple(self):
         # Only the selected fields are returned
-        spaces = list(self._api.list_spaces(expand=["author", "gitalyUid"], limit=5))
+        spaces = list(self._api.list_spaces(expand=["author", "likes"], limit=5))
         for space in spaces:
             assert space.author is not None
-            assert space.gitalyUid is not None  # not a field except if requested explicitly
+            assert space.likes is not None
 
     def test_list_spaces_expand_unexpected_value(self):
         # Unexpected value => HTTP 400
@@ -4125,6 +4117,7 @@ class TestExpandPropertyType(HfApiCommonTest):
         assert message.startswith('"expand" must be one of ')
         defined_args = set(get_args(property_type))
         expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
+        expected_args.remove("gitalyUid")  # internal one, do not document
 
         if defined_args != expected_args:
             should_be_removed = defined_args - expected_args
