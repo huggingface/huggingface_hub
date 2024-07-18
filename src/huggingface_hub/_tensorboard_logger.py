@@ -182,9 +182,10 @@ class HFSummaryWriter(SummaryWriter):
         except EntryNotFoundError:
             card = ModelCard("")
         tags = card.data.get("tags", [])
-        tags.append("hf-summary-writer")
-        card.data["tags"] = tags
-        card.push_to_hub(repo_id=self.repo_id, repo_type=self.repo_type)
+        if "hf-summary-writer" not in tags:
+            tags.append("hf-summary-writer")
+            card.data["tags"] = tags
+            card.push_to_hub(repo_id=self.repo_id, repo_type=self.repo_type)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""
