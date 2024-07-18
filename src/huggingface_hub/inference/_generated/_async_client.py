@@ -2282,7 +2282,12 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+
+        # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
+        if isinstance(data, list):
+            data = data[0]
+
         return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(
