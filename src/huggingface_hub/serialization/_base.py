@@ -23,7 +23,7 @@ TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
 StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-MAX_SHARD_SIZE = "4GB"
+MAX_SHARD_SIZE = "3.9GB"
 SIZE_UNITS = {
     "TB": 10**12,
     "GB": 10**9,
@@ -82,7 +82,7 @@ def split_state_dict_into_shards_factory(
             The pattern to generate the files names in which the model will be saved. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
         max_shard_size (`int` or `str`, *optional*):
-            The maximum size of each shard, in bytes. Defaults to 5GB.
+            The maximum size of each shard, in bytes. Defaults to 3.9GB.
 
     Returns:
         [`StateDictSplit`]: A `StateDictSplit` object containing the shards and the index to retrieve them.
