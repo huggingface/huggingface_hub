@@ -23,7 +23,7 @@ TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
 StorageIDFn_T = Callable[[TensorT], Optional[Any]]
 
-MAX_SHARD_SIZE = "5GB"
+MAX_SHARD_SIZE = "4GB"
 SIZE_UNITS = {
     "TB": 10**12,
     "GB": 10**9,
