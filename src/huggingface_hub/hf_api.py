@@ -3733,6 +3733,15 @@ class HfApi:
                     " new CommitOperationAdd object if you want to create a new commit."
                 )
 
+        if repo_type != "dataset":
+            for addition in additions:
+                if addition.path_in_repo.endswith((".arrow", ".parquet")):
+                    warnings.warn(
+                        f"It seems that you are about to commit a data file ({addition.path_in_repo}) to a {repo_type}"
+                        " repository. You are sure this is intended? If you are trying to upload a dataset, please"
+                        " set `repo_type='dataset'` or `--repo-type=dataset` in a CLI."
+                    )
+
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
