@@ -171,10 +171,10 @@ class LargeUploadStatus:
 
     def __init__(self, items: List[JOB_ITEM_T]):
         self.items = items
-        self.queue_sha256: queue.Queue[JOB_ITEM_T] = queue.Queue()
-        self.queue_get_upload_mode: queue.Queue[JOB_ITEM_T] = queue.Queue()
-        self.queue_preupload_lfs: queue.Queue[JOB_ITEM_T] = queue.Queue()
-        self.queue_commit: queue.Queue[JOB_ITEM_T] = queue.Queue()
+        self.queue_sha256: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
+        self.queue_get_upload_mode: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
+        self.queue_preupload_lfs: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
+        self.queue_commit: "queue.Queue[JOB_ITEM_T]" = queue.Queue()
         self.lock = Lock()
 
         self.nb_workers_sha256: int = 0
@@ -553,11 +553,11 @@ def _build_hacky_operation(item: JOB_ITEM_T) -> HackyCommitOperationAdd:
 ####################
 
 
-def _get_one(queue: queue.Queue[JOB_ITEM_T]) -> List[JOB_ITEM_T]:
+def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
     return [queue.get()]
 
 
-def _get_n(queue: queue.Queue[JOB_ITEM_T], n: int) -> List[JOB_ITEM_T]:
+def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> List[JOB_ITEM_T]:
     return [queue.get() for _ in range(min(queue.qsize(), n))]
 
 
