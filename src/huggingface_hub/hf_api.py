@@ -149,7 +149,6 @@ ExpandModelProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
-    "gitalyUid",
     "inference",
     "lastModified",
     "library_name",
@@ -177,7 +176,6 @@ ExpandDatasetProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
-    "gitalyUid",
     "lastModified",
     "likes",
     "paperswithcode_id",
@@ -192,7 +190,6 @@ ExpandSpaceProperty_T = Literal[
     "cardData",
     "datasets",
     "disabled",
-    "gitalyUid",
     "lastModified",
     "createdAt",
     "likes",
@@ -433,8 +430,9 @@ class AccessRequest:
             Username of the user who requested access.
         fullname (`str`):
             Fullname of the user who requested access.
-        email (`str`):
+        email (`Optional[str]`):
             Email of the user who requested access.
+            Can only be `None` in the /accepted list if the user was granted access manually.
         timestamp (`datetime`):
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
@@ -445,7 +443,7 @@ class AccessRequest:
 
     username: str
     fullname: str
-    email: str
+    email: Optional[str]
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
 
@@ -1632,7 +1630,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1835,7 +1833,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2016,7 +2014,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2333,7 +2331,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2407,7 +2405,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2480,7 +2478,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3779,6 +3777,46 @@ class HfApi:
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
+
+        # Remove no-op operations (files that have not changed)
+        operations_without_no_op = []
+        for operation in operations:
+            if (
+                isinstance(operation, CommitOperationAdd)
+                and operation._remote_oid is not None
+                and operation._remote_oid == operation._local_oid
+            ):
+                # File already exists on the Hub and has not changed: we can skip it.
+                logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
+                continue
+            operations_without_no_op.append(operation)
+        if len(operations) != len(operations_without_no_op):
+            logger.info(
+                f"Removing {len(operations) - len(operations_without_no_op)} file(s) from commit that have not changed."
+            )
+
+        # Return early if empty commit
+        if len(operations_without_no_op) == 0:
+            logger.warning("No files have been modified since last commit. Skipping to prevent empty commit.")
+
+            # Get latest commit info
+            try:
+                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
+
+            # Return commit info based on latest commit
+            url_prefix = self.endpoint
+            if repo_type is not None and repo_type != REPO_TYPE_MODEL:
+                url_prefix = f"{url_prefix}/{repo_type}s"
+            return CommitInfo(
+                commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
+                commit_message=commit_message,
+                commit_description=commit_description,
+                oid=info.sha,  # type: ignore[arg-type]
+            )
+
         files_to_copy = _fetch_files_to_copy(
             copies=copies,
             repo_type=repo_type,
@@ -8422,7 +8460,7 @@ class HfApi:
             AccessRequest(
                 username=request["user"]["user"],
                 fullname=request["user"]["fullname"],
-                email=request["user"]["email"],
+                email=request["user"].get("email"),
                 status=request["status"],
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form

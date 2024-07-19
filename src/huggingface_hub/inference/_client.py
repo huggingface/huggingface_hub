@@ -78,6 +78,7 @@ from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionInputGrammarType,
     ChatCompletionInputTool,
     ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
@@ -103,7 +104,6 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
 from huggingface_hub.inference._types import (
     ConversationalOutput,  # soon to be removed
 )
@@ -465,10 +465,11 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -488,10 +489,11 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -511,10 +513,11 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -534,10 +537,11 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -584,6 +588,8 @@ class InferenceClient:
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
+            response_format ([`ChatCompletionInputGrammarType`], *optional*):
+                Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
             stop (Optional[`str`], *optional*):
@@ -601,7 +607,7 @@ class InferenceClient:
             top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
-            tool_choice ([`ChatCompletionInputToolTypeClass`] or [`ChatCompletionInputToolTypeEnum`], *optional*):
+            tool_choice ([`ChatCompletionInputToolTypeClass`] or `str`, *optional*):
                 The tool to use for the completion. Defaults to "auto".
             tool_prompt (`str`, *optional*):
                 A prompt to be appended before the tools.
@@ -624,7 +630,6 @@ class InferenceClient:
         Example:
 
         ```py
-        # Chat example
         >>> from huggingface_hub import InferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
         >>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
@@ -654,7 +659,13 @@ class InferenceClient:
                 total_tokens=25
             )
         )
+        ```
 
+        Example (stream=True):
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
         >>> for token in client.chat_completion(messages, max_tokens=10, stream=True):
         ...     print(token)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content='The', role='assistant'), index=0, finish_reason=None)], created=1710498504)
@@ -770,6 +781,37 @@ class InferenceClient:
             description=None
         )
         ```
+
+        Example using response_format:
+        ```py
+        >>> from huggingface_hub import InferenceClient
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "user",
+        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+        ...     },
+        ... ]
+        >>> response_format = {
+        ...     "type": "json",
+        ...     "value": {
+        ...         "properties": {
+        ...             "location": {"type": "string"},
+        ...             "activity": {"type": "string"},
+        ...             "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+        ...             "animals": {"type": "array", "items": {"type": "string"}},
+        ...         },
+        ...         "required": ["location", "activity", "animals_seen", "animals"],
+        ...     },
+        ... }
+        >>> response = client.chat_completion(
+        ...     messages=messages,
+        ...     response_format=response_format,
+        ...     max_tokens=500,
+        )
+        >>> response.choices[0].message.content
+        '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
+        ```
         """
         # Determine model
         # `self.xxx` takes precedence over the method argument only in `chat_completion`
@@ -804,6 +846,7 @@ class InferenceClient:
                         max_tokens=max_tokens,
                         n=n,
                         presence_penalty=presence_penalty,
+                        response_format=response_format,
                         seed=seed,
                         stop=stop,
                         temperature=temperature,
@@ -855,6 +898,11 @@ class InferenceClient:
                 "Tools are not supported by the model. This is due to the model not been served by a "
                 "Text-Generation-Inference server. The provided tool parameters will be ignored."
             )
+        if response_format is not None:
+            warnings.warn(
+                "Response format is not supported by the model. This is due to the model not been served by a "
+                "Text-Generation-Inference server. The provided response format will be ignored."
+            )
 
         # generate response
         text_generation_output = self.text_generation(
@@ -873,7 +921,6 @@ class InferenceClient:
         return ChatCompletionOutput(
             id="dummy",
             model="dummy",
-            object="dummy",
             system_fingerprint="dummy",
             usage=None,  # type: ignore # set to `None` as we don't want to provide false information
             created=int(time.time()),
@@ -1742,6 +1789,7 @@ class InferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1770,6 +1818,7 @@ class InferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1798,6 +1847,7 @@ class InferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1826,6 +1876,7 @@ class InferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1854,6 +1905,7 @@ class InferenceClient:
         stream: bool = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1881,6 +1933,7 @@ class InferenceClient:
         stream: bool = False,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1932,6 +1985,8 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            adapter_id (`str`, *optional*):
+                Lora adapter id.
             best_of (`int`, *optional*):
                 Generate best_of sequences and return the one if the highest token logprobs.
             decoder_input_details (`bool`, *optional*):
@@ -2100,6 +2155,7 @@ class InferenceClient:
 
         # Build payload
         parameters = {
+            "adapter_id": adapter_id,
             "best_of": best_of,
             "decoder_input_details": decoder_input_details,
             "details": details,
@@ -2170,6 +2226,7 @@ class InferenceClient:
                     details=details,
                     stream=stream,
                     model=model,
+                    adapter_id=adapter_id,
                     best_of=best_of,
                     decoder_input_details=decoder_input_details,
                     do_sample=do_sample,
@@ -2194,7 +2251,12 @@ class InferenceClient:
         if stream:
             return _stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+
+        # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
+        if isinstance(data, list):
+            data = data[0]
+
         return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     def text_to_image(

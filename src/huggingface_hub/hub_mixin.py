@@ -230,12 +230,21 @@ class ModelHubMixin:
         tags.append("model_hub_mixin")
 
         # Initialize MixinInfo if not existent
-        if not hasattr(cls, "_hub_mixin_info"):
-            cls._hub_mixin_info = MixinInfo(
-                model_card_template=model_card_template,
-                model_card_data=ModelCardData(),
-            )
-        info = cls._hub_mixin_info
+        info = MixinInfo(model_card_template=model_card_template, model_card_data=ModelCardData())
+
+        # If parent class has a MixinInfo, inherit from it as a copy
+        if hasattr(cls, "_hub_mixin_info"):
+            # Inherit model card template from parent class if not explicitly set
+            if model_card_template == DEFAULT_MODEL_CARD:
+                info.model_card_template = cls._hub_mixin_info.model_card_template
+
+            # Inherit from parent model card data
+            info.model_card_data = ModelCardData(**cls._hub_mixin_info.model_card_data.to_dict())
+
+            # Inherit other info
+            info.docs_url = cls._hub_mixin_info.docs_url
+            info.repo_url = cls._hub_mixin_info.repo_url
+        cls._hub_mixin_info = info
 
         if languages is not None:
             warnings.warn(
@@ -268,6 +277,8 @@ class ModelHubMixin:
                 info.model_card_data.tags.extend(tags)
             else:
                 info.model_card_data.tags = tags
+
+        info.model_card_data.tags = sorted(set(info.model_card_data.tags))
 
         # Handle encoders/decoders for args
         cls._hub_mixin_coders = coders or {}
