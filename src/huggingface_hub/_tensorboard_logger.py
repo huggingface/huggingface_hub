@@ -16,9 +16,9 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from huggingface_hub._commit_scheduler import CommitScheduler
-
-from .utils import experimental
+from ._commit_scheduler import CommitScheduler
+from .repocard import ModelCard
+from .utils import EntryNotFoundError, experimental
 
 
 # Depending on user's setup, SummaryWriter can come either from 'tensorboardX'
@@ -91,24 +91,28 @@ class HFSummaryWriter(SummaryWriter):
             Additional keyword arguments passed to `SummaryWriter`.
 
     Examples:
-    ```py
-    >>> from huggingface_hub import HFSummaryWriter
+    ```diff
+    # Taken from https://pytorch.org/docs/stable/tensorboard.html
+    - from torch.utils.tensorboard import SummaryWriter
+    + from huggingface_hub import HFSummaryWriter
 
-    # Logs are automatically pushed every 15 minutes
-    >>> logger = HFSummaryWriter(repo_id="test_hf_logger", commit_every=15)
-    >>> logger.add_scalar("a", 1)
-    >>> logger.add_scalar("b", 2)
-    ...
+    import numpy as np
 
-    # You can also trigger a push manually
-    >>> logger.scheduler.trigger()
+    - writer = SummaryWriter()
+    + writer = HFSummaryWriter(repo_id="username/my-trained-model")
+
+    for n_iter in range(100):
+        writer.add_scalar('Loss/train', np.random.random(), n_iter)
+        writer.add_scalar('Loss/test', np.random.random(), n_iter)
+        writer.add_scalar('Accuracy/train', np.random.random(), n_iter)
+        writer.add_scalar('Accuracy/test', np.random.random(), n_iter)
     ```
 
     ```py
     >>> from huggingface_hub import HFSummaryWriter
 
-    # Logs are automatically pushed every 5 minutes (default) + when exiting the context manager
-    >>> with HFSummaryWriter(repo_id="test_hf_logger") as logger:
+    # Logs are automatically pushed every 15 minutes (5 by default) + when exiting the context manager
+    >>> with HFSummaryWriter(repo_id="test_hf_logger", commit_every=15) as logger:
     ...     logger.add_scalar("a", 1)
     ...     logger.add_scalar("b", 2)
     ```
@@ -171,6 +175,17 @@ class HFSummaryWriter(SummaryWriter):
         self.repo_id = self.scheduler.repo_id
         self.repo_type = self.scheduler.repo_type
         self.repo_revision = self.scheduler.revision
+
+        # Add `hf-summary-writer` tag to the model card metadata
+        try:
+            card = ModelCard.load(repo_id_or_path=self.repo_id, repo_type=self.repo_type)
+        except EntryNotFoundError:
+            card = ModelCard("")
+        tags = card.data.get("tags", [])
+        if "hf-summary-writer" not in tags:
+            tags.append("hf-summary-writer")
+            card.data["tags"] = tags
+            card.push_to_hub(repo_id=self.repo_id, repo_type=self.repo_type)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""
