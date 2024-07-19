@@ -1334,10 +1334,10 @@ class User:
     Attributes:
         username (`str`):
             Name of the user on the Hub (unique).
-        avatar_url (`str`):
-            URL of the user's avatar.
         fullname (`str`):
             User's full name.
+        avatar_url (`str`):
+            URL of the user's avatar.
         details (`str`, *optional*):
             User's details.
         is_following (`bool`, *optional*):
@@ -1364,9 +1364,9 @@ class User:
 
     # Metadata
     username: str
+    fullname: str
     avatar_url: str
     details: Optional[str] = None
-    fullname: str
     is_following: Optional[bool] = None
     is_pro: Optional[bool] = None
     num_models: Optional[int] = None
@@ -1380,8 +1380,8 @@ class User:
 
     def __init__(self, **kwargs) -> None:
         self.username = kwargs.pop("user", "")
-        self.avatar_url = kwargs.pop("avatarUrl", "")
         self.fullname = kwargs.pop("fullname", "")
+        self.avatar_url = kwargs.pop("avatarUrl", "")
         self.is_following = kwargs.pop("isFollowing", None)
         self.is_pro = kwargs.pop("isPro", None)
         self.details = kwargs.pop("details", None)
