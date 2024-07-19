@@ -1298,6 +1298,31 @@ class UserLikes:
     models: List[str]
     spaces: List[str]
 
+@dataclass
+class Organization:
+    """
+    Contains information about an organization on the Hub.
+
+    Attributes:
+        avatar_url (`str`):
+            URL of the organization's avatar.
+        name (`str`):
+            Name of the organization on the Hub (unique).
+        fullname (`str`):
+            Organization's full name.
+    """
+
+    avatar_url: str
+    name: str
+    fullname: str
+
+    def __init__(self, **kwargs) -> None:
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.name = kwargs.pop("name", "")
+        self.fullname = kwargs.pop("fullname", "")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
 
 @dataclass
 class User:
@@ -1347,22 +1372,24 @@ class User:
     num_likes: Optional[int] = None
     is_following: Optional[bool] = None
     details: Optional[str] = None
+    orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
-        self.avatar_url = kwargs.get("avatarUrl", "")
-        self.username = kwargs.get("user", "")
-        self.fullname = kwargs.get("fullname", "")
-        self.is_pro = kwargs.get("isPro")
-        self.num_models = kwargs.get("numModels")
-        self.num_datasets = kwargs.get("numDatasets")
-        self.num_spaces = kwargs.get("numSpaces")
-        self.num_discussions = kwargs.get("numDiscussions")
-        self.num_papers = kwargs.get("numPapers")
-        self.num_upvotes = kwargs.get("numUpvotes")
-        self.num_likes = kwargs.get("numLikes")
-        self.user_type = kwargs.get("type")
-        self.is_following = kwargs.get("isFollowing")
-        self.details = kwargs.get("details")
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.username = kwargs.pop("user", "")
+        self.fullname = kwargs.pop("fullname", "")
+        self.is_pro = kwargs.pop("isPro", None)
+        self.num_models = kwargs.pop("numModels", None)
+        self.num_datasets = kwargs.pop("numDatasets", None)
+        self.num_spaces = kwargs.pop("numSpaces", None)
+        self.num_discussions = kwargs.pop("numDiscussions", None)
+        self.num_papers = kwargs.pop("numPapers", None)
+        self.num_upvotes = kwargs.pop("numUpvotes", None)
+        self.num_likes = kwargs.pop("numLikes", None)
+        self.user_type = kwargs.pop("type", None)
+        self.is_following = kwargs.pop("isFollowing", None)
+        self.details = kwargs.pop("details", None)
+        self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
         # forward compatibility
         self.__dict__.update(**kwargs)
