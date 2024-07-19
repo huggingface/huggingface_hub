@@ -3780,6 +3780,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertTrue(collection.slug.startswith(self.slug_prefix))
         self.assertEqual(collection.url, f"{ENDPOINT_STAGING}/collections/{collection.slug}")
 
+    @pytest.mark.skip("Creating duplicated collections work on staging")
     def test_create_collection_exists_ok(self) -> None:
         # Create collection once without description
         collection_1 = self._api.create_collection(self.title)
