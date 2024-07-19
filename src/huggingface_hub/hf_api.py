@@ -1298,6 +1298,7 @@ class UserLikes:
     models: List[str]
     spaces: List[str]
 
+
 @dataclass
 class Organization:
     """
@@ -1323,6 +1324,7 @@ class Organization:
 
         # forward compatibility
         self.__dict__.update(**kwargs)
+
 
 @dataclass
 class User:

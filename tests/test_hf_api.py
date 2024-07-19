@@ -4007,15 +4007,15 @@ class UserApiTest(unittest.TestCase):
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
-        assert len(list(members)) >  1
+        assert len(list(members)) > 1
 
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("julien-c")
-        assert len(list(followers)) >  10
+        assert len(list(followers)) > 10
 
     def test_user_following(self) -> None:
         following = self.api.list_user_following("julien-c")
-        assert len(list(following)) >  10
+        assert len(list(following)) > 10
 
 
 class WebhookApiTest(HfApiCommonTest):
