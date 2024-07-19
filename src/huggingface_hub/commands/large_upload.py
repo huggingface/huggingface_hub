@@ -47,7 +47,6 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         large_upload_parser.add_argument(
             "--repo-type",
             choices=["model", "dataset", "space"],
-            default="model",
             help="Type of the repo to upload to (e.g. `dataset`).",
         )
         large_upload_parser.add_argument(
@@ -83,7 +82,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
     def __init__(self, args: Namespace) -> None:
         self.repo_id: str = args.repo_id
         self.local_path: str = args.local_path
-        self.repo_type: Optional[str] = args.repo_type
+        self.repo_type: str = args.repo_type
         self.revision: Optional[str] = args.revision
         self.private: bool = args.private
 

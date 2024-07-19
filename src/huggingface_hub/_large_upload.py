@@ -29,7 +29,7 @@ from typing import List, Optional, Tuple, Union
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
-from .constants import DEFAULT_REVISION, REPO_TYPE_MODEL, REPO_TYPES
+from .constants import DEFAULT_REVISION, REPO_TYPES
 from .hf_api import HfApi
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils.sha import sha_fileobj
@@ -44,8 +44,8 @@ def large_upload(
     repo_id: str,
     folder_path: Union[str, Path],
     *,
+    repo_type: str,  # Repo type is required!
     api: Optional[HfApi] = None,
-    repo_type: Optional[str] = None,
     revision: Optional[str] = None,
     private: bool = False,
     allow_patterns: Optional[Union[List[str], str]] = None,
@@ -68,7 +68,9 @@ def large_upload(
     """
     # 0. Check args and setup
     if repo_type is None:
-        repo_type = REPO_TYPE_MODEL
+        raise ValueError(
+            "For large uploads, `repo_type` is explicitly required. Please set it to `model`, `dataset` or `space`."
+        )
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
     if revision is None:
