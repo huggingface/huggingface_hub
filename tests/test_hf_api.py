@@ -3998,21 +3998,24 @@ class UserApiTest(unittest.TestCase):
 
     def test_user_overview(self) -> None:
         overview = self.api.get_user_overview("julien-c")
-        self.assertEqual(overview.user_type, "user")
-        self.assertGreater(overview.num_likes, 10)
-        self.assertGreater(overview.num_upvotes, 10)
+        assert overview.user_type == "user"
+        assert overview.username == "julien-c"
+        assert overview.num_likes > 10
+        assert overview.num_upvotes > 10
+        assert len(overview.orgs) > 0
+        assert any(org.name == "huggingface" for org in overview.orgs)
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
-        self.assertGreater(len(list(members)), 1)
+        assert len(list(members)) > 1
 
     def test_user_followers(self) -> None:
         followers = self.api.list_user_followers("julien-c")
-        self.assertGreater(len(list(followers)), 10)
+        assert len(list(followers)) > 10
 
     def test_user_following(self) -> None:
         following = self.api.list_user_following("julien-c")
-        self.assertGreater(len(list(following)), 10)
+        assert len(list(following)) > 10
 
 
 class WebhookApiTest(HfApiCommonTest):
