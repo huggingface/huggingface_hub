@@ -1332,12 +1332,16 @@ class User:
     Contains information about a user on the Hub.
 
     Attributes:
-        avatar_url (`str`):
-            URL of the user's avatar.
         username (`str`):
             Name of the user on the Hub (unique).
+        avatar_url (`str`):
+            URL of the user's avatar.
         fullname (`str`):
             User's full name.
+        details (`str`, *optional*):
+            User's details.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user is following this user.
         is_pro (`bool`, *optional*):
             Whether the user is a pro user.
         num_models (`int`, *optional*):
@@ -1354,16 +1358,16 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
-        is_following (`bool`, *optional*):
-            Whether the authenticated user is following this user.
-        details (`str`, *optional*):
-            User's details.
+        orgs (list of [`Organization`]):
+            List of organizations the user is part of.
     """
 
     # Metadata
-    avatar_url: str
     username: str
+    avatar_url: str
+    details: Optional[str] = None
     fullname: str
+    is_following: Optional[bool] = None
     is_pro: Optional[bool] = None
     num_models: Optional[int] = None
     num_datasets: Optional[int] = None
@@ -1372,15 +1376,15 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
-    is_following: Optional[bool] = None
-    details: Optional[str] = None
     orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
-        self.avatar_url = kwargs.pop("avatarUrl", "")
         self.username = kwargs.pop("user", "")
+        self.avatar_url = kwargs.pop("avatarUrl", "")
         self.fullname = kwargs.pop("fullname", "")
+        self.is_following = kwargs.pop("isFollowing", None)
         self.is_pro = kwargs.pop("isPro", None)
+        self.details = kwargs.pop("details", None)
         self.num_models = kwargs.pop("numModels", None)
         self.num_datasets = kwargs.pop("numDatasets", None)
         self.num_spaces = kwargs.pop("numSpaces", None)
@@ -1389,8 +1393,6 @@ class User:
         self.num_upvotes = kwargs.pop("numUpvotes", None)
         self.num_likes = kwargs.pop("numLikes", None)
         self.user_type = kwargs.pop("type", None)
-        self.is_following = kwargs.pop("isFollowing", None)
-        self.details = kwargs.pop("details", None)
         self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
         # forward compatibility
