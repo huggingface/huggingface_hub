@@ -157,7 +157,7 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
         return super().tearDown()
 
     def test_repo_exists(self):
-        self.assertTrue(self._api.repo_exists(self.repo_id))
+        assert self._api.repo_exists(self.repo_id)
         self.assertFalse(self._api.repo_exists(self.repo_id, token=False))  # private repo
         self.assertFalse(self._api.repo_exists("repo-that-does-not-exist"))  # missing repo
 
@@ -173,7 +173,7 @@ class HfApiRepoFileExistsTest(HfApiCommonTest):
         "https://hub-ci.huggingface.co/{repo_id}/resolve/{revision}/{filename}",
     )
     def test_file_exists(self):
-        self.assertTrue(self._api.file_exists(self.repo_id, "file.txt"))
+        assert self._api.file_exists(self.repo_id, "file.txt")
         self.assertFalse(self._api.file_exists("repo-that-does-not-exist", "file.txt"))  # missing repo
         self.assertFalse(self._api.file_exists(self.repo_id, "file-does-not-exist"))  # missing file
         self.assertFalse(
@@ -690,7 +690,7 @@ class CommitApiTest(HfApiCommonTest):
             ("nested/path", self.tmp_file_content.encode()),
         ]:
             filepath = hf_hub_download(repo_id=repo_id, filename=path, revision="main")
-            self.assertTrue(filepath is not None)
+            assert filepath is not None
             with open(filepath, "rb") as downloaded_file:
                 content = downloaded_file.read()
             self.assertEqual(content, expected_content)
@@ -928,10 +928,10 @@ class CommitApiTest(HfApiCommonTest):
             operations=operations,
         )
 
-        self.assertTrue(operations[0]._is_committed)
-        self.assertTrue(operations[0]._is_uploaded)  # LFS file
+        assert operations[0]._is_committed
+        assert operations[0]._is_uploaded  # LFS file
         self.assertEqual(operations[0].path_or_fileobj, b"content")  # not removed by default
-        self.assertTrue(operations[1]._is_committed)
+        assert operations[1]._is_committed
         self.assertEqual(operations[1].path_or_fileobj, b"content")
 
     @use_tmp_repo()
@@ -948,9 +948,9 @@ class CommitApiTest(HfApiCommonTest):
         # First: preupload 1 by 1
         for operation in operations:
             self._api.preupload_lfs_files(repo_id, [operation])
-        self.assertTrue(operations[0]._is_uploaded)
+        assert operations[0]._is_uploaded
         self.assertEqual(operations[0].path_or_fileobj, b"")  # Freed memory
-        self.assertTrue(operations[2]._is_uploaded)
+        assert operations[2]._is_uploaded
         self.assertEqual(operations[2].path_or_fileobj, b"")  # Freed memory
 
         # create commit and capture debug logs
@@ -962,7 +962,7 @@ class CommitApiTest(HfApiCommonTest):
             )
 
         # No LFS files uploaded during commit
-        self.assertTrue(any("No LFS files to upload." in log for log in debug_logs.output))
+        assert any("No LFS files to upload." in log for log in debug_logs.output)
 
     @use_tmp_repo()
     def test_commit_modelcard_invalid_metadata(self, repo_url: RepoUrl) -> None:
@@ -1319,15 +1319,15 @@ class HfApiListRepoTreeTest(HfApiCommonTest):
                 revision="c9211c53404dd6f4cfac5f04f33535892260668e",
             )
         )
-        self.assertEqual(len(tree), 11)
+        assert len(tree) == 11
 
         # check last_commit and security are present for a file
         model_ckpt = next(tree_obj for tree_obj in tree if tree_obj.path == "openjourney-v4.ckpt")
-        self.assertIsNotNone(model_ckpt.last_commit)
-        self.assertEqual(model_ckpt.last_commit["oid"], "bda967fdb79a50844e4a02cccae3217a8ecc86cd")
-        self.assertIsNotNone(model_ckpt.security)
-        self.assertTrue(model_ckpt.security["safe"])
-        self.assertTrue(isinstance(model_ckpt.security["av_scan"], dict))  # all details in here
+        assert model_ckpt.last_commit is not None
+        assert model_ckpt.last_commit["oid"] == "bda967fdb79a50844e4a02cccae3217a8ecc86cd"
+        assert model_ckpt.security is not None
+        assert model_ckpt.security["safe"]
+        assert isinstance(model_ckpt.security["av_scan"], dict)  # all details in here
 
         # check last_commit is present for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
@@ -1664,25 +1664,25 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_list_models(self):
         models = list(self._api.list_models(limit=500))
-        self.assertGreater(len(models), 100)
-        self.assertIsInstance(models[0], ModelInfo)
+        assert len(models) > 100
+        assert isinstance(models[0], ModelInfo)
 
     def test_list_models_author(self):
         models = list(self._api.list_models(author="google"))
-        self.assertGreater(len(models), 10)
-        self.assertIsInstance(models[0], ModelInfo)
+        assert len(models) > 10
+        assert isinstance(models[0], ModelInfo)
         for model in models:
-            self.assertTrue(model.modelId.startswith("google/"))
+            assert model.id.startswith("google/")
 
     def test_list_models_search(self):
         models = list(self._api.list_models(search="bert"))
-        self.assertGreater(len(models), 10)
-        self.assertIsInstance(models[0], ModelInfo)
+        assert len(models) > 10
+        assert isinstance(models[0], ModelInfo)
         for model in models[:10]:
             # Rough rule: at least first 10 will have "bert" in the name
             # Not optimal since it is dependent on how the Hub implements the search
             # (and changes it in the future) but for now it should do the trick.
-            self.assertTrue("bert" in model.modelId.lower())
+            assert "bert" in model.id.lower()
 
     def test_list_models_complex_query(self):
         # Let's list the 10 most recent models
@@ -1690,11 +1690,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # ordered by last modified date.
         models = list(self._api.list_models(filter=("bert", "jax"), sort="last_modified", direction=-1, limit=10))
         # we have at least 1 models
-        self.assertGreater(len(models), 1)
-        self.assertLessEqual(len(models), 10)
+        assert len(models) > 1
+        assert len(models) <= 10
         model = models[0]
-        self.assertIsInstance(model, ModelInfo)
-        self.assertTrue(all(tag in model.tags for tag in ["bert", "jax"]))
+        assert isinstance(model, ModelInfo)
+        assert all(tag in model.tags for tag in ["bert", "jax"])
 
     def test_list_models_with_config(self):
         for model in self._api.list_models(filter="adapter-transformers", fetch_config=True, limit=20):
@@ -1810,12 +1810,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
                     ],
                     "pipeline_tag": "automatic-speech-recognition",
                     "createdAt": "2022-03-02T23:29:04.000Z",
-                    "modelId": "Waynehillsdev/Waynehills-STT-doogie-server",
                     "siblings": None,
                 }
             )
-            self.assertIsNone(model.card_data.eval_results)
-        self.assertTrue(any("Invalid model-index" in log for log in warning_logs.output))
+            assert model.card_data.eval_results is None
+        assert any("Invalid model-index" in log for log in warning_logs.output)
 
     def test_model_info_with_widget_data(self):
         info = self._api.model_info("HuggingFaceH4/zephyr-7b-beta")
@@ -1972,8 +1971,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
 
     def test_dataset_info(self):
         dataset = self._api.dataset_info(repo_id=DUMMY_DATASET_ID)
-        self.assertTrue(isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0)
-        self.assertTrue(isinstance(dataset.siblings, list) and len(dataset.siblings) > 0)
+        assert isinstance(dataset.card_data, DatasetCardData) and len(dataset.card_data) > 0
+        assert isinstance(dataset.siblings, list) and len(dataset.siblings) > 0
         self.assertIsInstance(dataset, DatasetInfo)
         self.assertNotEqual(dataset.sha, DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT)
         dataset = self._api.dataset_info(
@@ -2068,17 +2067,17 @@ class HfApiPublicProductionTest(unittest.TestCase):
         metrics = self._api.list_metrics()
         self.assertGreater(len(metrics), 10)
         self.assertIsInstance(metrics[0], MetricInfo)
-        self.assertTrue(any(metric.description for metric in metrics))
+        assert any(metric.description for metric in metrics)
 
     def test_filter_models_by_author(self):
         models = list(self._api.list_models(author="muellerzr"))
         assert len(models) > 0
-        assert "muellerzr" in models[0].modelId
+        assert "muellerzr" in models[0].id
 
     def test_filter_models_by_author_and_name(self):
         # Test we can search by an author and a name, but the model is not found
         models = list(self._api.list_models(author="facebook", model_name="bart-base"))
-        assert "facebook/bart-base" in models[0].modelId
+        assert "facebook/bart-base" in models[0].id
 
     def test_failing_filter_models_by_author_and_model_name(self):
         # Test we can search by an author and a name, but the model is not found
@@ -2095,9 +2094,9 @@ class HfApiPublicProductionTest(unittest.TestCase):
     def test_filter_models_with_task(self):
         models = list(self._api.list_models(task="fill-mask", model_name="albert-base-v2"))
         assert models[0].pipeline_tag == "fill-mask"
-        assert "albert" in models[0].modelId
-        assert "base" in models[0].modelId
-        assert "v2" in models[0].modelId
+        assert "albert" in models[0].id
+        assert "base" in models[0].id
+        assert "v2" in models[0].id
 
         models = list(self._api.list_models(task="dummytask"))
         assert len(models) == 0
@@ -2431,20 +2430,21 @@ class UploadFolderMockedTest(unittest.TestCase):
 
     def test_allow_everything(self):
         operations = self._upload_folder_alias()
-        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
-        self.assertEqual({op.path_in_repo for op in operations}, self.all_local_files)
+        assert all(isinstance(op, CommitOperationAdd) for op in operations)
+        assert {op.path_in_repo for op in operations} == self.all_local_files
 
     def test_allow_everything_in_subdir_no_trailing_slash(self):
         operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir")
-        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
-        self.assertEqual(
-            {op.path_in_repo for op in operations},
-            {"subdir/file.txt", "subdir/lfs_in_subdir.bin"},  # correct `path_in_repo`
-        )
+        assert all(isinstance(op, CommitOperationAdd) for op in operations)
+        assert {op.path_in_repo for op in operations} == {
+            # correct `path_in_repo`
+            "subdir/file.txt",
+            "subdir/lfs_in_subdir.bin",
+        }
 
     def test_allow_everything_in_subdir_with_trailing_slash(self):
         operations = self._upload_folder_alias(folder_path=self.cache_dir / "subdir", path_in_repo="subdir/")
-        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
+        assert all(isinstance(op, CommitOperationAdd) for op in operations)
         self.assertEqual(
             {op.path_in_repo for op in operations},
             {"subdir/file.txt", "subdir/lfs_in_subdir.bin"},  # correct `path_in_repo`
@@ -2452,19 +2452,16 @@ class UploadFolderMockedTest(unittest.TestCase):
 
     def test_allow_txt_ignore_subdir(self):
         operations = self._upload_folder_alias(allow_patterns="*.txt", ignore_patterns="subdir/*")
-        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
-        self.assertEqual(
-            {op.path_in_repo for op in operations},
-            {"sub/file.txt", "file.txt"},  # only .txt files, not in subdir
-        )
+        assert all(isinstance(op, CommitOperationAdd) for op in operations)
+        assert {op.path_in_repo for op in operations} == {"sub/file.txt", "file.txt"}  # only .txt files, not in subdir
 
     def test_allow_txt_not_root_ignore_subdir(self):
         operations = self._upload_folder_alias(allow_patterns="**/*.txt", ignore_patterns="subdir/*")
-        self.assertTrue(all(isinstance(op, CommitOperationAdd) for op in operations))
-        self.assertEqual(
-            {op.path_in_repo for op in operations},
-            {"sub/file.txt"},  # only .txt files, not in subdir, not at root
-        )
+        assert all(isinstance(op, CommitOperationAdd) for op in operations)
+        assert {op.path_in_repo for op in operations} == {
+            # only .txt files, not in subdir, not at root
+            "sub/file.txt"
+        }
 
     def test_path_in_repo_dot(self):
         """Regression test for #1382 when using `path_in_repo="."`.
@@ -2474,20 +2471,20 @@ class UploadFolderMockedTest(unittest.TestCase):
         """
         operation_with_dot = self._upload_folder_alias(path_in_repo=".", allow_patterns=["file.txt"])[0]
         operation_with_none = self._upload_folder_alias(path_in_repo=None, allow_patterns=["file.txt"])[0]
-        self.assertEqual(operation_with_dot.path_in_repo, "file.txt")
-        self.assertEqual(operation_with_none.path_in_repo, "file.txt")
+        assert operation_with_dot.path_in_repo == "file.txt"
+        assert operation_with_none.path_in_repo == "file.txt"
 
     def test_delete_txt(self):
         operations = self._upload_folder_alias(delete_patterns="*.txt")
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
 
-        self.assertEqual(added_files, self.all_local_files)
-        self.assertEqual(deleted_files, {"file1.txt", "sub/file1.txt"})
+        assert added_files == self.all_local_files
+        assert deleted_files == {"file1.txt", "sub/file1.txt"}
 
         # since "file.txt" and "sub/file.txt" are overwritten, no need to delete them first
-        self.assertIn("file.txt", added_files)
-        self.assertIn("sub/file.txt", added_files)
+        assert "file.txt" in added_files
+        assert "sub/file.txt" in added_files
 
     def test_delete_txt_in_sub(self):
         operations = self._upload_folder_alias(
@@ -2496,8 +2493,8 @@ class UploadFolderMockedTest(unittest.TestCase):
         added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
 
-        self.assertEqual(added_files, {"sub/file.txt", "sub/lfs_in_sub.bin"})  # added only in sub/
-        self.assertEqual(deleted_files, {"sub/file1.txt"})  # delete only in sub/
+        assert added_files == {"sub/file.txt", "sub/lfs_in_sub.bin"}  # added only in sub/
+        assert deleted_files == {"sub/file1.txt"}  # delete only in sub/
 
     def test_delete_txt_in_sub_ignore_sub_file_txt(self):
         operations = self._upload_folder_alias(
@@ -2507,8 +2504,8 @@ class UploadFolderMockedTest(unittest.TestCase):
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
 
         # since "sub/file.txt" should be deleted and is not overwritten (ignore_patterns), we delete it explicitly
-        self.assertEqual(added_files, {"sub/lfs_in_sub.bin"})  # no "sub/file.txt"
-        self.assertEqual(deleted_files, {"sub/file1.txt", "sub/file.txt"})
+        assert added_files == {"sub/lfs_in_sub.bin"}  # no "sub/file.txt"
+        assert deleted_files == {"sub/file1.txt", "sub/file.txt"}
 
     def test_delete_if_path_in_repo(self):
         # Regression test for https://github.com/huggingface/huggingface_hub/pull/2129
@@ -2579,7 +2576,7 @@ class HfLargefilesTest(HfApiCommonTest):
             cwd=self.cache_dir,
         )
         dest_filesize = (self.cache_dir / DEST_FILENAME).stat().st_size
-        self.assertEqual(dest_filesize, 18685041)
+        assert dest_filesize == 18685041
 
     @require_git_lfs
     def test_end_to_end_thresh_16M(self):
@@ -3127,9 +3124,9 @@ class TestCommitInBackground(HfApiCommonTest):
         upload_future_3.result()
 
         # all of them are now complete (ran in order)
-        self.assertTrue(upload_future_1.done())
-        self.assertTrue(upload_future_2.done())
-        self.assertTrue(upload_future_3.done())
+        assert upload_future_1.done()
+        assert upload_future_2.done()
+        assert upload_future_3.done()
 
         # 4 commits, sorted in reverse order of creation
         commits = self._api.list_repo_commits(repo_id=repo_id)
@@ -3156,7 +3153,7 @@ class TestCommitInBackground(HfApiCommonTest):
 
         # Wait for second info future
         info_2 = future_2.result()
-        self.assertTrue(future_2.done())
+        assert future_2.done()
 
         # Like/unlike is correct
         self.assertEqual(info_1.likes, 1)
@@ -3502,7 +3499,7 @@ class ListGitRefsTest(unittest.TestCase):
     def test_list_refs_with_prs(self) -> None:
         refs = self.api.list_repo_refs("openchat/openchat_3.5", include_pull_requests=True)
         self.assertGreater(len(refs.pull_requests), 1)
-        self.assertTrue(refs.pull_requests[0].ref.startswith("refs/pr/"))
+        assert refs.pull_requests[0].ref.startswith("refs/pr/")
 
 
 class ListGitCommitsTest(unittest.TestCase):
@@ -3532,10 +3529,10 @@ class ListGitCommitsTest(unittest.TestCase):
 
         # "on_pr" commit not returned
         self.assertEqual(len(commits), 3)
-        self.assertTrue(all("on_pr" not in commit.title for commit in commits))
+        assert all("on_pr" not in commit.title for commit in commits)
 
         # USER is always the author
-        self.assertTrue(all(commit.authors == [USER] for commit in commits))
+        assert all(commit.authors == [USER] for commit in commits)
 
         # latest commit first
         self.assertEqual(commits[0].title, "Upload on_main.txt with huggingface_hub")
@@ -3550,7 +3547,7 @@ class ListGitCommitsTest(unittest.TestCase):
 
         # "on_pr" commit returned but not the "on_main" one
         self.assertEqual(len(commits), 3)
-        self.assertTrue(all("on_main" not in commit.title for commit in commits))
+        assert all("on_main" not in commit.title for commit in commits)
         self.assertEqual(commits[0].title, "Upload on_pr.txt with huggingface_hub")
 
     def test_list_commits_include_formatted(self) -> None:
@@ -3777,7 +3774,7 @@ class CollectionAPITest(HfApiCommonTest):
         self.assertEqual(collection.title, self.title)
         self.assertEqual(collection.description, "Contains a lot of cool stuff")
         self.assertEqual(collection.items, [])
-        self.assertTrue(collection.slug.startswith(self.slug_prefix))
+        assert collection.slug.startswith(self.slug_prefix)
         self.assertEqual(collection.url, f"{ENDPOINT_STAGING}/collections/{collection.slug}")
 
     @pytest.mark.skip("Creating duplicated collections work on staging")
@@ -4047,7 +4044,7 @@ class WebhookApiTest(HfApiCommonTest):
 
     def test_list_webhooks(self) -> None:
         webhooks = self._api.list_webhooks()
-        self.assertTrue(any(webhook.id == self.webhook.id for webhook in webhooks))
+        assert any(webhook.id == self.webhook.id for webhook in webhooks)
 
     def test_create_webhook(self) -> None:
         new_webhook = self._api.create_webhook(
@@ -4072,7 +4069,7 @@ class WebhookApiTest(HfApiCommonTest):
 
     def test_disable_webhook(self) -> None:
         disabled_webhook = self._api.disable_webhook(self.webhook.id)
-        self.assertTrue(disabled_webhook.disabled)
+        assert disabled_webhook.disabled
 
     def test_delete_webhook(self) -> None:
         # Create another webhook to test deletion

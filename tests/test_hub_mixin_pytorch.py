@@ -307,8 +307,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id)
-        self.assertEqual(model_info.modelId, repo_id)
+        assert self._api.model_info(repo_id) == repo_id
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
