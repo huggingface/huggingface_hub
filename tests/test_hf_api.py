@@ -4133,6 +4133,7 @@ class TestExpandPropertyType(HfApiCommonTest):
             msg += "\nThanks you in advance!"
             raise ValueError(msg)
 
+
 class TestLargeUpload(HfApiCommonTest):
     @use_tmp_repo(repo_type="dataset")
     def test_large_upload_model(self, repo_url: RepoUrl) -> None:
@@ -4149,7 +4150,9 @@ class TestLargeUpload(HfApiCommonTest):
                     (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
 
             # Upload the folder
-            self._api.large_upload(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4)
+            self._api.large_upload(
+                repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4
+            )
 
         # Check all files have been uploaded
         uploaded_files = self._api.list_repo_files(repo_url.repo_id, repo_type=repo_url.repo_type)
