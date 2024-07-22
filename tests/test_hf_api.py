@@ -4132,3 +4132,28 @@ class TestExpandPropertyType(HfApiCommonTest):
             msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
             msg += "\nThanks you in advance!"
             raise ValueError(msg)
+
+class TestLargeUpload(HfApiCommonTest):
+    @use_tmp_repo(repo_type="dataset")
+    def test_large_upload_model(self, repo_url: RepoUrl) -> None:
+        N_FILES_PER_FOLDER = 4
+
+        with SoftTemporaryDirectory() as tmpdir:
+            folder = Path(tmpdir) / "large_folder"
+            # Create 16 LFS files + 16 regular files
+            for i in range(N_FILES_PER_FOLDER):
+                subfolder = folder / f"subfolder_{i}"
+                subfolder.mkdir(parents=True, exist_ok=True)
+                for j in range(N_FILES_PER_FOLDER):
+                    (subfolder / f"file_lfs_{i}_{j}.bin").write_bytes(f"content_lfs_{i}_{j}".encode())
+                    (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
+
+            # Upload the folder
+            self._api.large_upload(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4)
+
+        # Check all files have been uploaded
+        uploaded_files = self._api.list_repo_files(repo_url.repo_id, repo_type=repo_url.repo_type)
+        for i in range(N_FILES_PER_FOLDER):
+            for j in range(N_FILES_PER_FOLDER):
+                assert f"subfolder_{i}/file_lfs_{i}_{j}.bin" in uploaded_files
+                assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
