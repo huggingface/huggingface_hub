@@ -12,10 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to upload a large folder with the CLI.
-
-NOTE: this is still experimental! Might change in the future.
-"""
+"""Contains command to upload a large folder with the CLI."""
 
 import os
 from argparse import Namespace, _SubParsersAction
@@ -100,15 +97,6 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
 
     def run(self) -> None:
         logging.set_verbosity_info()
-
-        if HF_HUB_ENABLE_HF_TRANSFER:
-            print(
-                ANSI.red(
-                    "Large upload works with `hf_transfer` but has not been tested extensively yet."
-                    " It is recommended to set a low number of workers  (--num-workers=2 or --num-workers=3). "
-                    " Feedback is very welcome!"
-                )
-            )
 
         print(
             ANSI.yellow(

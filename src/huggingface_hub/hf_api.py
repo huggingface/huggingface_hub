@@ -59,6 +59,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
+from ._large_upload import large_upload
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
@@ -5147,6 +5148,123 @@ class HfApi:
             commit_description=commit_description,
             create_pr=create_pr,
             parent_commit=parent_commit,
+        )
+
+    def large_upload(
+        self,
+        repo_id: str,
+        folder_path: Union[str, Path],
+        *,
+        repo_type: str,  # Repo type is required!
+        revision: Optional[str] = None,
+        private: bool = False,
+        allow_patterns: Optional[Union[List[str], str]] = None,
+        ignore_patterns: Optional[Union[List[str], str]] = None,
+        num_workers: Optional[int] = None,
+        print_report: bool = True,
+        print_report_every: int = 60,
+    )->None:
+        """Upload a large folder to the Hub in the most resilient way possible.
+
+        Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
+        hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
+        At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
+        to be able to resume the process if interrupted. The whole process might result in several commits.
+
+        Args:
+            repo_id (`str`):
+                The repository to which the file will be uploaded.
+                E.g. `"HuggingFaceTB/smollm-corpus"`.
+            folder_path (`str` or `Path`):
+                Path to the folder to upload on the local file system.
+            repo_type (`str`):
+                Type of the repository. Must be one of `"model"`, `"dataset"` or `"space"`.
+                Unlike in all other `HfApi` methods, `repo_type` is explicitly required here. This is to avoid
+                any mistake when uploading a large folder to the Hub, and therefore prevent from having to re-upload
+                everything.
+            revision (`str`, `optional`):
+                The branch to commit to. If not provided, the `main` branch will be used.
+            private (`bool`, `optional`):
+                Whether the repository should be private. Defaults to False.
+            allow_patterns (`List[str]` or `str`, *optional*):
+                If provided, only files matching at least one pattern are uploaded.
+            ignore_patterns (`List[str]` or `str`, *optional*):
+                If provided, files matching any of the patterns are not uploaded.
+            num_workers (`int`, *optional*):
+                Number of workers to start. Defaults to `os.cpu_count() - 2` (minimum 2).
+                A higher number of workers may speed up the process if your machine allows it. However, on machines with a
+                slower connection, it is recommended to keep the number of workers low to ensure better resumability.
+                Indeed, partially uploaded files will have to be completely re-uploaded if the process is interrupted.
+            print_report (`bool`, *optional*):
+                Whether to print a report of the upload progress. Defaults to True.
+                Report is printed to `sys.stdout` every X seconds (60 by defaults) and overwrites the previous report.
+            print_report_every (`int`, *optional*):
+                Frequency at which the report is printed. Defaults to 60 seconds.
+
+        <Tip>
+
+        A few things to keep in mind:
+            - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
+            - Do not start several processes in parallel.
+            - You can interrupt and resume the process at any time.
+            - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
+
+        </Tip>
+
+        <Tip warning={true}>
+
+        While being much more robust to upload large folders, `large_upload` is more limited than [`upload_folder`] feature-wise. In practice:
+            - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
+            - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
+            - you cannot delete from the repo while uploading. Please make a separate commit first.
+            - you cannot create a PR directly. Please first create a PR and then commit to it by passing `revision`.
+
+        </Tip>
+
+        **Technical details:**
+
+        `large_upload` process is as follow:
+            0. (Check parameters and setup.)
+            1. Create repo is missing.
+            2. List local files to upload.
+            3. Start workers. Workers can perform the following tasks:
+                - Hash a file.
+                - Get upload mode (regular or LFS) for a list of files.
+                - Pre-upload an LFS file.
+                - Commit a bunch of files.
+            Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
+            all files are uploaded and committed.
+            4. While workers are up, regularly print a report to sys.stdout.
+
+        Order of priority:
+            1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
+            2. Commit if at least 25 files are ready to commit.
+            3. Get upload mode if at least 10 files have been hashed.
+            4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
+            5. Hash file if at least 1 file and no worker is hashing.
+            6. Get upload mode if at least 1 file and no worker is getting upload mode.
+            7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
+            8. Hash file if at least 1 file to hash.
+            9. Get upload mode if at least 1 file to get upload mode.
+            10. Commit if at least 1 file to commit.
+
+        Special rules:
+            - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
+            - Only one worker can commit at a time.
+            - If no tasks are available, the worker waits for 10 seconds before checking again.
+        """
+        return large_upload(
+            api=self,
+            repo_id=repo_id,
+            folder_path=folder_path,
+            repo_type=repo_type,
+            revision=revision,
+            private=private,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+            num_workers=num_workers,
+            print_report=print_report,
+            print_report_every=print_report_every,
         )
 
     @validate_hf_hub_args

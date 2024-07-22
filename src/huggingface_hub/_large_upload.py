@@ -54,17 +54,9 @@ def large_upload(
     print_report: bool = True,
     print_report_every: int = 60,
 ):
-    """Used to upload a large folder in the most resilient way possible.
+    """Upload a large folder to the Hub in the most resilient way possible.
 
-    Steps:
-    0. Check args and setup
-    1. Create repo is missing
-    2. List files to upload.
-    3. Start workers:
-        - Compute sha256
-        - Get upload modes
-        - Pre-upload LFS files
-        - Make commits
+    See [`HfApi.large_upload`] for the full documentation.
     """
     # 0. Check args and setup
     if repo_type is None:
@@ -278,27 +270,12 @@ def _worker_job(
     revision: str,
 ):
     """
-    Tasks:
-        1. Compute sha256 (single file)
-        2. Get upload mode (multiple files, max 50)
-        3. Preupload LFS (single file)
-        4. Commit (multiple files, max 50)
+    Main process for a worker. The worker will perform tasks based on the priority list until all files are uploaded
+    and committed. If no tasks are available, the worker will wait for 10 seconds before checking again.
 
-    Order of priority:
-        1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
-        2. Commit if at least 25 files are ready to commit
-        3. Get upload mode if at least 10 files
-        4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
-        5. Compute sha256 if at least 1 file and no worker is computing sha256
-        6. Get upload mode if at least 1 file and no worker is getting upload mode
-        7. Preupload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time)
-        8. Compute sha256 if at least 1 file
-        9. Get upload mode if at least 1 file
-        10. Commit if at least 1 file
+    If a task fails for any reason, the item(s) are put back in the queue for another worker to pick up.
 
-    Special rules:
-        - TODO: If `hf_transfer` => only 1 LFS uploader at a time.
-        - Always: only one worker can commit at a time.
+    Read `large_upload` docstring for more information on how tasks are prioritized.
     """
     while True:
         next_job: Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]] = None
