@@ -59,7 +59,7 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._large_upload import large_upload
+from ._large_upload import large_upload_internal
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
@@ -5253,7 +5253,7 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
-        return large_upload(
+        return large_upload_internal(
             self,
             repo_id=repo_id,
             folder_path=folder_path,
@@ -9452,6 +9452,7 @@ delete_file = api.delete_file
 delete_folder = api.delete_folder
 delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
+large_upload = api.large_upload
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch

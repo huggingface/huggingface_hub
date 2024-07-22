@@ -205,6 +205,7 @@ _SUBMOD_ATTRS = {
         "get_user_overview",
         "get_webhook",
         "grant_access",
+        "large_upload",
         "like",
         "list_accepted_access_requests",
         "list_collections",
@@ -709,6 +710,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
+        large_upload,  # noqa: F401
         like,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401

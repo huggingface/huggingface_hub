@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 
 
-def large_upload(
+def large_upload_internal(
     api: "HfApi",
     repo_id: str,
     folder_path: Union[str, Path],
