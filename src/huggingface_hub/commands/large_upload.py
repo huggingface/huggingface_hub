@@ -98,21 +98,23 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
 
         print(
             ANSI.yellow(
-                "You are about to upload a large folder to the Hub using `huggingface-cli large-upload`.\n"
-                "Please remember that this is still experimental so expect some rough edges in the process.\n\n"
-                "A few things to keep in mind:\n"
-                "- Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
-                "- Do not start several processes in parallel.\n"
-                "- You can interrupt and resume the process at any time. "
-                "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
-                f"- Some metadata will be stored under `{self.local_path}/.huggingface`.\n"
-                "  - You must not modify those files manually.\n"
-                "  - You must not delete the `.huggingface/` folder while a process is running.\n"
-                "  - You can delete the `.huggingface/` folder to reinitialize the upload state (when not running). Files will have to be hashed and preuploaded again, except for already committed files.\n"
-                "- Do not upload the same folder to several repositories. If you need to do so, you must delete the `.huggingface/` folder first.\n"
-                "For more details about available options, run `huggingface-cli large-upload --help`.\n"
+                "You are about to upload a large folder to the Hub using `huggingface-cli large-upload`. "
+                "This is a new feature so feedback is very welcome!\n"
                 "\n"
-                "Feedback is very welcome! Don't forget to report back how it went on https://github.com/huggingface/huggingface_hub/pull/2254"
+                "A few things to keep in mind:\n"
+                "  - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
+                "  - Do not start several processes in parallel.\n"
+                "  - You can interrupt and resume the process at any time. "
+                "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
+                "  - Do not upload the same folder to several repositories. If you need to do so, you must delete the `./.cache/huggingface/` folder first.\n"
+                "\n"
+                f"Some temporary metadata will be stored under `{self.local_path}/.cache/huggingface`.\n"
+                "  - You must not modify those files manually.\n"
+                "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
+                "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
+                "\n"
+                "For more details, run `huggingface-cli large-upload --help` or check the documentation at "
+                "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
             )
         )
 
