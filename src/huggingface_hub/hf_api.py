@@ -5217,24 +5217,24 @@ class HfApi:
             - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
             - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
             - you cannot delete from the repo while uploading. Please make a separate commit first.
-            - you cannot create a PR directly. Please first create a PR and then commit to it by passing `revision`.
+            - you cannot create a PR directly. Please create a PR first and then commit to it by passing `revision`.
 
         </Tip>
 
         **Technical details:**
 
         `large_upload` process is as follow:
-            0. (Check parameters and setup.)
-            1. Create repo is missing.
-            2. List local files to upload.
-            3. Start workers. Workers can perform the following tasks:
+            1. (Check parameters and setup.)
+            2. Create repo is missing.
+            3. List local files to upload.
+            4. Start workers. Workers can perform the following tasks:
                 - Hash a file.
                 - Get upload mode (regular or LFS) for a list of files.
                 - Pre-upload an LFS file.
                 - Commit a bunch of files.
             Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
             all files are uploaded and committed.
-            4. While workers are up, regularly print a report to sys.stdout.
+            5. While workers are up, regularly print a report to sys.stdout.
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).

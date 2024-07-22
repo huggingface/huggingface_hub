@@ -60,7 +60,7 @@ def large_upload(
 
     See [`HfApi.large_upload`] for the full documentation.
     """
-    # 0. Check args and setup
+    # 1. Check args and setup
     if repo_type is None:
         raise ValueError(
             "For large uploads, `repo_type` is explicitly required. Please set it to `model`, `dataset` or `space`."
@@ -84,12 +84,12 @@ def large_upload(
         nb_cores = os.cpu_count() or 1
         num_workers = max(nb_cores - 2, 2)  # Use all but 2 cores, or at least 2 cores
 
-    # 1. Create repo if missing
+    # 2. Create repo if missing
     repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
     logger.info(f"Repo created: {repo_url}")
     repo_id = repo_url.repo_id
 
-    # 2. List files to upload
+    # 3. List files to upload
     #    Taken from '_prepare_upload_folder_additions(...)'
     paths_list = [
         get_local_upload_paths(folder_path, relpath)
@@ -107,7 +107,7 @@ def large_upload(
         for paths in tqdm(paths_list, desc="Recovering from metadata files")
     ]
 
-    # Start workers
+    # 4. Start workers
     status = LargeUploadStatus(items)
     threads = [
         threading.Thread(
@@ -126,6 +126,7 @@ def large_upload(
     for thread in threads:
         thread.start()
 
+    # 5. Print regular reports
     if print_report:
         print("\n\n" + status.current_report())
     while True:
