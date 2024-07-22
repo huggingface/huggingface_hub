@@ -24,16 +24,18 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from . import constants
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
-from .hf_api import HfApi
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
 from .utils.sha import sha_fileobj
 
+
+if TYPE_CHECKING:
+    from .hf_api import HfApi
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +43,11 @@ WAITING_TIME_IF_NO_TASKS = 10  # seconds
 
 
 def large_upload(
+    api: "HfApi",
     repo_id: str,
     folder_path: Union[str, Path],
     *,
     repo_type: str,  # Repo type is required!
-    api: Optional[HfApi] = None,
     revision: Optional[str] = None,
     private: bool = False,
     allow_patterns: Optional[Union[List[str], str]] = None,
@@ -81,9 +83,6 @@ def large_upload(
     if num_workers is None:
         nb_cores = os.cpu_count() or 1
         num_workers = max(nb_cores - 2, 2)  # Use all but 2 cores, or at least 2 cores
-
-    if api is None:
-        api = HfApi()
 
     # 1. Create repo if missing
     repo_url = api.create_repo(repo_id=repo_id, repo_type=repo_type, private=private, exist_ok=True)
@@ -264,7 +263,7 @@ class LargeUploadStatus:
 
 def _worker_job(
     status: LargeUploadStatus,
-    api: HfApi,
+    api: "HfApi",
     repo_id: str,
     repo_type: str,
     revision: str,
@@ -455,7 +454,7 @@ def _compute_sha256(item: JOB_ITEM_T) -> None:
     metadata.save(paths)
 
 
-def _get_upload_mode(items: List[JOB_ITEM_T], api: HfApi, repo_id: str, repo_type: str, revision: str) -> None:
+def _get_upload_mode(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Get upload mode for each file and update metadata.
 
     Also receive info if the file should be ignored.
@@ -475,7 +474,7 @@ def _get_upload_mode(items: List[JOB_ITEM_T], api: HfApi, repo_id: str, repo_typ
         metadata.save(paths)
 
 
-def _preupload_lfs(item: JOB_ITEM_T, api: HfApi, repo_id: str, repo_type: str, revision: str) -> None:
+def _preupload_lfs(item: JOB_ITEM_T, api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Preupload LFS file and update metadata."""
     paths, metadata = item
     addition = _build_hacky_operation(item)
@@ -490,7 +489,7 @@ def _preupload_lfs(item: JOB_ITEM_T, api: HfApi, repo_id: str, repo_type: str, r
     metadata.save(paths)
 
 
-def _commit(items: List[JOB_ITEM_T], api: HfApi, repo_id: str, repo_type: str, revision: str) -> None:
+def _commit(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str, revision: str) -> None:
     """Commit files to the repo."""
     additions = [_build_hacky_operation(item) for item in items]
     api.create_commit(

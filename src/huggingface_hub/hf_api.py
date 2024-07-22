@@ -5254,7 +5254,7 @@ class HfApi:
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
         return large_upload(
-            api=self,
+            self,
             repo_id=repo_id,
             folder_path=folder_path,
             repo_type=repo_type,

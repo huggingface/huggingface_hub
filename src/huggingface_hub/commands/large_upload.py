@@ -19,7 +19,6 @@ from argparse import Namespace, _SubParsersAction
 from typing import List, Optional
 
 from huggingface_hub import logging
-from huggingface_hub._large_upload import large_upload
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import disable_progress_bars
@@ -120,12 +119,11 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         if self.no_bars:
             disable_progress_bars()
 
-        large_upload(
+        self.api.large_upload(
             repo_id=self.repo_id,
             folder_path=self.local_path,
             repo_type=self.repo_type,
             revision=self.revision,
-            api=self.api,
             private=self.private,
             allow_patterns=self.include,
             ignore_patterns=self.exclude,
