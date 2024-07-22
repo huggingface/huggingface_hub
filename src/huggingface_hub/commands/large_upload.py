@@ -69,7 +69,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
             "--num-workers", type=int, help="Number of workers to use to hash, upload and commit files."
         )
         large_upload_parser.add_argument(
-            "--no-report", action="store_true", help="Whether to regularly print a status report."
+            "--no-report", action="store_true", help="Whether to disable regular status report."
         )
         large_upload_parser.add_argument("--no-bars", action="store_true", help="Whether to disable progress bars.")
         large_upload_parser.set_defaults(func=LargeUploadCommand)
