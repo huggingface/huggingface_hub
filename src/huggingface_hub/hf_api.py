@@ -1300,17 +1300,48 @@ class UserLikes:
 
 
 @dataclass
+class Organization:
+    """
+    Contains information about an organization on the Hub.
+
+    Attributes:
+        avatar_url (`str`):
+            URL of the organization's avatar.
+        name (`str`):
+            Name of the organization on the Hub (unique).
+        fullname (`str`):
+            Organization's full name.
+    """
+
+    avatar_url: str
+    name: str
+    fullname: str
+
+    def __init__(self, **kwargs) -> None:
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.name = kwargs.pop("name", "")
+        self.fullname = kwargs.pop("fullname", "")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class User:
     """
     Contains information about a user on the Hub.
 
     Attributes:
-        avatar_url (`str`):
-            URL of the user's avatar.
         username (`str`):
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
+        avatar_url (`str`):
+            URL of the user's avatar.
+        details (`str`, *optional*):
+            User's details.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user is following this user.
         is_pro (`bool`, *optional*):
             Whether the user is a pro user.
         num_models (`int`, *optional*):
@@ -1327,16 +1358,16 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
-        is_following (`bool`, *optional*):
-            Whether the authenticated user is following this user.
-        details (`str`, *optional*):
-            User's details.
+        orgs (list of [`Organization`]):
+            List of organizations the user is part of.
     """
 
     # Metadata
-    avatar_url: str
     username: str
     fullname: str
+    avatar_url: str
+    details: Optional[str] = None
+    is_following: Optional[bool] = None
     is_pro: Optional[bool] = None
     num_models: Optional[int] = None
     num_datasets: Optional[int] = None
@@ -1345,24 +1376,24 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
-    is_following: Optional[bool] = None
-    details: Optional[str] = None
+    orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
-        self.avatar_url = kwargs.get("avatarUrl", "")
-        self.username = kwargs.get("user", "")
-        self.fullname = kwargs.get("fullname", "")
-        self.is_pro = kwargs.get("isPro")
-        self.num_models = kwargs.get("numModels")
-        self.num_datasets = kwargs.get("numDatasets")
-        self.num_spaces = kwargs.get("numSpaces")
-        self.num_discussions = kwargs.get("numDiscussions")
-        self.num_papers = kwargs.get("numPapers")
-        self.num_upvotes = kwargs.get("numUpvotes")
-        self.num_likes = kwargs.get("numLikes")
-        self.user_type = kwargs.get("type")
-        self.is_following = kwargs.get("isFollowing")
-        self.details = kwargs.get("details")
+        self.username = kwargs.pop("user", "")
+        self.fullname = kwargs.pop("fullname", "")
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.is_following = kwargs.pop("isFollowing", None)
+        self.is_pro = kwargs.pop("isPro", None)
+        self.details = kwargs.pop("details", None)
+        self.num_models = kwargs.pop("numModels", None)
+        self.num_datasets = kwargs.pop("numDatasets", None)
+        self.num_spaces = kwargs.pop("numSpaces", None)
+        self.num_discussions = kwargs.pop("numDiscussions", None)
+        self.num_papers = kwargs.pop("numPapers", None)
+        self.num_upvotes = kwargs.pop("numUpvotes", None)
+        self.num_likes = kwargs.pop("numLikes", None)
+        self.user_type = kwargs.pop("type", None)
+        self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
         # forward compatibility
         self.__dict__.update(**kwargs)
