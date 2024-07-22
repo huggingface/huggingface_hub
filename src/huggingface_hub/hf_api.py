@@ -5163,7 +5163,7 @@ class HfApi:
         num_workers: Optional[int] = None,
         print_report: bool = True,
         print_report_every: int = 60,
-    )->None:
+    ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
 
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
