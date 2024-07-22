@@ -31,6 +31,7 @@ from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
 from .utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects, tqdm
+from .utils._cache_manager import _format_size
 from .utils.sha import sha_fileobj
 
 
@@ -538,20 +539,6 @@ def _get_one(queue: "queue.Queue[JOB_ITEM_T]") -> List[JOB_ITEM_T]:
 
 def _get_n(queue: "queue.Queue[JOB_ITEM_T]", n: int) -> List[JOB_ITEM_T]:
     return [queue.get() for _ in range(min(queue.qsize(), n))]
-
-
-def _format_size(num: int) -> str:
-    """Format size in bytes into a human-readable string.
-
-    Taken from https://stackoverflow.com/a/1094933
-    TODO: deduplicate this from `_cache_manager.py`
-    """
-    num_f = float(num)
-    for unit in ["", "K", "M", "G", "T", "P", "E", "Z"]:
-        if abs(num_f) < 1000.0:
-            return f"{num_f:3.1f}{unit}"
-        num_f /= 1000.0
-    return f"{num_f:.1f}Y"
 
 
 def _print_overwrite(report: str) -> None:
