@@ -27,6 +27,7 @@ from huggingface_hub import (
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
     ChatCompletionOutputMessage,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -289,21 +290,21 @@ class InferenceClientVCRTest(InferenceClientTest):
             max_tokens=20,
         )
         assert output == ChatCompletionOutput(
-            id="dummy",
-            model="dummy",
-            system_fingerprint="dummy",
-            usage=None,
             choices=[
                 ChatCompletionOutputComplete(
-                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    finish_reason="eos_token",
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content="Deep learning is a thing.",
-                        role="assistant",
+                        role="assistant", content="What does deep learning have to do with anything?", tool_calls=None
                     ),
+                    logprobs=None,
                 )
             ],
-            created=output.created,
+            created=1721743094,
+            id="",
+            model="microsoft/DialoGPT-small",
+            system_fingerprint="2.1.1-sha-4dfdb48",
+            usage=ChatCompletionOutputUsage(completion_tokens=11, prompt_tokens=13, total_tokens=24),
         )
 
     def test_chat_completion_with_tool(self) -> None:
