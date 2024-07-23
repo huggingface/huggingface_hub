@@ -820,12 +820,13 @@ class AsyncInferenceClient:
         # since `chat_completion(..., model=xxx)` is also a payload parameter for the
         # server, we need to handle it differently
         model = self.base_url or self.model or model or self.get_recommended_model("text-generation")
+        is_url = model.startswith(("http://", "https://"))
 
         # First, resolve the model chat completions URL
         if model == self.base_url:
             # base_url passed => add server route
             model_url = model + "/v1/chat/completions"
-        elif model.startswith(("http://", "https://")):
+        elif is_url:
             # model is a URL => use it directly
             model_url = model
         else:
@@ -834,7 +835,7 @@ class AsyncInferenceClient:
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        model_id = model if not model.startswith("http") and model.count("/") == 1 else "tgi"
+        model_id = model if not is_url and model.count("/") == 1 else "tgi"
 
         data = await self.post(
             model=model_url,
