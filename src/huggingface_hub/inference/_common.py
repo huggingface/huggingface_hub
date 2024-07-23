@@ -351,7 +351,10 @@ def _stream_chat_completion_response_from_bytes(
 ) -> Iterable[ChatCompletionStreamOutput]:
     """Used in `InferenceClient.chat_completion` if model is served with TGI."""
     for item in bytes_lines:
-        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        try:
+            output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        except StopIteration:
+            break
         if output is not None:
             yield output
 
@@ -361,7 +364,10 @@ async def _async_stream_chat_completion_response_from_bytes(
 ) -> AsyncIterable[ChatCompletionStreamOutput]:
     """Used in `AsyncInferenceClient.chat_completion`."""
     async for item in bytes_lines:
-        output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        try:
+            output = _format_chat_completion_stream_output_from_text_generation_from_bytes(item)
+        except StopIteration:
+            break
         if output is not None:
             yield output
 
@@ -371,6 +377,9 @@ def _format_chat_completion_stream_output_from_text_generation_from_bytes(
 ) -> Optional[ChatCompletionStreamOutput]:
     if not byte_payload.startswith(b"data:"):
         return None  # empty line
+
+    if byte_payload == b"data: [DONE]":
+        raise StopIteration("[DONE] signal received.")
 
     # Decode payload
     payload = byte_payload.decode("utf-8")
