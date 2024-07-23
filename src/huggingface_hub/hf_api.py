@@ -3853,7 +3853,7 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             headers=headers,
-            revision=revision,
+            revision=unquoted_revision,
             endpoint=self.endpoint,
         )
         commit_payload = _prepare_commit_payload(
