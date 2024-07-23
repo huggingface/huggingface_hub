@@ -866,10 +866,10 @@ class AsyncInferenceClient:
                     stream=stream,
                 )
             except _import_aiohttp().ClientResponseError as e:
-                if e.status in (400, 404, 500):
+                if e.status in (400, 500):
                     # Let's consider the server is not a chat completion server.
                     # Then we call again `chat_completion` which will render the chat template client side.
-                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
+                    # (can be HTTP 500 or HTTP 400 depending on the server)
                     _set_as_non_chat_completion_server(model)
                     logger.warning(
                         f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
