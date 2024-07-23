@@ -265,24 +265,30 @@ def _bytes_to_image(content: bytes) -> "Image":
 ## STREAMING UTILS
 
 
-def _stream_text_generation_response(
+def _stream_text_generation_response_from_bytes(
     bytes_output_as_lines: Iterable[bytes], details: bool
 ) -> Union[Iterable[str], Iterable[TextGenerationStreamOutput]]:
     """Used in `InferenceClient.text_generation`."""
     # Parse ServerSentEvents
     for byte_payload in bytes_output_as_lines:
-        output = _format_text_generation_stream_output(byte_payload, details)
+        try:
+            output = _format_text_generation_stream_output(byte_payload, details)
+        except StopIteration:
+            break
         if output is not None:
             yield output
 
 
-async def _async_stream_text_generation_response(
+async def _async_stream_text_generation_response_from_bytes(
     bytes_output_as_lines: AsyncIterable[bytes], details: bool
 ) -> Union[AsyncIterable[str], AsyncIterable[TextGenerationStreamOutput]]:
     """Used in `AsyncInferenceClient.text_generation`."""
     # Parse ServerSentEvents
     async for byte_payload in bytes_output_as_lines:
-        output = _format_text_generation_stream_output(byte_payload, details)
+        try:
+            output = _format_text_generation_stream_output(byte_payload, details)
+        except StopIteration:
+            break
         if output is not None:
             yield output
 
@@ -290,8 +296,12 @@ async def _async_stream_text_generation_response(
 def _format_text_generation_stream_output(
     byte_payload: bytes, details: bool
 ) -> Optional[Union[str, TextGenerationStreamOutput]]:
+    print(byte_payload)
     if not byte_payload.startswith(b"data:"):
         return None  # empty line
+
+    if byte_payload == b"data: [DONE]":
+        raise StopIteration("[DONE] signal received.")
 
     # Decode payload
     payload = byte_payload.decode("utf-8")

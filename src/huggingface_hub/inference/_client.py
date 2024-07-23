@@ -71,7 +71,7 @@ from huggingface_hub.inference._common import (
     _set_as_non_chat_completion_server,
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response_from_bytes,
-    _stream_text_generation_response,
+    _stream_text_generation_response_from_bytes,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
@@ -2249,7 +2249,7 @@ class InferenceClient:
 
         # Parse output
         if stream:
-            return _stream_text_generation_response(bytes_output, details)  # type: ignore
+            return _stream_text_generation_response_from_bytes(bytes_output, details)  # type: ignore
 
         data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
 

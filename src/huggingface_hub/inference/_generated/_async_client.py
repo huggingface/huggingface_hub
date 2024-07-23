@@ -45,7 +45,7 @@ from huggingface_hub.inference._common import (
     ContentT,
     ModelStatus,
     _async_stream_chat_completion_response_from_bytes,
-    _async_stream_text_generation_response,
+    _async_stream_text_generation_response_from_bytes,
     _b64_encode,
     _b64_to_image,
     _bytes_to_dict,
@@ -2280,7 +2280,7 @@ class AsyncInferenceClient:
 
         # Parse output
         if stream:
-            return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
+            return _async_stream_text_generation_response_from_bytes(bytes_output, details)  # type: ignore
 
         data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
 

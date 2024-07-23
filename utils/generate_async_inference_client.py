@@ -414,8 +414,8 @@ def _update_examples_in_public_methods(code: str) -> str:
 
 def _use_async_streaming_util(code: str) -> str:
     code = code.replace(
-        "_stream_text_generation_response",
-        "_async_stream_text_generation_response",
+        "_stream_text_generation_response_from_bytes",
+        "_async_stream_text_generation_response_from_bytes",
     )
     code = code.replace(
         "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
