@@ -344,14 +344,6 @@ def _adapt_text_generation_to_async(code: str) -> str:
 
 
 def _adapt_chat_completion_to_async(code: str) -> str:
-    # Catch `aiohttp` error instead of `requests` error
-    code = code.replace(
-        """            except HTTPError as e:
-                if e.response.status_code in (400, 500):""",
-        """            except _import_aiohttp().ClientResponseError as e:
-                if e.status in (400, 500):""",
-    )
-
     # Await text-generation call
     code = code.replace(
         "text_generation_output = self.text_generation(",
@@ -414,12 +406,10 @@ def _update_examples_in_public_methods(code: str) -> str:
 
 def _use_async_streaming_util(code: str) -> str:
     code = code.replace(
-        "_stream_text_generation_response_from_bytes",
-        "_async_stream_text_generation_response_from_bytes",
+        "_stream_text_generation_response",
+        "_async_stream_text_generation_response",
     )
-    code = code.replace(
-        "_stream_chat_completion_response_from_bytes", "_async_stream_chat_completion_response_from_bytes"
-    )
+    code = code.replace("_stream_chat_completion_response", "_async_stream_chat_completion_response")
     return code
 
 

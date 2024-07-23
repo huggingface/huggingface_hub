@@ -47,8 +47,8 @@ from huggingface_hub import (
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
-    _stream_chat_completion_response_from_bytes,
-    _stream_text_generation_response_from_bytes,
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
 )
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
@@ -952,7 +952,7 @@ class TestOpenAICompatibility(unittest.TestCase):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
 
 
-def test_stream_text_generation_response_from_bytes():
+def test_stream_text_generation_response():
     data = [
         b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
         b"",  # Empty line is skipped
@@ -961,12 +961,12 @@ def test_stream_text_generation_response_from_bytes():
         b"data: [DONE]",  # Stop signal
         b'data: {"wont be parsed": 4}',  # Won't continue after
     ]
-    output = list(_stream_text_generation_response_from_bytes(data, details=False))
+    output = list(_stream_text_generation_response(data, details=False))
     assert len(output) == 2
     assert output == [" trying", " to"]
 
 
-def test_stream_chat_completion_response_from_bytes():
+def test_stream_chat_completion_response():
     data = [
         b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
         b"",  # Empty line is skipped
@@ -975,7 +975,7 @@ def test_stream_chat_completion_response_from_bytes():
         b"data: [DONE]",  # Stop signal
         b'data: {"wont be parsed": 4}',  # Won't continue after
     ]
-    output = list(_stream_chat_completion_response_from_bytes(data))
+    output = list(_stream_chat_completion_response(data))
     assert len(output) == 2
     assert output[0].choices[0].delta.content == "Both"
     assert output[1].choices[0].delta.content == " Rust"
