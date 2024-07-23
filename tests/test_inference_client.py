@@ -27,6 +27,7 @@ from huggingface_hub import (
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
     ChatCompletionOutputMessage,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -46,6 +47,10 @@ from huggingface_hub import (
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
+from huggingface_hub.inference._common import (
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
+)
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
 from .testing_utils import expect_deprecation, with_production_testing
@@ -285,21 +290,21 @@ class InferenceClientVCRTest(InferenceClientTest):
             max_tokens=20,
         )
         assert output == ChatCompletionOutput(
-            id="dummy",
-            model="dummy",
-            system_fingerprint="dummy",
-            usage=None,
             choices=[
                 ChatCompletionOutputComplete(
-                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    finish_reason="eos_token",
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content="Deep learning is a thing.",
-                        role="assistant",
+                        role="assistant", content="What does deep learning have to do with anything?", tool_calls=None
                     ),
+                    logprobs=None,
                 )
             ],
-            created=output.created,
+            created=1721743094,
+            id="",
+            model="microsoft/DialoGPT-small",
+            system_fingerprint="2.1.1-sha-4dfdb48",
+            usage=ChatCompletionOutputUsage(completion_tokens=11, prompt_tokens=13, total_tokens=24),
         )
 
     def test_chat_completion_with_tool(self) -> None:
@@ -808,12 +813,12 @@ class TestHeadersAndCookies(unittest.TestCase):
         response = client.post(data=b"content", model="username/repo_name")
         self.assertEqual(response, get_session_mock().post.return_value.content)
 
-        expected_user_agent = build_hf_headers()["user-agent"]
+        expected_headers = build_hf_headers()
         get_session_mock().post.assert_called_once_with(
             "https://api-inference.huggingface.co/models/username/repo_name",
             json=None,
             data=b"content",
-            headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
+            headers={**expected_headers, "X-My-Header": "foo"},
             cookies={"my-cookie": "bar"},
             timeout=None,
             stream=False,
@@ -946,3 +951,34 @@ class TestOpenAICompatibility(unittest.TestCase):
     def test_model_and_base_url_mutually_exclusive(self):
         with self.assertRaises(ValueError):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
+
+
+def test_stream_text_generation_response():
+    data = [
+        b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
+        b"",  # Empty line is skipped
+        b"\n",  # Newline is skipped
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        b"data: [DONE]",  # Stop signal
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+    ]
+    output = list(_stream_text_generation_response(data, details=False))
+    assert len(output) == 2
+    assert output == [" trying", " to"]
+
+
+def test_stream_chat_completion_response():
+    data = [
+        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        b"",  # Empty line is skipped
+        b"\n",  # Newline is skipped
+        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+        b"data: [DONE]",  # Stop signal
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+    ]
+    output = list(_stream_chat_completion_response(data))
+    assert len(output) == 2
+    assert output[0].choices[0].delta.content == "Both"
+    assert output[1].choices[0].delta.content == " Rust"
