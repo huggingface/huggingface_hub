@@ -66,11 +66,9 @@ from huggingface_hub.inference._common import (
     _fetch_recommended_models,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _is_chat_completion_server,
     _open_as_binary,
-    _set_as_non_chat_completion_server,
     _set_unsupported_text_generation_kwargs,
-    _stream_chat_completion_response_from_bytes,
+    _stream_chat_completion_response,
     _stream_text_generation_response,
     raise_text_generation_error,
 )
@@ -82,8 +80,6 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionInputTool,
     ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
-    ChatCompletionOutputComplete,
-    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -189,7 +185,7 @@ class InferenceClient:
             )
 
         self.model: Optional[str] = model
-        self.token: Union[str, bool, None] = token or api_key
+        self.token: Union[str, bool, None] = token if token is not None else api_key
         self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -818,123 +814,52 @@ class InferenceClient:
         # since `chat_completion(..., model=xxx)` is also a payload parameter for the
         # server, we need to handle it differently
         model = self.base_url or self.model or model or self.get_recommended_model("text-generation")
+        is_url = model.startswith(("http://", "https://"))
 
-        if _is_chat_completion_server(model):
-            # First, let's consider the server has a `/v1/chat/completions` endpoint.
-            # If that's the case, we don't have to render the chat template client-side.
-            model_url = self._resolve_url(model)
-            if not model_url.endswith("/chat/completions"):
-                model_url += "/v1/chat/completions"
+        # First, resolve the model chat completions URL
+        if model == self.base_url:
+            # base_url passed => add server route
+            model_url = model + "/v1/chat/completions"
+        elif is_url:
+            # model is a URL => use it directly
+            model_url = model
+        else:
+            # model is a model ID => resolve it + add server route
+            model_url = self._resolve_url(model) + "/v1/chat/completions"
 
-            # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
-            if not model.startswith("http") and model.count("/") == 1:
-                # If it's a ID on the Hub => use it
-                model_id = model
-            else:
-                # Otherwise, we use a random string
-                model_id = "tgi"
+        # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
+        # If it's a ID on the Hub => use it. Otherwise, we use a random string.
+        model_id = model if not is_url and model.count("/") == 1 else "tgi"
 
-            try:
-                data = self.post(
-                    model=model_url,
-                    json=dict(
-                        model=model_id,
-                        messages=messages,
-                        frequency_penalty=frequency_penalty,
-                        logit_bias=logit_bias,
-                        logprobs=logprobs,
-                        max_tokens=max_tokens,
-                        n=n,
-                        presence_penalty=presence_penalty,
-                        response_format=response_format,
-                        seed=seed,
-                        stop=stop,
-                        temperature=temperature,
-                        tool_choice=tool_choice,
-                        tool_prompt=tool_prompt,
-                        tools=tools,
-                        top_logprobs=top_logprobs,
-                        top_p=top_p,
-                        stream=stream,
-                    ),
-                    stream=stream,
-                )
-            except HTTPError as e:
-                if e.response.status_code in (400, 404, 500):
-                    # Let's consider the server is not a chat completion server.
-                    # Then we call again `chat_completion` which will render the chat template client side.
-                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
-                    _set_as_non_chat_completion_server(model)
-                    logger.warning(
-                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
-                    )
-                    return self.chat_completion(
-                        messages=messages,
-                        model=model,
-                        stream=stream,
-                        max_tokens=max_tokens,
-                        seed=seed,
-                        stop=stop,
-                        temperature=temperature,
-                        top_p=top_p,
-                    )
-                raise
+        data = self.post(
+            model=model_url,
+            json=dict(
+                model=model_id,
+                messages=messages,
+                frequency_penalty=frequency_penalty,
+                logit_bias=logit_bias,
+                logprobs=logprobs,
+                max_tokens=max_tokens,
+                n=n,
+                presence_penalty=presence_penalty,
+                response_format=response_format,
+                seed=seed,
+                stop=stop,
+                temperature=temperature,
+                tool_choice=tool_choice,
+                tool_prompt=tool_prompt,
+                tools=tools,
+                top_logprobs=top_logprobs,
+                top_p=top_p,
+                stream=stream,
+            ),
+            stream=stream,
+        )
 
-            if stream:
-                return _stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
-
-            return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-
-        # At this point, we know the server is not a chat completion server.
-        # It means it's a transformers-backed server for which we can send a list of messages directly to the
-        # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
         if stream:
-            raise ValueError(
-                "Streaming token is not supported by the model. This is due to the model not been served by a "
-                "Text-Generation-Inference server. Please pass `stream=False` as input."
-            )
-        if tool_choice is not None or tool_prompt is not None or tools is not None:
-            warnings.warn(
-                "Tools are not supported by the model. This is due to the model not been served by a "
-                "Text-Generation-Inference server. The provided tool parameters will be ignored."
-            )
-        if response_format is not None:
-            warnings.warn(
-                "Response format is not supported by the model. This is due to the model not been served by a "
-                "Text-Generation-Inference server. The provided response format will be ignored."
-            )
+            return _stream_chat_completion_response(data)  # type: ignore[arg-type]
 
-        # generate response
-        text_generation_output = self.text_generation(
-            prompt=messages,  # type: ignore # Not correct type but works implicitly
-            model=model,
-            stream=False,
-            details=False,
-            max_new_tokens=max_tokens,
-            seed=seed,
-            stop_sequences=stop,
-            temperature=temperature,
-            top_p=top_p,
-        )
-
-        # Format as a ChatCompletionOutput with dummy values for fields we can't provide
-        return ChatCompletionOutput(
-            id="dummy",
-            model="dummy",
-            system_fingerprint="dummy",
-            usage=None,  # type: ignore # set to `None` as we don't want to provide false information
-            created=int(time.time()),
-            choices=[
-                ChatCompletionOutputComplete(
-                    finish_reason="unk",  # type: ignore # set to `unk` as we don't want to provide false information
-                    index=0,
-                    message=ChatCompletionOutputMessage(
-                        content=text_generation_output,
-                        role="assistant",
-                    ),
-                )
-            ],
-        )
+        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
     def conversational(
         self,
