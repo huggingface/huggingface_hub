@@ -813,12 +813,12 @@ class TestHeadersAndCookies(unittest.TestCase):
         response = client.post(data=b"content", model="username/repo_name")
         self.assertEqual(response, get_session_mock().post.return_value.content)
 
-        expected_user_agent = build_hf_headers()["user-agent"]
+        expected_headers = build_hf_headers()
         get_session_mock().post.assert_called_once_with(
             "https://api-inference.huggingface.co/models/username/repo_name",
             json=None,
             data=b"content",
-            headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
+            headers={**expected_headers, "X-My-Header": "foo"},
             cookies={"my-cookie": "bar"},
             timeout=None,
             stream=False,
