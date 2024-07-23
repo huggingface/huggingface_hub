@@ -960,7 +960,8 @@ def test_stream_text_generation_response():
         b"\n",  # Newline is skipped
         b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
         b"data: [DONE]",  # Stop signal
-        b'data: {"wont be parsed": 4}',  # Won't continue after
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_text_generation_response(data, details=False))
     assert len(output) == 2
@@ -974,7 +975,8 @@ def test_stream_chat_completion_response():
         b"\n",  # Newline is skipped
         b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
         b"data: [DONE]",  # Stop signal
-        b'data: {"wont be parsed": 4}',  # Won't continue after
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_chat_completion_response(data))
     assert len(output) == 2
