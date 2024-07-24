@@ -3841,7 +3841,7 @@ class HfApi:
 
             # Get latest commit info
             try:
-                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=unquoted_revision, token=token)
             except RepositoryNotFoundError as e:
                 e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
                 raise
@@ -3862,7 +3862,7 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             headers=headers,
-            revision=revision,
+            revision=unquoted_revision,
             endpoint=self.endpoint,
         )
         commit_payload = _prepare_commit_payload(
