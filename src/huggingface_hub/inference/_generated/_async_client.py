@@ -86,9 +86,6 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._types import (
-    ConversationalOutput,  # soon to be removed
-)
 from huggingface_hub.utils import (
     build_hf_headers,
 )
@@ -866,80 +863,6 @@ class AsyncInferenceClient:
             return _async_stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-
-    async def conversational(
-        self,
-        text: str,
-        generated_responses: Optional[List[str]] = None,
-        past_user_inputs: Optional[List[str]] = None,
-        *,
-        parameters: Optional[Dict[str, Any]] = None,
-        model: Optional[str] = None,
-    ) -> ConversationalOutput:
-        """
-        Generate conversational responses based on the given input text (i.e. chat with the API).
-
-        <Tip warning={true}>
-
-        [`InferenceClient.conversational`] API is deprecated and will be removed in a future release. Please use
-        [`InferenceClient.chat_completion`] instead.
-
-        </Tip>
-
-        Args:
-            text (`str`):
-                The last input from the user in the conversation.
-            generated_responses (`List[str]`, *optional*):
-                A list of strings corresponding to the earlier replies from the model. Defaults to None.
-            past_user_inputs (`List[str]`, *optional*):
-                A list of strings corresponding to the earlier replies from the user. Should be the same length as
-                `generated_responses`. Defaults to None.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the conversational task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
-            model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
-                Defaults to None.
-
-        Returns:
-            `Dict`: The generated conversational output.
-
-        Raises:
-            [`InferenceTimeoutError`]:
-                If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
-                If the request fails with an HTTP error status code other than HTTP 503.
-
-        Example:
-        ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> output = await client.conversational("Hi, who are you?")
-        >>> output
-        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
-        >>> await client.conversational(
-        ...     "Wow, that's scary!",
-        ...     generated_responses=output["conversation"]["generated_responses"],
-        ...     past_user_inputs=output["conversation"]["past_user_inputs"],
-        ... )
-        ```
-        """
-        warnings.warn(
-            "'InferenceClient.conversational' is deprecated and will be removed starting from huggingface_hub>=0.25. "
-            "Please use the more appropriate 'InferenceClient.chat_completion' API instead.",
-            FutureWarning,
-        )
-        payload: Dict[str, Any] = {"inputs": {"text": text}}
-        if generated_responses is not None:
-            payload["inputs"]["generated_responses"] = generated_responses
-        if past_user_inputs is not None:
-            payload["inputs"]["past_user_inputs"] = past_user_inputs
-        if parameters is not None:
-            payload["parameters"] = parameters
-        response = await self.post(json=payload, model=model, task="conversational")
-        return _bytes_to_dict(response)  # type: ignore
 
     async def document_question_answering(
         self,
