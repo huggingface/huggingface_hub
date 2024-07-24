@@ -340,15 +340,6 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
         await AsyncInferenceClient(timeout=1).text_generation("test")
 
 
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_unprocessable_entity_error() -> None:
-    with pytest.raises(ClientResponseError) as error:
-        with pytest.warns(FutureWarning, match=".*'InferenceClient.conversational'.*"):
-            await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
-    assert "Make sure 'conversational' task is supported by the model." in error.value.message
-
-
 class CustomException(Exception):
     """Mock any exception that could happen while making a POST request."""
 

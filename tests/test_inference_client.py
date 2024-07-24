@@ -53,7 +53,7 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -381,38 +381,6 @@ class InferenceClientVCRTest(InferenceClientTest):
                 model="meta-llama/Meta-Llama-3-70B-Instruct",
             )
 
-    @expect_deprecation("InferenceClient.conversational")
-    def test_conversational(self) -> None:
-        output = self.client.conversational("Hi, who are you?")
-        self.assertEqual(
-            output,
-            {
-                "generated_text": "I am the one who knocks.",
-                "conversation": {
-                    "generated_responses": ["I am the one who knocks."],
-                    "past_user_inputs": ["Hi, who are you?"],
-                },
-                "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
-            },
-        )
-
-        output2 = self.client.conversational(
-            "Wow, that's scary!",
-            generated_responses=output["conversation"]["generated_responses"],
-            past_user_inputs=output["conversation"]["past_user_inputs"],
-        )
-        self.assertEqual(
-            output2,
-            {
-                "generated_text": "I am the one who knocks.",
-                "conversation": {
-                    "generated_responses": ["I am the one who knocks.", "I am the one who knocks."],
-                    "past_user_inputs": ["Hi, who are you?", "Wow, that's scary!"],
-                },
-                "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
-            },
-        )
-
     def test_document_question_answering(self) -> None:
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
         self.assertEqual(
@@ -706,11 +674,6 @@ class InferenceClientVCRTest(InferenceClientTest):
         for item in output:
             self.assertIsInstance(item.label, str)
             self.assertIsInstance(item.score, float)
-
-    @expect_deprecation("InferenceClient.conversational")
-    def test_unprocessable_entity_error(self) -> None:
-        with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
-            self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
 
 
 class TestOpenAsBinary(InferenceClientTest):
