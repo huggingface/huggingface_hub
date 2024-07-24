@@ -1050,6 +1050,27 @@ class CommitApiTest(HfApiCommonTest):
         assert logs.records[1].levelname == "WARNING"
 
     @use_tmp_repo()
+    def test_empty_commit_on_pr(self, repo_url: RepoUrl) -> None:
+        """
+        Regression test for #2411. Revision was quoted twice, leading to a HTTP 404.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2411.
+        """
+        pr = self._api.create_pull_request(repo_id=repo_url.repo_id, title="Test PR")
+
+        with self.assertLogs("huggingface_hub", level="WARNING"):
+            url = self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                operations=[],
+                commit_message="Empty commit",
+                revision=pr.git_reference,
+            )
+
+        commits = self._api.list_repo_commits(repo_id=repo_url.repo_id, revision=pr.git_reference)
+        assert len(commits) == 1  # no 2nd commit
+        assert url.oid == commits[0].commit_id
+
+    @use_tmp_repo()
     def test_continue_commit_without_existing_files(self, repo_url: RepoUrl) -> None:
         self._api.create_commit(
             repo_id=repo_url.repo_id,
