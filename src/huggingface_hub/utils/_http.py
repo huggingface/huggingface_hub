@@ -44,7 +44,7 @@ X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
 
 
-class UniqueRequestIdAdapter(HTTPAdapter):
+class HuggingFaceAdapter(HTTPAdapter):
     X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 
     def add_headers(self, request, **kwargs):
@@ -61,6 +61,8 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         )
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        self.check_offline(request)
+
         """Catch any RequestException to append request id to the error message for debugging."""
         try:
             return super().send(request, *args, **kwargs)
@@ -71,22 +73,18 @@ class UniqueRequestIdAdapter(HTTPAdapter):
                 e.args = (*e.args, f"(Request ID: {request_id})")
             raise
 
-
-class OfflineAdapter(HTTPAdapter):
-    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
-        raise OfflineModeIsEnabled(
-            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
-        )
+    @staticmethod
+    def check_offline(request):
+        if constants.HF_HUB_OFFLINE:
+            raise OfflineModeIsEnabled(
+                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+            )
 
 
 def _default_backend_factory() -> requests.Session:
     session = requests.Session()
-    if constants.HF_HUB_OFFLINE:
-        session.mount("http://", OfflineAdapter())
-        session.mount("https://", OfflineAdapter())
-    else:
-        session.mount("http://", UniqueRequestIdAdapter())
-        session.mount("https://", UniqueRequestIdAdapter())
+    session.mount("http://", HuggingFaceAdapter())
+    session.mount("https://", HuggingFaceAdapter())
     return session
 
 
