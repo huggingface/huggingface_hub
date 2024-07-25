@@ -273,7 +273,7 @@ class AsyncInferenceClient:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
                 client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout), trust_env=True
                 )
 
                 try:
