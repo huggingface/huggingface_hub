@@ -88,8 +88,6 @@ from huggingface_hub.inference._generated.types import (
 )
 from huggingface_hub.utils import (
     build_hf_headers,
-    get_session,
-    hf_raise_for_status,
 )
 from huggingface_hub.utils._deprecation import _deprecate_positional_args
 
@@ -279,7 +277,10 @@ class AsyncInferenceClient:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
                 client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                    headers=headers,
+                    cookies=self.cookies,
+                    timeout=aiohttp.ClientTimeout(self.timeout),
+                    trust_env=self.trust_env,
                 )
 
                 try:
@@ -1301,12 +1302,15 @@ class AsyncInferenceClient:
                 else:
                     models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
-        session = get_session()
-        session.trust_env = self.trust_env
-        for framework in frameworks:
-            response = session.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
-            hf_raise_for_status(response)
-            _unpack_response(framework, response.json())
+        async def _fetch_framework(framework: str) -> None:
+            async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+                response.raise_for_status()
+                _unpack_response(framework, await response.json())
+
+        import asyncio
+
+        await asyncio.gather(*[_fetch_framework(framework) for framework in frameworks])
 
         # Sort alphabetically for discoverability and return
         for task, models in models_by_task.items():
@@ -2686,11 +2690,11 @@ class AsyncInferenceClient:
             url = model.rstrip("/") + "/info"
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
-        session = get_session()
-        session.trust_env = self.trust_env
-        response = session.get(url, headers=self.headers)
-        hf_raise_for_status(response)
-        return response.json()
+
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return await response.json()
 
     async def health_check(self, model: Optional[str] = None) -> bool:
         """
@@ -2723,10 +2727,10 @@ class AsyncInferenceClient:
                 "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
             )
         url = model.rstrip("/") + "/health"
-        session = get_session()
-        session.trust_env = self.trust_env
-        response = session.get(url, headers=self.headers)
-        return response.status_code == 200
+
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
+            response = await client.get(url)
+            return response.status == 200
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
         """
@@ -2765,11 +2769,11 @@ class AsyncInferenceClient:
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
-        session = get_session()
-        session.trust_env = self.trust_env
-        response = session.get(url, headers=self.headers)
-        hf_raise_for_status(response)
-        response_data = response.json()
+
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            response_data = await response.json()
 
         if "error" in response_data:
             raise ValueError(response_data["error"])
