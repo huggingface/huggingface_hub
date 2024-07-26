@@ -2652,8 +2652,6 @@ class InferenceClient:
             url = model.rstrip("/") + "/info"
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
-
-        response = get_session().get(url, headers=self.headers)
         session = get_session()
         session.trust_env = self.trust_env
         response = session.get(url, headers=self.headers)
@@ -2690,8 +2688,6 @@ class InferenceClient:
                 "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
             )
         url = model.rstrip("/") + "/health"
-
-        response = get_session().get(url, headers=self.headers)
         session = get_session()
         session.trust_env = self.trust_env
         response = session.get(url, headers=self.headers)
@@ -2733,8 +2729,6 @@ class InferenceClient:
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
-
-        response = get_session().get(url, headers=self.headers)
         session = get_session()
         session.trust_env = self.trust_env
         response = session.get(url, headers=self.headers)
