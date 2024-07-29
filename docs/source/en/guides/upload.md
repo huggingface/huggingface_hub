@@ -139,7 +139,7 @@ First, the repo is created if it didn't exist before. Then, the local folder is 
 A command line is also provided. You can define the number of workers and the level of verbosity in the terminal:
 
 ```sh
-huggingface-cli large-upload HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
+huggingface-cli upload-large-folder HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
 ```
 
 <Tip>
