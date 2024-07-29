@@ -819,13 +819,16 @@ class InferenceClient:
         # First, resolve the model chat completions URL
         if model == self.base_url:
             # base_url passed => add server route
-            model_url = model + "/v1/chat/completions"
+            model_url = model.rstrip("/")
+            if not model_url.endswith("/v1"):
+                model_url += "/v1"
+            model_url += "/chat/completions"
         elif is_url:
             # model is a URL => use it directly
             model_url = model
         else:
             # model is a model ID => resolve it + add server route
-            model_url = self._resolve_url(model) + "/v1/chat/completions"
+            model_url = self._resolve_url(model).rstrip("/") + "/v1/chat/completions"
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
