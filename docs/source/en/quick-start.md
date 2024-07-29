@@ -110,7 +110,7 @@ Authentication via an environment variable or a secret has priority over the tok
 Finally, it is also possible to authenticate by passing your token to any method that accepts `token` as a parameter.
 
 ```
-from transformers import whoami
+from huggingface_hub import whoami
 
 user = whoami(token=...)
 ```
