@@ -59,7 +59,6 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._large_upload import large_upload_internal
 from ._multi_commits import (
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
     MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
@@ -74,6 +73,7 @@ from ._multi_commits import (
     plan_multi_commits,
 )
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
+from ._upload_large_folder import upload_large_folder_internal
 from .community import (
     Discussion,
     DiscussionComment,
@@ -5159,7 +5159,7 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
-    def large_upload(
+    def upload_large_folder(
         self,
         repo_id: str,
         folder_path: Union[str, Path],
@@ -5222,7 +5222,7 @@ class HfApi:
 
         <Tip warning={true}>
 
-        While being much more robust to upload large folders, `large_upload` is more limited than [`upload_folder`] feature-wise. In practice:
+        While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
             - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
             - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
             - you cannot delete from the repo while uploading. Please make a separate commit first.
@@ -5232,7 +5232,7 @@ class HfApi:
 
         **Technical details:**
 
-        `large_upload` process is as follow:
+        `upload_large_folder` process is as follow:
             1. (Check parameters and setup.)
             2. Create repo if missing.
             3. List local files to upload.
@@ -5262,7 +5262,7 @@ class HfApi:
             - Only one worker can commit at a time.
             - If no tasks are available, the worker waits for 10 seconds before checking again.
         """
-        return large_upload_internal(
+        return upload_large_folder_internal(
             self,
             repo_id=repo_id,
             folder_path=folder_path,
@@ -9461,7 +9461,7 @@ delete_file = api.delete_file
 delete_folder = api.delete_folder
 delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
-large_upload = api.large_upload
+upload_large_folder = api.upload_large_folder
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch

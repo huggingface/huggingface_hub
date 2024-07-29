@@ -17,12 +17,12 @@ from argparse import ArgumentParser
 from huggingface_hub.commands.delete_cache import DeleteCacheCommand
 from huggingface_hub.commands.download import DownloadCommand
 from huggingface_hub.commands.env import EnvironmentCommand
-from huggingface_hub.commands.large_upload import LargeUploadCommand
 from huggingface_hub.commands.lfs import LfsCommands
 from huggingface_hub.commands.repo_files import RepoFilesCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
+from huggingface_hub.commands.upload_large_folder import UploadLargeFolderCommand
 from huggingface_hub.commands.user import UserCommands
 
 
@@ -42,7 +42,7 @@ def main():
     TagCommands.register_subcommand(commands_parser)
 
     # Experimental
-    LargeUploadCommand.register_subcommand(commands_parser)
+    UploadLargeFolderCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()

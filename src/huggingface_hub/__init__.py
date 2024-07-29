@@ -205,7 +205,6 @@ _SUBMOD_ATTRS = {
         "get_user_overview",
         "get_webhook",
         "grant_access",
-        "large_upload",
         "like",
         "list_accepted_access_requests",
         "list_collections",
@@ -253,6 +252,7 @@ _SUBMOD_ATTRS = {
         "update_webhook",
         "upload_file",
         "upload_folder",
+        "upload_large_folder",
         "whoami",
     ],
     "hf_file_system": [
@@ -710,7 +710,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
-        large_upload,  # noqa: F401
         like,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
         list_collections,  # noqa: F401
@@ -758,6 +757,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
+        upload_large_folder,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (

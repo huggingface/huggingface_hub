@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
 
 
-def large_upload_internal(
+def upload_large_folder_internal(
     api: "HfApi",
     repo_id: str,
     folder_path: Union[str, Path],
@@ -59,7 +59,7 @@ def large_upload_internal(
 ):
     """Upload a large folder to the Hub in the most resilient way possible.
 
-    See [`HfApi.large_upload`] for the full documentation.
+    See [`HfApi.upload_large_folder`] for the full documentation.
     """
     # 1. Check args and setup
     if repo_type is None:
@@ -273,7 +273,7 @@ def _worker_job(
 
     If a task fails for any reason, the item(s) are put back in the queue for another worker to pick up.
 
-    Read `large_upload` docstring for more information on how tasks are prioritized.
+    Read `upload_large_folder` docstring for more information on how tasks are prioritized.
     """
     while True:
         next_job: Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]] = None

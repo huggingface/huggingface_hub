@@ -29,50 +29,42 @@ from ._cli_utils import ANSI
 logger = logging.get_logger(__name__)
 
 
-class LargeUploadCommand(BaseHuggingfaceCLICommand):
+class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        large_upload_parser = parser.add_parser(
-            "large-upload", help="Upload a large folder folder to a repo on the Hub"
-        )
-        large_upload_parser.add_argument(
+        subparser = parser.add_parser("upload-large-folder", help="Upload a large folder to a repo on the Hub")
+        subparser.add_argument(
             "repo_id", type=str, help="The ID of the repo to upload to (e.g. `username/repo-name`)."
         )
-        large_upload_parser.add_argument("local_path", type=str, help="Local path to the file or folder to upload.")
-        large_upload_parser.add_argument(
+        subparser.add_argument("local_path", type=str, help="Local path to the file or folder to upload.")
+        subparser.add_argument(
             "--repo-type",
             choices=["model", "dataset", "space"],
             help="Type of the repo to upload to (e.g. `dataset`).",
         )
-        large_upload_parser.add_argument(
+        subparser.add_argument(
             "--revision",
             type=str,
             help=("An optional Git revision to push to. It can be a branch name or a PR reference."),
         )
-        large_upload_parser.add_argument(
+        subparser.add_argument(
             "--private",
             action="store_true",
             help=(
                 "Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists."
             ),
         )
-        large_upload_parser.add_argument(
-            "--include", nargs="*", type=str, help="Glob patterns to match files to upload."
-        )
-        large_upload_parser.add_argument(
-            "--exclude", nargs="*", type=str, help="Glob patterns to exclude from files to upload."
-        )
-        large_upload_parser.add_argument(
+        subparser.add_argument("--include", nargs="*", type=str, help="Glob patterns to match files to upload.")
+        subparser.add_argument("--exclude", nargs="*", type=str, help="Glob patterns to exclude from files to upload.")
+        subparser.add_argument(
             "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
         )
-        large_upload_parser.add_argument(
+        subparser.add_argument(
             "--num-workers", type=int, help="Number of workers to use to hash, upload and commit files."
         )
-        large_upload_parser.add_argument(
-            "--no-report", action="store_true", help="Whether to disable regular status report."
-        )
-        large_upload_parser.add_argument("--no-bars", action="store_true", help="Whether to disable progress bars.")
-        large_upload_parser.set_defaults(func=LargeUploadCommand)
+        subparser.add_argument("--no-report", action="store_true", help="Whether to disable regular status report.")
+        subparser.add_argument("--no-bars", action="store_true", help="Whether to disable progress bars.")
+        subparser.set_defaults(func=UploadLargeFolderCommand)
 
     def __init__(self, args: Namespace) -> None:
         self.repo_id: str = args.repo_id
@@ -121,7 +113,7 @@ class LargeUploadCommand(BaseHuggingfaceCLICommand):
         if self.no_bars:
             disable_progress_bars()
 
-        self.api.large_upload(
+        self.api.upload_large_folder(
             repo_id=self.repo_id,
             folder_path=self.local_path,
             repo_type=self.repo_type,

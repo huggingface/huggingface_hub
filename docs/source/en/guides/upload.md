@@ -105,14 +105,14 @@ For more details about the CLI upload command, please refer to the [CLI guide](.
 
 ## Upload a large folder
 
-In most cases, the [`upload_folder`] method and `huggingface-cli upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`large_upload`] method has been implemented in that spirit:
+In most cases, the [`upload_folder`] method and `huggingface-cli upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`upload_large_folder`] method has been implemented in that spirit:
 - it is resumable: the upload process is split into many small tasks (hashing files, pre-uploading them, and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
 - it is multi-threaded: hashing large files and pre-uploading them benefits a lot from multithreading if your machine allows it.
 - it is resilient to errors: a high-level retry-mechanism has been added to retry each independent task indefinitely until it passes (no matter if it's a OSError, ConnectionError, PermissionError, etc.). This mechanism is double-edged. If transient errors happen, the process will continue and retry. If permanent errors happen (e.g. permission denied), it will retry indefinitely without solving the root cause.
 
-If you want more technical details about how `large_upload` is implemented under the hood, please have a look to the [`large_upload`] package reference.
+If you want more technical details about how `upload_large_folder` is implemented under the hood, please have a look to the [`upload_large_folder`] package reference.
 
-Here is how to use [`large_upload`] in a script. The method signature is very similar to [`upload_folder`]:
+Here is how to use [`upload_large_folder`] in a script. The method signature is very similar to [`upload_folder`]:
 
 ```py
 >>> api.upload_folder(
@@ -150,7 +150,7 @@ For large uploads, you have to set `repo_type="model"` or `--repo-type=model` ex
 
 <Tip warning={true}>
 
-While being much more robust to upload large folders, `large_upload` is more limited than [`upload_folder`] feature-wise. In practice:
+While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
 - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
 - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
 - you cannot delete from the repo while uploading. Please make a separate commit first.
@@ -165,7 +165,7 @@ There are some limitations to be aware of when dealing with a large amount of da
 Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Next, let's move on with some practical tips to make your upload process as smooth as possible.
 
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate on a script when failing takes only a little time.
-- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`large_upload`] does for you.
+- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_large_folder`] does for you.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up uploads on machines with very high bandwidth. To use `hf_transfer`:
     1. Specify the `hf_transfer` extra when installing `huggingface_hub`
        (e.g. `pip install huggingface_hub[hf_transfer]`).

@@ -4184,7 +4184,7 @@ class TestExpandPropertyType(HfApiCommonTest):
 
 class TestLargeUpload(HfApiCommonTest):
     @use_tmp_repo(repo_type="dataset")
-    def test_large_upload_model(self, repo_url: RepoUrl) -> None:
+    def test_upload_large_folder(self, repo_url: RepoUrl) -> None:
         N_FILES_PER_FOLDER = 4
 
         with SoftTemporaryDirectory() as tmpdir:
@@ -4198,7 +4198,7 @@ class TestLargeUpload(HfApiCommonTest):
                     (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
 
             # Upload the folder
-            self._api.large_upload(
+            self._api.upload_large_folder(
                 repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4
             )
 
