@@ -91,7 +91,6 @@ def large_upload_internal(
     repo_id = repo_url.repo_id
 
     # 3. List files to upload
-    #    Taken from '_prepare_upload_folder_additions(...)'
     paths_list = [
         get_local_upload_paths(folder_path, relpath)
         for relpath in filter_repo_objects(
