@@ -105,8 +105,8 @@ For more details about the CLI upload command, please refer to the [CLI guide](.
 
 ## Upload a large folder
 
-In most cases, the [`upload_folder`] method and `huggingface-cli upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases and fail explicitly when something wrong happens. However, when dealing with a large amount of data you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`large_upload`] method has been implemented in that spirit:
-- it is resumable: the upload process is split in many small tasks (hashing files, pre-uploading them and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
+In most cases, the [`upload_folder`] method and `huggingface-cli upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`large_upload`] method has been implemented in that spirit:
+- it is resumable: the upload process is split into many small tasks (hashing files, pre-uploading them, and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
 - it is multi-threaded: hashing large files and pre-uploading them benefits a lot from multithreading if your machine allows it.
 - it is resilient to errors: a high-level retry-mechanism has been added to retry each independent task indefinitely until it passes (no matter if it's a OSError, ConnectionError, PermissionError, etc.). This mechanism is double-edged. If transient errors happen, the process will continue and retry. If permanent errors happen (e.g. permission denied), it will retry indefinitely without solving the root cause.
 
@@ -134,7 +134,7 @@ Workers: hashing: 0 | get upload mode: 0 | pre-uploading: 5 | committing: 0 | wa
 ---------------------------------------------------
 ```
 
-First, the repo is created if it didn't exist before. Then the local folder is scanned for files to upload. For each file, we try to recover metadata information (from a previously interrupted upload). From there, it is able to launch workers and print an update status every 1 minute. Here we can see that 5 files have already been hashed but not pre-uploaded. 5 workers are pre-uploading files while the 11 others are waiting for a task.
+First, the repo is created if it didn't exist before. Then, the local folder is scanned for files to upload. For each file, we try to recover metadata information (from a previously interrupted upload). From there, it is able to launch workers and print an update status every 1 minute. Here, we can see that 5 files have already been hashed but not pre-uploaded. 5 workers are pre-uploading files while the 11 others are waiting for a task.
 
 A command line is also provided. You can define the number of workers and the level of verbosity in the terminal:
 
@@ -144,7 +144,7 @@ huggingface-cli large-upload HuggingFaceM4/Docmatix --repo-type=dataset /path/to
 
 <Tip>
 
-For large uploads, you have to set `repo_type="model"` or `--repo-type=model` explicitly. Usually this information is implicit in all other `HfApi` methods. This is to avoid having data uploaded to a repository with a wrong type. If that's the case, you'll have to re-upload everything.
+For large uploads, you have to set `repo_type="model"` or `--repo-type=model` explicitly. Usually, this information is implicit in all other `HfApi` methods. This is to avoid having data uploaded to a repository with a wrong type. If that's the case, you'll have to re-upload everything.
 
 </Tip>
 
