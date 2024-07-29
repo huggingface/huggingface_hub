@@ -91,14 +91,12 @@ def large_upload_internal(
     repo_id = repo_url.repo_id
 
     # 3. List files to upload
-    paths_list = [
-        get_local_upload_paths(folder_path, relpath)
-        for relpath in filter_repo_objects(
-            (path.relative_to(folder_path).as_posix() for path in folder_path.glob("**/*") if path.is_file()),
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-        )
-    ]
+    filtered_paths_list = filter_repo_objects(
+        (path.relative_to(folder_path).as_posix() for path in folder_path.glob("**/*") if path.is_file()),
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
+    )
+    paths_list = [get_local_upload_paths(folder_path, relpath) for relpath in filtered_paths_list]
     logger.info(f"Found {len(paths_list)} candidate files to upload")
 
     # Read metadata for each file
