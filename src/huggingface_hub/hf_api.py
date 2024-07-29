@@ -5760,7 +5760,7 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if e.response.status_code == 409 and exist_ok:
+            if exist_ok and e.response.status_code == 409:
                 return
             elif exist_ok and e.response.status_code == 403:
                 # No write permission on the namespace but branch might already exist
