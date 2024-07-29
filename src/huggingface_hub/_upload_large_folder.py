@@ -127,10 +127,13 @@ def upload_large_folder_internal(
     # 5. Print regular reports
     if print_report:
         print("\n\n" + status.current_report())
+    last_report_ts = time.time()
     while True:
-        if print_report:
-            _print_overwrite(status.current_report())
-        time.sleep(print_report_every)
+        time.sleep(1)
+        if time.time() - last_report_ts >= print_report_every:
+            if print_report:
+                _print_overwrite(status.current_report())
+            last_report_ts = time.time()
         if status.is_done():
             logging.info("Is done: exiting main loop")
             break
