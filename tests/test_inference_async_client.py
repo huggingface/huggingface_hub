@@ -188,21 +188,19 @@ async def test_async_chat_completion_not_tgi_no_stream() -> None:
     output = await async_client.chat_completion(CHAT_COMPLETION_MESSAGES, max_tokens=10)
     assert isinstance(output.created, int)
     assert output == ChatCompletionOutput(
-        id="dummy",
-        model="dummy",
-        system_fingerprint="dummy",
-        usage=None,
         choices=[
             ChatCompletionOutputComplete(
-                finish_reason="unk",  # Non-TGI => cannot know the finish reason
+                finish_reason="eos_token",
                 index=0,
-                message=ChatCompletionOutputMessage(
-                    content="Deep learning is a thing.",
-                    role="assistant",
-                ),
+                message=ChatCompletionOutputMessage(role="assistant", content="Hello, advisor.", tool_calls=None),
+                logprobs=None,
             )
         ],
-        created=output.created,
+        created=1721741143,
+        id="",
+        model="microsoft/DialoGPT-small",
+        system_fingerprint="2.1.1-sha-4dfdb48",
+        usage=ChatCompletionOutputUsage(completion_tokens=5, prompt_tokens=13, total_tokens=18),
     )
 
 
@@ -340,15 +338,6 @@ async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr("aiohttp.ClientSession.post", _mock_aiohttp_client_timeout)
     with pytest.raises(InferenceTimeoutError):
         await AsyncInferenceClient(timeout=1).text_generation("test")
-
-
-@pytest.mark.vcr
-@pytest.mark.asyncio
-async def test_unprocessable_entity_error() -> None:
-    with pytest.raises(ClientResponseError) as error:
-        with pytest.warns(FutureWarning, match=".*'InferenceClient.conversational'.*"):
-            await AsyncInferenceClient().conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
-    assert "Make sure 'conversational' task is supported by the model." in error.value.message
 
 
 class CustomException(Exception):

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Callable, Generator, Optional, Union
 
 import yaml
-from filelock import BaseFileLock, FileLock, Timeout
+from filelock import BaseFileLock, FileLock, SoftFileLock, Timeout
 
 from .. import constants
 from . import logging
@@ -84,13 +84,29 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 @contextlib.contextmanager
 def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, None]:
-    """A filelock that won't raise an exception if release fails."""
+    """A filelock with some custom logic.
+
+    This filelock is weaker than the default filelock in that:
+    1. It won't raise an exception if release fails.
+    2. It will default to a SoftFileLock if the filesystem does not support flock.
+
+    An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
+    """
     lock = FileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
     while True:
         try:
             lock.acquire()
         except Timeout:
             logger.info("still waiting to acquire lock on %s", lock_file)
+        except NotImplementedError as e:
+            if "use SoftFileLock instead" in str(e):
+                # It's possible that the system does support flock, expect for one partition or filesystem.
+                # In this case, let's default to a SoftFileLock.
+                logger.warning(
+                    "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
+                )
+                lock = SoftFileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+                continue
         else:
             break
 

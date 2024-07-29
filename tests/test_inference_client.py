@@ -27,6 +27,7 @@ from huggingface_hub import (
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
     ChatCompletionOutputMessage,
+    ChatCompletionOutputUsage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -46,9 +47,13 @@ from huggingface_hub import (
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.inference._client import _open_as_binary
+from huggingface_hub.inference._common import (
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
+)
 from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
 
-from .testing_utils import expect_deprecation, with_production_testing
+from .testing_utils import with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -285,21 +290,21 @@ class InferenceClientVCRTest(InferenceClientTest):
             max_tokens=20,
         )
         assert output == ChatCompletionOutput(
-            id="dummy",
-            model="dummy",
-            system_fingerprint="dummy",
-            usage=None,
             choices=[
                 ChatCompletionOutputComplete(
-                    finish_reason="unk",  # <- specific to models served with transformers (not possible to get details)
+                    finish_reason="eos_token",
                     index=0,
                     message=ChatCompletionOutputMessage(
-                        content="Deep learning is a thing.",
-                        role="assistant",
+                        role="assistant", content="What does deep learning have to do with anything?", tool_calls=None
                     ),
+                    logprobs=None,
                 )
             ],
-            created=output.created,
+            created=1721743094,
+            id="",
+            model="microsoft/DialoGPT-small",
+            system_fingerprint="2.1.1-sha-4dfdb48",
+            usage=ChatCompletionOutputUsage(completion_tokens=11, prompt_tokens=13, total_tokens=24),
         )
 
     def test_chat_completion_with_tool(self) -> None:
@@ -375,38 +380,6 @@ class InferenceClientVCRTest(InferenceClientTest):
                 max_tokens=200,
                 model="meta-llama/Meta-Llama-3-70B-Instruct",
             )
-
-    @expect_deprecation("InferenceClient.conversational")
-    def test_conversational(self) -> None:
-        output = self.client.conversational("Hi, who are you?")
-        self.assertEqual(
-            output,
-            {
-                "generated_text": "I am the one who knocks.",
-                "conversation": {
-                    "generated_responses": ["I am the one who knocks."],
-                    "past_user_inputs": ["Hi, who are you?"],
-                },
-                "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
-            },
-        )
-
-        output2 = self.client.conversational(
-            "Wow, that's scary!",
-            generated_responses=output["conversation"]["generated_responses"],
-            past_user_inputs=output["conversation"]["past_user_inputs"],
-        )
-        self.assertEqual(
-            output2,
-            {
-                "generated_text": "I am the one who knocks.",
-                "conversation": {
-                    "generated_responses": ["I am the one who knocks.", "I am the one who knocks."],
-                    "past_user_inputs": ["Hi, who are you?", "Wow, that's scary!"],
-                },
-                "warnings": ["Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation."],
-            },
-        )
 
     def test_document_question_answering(self) -> None:
         output = self.client.document_question_answering(self.document_file, "What is the purchase amount?")
@@ -702,11 +675,6 @@ class InferenceClientVCRTest(InferenceClientTest):
             self.assertIsInstance(item.label, str)
             self.assertIsInstance(item.score, float)
 
-    @expect_deprecation("InferenceClient.conversational")
-    def test_unprocessable_entity_error(self) -> None:
-        with self.assertRaisesRegex(HfHubHTTPError, "Make sure 'conversational' task is supported by the model."):
-            self.client.conversational("Hi, who are you?", model="HuggingFaceH4/zephyr-7b-alpha")
-
 
 class TestOpenAsBinary(InferenceClientTest):
     def test_open_as_binary_with_none(self) -> None:
@@ -808,12 +776,12 @@ class TestHeadersAndCookies(unittest.TestCase):
         response = client.post(data=b"content", model="username/repo_name")
         self.assertEqual(response, get_session_mock().post.return_value.content)
 
-        expected_user_agent = build_hf_headers()["user-agent"]
+        expected_headers = build_hf_headers()
         get_session_mock().post.assert_called_once_with(
             "https://api-inference.huggingface.co/models/username/repo_name",
             json=None,
             data=b"content",
-            headers={"user-agent": expected_user_agent, "X-My-Header": "foo"},
+            headers={**expected_headers, "X-My-Header": "foo"},
             cookies={"my-cookie": "bar"},
             timeout=None,
             stream=False,
@@ -946,3 +914,55 @@ class TestOpenAICompatibility(unittest.TestCase):
     def test_model_and_base_url_mutually_exclusive(self):
         with self.assertRaises(ValueError):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://0.0.0.0:8080/v1",  # expected from OpenAI client
+        "http://0.0.0.0:8080",  # but not mandatory
+        "http://0.0.0.0:8080/v1/",  # ok with trailing '/' as well
+        "http://0.0.0.0:8080/",  # ok with trailing '/' as well
+    ],
+)
+def test_chat_completion_base_url_works_with_v1(base_url: str):
+    """Test that `/v1/chat/completions` is correctly appended to the base URL.
+
+    This is a regression test for https://github.com/huggingface/huggingface_hub/issues/2414
+    """
+    with patch("huggingface_hub.inference._client.InferenceClient.post") as post_mock:
+        client = InferenceClient(base_url=base_url)
+        post_mock.return_value = "{}"
+        client.chat_completion(messages=CHAT_COMPLETION_MESSAGES, stream=False)
+    assert post_mock.call_args_list[0].kwargs["model"] == "http://0.0.0.0:8080/v1/chat/completions"
+
+
+def test_stream_text_generation_response():
+    data = [
+        b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
+        b"",  # Empty line is skipped
+        b"\n",  # Newline is skipped
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        b"data: [DONE]",  # Stop signal
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+    ]
+    output = list(_stream_text_generation_response(data, details=False))
+    assert len(output) == 2
+    assert output == [" trying", " to"]
+
+
+def test_stream_chat_completion_response():
+    data = [
+        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        b"",  # Empty line is skipped
+        b"\n",  # Newline is skipped
+        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+        b"data: [DONE]",  # Stop signal
+        # Won't parse after
+        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+    ]
+    output = list(_stream_chat_completion_response(data))
+    assert len(output) == 2
+    assert output[0].choices[0].delta.content == "Both"
+    assert output[1].choices[0].delta.content == " Rust"

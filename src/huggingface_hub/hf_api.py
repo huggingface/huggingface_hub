@@ -3765,6 +3765,15 @@ class HfApi:
                     " new CommitOperationAdd object if you want to create a new commit."
                 )
 
+        if repo_type != "dataset":
+            for addition in additions:
+                if addition.path_in_repo.endswith((".arrow", ".parquet")):
+                    warnings.warn(
+                        f"It seems that you are about to commit a data file ({addition.path_in_repo}) to a {repo_type}"
+                        " repository. You are sure this is intended? If you are trying to upload a dataset, please"
+                        " set `repo_type='dataset'` or `--repo-type=dataset` in a CLI."
+                    )
+
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
@@ -3833,7 +3842,7 @@ class HfApi:
 
             # Get latest commit info
             try:
-                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
+                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=unquoted_revision, token=token)
             except RepositoryNotFoundError as e:
                 e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
                 raise
@@ -3854,7 +3863,7 @@ class HfApi:
             repo_type=repo_type,
             repo_id=repo_id,
             headers=headers,
-            revision=revision,
+            revision=unquoted_revision,
             endpoint=self.endpoint,
         )
         commit_payload = _prepare_commit_payload(

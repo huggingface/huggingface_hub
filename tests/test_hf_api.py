@@ -379,6 +379,33 @@ class CommitApiTest(HfApiCommonTest):
             with open(hf_hub_download(repo_id=repo_id, filename="temp/new_file.md", cache_dir=cache_dir)) as f:
                 self.assertEqual(f.read(), content.getvalue().decode())
 
+    @use_tmp_repo()
+    def test_upload_data_files_to_model_repo(self, repo_url: RepoUrl) -> None:
+        # If a .parquet file is uploaded to a model repo, it should be uploaded correctly but a warning is raised.
+        with self.assertWarns(UserWarning) as cm:
+            self._api.upload_file(
+                path_or_fileobj=b"content",
+                path_in_repo="data.parquet",
+                repo_id=repo_url.repo_id,
+            )
+        assert (
+            cm.warnings[0].message.args[0]
+            == "It seems that you are about to commit a data file (data.parquet) to a model repository. You are sure this is intended? If you are trying to upload a dataset, please set `repo_type='dataset'` or `--repo-type=dataset` in a CLI."
+        )
+
+        # Same for arrow file
+        with self.assertWarns(UserWarning) as cm:
+            self._api.upload_file(
+                path_or_fileobj=b"content",
+                path_in_repo="data.arrow",
+                repo_id=repo_url.repo_id,
+            )
+
+        # Still correctly uploaded
+        files = self._api.list_repo_files(repo_url.repo_id)
+        assert "data.parquet" in files
+        assert "data.arrow" in files
+
     def test_create_repo_return_value(self) -> None:
         REPO_NAME = repo_name("org")
         url = self._api.create_repo(repo_id=REPO_NAME)
@@ -1048,6 +1075,27 @@ class CommitApiTest(HfApiCommonTest):
             == "No files have been modified since last commit. Skipping to prevent empty commit."
         )
         assert logs.records[1].levelname == "WARNING"
+
+    @use_tmp_repo()
+    def test_empty_commit_on_pr(self, repo_url: RepoUrl) -> None:
+        """
+        Regression test for #2411. Revision was quoted twice, leading to a HTTP 404.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2411.
+        """
+        pr = self._api.create_pull_request(repo_id=repo_url.repo_id, title="Test PR")
+
+        with self.assertLogs("huggingface_hub", level="WARNING"):
+            url = self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                operations=[],
+                commit_message="Empty commit",
+                revision=pr.git_reference,
+            )
+
+        commits = self._api.list_repo_commits(repo_id=repo_url.repo_id, revision=pr.git_reference)
+        assert len(commits) == 1  # no 2nd commit
+        assert url.oid == commits[0].commit_id
 
     @use_tmp_repo()
     def test_continue_commit_without_existing_files(self, repo_url: RepoUrl) -> None:
