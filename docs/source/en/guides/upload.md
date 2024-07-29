@@ -148,6 +148,16 @@ For large uploads, you have to set `repo_type="model"` or `--repo-type=model` ex
 
 </Tip>
 
+<Tip warning={true}>
+
+While being much more robust to upload large folders, `large_upload` is more limited than [`upload_folder`] feature-wise. In practice:
+- you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
+- you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
+- you cannot delete from the repo while uploading. Please make a separate commit first.
+- you cannot create a PR directly. Please create a PR first and then commit to it by passing `revision`.
+
+</Tip>
+
 ### Tips and tricks for large uploads
 
 There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data, getting an upload/push to fail at the end of the process or encountering a degraded experience, be it on hf.co or when working locally, can be very annoying.
