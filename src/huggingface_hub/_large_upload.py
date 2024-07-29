@@ -279,88 +279,12 @@ def _worker_job(
         next_job: Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]] = None
 
         # Determine next task
-        with status.lock:
-            # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
-            if (
-                status.nb_workers_commit == 0
-                and status.queue_commit.qsize() > 0
-                and (status.last_commit_attempt is None or time.time() - status.last_commit_attempt > 5 * 60)
-            ):
-                status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
-                logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
-
-            # 2. Commit if at least 25 files are ready to commit
-            elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 25:
-                status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
-                logger.debug("Job: commit (>25 files ready)")
-
-            # 3. Get upload mode if at least 10 files
-            elif status.queue_get_upload_mode.qsize() >= 10:
-                status.nb_workers_get_upload_mode += 1
-                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
-                logger.debug("Job: get upload mode (>10 files ready)")
-
-            # 4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
-            elif status.queue_preupload_lfs.qsize() > 0 and status.nb_workers_preupload_lfs == 0:
-                status.nb_workers_preupload_lfs += 1
-                next_job = (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
-                logger.debug("Job: preupload LFS (no other worker preuploading LFS)")
-
-            # 5. Compute sha256 if at least 1 file and no worker is computing sha256
-            elif status.queue_sha256.qsize() > 0 and status.nb_workers_sha256 == 0:
-                status.nb_workers_sha256 += 1
-                next_job = (WorkerJob.SHA256, _get_one(status.queue_sha256))
-                logger.debug("Job: sha256 (no other worker computing sha256)")
-
-            # 6. Get upload mode if at least 1 file and no worker is getting upload mode
-            elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
-                status.nb_workers_get_upload_mode += 1
-                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
-                logger.debug("Job: get upload mode (no other worker getting upload mode)")
-
-            # 7. Preupload LFS file if at least 1 file
-            #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
-            elif status.queue_preupload_lfs.qsize() > 0 and (
-                status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
-            ):
-                status.nb_workers_preupload_lfs += 1
-                next_job = (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
-                logger.debug("Job: preupload LFS")
-
-            # 8. Compute sha256 if at least 1 file
-            elif status.queue_sha256.qsize() > 0:
-                status.nb_workers_sha256 += 1
-                next_job = (WorkerJob.SHA256, _get_one(status.queue_sha256))
-                logger.debug("Job: sha256")
-
-            # 9. Get upload mode if at least 1 file
-            elif status.queue_get_upload_mode.qsize() > 0:
-                status.nb_workers_get_upload_mode += 1
-                next_job = (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
-                logger.debug("Job: get upload mode")
-
-            # 10. Commit if at least 1 file
-            elif status.nb_workers_commit == 0 and status.queue_commit.qsize() > 0:
-                status.nb_workers_commit += 1
-                next_job = (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
-                logger.debug("Job: commit")
-
-            # 11. If all queues are empty, exit
-            elif all(metadata.is_committed or metadata.should_ignore for _, metadata in status.items):
-                logger.info("All files have been processed! Exiting worker.")
-                return
-
-            # 12. If no task is available, wait
-            else:
-                status.nb_workers_waiting += 1
-                next_job = (WorkerJob.WAIT, [])
-                logger.debug(f"No task available, waiting... ({WAITING_TIME_IF_NO_TASKS}s)")
-
-        # Perform task
+        next_job = _determine_next_job(status)
+        if next_job is None:
+            return
         job, items = next_job
 
+        # Perform task
         if job == WorkerJob.SHA256:
             item = items[0]  # single item
             try:
@@ -437,6 +361,87 @@ def _worker_job(
             time.sleep(WAITING_TIME_IF_NO_TASKS)
             with status.lock:
                 status.nb_workers_waiting -= 1
+
+
+def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, List[JOB_ITEM_T]]]:
+    with status.lock:
+        # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
+        if (
+            status.nb_workers_commit == 0
+            and status.queue_commit.qsize() > 0
+            and (status.last_commit_attempt is None or time.time() - status.last_commit_attempt > 5 * 60)
+        ):
+            status.nb_workers_commit += 1
+            logger.debug("Job: commit (more than 5 minutes since last commit attempt)")
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
+
+        # 2. Commit if at least 25 files are ready to commit
+        elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 25:
+            status.nb_workers_commit += 1
+            logger.debug("Job: commit (>25 files ready)")
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
+
+        # 3. Get upload mode if at least 10 files
+        elif status.queue_get_upload_mode.qsize() >= 10:
+            status.nb_workers_get_upload_mode += 1
+            logger.debug("Job: get upload mode (>10 files ready)")
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
+
+        # 4. Preupload LFS file if at least 1 file and no worker is preuploading LFS
+        elif status.queue_preupload_lfs.qsize() > 0 and status.nb_workers_preupload_lfs == 0:
+            status.nb_workers_preupload_lfs += 1
+            logger.debug("Job: preupload LFS (no other worker preuploading LFS)")
+            return (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
+
+        # 5. Compute sha256 if at least 1 file and no worker is computing sha256
+        elif status.queue_sha256.qsize() > 0 and status.nb_workers_sha256 == 0:
+            status.nb_workers_sha256 += 1
+            logger.debug("Job: sha256 (no other worker computing sha256)")
+            return (WorkerJob.SHA256, _get_one(status.queue_sha256))
+
+        # 6. Get upload mode if at least 1 file and no worker is getting upload mode
+        elif status.queue_get_upload_mode.qsize() > 0 and status.nb_workers_get_upload_mode == 0:
+            status.nb_workers_get_upload_mode += 1
+            logger.debug("Job: get upload mode (no other worker getting upload mode)")
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
+
+        # 7. Preupload LFS file if at least 1 file
+        #    Skip if hf_transfer is enabled and there is already a worker preuploading LFS
+        elif status.queue_preupload_lfs.qsize() > 0 and (
+            status.nb_workers_preupload_lfs == 0 or not constants.HF_HUB_ENABLE_HF_TRANSFER
+        ):
+            status.nb_workers_preupload_lfs += 1
+            logger.debug("Job: preupload LFS")
+            return (WorkerJob.PREUPLOAD_LFS, _get_one(status.queue_preupload_lfs))
+
+        # 8. Compute sha256 if at least 1 file
+        elif status.queue_sha256.qsize() > 0:
+            status.nb_workers_sha256 += 1
+            logger.debug("Job: sha256")
+            return (WorkerJob.SHA256, _get_one(status.queue_sha256))
+
+        # 9. Get upload mode if at least 1 file
+        elif status.queue_get_upload_mode.qsize() > 0:
+            status.nb_workers_get_upload_mode += 1
+            logger.debug("Job: get upload mode")
+            return (WorkerJob.GET_UPLOAD_MODE, _get_n(status.queue_get_upload_mode, 50))
+
+        # 10. Commit if at least 1 file
+        elif status.nb_workers_commit == 0 and status.queue_commit.qsize() > 0:
+            status.nb_workers_commit += 1
+            logger.debug("Job: commit")
+            return (WorkerJob.COMMIT, _get_n(status.queue_commit, 25))
+
+        # 11. If all queues are empty, exit
+        elif all(metadata.is_committed or metadata.should_ignore for _, metadata in status.items):
+            logger.info("All files have been processed! Exiting worker.")
+            return None
+
+        # 12. If no task is available, wait
+        else:
+            status.nb_workers_waiting += 1
+            logger.debug(f"No task available, waiting... ({WAITING_TIME_IF_NO_TASKS}s)")
+            return (WorkerJob.WAIT, [])
 
 
 ####################
