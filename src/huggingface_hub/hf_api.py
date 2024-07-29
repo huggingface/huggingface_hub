@@ -5234,7 +5234,7 @@ class HfApi:
 
         `large_upload` process is as follow:
             1. (Check parameters and setup.)
-            2. Create repo is missing.
+            2. Create repo if missing.
             3. List local files to upload.
             4. Start workers. Workers can perform the following tasks:
                 - Hash a file.
