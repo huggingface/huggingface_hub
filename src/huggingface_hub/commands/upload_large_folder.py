@@ -90,7 +90,7 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
 
         print(
             ANSI.yellow(
-                "You are about to upload a large folder to the Hub using `huggingface-cli large-upload`. "
+                "You are about to upload a large folder to the Hub using `huggingface-cli upload-large-folder`. "
                 "This is a new feature so feedback is very welcome!\n"
                 "\n"
                 "A few things to keep in mind:\n"
@@ -105,7 +105,7 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
                 "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
                 "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
                 "\n"
-                "For more details, run `huggingface-cli large-upload --help` or check the documentation at "
+                "For more details, run `huggingface-cli upload-large-folder --help` or check the documentation at "
                 "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
             )
         )

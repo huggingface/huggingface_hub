@@ -501,7 +501,7 @@ def _commit(items: List[JOB_ITEM_T], api: "HfApi", repo_id: str, repo_type: str,
         repo_type=repo_type,
         revision=revision,
         operations=additions,
-        commit_message="Add files using large-upload tool",
+        commit_message="Add files using upload-large-folder tool",
     )
     for paths, metadata in items:
         metadata.is_committed = True
