@@ -1951,6 +1951,11 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
         tmp_file.touch()
         cache_dir_mode = Path(tmp_file).stat().st_mode
         os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
+    except OSError as e:
+        logger.warning(
+            f"Could not set the permissions on the file '{src}'. "
+            f"Error: {e}.\nContinuing without setting permissions."
+        )
     finally:
         try:
             tmp_file.unlink()
