@@ -117,7 +117,9 @@ class AsyncInferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive and have the exact same behavior.
+            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
+            path will be appended to the base URL. When passing a URL as `model`, the client will not append any
+            suffix path to it.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -157,7 +159,8 @@ class AsyncInferenceClient:
             raise ValueError(
                 "Received both `model` and `base_url` arguments. Please provide only one of them."
                 " `base_url` is an alias for `model` to make the API compatible with OpenAI's client."
-                " It has the exact same behavior as `model`."
+                " If using `base_url` for chat completion, the `/chat/completions` suffix path will be appended to the base url."
+                " When passing a URL as `model`, the client will not append any suffix path to it."
             )
         if token is not None and api_key is not None:
             raise ValueError(
