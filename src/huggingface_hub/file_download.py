@@ -1964,7 +1964,7 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst))
+    shutil.move(str(src), str(dst), copy_function=shutil.copy)
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
