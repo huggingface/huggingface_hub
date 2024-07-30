@@ -5760,8 +5760,18 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if not (e.response.status_code == 409 and exist_ok):
-                raise
+            if exist_ok and e.response.status_code == 409:
+                return
+            elif exist_ok and e.response.status_code == 403:
+                # No write permission on the namespace but branch might already exist
+                try:
+                    refs = self.list_repo_refs(repo_id=repo_id, repo_type=repo_type, token=token)
+                    for branch_ref in refs.branches:
+                        if branch_ref.name == branch:
+                            return  # Branch already exists => do not raise
+                except HfHubHTTPError:
+                    pass  # We raise the original error if the branch does not exist
+            raise
 
     @validate_hf_hub_args
     def delete_branch(
