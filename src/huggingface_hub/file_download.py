@@ -1964,8 +1964,13 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst), copy_function=shutil.copy)
+    shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 
+def _copy_no_matter_what(src: str, dst: str) -> None:
+    try:
+        shutil.copy2(src, dst)
+    except OSError:
+        shutil.copyfile(src, dst)
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
     # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
