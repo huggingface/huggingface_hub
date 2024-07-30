@@ -16,7 +16,7 @@
 
 Usage:
     # delete all
-    huggingface-cli repo-files <repo_id> delete *
+    huggingface-cli repo-files <repo_id> delete "*"
 
     # delete single file
     huggingface-cli repo-files <repo_id> delete file.txt
@@ -28,7 +28,7 @@ Usage:
     huggingface-cli repo-files <repo_id> delete file.txt folder/ file2.txt
 
     # delete multiple patterns
-    huggingface-cli repo-files <repo_id> delete file.txt *.json folder/*.parquet
+    huggingface-cli repo-files <repo_id> delete file.txt "*.json" "folder/*.parquet"
 
     # delete from different revision / repo-type
     huggingface-cli repo-files <repo_id> delete file.txt --revision=refs/pr/1 --repo-type=dataset
