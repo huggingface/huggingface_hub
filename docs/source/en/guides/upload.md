@@ -115,7 +115,7 @@ If you want more technical details about how `upload_large_folder` is implemente
 Here is how to use [`upload_large_folder`] in a script. The method signature is very similar to [`upload_folder`]:
 
 ```py
->>> api.upload_folder(
+>>> api.upload_large_folder(
 ...     repo_id="HuggingFaceM4/Docmatix",
 ...     repo_type="dataset",
 ...     folder_path="/path/to/local/docmatix",
