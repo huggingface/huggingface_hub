@@ -1966,11 +1966,20 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
 
     shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 
+
 def _copy_no_matter_what(src: str, dst: str) -> None:
+    """Copy file from src to dst.
+
+    If `shutil.copy2` fails, fallback to `shutil.copyfile`.
+    """
     try:
+        # Copy file with metadata and permission
+        # Can fail e.g. if dst is an S3 mount
         shutil.copy2(src, dst)
     except OSError:
+        # Copy only file content
         shutil.copyfile(src, dst)
+
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
     # Using `os.path.abspath` instead of `Path.resolve()` to avoid resolving symlinks
