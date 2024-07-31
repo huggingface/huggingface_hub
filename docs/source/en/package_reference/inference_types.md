@@ -55,13 +55,19 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionDefinition
 
+[[autodoc]] huggingface_hub.ChatCompletionInputFunctionName
+
+[[autodoc]] huggingface_hub.ChatCompletionInputGrammarType
+
 [[autodoc]] huggingface_hub.ChatCompletionInputMessage
+
+[[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
 
 [[autodoc]] huggingface_hub.ChatCompletionInputTool
 
-[[autodoc]] huggingface_hub.ChatCompletionInputToolCall
-
 [[autodoc]] huggingface_hub.ChatCompletionInputToolTypeClass
+
+[[autodoc]] huggingface_hub.ChatCompletionInputURL
 
 [[autodoc]] huggingface_hub.ChatCompletionOutput
 

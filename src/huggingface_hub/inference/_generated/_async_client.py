@@ -44,7 +44,7 @@ from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
     ModelStatus,
-    _async_stream_chat_completion_response_from_bytes,
+    _async_stream_chat_completion_response,
     _async_stream_text_generation_response,
     _b64_encode,
     _b64_to_image,
@@ -54,9 +54,7 @@ from huggingface_hub.inference._common import (
     _fetch_recommended_models,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
-    _is_chat_completion_server,
     _open_as_binary,
-    _set_as_non_chat_completion_server,
     _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
@@ -64,11 +62,10 @@ from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
+    ChatCompletionInputGrammarType,
     ChatCompletionInputTool,
     ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
-    ChatCompletionOutputComplete,
-    ChatCompletionOutputMessage,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
@@ -88,10 +85,6 @@ from huggingface_hub.inference._generated.types import (
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
-)
-from huggingface_hub.inference._generated.types.chat_completion import ChatCompletionInputToolTypeEnum
-from huggingface_hub.inference._types import (
-    ConversationalOutput,  # soon to be removed
 )
 from huggingface_hub.utils import (
     build_hf_headers,
@@ -174,7 +167,7 @@ class AsyncInferenceClient:
             )
 
         self.model: Optional[str] = model
-        self.token: Union[str, bool, None] = token or api_key
+        self.token: Union[str, bool, None] = token if token is not None else api_key
         self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
         if headers is not None:
             self.headers.update(headers)
@@ -466,10 +459,11 @@ class AsyncInferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -489,10 +483,11 @@ class AsyncInferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -512,10 +507,11 @@ class AsyncInferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -535,10 +531,11 @@ class AsyncInferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
+        response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, ChatCompletionInputToolTypeEnum]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
         tool_prompt: Optional[str] = None,
         tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
@@ -585,6 +582,8 @@ class AsyncInferenceClient:
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
+            response_format ([`ChatCompletionInputGrammarType`], *optional*):
+                Grammar constraints. Can be either a JSONSchema or a regex.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
             stop (Optional[`str`], *optional*):
@@ -602,7 +601,7 @@ class AsyncInferenceClient:
             top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
-            tool_choice ([`ChatCompletionInputToolTypeClass`] or [`ChatCompletionInputToolTypeEnum`], *optional*):
+            tool_choice ([`ChatCompletionInputToolTypeClass`] or `str`, *optional*):
                 The tool to use for the completion. Defaults to "auto".
             tool_prompt (`str`, *optional*):
                 A prompt to be appended before the tools.
@@ -626,7 +625,6 @@ class AsyncInferenceClient:
 
         ```py
         # Must be run in an async context
-        # Chat example
         >>> from huggingface_hub import AsyncInferenceClient
         >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
         >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
@@ -656,7 +654,14 @@ class AsyncInferenceClient:
                 total_tokens=25
             )
         )
+        ```
 
+        Example (stream=True):
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> messages = [{"role": "user", "content": "What is the capital of France?"}]
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-8B-Instruct")
         >>> async for token in await client.chat_completion(messages, max_tokens=10, stream=True):
         ...     print(token)
         ChatCompletionStreamOutput(choices=[ChatCompletionStreamOutputChoice(delta=ChatCompletionStreamOutputDelta(content='The', role='assistant'), index=0, finish_reason=None)], created=1710498504)
@@ -774,198 +779,93 @@ class AsyncInferenceClient:
             description=None
         )
         ```
+
+        Example using response_format:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "user",
+        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+        ...     },
+        ... ]
+        >>> response_format = {
+        ...     "type": "json",
+        ...     "value": {
+        ...         "properties": {
+        ...             "location": {"type": "string"},
+        ...             "activity": {"type": "string"},
+        ...             "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5},
+        ...             "animals": {"type": "array", "items": {"type": "string"}},
+        ...         },
+        ...         "required": ["location", "activity", "animals_seen", "animals"],
+        ...     },
+        ... }
+        >>> response = await client.chat_completion(
+        ...     messages=messages,
+        ...     response_format=response_format,
+        ...     max_tokens=500,
+        )
+        >>> response.choices[0].message.content
+        '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
+        ```
         """
         # Determine model
         # `self.xxx` takes precedence over the method argument only in `chat_completion`
         # since `chat_completion(..., model=xxx)` is also a payload parameter for the
         # server, we need to handle it differently
         model = self.base_url or self.model or model or self.get_recommended_model("text-generation")
+        is_url = model.startswith(("http://", "https://"))
 
-        if _is_chat_completion_server(model):
-            # First, let's consider the server has a `/v1/chat/completions` endpoint.
-            # If that's the case, we don't have to render the chat template client-side.
-            model_url = self._resolve_url(model)
-            if not model_url.endswith("/chat/completions"):
-                model_url += "/v1/chat/completions"
+        # First, resolve the model chat completions URL
+        if model == self.base_url:
+            # base_url passed => add server route
+            model_url = model.rstrip("/")
+            if not model_url.endswith("/v1"):
+                model_url += "/v1"
+            model_url += "/chat/completions"
+        elif is_url:
+            # model is a URL => use it directly
+            model_url = model
+        else:
+            # model is a model ID => resolve it + add server route
+            model_url = self._resolve_url(model).rstrip("/") + "/v1/chat/completions"
 
-            # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
-            if not model.startswith("http") and model.count("/") == 1:
-                # If it's a ID on the Hub => use it
-                model_id = model
-            else:
-                # Otherwise, we use a random string
-                model_id = "tgi"
+        # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
+        # If it's a ID on the Hub => use it. Otherwise, we use a random string.
+        model_id = model if not is_url and model.count("/") == 1 else "tgi"
 
-            try:
-                data = await self.post(
-                    model=model_url,
-                    json=dict(
-                        model=model_id,
-                        messages=messages,
-                        frequency_penalty=frequency_penalty,
-                        logit_bias=logit_bias,
-                        logprobs=logprobs,
-                        max_tokens=max_tokens,
-                        n=n,
-                        presence_penalty=presence_penalty,
-                        seed=seed,
-                        stop=stop,
-                        temperature=temperature,
-                        tool_choice=tool_choice,
-                        tool_prompt=tool_prompt,
-                        tools=tools,
-                        top_logprobs=top_logprobs,
-                        top_p=top_p,
-                        stream=stream,
-                    ),
-                    stream=stream,
-                )
-            except _import_aiohttp().ClientResponseError as e:
-                if e.status in (400, 404, 500):
-                    # Let's consider the server is not a chat completion server.
-                    # Then we call again `chat_completion` which will render the chat template client side.
-                    # (can be HTTP 500, HTTP 400, HTTP 404 depending on the server)
-                    _set_as_non_chat_completion_server(model)
-                    logger.warning(
-                        f"Server {model_url} does not seem to support chat completion. Falling back to text generation. Error: {e}"
-                    )
-                    return await self.chat_completion(
-                        messages=messages,
-                        model=model,
-                        stream=stream,
-                        max_tokens=max_tokens,
-                        seed=seed,
-                        stop=stop,
-                        temperature=temperature,
-                        top_p=top_p,
-                    )
-                raise
+        data = await self.post(
+            model=model_url,
+            json=dict(
+                model=model_id,
+                messages=messages,
+                frequency_penalty=frequency_penalty,
+                logit_bias=logit_bias,
+                logprobs=logprobs,
+                max_tokens=max_tokens,
+                n=n,
+                presence_penalty=presence_penalty,
+                response_format=response_format,
+                seed=seed,
+                stop=stop,
+                temperature=temperature,
+                tool_choice=tool_choice,
+                tool_prompt=tool_prompt,
+                tools=tools,
+                top_logprobs=top_logprobs,
+                top_p=top_p,
+                stream=stream,
+            ),
+            stream=stream,
+        )
 
-            if stream:
-                return _async_stream_chat_completion_response_from_bytes(data)  # type: ignore[arg-type]
-
-            return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-
-        # At this point, we know the server is not a chat completion server.
-        # It means it's a transformers-backed server for which we can send a list of messages directly to the
-        # `text-generation` pipeline. We won't receive a detailed response but only the generated text.
         if stream:
-            raise ValueError(
-                "Streaming token is not supported by the model. This is due to the model not been served by a "
-                "Text-Generation-Inference server. Please pass `stream=False` as input."
-            )
-        if tool_choice is not None or tool_prompt is not None or tools is not None:
-            warnings.warn(
-                "Tools are not supported by the model. This is due to the model not been served by a "
-                "Text-Generation-Inference server. The provided tool parameters will be ignored."
-            )
+            return _async_stream_chat_completion_response(data)  # type: ignore[arg-type]
 
-        # generate response
-        text_generation_output = await self.text_generation(
-            prompt=messages,  # type: ignore # Not correct type but works implicitly
-            model=model,
-            stream=False,
-            details=False,
-            max_new_tokens=max_tokens,
-            seed=seed,
-            stop_sequences=stop,
-            temperature=temperature,
-            top_p=top_p,
-        )
-
-        # Format as a ChatCompletionOutput with dummy values for fields we can't provide
-        return ChatCompletionOutput(
-            id="dummy",
-            model="dummy",
-            object="dummy",
-            system_fingerprint="dummy",
-            usage=None,  # type: ignore # set to `None` as we don't want to provide false information
-            created=int(time.time()),
-            choices=[
-                ChatCompletionOutputComplete(
-                    finish_reason="unk",  # type: ignore # set to `unk` as we don't want to provide false information
-                    index=0,
-                    message=ChatCompletionOutputMessage(
-                        content=text_generation_output,
-                        role="assistant",
-                    ),
-                )
-            ],
-        )
-
-    async def conversational(
-        self,
-        text: str,
-        generated_responses: Optional[List[str]] = None,
-        past_user_inputs: Optional[List[str]] = None,
-        *,
-        parameters: Optional[Dict[str, Any]] = None,
-        model: Optional[str] = None,
-    ) -> ConversationalOutput:
-        """
-        Generate conversational responses based on the given input text (i.e. chat with the API).
-
-        <Tip warning={true}>
-
-        [`InferenceClient.conversational`] API is deprecated and will be removed in a future release. Please use
-        [`InferenceClient.chat_completion`] instead.
-
-        </Tip>
-
-        Args:
-            text (`str`):
-                The last input from the user in the conversation.
-            generated_responses (`List[str]`, *optional*):
-                A list of strings corresponding to the earlier replies from the model. Defaults to None.
-            past_user_inputs (`List[str]`, *optional*):
-                A list of strings corresponding to the earlier replies from the user. Should be the same length as
-                `generated_responses`. Defaults to None.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional parameters for the conversational task. Defaults to None. For more details about the available
-                parameters, please refer to [this page](https://huggingface.co/docs/api-inference/detailed_parameters#conversational-task)
-            model (`str`, *optional*):
-                The model to use for the conversational task. Can be a model ID hosted on the Hugging Face Hub or a URL to
-                a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
-                Defaults to None.
-
-        Returns:
-            `Dict`: The generated conversational output.
-
-        Raises:
-            [`InferenceTimeoutError`]:
-                If the model is unavailable or the request times out.
-            `aiohttp.ClientResponseError`:
-                If the request fails with an HTTP error status code other than HTTP 503.
-
-        Example:
-        ```py
-        # Must be run in an async context
-        >>> from huggingface_hub import AsyncInferenceClient
-        >>> client = AsyncInferenceClient()
-        >>> output = await client.conversational("Hi, who are you?")
-        >>> output
-        {'generated_text': 'I am the one who knocks.', 'conversation': {'generated_responses': ['I am the one who knocks.'], 'past_user_inputs': ['Hi, who are you?']}, 'warnings': ['Setting `pad_token_id` to `eos_token_id`:50256 for open-end generation.']}
-        >>> await client.conversational(
-        ...     "Wow, that's scary!",
-        ...     generated_responses=output["conversation"]["generated_responses"],
-        ...     past_user_inputs=output["conversation"]["past_user_inputs"],
-        ... )
-        ```
-        """
-        warnings.warn(
-            "'InferenceClient.conversational' is deprecated and will be removed starting from huggingface_hub>=0.25. "
-            "Please use the more appropriate 'InferenceClient.chat_completion' API instead.",
-            FutureWarning,
-        )
-        payload: Dict[str, Any] = {"inputs": {"text": text}}
-        if generated_responses is not None:
-            payload["inputs"]["generated_responses"] = generated_responses
-        if past_user_inputs is not None:
-            payload["inputs"]["past_user_inputs"] = past_user_inputs
-        if parameters is not None:
-            payload["parameters"] = parameters
-        response = await self.post(json=payload, model=model, task="conversational")
-        return _bytes_to_dict(response)  # type: ignore
+        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
     async def document_question_answering(
         self,
@@ -1770,6 +1670,7 @@ class AsyncInferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1798,6 +1699,7 @@ class AsyncInferenceClient:
         stream: Literal[False] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1826,6 +1728,7 @@ class AsyncInferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1854,6 +1757,7 @@ class AsyncInferenceClient:
         stream: Literal[True] = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1882,6 +1786,7 @@ class AsyncInferenceClient:
         stream: bool = ...,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1909,6 +1814,7 @@ class AsyncInferenceClient:
         stream: bool = False,
         model: Optional[str] = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
+        adapter_id: Optional[str] = None,
         best_of: Optional[int] = None,
         decoder_input_details: Optional[bool] = None,
         do_sample: Optional[bool] = False,  # Manual default value
@@ -1960,6 +1866,8 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            adapter_id (`str`, *optional*):
+                Lora adapter id.
             best_of (`int`, *optional*):
                 Generate best_of sequences and return the one if the highest token logprobs.
             decoder_input_details (`bool`, *optional*):
@@ -2129,6 +2037,7 @@ class AsyncInferenceClient:
 
         # Build payload
         parameters = {
+            "adapter_id": adapter_id,
             "best_of": best_of,
             "decoder_input_details": decoder_input_details,
             "details": details,
@@ -2199,6 +2108,7 @@ class AsyncInferenceClient:
                     details=details,
                     stream=stream,
                     model=model,
+                    adapter_id=adapter_id,
                     best_of=best_of,
                     decoder_input_details=decoder_input_details,
                     do_sample=do_sample,
@@ -2223,7 +2133,12 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)[0]  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+
+        # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
+        if isinstance(data, list):
+            data = data[0]
+
         return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
     async def text_to_image(

@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.24.0.dev0"
+__version__ = "0.25.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -143,11 +143,14 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationCopy",
         "CommitOperationDelete",
+        "DatasetInfo",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "ModelInfo",
         "RepoUrl",
+        "SpaceInfo",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -199,6 +202,7 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
+        "get_user_overview",
         "get_webhook",
         "grant_access",
         "like",
@@ -280,10 +284,13 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionParameters",
         "ChatCompletionInput",
         "ChatCompletionInputFunctionDefinition",
+        "ChatCompletionInputFunctionName",
+        "ChatCompletionInputGrammarType",
         "ChatCompletionInputMessage",
+        "ChatCompletionInputMessageChunk",
         "ChatCompletionInputTool",
-        "ChatCompletionInputToolCall",
         "ChatCompletionInputToolTypeClass",
+        "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
         "ChatCompletionOutputFunctionDefinition",
@@ -640,11 +647,14 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
+        DatasetInfo,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        ModelInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
+        SpaceInfo,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -696,6 +706,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
+        get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
         like,  # noqa: F401
@@ -775,10 +786,13 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
         ChatCompletionInputFunctionDefinition,  # noqa: F401
+        ChatCompletionInputFunctionName,  # noqa: F401
+        ChatCompletionInputGrammarType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
+        ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputTool,  # noqa: F401
-        ChatCompletionInputToolCall,  # noqa: F401
         ChatCompletionInputToolTypeClass,  # noqa: F401
+        ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
         ChatCompletionOutputFunctionDefinition,  # noqa: F401

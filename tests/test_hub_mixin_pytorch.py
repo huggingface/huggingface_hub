@@ -111,12 +111,20 @@ if is_torch_available():
             super().__init__()
             self.config = config
 
+    class DummyModelWithTag1(nn.Module, PyTorchModelHubMixin, tags=["tag1"]):
+        """Used to test tags not shared between sibling classes (only inheritance)."""
+
+    class DummyModelWithTag2(nn.Module, PyTorchModelHubMixin, tags=["tag2"]):
+        """Used to test tags not shared between sibling classes (only inheritance)."""
+
 else:
     DummyModel = None
     DummyModelWithModelCard = None
     DummyModelNoConfig = None
     DummyModelWithConfigAndKwargs = None
     DummyModelWithModelCardAndCustomKwargs = None
+    DummyModelWithTag1 = None
+    DummyModelWithTag2 = None
 
 
 @requires("torch")
@@ -299,8 +307,7 @@ class PytorchHubMixinTest(unittest.TestCase):
         DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
         # Test model id exists
-        model_info = self._api.model_info(repo_id)
-        self.assertEqual(model_info.modelId, repo_id)
+        assert self._api.model_info(repo_id).id == repo_id
 
         # Test config has been pushed to hub
         tmp_config_path = hf_hub_download(
@@ -451,3 +458,21 @@ class PytorchHubMixinTest(unittest.TestCase):
         assert isinstance(reloaded.config, Namespace)
         assert reloaded.config.a == 1
         assert reloaded.config.b == 2
+
+    def test_inheritance_and_sibling_classes(self):
+        """
+        Test tags are not shared between sibling classes.
+
+        Regression test for #2394.
+        See https://github.com/huggingface/huggingface_hub/pull/2394.
+        """
+        assert DummyModelWithTag1._hub_mixin_info.model_card_data.tags == [
+            "model_hub_mixin",
+            "pytorch_model_hub_mixin",
+            "tag1",
+        ]
+        assert DummyModelWithTag2._hub_mixin_info.model_card_data.tags == [
+            "model_hub_mixin",
+            "pytorch_model_hub_mixin",
+            "tag2",
+        ]

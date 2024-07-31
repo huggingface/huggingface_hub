@@ -940,7 +940,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     # Symlinks are not supported => let's move or copy the file.
     if new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(abs_src, abs_dst)
+        shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(abs_src, abs_dst)
@@ -1951,6 +1951,11 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
         tmp_file.touch()
         cache_dir_mode = Path(tmp_file).stat().st_mode
         os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
+    except OSError as e:
+        logger.warning(
+            f"Could not set the permissions on the file '{src}'. "
+            f"Error: {e}.\nContinuing without setting permissions."
+        )
     finally:
         try:
             tmp_file.unlink()
@@ -1959,7 +1964,21 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst))
+    shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+
+
+def _copy_no_matter_what(src: str, dst: str) -> None:
+    """Copy file from src to dst.
+
+    If `shutil.copy2` fails, fallback to `shutil.copyfile`.
+    """
+    try:
+        # Copy file with metadata and permission
+        # Can fail e.g. if dst is an S3 mount
+        shutil.copy2(src, dst)
+    except OSError:
+        # Copy only file content
+        shutil.copyfile(src, dst)
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:

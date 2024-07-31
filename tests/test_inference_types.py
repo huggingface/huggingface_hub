@@ -8,8 +8,6 @@ import pytest
 import huggingface_hub.inference._generated.types as types
 from huggingface_hub.inference._generated.types import AutomaticSpeechRecognitionParameters, BaseInferenceType
 
-from .testing_utils import expect_deprecation
-
 
 @dataclass
 class DummyType(BaseInferenceType):
@@ -106,30 +104,6 @@ def test_all_fields_are_optional():
     assert instance.maybe_items[0].bar is None
     assert instance.maybe_items[1].foo == 42
     assert instance.maybe_items[1].bar == "baz"
-
-
-@expect_deprecation("DummyType")
-def test_not_expected_fields():
-    instance = DummyType.parse_obj({"foo": 42, "bar": "baz", "not_expected": "value"})
-    assert instance.foo == 42
-    assert instance.bar == "baz"
-    assert instance["not_expected"] == "value"
-
-
-@expect_deprecation("DummyType")
-def test_fields_kept_in_sync():
-    # hacky but works + will be removed once dataclasses will not be dicts anymore
-    instance = DummyType.parse_obj(DUMMY_AS_DICT)
-    assert instance.foo == 42
-    assert instance["foo"] == 42
-
-    instance.foo = 43
-    assert instance.foo == 43
-    assert instance["foo"] == 43
-
-    instance["foo"] = 44
-    assert instance.foo == 44
-    assert instance["foo"] == 44
 
 
 def test_normalize_keys():

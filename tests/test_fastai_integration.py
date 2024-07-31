@@ -86,8 +86,8 @@ class TestFastaiUtils(TestCase):
 
         push_to_hub_fastai(learner=dummy_model, repo_id=repo_id, token=TOKEN, config=dummy_config)
         model_info = api.model_info(repo_id)
-        self.assertEqual(model_info.modelId, repo_id)
+        assert model_info.id == repo_id
         loaded_model = from_pretrained_fastai(repo_id)
-        self.assertEqual(dummy_model.show_training_loop(), loaded_model.show_training_loop())
+        assert dummy_model.show_training_loop() == loaded_model.show_training_loop()
 
         api.delete_repo(repo_id=repo_id)

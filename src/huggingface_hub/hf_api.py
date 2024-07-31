@@ -149,7 +149,6 @@ ExpandModelProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
-    "gitalyUid",
     "inference",
     "lastModified",
     "library_name",
@@ -177,7 +176,6 @@ ExpandDatasetProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
-    "gitalyUid",
     "lastModified",
     "likes",
     "paperswithcode_id",
@@ -192,7 +190,6 @@ ExpandSpaceProperty_T = Literal[
     "cardData",
     "datasets",
     "disabled",
-    "gitalyUid",
     "lastModified",
     "createdAt",
     "likes",
@@ -433,8 +430,9 @@ class AccessRequest:
             Username of the user who requested access.
         fullname (`str`):
             Fullname of the user who requested access.
-        email (`str`):
+        email (`Optional[str]`):
             Email of the user who requested access.
+            Can only be `None` in the /accepted list if the user was granted access manually.
         timestamp (`datetime`):
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
@@ -445,7 +443,7 @@ class AccessRequest:
 
     username: str
     fullname: str
-    email: str
+    email: Optional[str]
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
 
@@ -1302,17 +1300,48 @@ class UserLikes:
 
 
 @dataclass
+class Organization:
+    """
+    Contains information about an organization on the Hub.
+
+    Attributes:
+        avatar_url (`str`):
+            URL of the organization's avatar.
+        name (`str`):
+            Name of the organization on the Hub (unique).
+        fullname (`str`):
+            Organization's full name.
+    """
+
+    avatar_url: str
+    name: str
+    fullname: str
+
+    def __init__(self, **kwargs) -> None:
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.name = kwargs.pop("name", "")
+        self.fullname = kwargs.pop("fullname", "")
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class User:
     """
     Contains information about a user on the Hub.
 
     Attributes:
-        avatar_url (`str`):
-            URL of the user's avatar.
         username (`str`):
             Name of the user on the Hub (unique).
         fullname (`str`):
             User's full name.
+        avatar_url (`str`):
+            URL of the user's avatar.
+        details (`str`, *optional*):
+            User's details.
+        is_following (`bool`, *optional*):
+            Whether the authenticated user is following this user.
         is_pro (`bool`, *optional*):
             Whether the user is a pro user.
         num_models (`int`, *optional*):
@@ -1329,16 +1358,16 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
-        is_following (`bool`, *optional*):
-            Whether the authenticated user is following this user.
-        details (`str`, *optional*):
-            User's details.
+        orgs (list of [`Organization`]):
+            List of organizations the user is part of.
     """
 
     # Metadata
-    avatar_url: str
     username: str
     fullname: str
+    avatar_url: str
+    details: Optional[str] = None
+    is_following: Optional[bool] = None
     is_pro: Optional[bool] = None
     num_models: Optional[int] = None
     num_datasets: Optional[int] = None
@@ -1347,24 +1376,24 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
-    is_following: Optional[bool] = None
-    details: Optional[str] = None
+    orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
-        self.avatar_url = kwargs.get("avatarUrl", "")
-        self.username = kwargs.get("user", "")
-        self.fullname = kwargs.get("fullname", "")
-        self.is_pro = kwargs.get("isPro")
-        self.num_models = kwargs.get("numModels")
-        self.num_datasets = kwargs.get("numDatasets")
-        self.num_spaces = kwargs.get("numSpaces")
-        self.num_discussions = kwargs.get("numDiscussions")
-        self.num_papers = kwargs.get("numPapers")
-        self.num_upvotes = kwargs.get("numUpvotes")
-        self.num_likes = kwargs.get("numLikes")
-        self.user_type = kwargs.get("type")
-        self.is_following = kwargs.get("isFollowing")
-        self.details = kwargs.get("details")
+        self.username = kwargs.pop("user", "")
+        self.fullname = kwargs.pop("fullname", "")
+        self.avatar_url = kwargs.pop("avatarUrl", "")
+        self.is_following = kwargs.pop("isFollowing", None)
+        self.is_pro = kwargs.pop("isPro", None)
+        self.details = kwargs.pop("details", None)
+        self.num_models = kwargs.pop("numModels", None)
+        self.num_datasets = kwargs.pop("numDatasets", None)
+        self.num_spaces = kwargs.pop("numSpaces", None)
+        self.num_discussions = kwargs.pop("numDiscussions", None)
+        self.num_papers = kwargs.pop("numPapers", None)
+        self.num_upvotes = kwargs.pop("numUpvotes", None)
+        self.num_likes = kwargs.pop("numLikes", None)
+        self.user_type = kwargs.pop("type", None)
+        self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
         # forward compatibility
         self.__dict__.update(**kwargs)
@@ -1632,7 +1661,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1835,7 +1864,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2016,7 +2045,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2333,7 +2362,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2407,7 +2436,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gitalyUid"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2480,7 +2509,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"gitalyUid"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3735,6 +3764,15 @@ class HfApi:
                     " new CommitOperationAdd object if you want to create a new commit."
                 )
 
+        if repo_type != "dataset":
+            for addition in additions:
+                if addition.path_in_repo.endswith((".arrow", ".parquet")):
+                    warnings.warn(
+                        f"It seems that you are about to commit a data file ({addition.path_in_repo}) to a {repo_type}"
+                        " repository. You are sure this is intended? If you are trying to upload a dataset, please"
+                        " set `repo_type='dataset'` or `--repo-type=dataset` in a CLI."
+                    )
+
         logger.debug(
             f"About to commit to the hub: {len(additions)} addition(s), {len(copies)} copie(s) and"
             f" {nb_deletions} deletion(s)."
@@ -3779,12 +3817,52 @@ class HfApi:
             num_threads=num_threads,
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
+
+        # Remove no-op operations (files that have not changed)
+        operations_without_no_op = []
+        for operation in operations:
+            if (
+                isinstance(operation, CommitOperationAdd)
+                and operation._remote_oid is not None
+                and operation._remote_oid == operation._local_oid
+            ):
+                # File already exists on the Hub and has not changed: we can skip it.
+                logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
+                continue
+            operations_without_no_op.append(operation)
+        if len(operations) != len(operations_without_no_op):
+            logger.info(
+                f"Removing {len(operations) - len(operations_without_no_op)} file(s) from commit that have not changed."
+            )
+
+        # Return early if empty commit
+        if len(operations_without_no_op) == 0:
+            logger.warning("No files have been modified since last commit. Skipping to prevent empty commit.")
+
+            # Get latest commit info
+            try:
+                info = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=unquoted_revision, token=token)
+            except RepositoryNotFoundError as e:
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
+
+            # Return commit info based on latest commit
+            url_prefix = self.endpoint
+            if repo_type is not None and repo_type != REPO_TYPE_MODEL:
+                url_prefix = f"{url_prefix}/{repo_type}s"
+            return CommitInfo(
+                commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
+                commit_message=commit_message,
+                commit_description=commit_description,
+                oid=info.sha,  # type: ignore[arg-type]
+            )
+
         files_to_copy = _fetch_files_to_copy(
             copies=copies,
             repo_type=repo_type,
             repo_id=repo_id,
             headers=headers,
-            revision=revision,
+            revision=unquoted_revision,
             endpoint=self.endpoint,
         )
         commit_payload = _prepare_commit_payload(
@@ -5682,8 +5760,18 @@ class HfApi:
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
-            if not (e.response.status_code == 409 and exist_ok):
-                raise
+            if exist_ok and e.response.status_code == 409:
+                return
+            elif exist_ok and e.response.status_code == 403:
+                # No write permission on the namespace but branch might already exist
+                try:
+                    refs = self.list_repo_refs(repo_id=repo_id, repo_type=repo_type, token=token)
+                    for branch_ref in refs.branches:
+                        if branch_ref.name == branch:
+                            return  # Branch already exists => do not raise
+                except HfHubHTTPError:
+                    pass  # We raise the original error if the branch does not exist
+            raise
 
     @validate_hf_hub_args
     def delete_branch(
@@ -8422,7 +8510,7 @@ class HfApi:
             AccessRequest(
                 username=request["user"]["user"],
                 fullname=request["user"]["fullname"],
-                email=request["user"]["email"],
+                email=request["user"].get("email"),
                 status=request["status"],
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form

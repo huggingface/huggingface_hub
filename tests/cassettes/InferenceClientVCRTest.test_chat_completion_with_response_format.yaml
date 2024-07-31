@@ -1,0 +1,60 @@
+interactions:
+- request:
+    body: '{"model": "meta-llama/Meta-Llama-3-70B-Instruct", "messages": [{"role":
+      "user", "content": "I saw a puppy a cat and a raccoon during my bike ride in
+      the park. What did I saw and when?"}], "frequency_penalty": null, "logit_bias":
+      null, "logprobs": null, "max_tokens": 500, "n": null, "presence_penalty": null,
+      "response_format": {"type": "json", "value": {"properties": {"location": {"type":
+      "string"}, "activity": {"type": "string"}, "animals_seen": {"type": "integer",
+      "minimum": 1, "maximum": 5}, "animals": {"type": "array", "items": {"type":
+      "string"}}}, "required": ["location", "activity", "animals_seen", "animals"]}},
+      "seed": null, "stop": null, "temperature": null, "tool_choice": null, "tool_prompt":
+      null, "tools": null, "top_logprobs": null, "top_p": null, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '785'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 64f96be3-d5ef-4a00-adf3-43b9d20d2ab1
+      user-agent:
+      - unknown/None; hf_hub/0.24.0.dev0; python/3.10.12; torch/2.3.1; tensorflow/2.15.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1720527901,"model":"meta-llama/Meta-Llama-3-70B-Instruct","system_fingerprint":"2.1.1-dev0-sha-4327210","choices":[{"index":0,"message":{"role":"assistant","content":"{
+        \n\n\"activity\": \"bike ride\", \n\"animals\": [\"puppy\", \"cat\", \"raccoon\"],
+        \n\"animals_seen\": 3, \n\"location\": \"park\" \n}"},"logprobs":null,"finish_reason":"eos_token"}],"usage":{"prompt_tokens":35,"completion_tokens":45,"total_tokens":80}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '468'
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 09 Jul 2024 12:47:17 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '1.772222068'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - NltuLUIFa5XCw_HIQyQsk
+      x-sha:
+      - 7129260dd854a80eb10ace5f61c20324b472b31c
+    status:
+      code: 200
+      message: OK
+version: 1
