@@ -21,7 +21,7 @@ def user() -> str:
 
 @pytest.fixture(autouse=True, scope="session")
 def login_as_dummy_user(token: str) -> Generator:
-    """Login with dummy user token."""
+    """Log in with dummy user token."""
     # Cannot use `monkeypatch` fixture since we want it to be "session-scoped"
     old_token = os.environ["HF_TOKEN"]
     os.environ["HF_TOKEN"] = token

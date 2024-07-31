@@ -90,7 +90,7 @@ Files will be downloaded in a local cache folder. More details in [this guide](h
 
 ### Login
 
-The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To login your machine, run the following CLI:
+The Hugging Face Hub uses tokens to authenticate applications (see [docs](https://huggingface.co/docs/hub/security-tokens)). To log in your machine, run the following CLI:
 
 ```bash
 huggingface-cli login

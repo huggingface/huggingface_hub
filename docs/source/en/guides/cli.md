@@ -101,7 +101,7 @@ _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|
 _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
-To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
+To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
 Token:
 Add token as git credential? (Y/n)
 Token is valid (permission: write).
