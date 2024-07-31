@@ -27,6 +27,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest
+from urllib3.util.retry import Retry
 
 from huggingface_hub.errors import OfflineModeIsEnabled
 
@@ -46,6 +47,12 @@ X_REQUEST_ID = "x-request-id"
 
 class HuggingFaceAdapter(HTTPAdapter):
     X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+
+    def __init__(self):
+        super().__init__(max_retries=Retry(
+            total=4,
+            status_forcelist=[429],
+        ))
 
     def add_headers(self, request, **kwargs):
         super().add_headers(request, **kwargs)
@@ -276,16 +283,7 @@ def http_backoff(
 
             # Perform request and return if status_code is not in the retry list.
             response = session.request(method=method, url=url, **kwargs)
-
-            # Handle Retry-After header for 429 status code
-            if response.status_code == 429:
-                retry_after = response.headers.get("Retry-After")
-                if retry_after is not None:
-                    try:
-                        sleep_time += float(retry_after)
-                    except ValueError:
-                        pass
-            elif response.status_code not in retry_on_status_codes:
+            if response.status_code not in retry_on_status_codes:
                 return response
 
             # Wrong status code returned (HTTP 503 for instance)

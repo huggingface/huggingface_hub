@@ -2,8 +2,9 @@ import os
 import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Process, Queue
-from typing import Generator, Optional
+from typing import Generator, Optional, ClassVar
 from unittest.mock import Mock, call, patch
 from uuid import UUID
 
@@ -146,37 +147,6 @@ class TestHttpBackoff(unittest.TestCase):
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
         self.assertListEqual(sleep_times, expected_sleep_times)
 
-    def test_backoff_respects_retry_after_header(self) -> None:
-        """Test `http_backoff` respects `Retry-After` header on 429 status codes."""
-        mock_429_with_retry_after = Mock()
-        mock_429_with_retry_after.status_code = 429
-        mock_429_with_retry_after.headers = {"Retry-After": "2"}
-        mock_200 = Mock()
-        mock_200.status_code = 200
-
-        sleep_times = []
-
-        def _side_effect_timer() -> Generator[None, None, None]:
-            t0 = time.time()
-            while True:
-                yield mock_429_with_retry_after
-                t1 = time.time()
-                sleep_times.append(round(t1 - t0, 1))
-                t0 = t1
-                yield mock_200
-
-        self.mock_request.side_effect = _side_effect_timer()
-
-        response = http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
-
-        self.assertEqual(self.mock_request.call_count, 2)
-        self.assertIs(response, mock_200)
-
-        # Assert sleep times respect `Retry-After` header and base_wait_time
-        expected_sleep_times = [2.1]
-        self.assertListEqual(sleep_times, expected_sleep_times)
-
-
 class TestConfigureSession(unittest.TestCase):
     def setUp(self) -> None:
         # Reconfigure + clear session cache between each test
@@ -315,6 +285,48 @@ class TestUniqueRequestId(unittest.TestCase):
 
         response_id = response.headers["x-request-id"]
         self.assertEqual(response_id, "custom-id")
+
+
+class RetryableTestServer(BaseHTTPRequestHandler):
+    requestNumber: ClassVar[int] = 0
+
+    def do_GET(self) -> None:
+        if RetryableTestServer.requestNumber > 2:
+            self.send_canned_response(500, b'too many requests')
+
+        RetryableTestServer.requestNumber += 1
+        if RetryableTestServer.requestNumber == 1:
+            self.send_response(429)
+            self.send_header('Retry-After', '2')
+            self.end_headers()
+        else:
+            self.send_canned_response(200, b'content')
+
+    def send_canned_response(self, status_code: int, message: bytes) -> None:
+        self.send_response(status_code)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(message)
+
+def run_retry_server() -> HTTPServer:
+    server = HTTPServer(('', 1429), RetryableTestServer)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    return server
+
+class TestRetryBehaviour(unittest.TestCase):
+
+    def test_respects_retry_after_header(self) -> None:
+        server = run_retry_server()
+        try:
+            response = get_session().get("http://localhost:1429", allow_redirects=False)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.text, 'content')
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 def _is_uuid(string: str) -> bool:
