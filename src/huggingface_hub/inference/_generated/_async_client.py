@@ -151,7 +151,7 @@ class AsyncInferenceClient:
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         proxies: Optional[Any] = None,
-        trust_env: bool = True,
+        trust_env: bool = False, # Default value False documented here https://github.com/aio-libs/aiohttp/blob/v3.10.0/docs/client_reference.rst?plain=1#L195 
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
