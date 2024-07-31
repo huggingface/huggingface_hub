@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains methods to login to the Hub."""
+"""Contains methods to log in to the Hub."""
 
 import os
 import subprocess
@@ -60,7 +60,7 @@ def login(
     components. If `token` is not provided, it will be prompted to the user either with
     a widget (in a notebook) or via the terminal.
 
-    To login from outside of a script, one can also use `huggingface-cli login` which is
+    To log in from outside of a script, one can also use `huggingface-cli login` which is
     a cli command that wraps [`login`].
 
     <Tip>
@@ -94,7 +94,7 @@ def login(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
-            to login.
+            to log in.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If token is invalid.
         [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
@@ -155,7 +155,7 @@ def logout() -> None:
 
 def interpreter_login(new_session: bool = True, write_permission: bool = False) -> None:
     """
-    Displays a prompt to login to the HF website and store the token.
+    Displays a prompt to log in to the HF website and store the token.
 
     This is equivalent to [`login`] without passing a token when not run in a notebook.
     [`interpreter_login`] is useful if you want to force the use of the terminal prompt
@@ -185,7 +185,7 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
         )
         print("    Setting a new token will erase the existing one.")
 
-    print("    To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
+    print("    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
@@ -220,7 +220,7 @@ notebooks. </center>"""
 
 def notebook_login(new_session: bool = True, write_permission: bool = False) -> None:
     """
-    Displays a widget to login to the HF website and store the token.
+    Displays a widget to log in to the HF website and store the token.
 
     This is equivalent to [`login`] without passing a token when run in a notebook.
     [`notebook_login`] is useful if you want to force the use of the notebook widget
