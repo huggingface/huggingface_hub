@@ -451,7 +451,7 @@ Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-coo
 
 Use Unix-style wildcards to delete sets of files: 
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
