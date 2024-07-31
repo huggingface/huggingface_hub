@@ -940,7 +940,7 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     # Symlinks are not supported => let's move or copy the file.
     if new_blob:
         logger.info(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(abs_src, abs_dst)
+        shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
     else:
         logger.info(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
         shutil.copyfile(abs_src, abs_dst)
