@@ -84,56 +84,56 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 
 
 def get_table(verbosity: int, hf_cache_info: HFCacheInfo) -> str:
-        if verbosity == 0:
-            return tabulate(
-                rows=[
-                    [
-                        repo.repo_id,
-                        repo.repo_type,
-                        "{:>12}".format(repo.size_on_disk_str),
-                        repo.nb_files,
-                        repo.last_accessed_str,
-                        repo.last_modified_str,
-                        ", ".join(sorted(repo.refs)),
-                        str(repo.repo_path),
-                    ]
-                    for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
-                ],
-                headers=[
-                    "REPO ID",
-                    "REPO TYPE",
-                    "SIZE ON DISK",
-                    "NB FILES",
-                    "LAST_ACCESSED",
-                    "LAST_MODIFIED",
-                    "REFS",
-                    "LOCAL PATH",
-                ],
-            )
-        else:
-            return tabulate(
-                rows=[
-                    [
-                        repo.repo_id,
-                        repo.repo_type,
-                        revision.commit_hash,
-                        "{:>12}".format(revision.size_on_disk_str),
-                        revision.nb_files,
-                        revision.last_modified_str,
-                        ", ".join(sorted(revision.refs)),
-                        str(revision.snapshot_path),
-                    ]
-                    for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
-                    for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash)
-                ],
-                headers=[
-                    "REPO ID",
-                    "REPO TYPE",
-                    "REVISION",
-                    "SIZE ON DISK",
-                    "NB FILES",
-                    "LAST_MODIFIED",
-                    "REFS",
-                    "LOCAL PATH",
-                ],
+    if verbosity == 0:
+        return tabulate(
+            rows=[
+                [
+                    repo.repo_id,
+                    repo.repo_type,
+                    "{:>12}".format(repo.size_on_disk_str),
+                    repo.nb_files,
+                    repo.last_accessed_str,
+                    repo.last_modified_str,
+                    ", ".join(sorted(repo.refs)),
+                    str(repo.repo_path),
+                ]
+                for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
+            ],
+            headers=[
+                "REPO ID",
+                "REPO TYPE",
+                "SIZE ON DISK",
+                "NB FILES",
+                "LAST_ACCESSED",
+                "LAST_MODIFIED",
+                "REFS",
+                "LOCAL PATH",
+            ],
+        )
+    else:
+        return tabulate(
+            rows=[
+                [
+                    repo.repo_id,
+                    repo.repo_type,
+                    revision.commit_hash,
+                    "{:>12}".format(revision.size_on_disk_str),
+                    revision.nb_files,
+                    revision.last_modified_str,
+                    ", ".join(sorted(revision.refs)),
+                    str(revision.snapshot_path),
+                ]
+                for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.repo_path)
+                for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash)
+            ],
+            headers=[
+                "REPO ID",
+                "REPO TYPE",
+                "REVISION",
+                "SIZE ON DISK",
+                "NB FILES",
+                "LAST_MODIFIED",
+                "REFS",
+                "LOCAL PATH",
+            ],
             )
