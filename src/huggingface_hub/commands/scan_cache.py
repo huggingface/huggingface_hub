@@ -136,4 +136,4 @@ def get_table(verbosity: int, hf_cache_info: HFCacheInfo) -> str:
                 "REFS",
                 "LOCAL PATH",
             ],
-            )
+        )
