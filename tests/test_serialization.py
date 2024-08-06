@@ -46,13 +46,16 @@ def dummy_state_dict() -> Dict[str, List[int]]:
 def torch_state_dict() -> Dict[str, "torch.Tensor"]:
     try:
         import torch
+        from torch.testing._internal.two_tensor import TwoTensor
 
+        t = torch.tensor([4])
         return {
             "layer_1": torch.tensor([4]),
             "layer_2": torch.tensor([10]),
             "layer_3": torch.tensor([30]),
             "layer_4": torch.tensor([2]),
             "layer_5": torch.tensor([2]),
+            "layer_6": TwoTensor(t, t),
         }
     except ImportError:
         pytest.skip("torch is not available")
@@ -62,8 +65,32 @@ def torch_state_dict() -> Dict[str, "torch.Tensor"]:
 def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
     try:
         import torch
+        from torch.testing._internal.two_tensor import TwoTensor
 
         shared_layer = torch.tensor([4])
+
+        t = torch.tensor([4])
+        shared_tensor_subclass_tensor = TwoTensor(t, t)
+
+        return {
+            "shared_1": shared_layer,
+            "unique_1": torch.tensor([10]),
+            "unique_2": torch.tensor([30]),
+            "shared_2": shared_layer,
+            "ts_shared_1": shared_tensor_subclass_tensor,
+            "ts_shared_2": shared_tensor_subclass_tensor,
+        }
+    except ImportError:
+        pytest.skip("torch is not available")
+
+
+@pytest.fixture
+def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
+    try:
+        import torch
+        from torch.testing._internal.two_tensor import TwoTensor
+
+        shared_layer = TwoTensor(torch.tensor([4]), torch.tesnor([4])
 
         return {
             "shared_1": shared_layer,
@@ -168,6 +195,17 @@ def test_get_torch_storage_size():
 
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
+
+
+@requires("torch")
+def test_get_torch_storage_size_wrapper_tensor_subclass():
+    import torch
+    from torch.testing._internal.two_tensor import TwoTensor
+
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
+    assert get_torch_storage_size(TwoTensor(t, t) dtype=torch.float64) == 5 * 8 * 2
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
+    assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t)), dtype=torch.float16)) == 5 * 2 * 3
 
 
 def test_parse_size_to_int():
