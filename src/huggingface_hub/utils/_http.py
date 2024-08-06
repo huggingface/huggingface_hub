@@ -27,6 +27,7 @@ import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.models import PreparedRequest
+from urllib3.util.retry import Retry
 
 from huggingface_hub.errors import OfflineModeIsEnabled
 
@@ -44,8 +45,14 @@ X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
 X_REQUEST_ID = "x-request-id"
 
 
-class UniqueRequestIdAdapter(HTTPAdapter):
+class HuggingFaceAdapter(HTTPAdapter):
     X_AMZN_TRACE_ID = "X-Amzn-Trace-Id"
+
+    def __init__(self):
+        super().__init__(max_retries=Retry(
+            total=4,
+            status_forcelist=[429],
+        ))
 
     def add_headers(self, request, **kwargs):
         super().add_headers(request, **kwargs)
@@ -61,6 +68,8 @@ class UniqueRequestIdAdapter(HTTPAdapter):
         )
 
     def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
+        self.check_offline(request)
+
         """Catch any RequestException to append request id to the error message for debugging."""
         try:
             return super().send(request, *args, **kwargs)
@@ -71,22 +80,18 @@ class UniqueRequestIdAdapter(HTTPAdapter):
                 e.args = (*e.args, f"(Request ID: {request_id})")
             raise
 
-
-class OfflineAdapter(HTTPAdapter):
-    def send(self, request: PreparedRequest, *args, **kwargs) -> Response:
-        raise OfflineModeIsEnabled(
-            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
-        )
+    @staticmethod
+    def check_offline(request):
+        if constants.HF_HUB_OFFLINE:
+            raise OfflineModeIsEnabled(
+                f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+            )
 
 
 def _default_backend_factory() -> requests.Session:
     session = requests.Session()
-    if constants.HF_HUB_OFFLINE:
-        session.mount("http://", OfflineAdapter())
-        session.mount("https://", OfflineAdapter())
-    else:
-        session.mount("http://", UniqueRequestIdAdapter())
-        session.mount("https://", UniqueRequestIdAdapter())
+    session.mount("http://", HuggingFaceAdapter())
+    session.mount("https://", HuggingFaceAdapter())
     return session
 
 
