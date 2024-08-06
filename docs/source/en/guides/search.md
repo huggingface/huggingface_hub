@@ -57,5 +57,5 @@ the following example fetches the top 5 most downloaded datasets on the Hub:
 
 
 
-To explore available filter on the Hub, visit [models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
+To explore available filters on the Hub, visit [models](https://huggingface.co/models) and [datasets](https://huggingface.co/datasets) pages
 in your browser, search for some parameters and look at the values in the URL.
