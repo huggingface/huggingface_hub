@@ -138,3 +138,5 @@ dmypy.json
 
 # Spell checker config
 cspell.json
+
+tmp*
