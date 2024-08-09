@@ -131,6 +131,8 @@ class AsyncInferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
+        trust_env ('bool', 'optional'):
+            Trust environment settings for proxy configuration, default
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -149,6 +151,7 @@ class AsyncInferenceClient:
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         proxies: Optional[Any] = None,
+        trust_env: bool = False, # Default value False documented here https://github.com/aio-libs/aiohttp/blob/v3.10.0/docs/client_reference.rst?plain=1#L195 
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -174,6 +177,7 @@ class AsyncInferenceClient:
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
+        self.trust_env = trust_env
 
         # OpenAI compatibility
         self.base_url = base_url
@@ -273,7 +277,10 @@ class AsyncInferenceClient:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
                 client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
+                    headers=headers,
+                    cookies=self.cookies,
+                    timeout=aiohttp.ClientTimeout(self.timeout),
+                    trust_env=self.trust_env,
                 )
 
                 try:
@@ -1296,7 +1303,7 @@ class AsyncInferenceClient:
                     models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
         async def _fetch_framework(framework: str) -> None:
-            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+            async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
                 response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
                 response.raise_for_status()
                 _unpack_response(framework, await response.json())
@@ -2684,7 +2691,7 @@ class AsyncInferenceClient:
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
             response = await client.get(url)
             response.raise_for_status()
             return await response.json()
@@ -2721,7 +2728,7 @@ class AsyncInferenceClient:
             )
         url = model.rstrip("/") + "/health"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
             response = await client.get(url)
             return response.status == 200
 
@@ -2763,7 +2770,7 @@ class AsyncInferenceClient:
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
+        async with _import_aiohttp().ClientSession(headers=self.headers, trust_env=self.trust_env) as client:
             response = await client.get(url)
             response.raise_for_status()
             response_data = await response.json()
