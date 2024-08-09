@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
-
+from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
 logger = logging.get_logger(__file__)
 
@@ -335,6 +335,22 @@ def split_torch_state_dict_into_shards(
         get_storage_id=get_torch_storage_id,
     )
 
+def get_unique_id(tensor: "torch.Tensor") -> int:
+    if tensor.device.type == "xla" and is_torch_tpu_available():
+        # NOTE: xla tensors dont have storage
+        # use some other unique id to distinguish.
+        # this is a XLA tensor, it must be created using torch_xla's
+        # device. So the following import is safe:
+        import torch_xla
+
+        unique_id = torch_xla._XLAC._xla_get_tensor_id(tensor)
+    elif is_traceable_wrapper_subclass(tensor):
+        attrs, _ = tensor.__tensor_flatten__()
+        unique_id = tuple(get_unique_id(getattr(tensor, attr)) for attr in attrs)
+    else:
+        unique_id = storage_ptr(tensor)
+
+    return unique_id
 
 def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
     """
@@ -347,18 +363,7 @@ def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, i
 
     Taken from https://github.com/huggingface/transformers/blob/1ecf5f7c982d761b4daaa96719d162c324187c64/src/transformers/pytorch_utils.py#L278.
     """
-    if tensor.device.type == "xla" and is_torch_tpu_available():
-        # NOTE: xla tensors dont have storage
-        # use some other unique id to distinguish.
-        # this is a XLA tensor, it must be created using torch_xla's
-        # device. So the following import is safe:
-        import torch_xla
-
-        unique_id = torch_xla._XLAC._xla_get_tensor_id(tensor)
-    else:
-        unique_id = storage_ptr(tensor)
-
-    return tensor.device, unique_id, get_torch_storage_size(tensor)
+    return tensor.device, get_unique_id(tensor), get_torch_storage_size(tensor)
 
 
 def get_torch_storage_size(tensor: "torch.Tensor") -> int:
@@ -366,6 +371,9 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L31C1-L41C59
     """
     try:
+        if is_traceable_wrapper_subclass(tensor):
+            attrs, _ = tensor.__tensor_flatten__()
+            return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
         return tensor.untyped_storage().nbytes()
     except AttributeError:
         # Fallback for torch==1.10
@@ -403,6 +411,8 @@ def storage_ptr(tensor: "torch.Tensor") -> int:
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
     try:
+        if is_traceable_wrapper_subclass(tensor):
+            return get_unique_id(tensor)
         return tensor.untyped_storage().data_ptr()
     except Exception:
         # Fallback for torch==1.10
