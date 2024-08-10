@@ -335,7 +335,11 @@ def split_torch_state_dict_into_shards(
         get_storage_id=get_torch_storage_id,
     )
 
-def get_unique_id(tensor: "torch.Tensor") -> int:
+def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
+    """Returns a unique id for plain tensor
+    or a (potentially nested) Tuple of unique id for the flattened Tensor
+    if the input is a wrapper tensor subclass Tensor
+    """
     if tensor.device.type == "xla" and is_torch_tpu_available():
         # NOTE: xla tensors dont have storage
         # use some other unique id to distinguish.
@@ -346,13 +350,13 @@ def get_unique_id(tensor: "torch.Tensor") -> int:
         unique_id = torch_xla._XLAC._xla_get_tensor_id(tensor)
     elif is_traceable_wrapper_subclass(tensor):
         attrs, _ = tensor.__tensor_flatten__()
-        unique_id = tuple(get_unique_id(getattr(tensor, attr)) for attr in attrs)
+        unique_id = tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
     else:
         unique_id = storage_ptr(tensor)
 
     return unique_id
 
-def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", Union[int, Tuple[Any, ...]], int]:
     """
     Return unique identifier to a tensor storage.
 
@@ -363,7 +367,7 @@ def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, i
 
     Taken from https://github.com/huggingface/transformers/blob/1ecf5f7c982d761b4daaa96719d162c324187c64/src/transformers/pytorch_utils.py#L278.
     """
-    return tensor.device, get_unique_id(tensor), get_torch_storage_size(tensor)
+    return tensor.device, _get_unique_id(tensor), get_torch_storage_size(tensor)
 
 
 def get_torch_storage_size(tensor: "torch.Tensor") -> int:
@@ -406,13 +410,13 @@ def is_torch_tpu_available(check_device=True):
     return False
 
 
-def storage_ptr(tensor: "torch.Tensor") -> int:
+def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
     try:
         if is_traceable_wrapper_subclass(tensor):
-            return get_unique_id(tensor)
+            return _get_unique_id(tensor)
         return tensor.untyped_storage().data_ptr()
     except Exception:
         # Fallback for torch==1.10
