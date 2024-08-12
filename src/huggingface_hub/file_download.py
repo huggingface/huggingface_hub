@@ -152,7 +152,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
                         message += (
                             "\nTo support symlinks on Windows, you either need to"
                             " activate Developer Mode or to run Python as an"
-                            " administrator. In order to see activate developer mode,"
+                            " administrator. In order to activate developer mode,"
                             " see this article:"
                             " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
                         )
@@ -1736,7 +1736,7 @@ def _get_metadata_or_catch_error(
             ),
         )
 
-    url = url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
     etag: Optional[str] = None
     commit_hash: Optional[str] = None
