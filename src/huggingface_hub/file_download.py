@@ -1736,7 +1736,7 @@ def _get_metadata_or_catch_error(
             ),
         )
 
-    url = url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
+    url = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=revision, endpoint=endpoint)
     url_to_download: str = url
     etag: Optional[str] = None
     commit_hash: Optional[str] = None
