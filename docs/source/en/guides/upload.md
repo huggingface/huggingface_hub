@@ -162,13 +162,13 @@ While being much more robust to upload large folders, `upload_large_folder` is m
 
 There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data, getting an upload/push to fail at the end of the process or encountering a degraded experience, be it on hf.co or when working locally, can be very annoying.
 
-Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Next, let's move on with some practical tips to make your upload process as smooth as possible.
+Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Let's move on with some practical tips to make your upload process as smooth as possible.
 
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate on a script when failing takes only a little time.
 - **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_large_folder`] does for you.
 - **Use `hf_transfer`**: this is a Rust-based [library](https://github.com/huggingface/hf_transfer) meant to speed up uploads on machines with very high bandwidth. To use `hf_transfer`:
     1. Specify the `hf_transfer` extra when installing `huggingface_hub`
-       (e.g. `pip install huggingface_hub[hf_transfer]`).
+       (i.e., `pip install huggingface_hub[hf_transfer]`).
     2. Set `HF_HUB_ENABLE_HF_TRANSFER=1` as an environment variable.
 
 <Tip warning={true}>
