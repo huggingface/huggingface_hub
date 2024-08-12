@@ -133,8 +133,8 @@ class InferenceClient:
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
-            path will be appended to the base URL. When passing a URL as `model`, the client will not append any
-            suffix path to it.
+            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
+            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
