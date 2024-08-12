@@ -80,10 +80,10 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
                 print(ANSI.gray(message + " Use -vvv to print details."))
 
     def _print_hf_cache_info_as_table(self, hf_cache_info: HFCacheInfo) -> None:
-        print(get_table(self.verbosity, hf_cache_info))
+        print(get_table(hf_cache_info, verbosity=self.verbosity))
 
 
-def get_table(verbosity: int, hf_cache_info: HFCacheInfo) -> str:
+def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
     if verbosity == 0:
         return tabulate(
             rows=[
