@@ -154,7 +154,7 @@ While being much more robust to upload large folders, `upload_large_folder` is m
 - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
 - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
 - you cannot delete from the repo while uploading. Please make a separate commit first.
-- you cannot create a PR directly. Please create a PR first and then commit to it by passing `revision`.
+- you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
 
 </Tip>
 
