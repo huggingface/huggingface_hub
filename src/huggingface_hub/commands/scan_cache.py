@@ -84,6 +84,82 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 
 
 def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
+    """Generate a table from the HFCacheInfo object.
+
+    Use `get_table(hf_cache_info, verbosity=0)` to get a table with a single row per repo, with columns
+    "repo_id", "repo_type", "size_on_disk", "nb_files", "last_accessed", "last_modified", "refs", "local_path".
+
+    Use `get_table(hf_cache_info, verbosity=1)` to get a table with a row per repo and revision (thus multiple rows can appear for a single repo), with columns
+    "repo_id", "repo_type", "revision", "size_on_disk", "nb_files", "last_modified", "refs", "local_path".
+
+    ```py
+    >>> from huggingface_hub.utils import scan_cache_dir
+    >>> from huggingface_hub.commands.scan_cache import get_table
+
+    >>> hf_cache_info = scan_cache_dir()
+    HFCacheInfo(
+        size_on_disk=3398085269,
+        repos=frozenset({
+            CachedRepoInfo(
+                repo_id='t5-small',
+                repo_type='model',
+                repo_path=PosixPath(...),
+                size_on_disk=970726914,
+                nb_files=11,
+                revisions=frozenset({
+                    CachedRevisionInfo(
+                        commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
+                        size_on_disk=970726339,
+                        snapshot_path=PosixPath(...),
+                        files=frozenset({
+                            CachedFileInfo(
+                                file_name='config.json',
+                                size_on_disk=1197
+                                file_path=PosixPath(...),
+                                blob_path=PosixPath(...),
+                            ),
+                            CachedFileInfo(...),
+                            ...
+                        }),
+                    ),
+                    CachedRevisionInfo(...),
+                    ...
+                }),
+            ),
+            CachedRepoInfo(...),
+            ...
+        }),
+        warnings=[
+            CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
+            CorruptedCacheException(...),
+            ...
+        ],
+    )
+
+    >>> print(get_table(hf_cache_info, verbosity=0))
+    REPO ID                                             REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS LOCAL PATH                                                                                         
+    --------------------------------------------------- --------- ------------ -------- ------------- ------------- ---- -------------------------------------------------------------------------------------------------- 
+    roberta-base                                        model             2.7M        5 1 day ago     1 week ago    main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--roberta-base                                         
+    suno/bark                                           model             8.8K        1 1 week ago    1 week ago    main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--suno--bark                                           
+    t5-base                                             model           893.8M        4 4 days ago    7 months ago  main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--t5-base                                              
+    t5-large                                            model             3.0G        4 5 weeks ago   5 months ago  main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--t5-large                                             
+
+    >>> print(get_table(hf_cache_info, verbosity=1))
+    REPO ID                                             REPO TYPE REVISION                                 SIZE ON DISK NB FILES LAST_MODIFIED REFS LOCAL PATH                                                                                                                                            
+    --------------------------------------------------- --------- ---------------------------------------- ------------ -------- ------------- ---- ----------------------------------------------------------------------------------------------------------------------------------------------------- 
+    roberta-base                                        model     e2da8e2f811d1448a5b465c236feacd80ffbac7b         2.7M        5 1 week ago    main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--roberta-base\\snapshots\\e2da8e2f811d1448a5b465c236feacd80ffbac7b                                         
+    suno/bark                                           model     70a8a7d34168586dc5d028fa9666aceade177992         8.8K        1 1 week ago    main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--suno--bark\\snapshots\\70a8a7d34168586dc5d028fa9666aceade177992                                           
+    t5-base                                             model     a9723ea7f1b39c1eae772870f3b547bf6ef7e6c1       893.8M        4 7 months ago  main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--t5-base\\snapshots\\a9723ea7f1b39c1eae772870f3b547bf6ef7e6c1                                              
+    t5-large                                            model     150ebc2c4b72291e770f58e6057481c8d2ed331a         3.0G        4 5 months ago  main C:\\Users\\admin\\.cache\\huggingface\\hub\\models--t5-large\\snapshots\\150ebc2c4b72291e770f58e6057481c8d2ed331a                                                 ```
+    ```
+
+    Args:
+        hf_cache_info (HFCacheInfo): The HFCacheInfo object to print.
+        verbosity (int, optional): The verbosity level. Defaults to 0.
+
+    Returns:
+        str: The table as a string.
+    """
     if verbosity == 0:
         return tabulate(
             rows=[

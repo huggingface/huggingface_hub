@@ -22,6 +22,10 @@ for a detailed presentation of caching at HF.
 
 [[autodoc]] huggingface_hub.scan_cache_dir
 
+### scan_cache.get_table
+
+[[autodoc]] huggingface_hub.commands.scan_cache.get_table
+
 ## Data structures
 
 All structures are built and returned by [`scan_cache_dir`] and are immutable.
