@@ -2644,8 +2644,7 @@ class InferenceClient:
             url = model.rstrip("/") + "/info"
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
-        session = get_session()
-        response = session.get(url, headers=self.headers)
+        response = get_session().get(url, headers=self.headers)
         hf_raise_for_status(response)
         return response.json()
 

@@ -68,6 +68,9 @@ def generate_async_client_code(code: str) -> str:
     # Adapt /info and /health endpoints
     code = _adapt_info_and_health_endpoints(code)
 
+    # Add _get_client_session
+    code = _add_get_client_session(code)
+
     # Adapt the proxy client (for client.chat.completions.create)
     code = _adapt_proxy_client(code)
 
@@ -186,7 +189,7 @@ ASYNC_POST_CODE = """
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
         # Set Accept header if relevant
-        headers = self.headers.copy()
+        headers = dict()
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 
@@ -196,9 +199,7 @@ ASYNC_POST_CODE = """
             with _open_as_binary(data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
-                )
+                client = self._get_client_session(headers=headers)
 
                 try:
                     response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
@@ -420,8 +421,8 @@ def _adapt_get_model_status(code: str) -> str:
         response_data = response.json()"""
 
     async_snippet = """
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             response_data = await response.json()"""
 
@@ -437,8 +438,8 @@ def _adapt_list_deployed_models(code: str) -> str:
 
     async_snippet = """
         async def _fetch_framework(framework: str) -> None:
-            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+            async with self._get_client_session() as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
                 response.raise_for_status()
                 _unpack_response(framework, await response.json())
 
@@ -456,8 +457,8 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
         return response.json()"""
 
     info_async_snippet = """
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             return await response.json()"""
 
@@ -468,11 +469,39 @@ def _adapt_info_and_health_endpoints(code: str) -> str:
         return response.status_code == 200"""
 
     health_async_snippet = """
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             return response.status == 200"""
 
     return code.replace(health_sync_snippet, health_async_snippet)
+
+
+def _add_get_client_session(code: str) -> str:
+    # Add trust_env as parameter
+    code = _add_before(code, "proxies: Optional[Any] = None,", "trust_env: bool = False,")
+    code = _add_before(code, "\n        self.proxies = proxies\n", "\n        self.trust_env = trust_env")
+
+    # insert `_get_client_session` before `_resolve_url` method
+    client_session_code = """
+
+    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
+        aiohttp = _import_aiohttp()
+        client_headers = self.headers.copy()
+        if headers is not None:
+            client_headers.update(headers)
+
+        # Return a new aiohttp ClientSession with correct settings.
+        return aiohttp.ClientSession(
+            headers=client_headers,
+            cookies=self.cookies,
+            timeout=aiohttp.ClientTimeout(self.timeout),
+            trust_env=self.trust_env,
+        )
+
+"""
+    code = _add_before(code, "\n    def _resolve_url(", client_session_code)
+
+    return code
 
 
 def _adapt_proxy_client(code: str) -> str:
@@ -480,6 +509,12 @@ def _adapt_proxy_client(code: str) -> str:
         "def __init__(self, client: InferenceClient):",
         "def __init__(self, client: AsyncInferenceClient):",
     )
+
+
+def _add_before(code: str, pattern: str, addition: str) -> str:
+    index = code.find(pattern)
+    assert index != -1, f"Pattern '{pattern}' not found in code."
+    return code[:index] + addition + code[index:]
 
 
 if __name__ == "__main__":
