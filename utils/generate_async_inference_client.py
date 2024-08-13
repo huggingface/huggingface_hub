@@ -481,6 +481,15 @@ def _add_get_client_session(code: str) -> str:
     code = _add_before(code, "proxies: Optional[Any] = None,", "trust_env: bool = False,")
     code = _add_before(code, "\n        self.proxies = proxies\n", "\n        self.trust_env = trust_env")
 
+    # Document `trust_env` parameter
+    code = _add_before(
+        code,
+        "\n        proxies (`Any`, `optional`):",
+        """
+        trust_env ('bool', 'optional'):
+            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).""",
+    )
+
     # insert `_get_client_session` before `_resolve_url` method
     client_session_code = """
 
