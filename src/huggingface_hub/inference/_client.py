@@ -146,8 +146,6 @@ class InferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
-        trust_env ('bool', 'optional'):
-            Trust environment settings for proxy configuration, default
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -166,7 +164,6 @@ class InferenceClient:
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         proxies: Optional[Any] = None,
-        trust_env: bool = True,
         # OpenAI compatibility
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -192,7 +189,6 @@ class InferenceClient:
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
-        self.trust_env = trust_env
 
         # OpenAI compatibility
         self.base_url = base_url
@@ -284,12 +280,10 @@ class InferenceClient:
 
         t0 = time.time()
         timeout = self.timeout
-        session = get_session()
-        session.trust_env = self.trust_env
         while True:
             with _open_as_binary(data) as data_as_binary:
                 try:
-                    response = session.post(
+                    response = get_session().post(
                         url,
                         json=json,
                         data=data_as_binary,
@@ -1287,10 +1281,8 @@ class InferenceClient:
                 else:
                     models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
-        session = get_session()
-        session.trust_env = self.trust_env
         for framework in frameworks:
-            response = session.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
+            response = get_session().get(f"{INFERENCE_ENDPOINT}/framework/{framework}", headers=self.headers)
             hf_raise_for_status(response)
             _unpack_response(framework, response.json())
 
@@ -2653,7 +2645,6 @@ class InferenceClient:
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
         session = get_session()
-        session.trust_env = self.trust_env
         response = session.get(url, headers=self.headers)
         hf_raise_for_status(response)
         return response.json()
@@ -2688,9 +2679,7 @@ class InferenceClient:
                 "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
             )
         url = model.rstrip("/") + "/health"
-        session = get_session()
-        session.trust_env = self.trust_env
-        response = session.get(url, headers=self.headers)
+        response = get_session().get(url, headers=self.headers)
         return response.status_code == 200
 
     def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
@@ -2729,9 +2718,7 @@ class InferenceClient:
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
-        session = get_session()
-        session.trust_env = self.trust_env
-        response = session.get(url, headers=self.headers)
+        response = get_session().get(url, headers=self.headers)
         hf_raise_for_status(response)
         response_data = response.json()
 
