@@ -148,6 +148,8 @@ class InferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
+        proxies (`Any`, `optional`):
+            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
