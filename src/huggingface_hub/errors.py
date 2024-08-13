@@ -94,3 +94,13 @@ class HFValidationError(ValueError):
 
     Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
     """
+
+
+# FILE METADATA ERRORS
+
+
+class FileMetadataError(OSError):
+    """Error triggered when the metadata of a file on the Hub cannot be retrieved (missing ETag or commit_hash).
+
+    Inherits from `OSError` for backward compatibility.
+    """

@@ -16,6 +16,7 @@
 # ruff: noqa: F401
 
 from huggingface_hub.errors import (
+    FileMetadataError,
     HFValidationError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
@@ -41,7 +42,6 @@ from ._errors import (
     BadRequestError,
     DisabledRepoError,
     EntryNotFoundError,
-    FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
     LocalEntryNotFoundError,

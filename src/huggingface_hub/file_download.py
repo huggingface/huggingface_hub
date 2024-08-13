@@ -14,6 +14,7 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
+from huggingface_hub.errors import FileMetadataError
 from urllib.parse import quote, urlparse
 
 import requests
@@ -47,7 +48,6 @@ from .constants import (
 )
 from .utils import (
     EntryNotFoundError,
-    FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
     OfflineModeIsEnabled,
