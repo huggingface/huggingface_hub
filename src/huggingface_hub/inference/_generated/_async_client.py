@@ -2702,6 +2702,7 @@ class AsyncInferenceClient:
             url = model.rstrip("/") + "/info"
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
+
         async with self._get_client_session() as client:
             response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
@@ -2738,6 +2739,7 @@ class AsyncInferenceClient:
                 "Model must be an Inference Endpoint URL. For serverless Inference API, please use `InferenceClient.get_model_status`."
             )
         url = model.rstrip("/") + "/health"
+
         async with self._get_client_session() as client:
             response = await client.get(url, proxy=self.proxies)
             return response.status == 200
@@ -2779,6 +2781,7 @@ class AsyncInferenceClient:
         if model.startswith("https://"):
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
+
         async with self._get_client_session() as client:
             response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
