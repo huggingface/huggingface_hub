@@ -1595,6 +1595,7 @@ class HfApi:
         # Search-query parameter
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
+        gated: Optional[bool] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1624,6 +1625,10 @@ class HfApi:
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
                 returned models
+            gated (`bool`, *optional*):
+                A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
+                If `gated=True` is passed, only gated models are returned.
+                If `gated=False` is passed, only non-gated models are returned.
             library (`str` or `List`, *optional*):
                 A string or list of strings of foundational libraries models were
                 originally trained from, such as pytorch, tensorflow, or allennlp.
@@ -1749,6 +1754,8 @@ class HfApi:
         # Handle other query params
         if author:
             params["author"] = author
+        if gated is not None:
+            params["gated"] = gated
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []
@@ -1795,6 +1802,7 @@ class HfApi:
         author: Optional[str] = None,
         benchmark: Optional[Union[str, List[str]]] = None,
         dataset_name: Optional[str] = None,
+        gated: Optional[bool] = None,
         language_creators: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         multilinguality: Optional[Union[str, List[str]]] = None,
@@ -1826,6 +1834,10 @@ class HfApi:
             dataset_name (`str`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by its name, such as `SQAC` or `wikineural`
+            gated (`bool`, *optional*):
+                A boolean to filter datasets on the Hub that are gated or not. By default, all datasets are returned.
+                If `gated=True` is passed, only gated datasets are returned.
+                If `gated=False` is passed, only non-gated datasets are returned.
             language_creators (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub with how the data was curated, such as `crowdsourced` or
@@ -1954,6 +1966,8 @@ class HfApi:
         # Handle other query params
         if author:
             params["author"] = author
+        if gated is not None:
+            params["gated"] = gated
         search_list = []
         if dataset_name:
             search_list.append(dataset_name)
