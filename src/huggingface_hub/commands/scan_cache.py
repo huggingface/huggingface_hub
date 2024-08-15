@@ -84,7 +84,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 
 
 def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
-    """Generate a table from the HFCacheInfo object.
+    """Generate a table from the [`HFCacheInfo`] object.
 
     Use `get_table(hf_cache_info, verbosity=0)` to get a table with a single row per repo, with columns
     "repo_id", "repo_type", "size_on_disk", "nb_files", "last_accessed", "last_modified", "refs", "local_path".
