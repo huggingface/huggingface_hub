@@ -86,55 +86,19 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
 def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
     """Generate a table from the [`HFCacheInfo`] object.
 
-    Use `get_table(hf_cache_info, verbosity=0)` to get a table with a single row per repo, with columns
+    Pass `verbosity=0` to get a table with a single row per repo, with columns
     "repo_id", "repo_type", "size_on_disk", "nb_files", "last_accessed", "last_modified", "refs", "local_path".
 
-    Use `get_table(hf_cache_info, verbosity=1)` to get a table with a row per repo and revision (thus multiple rows can appear for a single repo), with columns
+    Pass `verbosity=1` to get a table with a row per repo and revision (thus multiple rows can appear for a single repo), with columns
     "repo_id", "repo_type", "revision", "size_on_disk", "nb_files", "last_modified", "refs", "local_path".
 
+    Example:
     ```py
     >>> from huggingface_hub.utils import scan_cache_dir
     >>> from huggingface_hub.commands.scan_cache import get_table
 
     >>> hf_cache_info = scan_cache_dir()
-    HFCacheInfo(
-        size_on_disk=3398085269,
-        repos=frozenset({
-            CachedRepoInfo(
-                repo_id='t5-small',
-                repo_type='model',
-                repo_path=PosixPath(...),
-                size_on_disk=970726914,
-                nb_files=11,
-                revisions=frozenset({
-                    CachedRevisionInfo(
-                        commit_hash='d78aea13fa7ecd06c29e3e46195d6341255065d5',
-                        size_on_disk=970726339,
-                        snapshot_path=PosixPath(...),
-                        files=frozenset({
-                            CachedFileInfo(
-                                file_name='config.json',
-                                size_on_disk=1197
-                                file_path=PosixPath(...),
-                                blob_path=PosixPath(...),
-                            ),
-                            CachedFileInfo(...),
-                            ...
-                        }),
-                    ),
-                    CachedRevisionInfo(...),
-                    ...
-                }),
-            ),
-            CachedRepoInfo(...),
-            ...
-        }),
-        warnings=[
-            CorruptedCacheException("Snapshots dir doesn't exist in cached repo: ..."),
-            CorruptedCacheException(...),
-            ...
-        ],
-    )
+    HFCacheInfo(...)
 
     >>> print(get_table(hf_cache_info, verbosity=0))
     REPO ID                                             REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS LOCAL PATH                                                                                         
@@ -154,11 +118,13 @@ def get_table(hf_cache_info: HFCacheInfo, *, verbosity: int = 0) -> str:
     ```
 
     Args:
-        hf_cache_info (HFCacheInfo): The HFCacheInfo object to print.
-        verbosity (int, optional): The verbosity level. Defaults to 0.
+        hf_cache_info ([`HFCacheInfo`]):
+            The HFCacheInfo object to print.
+        verbosity (`int`, *optional*):
+            The verbosity level. Defaults to 0.
 
     Returns:
-        str: The table as a string.
+        `str`: The table as a string.
     """
     if verbosity == 0:
         return tabulate(
