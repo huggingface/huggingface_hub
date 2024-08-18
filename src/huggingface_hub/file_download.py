@@ -20,7 +20,7 @@ from urllib.parse import quote, urlparse
 
 import requests
 
-from huggingface_hub.errors import FileMetadataError
+from .errors import FileMetadataError
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from ._local_folder import (
