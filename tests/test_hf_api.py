@@ -35,7 +35,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -43,8 +43,6 @@ from huggingface_hub._commit_api import (
     _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
-from huggingface_hub import constants
-
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
     AccessRequest,
@@ -247,7 +245,9 @@ class HfApiEndpointsTest(HfApiCommonTest):
             self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
 
         for sdk in constants.SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk).repo_id
+            repo_id = self._api.create_repo(
+                repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
+            ).repo_id
             res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
             assert res["private"]
             res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)

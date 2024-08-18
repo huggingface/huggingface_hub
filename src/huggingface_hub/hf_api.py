@@ -23,7 +23,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
-from itertools import islice
+from itertools import chain, islice
 from pathlib import Path
 from typing import (
     Any,
@@ -38,6 +38,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 from urllib.parse import quote
@@ -46,6 +47,9 @@ import requests
 from requests.exceptions import HTTPError
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
+
+from huggingface_hub import constants
+from huggingface_hub.constants import ENDPOINT
 
 from ._commit_api import (
     CommitOperation,
@@ -81,8 +85,6 @@ from .community import (
     DiscussionWithDetails,
     deserialize_event,
 )
-from . import constants
-
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
@@ -226,7 +228,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     """
     input_hf_id = hf_id
 
-    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else constants.ENDPOINT)
+    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
     HFFS_PREFIX = "hf://"
@@ -521,7 +523,7 @@ class RepoUrl(str):
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
         super().__init__()
         # Parse URL
-        self.endpoint = endpoint or constants.ENDPOINT
+        self.endpoint = endpoint or ENDPOINT
         repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
         # Populate fields
@@ -1165,7 +1167,7 @@ class Collection:
         self.description = kwargs.pop("description", None)
         endpoint = kwargs.pop("endpoint", None)
         if endpoint is None:
-            endpoint = constants.ENDPOINT
+            endpoint = ENDPOINT
         self._url = f"{endpoint}/collections/{self.slug}"
 
     @property
@@ -1449,7 +1451,7 @@ class HfApi:
                 Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
                 Headers passed here are taking precedence over the default headers.
         """
-        self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+        self.endpoint = endpoint if endpoint is not None else ENDPOINT
         self.token = token
         self.library_name = library_name
         self.library_version = library_version
@@ -3779,7 +3781,7 @@ class HfApi:
             if addition.path_in_repo == "README.md":
                 with addition.as_file() as file:
                     response = get_session().post(
-                        f"{constants.ENDPOINT}/api/validate-yaml",
+                        f"{ENDPOINT}/api/validate-yaml",
                         json={"content": file.read().decode(), "repoType": repo_type},
                         headers=headers,
                     )
@@ -4021,9 +4023,15 @@ class HfApi:
             logger.setLevel("INFO")
 
         # 1. Get strategy ID
+        flattened_addition_commits = list(chain.from_iterable(addition_commits))
+        flattened_deletion_commits = list(chain.from_iterable(deletion_commits))
+        # Calculate total_operations using sets to ensure type safety
+        addition_paths = {op.path_in_repo for op in flattened_addition_commits}
+        deletion_paths = {op.path_in_repo for op in flattened_deletion_commits}
+        total_operations = len(addition_paths | deletion_paths)  # Union of sets
         logger.info(
             f"Will create {len(deletion_commits)} deletion commit(s) and {len(addition_commits)} addition commit(s),"
-            f" totalling {sum(len(ops) for ops in addition_commits+deletion_commits)} atomic operations."
+            f" totalling {total_operations} atomic operations."
         )
         strategy = MultiCommitStrategy(
             addition_commits=[MultiCommitStep(operations=operations) for operations in addition_commits],  # type: ignore
@@ -4862,6 +4870,8 @@ class HfApi:
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
         )
+        # Assuming CommitOperationBase is the common base class
+        CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
 
         # Optimize operations: if some files will be overwritten, we don't need to delete them first
         if len(add_operations) > 0:
@@ -4869,7 +4879,9 @@ class HfApi:
             delete_operations = [
                 delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
             ]
-        commit_operations = delete_operations + add_operations
+            commit_operations = cast(List[CommitOperation], delete_operations) + cast(
+                List[CommitOperation], add_operations
+            )
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
         if multi_commits:
@@ -5535,23 +5547,41 @@ class HfApi:
             ```
         """
         if self.file_exists(  # Single safetensors file => non-sharded model
-            repo_id=repo_id, filename=constants.SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=constants.SAFETENSORS_SINGLE_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             file_metadata = self.parse_safetensors_file_metadata(
-                repo_id=repo_id, filename=constants.SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=constants.SAFETENSORS_SINGLE_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
                 sharded=False,
-                weight_map={tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
+                weight_map={
+                    tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
+                },
                 files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
-            repo_id=repo_id, filename=constants.SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=constants.SAFETENSORS_INDEX_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             # Fetch index
             index_file = self.hf_hub_download(
-                repo_id=repo_id, filename=constants.SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=constants.SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             with open(index_file) as f:
                 index = json.load(f)
@@ -8497,7 +8527,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8652,7 +8682,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json={"user": user, "status": status},
         )
@@ -8702,7 +8732,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            f"{ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -8745,7 +8775,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8796,7 +8826,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{ENDPOINT}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8868,7 +8898,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -8946,7 +8976,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -8998,7 +9028,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9049,7 +9079,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9090,7 +9120,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9178,7 +9208,7 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/overview")
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
 
         hf_raise_for_status(r)
         return User(**r.json())
@@ -9200,7 +9230,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{constants.ENDPOINT}/api/organizations/{organization}/members")
+        r = get_session().get(f"{ENDPOINT}/api/organizations/{organization}/members")
 
         hf_raise_for_status(r)
 
@@ -9224,7 +9254,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/followers")
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/followers")
 
         hf_raise_for_status(r)
 
@@ -9248,7 +9278,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/following")
+        r = get_session().get(f"{ENDPOINT}/api/users/{username}/following")
 
         hf_raise_for_status(r)
 

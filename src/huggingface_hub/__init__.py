@@ -143,14 +143,11 @@ _SUBMOD_ATTRS = {
         "CommitOperationAdd",
         "CommitOperationCopy",
         "CommitOperationDelete",
-        "DatasetInfo",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
-        "ModelInfo",
         "RepoUrl",
-        "SpaceInfo",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -202,7 +199,6 @@ _SUBMOD_ATTRS = {
         "get_space_runtime",
         "get_space_variables",
         "get_token_permission",
-        "get_user_overview",
         "get_webhook",
         "grant_access",
         "like",
@@ -647,14 +643,11 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationAdd,  # noqa: F401
         CommitOperationCopy,  # noqa: F401
         CommitOperationDelete,  # noqa: F401
-        DatasetInfo,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
-        ModelInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
-        SpaceInfo,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -706,7 +699,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_runtime,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_token_permission,  # noqa: F401
-        get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
         grant_access,  # noqa: F401
         like,  # noqa: F401

@@ -15,6 +15,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    get_type_hints,
 )
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
@@ -36,7 +37,7 @@ from .utils import (
 
 
 if TYPE_CHECKING:
-    from _typeshed import DataclassInstance
+    from _typeshed import DataclassInstance  # type: ignore
 
 if is_torch_available():
     import torch  # type: ignore
@@ -553,14 +554,13 @@ class ModelHubMixin:
                 model_kwargs["config"] = config
 
             # Inject config if `**kwargs` are expected
-            if is_dataclass(cls):
-                for key in cls.__dataclass_fields__:
+            if is_dataclass(cls) and isinstance(cls, type):
+                # Get type hints for the class
+                cls_hints = get_type_hints(cls)
+            if "__dataclass_fields__" in cls_hints:
+                for key in cls_hints["__dataclass_fields__"]:
                     if key not in model_kwargs and key in config:
                         model_kwargs[key] = config[key]
-            elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
-                for key, value in config.items():
-                    if key not in model_kwargs:
-                        model_kwargs[key] = value
 
             # Finally, also inject if `_from_pretrained` expects it
             if cls._hub_mixin_inject_config and "config" not in model_kwargs:

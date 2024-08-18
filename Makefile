@@ -7,18 +7,19 @@ check_dirs := contrib src tests utils setup.py
 quality:
 	ruff check $(check_dirs)  # linter
 	ruff format --check $(check_dirs) # formatter
-	python utils/check_inference_input_params.py
-	python utils/check_contrib_list.py
-	python utils/check_static_imports.py
-	python utils/generate_async_inference_client.py
+	python3 utils/check_inference_input_params.py
+	python3 utils/check_contrib_list.py
+	python3 utils/check_static_imports.py
+	python3 utils/generate_async_inference_client.py
 	mypy src
 
 style:
 	ruff format $(check_dirs) # formatter
 	ruff check --fix $(check_dirs) # linter
-	python utils/check_contrib_list.py --update
-	python utils/check_static_imports.py --update
-	python utils/generate_async_inference_client.py --update
+	python3 utils/check_contrib_list.py --update
+	python3 utils/check_static_imports.py --update
+	python3 utils/generate_async_inference_client.py --update
+	ruff format src/huggingface_hub/hf_api.py
 
 inference_types_check:
 	python utils/generate_inference_types.py
