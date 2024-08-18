@@ -15,9 +15,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
 from .errors import FileMetadataError
+
 from urllib.parse import quote, urlparse
 
 import requests
+
+from huggingface_hub.errors import FileMetadataError
 
 from . import __version__  # noqa: F401 # for backward compatibility
 from ._local_folder import (
@@ -46,13 +49,15 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .utils import (
+from .errors import (
     EntryNotFoundError,
     GatedRepoError,
     LocalEntryNotFoundError,
-    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+)
+from .utils import (
+    OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
     build_hf_headers,

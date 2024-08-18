@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from ._commit_scheduler import CommitScheduler
+from .errors import EntryNotFoundError
 from .repocard import ModelCard
-from .utils import EntryNotFoundError, experimental
+from .utils import experimental
 
 
 # Depending on user's setup, SummaryWriter can come either from 'tensorboardX'

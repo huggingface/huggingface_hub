@@ -40,7 +40,7 @@ from huggingface_hub.constants import (
 )
 from huggingface_hub.hf_api import HfApi
 
-from ..utils import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
+from ..errors import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from ._cli_utils import ANSI
 
 

@@ -1,9 +1,8 @@
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Union
 
-from huggingface_hub.errors import TemplateError
-
-from ..utils import HfHubHTTPError, RepositoryNotFoundError, is_minijinja_available
+from ..errors import HfHubHTTPError, RepositoryNotFoundError, TemplateError
+from ..utils import is_minijinja_available
 
 
 def _import_minijinja():

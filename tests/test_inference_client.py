@@ -46,12 +46,13 @@ from huggingface_hub import (
     hf_hub_download,
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
-from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
+from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
 

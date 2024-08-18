@@ -53,8 +53,9 @@ from huggingface_hub import logging
 from huggingface_hub._commit_scheduler import CommitScheduler
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
 from huggingface_hub.constants import HF_HUB_ENABLE_HF_TRANSFER
+from huggingface_hub.errors import RevisionNotFoundError
 from huggingface_hub.hf_api import HfApi
-from huggingface_hub.utils import RevisionNotFoundError, disable_progress_bars, enable_progress_bars
+from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
 
 
 logger = logging.get_logger(__name__)
