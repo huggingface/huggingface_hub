@@ -36,7 +36,7 @@ else:
 
 
 _global_app: Optional["WebhooksServer"] = None
-_is_local = os.getenv("SYSTEM") != "spaces"
+_is_local = os.environ.get("SPACE_ID") is None
 
 
 @experimental

@@ -359,6 +359,11 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             )
             raise HfHubHTTPError(message, response=response) from e
 
+        elif response.status_code == 416:
+            range_header = response.request.headers.get("Range")
+            message = f"{e}. Requested range: {range_header}. Content-Range: {response.headers.get('Content-Range')}."
+            raise HfHubHTTPError(message, response=response) from e
+
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
         raise HfHubHTTPError(str(e), response=response) from e
