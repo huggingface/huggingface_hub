@@ -7510,7 +7510,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
-                    "scaleToZeroTimeout": scale_to_zero_timeout
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             },
             "model": {
@@ -7663,7 +7663,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
-                    "scaleToZeroTimeout": scale_to_zero_timeout
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             }
         if any(value is not None for value in (repository, framework, revision, task, custom_image)):
