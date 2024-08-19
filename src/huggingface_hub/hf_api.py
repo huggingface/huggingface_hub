@@ -7655,7 +7655,10 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         payload: Dict = {}
-        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica, scale_to_zero_timeout)):
+        if any(
+            value is not None
+            for value in (accelerator, instance_size, instance_type, min_replica, max_replica, scale_to_zero_timeout)
+        ):
             payload["compute"] = {
                 "accelerator": accelerator,
                 "instanceSize": instance_size,
