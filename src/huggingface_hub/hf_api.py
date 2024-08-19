@@ -38,7 +38,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 from urllib.parse import quote
@@ -4041,15 +4040,9 @@ class HfApi:
             logger.setLevel("INFO")
 
         # 1. Get strategy ID
-        flattened_addition_commits = list(chain.from_iterable(addition_commits))
-        flattened_deletion_commits = list(chain.from_iterable(deletion_commits))
-        # Calculate total_operations using sets to ensure type safety
-        addition_paths = {op.path_in_repo for op in flattened_addition_commits}
-        deletion_paths = {op.path_in_repo for op in flattened_deletion_commits}
-        total_operations = len(addition_paths | deletion_paths)  # Union of sets
         logger.info(
             f"Will create {len(deletion_commits)} deletion commit(s) and {len(addition_commits)} addition commit(s),"
-            f" totalling {total_operations} atomic operations."
+            f" totalling {sum(len(ops) for ops in addition_commits+deletion_commits)} atomic operations."
         )
         strategy = MultiCommitStrategy(
             addition_commits=[MultiCommitStep(operations=operations) for operations in addition_commits],  # type: ignore
@@ -4888,8 +4881,6 @@ class HfApi:
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
         )
-        # Assuming CommitOperationBase is the common base class
-        CommitOperation = Union[CommitOperationAdd, CommitOperationDelete]
 
         # Optimize operations: if some files will be overwritten, we don't need to delete them first
         if len(add_operations) > 0:
@@ -4897,9 +4888,7 @@ class HfApi:
             delete_operations = [
                 delete_op for delete_op in delete_operations if delete_op.path_in_repo not in added_paths
             ]
-            commit_operations = cast(List[CommitOperation], delete_operations) + cast(
-                List[CommitOperation], add_operations
-            )
+        commit_operations = delete_operations + add_operations
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
         if multi_commits:
