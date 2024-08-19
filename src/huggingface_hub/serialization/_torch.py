@@ -24,13 +24,29 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
-from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
 logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
     import torch
 
+
+def parse_version(version_string):
+    # Extract just the X.Y.Z part from the version string
+    match = re.match(r'(\d+\.\d+\.\d+)', version_string)
+    if match:
+        version = match.group(1)
+        return [int(x) for x in version.split('.')]
+    else:
+        raise ValueError(f"Invalid version string format: {version_string}")
+
+def compare_versions(v1, v2):
+    v1_parts = parse_version(v1)
+    v2_parts = parse_version(v2)
+    return (v1_parts > v2_parts) - (v1_parts < v2_parts)
+
+def torch_version_at_least(min_version):
+    return importlib.util.find_spec("torch") is not None and compare_versions(torch.__version__, min_version) >= 0
 
 def save_torch_model(
     model: "torch.nn.Module",
@@ -340,6 +356,16 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     or a (potentially nested) Tuple of unique id for the flattened Tensor
     if the input is a wrapper tensor subclass Tensor
     """
+
+    if torch_version_at_least("2.1.0"):
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        if is_traceable_wrapper_subclass(tensor):
+            attrs, _ = tensor.__tensor_flatten__()
+            unique_id = tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
+        else:
+            unique_id = id(tensor.untyped_storage())
+        return unique_id
+
     if tensor.device.type == "xla" and is_torch_tpu_available():
         # NOTE: xla tensors dont have storage
         # use some other unique id to distinguish.
@@ -348,9 +374,6 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
         import torch_xla
 
         unique_id = torch_xla._XLAC._xla_get_tensor_id(tensor)
-    elif is_traceable_wrapper_subclass(tensor):
-        attrs, _ = tensor.__tensor_flatten__()
-        unique_id = tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
     else:
         unique_id = storage_ptr(tensor)
 
@@ -374,10 +397,15 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L31C1-L41C59
     """
-    try:
+    if torch_version_at_least("2.1.0"):
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
+        else:
+            return tensor.untyped_storage().nbytes()
+
+    try:
         return tensor.untyped_storage().nbytes()
     except AttributeError:
         # Fallback for torch==1.10
