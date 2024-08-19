@@ -212,18 +212,16 @@ async def test_async_chat_completion_with_stream() -> None:
 
     all_items = [item async for item in output]
     generated_text = ""
-    for item in all_items[:-1]:  # all but last item
+    for item in all_items:
         assert isinstance(item, ChatCompletionStreamOutput)
         assert len(item.choices) == 1
         generated_text += item.choices[0].delta.content
     last_item = all_items[-1]
 
-    assert generated_text == "Deep Learning is a subfield of Machine Learning that"
+    assert generated_text == 'Deep learning is a subfield of machine learning that'
 
-    # Last item has a finish reason but no role/content delta
+    # Last item has a finish reason
     assert last_item.choices[0].finish_reason == "length"
-    assert last_item.choices[0].delta.role is None
-    assert last_item.choices[0].delta.content is None
 
 
 @pytest.mark.vcr
