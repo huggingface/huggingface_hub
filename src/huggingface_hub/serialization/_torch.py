@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
+
 logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
@@ -362,9 +363,6 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             unique_id = tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
-        else:
-            unique_id = id(tensor.untyped_storage())
-        return unique_id
 
     if tensor.device.type == "xla" and is_torch_tpu_available():
         # NOTE: xla tensors dont have storage
@@ -402,8 +400,6 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
-        else:
-            return tensor.untyped_storage().nbytes()
 
     try:
         return tensor.untyped_storage().nbytes()
@@ -442,9 +438,12 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
-    try:
+    if torch_version_at_least("2.1.0"):
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
         if is_traceable_wrapper_subclass(tensor):
             return _get_unique_id(tensor)
+
+    try:
         return tensor.untyped_storage().data_ptr()
     except Exception:
         # Fallback for torch==1.10
