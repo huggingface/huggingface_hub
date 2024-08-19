@@ -35,7 +35,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -43,6 +43,12 @@ from huggingface_hub._commit_api import (
     _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
+from huggingface_hub.constants import (
+    REPO_TYPE_DATASET,
+    REPO_TYPE_MODEL,
+    REPO_TYPE_SPACE,
+    SPACES_SDK_TYPES,
+)
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import (
     AccessRequest,
@@ -223,43 +229,41 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_MODEL).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_MODEL)
         assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_MODEL)
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_MODEL)
         assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_MODEL)
 
     def test_create_update_and_delete_dataset_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_DATASET).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_DATASET)
         assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_DATASET)
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_DATASET)
         assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
+        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_DATASET)
 
     def test_create_update_and_delete_space_repo(self):
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=None)
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
+            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk="something")
 
-        for sdk in constants.SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(
-                repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
-            ).repo_id
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
+        for sdk in SPACES_SDK_TYPES:
+            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=sdk).repo_id
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_SPACE)
             assert res["private"]
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_SPACE)
             assert not res["private"]
-            self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
+            self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
 
         # Spaces not tested on staging (error 500)
-        for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
+        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET]:
             self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
@@ -272,7 +276,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.create_repo(repo_id=repo_id_2)
 
         with pytest.raises(HfHubHTTPError, match=r"A model repository called .* already exists"):
-            self._api.move_repo(from_id=repo_id_1, to_id=repo_id_2, repo_type=constants.REPO_TYPE_MODEL)
+            self._api.move_repo(from_id=repo_id_1, to_id=repo_id_2, repo_type=REPO_TYPE_MODEL)
 
         self._api.delete_repo(repo_id=repo_id_1)
         self._api.delete_repo(repo_id=repo_id_2)
