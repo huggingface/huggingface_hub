@@ -20,10 +20,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.scan_cache_dir
 
-### scan_cache.get_table[[huggingface_hub.commands.scan_cache.get_table]]
-
-[[autodoc]] huggingface_hub.commands.scan_cache.get_table
-
 ## 데이터 구조[[data-structures]]
 
 모든 구조체는 [`scan_cache_dir`]에 의해 생성되고 반환되며, 불변(immutable)입니다.
