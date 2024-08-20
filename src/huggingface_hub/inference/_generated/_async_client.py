@@ -96,6 +96,7 @@ from .._common import _async_yield_from, _import_aiohttp
 
 if TYPE_CHECKING:
     import numpy as np
+    from aiohttp import ClientSession
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,9 @@ class AsyncInferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive and have the exact same behavior.
+            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
+            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
+            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -131,6 +134,10 @@ class AsyncInferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
+        trust_env ('bool', 'optional'):
+            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).
+        proxies (`Any`, `optional`):
+            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -148,6 +155,7 @@ class AsyncInferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
+        trust_env: bool = False,
         proxies: Optional[Any] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -157,7 +165,8 @@ class AsyncInferenceClient:
             raise ValueError(
                 "Received both `model` and `base_url` arguments. Please provide only one of them."
                 " `base_url` is an alias for `model` to make the API compatible with OpenAI's client."
-                " It has the exact same behavior as `model`."
+                " If using `base_url` for chat completion, the `/chat/completions` suffix path will be appended to the base url."
+                " When passing a URL as `model`, the client will not append any suffix path to it."
             )
         if token is not None and api_key is not None:
             raise ValueError(
@@ -173,6 +182,7 @@ class AsyncInferenceClient:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
+        self.trust_env = trust_env
         self.proxies = proxies
 
         # OpenAI compatibility
@@ -262,7 +272,7 @@ class AsyncInferenceClient:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
         # Set Accept header if relevant
-        headers = self.headers.copy()
+        headers = dict()
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 
@@ -272,9 +282,7 @@ class AsyncInferenceClient:
             with _open_as_binary(data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
-                )
+                client = self._get_client_session(headers=headers)
 
                 try:
                     response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
@@ -1296,8 +1304,8 @@ class AsyncInferenceClient:
                     models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
         async def _fetch_framework(framework: str) -> None:
-            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+            async with self._get_client_session() as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
                 response.raise_for_status()
                 _unpack_response(framework, await response.json())
 
@@ -2578,6 +2586,20 @@ class AsyncInferenceClient:
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
+        aiohttp = _import_aiohttp()
+        client_headers = self.headers.copy()
+        if headers is not None:
+            client_headers.update(headers)
+
+        # Return a new aiohttp ClientSession with correct settings.
+        return aiohttp.ClientSession(
+            headers=client_headers,
+            cookies=self.cookies,
+            timeout=aiohttp.ClientTimeout(self.timeout),
+            trust_env=self.trust_env,
+        )
+
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model or self.base_url
 
@@ -2684,8 +2706,8 @@ class AsyncInferenceClient:
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             return await response.json()
 
@@ -2721,8 +2743,8 @@ class AsyncInferenceClient:
             )
         url = model.rstrip("/") + "/health"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             return response.status == 200
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
@@ -2763,8 +2785,8 @@ class AsyncInferenceClient:
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             response_data = await response.json()
 

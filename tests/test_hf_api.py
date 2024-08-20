@@ -1785,6 +1785,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             next(self._api.list_models(expand=["author"], cardData=True))
 
+    def test_list_models_gated_only(self):
+        for model in self._api.list_models(expand=["gated"], gated=True, limit=5):
+            assert model.gated in ("auto", "manual")
+
+    def test_list_models_non_gated_only(self):
+        for model in self._api.list_models(expand=["gated"], gated=False, limit=5):
+            assert model.gated is False
+
     def test_model_info(self):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)
@@ -2008,6 +2016,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # `expand` cannot be used with `full`
         with self.assertRaises(ValueError):
             next(self._api.list_datasets(expand=["author"], full=True))
+
+    def test_list_datasets_gated_only(self):
+        for dataset in self._api.list_datasets(expand=["gated"], gated=True, limit=5):
+            assert dataset.gated in ("auto", "manual")
+
+    def test_list_datasets_non_gated_only(self):
+        for dataset in self._api.list_datasets(expand=["gated"], gated=False, limit=5):
+            assert dataset.gated is False
 
     def test_filter_datasets_with_card_data(self):
         assert any(dataset.card_data is not None for dataset in self._api.list_datasets(full=True, limit=50))
