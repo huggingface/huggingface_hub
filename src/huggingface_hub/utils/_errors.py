@@ -1,9 +1,9 @@
+import re
 from typing import Optional
 
 from requests import HTTPError, Response
 
 from ..errors import (
-    REPO_API_REGEX,
     BadRequestError,
     DisabledRepoError,
     EntryNotFoundError,
@@ -11,6 +11,22 @@ from ..errors import (
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+)
+
+
+REPO_API_REGEX = re.compile(
+    r"""
+        # staging or production endpoint
+        ^https://[^/]+
+        (
+            # on /api/repo_type/repo_id
+            /api/(models|datasets|spaces)/(.+)
+            |
+            # or /repo_id/resolve/revision/...
+            /(.+)/resolve/(.+)
+        )
+    """,
+    flags=re.VERBOSE,
 )
 
 
