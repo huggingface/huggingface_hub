@@ -7408,6 +7408,7 @@ class HfApi:
         account_id: Optional[str] = None,
         min_replica: int = 0,
         max_replica: int = 1,
+        scale_to_zero_timeout: int = 15,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
@@ -7440,6 +7441,8 @@ class HfApi:
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
+            scale_to_zero_timeout (`int`, *optional*):
+                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -7525,6 +7528,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             },
             "model": {
@@ -7608,6 +7612,7 @@ class HfApi:
         instance_type: Optional[str] = None,
         min_replica: Optional[int] = None,
         max_replica: Optional[int] = None,
+        scale_to_zero_timeout: Optional[int] = None,
         # Model update
         repository: Optional[str] = None,
         framework: Optional[str] = None,
@@ -7639,6 +7644,8 @@ class HfApi:
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+            scale_to_zero_timeout (`int`, *optional*):
+                The duration in minutes before an inactive endpoint is scaled to zero.
 
             repository (`str`, *optional*):
                 The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
@@ -7666,7 +7673,10 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         payload: Dict = {}
-        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica)):
+        if any(
+            value is not None
+            for value in (accelerator, instance_size, instance_type, min_replica, max_replica, scale_to_zero_timeout)
+        ):
             payload["compute"] = {
                 "accelerator": accelerator,
                 "instanceSize": instance_size,
@@ -7674,6 +7684,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             }
         if any(value is not None for value in (repository, framework, revision, task, custom_image)):
