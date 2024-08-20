@@ -82,25 +82,25 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REQUEST_TIMEOUT,
-    DEFAULT_REVISION,
-    DISCUSSION_STATUS,
-    DISCUSSION_TYPES,
-    ENDPOINT,
-    INFERENCE_ENDPOINTS_ENDPOINT,
-    REGEX_COMMIT_OID,
-    REPO_TYPE_MODEL,
-    REPO_TYPES,
-    REPO_TYPES_MAPPING,
-    REPO_TYPES_URL_PREFIXES,
-    SAFETENSORS_INDEX_FILE,
-    SAFETENSORS_MAX_HEADER_LENGTH,
-    SAFETENSORS_SINGLE_FILE,
-    SPACES_SDK_TYPES,
-    WEBHOOK_DOMAIN_T,
-    DiscussionStatusFilter,
-    DiscussionTypeFilter,
+    DEFAULT_ETAG_TIMEOUT,  # noqa: F401 # kept for backward compatibility
+    DEFAULT_REQUEST_TIMEOUT,  # noqa: F401 # kept for backward compatibility
+    DEFAULT_REVISION,  # noqa: F401 # kept for backward compatibility
+    DISCUSSION_STATUS,  # noqa: F401 # kept for backward compatibility
+    DISCUSSION_TYPES,  # noqa: F401 # kept for backward compatibility
+    ENDPOINT,  # noqa: F401 # kept for backward compatibility
+    INFERENCE_ENDPOINTS_ENDPOINT,  # noqa: F401 # kept for backward compatibility
+    REGEX_COMMIT_OID,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPE_MODEL,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES_MAPPING,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES_URL_PREFIXES,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_INDEX_FILE,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_MAX_HEADER_LENGTH,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_SINGLE_FILE,  # noqa: F401 # kept for backward compatibility
+    SPACES_SDK_TYPES,  # noqa: F401 # kept for backward compatibility
+    WEBHOOK_DOMAIN_T,  # noqa: F401 # kept for backward compatibility
+    DiscussionStatusFilter,  # noqa: F401 # kept for backward compatibility
+    DiscussionTypeFilter,  # noqa: F401 # kept for backward compatibility
 )
 from .errors import (
     BadRequestError,
@@ -5542,10 +5542,18 @@ class HfApi:
             ```
         """
         if self.file_exists(  # Single safetensors file => non-sharded model
-            repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_SINGLE_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             file_metadata = self.parse_safetensors_file_metadata(
-                repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_SINGLE_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -5554,11 +5562,19 @@ class HfApi:
                 files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
-            repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_INDEX_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             # Fetch index
             index_file = self.hf_hub_download(
-                repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             with open(index_file) as f:
                 index = json.load(f)
