@@ -45,14 +45,16 @@ from .constants import (
     REPO_TYPES,
     REPO_TYPES_URL_PREFIXES,
 )
-from .utils import (
+from .errors import (
     EntryNotFoundError,
     FileMetadataError,
     GatedRepoError,
     LocalEntryNotFoundError,
-    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+)
+from .utils import (
+    OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
     build_hf_headers,

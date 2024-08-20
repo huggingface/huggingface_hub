@@ -13,7 +13,8 @@ from huggingface_hub.commands.repo_files import DeleteFilesSubCommand, RepoFiles
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
-from huggingface_hub.utils import RevisionNotFoundError, SoftTemporaryDirectory, capture_output
+from huggingface_hub.errors import RevisionNotFoundError
+from huggingface_hub.utils import SoftTemporaryDirectory, capture_output
 
 from .testing_utils import DUMMY_MODEL_ID
 
