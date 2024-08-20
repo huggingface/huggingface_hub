@@ -11,8 +11,9 @@ import pytest
 
 from huggingface_hub import HfApi, ModelCard, hf_hub_download
 from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
+from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, is_torch_available
+from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, requires

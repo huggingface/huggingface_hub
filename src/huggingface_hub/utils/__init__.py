@@ -16,10 +16,19 @@
 # ruff: noqa: F401
 
 from huggingface_hub.errors import (
+    BadRequestError,
+    DisabledRepoError,
+    EntryNotFoundError,
+    FileMetadataError,
+    GatedRepoError,
+    HfHubHTTPError,
     HFValidationError,
+    LocalEntryNotFoundError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
     SafetensorsParsingError,
 )
 
@@ -38,15 +47,6 @@ from ._cache_manager import (
 from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
 from ._errors import (
-    BadRequestError,
-    DisabledRepoError,
-    EntryNotFoundError,
-    FileMetadataError,
-    GatedRepoError,
-    HfHubHTTPError,
-    LocalEntryNotFoundError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     hf_raise_for_status,
 )
 from ._experimental import experimental

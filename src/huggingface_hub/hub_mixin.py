@@ -18,12 +18,11 @@ from typing import (
 )
 
 from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
+from .errors import EntryNotFoundError, HfHubHTTPError
 from .file_download import hf_hub_download
 from .hf_api import HfApi
 from .repocard import ModelCard, ModelCardData
 from .utils import (
-    EntryNotFoundError,
-    HfHubHTTPError,
     SoftTemporaryDirectory,
     is_jsonable,
     is_safetensors_available,

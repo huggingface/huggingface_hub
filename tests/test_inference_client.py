@@ -46,12 +46,13 @@ from huggingface_hub import (
     hf_hub_download,
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import (
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
-from huggingface_hub.utils import HfHubHTTPError, build_hf_headers
+from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
 
@@ -937,13 +938,14 @@ def test_chat_completion_base_url_works_with_v1(base_url: str):
     assert post_mock.call_args_list[0].kwargs["model"] == "http://0.0.0.0:8080/v1/chat/completions"
 
 
-def test_stream_text_generation_response():
+@pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
+def test_stream_text_generation_response(stop_signal: bytes):
     data = [
         b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
         b"",  # Empty line is skipped
         b"\n",  # Newline is skipped
         b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
-        b"data: [DONE]",  # Stop signal
+        stop_signal,  # Stop signal
         # Won't parse after
         b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
@@ -952,13 +954,14 @@ def test_stream_text_generation_response():
     assert output == [" trying", " to"]
 
 
-def test_stream_chat_completion_response():
+@pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
+def test_stream_chat_completion_response(stop_signal: bytes):
     data = [
         b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
         b"",  # Empty line is skipped
         b"\n",  # Newline is skipped
         b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
-        b"data: [DONE]",  # Stop signal
+        stop_signal,  # Stop signal
         # Won't parse after
         b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]

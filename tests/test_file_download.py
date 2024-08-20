@@ -36,6 +36,13 @@ from huggingface_hub.constants import (
     PYTORCH_WEIGHTS_NAME,
     REPO_TYPE_DATASET,
 )
+from huggingface_hub.errors import (
+    EntryNotFoundError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -53,11 +60,6 @@ from huggingface_hub.file_download import (
     try_to_load_from_cache,
 )
 from huggingface_hub.utils import (
-    EntryNotFoundError,
-    GatedRepoError,
-    LocalEntryNotFoundError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     SoftTemporaryDirectory,
     get_session,
     hf_raise_for_status,

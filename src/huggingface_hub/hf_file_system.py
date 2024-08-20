@@ -25,13 +25,11 @@ from .constants import (
     REPO_TYPES_MAPPING,
     REPO_TYPES_URL_PREFIXES,
 )
+from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
-    EntryNotFoundError,
     HFValidationError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     hf_raise_for_status,
     http_backoff,
 )
