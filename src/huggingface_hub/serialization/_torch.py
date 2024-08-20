@@ -20,7 +20,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, Any
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
@@ -47,7 +47,10 @@ def compare_versions(v1, v2):
     return (v1_parts > v2_parts) - (v1_parts < v2_parts)
 
 def torch_version_at_least(min_version):
-    return importlib.util.find_spec("torch") is not None and compare_versions(torch.__version__, min_version) >= 0
+    try:
+        return compare_versions(torch.__version__, min_version) >= 0
+    except:
+        return False
 
 def save_torch_model(
     model: "torch.nn.Module",
@@ -399,6 +402,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
+            print(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
 
     try:

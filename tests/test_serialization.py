@@ -13,6 +13,7 @@ from huggingface_hub.serialization import (
     save_torch_model,
     save_torch_state_dict,
     split_state_dict_into_shards_factory,
+    torch_version_at_least,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
 
@@ -125,7 +126,10 @@ def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
         import torch
         from torch.testing._internal.two_tensor import TwoTensor
 
-        shared_layer = TwoTensor(torch.tensor([4]), torch.tesnor([4])
+        if torch_version_at_least("2.1.0"):
+            shared_layer = TwoTensor(torch.tensor([4]), torch.tensor([4]))
+        else:
+            shared_layer = torch.tensor([4])
 
         return {
             "shared_1": shared_layer,
@@ -235,12 +239,12 @@ def test_get_torch_storage_size():
 @requires("torch")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch
-    from torch.testing._internal.two_tensor import TwoTensor
-
-    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
-    assert get_torch_storage_size(TwoTensor(t, t) dtype=torch.float64) == 5 * 8 * 2
-    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
-    assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t)), dtype=torch.float16)) == 5 * 2 * 3
+    if torch_version_at_least("2.1.0"):
+        from torch.testing._internal.two_tensor import TwoTensor
+        t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
+        assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
+        t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
+        assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t))) == 5 * 2 * 3
 
 
 def test_parse_size_to_int():
@@ -323,6 +327,8 @@ def test_save_torch_state_dict_unsafe_not_sharded(
 def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_tensor_subclass: Dict[str, "torch.Tensor"]
 ) -> None:
+    if not torch_version_at_least("2.1.0"):
+        return
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
         save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB", safe_serialization=False)
@@ -335,6 +341,8 @@ def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
 def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
 ) -> None:
+    if not torch_version_at_least("2.1.0"):
+        return
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
         save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB", safe_serialization=False)
