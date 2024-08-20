@@ -4,8 +4,6 @@ from typing import Optional
 
 from requests import HTTPError, Response
 
-from .utils._fixes import JSONDecodeError
-
 
 # HEADERS ERRORS
 
@@ -57,6 +55,9 @@ class HfHubHTTPError(HTTPError):
     def __init__(self, message: str, response: Optional[Response] = None):
         # Parse server information if any.
         if response is not None:
+            # Import here to avoid circular import
+            from .utils._fixes import JSONDecodeError
+
             self.request_id = response.headers.get("X-Request-Id")
             try:
                 server_data = response.json()
