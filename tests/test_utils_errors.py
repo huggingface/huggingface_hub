@@ -3,16 +3,15 @@ import unittest
 import pytest
 from requests.models import PreparedRequest, Response
 
-from huggingface_hub.utils._errors import (
-    REPO_API_REGEX,
+from huggingface_hub.errors import (
     BadRequestError,
     DisabledRepoError,
     EntryNotFoundError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
-    hf_raise_for_status,
 )
+from huggingface_hub.utils._errors import REPO_API_REGEX, hf_raise_for_status
 
 
 class TestErrorUtils(unittest.TestCase):

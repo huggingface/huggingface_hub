@@ -12,8 +12,8 @@ import fsspec
 import pytest
 
 from huggingface_hub import hf_file_system
+from huggingface_hub.errors import RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_file_system import HfFileSystem, HfFileSystemFile, HfFileSystemStreamFile
-from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
