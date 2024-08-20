@@ -22,5 +22,4 @@ from ._torch import (
     save_torch_model,
     save_torch_state_dict,
     split_torch_state_dict_into_shards,
-    torch_version_at_least,
 )
