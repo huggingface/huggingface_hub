@@ -92,23 +92,21 @@ def WeakFileLock(lock_file: Union[str, Path]) -> Generator[BaseFileLock, None, N
 
     An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
     """
-    lock_file_str = str(lock_file)  # Convert to string
-    lock = FileLock(lock_file_str, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+    lock = FileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
     while True:
         try:
             lock.acquire()
         except Timeout:
-            logger.info("still waiting to acquire lock on %s", lock_file_str)
+            logger.info("still waiting to acquire lock on %s", lock_file)
         except NotImplementedError as e:
             if "use SoftFileLock instead" in str(e):
                 # It's possible that the system does support flock, expect for one partition or filesystem.
                 # In this case, let's default to a SoftFileLock.
                 logger.warning(
-                    "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file_str
+                    "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                soft_lock = SoftFileLock(lock_file_str, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
-                yield soft_lock
-                return
+                lock = SoftFileLock(lock_file, timeout=constants.FILELOCK_LOG_EVERY_SECONDS)
+                continue
         else:
             break
 

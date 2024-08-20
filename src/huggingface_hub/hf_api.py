@@ -23,7 +23,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from functools import wraps
-from itertools import chain, islice
+from itertools import islice
 from pathlib import Path
 from typing import (
     Any,
@@ -5570,9 +5570,7 @@ class HfApi:
             return SafetensorsRepoMetadata(
                 metadata=None,
                 sharded=False,
-                weight_map={
-                    tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
-                },
+                weight_map={tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
                 files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
