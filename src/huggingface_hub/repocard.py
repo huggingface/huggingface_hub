@@ -20,7 +20,8 @@ from huggingface_hub.repocard_data import (
 from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
 from .constants import REPOCARD_NAME
-from .utils import EntryNotFoundError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from .errors import EntryNotFoundError
+from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)

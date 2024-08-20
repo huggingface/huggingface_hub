@@ -82,39 +82,41 @@ from .community import (
     deserialize_event,
 )
 from .constants import (
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REQUEST_TIMEOUT,
-    DEFAULT_REVISION,
-    DISCUSSION_STATUS,
-    DISCUSSION_TYPES,
-    ENDPOINT,
-    INFERENCE_ENDPOINTS_ENDPOINT,
-    REGEX_COMMIT_OID,
-    REPO_TYPE_MODEL,
-    REPO_TYPES,
-    REPO_TYPES_MAPPING,
-    REPO_TYPES_URL_PREFIXES,
-    SAFETENSORS_INDEX_FILE,
-    SAFETENSORS_MAX_HEADER_LENGTH,
-    SAFETENSORS_SINGLE_FILE,
-    SPACES_SDK_TYPES,
-    WEBHOOK_DOMAIN_T,
-    DiscussionStatusFilter,
-    DiscussionTypeFilter,
+    DEFAULT_ETAG_TIMEOUT,  # noqa: F401 # kept for backward compatibility
+    DEFAULT_REQUEST_TIMEOUT,  # noqa: F401 # kept for backward compatibility
+    DEFAULT_REVISION,  # noqa: F401 # kept for backward compatibility
+    DISCUSSION_STATUS,  # noqa: F401 # kept for backward compatibility
+    DISCUSSION_TYPES,  # noqa: F401 # kept for backward compatibility
+    ENDPOINT,  # noqa: F401 # kept for backward compatibility
+    INFERENCE_ENDPOINTS_ENDPOINT,  # noqa: F401 # kept for backward compatibility
+    REGEX_COMMIT_OID,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPE_MODEL,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES_MAPPING,  # noqa: F401 # kept for backward compatibility
+    REPO_TYPES_URL_PREFIXES,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_INDEX_FILE,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_MAX_HEADER_LENGTH,  # noqa: F401 # kept for backward compatibility
+    SAFETENSORS_SINGLE_FILE,  # noqa: F401 # kept for backward compatibility
+    SPACES_SDK_TYPES,  # noqa: F401 # kept for backward compatibility
+    WEBHOOK_DOMAIN_T,  # noqa: F401 # kept for backward compatibility
+    DiscussionStatusFilter,  # noqa: F401 # kept for backward compatibility
+    DiscussionTypeFilter,  # noqa: F401 # kept for backward compatibility
+)
+from .errors import (
+    BadRequestError,
+    EntryNotFoundError,
+    GatedRepoError,
+    HfHubHTTPError,
+    RepositoryNotFoundError,
+    RevisionNotFoundError,
 )
 from .file_download import HfFileMetadata, get_hf_file_metadata, hf_hub_url
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
-    BadRequestError,
-    EntryNotFoundError,
-    GatedRepoError,
     HfFolder,  # noqa: F401 # kept for backward compatibility
-    HfHubHTTPError,
     LocalTokenNotFoundError,
     NotASafetensorsRepoError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
@@ -5540,10 +5542,18 @@ class HfApi:
             ```
         """
         if self.file_exists(  # Single safetensors file => non-sharded model
-            repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_SINGLE_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             file_metadata = self.parse_safetensors_file_metadata(
-                repo_id=repo_id, filename=SAFETENSORS_SINGLE_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_SINGLE_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -5552,11 +5562,19 @@ class HfApi:
                 files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
-            repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+            repo_id=repo_id,
+            filename=SAFETENSORS_INDEX_FILE,
+            repo_type=repo_type,
+            revision=revision,
+            token=token,
         ):
             # Fetch index
             index_file = self.hf_hub_download(
-                repo_id=repo_id, filename=SAFETENSORS_INDEX_FILE, repo_type=repo_type, revision=revision, token=token
+                repo_id=repo_id,
+                filename=SAFETENSORS_INDEX_FILE,
+                repo_type=repo_type,
+                revision=revision,
+                token=token,
             )
             with open(index_file) as f:
                 index = json.load(f)
@@ -7390,6 +7408,7 @@ class HfApi:
         account_id: Optional[str] = None,
         min_replica: int = 0,
         max_replica: int = 1,
+        scale_to_zero_timeout: int = 15,
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
@@ -7422,6 +7441,8 @@ class HfApi:
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint. Defaults to 0.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint. Defaults to 1.
+            scale_to_zero_timeout (`int`, *optional*):
+                The duration in minutes before an inactive endpoint is scaled to zero. Defaults to 15.
             revision (`str`, *optional*):
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
@@ -7507,6 +7528,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             },
             "model": {
@@ -7590,6 +7612,7 @@ class HfApi:
         instance_type: Optional[str] = None,
         min_replica: Optional[int] = None,
         max_replica: Optional[int] = None,
+        scale_to_zero_timeout: Optional[int] = None,
         # Model update
         repository: Optional[str] = None,
         framework: Optional[str] = None,
@@ -7621,6 +7644,8 @@ class HfApi:
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+            scale_to_zero_timeout (`int`, *optional*):
+                The duration in minutes before an inactive endpoint is scaled to zero.
 
             repository (`str`, *optional*):
                 The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
@@ -7648,7 +7673,10 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         payload: Dict = {}
-        if any(value is not None for value in (accelerator, instance_size, instance_type, min_replica, max_replica)):
+        if any(
+            value is not None
+            for value in (accelerator, instance_size, instance_type, min_replica, max_replica, scale_to_zero_timeout)
+        ):
             payload["compute"] = {
                 "accelerator": accelerator,
                 "instanceSize": instance_size,
@@ -7656,6 +7684,7 @@ class HfApi:
                 "scaling": {
                     "maxReplica": max_replica,
                     "minReplica": min_replica,
+                    "scaleToZeroTimeout": scale_to_zero_timeout,
                 },
             }
         if any(value is not None for value in (repository, framework, revision, task, custom_image)):

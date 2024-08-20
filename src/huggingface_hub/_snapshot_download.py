@@ -13,14 +13,11 @@ from .constants import (
     HF_HUB_ENABLE_HF_TRANSFER,
     REPO_TYPES,
 )
+from .errors import GatedRepoError, LocalEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
 from .utils import (
-    GatedRepoError,
-    LocalEntryNotFoundError,
     OfflineModeIsEnabled,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     filter_repo_objects,
     logging,
     validate_hf_hub_args,

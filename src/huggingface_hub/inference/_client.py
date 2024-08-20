@@ -53,7 +53,7 @@ from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
 
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
-from huggingface_hub.errors import InferenceTimeoutError
+from huggingface_hub.errors import BadRequestError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
     TASKS_EXPECTING_IMAGES,
     ContentT,
@@ -101,7 +101,6 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.utils import (
-    BadRequestError,
     build_hf_headers,
     get_session,
     hf_raise_for_status,
