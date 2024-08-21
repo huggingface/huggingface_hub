@@ -1,8 +1,24 @@
 """Contains all custom errors."""
 
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 from requests import HTTPError, Response
+
+
+# CACHE ERRORS
+class CacheNotFound(Exception):
+    """Exception thrown when the Huggingface cache is not found."""
+
+    cache_dir: Union[str, Path]
+
+    def __init__(self, msg: str, cache_dir: Union[str, Path], *args, **kwargs):
+        super().__init__(msg, *args, **kwargs)
+        self.cache_dir = cache_dir
+
+
+class CorruptedCacheException(Exception):
+    """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
 # HEADERS ERRORS
