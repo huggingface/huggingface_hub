@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, FrozenSet, List, Literal, Optional, Set, Union
 
+from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
+
 from ..commands._cli_utils import tabulate
 from ..constants import HF_HUB_CACHE
 from . import logging
@@ -33,20 +35,6 @@ REPO_TYPE_T = Literal["model", "dataset", "space"]
 
 # List of OS-created helper files that need to be ignored
 FILES_TO_IGNORE = [".DS_Store"]
-
-
-class CacheNotFound(Exception):
-    """Exception thrown when the Huggingface cache is not found."""
-
-    cache_dir: Union[str, Path]
-
-    def __init__(self, msg: str, cache_dir: Union[str, Path], *args, **kwargs):
-        super().__init__(msg, *args, **kwargs)
-        self.cache_dir = cache_dir
-
-
-class CorruptedCacheException(Exception):
-    """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
 @dataclass(frozen=True)
