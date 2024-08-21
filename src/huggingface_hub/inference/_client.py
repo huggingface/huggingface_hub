@@ -105,7 +105,7 @@ from huggingface_hub.utils import (
     get_session,
     hf_raise_for_status,
 )
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from huggingface_hub.utils._deprecation import _deprecate_positional_args
 
 
 if TYPE_CHECKING:
@@ -1786,7 +1786,6 @@ class InferenceClient:
         watermark: Optional[bool] = None,
     ) -> Union[TextGenerationOutput, Iterable[TextGenerationStreamOutput]]: ...
 
-    @_deprecate_arguments(version="0.28.0", deprecated_args=["stop_sequences"], custom_message="Use `stop` instead.")
     def text_generation(
         self,
         prompt: str,
@@ -2018,6 +2017,12 @@ class InferenceClient:
             )
             decoder_input_details = False
 
+        if stop_sequences is not None:
+            warnings.warn(
+                "`stop_sequences` is a deprecated argument for `text_generation` task"
+                " and will be removed in version '0.28.0'. Use `stop` instead.",
+                FutureWarning,
+            )
         if stop is None:
             stop = stop_sequences  # use deprecated arg if provided
 

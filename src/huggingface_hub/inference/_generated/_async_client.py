@@ -89,7 +89,7 @@ from huggingface_hub.inference._generated.types import (
 from huggingface_hub.utils import (
     build_hf_headers,
 )
-from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from huggingface_hub.utils._deprecation import _deprecate_positional_args
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -1819,7 +1819,6 @@ class AsyncInferenceClient:
         watermark: Optional[bool] = None,
     ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
 
-    @_deprecate_arguments(version="0.28.0", deprecated_args=["stop_sequences"], custom_message="Use `stop` instead.")
     async def text_generation(
         self,
         prompt: str,
@@ -2052,6 +2051,12 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
+        if stop_sequences is not None:
+            warnings.warn(
+                "`stop_sequences` is a deprecated argument for `text_generation` task"
+                " and will be removed in version '0.28.0'. Use `stop` instead.",
+                FutureWarning,
+            )
         if stop is None:
             stop = stop_sequences  # use deprecated arg if provided
 
