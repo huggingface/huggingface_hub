@@ -89,7 +89,7 @@ from huggingface_hub.inference._generated.types import (
 from huggingface_hub.utils import (
     build_hf_headers,
 )
-from huggingface_hub.utils._deprecation import _deprecate_positional_args
+from huggingface_hub.utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -1688,7 +1688,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1717,7 +1718,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1746,7 +1748,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1775,7 +1778,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1804,7 +1808,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1814,6 +1819,7 @@ class AsyncInferenceClient:
         watermark: Optional[bool] = None,
     ) -> Union[TextGenerationOutput, AsyncIterable[TextGenerationStreamOutput]]: ...
 
+    @_deprecate_arguments(version="0.28.0", deprecated_args=["stop_sequences"], custom_message="Use `stop` instead.")
     async def text_generation(
         self,
         prompt: str,
@@ -1832,7 +1838,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1897,8 +1904,10 @@ class AsyncInferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
+            stop (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop` is generated.
             stop_sequences (`List[str]`, *optional*):
-                Stop generating tokens if a member of `stop_sequences` is generated
+                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2043,6 +2052,9 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
+        if stop is None:
+            stop = stop_sequences  # use deprecated arg if provided
+
         # Build payload
         parameters = {
             "adapter_id": adapter_id,
@@ -2056,7 +2068,7 @@ class AsyncInferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop_sequences if stop_sequences is not None else [],
+            "stop": stop if stop is not None else [],
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2081,7 +2093,10 @@ class AsyncInferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if parameters.get(key):
+                if key == "stop" and parameters.get(key) is not None and "stop_sequences" not in unsupported_kwargs:
+                    # Special case: TGI supports `stop` but transformers supports `stop_sequences`.
+                    parameters["stop_sequences"] = parameters.pop("stop")
+                elif parameters.get(key):
                     ignored_parameters.append(key)
                 parameters.pop(key, None)
             if len(ignored_parameters) > 0:
@@ -2126,7 +2141,7 @@ class AsyncInferenceClient:
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
-                    stop_sequences=stop_sequences,
+                    stop=stop,
                     temperature=temperature,
                     top_k=top_k,
                     top_n_tokens=top_n_tokens,
