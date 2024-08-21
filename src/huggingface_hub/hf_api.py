@@ -19,6 +19,7 @@ import json
 import re
 import struct
 import warnings
+from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -47,6 +48,7 @@ from requests.exceptions import HTTPError
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
+from . import constants
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -144,7 +146,9 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper"]
 
 ExpandModelProperty_T = Literal[
     "author",
+    "baseModels",
     "cardData",
+    "childrenModelCount",
     "config",
     "createdAt",
     "disabled",
@@ -247,7 +251,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     """
     input_hf_id = hf_id
 
-    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
+    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else constants.ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
     HFFS_PREFIX = "hf://"
@@ -264,9 +268,9 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             namespace = None
         if len(url_segments) > 2 and hub_url not in url_segments[-3]:
             repo_type = url_segments[-3]
-        elif namespace in REPO_TYPES_MAPPING:
+        elif namespace in constants.REPO_TYPES_MAPPING:
             # Mean canonical dataset or model
-            repo_type = REPO_TYPES_MAPPING[namespace]
+            repo_type = constants.REPO_TYPES_MAPPING[namespace]
             namespace = None
         else:
             repo_type = None
@@ -275,9 +279,9 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
             # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
             repo_type, namespace, repo_id = url_segments[-3:]
         elif len(url_segments) == 2:
-            if url_segments[0] in REPO_TYPES_MAPPING:
+            if url_segments[0] in constants.REPO_TYPES_MAPPING:
                 # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
-                repo_type = REPO_TYPES_MAPPING[url_segments[0]]
+                repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
                 namespace = None
                 repo_id = hf_id.split("/")[-1]
             else:
@@ -292,11 +296,11 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
         raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
-    if repo_type in REPO_TYPES_MAPPING:
-        repo_type = REPO_TYPES_MAPPING[repo_type]
+    if repo_type in constants.REPO_TYPES_MAPPING:
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
     if repo_type == "":
         repo_type = None
-    if repo_type not in REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES:
         raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
 
     return repo_type, namespace, repo_id
@@ -490,7 +494,7 @@ class WebhookInfo:
     id: str
     url: str
     watched: List[WebhookWatchedItem]
-    domains: List[WEBHOOK_DOMAIN_T]
+    domains: List[constants.WEBHOOK_DOMAIN_T]
     secret: Optional[str]
     disabled: bool
 
@@ -542,14 +546,14 @@ class RepoUrl(str):
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
         super().__init__()
         # Parse URL
-        self.endpoint = endpoint or ENDPOINT
+        self.endpoint = endpoint or constants.ENDPOINT
         repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
         # Populate fields
         self.namespace = namespace
         self.repo_name = repo_name
         self.repo_id = repo_name if namespace is None else f"{namespace}/{repo_name}"
-        self.repo_type = repo_type or REPO_TYPE_MODEL
+        self.repo_type = repo_type or constants.REPO_TYPE_MODEL
         self.url = str(self)  # just in case it's needed
 
     def __repr__(self) -> str:
@@ -1186,7 +1190,7 @@ class Collection:
         self.description = kwargs.pop("description", None)
         endpoint = kwargs.pop("endpoint", None)
         if endpoint is None:
-            endpoint = ENDPOINT
+            endpoint = constants.ENDPOINT
         self._url = f"{endpoint}/collections/{self.slug}"
 
     @property
@@ -1470,7 +1474,7 @@ class HfApi:
                 Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
                 Headers passed here are taking precedence over the default headers.
         """
-        self.endpoint = endpoint if endpoint is not None else ENDPOINT
+        self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
         self.library_name = library_name
         self.library_version = library_version
@@ -1668,7 +1672,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2157,7 +2161,7 @@ class HfApi:
         ```
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         response = get_session().post(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
             headers=self._build_hf_headers(token=token),
@@ -2208,7 +2212,7 @@ class HfApi:
         ```
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         response = get_session().delete(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like", headers=self._build_hf_headers(token=token)
         )
@@ -2324,7 +2328,7 @@ class HfApi:
 
         # Construct the API endpoint
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
         headers = self._build_hf_headers(token=token)
 
@@ -2378,7 +2382,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"cardData"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2950,8 +2954,8 @@ class HfApi:
             ]
             ```
         """
-        repo_type = repo_type or REPO_TYPE_MODEL
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        repo_type = repo_type or constants.REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         headers = self._build_hf_headers(token=token)
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
@@ -3010,7 +3014,7 @@ class HfApi:
             [`GitRefs`]: object containing all information about branches and tags for a
             repo on the Hub.
         """
-        repo_type = repo_type or REPO_TYPE_MODEL
+        repo_type = repo_type or constants.REPO_TYPE_MODEL
         response = get_session().get(
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
             headers=self._build_hf_headers(token=token),
@@ -3096,8 +3100,8 @@ class HfApi:
             [`~utils.RevisionNotFoundError`]:
                 If revision is not found (error 404) on the repo.
         """
-        repo_type = repo_type or REPO_TYPE_MODEL
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        repo_type = repo_type or constants.REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
 
         # Paginate over results and return the list of commits.
         return [
@@ -3175,8 +3179,8 @@ class HfApi:
         ]
         ```
         """
-        repo_type = repo_type or REPO_TYPE_MODEL
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        repo_type = repo_type or constants.REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         headers = self._build_hf_headers(token=token)
 
         response = get_session().post(
@@ -3265,11 +3269,11 @@ class HfApi:
         ```
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
-        if repo_type not in REPO_TYPES:
+            repo_type = constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
         if branch is None:
-            branch = DEFAULT_REVISION
+            branch = constants.DEFAULT_REVISION
 
         # Prepare request
         url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/super-squash/{branch}"
@@ -3347,7 +3351,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/create"
 
-        if repo_type not in REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
         json: Dict[str, Any] = {"name": name, "organization": organization, "private": private}
@@ -3357,10 +3361,10 @@ class HfApi:
             if space_sdk is None:
                 raise ValueError(
                     "No space_sdk provided. `create_repo` expects space_sdk to be one"
-                    f" of {SPACES_SDK_TYPES} when repo_type is 'space'`"
+                    f" of {constants.SPACES_SDK_TYPES} when repo_type is 'space'`"
                 )
-            if space_sdk not in SPACES_SDK_TYPES:
-                raise ValueError(f"Invalid space_sdk. Please choose one of {SPACES_SDK_TYPES}.")
+            if space_sdk not in constants.SPACES_SDK_TYPES:
+                raise ValueError(f"Invalid space_sdk. Please choose one of {constants.SPACES_SDK_TYPES}.")
             json["sdk"] = space_sdk
 
         if space_sdk is not None and repo_type != "space":
@@ -3416,7 +3420,7 @@ class HfApi:
                 # No write permission on the namespace but repo might already exist
                 try:
                     self.repo_info(repo_id=repo_id, repo_type=repo_type, token=token)
-                    if repo_type is None or repo_type == REPO_TYPE_MODEL:
+                    if repo_type is None or repo_type == constants.REPO_TYPE_MODEL:
                         return RepoUrl(f"{self.endpoint}/{repo_id}")
                     return RepoUrl(f"{self.endpoint}/{repo_type}/{repo_id}")
                 except HfHubHTTPError:
@@ -3462,7 +3466,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/delete"
 
-        if repo_type not in REPO_TYPES:
+        if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
         json = {"name": name, "organization": organization}
@@ -3516,10 +3520,10 @@ class HfApi:
 
         </Tip>
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL  # default repo type
+            repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
@@ -3578,7 +3582,7 @@ class HfApi:
             raise ValueError(f"Invalid repo_id: {to_id}. It should have a namespace (:namespace:/:repo_name:)")
 
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL  # Hub won't accept `None`.
+            repo_type = constants.REPO_TYPE_MODEL  # Hub won't accept `None`.
 
         json = {"fromRepo": from_id, "toRepo": to_id, "type": repo_type}
 
@@ -3748,19 +3752,19 @@ class HfApi:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
         """
-        if parent_commit is not None and not REGEX_COMMIT_OID.fullmatch(parent_commit):
+        if parent_commit is not None and not constants.REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
-                f"`parent_commit` is not a valid commit OID. It must match the following regex: {REGEX_COMMIT_OID}"
+                f"`parent_commit` is not a valid commit OID. It must match the following regex: {constants.REGEX_COMMIT_OID}"
             )
 
         if commit_message is None or len(commit_message) == 0:
             raise ValueError("`commit_message` can't be empty, please pass a value.")
 
         commit_description = commit_description if commit_description is not None else ""
-        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        unquoted_revision = revision or DEFAULT_REVISION
+        repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
 
@@ -3848,7 +3852,7 @@ class HfApi:
 
             # Return commit info based on latest commit
             url_prefix = self.endpoint
-            if repo_type is not None and repo_type != REPO_TYPE_MODEL:
+            if repo_type is not None and repo_type != constants.REPO_TYPE_MODEL:
                 url_prefix = f"{url_prefix}/{repo_type}s"
             return CommitInfo(
                 commit_url=f"{url_prefix}/{repo_id}/commit/{info.sha}",
@@ -4083,7 +4087,7 @@ class HfApi:
         commits_on_main_branch = {
             commit.commit_id
             for commit in self.list_repo_commits(
-                repo_id=repo_id, repo_type=repo_type, token=token, revision=DEFAULT_REVISION
+                repo_id=repo_id, repo_type=repo_type, token=token, revision=constants.DEFAULT_REVISION
             )
         }
         pr_commits = [
@@ -4302,10 +4306,10 @@ class HfApi:
         >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
         ```
         """
-        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+        repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
         headers = self._build_hf_headers(token=token)
 
@@ -4533,8 +4537,8 @@ class HfApi:
         "https://huggingface.co/username/my-model/blob/refs%2Fpr%2F1/remote/file/path.h5"
         ```
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
@@ -4558,9 +4562,9 @@ class HfApi:
 
         if commit_info.pr_url is not None:
             revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else DEFAULT_REVISION
+        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
+            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        revision = revision if revision is not None else constants.DEFAULT_REVISION
 
         return CommitInfo(
             commit_url=commit_info.commit_url,
@@ -4835,11 +4839,11 @@ class HfApi:
 
         ```
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
         if multi_commits:
-            if revision is not None and revision != DEFAULT_REVISION:
+            if revision is not None and revision != constants.DEFAULT_REVISION:
                 raise ValueError("Cannot use `multi_commit` to commit changes other than the main branch.")
 
         # By default, upload folder to the root directory in repo.
@@ -4856,7 +4860,7 @@ class HfApi:
         delete_operations = self._prepare_folder_deletions(
             repo_id=repo_id,
             repo_type=repo_type,
-            revision=DEFAULT_REVISION if create_pr else revision,
+            revision=constants.DEFAULT_REVISION if create_pr else revision,
             token=token,
             path_in_repo=path_in_repo,
             delete_patterns=delete_patterns,
@@ -4911,9 +4915,9 @@ class HfApi:
         # Create url to uploaded folder (for legacy return value)
         if create_pr and commit_info.pr_url is not None:
             revision = quote(_parse_revision_from_pr_url(commit_info.pr_url), safe="")
-        if repo_type in REPO_TYPES_URL_PREFIXES:
-            repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
-        revision = revision if revision is not None else DEFAULT_REVISION
+        if repo_type in constants.REPO_TYPES_URL_PREFIXES:
+            repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        revision = revision if revision is not None else constants.DEFAULT_REVISION
 
         return CommitInfo(
             commit_url=commit_info.commit_url,
@@ -5167,7 +5171,7 @@ class HfApi:
         url: str,
         token: Union[bool, str, None] = None,
         proxies: Optional[Dict] = None,
-        timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+        timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     ) -> HfFileMetadata:
         """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -5214,7 +5218,7 @@ class HfApi:
         local_dir: Union[str, Path, None] = None,
         force_download: bool = False,
         proxies: Optional[Dict] = None,
-        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
         # Deprecated args
@@ -5353,7 +5357,7 @@ class HfApi:
         cache_dir: Union[str, Path, None] = None,
         local_dir: Union[str, Path, None] = None,
         proxies: Optional[Dict] = None,
-        etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+        etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
         force_download: bool = False,
         token: Union[bool, str, None] = None,
         local_files_only: bool = False,
@@ -5543,14 +5547,14 @@ class HfApi:
         """
         if self.file_exists(  # Single safetensors file => non-sharded model
             repo_id=repo_id,
-            filename=SAFETENSORS_SINGLE_FILE,
+            filename=constants.SAFETENSORS_SINGLE_FILE,
             repo_type=repo_type,
             revision=revision,
             token=token,
         ):
             file_metadata = self.parse_safetensors_file_metadata(
                 repo_id=repo_id,
-                filename=SAFETENSORS_SINGLE_FILE,
+                filename=constants.SAFETENSORS_SINGLE_FILE,
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
@@ -5558,12 +5562,14 @@ class HfApi:
             return SafetensorsRepoMetadata(
                 metadata=None,
                 sharded=False,
-                weight_map={tensor_name: SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()},
-                files_metadata={SAFETENSORS_SINGLE_FILE: file_metadata},
+                weight_map={
+                    tensor_name: constants.SAFETENSORS_SINGLE_FILE for tensor_name in file_metadata.tensors.keys()
+                },
+                files_metadata={constants.SAFETENSORS_SINGLE_FILE: file_metadata},
             )
         elif self.file_exists(  # Multiple safetensors files => sharded with index
             repo_id=repo_id,
-            filename=SAFETENSORS_INDEX_FILE,
+            filename=constants.SAFETENSORS_INDEX_FILE,
             repo_type=repo_type,
             revision=revision,
             token=token,
@@ -5571,7 +5577,7 @@ class HfApi:
             # Fetch index
             index_file = self.hf_hub_download(
                 repo_id=repo_id,
-                filename=SAFETENSORS_INDEX_FILE,
+                filename=constants.SAFETENSORS_INDEX_FILE,
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
@@ -5605,7 +5611,7 @@ class HfApi:
         else:
             # Not a safetensors repo
             raise NotASafetensorsRepoError(
-                f"'{repo_id}' is not a safetensors repo. Couldn't find '{SAFETENSORS_INDEX_FILE}' or '{SAFETENSORS_SINGLE_FILE}' files."
+                f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
 
     def parse_safetensors_file_metadata(
@@ -5666,11 +5672,11 @@ class HfApi:
 
         # 2. Parse metadata size
         metadata_size = struct.unpack("<Q", response.content[:8])[0]
-        if metadata_size > SAFETENSORS_MAX_HEADER_LENGTH:
+        if metadata_size > constants.SAFETENSORS_MAX_HEADER_LENGTH:
             raise SafetensorsParsingError(
                 f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
-                f"{SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
+                f"'{revision or constants.DEFAULT_REVISION}'): safetensors header is too big. Maximum supported size is "
+                f"{constants.SAFETENSORS_MAX_HEADER_LENGTH} bytes (got {metadata_size})."
             )
 
         # 3.a. Get metadata from payload
@@ -5687,7 +5693,7 @@ class HfApi:
         except json.JSONDecodeError as e:
             raise SafetensorsParsingError(
                 f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
+                f"'{revision or constants.DEFAULT_REVISION}'): header is not json-encoded string. Please make sure this is a "
                 "correctly formatted safetensors file."
             ) from e
 
@@ -5707,7 +5713,7 @@ class HfApi:
         except (KeyError, IndexError) as e:
             raise SafetensorsParsingError(
                 f"Failed to parse safetensors header for '{filename}' (repo '{repo_id}', revision "
-                f"'{revision or DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
+                f"'{revision or constants.DEFAULT_REVISION}'): header format not recognized. Please make sure this is a correctly"
                 " formatted safetensors file."
             ) from e
 
@@ -5763,7 +5769,7 @@ class HfApi:
                 set to `False`.
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         branch = quote(branch, safe="")
 
         # Prepare request
@@ -5832,7 +5838,7 @@ class HfApi:
 
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         branch = quote(branch, safe="")
 
         # Prepare request
@@ -5899,8 +5905,8 @@ class HfApi:
                 set to `False`.
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
-        revision = quote(revision, safe="") if revision is not None else DEFAULT_REVISION
+            repo_type = constants.REPO_TYPE_MODEL
+        revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
 
         # Prepare request
         tag_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tag/{revision}"
@@ -5955,7 +5961,7 @@ class HfApi:
                 If tag is not found.
         """
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         tag = quote(tag, safe="")
 
         # Prepare request
@@ -6010,8 +6016,8 @@ class HfApi:
         repo_id: str,
         *,
         author: Optional[str] = None,
-        discussion_type: Optional[DiscussionTypeFilter] = None,
-        discussion_status: Optional[DiscussionStatusFilter] = None,
+        discussion_type: Optional[constants.DiscussionTypeFilter] = None,
+        discussion_status: Optional[constants.DiscussionStatusFilter] = None,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> Iterator[Discussion]:
@@ -6063,14 +6069,14 @@ class HfApi:
             ...     print(discussion.num, discussion.title)
             ```
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
-        if discussion_type is not None and discussion_type not in DISCUSSION_TYPES:
-            raise ValueError(f"Invalid discussion_type, must be one of {DISCUSSION_TYPES}")
-        if discussion_status is not None and discussion_status not in DISCUSSION_STATUS:
-            raise ValueError(f"Invalid discussion_status, must be one of {DISCUSSION_STATUS}")
+            repo_type = constants.REPO_TYPE_MODEL
+        if discussion_type is not None and discussion_type not in constants.DISCUSSION_TYPES:
+            raise ValueError(f"Invalid discussion_type, must be one of {constants.DISCUSSION_TYPES}")
+        if discussion_status is not None and discussion_status not in constants.DISCUSSION_STATUS:
+            raise ValueError(f"Invalid discussion_status, must be one of {constants.DISCUSSION_STATUS}")
 
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions"
@@ -6157,10 +6163,10 @@ class HfApi:
         """
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
 
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         headers = self._build_hf_headers(token=token)
@@ -6247,10 +6253,10 @@ class HfApi:
               or because it is set to `private` and you do not have access.
 
         </Tip>"""
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
 
         if description is not None:
             description = description.strip()
@@ -6357,10 +6363,10 @@ class HfApi:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         repo_id = f"{repo_type}s/{repo_id}"
 
         path = f"{self.endpoint}/api/{repo_id}/discussions/{discussion_num}/{resource}"
@@ -7384,7 +7390,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().get(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -7547,7 +7553,7 @@ class HfApi:
         }
 
         response = get_session().post(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -7595,7 +7601,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().get(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -7672,33 +7678,33 @@ class HfApi:
         """
         namespace = namespace or self._get_namespace(token=token)
 
-        payload: Dict = {}
-        if any(
-            value is not None
-            for value in (accelerator, instance_size, instance_type, min_replica, max_replica, scale_to_zero_timeout)
-        ):
-            payload["compute"] = {
-                "accelerator": accelerator,
-                "instanceSize": instance_size,
-                "instanceType": instance_type,
-                "scaling": {
-                    "maxReplica": max_replica,
-                    "minReplica": min_replica,
-                    "scaleToZeroTimeout": scale_to_zero_timeout,
-                },
-            }
-        if any(value is not None for value in (repository, framework, revision, task, custom_image)):
-            image = {"custom": custom_image} if custom_image is not None else {"huggingface": {}}
-            payload["model"] = {
-                "framework": framework,
-                "repository": repository,
-                "revision": revision,
-                "task": task,
-                "image": image,
-            }
+        # Populate only the fields that are not None
+        payload: Dict = defaultdict(lambda: defaultdict(dict))
+        if accelerator is not None:
+            payload["compute"]["accelerator"] = accelerator
+        if instance_size is not None:
+            payload["compute"]["instanceSize"] = instance_size
+        if instance_type is not None:
+            payload["compute"]["instanceType"] = instance_type
+        if max_replica is not None:
+            payload["compute"]["scaling"]["maxReplica"] = max_replica
+        if min_replica is not None:
+            payload["compute"]["scaling"]["minReplica"] = min_replica
+        if scale_to_zero_timeout is not None:
+            payload["compute"]["scaling"]["scaleToZeroTimeout"] = scale_to_zero_timeout
+        if repository is not None:
+            payload["model"]["repository"] = repository
+        if framework is not None:
+            payload["model"]["framework"] = framework
+        if revision is not None:
+            payload["model"]["revision"] = revision
+        if task is not None:
+            payload["model"]["task"] = task
+        if custom_image is not None:
+            payload["model"]["image"] = {"custom": custom_image}
 
         response = get_session().put(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -7729,7 +7735,7 @@ class HfApi:
         """
         namespace = namespace or self._get_namespace(token=token)
         response = get_session().delete(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -7762,7 +7768,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().post(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/pause",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/pause",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -7801,7 +7807,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().post(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
             headers=self._build_hf_headers(token=token),
         )
         try:
@@ -7843,7 +7849,7 @@ class HfApi:
         namespace = namespace or self._get_namespace(token=token)
 
         response = get_session().post(
-            f"{INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/scale-to-zero",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/scale-to-zero",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8525,13 +8531,13 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> List[AccessRequest]:
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().get(
-            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8680,13 +8686,13 @@ class HfApi:
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> None:
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json={"user": user, "status": status},
         )
@@ -8730,13 +8736,13 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user does not exist on the Hub.
         """
-        if repo_type not in REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            f"{constants.ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -8779,7 +8785,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8830,7 +8836,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{ENDPOINT}/api/settings/webhooks",
+            f"{constants.ENDPOINT}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8854,7 +8860,7 @@ class HfApi:
         *,
         url: str,
         watched: List[Union[Dict, WebhookWatchedItem]],
-        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
+        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8902,7 +8908,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks",
+            f"{constants.ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -8928,7 +8934,7 @@ class HfApi:
         *,
         url: Optional[str] = None,
         watched: Optional[List[Union[Dict, WebhookWatchedItem]]] = None,
-        domains: Optional[List[WEBHOOK_DOMAIN_T]] = None,
+        domains: Optional[List[constants.WEBHOOK_DOMAIN_T]] = None,
         secret: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> WebhookInfo:
@@ -8980,7 +8986,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -9032,7 +9038,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9083,7 +9089,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9124,7 +9130,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9270,7 +9276,7 @@ class HfApi:
             - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
               if YAML is invalid
         """
-        repo_type = repo_type if repo_type is not None else REPO_TYPE_MODEL
+        repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
         headers = self._build_hf_headers(token=token)
 
         response = get_session().post(
@@ -9307,7 +9313,7 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/overview")
 
         hf_raise_for_status(r)
         return User(**r.json())
@@ -9329,7 +9335,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/organizations/{organization}/members")
+        r = get_session().get(f"{constants.ENDPOINT}/api/organizations/{organization}/members")
 
         hf_raise_for_status(r)
 
@@ -9353,7 +9359,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/followers")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/followers")
 
         hf_raise_for_status(r)
 
@@ -9377,7 +9383,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/following")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/following")
 
         hf_raise_for_status(r)
 
