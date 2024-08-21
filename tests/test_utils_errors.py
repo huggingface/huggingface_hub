@@ -14,18 +14,6 @@ from huggingface_hub.errors import (
 from huggingface_hub.utils._http import REPO_API_REGEX, X_REQUEST_ID, _format, hf_raise_for_status
 
 
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-X_REQUEST_ID
-
-
 class TestErrorUtils(unittest.TestCase):
     def test_hf_raise_for_status_repo_not_found(self) -> None:
         response = Response()
