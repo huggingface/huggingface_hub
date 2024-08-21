@@ -7,6 +7,8 @@ from requests import HTTPError, Response
 
 
 # CACHE ERRORS
+
+
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
 
