@@ -43,12 +43,6 @@ from huggingface_hub._commit_api import (
     _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
-from huggingface_hub.constants import (
-    REPO_TYPE_DATASET,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPE_MODEL,  # noqa: F401 # kept for backward compatibility
-    REPO_TYPE_SPACE,  # noqa: F401 # kept for backward compatibility
-    SPACES_SDK_TYPES,  # noqa: F401 # kept for backward compatibility
-)
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
