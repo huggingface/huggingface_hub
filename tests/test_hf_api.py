@@ -3677,7 +3677,7 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
 
 
-@patch("huggingface_hub.hf_api.ENDPOINT", "https://huggingface.co")
+@patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
         url = RepoUrl("https://huggingface.co/gpt2")

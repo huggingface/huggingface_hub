@@ -47,6 +47,7 @@ from requests.exceptions import HTTPError
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
+from . import constants
 from ._commit_api import (
     CommitOperation,
     CommitOperationAdd,
@@ -81,7 +82,6 @@ from .community import (
     DiscussionWithDetails,
     deserialize_event,
 )
-from . import constants
 from .constants import (
     DEFAULT_ETAG_TIMEOUT,  # noqa: F401 # kept for backward compatibility
     DEFAULT_REQUEST_TIMEOUT,  # noqa: F401 # kept for backward compatibility
@@ -248,7 +248,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: Optional[str] = None) -> Tu
     """
     input_hf_id = hf_id
 
-    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else ENDPOINT)
+    hub_url = re.sub(r"https?://", "", hub_url if hub_url is not None else constants.ENDPOINT)
     is_hf_url = hub_url in hf_id and "@" not in hf_id
 
     HFFS_PREFIX = "hf://"
@@ -543,7 +543,7 @@ class RepoUrl(str):
     def __init__(self, url: Any, endpoint: Optional[str] = None) -> None:
         super().__init__()
         # Parse URL
-        self.endpoint = endpoint or ENDPOINT
+        self.endpoint = endpoint or constants.ENDPOINT
         repo_type, namespace, repo_name = repo_type_and_id_from_hf_id(self, hub_url=self.endpoint)
 
         # Populate fields
@@ -1187,7 +1187,7 @@ class Collection:
         self.description = kwargs.pop("description", None)
         endpoint = kwargs.pop("endpoint", None)
         if endpoint is None:
-            endpoint = ENDPOINT
+            endpoint = constants.ENDPOINT
         self._url = f"{endpoint}/collections/{self.slug}"
 
     @property
@@ -1471,7 +1471,7 @@ class HfApi:
                 Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
                 Headers passed here are taking precedence over the default headers.
         """
-        self.endpoint = endpoint if endpoint is not None else ENDPOINT
+        self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
         self.library_name = library_name
         self.library_version = library_version
@@ -8534,7 +8534,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().get(
-            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8689,7 +8689,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json={"user": user, "status": status},
         )
@@ -8739,7 +8739,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            f"{constants.ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -8782,7 +8782,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8833,7 +8833,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{ENDPOINT}/api/settings/webhooks",
+            f"{constants.ENDPOINT}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -8905,7 +8905,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks",
+            f"{constants.ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -8983,7 +8983,7 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
         )
@@ -9035,7 +9035,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9086,7 +9086,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9127,7 +9127,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -9310,7 +9310,7 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/overview")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/overview")
 
         hf_raise_for_status(r)
         return User(**r.json())
@@ -9332,7 +9332,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/organizations/{organization}/members")
+        r = get_session().get(f"{constants.ENDPOINT}/api/organizations/{organization}/members")
 
         hf_raise_for_status(r)
 
@@ -9356,7 +9356,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/followers")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/followers")
 
         hf_raise_for_status(r)
 
@@ -9380,7 +9380,7 @@ class HfApi:
 
         """
 
-        r = get_session().get(f"{ENDPOINT}/api/users/{username}/following")
+        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/following")
 
         hf_raise_for_status(r)
 
