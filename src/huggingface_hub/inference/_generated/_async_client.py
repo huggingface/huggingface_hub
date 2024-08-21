@@ -2093,10 +2093,7 @@ class AsyncInferenceClient:
 
             ignored_parameters = []
             for key in unsupported_kwargs:
-                if key == "stop" and parameters.get(key) is not None and "stop_sequences" not in unsupported_kwargs:
-                    # Special case: TGI supports `stop` but transformers supports `stop_sequences`.
-                    parameters["stop_sequences"] = parameters.pop("stop")
-                elif parameters.get(key):
+                if parameters.get(key):
                     ignored_parameters.append(key)
                 parameters.pop(key, None)
             if len(ignored_parameters) > 0:
