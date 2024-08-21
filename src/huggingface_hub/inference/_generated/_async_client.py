@@ -1689,7 +1689,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1719,7 +1719,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1749,7 +1749,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1779,7 +1779,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1809,7 +1809,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1839,7 +1839,7 @@ class AsyncInferenceClient:
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
-        stop_sequences: Optional[List[str]] = None,  # Deprecated, same as `stop`
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
