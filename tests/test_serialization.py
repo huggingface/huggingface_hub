@@ -245,13 +245,15 @@ def test_get_torch_storage_size():
 
 @requires("torch")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
+    if not is_wrapper_tensor_subclass_available():
+        return
+
     import torch
-    if is_wrapper_tensor_subclass_available():
-        from torch.testing._internal.two_tensor import TwoTensor
-        t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
-        assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
-        t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
-        assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t))) == 5 * 2 * 3
+    from torch.testing._internal.two_tensor import TwoTensor
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
+    assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
+    assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t))) == 5 * 2 * 3
 
 
 def test_parse_size_to_int():
