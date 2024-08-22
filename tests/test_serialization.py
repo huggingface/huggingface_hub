@@ -32,23 +32,10 @@ def _dummy_get_storage_size(item):
 
 
 # util functions for checking the version for pytorch
-def parse_version(version_string):
-    # Extract just the X.Y.Z part from the version string
-    match = re.match(r'(\d+\.\d+\.\d+)', version_string)
-    if match:
-        version = match.group(1)
-        return [int(x) for x in version.split('.')]
-    else:
-        raise ValueError(f"Invalid version string format: {version_string}")
-
-def compare_versions(v1, v2):
-    v1_parts = parse_version(v1)
-    v2_parts = parse_version(v2)
-    return (v1_parts > v2_parts) - (v1_parts < v2_parts)
-
-def torch_version_at_least(min_version):
+def is_wrapper_tensor_subclass_available():
     try:
-        return compare_versions(torch.__version__, min_version) >= 0
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        return True
     except:
         return False
 
@@ -146,7 +133,7 @@ def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
         import torch
         from torch.testing._internal.two_tensor import TwoTensor
 
-        if torch_version_at_least("2.1.0"):
+        if is_wrapper_tensor_subclass_available():
             shared_layer = TwoTensor(torch.tensor([4]), torch.tensor([4]))
         else:
             shared_layer = torch.tensor([4])
@@ -259,7 +246,7 @@ def test_get_torch_storage_size():
 @requires("torch")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch
-    if torch_version_at_least("2.1.0"):
+    if is_wrapper_tensor_subclass_available():
         from torch.testing._internal.two_tensor import TwoTensor
         t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
         assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
@@ -347,7 +334,7 @@ def test_save_torch_state_dict_unsafe_not_sharded(
 def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_tensor_subclass: Dict[str, "torch.Tensor"]
 ) -> None:
-    if not torch_version_at_least("2.1.0"):
+    if not is_wrapper_tensor_subclass_available():
         return
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
@@ -361,7 +348,7 @@ def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
 def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
 ) -> None:
-    if not torch_version_at_least("2.1.0"):
+    if not is_wrapper_tensor_subclass_available():
         return
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
