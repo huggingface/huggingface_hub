@@ -843,7 +843,7 @@ class AsyncInferenceClient:
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        model_id = model or self.model
+        model_id = model or self.model or "tgi"
         if model_id.startswith(("http://", "https://")):
             model_id = "tgi"  # dummy value
 
