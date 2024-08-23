@@ -7456,7 +7456,7 @@ class HfApi:
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             secrets (`Dict[str, str]`, *optional*):
-                A dictionary of secrets to be used for building the custom image.
+                Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             namespace (`str`, *optional*):
@@ -7519,7 +7519,7 @@ class HfApi:
             ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
-            ...    secrets={"HF_TOKEN": "your-token},
+            ...    secrets={"MY_SECRET_KEY": "secret_value"},
             ... )
 
             ```
@@ -7668,8 +7668,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict`, *optional*):
-                A dictionary of secrets to be used for building the custom image.
+            secrets (`Dict[str, str]`, *optional*):
+                Secret values to inject in the container environment.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):

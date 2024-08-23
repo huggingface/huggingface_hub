@@ -245,7 +245,7 @@ class InferenceEndpoint:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
-        secrets: Optional[Dict] = None,
+        secrets: Optional[Dict[str, str]] = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 
@@ -280,8 +280,8 @@ class InferenceEndpoint:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict`, *optional*):
-                A dictionary of secrets to be used for building the custom image.
+            secrets (`Dict[str, str]`, *optional*):
+                Secret values to inject in the container environment.
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
