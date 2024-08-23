@@ -136,9 +136,7 @@ from .utils import (
 )
 from .utils import tqdm as hf_tqdm
 from .utils._typing import CallableT
-from .utils.endpoint_helpers import (
-    _is_emission_within_threshold,
-)
+from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 R = TypeVar("R")  # Return type
@@ -7418,6 +7416,7 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        secrets: Optional[Dict[str, str]] = None,
         type: InferenceEndpointType = InferenceEndpointType.PROTECTED,
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -7456,6 +7455,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            secrets (`Dict[str, str]`, *optional*):
+                A dictionary of secrets to be used for building the custom image.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"protected"` (default), `"public"` or `"private"`.
             namespace (`str`, *optional*):
@@ -7518,6 +7519,7 @@ class HfApi:
             ...         },
             ...         "url": "ghcr.io/huggingface/text-generation-inference:1.1.0",
             ...     },
+            ...    secrets={"HF_TOKEN": "your-token},
             ... )
 
             ```
@@ -7543,6 +7545,7 @@ class HfApi:
                 "revision": revision,
                 "task": task,
                 "image": image,
+                "secrets": secrets,
             },
             "name": name,
             "provider": {
@@ -7625,6 +7628,7 @@ class HfApi:
         revision: Optional[str] = None,
         task: Optional[str] = None,
         custom_image: Optional[Dict] = None,
+        secrets: Optional[Dict[str, str]] = None,
         # Other
         namespace: Optional[str] = None,
         token: Union[bool, str, None] = None,
@@ -7664,7 +7668,8 @@ class HfApi:
             custom_image (`Dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-
+            secrets (`Dict`, *optional*):
+                A dictionary of secrets to be used for building the custom image.
             namespace (`str`, *optional*):
                 The namespace where the Inference Endpoint will be updated. Defaults to the current user's namespace.
             token (Union[bool, str, None], optional):
@@ -7702,6 +7707,8 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if secrets is not None:
+            payload["model"]["secrets"] = secrets
 
         response = get_session().put(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
