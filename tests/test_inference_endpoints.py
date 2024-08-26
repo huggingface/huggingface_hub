@@ -30,6 +30,7 @@ MOCK_INITIALIZING = {
         "task": "text-generation",
         "framework": "pytorch",
         "image": {"huggingface": {}},
+        "secret": {"token": "my-token"},
     },
     "status": {
         "createdAt": "2023-10-26T12:41:53.263078506Z",
@@ -61,6 +62,7 @@ MOCK_RUNNING = {
         "task": "text-generation",
         "framework": "pytorch",
         "image": {"huggingface": {}},
+        "secrets": {"token": "my-token"},
     },
     "status": {
         "createdAt": "2023-10-26T12:41:53.263Z",
@@ -93,6 +95,7 @@ MOCK_FAILED = {
         "task": "text-generation",
         "framework": "pytorch",
         "image": {"huggingface": {}},
+        "secrets": {"token": "my-token"},
     },
     "status": {
         "createdAt": "2023-10-26T12:41:53.263Z",

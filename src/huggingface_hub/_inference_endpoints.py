@@ -238,11 +238,14 @@ class InferenceEndpoint:
         instance_type: Optional[str] = None,
         min_replica: Optional[int] = None,
         max_replica: Optional[int] = None,
+        scale_to_zero_timeout: Optional[int] = None,
         # Model update
         repository: Optional[str] = None,
         framework: Optional[str] = None,
         revision: Optional[str] = None,
         task: Optional[str] = None,
+        custom_image: Optional[Dict] = None,
+        secrets: Optional[Dict[str, str]] = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 
@@ -263,6 +266,8 @@ class InferenceEndpoint:
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint.
             max_replica (`int`, *optional*):
                 The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+            scale_to_zero_timeout (`int`, *optional*):
+                The duration in minutes before an inactive endpoint is scaled to zero.
 
             repository (`str`, *optional*):
                 The name of the model repository associated with the Inference Endpoint (e.g. `"gpt2"`).
@@ -272,7 +277,11 @@ class InferenceEndpoint:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-
+            custom_image (`Dict`, *optional*):
+                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
+                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            secrets (`Dict[str, str]`, *optional*):
+                Secret values to inject in the container environment.
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
         """
@@ -285,10 +294,13 @@ class InferenceEndpoint:
             instance_type=instance_type,
             min_replica=min_replica,
             max_replica=max_replica,
+            scale_to_zero_timeout=scale_to_zero_timeout,
             repository=repository,
             framework=framework,
             revision=revision,
             task=task,
+            custom_image=custom_image,
+            secrets=secrets,
             token=self._token,  # type: ignore [arg-type]
         )
 

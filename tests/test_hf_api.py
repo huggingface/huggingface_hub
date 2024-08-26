@@ -35,7 +35,7 @@ import requests
 from requests.exceptions import HTTPError
 
 import huggingface_hub.lfs
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -43,12 +43,6 @@ from huggingface_hub._commit_api import (
     _fetch_upload_modes,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
-from huggingface_hub.constants import (
-    REPO_TYPE_DATASET,
-    REPO_TYPE_MODEL,
-    REPO_TYPE_SPACE,
-    SPACES_SDK_TYPES,
-)
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
@@ -104,6 +98,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     require_git_lfs,
@@ -231,41 +226,43 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_MODEL).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_MODEL)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
         assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_MODEL)
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_MODEL)
         assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_MODEL)
+        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
 
     def test_create_update_and_delete_dataset_repo(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_DATASET).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_DATASET)
+        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
         assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_DATASET)
+        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_DATASET)
         assert not res["private"]
-        self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_DATASET)
+        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
 
     def test_create_update_and_delete_space_repo(self):
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=None)
+            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
         with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk="something")
+            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
 
-        for sdk in SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=REPO_TYPE_SPACE, space_sdk=sdk).repo_id
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=REPO_TYPE_SPACE)
+        for sdk in constants.SPACES_SDK_TYPES:
+            repo_id = self._api.create_repo(
+                repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
+            ).repo_id
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
             assert res["private"]
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=REPO_TYPE_SPACE)
+            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)
             assert not res["private"]
-            self._api.delete_repo(repo_id=repo_id, repo_type=REPO_TYPE_SPACE)
+            self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
         repo_id = f"{USER}/{repo_name()}"
         new_repo_id = f"{USER}/{repo_name()}"
 
         # Spaces not tested on staging (error 500)
-        for repo_type in [None, REPO_TYPE_MODEL, REPO_TYPE_DATASET]:
+        for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
             self._api.create_repo(repo_id=repo_id, repo_type=repo_type)
             self._api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
             self._api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
@@ -278,7 +275,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         self._api.create_repo(repo_id=repo_id_2)
 
         with pytest.raises(HfHubHTTPError, match=r"A model repository called .* already exists"):
-            self._api.move_repo(from_id=repo_id_1, to_id=repo_id_2, repo_type=REPO_TYPE_MODEL)
+            self._api.move_repo(from_id=repo_id_1, to_id=repo_id_2, repo_type=constants.REPO_TYPE_MODEL)
 
         self._api.delete_repo(repo_id=repo_id_1)
         self._api.delete_repo(repo_id=repo_id_2)
@@ -2484,6 +2481,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.api.list_repo_files = self.repo_files_mock
 
         self.create_commit_mock = Mock()
+        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
         self.create_commit_mock.return_value.pr_url = None
         self.api.create_commit = self.create_commit_mock
 
@@ -2702,7 +2700,7 @@ class ParseHFUrlTest(unittest.TestCase):
 
         for key, value in possible_values.items():
             self.assertEqual(
-                repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
+                repo_type_and_id_from_hf_id(key, hub_url=ENDPOINT_PRODUCTION),
                 tuple(value),
             )
 
@@ -2715,7 +2713,7 @@ class ParseHFUrlTest(unittest.TestCase):
             "spaeces/user/id",  # with typo in repo type
         ]:
             with self.assertRaises(ValueError):
-                repo_type_and_id_from_hf_id(hub_id, hub_url="https://huggingface.co")
+                repo_type_and_id_from_hf_id(hub_id, hub_url=ENDPOINT_PRODUCTION)
 
 
 class HfApiDiscussionsTest(HfApiCommonTest):
@@ -3045,12 +3043,13 @@ iface = gr.Interface(fn=greet, inputs="text", outputs="text")
 iface.launch()
 """.encode()
 
+    @with_production_testing
     def setUp(self):
         super().setUp()
 
         # If generating new VCR => use personal token and REMOVE IT from the VCR
         self.repo_id = "user/tmp_test_space"  # no need to be unique as it's a VCRed test
-        self.api = HfApi(token="hf_fake_token", endpoint="https://huggingface.co")
+        self.api = HfApi(token="hf_fake_token", endpoint=ENDPOINT_PRODUCTION)
 
         # Create a Space
         self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
@@ -3136,6 +3135,7 @@ iface.launch()
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
+    @with_production_testing
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -3675,7 +3675,7 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
 
 
-@patch("huggingface_hub.hf_api.ENDPOINT", "https://huggingface.co")
+@patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
         url = RepoUrl("https://huggingface.co/gpt2")
@@ -3701,7 +3701,7 @@ class RepoUrlTest(unittest.TestCase):
     def test_repo_url_endpoint(self):
         # Implicit endpoint
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url.endpoint, "https://huggingface.co")
+        self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
 
         # Explicit endpoint
         url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
@@ -3754,6 +3754,19 @@ class RepoUrlTest(unittest.TestCase):
                 url = RepoUrl(_id)
                 self.assertEqual(url.repo_id, "squad")
                 self.assertEqual(url.repo_type, "dataset")
+
+    def test_repo_url_in_commit_info(self):
+        info = CommitInfo(
+            commit_url="https://huggingface.co/Wauplin/test-repo-id-mixin/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
+            commit_message="Dummy message",
+            commit_description="Dummy description",
+            oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
+            pr_url=None,
+        )
+        assert isinstance(info.repo_url, RepoUrl)
+        assert info.repo_url.endpoint == "https://huggingface.co"
+        assert info.repo_url.repo_id == "Wauplin/test-repo-id-mixin"
+        assert info.repo_url.repo_type == "model"
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
