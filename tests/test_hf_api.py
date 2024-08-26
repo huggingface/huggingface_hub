@@ -98,6 +98,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     require_git_lfs,
@@ -2480,6 +2481,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.api.list_repo_files = self.repo_files_mock
 
         self.create_commit_mock = Mock()
+        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
         self.create_commit_mock.return_value.pr_url = None
         self.api.create_commit = self.create_commit_mock
 
@@ -2698,7 +2700,7 @@ class ParseHFUrlTest(unittest.TestCase):
 
         for key, value in possible_values.items():
             self.assertEqual(
-                repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
+                repo_type_and_id_from_hf_id(key, hub_url=ENDPOINT_PRODUCTION),
                 tuple(value),
             )
 
@@ -2711,7 +2713,7 @@ class ParseHFUrlTest(unittest.TestCase):
             "spaeces/user/id",  # with typo in repo type
         ]:
             with self.assertRaises(ValueError):
-                repo_type_and_id_from_hf_id(hub_id, hub_url="https://huggingface.co")
+                repo_type_and_id_from_hf_id(hub_id, hub_url=ENDPOINT_PRODUCTION)
 
 
 class HfApiDiscussionsTest(HfApiCommonTest):
@@ -3041,12 +3043,13 @@ iface = gr.Interface(fn=greet, inputs="text", outputs="text")
 iface.launch()
 """.encode()
 
+    @with_production_testing
     def setUp(self):
         super().setUp()
 
         # If generating new VCR => use personal token and REMOVE IT from the VCR
         self.repo_id = "user/tmp_test_space"  # no need to be unique as it's a VCRed test
-        self.api = HfApi(token="hf_fake_token", endpoint="https://huggingface.co")
+        self.api = HfApi(token="hf_fake_token", endpoint=ENDPOINT_PRODUCTION)
 
         # Create a Space
         self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
@@ -3132,6 +3135,7 @@ iface.launch()
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
+    @with_production_testing
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -3671,7 +3675,7 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
 
 
-@patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
+@patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
         url = RepoUrl("https://huggingface.co/gpt2")
@@ -3697,7 +3701,7 @@ class RepoUrlTest(unittest.TestCase):
     def test_repo_url_endpoint(self):
         # Implicit endpoint
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url.endpoint, "https://huggingface.co")
+        self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
 
         # Explicit endpoint
         url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
@@ -3750,6 +3754,19 @@ class RepoUrlTest(unittest.TestCase):
                 url = RepoUrl(_id)
                 self.assertEqual(url.repo_id, "squad")
                 self.assertEqual(url.repo_type, "dataset")
+
+    def test_repo_url_in_commit_info(self):
+        info = CommitInfo(
+            commit_url="https://huggingface.co/Wauplin/test-repo-id-mixin/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
+            commit_message="Dummy message",
+            commit_description="Dummy description",
+            oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
+            pr_url=None,
+        )
+        assert isinstance(info.repo_url, RepoUrl)
+        assert info.repo_url.endpoint == "https://huggingface.co"
+        assert info.repo_url.repo_id == "Wauplin/test-repo-id-mixin"
+        assert info.repo_url.repo_type == "model"
 
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
