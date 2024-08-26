@@ -820,7 +820,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
-        state_dict = torch.load(model_file, map_location=torch.device(map_location))
+        state_dict = torch.load(model_file, map_location=torch.device(map_location), weights_only=True)
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model
