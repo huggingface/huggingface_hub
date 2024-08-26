@@ -2480,6 +2480,7 @@ class UploadFolderMockedTest(unittest.TestCase):
         self.api.list_repo_files = self.repo_files_mock
 
         self.create_commit_mock = Mock()
+        self.create_commit_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
         self.create_commit_mock.return_value.pr_url = None
         self.api.create_commit = self.create_commit_mock
 
