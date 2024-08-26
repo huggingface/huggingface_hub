@@ -389,6 +389,9 @@ class CommitInfo(str):
             `create_pr=True` is passed. Can be passed as `discussion_num` in
             [`get_discussion_details`]. Example: `1`.
 
+        repo_url (`RepoUrl`):
+            Repo URL of the commit containing info like repo_id, repo_type, etc.
+
         _url (`str`, *optional*):
             Legacy url for `str` compatibility. Can be the url to the uploaded file on the Hub (if returned by
             [`upload_file`]), to the uploaded folder on the Hub (if returned by [`upload_folder`]) or to the commit on
@@ -401,6 +404,9 @@ class CommitInfo(str):
     commit_description: str
     oid: str
     pr_url: Optional[str] = None
+
+    # Computed from `commit_url` in `__post_init__`
+    repo_url: Optional[RepoUrl] = field(init=False)
 
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
@@ -417,6 +423,10 @@ class CommitInfo(str):
 
         See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
         """
+        # Repo info
+        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0]) if "/commit/" in self.commit_url else None
+
+        # PR info
         if self.pr_url is not None:
             self.pr_revision = _parse_revision_from_pr_url(self.pr_url)
             self.pr_num = int(self.pr_revision.split("/")[-1])

@@ -147,8 +147,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
             message = (
                 f"\n\n{response.status_code} Forbidden: {error_message}."
                 + f"\nCannot access content at: {response.url}."
-                + "\nIf you are trying to create or update content, "
-                + "make sure your token has the correct permissions."
+                + "\nMake sure your token has the correct permissions."
             )
             raise HfHubHTTPError(message, response=response) from e
 
