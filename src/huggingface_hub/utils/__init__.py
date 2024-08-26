@@ -17,6 +17,8 @@
 
 from huggingface_hub.errors import (
     BadRequestError,
+    CacheNotFound,
+    CorruptedCacheException,
     DisabledRepoError,
     EntryNotFoundError,
     FileMetadataError,
@@ -38,8 +40,6 @@ from ._cache_manager import (
     CachedFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
-    CacheNotFound,
-    CorruptedCacheException,
     DeleteCacheStrategy,
     HFCacheInfo,
     scan_cache_dir,
