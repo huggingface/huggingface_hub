@@ -26,8 +26,7 @@ jobs:
           [
             "Repository only",
             "Everything else",
-            "torch_1.12",
-            "torch_1.13",
+            "torch_1.11",
             "torch_latest",
           ]
         include:
@@ -82,14 +81,9 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            torch_1.12)
+            torch_1.11)
               uv pip install "huggingface_hub[torch] @ ."
-              uv pip install torch~=1.12
-              ;;
-
-            torch_1.13)
-              uv pip install "huggingface_hub[torch] @ ."
-              uv pip install torch~=1.13
+              uv pip install torch~=1.11
               ;;
 
             tensorflow)
@@ -138,7 +132,7 @@ jobs:
               eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
-            torch_1.12 | torch_1.13 | torch_latest)
+            torch_1.11 | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
