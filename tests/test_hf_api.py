@@ -98,6 +98,7 @@ from .testing_utils import (
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_MODEL_ID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
+    ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
     repo_name,
     require_git_lfs,
@@ -2699,7 +2700,7 @@ class ParseHFUrlTest(unittest.TestCase):
 
         for key, value in possible_values.items():
             self.assertEqual(
-                repo_type_and_id_from_hf_id(key, hub_url="https://huggingface.co"),
+                repo_type_and_id_from_hf_id(key, hub_url=ENDPOINT_PRODUCTION),
                 tuple(value),
             )
 
@@ -2712,7 +2713,7 @@ class ParseHFUrlTest(unittest.TestCase):
             "spaeces/user/id",  # with typo in repo type
         ]:
             with self.assertRaises(ValueError):
-                repo_type_and_id_from_hf_id(hub_id, hub_url="https://huggingface.co")
+                repo_type_and_id_from_hf_id(hub_id, hub_url=ENDPOINT_PRODUCTION)
 
 
 class HfApiDiscussionsTest(HfApiCommonTest):
@@ -3042,12 +3043,13 @@ iface = gr.Interface(fn=greet, inputs="text", outputs="text")
 iface.launch()
 """.encode()
 
+    @with_production_testing
     def setUp(self):
         super().setUp()
 
         # If generating new VCR => use personal token and REMOVE IT from the VCR
         self.repo_id = "user/tmp_test_space"  # no need to be unique as it's a VCRed test
-        self.api = HfApi(token="hf_fake_token", endpoint="https://huggingface.co")
+        self.api = HfApi(token="hf_fake_token", endpoint=ENDPOINT_PRODUCTION)
 
         # Create a Space
         self.api.create_repo(repo_id=self.repo_id, repo_type="space", space_sdk="gradio", private=True)
@@ -3133,6 +3135,7 @@ iface.launch()
         runtime = self.api.get_space_runtime("victor/static-space")
         self.assertIsInstance(runtime.raw, dict)
 
+    @with_production_testing
     def test_pause_and_restart_space(self) -> None:
         # Upload a fake app.py file
         self.api.upload_file(path_or_fileobj=b"", path_in_repo="app.py", repo_id=self.repo_id, repo_type="space")
@@ -3672,7 +3675,7 @@ class HfApiTokenAttributeTest(unittest.TestCase):
         self.assertEqual(mock_build_hf_headers.call_args[1]["user_agent"], {"A": "B"})
 
 
-@patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
+@patch("huggingface_hub.constants.ENDPOINT", ENDPOINT_PRODUCTION)
 class RepoUrlTest(unittest.TestCase):
     def test_repo_url_class(self):
         url = RepoUrl("https://huggingface.co/gpt2")
@@ -3698,7 +3701,7 @@ class RepoUrlTest(unittest.TestCase):
     def test_repo_url_endpoint(self):
         # Implicit endpoint
         url = RepoUrl("https://huggingface.co/gpt2")
-        self.assertEqual(url.endpoint, "https://huggingface.co")
+        self.assertEqual(url.endpoint, ENDPOINT_PRODUCTION)
 
         # Explicit endpoint
         url = RepoUrl("https://example.com/gpt2", endpoint="https://example.com")
