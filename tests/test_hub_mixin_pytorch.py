@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from huggingface_hub import HfApi, ModelCard, hf_hub_download
-from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
+from huggingface_hub import constants
 from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
@@ -217,10 +217,10 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         class TestMixin(ModelHubMixin):
             def _save_pretrained(self, save_directory: Path) -> None:
-                torch.save(DummyModel().state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+                torch.save(DummyModel().state_dict(), save_directory / constants.PYTORCH_WEIGHTS_NAME)
 
         TestMixin().save_pretrained(self.cache_dir)
-        return self.cache_dir / PYTORCH_WEIGHTS_NAME
+        return self.cache_dir / constants.PYTORCH_WEIGHTS_NAME
 
     @patch("huggingface_hub.hub_mixin.hf_hub_download")
     def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:

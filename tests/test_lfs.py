@@ -5,6 +5,7 @@ from io import BytesIO
 
 from huggingface_hub.lfs import SliceFileObj, UploadInfo
 from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub import file_download
 
 
 class TestUploadInfo(unittest.TestCase):

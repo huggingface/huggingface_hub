@@ -36,7 +36,7 @@ from huggingface_hub import (
     metadata_save,
     metadata_update,
 )
-from huggingface_hub.constants import REPOCARD_NAME
+from huggingface_hub import constants
 from huggingface_hub.errors import EntryNotFoundError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
@@ -206,7 +206,7 @@ class RepocardMetadataTest(unittest.TestCase):
     cache_dir: Path
 
     def setUp(self) -> None:
-        self.filepath = self.cache_dir / REPOCARD_NAME
+        self.filepath = self.cache_dir / constants.REPOCARD_NAME
 
     def test_metadata_load(self):
         self.filepath.write_text(DUMMY_MODELCARD)
@@ -278,7 +278,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
 
         self.repo_id = self.api.create_repo(repo_name()).repo_id
         self.api.upload_file(
-            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(), repo_id=self.repo_id, path_in_repo=REPOCARD_NAME
+            path_or_fileobj=DUMMY_MODELCARD_EVAL_RESULT.encode(), repo_id=self.repo_id, path_in_repo=constants.REPOCARD_NAME
         )
         self.existing_metadata = yaml.safe_load(DUMMY_MODELCARD_EVAL_RESULT.strip().strip("-"))
 
@@ -286,13 +286,13 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         self.api.delete_repo(repo_id=self.repo_id)
 
     def _get_remote_card(self) -> str:
-        return hf_hub_download(repo_id=self.repo_id, filename=REPOCARD_NAME)
+        return hf_hub_download(repo_id=self.repo_id, filename=constants.REPOCARD_NAME)
 
     def test_update_dataset_name(self):
         new_datasets_data = {"datasets": ["test/test_dataset"]}
         metadata_update(self.repo_id, new_datasets_data, token=self.token)
 
-        hf_hub_download(repo_id=self.repo_id, filename=REPOCARD_NAME)
+        hf_hub_download(repo_id=self.repo_id, filename=constants.REPOCARD_NAME)
         updated_metadata = metadata_load(self._get_remote_card())
         expected_metadata = copy.deepcopy(self.existing_metadata)
         expected_metadata.update(new_datasets_data)
@@ -413,7 +413,7 @@ class RepocardMetadataUpdateTest(unittest.TestCase):
         """
         # Create modelcard with metadata but empty text content
         self.api.upload_file(
-            path_or_fileobj=DUMMY_MODELCARD_NO_TEXT_CONTENT.encode(), path_in_repo=REPOCARD_NAME, repo_id=self.repo_id
+            path_or_fileobj=DUMMY_MODELCARD_NO_TEXT_CONTENT.encode(), path_in_repo=constants.REPOCARD_NAME, repo_id=self.repo_id
         )
         metadata_update(self.repo_id, {"tag": "test"}, token=self.token)
 
