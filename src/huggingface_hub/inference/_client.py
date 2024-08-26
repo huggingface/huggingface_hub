@@ -1655,7 +1655,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1684,7 +1685,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1713,7 +1715,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1742,7 +1745,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1771,7 +1775,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1799,7 +1804,8 @@ class InferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1864,8 +1870,10 @@ class InferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
+            stop (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop` is generated.
             stop_sequences (`List[str]`, *optional*):
-                Stop generating tokens if a member of `stop_sequences` is generated
+                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2009,6 +2017,15 @@ class InferenceClient:
             )
             decoder_input_details = False
 
+        if stop_sequences is not None:
+            warnings.warn(
+                "`stop_sequences` is a deprecated argument for `text_generation` task"
+                " and will be removed in version '0.28.0'. Use `stop` instead.",
+                FutureWarning,
+            )
+        if stop is None:
+            stop = stop_sequences  # use deprecated arg if provided
+
         # Build payload
         parameters = {
             "adapter_id": adapter_id,
@@ -2022,7 +2039,7 @@ class InferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop_sequences if stop_sequences is not None else [],
+            "stop": stop if stop is not None else [],
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2092,7 +2109,7 @@ class InferenceClient:
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
-                    stop_sequences=stop_sequences,
+                    stop=stop,
                     temperature=temperature,
                     top_k=top_k,
                     top_n_tokens=top_n_tokens,
