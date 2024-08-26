@@ -3751,6 +3751,19 @@ class RepoUrlTest(unittest.TestCase):
                 self.assertEqual(url.repo_id, "squad")
                 self.assertEqual(url.repo_type, "dataset")
 
+    def test_repo_url_in_commit_info(self):
+        info = CommitInfo(
+            commit_url="https://huggingface.co/Wauplin/test-repo-id-mixin/commit/52d172a8b276e529d5260d6f3f76c85be5889dee",
+            commit_message="Dummy message",
+            commit_description="Dummy description",
+            oid="52d172a8b276e529d5260d6f3f76c85be5889dee",
+            pr_url=None,
+        )
+        assert isinstance(info.repo_url, RepoUrl)
+        assert info.repo_url.endpoint == "https://huggingface.co"
+        assert info.repo_url.repo_id == "Wauplin/test-repo-id-mixin"
+        assert info.repo_url.repo_type == "model"
+
 
 class HfApiDuplicateSpaceTest(HfApiCommonTest):
     @unittest.skip("Duplicating Space doesn't work on staging.")

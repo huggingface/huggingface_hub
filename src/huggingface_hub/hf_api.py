@@ -406,7 +406,7 @@ class CommitInfo(str):
     pr_url: Optional[str] = None
 
     # Computed from `commit_url` in `__post_init__`
-    repo_url: Optional[RepoUrl] = field(init=False)
+    repo_url: RepoUrl = field(init=False)
 
     # Computed from `pr_url` in `__post_init__`
     pr_revision: Optional[str] = field(init=False)
@@ -424,7 +424,7 @@ class CommitInfo(str):
         See https://docs.python.org/3.10/library/dataclasses.html#post-init-processing.
         """
         # Repo info
-        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0]) if "/commit/" in self.commit_url else None
+        self.repo_url = RepoUrl(self.commit_url.split("/commit/")[0])
 
         # PR info
         if self.pr_url is not None:
