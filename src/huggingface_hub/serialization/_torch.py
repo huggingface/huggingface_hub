@@ -20,7 +20,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, Any
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
@@ -335,6 +335,7 @@ def split_torch_state_dict_into_shards(
         get_storage_id=get_torch_storage_id,
     )
 
+
 def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """Returns a unique id for plain tensor
     or a (potentially nested) Tuple of unique id for the flattened Tensor
@@ -344,6 +345,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             return tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
@@ -364,6 +366,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
         unique_id = storage_ptr(tensor)
 
     return unique_id
+
 
 def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", Union[int, Tuple[Any, ...]], int]:
     """
@@ -386,6 +389,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
@@ -433,6 +437,7 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
         if is_traceable_wrapper_subclass(tensor):
             return _get_unique_id(tensor)
     except ImportError:
@@ -536,6 +541,7 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()
             return all(_is_complete(getattr(tensor, attr)) for attr in attrs)

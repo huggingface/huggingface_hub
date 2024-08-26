@@ -34,10 +34,12 @@ def _dummy_get_storage_size(item):
 # util functions for checking the version for pytorch
 def is_wrapper_tensor_subclass_available():
     try:
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # noqa: F401
+
         return True
     except ImportError:
         return False
+
 
 @pytest.fixture
 def dummy_state_dict() -> Dict[str, List[int]]:
@@ -251,6 +253,7 @@ def test_get_torch_storage_size():
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch
     from torch.testing._internal.two_tensor import TwoTensor
+
     t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
     assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
     t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
@@ -340,7 +343,9 @@ def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
 ) -> None:
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
-        save_torch_state_dict(torch_state_dict_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False)
+        save_torch_state_dict(
+            torch_state_dict_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False
+        )
     assert "we strongly recommend using safe serialization" in caplog.text
 
     assert (tmp_path / "pytorch_model.bin").is_file()
@@ -349,11 +354,15 @@ def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
 
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"],
 ) -> None:
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
-        save_torch_state_dict(torch_state_dict_shared_layers_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False)
+        save_torch_state_dict(
+            torch_state_dict_shared_layers_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False
+        )
     assert "we strongly recommend using safe serialization" in caplog.text
 
     assert (tmp_path / "pytorch_model.bin").is_file()
