@@ -7555,7 +7555,6 @@ class HfApi:
                 "revision": revision,
                 "task": task,
                 "image": image,
-                "secrets": secrets,
             },
             "name": name,
             "provider": {
