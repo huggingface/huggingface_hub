@@ -46,9 +46,6 @@ from ._cache_manager import (
 )
 from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
-from ._errors import (
-    hf_raise_for_status,
-)
 from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential
@@ -58,6 +55,7 @@ from ._http import (
     configure_http_backend,
     fix_hf_endpoint_in_url,
     get_session,
+    hf_raise_for_status,
     http_backoff,
     reset_sessions,
 )

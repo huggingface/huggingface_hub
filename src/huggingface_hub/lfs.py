@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
 from urllib.parse import unquote
 
-from huggingface_hub.constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER, REPO_TYPES_URL_PREFIXES
+from huggingface_hub import constants
 
 from .utils import (
     build_hf_headers,
@@ -139,10 +139,10 @@ def post_lfs_batch_info(
         [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             If the server returned an error.
     """
-    endpoint = endpoint if endpoint is not None else ENDPOINT
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
     url_prefix = ""
-    if repo_type in REPO_TYPES_URL_PREFIXES:
-        url_prefix = REPO_TYPES_URL_PREFIXES[repo_type]
+    if repo_type in constants.REPO_TYPES_URL_PREFIXES:
+        url_prefix = constants.REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
     payload: Dict = {
         "operation": "upload",
@@ -328,9 +328,9 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
     # 2. Upload parts (either with hf_transfer or in pure Python)
-    use_hf_transfer = HF_HUB_ENABLE_HF_TRANSFER
+    use_hf_transfer = constants.HF_HUB_ENABLE_HF_TRANSFER
     if (
-        HF_HUB_ENABLE_HF_TRANSFER
+        constants.HF_HUB_ENABLE_HF_TRANSFER
         and not isinstance(operation.path_or_fileobj, str)
         and not isinstance(operation.path_or_fileobj, Path)
     ):

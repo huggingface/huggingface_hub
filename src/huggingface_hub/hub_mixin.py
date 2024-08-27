@@ -17,7 +17,7 @@ from typing import (
     Union,
 )
 
-from .constants import CONFIG_NAME, PYTORCH_WEIGHTS_NAME, SAFETENSORS_SINGLE_FILE
+from . import constants
 from .errors import EntryNotFoundError, HfHubHTTPError
 from .file_download import hf_hub_download
 from .hf_api import HfApi
@@ -416,7 +416,7 @@ class ModelHubMixin:
         # Remove config.json if already exists. After `_save_pretrained` we don't want to overwrite config.json
         # as it might have been saved by the custom `_save_pretrained` already. However we do want to overwrite
         # an existing config.json if it was not saved by `_save_pretrained`.
-        config_path = save_directory / CONFIG_NAME
+        config_path = save_directory / constants.CONFIG_NAME
         config_path.unlink(missing_ok=True)
 
         # save model weights/files (framework-specific)
@@ -504,15 +504,15 @@ class ModelHubMixin:
         model_id = str(pretrained_model_name_or_path)
         config_file: Optional[str] = None
         if os.path.isdir(model_id):
-            if CONFIG_NAME in os.listdir(model_id):
-                config_file = os.path.join(model_id, CONFIG_NAME)
+            if constants.CONFIG_NAME in os.listdir(model_id):
+                config_file = os.path.join(model_id, constants.CONFIG_NAME)
             else:
-                logger.warning(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
+                logger.warning(f"{constants.CONFIG_NAME} not found in {Path(model_id).resolve()}")
         else:
             try:
                 config_file = hf_hub_download(
                     repo_id=model_id,
-                    filename=CONFIG_NAME,
+                    filename=constants.CONFIG_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
@@ -522,7 +522,7 @@ class ModelHubMixin:
                     local_files_only=local_files_only,
                 )
             except HfHubHTTPError as e:
-                logger.info(f"{CONFIG_NAME} not found on the HuggingFace Hub: {str(e)}")
+                logger.info(f"{constants.CONFIG_NAME} not found on the HuggingFace Hub: {str(e)}")
 
         # Read config
         config = None
@@ -766,7 +766,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model_as_safetensor(model_to_save, str(save_directory / SAFETENSORS_SINGLE_FILE))
+        save_model_as_safetensor(model_to_save, str(save_directory / constants.SAFETENSORS_SINGLE_FILE))
 
     @classmethod
     def _from_pretrained(
@@ -788,13 +788,13 @@ class PyTorchModelHubMixin(ModelHubMixin):
         model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
-            model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
+            model_file = os.path.join(model_id, constants.SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
             try:
                 model_file = hf_hub_download(
                     repo_id=model_id,
-                    filename=SAFETENSORS_SINGLE_FILE,
+                    filename=constants.SAFETENSORS_SINGLE_FILE,
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
@@ -807,7 +807,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
             except EntryNotFoundError:
                 model_file = hf_hub_download(
                     repo_id=model_id,
-                    filename=PYTORCH_WEIGHTS_NAME,
+                    filename=constants.PYTORCH_WEIGHTS_NAME,
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
@@ -820,7 +820,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
-        state_dict = torch.load(model_file, map_location=torch.device(map_location))
+        state_dict = torch.load(model_file, map_location=torch.device(map_location), weights_only=True)
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
         return model

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict, Union
 from urllib.parse import urlparse
 
-from huggingface_hub.constants import REPO_TYPES_URL_PREFIXES, REPOCARD_NAME
+from huggingface_hub import constants
 from huggingface_hub.repocard import metadata_load, metadata_save
 
 from .hf_api import HfApi, repo_type_and_id_from_hf_id
@@ -659,8 +659,8 @@ class Repository:
 
             repo_url = hub_url + "/"
 
-            if self._repo_type in REPO_TYPES_URL_PREFIXES:
-                repo_url += REPO_TYPES_URL_PREFIXES[self._repo_type]
+            if self._repo_type in constants.REPO_TYPES_URL_PREFIXES:
+                repo_url += constants.REPO_TYPES_URL_PREFIXES[self._repo_type]
 
             if token is not None:
                 # Add token in git url when provided
@@ -1434,13 +1434,13 @@ class Repository:
             os.chdir(current_working_directory)
 
     def repocard_metadata_load(self) -> Optional[Dict]:
-        filepath = os.path.join(self.local_dir, REPOCARD_NAME)
+        filepath = os.path.join(self.local_dir, constants.REPOCARD_NAME)
         if os.path.isfile(filepath):
             return metadata_load(filepath)
         return None
 
     def repocard_metadata_save(self, data: Dict) -> None:
-        return metadata_save(os.path.join(self.local_dir, REPOCARD_NAME), data)
+        return metadata_save(os.path.join(self.local_dir, constants.REPOCARD_NAME), data)
 
     @property
     def commands_failed(self):

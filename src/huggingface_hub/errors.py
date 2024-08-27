@@ -67,54 +67,14 @@ class HfHubHTTPError(HTTPError):
     ```
     """
 
-    request_id: Optional[str] = None
-    server_message: Optional[str] = None
-
-    def __init__(self, message: str, response: Optional[Response] = None):
-        # Parse server information if any.
-        if response is not None:
-            # Import here to avoid circular import
-            from .utils._fixes import JSONDecodeError
-
-            self.request_id = response.headers.get("X-Request-Id")
-            try:
-                server_data = response.json()
-            except JSONDecodeError:
-                server_data = {}
-
-            # Retrieve server error message from multiple sources
-            server_message_from_headers = response.headers.get("X-Error-Message")
-            server_message_from_body = server_data.get("error")
-            server_multiple_messages_from_body = "\n".join(
-                error["message"] for error in server_data.get("errors", []) if "message" in error
-            )
-
-            # Concatenate error messages
-            _server_message = ""
-            if server_message_from_headers is not None:  # from headers
-                _server_message += server_message_from_headers + "\n"
-            if server_message_from_body is not None:  # from body "error"
-                if isinstance(server_message_from_body, list):
-                    server_message_from_body = "\n".join(server_message_from_body)
-                if server_message_from_body not in _server_message:
-                    _server_message += server_message_from_body + "\n"
-            if server_multiple_messages_from_body is not None:  # from body "errors"
-                if server_multiple_messages_from_body not in _server_message:
-                    _server_message += server_multiple_messages_from_body + "\n"
-            _server_message = _server_message.strip()
-
-            # Set message to `HfHubHTTPError` (if any)
-            if _server_message != "":
-                self.server_message = _server_message
+    def __init__(self, message: str, response: Optional[Response] = None, *, server_message: Optional[str] = None):
+        self.request_id = response.headers.get("x-request-id") if response is not None else None
+        self.server_message = server_message
 
         super().__init__(
-            _format_error_message(
-                message,
-                request_id=self.request_id,
-                server_message=self.server_message,
-            ),
-            response=response,  # type: ignore
-            request=response.request if response is not None else None,  # type: ignore
+            message,
+            response=response,  # type: ignore [arg-type]
+            request=response.request if response is not None else None,  # type: ignore [arg-type]
         )
 
     def append_to_message(self, additional_message: str) -> None:
@@ -211,7 +171,7 @@ class FileMetadataError(OSError):
     """
 
 
-# REPOSIORY ERRORS
+# REPOSITORY ERRORS
 
 
 class RepositoryNotFoundError(HfHubHTTPError):
@@ -351,29 +311,3 @@ class BadRequestError(HfHubHTTPError, ValueError):
     huggingface_hub.utils._errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```
     """
-
-
-def _format_error_message(message: str, request_id: Optional[str], server_message: Optional[str]) -> str:
-    """
-    Format the `HfHubHTTPError` error message based on initial message and information
-    returned by the server.
-
-    Used when initializing `HfHubHTTPError`.
-    """
-    # Add message from response body
-    if server_message is not None and len(server_message) > 0 and server_message.lower() not in message.lower():
-        if "\n\n" in message:
-            message += "\n" + server_message
-        else:
-            message += "\n\n" + server_message
-
-    # Add Request ID
-    if request_id is not None and str(request_id).lower() not in message.lower():
-        request_id_message = f" (Request ID: {request_id})"
-        if "\n" in message:
-            newline_index = message.index("\n")
-            message = message[:newline_index] + request_id_message + message[newline_index:]
-        else:
-            message += request_id_message
-
-    return message

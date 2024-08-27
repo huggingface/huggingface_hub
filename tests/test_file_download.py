@@ -28,14 +28,8 @@ import requests
 from requests import Response
 
 import huggingface_hub.file_download
-from huggingface_hub import HfApi, RepoUrl
+from huggingface_hub import HfApi, RepoUrl, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.constants import (
-    CONFIG_NAME,
-    HUGGINGFACE_HEADER_X_LINKED_ETAG,
-    PYTORCH_WEIGHTS_NAME,
-    REPO_TYPE_DATASET,
-)
 from huggingface_hub.errors import (
     EntryNotFoundError,
     GatedRepoError,
@@ -204,10 +198,10 @@ class CachedDownloadTests(unittest.TestCase):
     def test_no_connection(self):
         invalid_url = hf_hub_url(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
-        valid_url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
+        valid_url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         self.assertIsNotNone(cached_download(valid_url, force_download=True, legacy_cache_layout=True))
         for offline_mode in OfflineSimulationMode:
             with offline(mode=offline_mode):
@@ -233,7 +227,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Download a first time to get the refs ok
             filepath = hf_hub_download(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 cache_dir=tmpdir,
                 local_files_only=False,
             )
@@ -245,7 +239,7 @@ class CachedDownloadTests(unittest.TestCase):
             with pytest.raises(LocalEntryNotFoundError):
                 hf_hub_download(
                     DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
+                    filename=constants.CONFIG_NAME,
                     cache_dir=tmpdir,
                     local_files_only=True,
                 )
@@ -254,7 +248,7 @@ class CachedDownloadTests(unittest.TestCase):
     @expect_deprecation("url_to_filename")
     def test_file_not_found_locally_and_network_disabled_legacy(self):
         # Valid file but missing locally and network is disabled.
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
         with SoftTemporaryDirectory() as tmpdir:
             # Get without network must fail
             with pytest.raises(LocalEntryNotFoundError):
@@ -268,14 +262,14 @@ class CachedDownloadTests(unittest.TestCase):
     def test_private_repo_and_file_cached_locally(self):
         api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
         repo_id = api.create_repo(repo_id=repo_name(), private=True).repo_id
-        api.upload_file(path_or_fileobj=b"content", path_in_repo=CONFIG_NAME, repo_id=repo_id)
+        api.upload_file(path_or_fileobj=b"content", path_in_repo=constants.CONFIG_NAME, repo_id=repo_id)
 
         with SoftTemporaryDirectory() as tmpdir:
             # Download a first time with token => file is cached
-            filepath_1 = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir, token=TOKEN)
+            filepath_1 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir, token=TOKEN)
 
             # Download without token => return cached file
-            filepath_2 = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+            filepath_2 = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
 
             self.assertEqual(filepath_1, filepath_2)
 
@@ -287,13 +281,13 @@ class CachedDownloadTests(unittest.TestCase):
         # Valid file but missing locally and network is disabled.
         with SoftTemporaryDirectory() as tmpdir:
             # Download a first time to get the refs ok
-            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
 
             # Set read-only permission recursively
             _recursive_chmod(tmpdir, 0o555)
 
             # Get without write-access must succeed
-            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
 
             # Set permission back for cleanup
             _recursive_chmod(tmpdir, 0o777)
@@ -303,7 +297,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Valid file but missing revision
         url = hf_hub_url(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_INVALID,
         )
         with self.assertRaisesRegex(
@@ -326,7 +320,7 @@ class CachedDownloadTests(unittest.TestCase):
     @expect_deprecation("url_to_filename")
     @expect_deprecation("filename_to_url")
     def test_standard_object(self):
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision=REVISION_ID_DEFAULT)
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
@@ -338,7 +332,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Same object, but different revision
         url = hf_hub_url(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
@@ -350,7 +344,7 @@ class CachedDownloadTests(unittest.TestCase):
     @expect_deprecation("url_to_filename")
     @expect_deprecation("filename_to_url")
     def test_lfs_object(self):
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
         metadata = filename_to_url(filepath, legacy_cache_layout=True)
         self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
@@ -362,7 +356,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(
             DATASET_ID,
             filename=DATASET_SAMPLE_PY_FILE,
-            repo_type=REPO_TYPE_DATASET,
+            repo_type=constants.REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
         # now let's download
@@ -377,7 +371,7 @@ class CachedDownloadTests(unittest.TestCase):
         url = hf_hub_url(
             DATASET_ID,
             filename="dev-v1.1.json",
-            repo_type=REPO_TYPE_DATASET,
+            repo_type=constants.REPO_TYPE_DATASET,
             revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
         )
         filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
@@ -442,7 +436,7 @@ class CachedDownloadTests(unittest.TestCase):
         filepath = Path(
             hf_hub_download(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 subfolder="",  # Subfolder should be processed as `None`
             )
         )
@@ -450,7 +444,7 @@ class CachedDownloadTests(unittest.TestCase):
         # Check file exists and is not in a subfolder in cache
         # e.g: "(...)/snapshots/<commit-id>/config.json"
         self.assertTrue(filepath.is_file())
-        self.assertEqual(filepath.name, CONFIG_NAME)
+        self.assertEqual(filepath.name, constants.CONFIG_NAME)
         self.assertEqual(Path(filepath).parent.parent.name, "snapshots")
 
     def test_hf_hub_download_offline_no_refs(self):
@@ -466,7 +460,7 @@ class CachedDownloadTests(unittest.TestCase):
             with self.assertRaises(LocalEntryNotFoundError):
                 hf_hub_download(
                     DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
+                    filename=constants.CONFIG_NAME,
                     local_files_only=True,
                     cache_dir=cache_dir,
                 )
@@ -489,7 +483,7 @@ class CachedDownloadTests(unittest.TestCase):
                 # First download
                 hf_hub_download(
                     DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
+                    filename=constants.CONFIG_NAME,
                     cache_dir=cache_dir,
                     library_name="test",
                     library_version="1.0.0",
@@ -504,7 +498,7 @@ class CachedDownloadTests(unittest.TestCase):
                 # Second download: no GET call
                 hf_hub_download(
                     DUMMY_MODEL_ID,
-                    filename=CONFIG_NAME,
+                    filename=constants.CONFIG_NAME,
                     cache_dir=cache_dir,
                     library_name="test",
                     library_version="1.0.0",
@@ -524,7 +518,7 @@ class CachedDownloadTests(unittest.TestCase):
         """
         url = hf_hub_url(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             subfolder="",  # Subfolder should be processed as `None`
         )
         self.assertTrue(
@@ -534,7 +528,7 @@ class CachedDownloadTests(unittest.TestCase):
             )
         )
 
-    @patch("huggingface_hub.file_download.ENDPOINT", "https://huggingface.co")
+    @patch("huggingface_hub.file_download.constants.ENDPOINT", "https://huggingface.co")
     @patch(
         "huggingface_hub.file_download.HUGGINGFACE_CO_URL_TEMPLATE",
         "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
@@ -543,7 +537,7 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertEqual(
             hf_hub_url(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 endpoint="https://hf-ci.co",
             ),
             "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
@@ -556,7 +550,7 @@ class CachedDownloadTests(unittest.TestCase):
     def test_hf_hub_download_legacy(self):
         filepath = hf_hub_download(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             revision=REVISION_ID_DEFAULT,
             force_download=True,
             legacy_cache_layout=True,
@@ -566,12 +560,12 @@ class CachedDownloadTests(unittest.TestCase):
 
     def test_try_to_load_from_cache_exist(self):
         # Make sure the file is cached
-        filepath = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+        filepath = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
 
-        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME)
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
         self.assertEqual(filepath, new_file_path)
 
-        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="main")
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="main")
         self.assertEqual(filepath, new_file_path)
 
         # If file is not cached, returns None
@@ -580,25 +574,27 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertIsNone(
             try_to_load_from_cache(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 revision="aaa",
             )
         )
         # Same for uncached models
-        self.assertIsNone(try_to_load_from_cache("bert-base", filename=CONFIG_NAME))
+        self.assertIsNone(try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME))
 
     def test_try_to_load_from_cache_specific_pr_revision_exists(self):
         # Make sure the file is cached
-        file_path = hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1")
+        file_path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="refs/pr/1")
 
-        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="refs/pr/1")
+        new_file_path = try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="refs/pr/1")
         self.assertEqual(file_path, new_file_path)
 
         # If file is not cached, returns None
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"))
 
         # If revision does not exist, returns None
-        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename=CONFIG_NAME, revision="does-not-exist"))
+        self.assertIsNone(
+            try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="does-not-exist")
+        )
 
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
@@ -623,7 +619,7 @@ class CachedDownloadTests(unittest.TestCase):
             commit_id = HfApi().model_info(DUMMY_MODEL_ID).sha
             filepath = hf_hub_download(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 revision=commit_id,
                 cache_dir=cache_dir,
             )
@@ -631,7 +627,7 @@ class CachedDownloadTests(unittest.TestCase):
             # Must be able to retrieve it "offline"
             attempt = try_to_load_from_cache(
                 DUMMY_MODEL_ID,
-                filename=CONFIG_NAME,
+                filename=constants.CONFIG_NAME,
                 revision=commit_id,
                 cache_dir=cache_dir,
             )
@@ -665,7 +661,7 @@ class CachedDownloadTests(unittest.TestCase):
         """Test getting metadata from a file on the Hub."""
         url = hf_hub_url(
             DUMMY_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
         )
         metadata = get_hf_file_metadata(url)
@@ -680,7 +676,7 @@ class CachedDownloadTests(unittest.TestCase):
         """Test getting metadata from a file in a renamed repo on the Hub."""
         url = hf_hub_url(
             DUMMY_RENAMED_OLD_MODEL_ID,
-            filename=CONFIG_NAME,
+            filename=constants.CONFIG_NAME,
             subfolder="",  # Subfolder should be processed as `None`
         )
         metadata = get_hf_file_metadata(url)
@@ -721,7 +717,7 @@ class CachedDownloadTests(unittest.TestCase):
 
             with patch("huggingface_hub.file_download.get_hf_file_metadata", _mocked_hf_file_metadata):
                 with self.assertRaises(EnvironmentError):
-                    hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir)
+                    hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
 
     def test_file_consistency_check_fails_LFS_file(self):
         """Regression test for #1396 (LFS file).
@@ -767,7 +763,7 @@ class CachedDownloadTests(unittest.TestCase):
     def test_keep_lock_file(self):
         """Lock files should not be deleted on Linux."""
         with SoftTemporaryDirectory() as tmpdir:
-            hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=tmpdir)
+            hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=tmpdir)
             lock_file_exist = False
             locks_dir = os.path.join(tmpdir, ".locks")
             for subdir, dirs, files in os.walk(locks_dir):
@@ -1261,13 +1257,15 @@ class TestNormalizeEtag(unittest.TestCase):
     @staticmethod
     def _get_etag_and_normalize(response: Response) -> str:
         response.raise_for_status()
-        return _normalize_etag(response.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag"))
+        return _normalize_etag(
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
+        )
 
 
 @with_production_testing
 class TestEtagTimeoutConfig(unittest.TestCase):
-    @patch("huggingface_hub.file_download.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.HF_HUB_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
     def test_etag_timeout_default_value(self):
         with SoftTemporaryDirectory() as cache_dir:
             with patch.object(
@@ -1275,13 +1273,13 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 "get_hf_file_metadata",
                 wraps=huggingface_hub.file_download.get_hf_file_metadata,
             ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir)
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
                 self.assertEqual(kwargs["timeout"], 10)
 
-    @patch("huggingface_hub.file_download.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.HF_HUB_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 10)
     def test_etag_timeout_parameter_value(self):
         with SoftTemporaryDirectory() as cache_dir:
             with patch.object(
@@ -1289,13 +1287,13 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 "get_hf_file_metadata",
                 wraps=huggingface_hub.file_download.get_hf_file_metadata,
             ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
                 self.assertEqual(kwargs["timeout"], 12)  # passed as parameter, takes priority
 
-    @patch("huggingface_hub.file_download.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
+    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
     def test_etag_timeout_set_as_env_variable(self):
         with SoftTemporaryDirectory() as cache_dir:
             with patch.object(
@@ -1303,13 +1301,13 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 "get_hf_file_metadata",
                 wraps=huggingface_hub.file_download.get_hf_file_metadata,
             ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir)
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
                 self.assertEqual(kwargs["timeout"], 15)
 
-    @patch("huggingface_hub.file_download.DEFAULT_ETAG_TIMEOUT", 10)
-    @patch("huggingface_hub.file_download.HF_HUB_ETAG_TIMEOUT", 15)  # takes priority
+    @patch("huggingface_hub.file_download.constants.DEFAULT_ETAG_TIMEOUT", 10)
+    @patch("huggingface_hub.file_download.constants.HF_HUB_ETAG_TIMEOUT", 12)  # takes priority
     def test_etag_timeout_set_as_env_variable_parameter_ignored(self):
         with SoftTemporaryDirectory() as cache_dir:
             with patch.object(
@@ -1317,10 +1315,10 @@ class TestEtagTimeoutConfig(unittest.TestCase):
                 "get_hf_file_metadata",
                 wraps=huggingface_hub.file_download.get_hf_file_metadata,
             ) as mock_etag_call:
-                hf_hub_download(DUMMY_MODEL_ID, filename=CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
+                hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir, etag_timeout=12)
                 kwargs = mock_etag_call.call_args.kwargs
                 self.assertIn("timeout", kwargs)
-                self.assertEqual(kwargs["timeout"], 15)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
+                self.assertEqual(kwargs["timeout"], 12)  # passed value ignored, HF_HUB_ETAG_TIMEOUT takes priority
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
