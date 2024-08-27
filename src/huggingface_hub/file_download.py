@@ -30,7 +30,7 @@ from ._local_folder import (
 from .constants import (
     HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401 # for backward compatibility
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
-    )
+)
 from .errors import (
     EntryNotFoundError,
     FileMetadataError,
