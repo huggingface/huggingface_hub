@@ -18,8 +18,9 @@ from urllib.parse import quote, urlparse
 
 import requests
 
-from . import (__version__ , # noqa: F401 # for backward compatibility
-               constants,
+from . import (
+    __version__,  # noqa: F401 # for backward compatibility
+    constants,
 )
 from ._local_folder import (
     get_local_download_paths,
@@ -27,26 +28,9 @@ from ._local_folder import (
     write_download_metadata,
 )
 from .constants import (
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REQUEST_TIMEOUT,
-    DEFAULT_REVISION,
-    DOWNLOAD_CHUNK_SIZE,
-    ENDPOINT,
-    HF_HUB_CACHE,
-    HF_HUB_DISABLE_SYMLINKS_WARNING,
-    HF_HUB_DOWNLOAD_TIMEOUT,
-    HF_HUB_ENABLE_HF_TRANSFER,
-    HF_HUB_ETAG_TIMEOUT,
-    HF_TRANSFER_CONCURRENCY,
     HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401 # for backward compatibility
-    HUGGINGFACE_HEADER_X_LINKED_ETAG,
-    HUGGINGFACE_HEADER_X_LINKED_SIZE,
-    HUGGINGFACE_HEADER_X_REPO_COMMIT,
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
-    REPO_ID_SEPARATOR,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
-)
+    )
 from .errors import (
     EntryNotFoundError,
     FileMetadataError,
@@ -1695,7 +1679,9 @@ def get_hf_file_metadata(
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
         location=r.headers.get("Location") or r.request.url,  # type: ignore
-        size=_int_or_none(r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")),
+        size=_int_or_none(
+            r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
+        ),
     )
 
 

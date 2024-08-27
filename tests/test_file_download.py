@@ -592,7 +592,9 @@ class CachedDownloadTests(unittest.TestCase):
         self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename="conf.json", revision="refs/pr/1"))
 
         # If revision does not exist, returns None
-        self.assertIsNone(try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="does-not-exist"))
+        self.assertIsNone(
+            try_to_load_from_cache(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="does-not-exist")
+        )
 
     def test_try_to_load_from_cache_no_exist(self):
         # Make sure the file is cached
@@ -1255,7 +1257,9 @@ class TestNormalizeEtag(unittest.TestCase):
     @staticmethod
     def _get_etag_and_normalize(response: Response) -> str:
         response.raise_for_status()
-        return _normalize_etag(response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag"))
+        return _normalize_etag(
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
+        )
 
 
 @with_production_testing

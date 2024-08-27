@@ -9,8 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from huggingface_hub import HfApi, ModelCard, hf_hub_download
-from huggingface_hub import constants
+from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
 from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.serialization._torch import storage_ptr

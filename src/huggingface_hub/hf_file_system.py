@@ -15,8 +15,8 @@ from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.utils import isfilelike
 from requests import Response
 
-from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from . import constants
+from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
@@ -118,7 +118,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Tuple[bool, Optional[Exception]]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
-                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type, timeout=constants.HF_HUB_ETAG_TIMEOUT)
+                self._api.repo_info(
+                    repo_id, revision=revision, repo_type=repo_type, timeout=constants.HF_HUB_ETAG_TIMEOUT
+                )
             except (RepositoryNotFoundError, HFValidationError) as e:
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)] = False, e
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = False, e

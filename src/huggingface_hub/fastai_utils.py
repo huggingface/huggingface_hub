@@ -6,8 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging import version
 
-from huggingface_hub import snapshot_download
-from huggingface_hub import constants
+from huggingface_hub import constants, snapshot_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
