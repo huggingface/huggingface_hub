@@ -7545,7 +7545,6 @@ class HfApi:
                 "revision": revision,
                 "task": task,
                 "image": image,
-                "secrets": secrets,
             },
             "name": name,
             "provider": {
@@ -7554,7 +7553,8 @@ class HfApi:
             },
             "type": type,
         }
-
+        if secrets:
+            payload["model"]["secrets"] = secrets
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
