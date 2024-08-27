@@ -6,8 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from packaging import version
 
-from huggingface_hub import snapshot_download
-from huggingface_hub.constants import CONFIG_NAME
+from huggingface_hub import constants, snapshot_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.utils import (
     SoftTemporaryDirectory,
@@ -272,7 +271,7 @@ def _save_pretrained_fastai(
     if config is not None:
         if not isinstance(config, dict):
             raise RuntimeError(f"Provided config should be a dict. Got: '{type(config)}'")
-        path = os.path.join(save_directory, CONFIG_NAME)
+        path = os.path.join(save_directory, constants.CONFIG_NAME)
         with open(path, "w") as f:
             json.dump(config, f)
 

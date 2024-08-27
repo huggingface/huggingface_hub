@@ -18,32 +18,18 @@ from urllib.parse import quote, urlparse
 
 import requests
 
-from . import __version__  # noqa: F401 # for backward compatibility
+from . import (
+    __version__,  # noqa: F401 # for backward compatibility
+    constants,
+)
 from ._local_folder import (
     get_local_download_paths,
     read_download_metadata,
     write_download_metadata,
 )
 from .constants import (
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REQUEST_TIMEOUT,
-    DEFAULT_REVISION,
-    DOWNLOAD_CHUNK_SIZE,
-    ENDPOINT,
-    HF_HUB_CACHE,
-    HF_HUB_DISABLE_SYMLINKS_WARNING,
-    HF_HUB_DOWNLOAD_TIMEOUT,
-    HF_HUB_ENABLE_HF_TRANSFER,
-    HF_HUB_ETAG_TIMEOUT,
-    HF_TRANSFER_CONCURRENCY,
-    HUGGINGFACE_CO_URL_TEMPLATE,
-    HUGGINGFACE_HEADER_X_LINKED_ETAG,
-    HUGGINGFACE_HEADER_X_LINKED_SIZE,
-    HUGGINGFACE_HEADER_X_REPO_COMMIT,
+    HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401 # for backward compatibility
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
-    REPO_ID_SEPARATOR,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
 )
 from .errors import (
     EntryNotFoundError,
@@ -118,7 +104,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
     """
     # Defaults to HF cache
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
     cache_dir = str(Path(cache_dir).expanduser().resolve())  # make it unique
 
     # Check symlink compatibility only once (per cache directory) at first time use
@@ -139,7 +125,7 @@ def are_symlinks_supported(cache_dir: Union[str, Path, None] = None) -> bool:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
 
-                if not HF_HUB_DISABLE_SYMLINKS_WARNING:
+                if not constants.HF_HUB_DISABLE_SYMLINKS_WARNING:
                     message = (
                         "`huggingface_hub` cache-system uses symlinks by default to"
                         " efficiently store duplicated files but your machine does not"
@@ -259,20 +245,20 @@ def hf_hub_url(
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
-    if repo_type not in REPO_TYPES:
+    if repo_type not in constants.REPO_TYPES:
         raise ValueError("Invalid repo type")
 
-    if repo_type in REPO_TYPES_URL_PREFIXES:
-        repo_id = REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+    if repo_type in constants.REPO_TYPES_URL_PREFIXES:
+        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
 
     if revision is None:
-        revision = DEFAULT_REVISION
+        revision = constants.DEFAULT_REVISION
     url = HUGGINGFACE_CO_URL_TEMPLATE.format(
         repo_id=repo_id, revision=quote(revision, safe=""), filename=quote(filename)
     )
     # Update endpoint if provided
-    if endpoint is not None and url.startswith(ENDPOINT):
-        url = endpoint + url[len(ENDPOINT) :]
+    if endpoint is not None and url.startswith(constants.ENDPOINT):
+        url = endpoint + url[len(constants.ENDPOINT) :]
     return url
 
 
@@ -335,7 +321,7 @@ def filename_to_url(
         )
 
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -442,7 +428,7 @@ def http_get(
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
     """
     hf_transfer = None
-    if HF_HUB_ENABLE_HF_TRANSFER:
+    if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
             warnings.warn("'hf_transfer' does not support `resume_size`: falling back to regular download method")
         elif proxies is not None:
@@ -463,7 +449,7 @@ def http_get(
         headers["Range"] = "bytes=%d-" % (resume_size,)
 
     r = _request_wrapper(
-        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=HF_HUB_DOWNLOAD_TIMEOUT
+        method="GET", url=url, stream=True, proxies=proxies, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT
     )
     hf_raise_for_status(r)
     content_length = r.headers.get("Content-Length")
@@ -513,7 +499,7 @@ def http_get(
     )
 
     with progress_cm as progress:
-        if hf_transfer and total is not None and total > 5 * DOWNLOAD_CHUNK_SIZE:
+        if hf_transfer and total is not None and total > 5 * constants.DOWNLOAD_CHUNK_SIZE:
             supports_callback = "callback" in inspect.signature(hf_transfer.download).parameters
             if not supports_callback:
                 warnings.warn(
@@ -525,8 +511,8 @@ def http_get(
                 hf_transfer.download(
                     url=url,
                     filename=temp_file.name,
-                    max_files=HF_TRANSFER_CONCURRENCY,
-                    chunk_size=DOWNLOAD_CHUNK_SIZE,
+                    max_files=constants.HF_TRANSFER_CONCURRENCY,
+                    chunk_size=constants.DOWNLOAD_CHUNK_SIZE,
                     headers=headers,
                     parallel_failures=3,
                     max_retries=5,
@@ -548,7 +534,7 @@ def http_get(
             return
         new_resume_size = resume_size
         try:
-            for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
+            for chunk in r.iter_content(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
                 if chunk:  # filter out keep-alive new chunks
                     progress.update(len(chunk))
                     temp_file.write(chunk)
@@ -596,7 +582,7 @@ def cached_download(
     force_download: bool = False,
     force_filename: Optional[str] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     resume_download: Optional[bool] = None,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
@@ -674,9 +660,9 @@ def cached_download(
 
     </Tip>
     """
-    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+    if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
-        etag_timeout = HF_HUB_ETAG_TIMEOUT
+        etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
 
     if not legacy_cache_layout:
         warnings.warn(
@@ -693,7 +679,7 @@ def cached_download(
         )
 
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
@@ -725,7 +711,7 @@ def cached_download(
             )
             headers.pop("Accept-Encoding", None)
             hf_raise_for_status(r)
-            etag = r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
+            etag = r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
             # We favor a custom header indicating the etag of the linked resource, and
             # we fallback to the regular etag header.
             # If we don't have any of those, raise an error.
@@ -972,7 +958,7 @@ def repo_folder_name(*, repo_id: str, repo_type: str) -> str:
     """
     # remove all `/` occurrences to correctly convert repo to directory name
     parts = [f"{repo_type}s", *repo_id.split("/")]
-    return REPO_ID_SEPARATOR.join(parts)
+    return constants.REPO_ID_SEPARATOR.join(parts)
 
 
 def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
@@ -1023,7 +1009,7 @@ def hf_hub_download(
     user_agent: Union[Dict, str, None] = None,
     force_download: bool = False,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     token: Union[bool, str, None] = None,
     local_files_only: bool = False,
     headers: Optional[Dict[str, str]] = None,
@@ -1137,9 +1123,9 @@ def hf_hub_download(
             If some parameter value is invalid.
 
     """
-    if HF_HUB_ETAG_TIMEOUT != DEFAULT_ETAG_TIMEOUT:
+    if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
         # Respect environment variable above user value
-        etag_timeout = HF_HUB_ETAG_TIMEOUT
+        etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
 
     if force_filename is not None:
         warnings.warn(
@@ -1182,9 +1168,9 @@ def hf_hub_download(
         )
 
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
     if revision is None:
-        revision = DEFAULT_REVISION
+        revision = constants.DEFAULT_REVISION
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
     if isinstance(local_dir, Path):
@@ -1198,8 +1184,8 @@ def hf_hub_download(
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES:
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
 
     headers = build_hf_headers(
         token=token,
@@ -1583,10 +1569,10 @@ def try_to_load_from_cache(
         revision = "main"
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES:
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
 
     object_id = repo_id.replace("/", "--")
     repo_cache = os.path.join(cache_dir, f"{repo_type}s--{object_id}")
@@ -1627,7 +1613,7 @@ def get_hf_file_metadata(
     url: str,
     token: Union[bool, str, None] = None,
     proxies: Optional[Dict] = None,
-    timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
+    timeout: Optional[float] = constants.DEFAULT_REQUEST_TIMEOUT,
     library_name: Optional[str] = None,
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
@@ -1685,15 +1671,17 @@ def get_hf_file_metadata(
 
     # Return
     return HfFileMetadata(
-        commit_hash=r.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT),
+        commit_hash=r.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
         # We favor a custom header indicating the etag of the linked resource, and
         # we fallback to the regular etag header.
-        etag=_normalize_etag(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
+        etag=_normalize_etag(r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")),
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url`, as `_request_wrapper` might have followed relative
         # redirects.
         location=r.headers.get("Location") or r.request.url,  # type: ignore
-        size=_int_or_none(r.headers.get(HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")),
+        size=_int_or_none(
+            r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
+        ),
     )
 
 
@@ -1756,7 +1744,7 @@ def _get_metadata_or_catch_error(
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
-                    commit_hash = http_error.response.headers.get(HUGGINGFACE_HEADER_X_REPO_COMMIT)
+                    commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
                     if commit_hash is not None:
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
                         no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1890,14 +1878,14 @@ def _download_to_tmp_and_move(
         # Do nothing if already exists (except if force_download=True)
         return
 
-    if incomplete_path.exists() and (force_download or (HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
+    if incomplete_path.exists() and (force_download or (constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies)):
         # By default, we will try to resume the download if possible.
         # However, if the user has set `force_download=True` or if `hf_transfer` is enabled, then we should
         # not resume the download => delete the incomplete file.
         message = f"Removing incomplete file '{incomplete_path}'"
         if force_download:
             message += " (force_download=True)"
-        elif HF_HUB_ENABLE_HF_TRANSFER and not proxies:
+        elif constants.HF_HUB_ENABLE_HF_TRANSFER and not proxies:
             message += " (hf_transfer=True)"
         logger.info(message)
         incomplete_path.unlink(missing_ok=True)
