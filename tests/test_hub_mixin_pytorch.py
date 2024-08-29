@@ -9,10 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from huggingface_hub import HfApi, ModelCard, hf_hub_download
-from huggingface_hub.constants import PYTORCH_WEIGHTS_NAME
+from huggingface_hub import HfApi, ModelCard, constants, hf_hub_download
+from huggingface_hub.errors import EntryNotFoundError, HfHubHTTPError
 from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
-from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError, SoftTemporaryDirectory, is_torch_available
+from huggingface_hub.serialization._torch import storage_ptr
+from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import repo_name, requires
@@ -216,10 +217,10 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         class TestMixin(ModelHubMixin):
             def _save_pretrained(self, save_directory: Path) -> None:
-                torch.save(DummyModel().state_dict(), save_directory / PYTORCH_WEIGHTS_NAME)
+                torch.save(DummyModel().state_dict(), save_directory / constants.PYTORCH_WEIGHTS_NAME)
 
         TestMixin().save_pretrained(self.cache_dir)
-        return self.cache_dir / PYTORCH_WEIGHTS_NAME
+        return self.cache_dir / constants.PYTORCH_WEIGHTS_NAME
 
     @patch("huggingface_hub.hub_mixin.hf_hub_download")
     def test_from_pretrained_model_from_hub_fallback_pickle(self, hf_hub_download_mock: Mock) -> None:
@@ -414,10 +415,10 @@ class PytorchHubMixinTest(unittest.TestCase):
 
         # Linear layers should share weights and biases in memory
         state_dict = reloaded.state_dict()
-        a_weight_ptr = state_dict["a.weight"].untyped_storage().data_ptr()
-        b_weight_ptr = state_dict["b.weight"].untyped_storage().data_ptr()
-        a_bias_ptr = state_dict["a.bias"].untyped_storage().data_ptr()
-        b_bias_ptr = state_dict["b.bias"].untyped_storage().data_ptr()
+        a_weight_ptr = storage_ptr(state_dict["a.weight"])
+        b_weight_ptr = storage_ptr(state_dict["b.weight"])
+        a_bias_ptr = storage_ptr(state_dict["a.bias"])
+        b_bias_ptr = storage_ptr(state_dict["b.bias"])
         assert a_weight_ptr == b_weight_ptr
         assert a_bias_ptr == b_bias_ptr
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Literal, Optional, Union
 
-from .constants import REPO_TYPE_MODEL
+from . import constants
 from .utils import parse_datetime
 
 
@@ -79,7 +79,7 @@ class Discussion:
     @property
     def url(self) -> str:
         """Returns the URL of the discussion on the Hub."""
-        if self.repo_type is None or self.repo_type == REPO_TYPE_MODEL:
+        if self.repo_type is None or self.repo_type == constants.REPO_TYPE_MODEL:
             return f"{self.endpoint}/{self.repo_id}/discussions/{self.num}"
         return f"{self.endpoint}/{self.repo_type}s/{self.repo_id}/discussions/{self.num}"
 

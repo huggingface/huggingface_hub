@@ -19,8 +19,9 @@ from huggingface_hub.repocard_data import (
 )
 from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
 
-from .constants import REPOCARD_NAME
-from .utils import EntryNotFoundError, SoftTemporaryDirectory, logging, validate_hf_hub_args
+from . import constants
+from .errors import EntryNotFoundError
+from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
 
 
 logger = logging.get_logger(__name__)
@@ -175,7 +176,7 @@ class RepoCard:
             card_path = Path(
                 hf_hub_download(
                     repo_id_or_path,
-                    REPOCARD_NAME,
+                    constants.REPOCARD_NAME,
                     repo_type=repo_type or cls.repo_type,
                     token=token,
                 )
@@ -273,11 +274,11 @@ class RepoCard:
         self.validate(repo_type=repo_type)
 
         with SoftTemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir) / REPOCARD_NAME
+            tmp_path = Path(tmpdir) / constants.REPOCARD_NAME
             tmp_path.write_text(str(self))
             url = upload_file(
                 path_or_fileobj=str(tmp_path),
-                path_in_repo=REPOCARD_NAME,
+                path_in_repo=constants.REPOCARD_NAME,
                 repo_id=repo_id,
                 token=token,
                 repo_type=repo_type,

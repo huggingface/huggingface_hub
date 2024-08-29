@@ -101,7 +101,7 @@ _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|
 _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
-To login, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
+To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
 Token:
 Add token as git credential? (Y/n)
 Token is valid (permission: write).
@@ -226,7 +226,7 @@ The examples above show how to download from the latest commit on the main branc
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
 
-A `./huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local-dir` optimized for pulling only the latest changes.
+A `.cache/huggingface/` folder is created at the root of your local directory containing metadata about the downloaded files. This prevents re-downloading files if they're already up-to-date. If the metadata has changed, then the new file version is downloaded. This makes the `local-dir` optimized for pulling only the latest changes.
 
 <Tip>
 
@@ -451,7 +451,7 @@ Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-coo
 
 Use Unix-style wildcards to delete sets of files: 
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model delete *.txt folder/*.bin 
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 

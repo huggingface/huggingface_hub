@@ -96,6 +96,7 @@ from .._common import _async_yield_from, _import_aiohttp
 
 if TYPE_CHECKING:
     import numpy as np
+    from aiohttp import ClientSession
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,9 @@ class AsyncInferenceClient:
             or a URL to a deployed Inference Endpoint. Defaults to None, in which case a recommended model is
             automatically selected for the task.
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
-            arguments are mutually exclusive and have the exact same behavior.
+            arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
+            path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
+            documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -131,6 +134,10 @@ class AsyncInferenceClient:
             Values in this dictionary will override the default values.
         cookies (`Dict[str, str]`, `optional`):
             Additional cookies to send to the server.
+        trust_env ('bool', 'optional'):
+            Trust environment settings for proxy configuration if the parameter is `True` (`False` by default).
+        proxies (`Any`, `optional`):
+            Proxies to use for the request.
         base_url (`str`, `optional`):
             Base URL to run inference. This is a duplicated argument from `model` to make [`InferenceClient`]
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `model` is set. Defaults to None.
@@ -148,6 +155,7 @@ class AsyncInferenceClient:
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
+        trust_env: bool = False,
         proxies: Optional[Any] = None,
         # OpenAI compatibility
         base_url: Optional[str] = None,
@@ -157,7 +165,8 @@ class AsyncInferenceClient:
             raise ValueError(
                 "Received both `model` and `base_url` arguments. Please provide only one of them."
                 " `base_url` is an alias for `model` to make the API compatible with OpenAI's client."
-                " It has the exact same behavior as `model`."
+                " If using `base_url` for chat completion, the `/chat/completions` suffix path will be appended to the base url."
+                " When passing a URL as `model`, the client will not append any suffix path to it."
             )
         if token is not None and api_key is not None:
             raise ValueError(
@@ -173,6 +182,7 @@ class AsyncInferenceClient:
             self.headers.update(headers)
         self.cookies = cookies
         self.timeout = timeout
+        self.trust_env = trust_env
         self.proxies = proxies
 
         # OpenAI compatibility
@@ -262,7 +272,7 @@ class AsyncInferenceClient:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
         # Set Accept header if relevant
-        headers = self.headers.copy()
+        headers = dict()
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 
@@ -272,9 +282,7 @@ class AsyncInferenceClient:
             with _open_as_binary(data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                client = aiohttp.ClientSession(
-                    headers=headers, cookies=self.cookies, timeout=aiohttp.ClientTimeout(self.timeout)
-                )
+                client = self._get_client_session(headers=headers)
 
                 try:
                     response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
@@ -816,51 +824,51 @@ class AsyncInferenceClient:
         # `self.xxx` takes precedence over the method argument only in `chat_completion`
         # since `chat_completion(..., model=xxx)` is also a payload parameter for the
         # server, we need to handle it differently
-        model = self.base_url or self.model or model or self.get_recommended_model("text-generation")
-        is_url = model.startswith(("http://", "https://"))
+        model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
+        is_url = model_id_or_url.startswith(("http://", "https://"))
 
         # First, resolve the model chat completions URL
-        if model == self.base_url:
+        if model_id_or_url == self.base_url:
             # base_url passed => add server route
-            model_url = model.rstrip("/")
+            model_url = model_id_or_url.rstrip("/")
             if not model_url.endswith("/v1"):
                 model_url += "/v1"
             model_url += "/chat/completions"
         elif is_url:
             # model is a URL => use it directly
-            model_url = model
+            model_url = model_id_or_url
         else:
             # model is a model ID => resolve it + add server route
-            model_url = self._resolve_url(model).rstrip("/") + "/v1/chat/completions"
+            model_url = self._resolve_url(model_id_or_url).rstrip("/") + "/v1/chat/completions"
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        model_id = model if not is_url and model.count("/") == 1 else "tgi"
+        model_id = model or self.model or "tgi"
+        if model_id.startswith(("http://", "https://")):
+            model_id = "tgi"  # dummy value
 
-        data = await self.post(
-            model=model_url,
-            json=dict(
-                model=model_id,
-                messages=messages,
-                frequency_penalty=frequency_penalty,
-                logit_bias=logit_bias,
-                logprobs=logprobs,
-                max_tokens=max_tokens,
-                n=n,
-                presence_penalty=presence_penalty,
-                response_format=response_format,
-                seed=seed,
-                stop=stop,
-                temperature=temperature,
-                tool_choice=tool_choice,
-                tool_prompt=tool_prompt,
-                tools=tools,
-                top_logprobs=top_logprobs,
-                top_p=top_p,
-                stream=stream,
-            ),
+        payload = dict(
+            model=model_id,
+            messages=messages,
+            frequency_penalty=frequency_penalty,
+            logit_bias=logit_bias,
+            logprobs=logprobs,
+            max_tokens=max_tokens,
+            n=n,
+            presence_penalty=presence_penalty,
+            response_format=response_format,
+            seed=seed,
+            stop=stop,
+            temperature=temperature,
+            tool_choice=tool_choice,
+            tool_prompt=tool_prompt,
+            tools=tools,
+            top_logprobs=top_logprobs,
+            top_p=top_p,
             stream=stream,
         )
+        payload = {key: value for key, value in payload.items() if value is not None}
+        data = await self.post(model=model_url, json=payload, stream=stream)
 
         if stream:
             return _async_stream_chat_completion_response(data)  # type: ignore[arg-type]
@@ -1296,8 +1304,8 @@ class AsyncInferenceClient:
                     models_by_task.setdefault(model["task"], []).append(model["model_id"])
 
         async def _fetch_framework(framework: str) -> None:
-            async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}")
+            async with self._get_client_session() as client:
+                response = await client.get(f"{INFERENCE_ENDPOINT}/framework/{framework}", proxy=self.proxies)
                 response.raise_for_status()
                 _unpack_response(framework, await response.json())
 
@@ -1680,7 +1688,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1709,7 +1718,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1738,7 +1748,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1767,7 +1778,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1796,7 +1808,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1824,7 +1837,8 @@ class AsyncInferenceClient:
         repetition_penalty: Optional[float] = None,
         return_full_text: Optional[bool] = False,  # Manual default value
         seed: Optional[int] = None,
-        stop_sequences: Optional[List[str]] = None,  # Same as `stop`
+        stop: Optional[List[str]] = None,
+        stop_sequences: Optional[List[str]] = None,  # Deprecated, use `stop` instead
         temperature: Optional[float] = None,
         top_k: Optional[int] = None,
         top_n_tokens: Optional[int] = None,
@@ -1889,8 +1903,10 @@ class AsyncInferenceClient:
                 Whether to prepend the prompt to the generated text
             seed (`int`, *optional*):
                 Random sampling seed
+            stop (`List[str]`, *optional*):
+                Stop generating tokens if a member of `stop` is generated.
             stop_sequences (`List[str]`, *optional*):
-                Stop generating tokens if a member of `stop_sequences` is generated
+                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2035,6 +2051,15 @@ class AsyncInferenceClient:
             )
             decoder_input_details = False
 
+        if stop_sequences is not None:
+            warnings.warn(
+                "`stop_sequences` is a deprecated argument for `text_generation` task"
+                " and will be removed in version '0.28.0'. Use `stop` instead.",
+                FutureWarning,
+            )
+        if stop is None:
+            stop = stop_sequences  # use deprecated arg if provided
+
         # Build payload
         parameters = {
             "adapter_id": adapter_id,
@@ -2048,7 +2073,7 @@ class AsyncInferenceClient:
             "repetition_penalty": repetition_penalty,
             "return_full_text": return_full_text,
             "seed": seed,
-            "stop": stop_sequences if stop_sequences is not None else [],
+            "stop": stop if stop is not None else [],
             "temperature": temperature,
             "top_k": top_k,
             "top_n_tokens": top_n_tokens,
@@ -2118,7 +2143,7 @@ class AsyncInferenceClient:
                     repetition_penalty=repetition_penalty,
                     return_full_text=return_full_text,
                     seed=seed,
-                    stop_sequences=stop_sequences,
+                    stop=stop,
                     temperature=temperature,
                     top_k=top_k,
                     top_n_tokens=top_n_tokens,
@@ -2578,6 +2603,20 @@ class AsyncInferenceClient:
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
+        aiohttp = _import_aiohttp()
+        client_headers = self.headers.copy()
+        if headers is not None:
+            client_headers.update(headers)
+
+        # Return a new aiohttp ClientSession with correct settings.
+        return aiohttp.ClientSession(
+            headers=client_headers,
+            cookies=self.cookies,
+            timeout=aiohttp.ClientTimeout(self.timeout),
+            trust_env=self.trust_env,
+        )
+
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model or self.base_url
 
@@ -2684,8 +2723,8 @@ class AsyncInferenceClient:
         else:
             url = f"{INFERENCE_ENDPOINT}/models/{model}/info"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             return await response.json()
 
@@ -2721,8 +2760,8 @@ class AsyncInferenceClient:
             )
         url = model.rstrip("/") + "/health"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             return response.status == 200
 
     async def get_model_status(self, model: Optional[str] = None) -> ModelStatus:
@@ -2763,8 +2802,8 @@ class AsyncInferenceClient:
             raise NotImplementedError("Model status is only available for Inference API endpoints.")
         url = f"{INFERENCE_ENDPOINT}/status/{model}"
 
-        async with _import_aiohttp().ClientSession(headers=self.headers) as client:
-            response = await client.get(url)
+        async with self._get_client_session() as client:
+            response = await client.get(url, proxy=self.proxies)
             response.raise_for_status()
             response_data = await response.json()
 

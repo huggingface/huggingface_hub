@@ -103,11 +103,11 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
 In many cases, you must be logged in with a Hugging Face account to interact with the Hub. Refer to the [Authentication](../quick-start#authentication) section of the documentation to learn more about authentication methods on the Hub.
 
-It is also possible to login programmatically by passing your `token` as an argument to [`HfFileSystem`]:
+It is also possible to log in programmatically by passing your `token` as an argument to [`HfFileSystem`]:
 
 ```python
 >>> from huggingface_hub import HfFileSystem
 >>> fs = HfFileSystem(token=token)
 ```
 
-If you login this way, be careful not to accidentally leak the token when sharing your source code!
+If you log in this way, be careful not to accidentally leak the token when sharing your source code!

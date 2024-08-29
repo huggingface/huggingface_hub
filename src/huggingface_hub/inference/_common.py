@@ -296,7 +296,7 @@ def _format_text_generation_stream_output(
     if not byte_payload.startswith(b"data:"):
         return None  # empty line
 
-    if byte_payload == b"data: [DONE]":
+    if byte_payload.strip() == b"data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
@@ -344,7 +344,7 @@ def _format_chat_completion_stream_output(
     if not byte_payload.startswith(b"data:"):
         return None  # empty line
 
-    if byte_payload == b"data: [DONE]":
+    if byte_payload.strip() == b"data: [DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
@@ -355,7 +355,7 @@ def _format_chat_completion_stream_output(
 
 async def _async_yield_from(client: "ClientSession", response: "ClientResponse") -> AsyncIterable[bytes]:
     async for byte_payload in response.content:
-        yield byte_payload
+        yield byte_payload.strip()
     await client.close()
 
 

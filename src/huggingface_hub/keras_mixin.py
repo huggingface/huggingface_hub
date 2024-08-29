@@ -16,7 +16,7 @@ from huggingface_hub.utils import (
     yaml_dump,
 )
 
-from .constants import CONFIG_NAME
+from . import constants
 from .hf_api import HfApi
 from .utils import SoftTemporaryDirectory, logging, validate_hf_hub_args
 from .utils._typing import CallableT
@@ -202,7 +202,7 @@ def save_pretrained_keras(
         if not isinstance(config, dict):
             raise RuntimeError(f"Provided config to save_pretrained_keras should be a dict. Got: '{type(config)}'")
 
-        with (save_directory / CONFIG_NAME).open("w") as f:
+        with (save_directory / constants.CONFIG_NAME).open("w") as f:
             json.dump(config, f)
 
     metadata = {}

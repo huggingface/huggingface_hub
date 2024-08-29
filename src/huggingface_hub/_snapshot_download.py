@@ -6,21 +6,12 @@ import requests
 from tqdm.auto import tqdm as base_tqdm
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import (
-    DEFAULT_ETAG_TIMEOUT,
-    DEFAULT_REVISION,
-    HF_HUB_CACHE,
-    HF_HUB_ENABLE_HF_TRANSFER,
-    REPO_TYPES,
-)
+from . import constants
+from .errors import GatedRepoError, LocalEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
 from .utils import (
-    GatedRepoError,
-    LocalEntryNotFoundError,
     OfflineModeIsEnabled,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     filter_repo_objects,
     logging,
     validate_hf_hub_args,
@@ -43,7 +34,7 @@ def snapshot_download(
     library_version: Optional[str] = None,
     user_agent: Optional[Union[Dict, str]] = None,
     proxies: Optional[Dict] = None,
-    etag_timeout: float = DEFAULT_ETAG_TIMEOUT,
+    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
     force_download: bool = False,
     token: Optional[Union[bool, str]] = None,
     local_files_only: bool = False,
@@ -140,16 +131,16 @@ def snapshot_download(
             if some parameter value is invalid.
     """
     if cache_dir is None:
-        cache_dir = HF_HUB_CACHE
+        cache_dir = constants.HF_HUB_CACHE
     if revision is None:
-        revision = DEFAULT_REVISION
+        revision = constants.DEFAULT_REVISION
     if isinstance(cache_dir, Path):
         cache_dir = str(cache_dir)
 
     if repo_type is None:
         repo_type = "model"
-    if repo_type not in REPO_TYPES:
-        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(REPO_TYPES)}")
+    if repo_type not in constants.REPO_TYPES:
+        raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
 
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
@@ -290,7 +281,7 @@ def snapshot_download(
             headers=headers,
         )
 
-    if HF_HUB_ENABLE_HF_TRANSFER:
+    if constants.HF_HUB_ENABLE_HF_TRANSFER:
         # when using hf_transfer we don't want extra parallelism
         # from the one hf_transfer provides
         for file in filtered_repo_files:

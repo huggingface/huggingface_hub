@@ -1,7 +1,7 @@
 import io
 from typing import Any, Dict, List, Optional, Union
 
-from .constants import INFERENCE_ENDPOINT
+from . import constants
 from .hf_api import HfApi
 from .utils import build_hf_headers, get_session, is_pillow_available, logging, validate_hf_hub_args
 from .utils._deprecation import _deprecate_method
@@ -149,7 +149,7 @@ class InferenceApi:
             assert model_info.pipeline_tag is not None, "Pipeline tag cannot be None"
             self.task = model_info.pipeline_tag
 
-        self.api_url = f"{INFERENCE_ENDPOINT}/pipeline/{self.task}/{repo_id}"
+        self.api_url = f"{constants.INFERENCE_ENDPOINT}/pipeline/{self.task}/{repo_id}"
 
     def __repr__(self):
         # Do not add headers to repr to avoid leaking token.

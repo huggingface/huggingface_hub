@@ -15,12 +15,12 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Iterable, Iterator, List,
 
 from tqdm.contrib.concurrent import thread_map
 
-from .constants import ENDPOINT, HF_HUB_ENABLE_HF_TRANSFER
+from . import constants
+from .errors import EntryNotFoundError
 from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
-    EntryNotFoundError,
     chunk_iterable,
     get_session,
     hf_raise_for_status,
@@ -432,7 +432,7 @@ def _upload_lfs_files(
         except Exception as exc:
             raise RuntimeError(f"Error while uploading '{operation.path_in_repo}' to the Hub.") from exc
 
-    if HF_HUB_ENABLE_HF_TRANSFER:
+    if constants.HF_HUB_ENABLE_HF_TRANSFER:
         logger.debug(f"Uploading {len(filtered_actions)} LFS files to the Hub using `hf_transfer`.")
         for action in hf_tqdm(filtered_actions, name="huggingface_hub.lfs_upload"):
             _wrapped_lfs_upload(action)
@@ -506,7 +506,7 @@ def _fetch_upload_modes(
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    endpoint = endpoint if endpoint is not None else ENDPOINT
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
 
     # Fetch upload mode (LFS or regular) chunk by chunk.
     upload_modes: Dict[str, UploadMode] = {}

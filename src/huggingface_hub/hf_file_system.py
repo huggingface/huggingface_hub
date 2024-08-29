@@ -15,23 +15,13 @@ from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.utils import isfilelike
 from requests import Response
 
+from . import constants
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
-from .constants import (
-    DEFAULT_REVISION,
-    ENDPOINT,
-    HF_HUB_DOWNLOAD_TIMEOUT,
-    HF_HUB_ETAG_TIMEOUT,
-    REPO_TYPE_MODEL,
-    REPO_TYPES_MAPPING,
-    REPO_TYPES_URL_PREFIXES,
-)
+from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
 from .utils import (
-    EntryNotFoundError,
     HFValidationError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
     hf_raise_for_status,
     http_backoff,
 )
@@ -61,10 +51,10 @@ class HfFileSystemResolvedPath:
     _raw_revision: Optional[str] = field(default=None, repr=False)
 
     def unresolve(self) -> str:
-        repo_path = REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
+        repo_path = constants.REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
         if self._raw_revision:
             return f"{repo_path}@{self._raw_revision}/{self.path_in_repo}".rstrip("/")
-        elif self.revision != DEFAULT_REVISION:
+        elif self.revision != constants.DEFAULT_REVISION:
             return f"{repo_path}@{safe_revision(self.revision)}/{self.path_in_repo}".rstrip("/")
         else:
             return f"{repo_path}/{self.path_in_repo}".rstrip("/")
@@ -113,7 +103,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
-        self.endpoint = endpoint or ENDPOINT
+        self.endpoint = endpoint or constants.ENDPOINT
         self.token = token
         self._api = HfApi(endpoint=endpoint, token=token)
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
@@ -128,7 +118,9 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Tuple[bool, Optional[Exception]]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
-                self._api.repo_info(repo_id, revision=revision, repo_type=repo_type, timeout=HF_HUB_ETAG_TIMEOUT)
+                self._api.repo_info(
+                    repo_id, revision=revision, repo_type=repo_type, timeout=constants.HF_HUB_ETAG_TIMEOUT
+                )
             except (RepositoryNotFoundError, HFValidationError) as e:
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)] = False, e
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = False, e
@@ -158,14 +150,14 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         if not path:
             # can't list repositories at root
             raise NotImplementedError("Access to repositories lists is not implemented.")
-        elif path.split("/")[0] + "/" in REPO_TYPES_URL_PREFIXES.values():
+        elif path.split("/")[0] + "/" in constants.REPO_TYPES_URL_PREFIXES.values():
             if "/" not in path:
                 # can't list repositories at the repository type level
                 raise NotImplementedError("Access to repositories lists is not implemented.")
             repo_type, path = path.split("/", 1)
-            repo_type = REPO_TYPES_MAPPING[repo_type]
+            repo_type = constants.REPO_TYPES_MAPPING[repo_type]
         else:
-            repo_type = REPO_TYPE_MODEL
+            repo_type = constants.REPO_TYPE_MODEL
         if path.count("/") > 0:
             if "@" in path:
                 repo_id, revision_in_path = path.split("@", 1)
@@ -213,7 +205,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             if not repo_and_revision_exist:
                 raise NotImplementedError("Access to repositories lists is not implemented.")
 
-        revision = revision if revision is not None else DEFAULT_REVISION
+        revision = revision if revision is not None else constants.DEFAULT_REVISION
         return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path)
 
     def invalidate_cache(self, path: Optional[str] = None) -> None:
@@ -723,7 +715,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             url,
             headers=headers,
             retry_on_status_codes=(502, 503, 504),
-            timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+            timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
         hf_raise_for_status(r)
         return r.content
@@ -823,7 +815,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 headers=self.fs._api._build_hf_headers(),
                 retry_on_status_codes=(502, 503, 504),
                 stream=True,
-                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
             hf_raise_for_status(self.response)
         try:
@@ -845,7 +837,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
                 retry_on_status_codes=(502, 503, 504),
                 stream=True,
-                timeout=HF_HUB_DOWNLOAD_TIMEOUT,
+                timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
             hf_raise_for_status(self.response)
             try:
