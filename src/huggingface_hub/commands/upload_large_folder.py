@@ -105,6 +105,9 @@ class UploadLargeFolderCommand(BaseHuggingfaceCLICommand):
                 "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
                 "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
                 "\n"
+                "If the process output is to verbose, you can disable the progress bars with `--no-bars`. "
+                "You can also entirely disable the status report with `--no-report`.\n"
+                "\n"
                 "For more details, run `huggingface-cli upload-large-folder --help` or check the documentation at "
                 "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
             )
