@@ -65,6 +65,7 @@ def upload_large_folder_internal(
     if repo_type is None:
         raise ValueError(
             "For large uploads, `repo_type` is explicitly required. Please set it to `model`, `dataset` or `space`."
+            " If you are using the CLI, pass it as `--repo-type=model`."
         )
     if repo_type not in REPO_TYPES:
         raise ValueError(f"Invalid repo type, must be one of {REPO_TYPES}")
