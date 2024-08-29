@@ -7,12 +7,14 @@ from unittest.mock import Mock
 import pytest
 from pytest_mock import MockerFixture
 
+from huggingface_hub import constants
 from huggingface_hub.serialization import (
     get_tf_storage_size,
     get_torch_storage_size,
     save_torch_model,
     save_torch_state_dict,
     split_state_dict_into_shards_factory,
+    split_torch_state_dict_into_shards,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
 
@@ -124,30 +126,6 @@ def torch_state_dict_shared_layers_tensor_subclass() -> Dict[str, "torch.Tensor"
             "layer_6": tensor_subclass_tensor,
             "ts_shared_1": shared_tensor_subclass_tensor,
             "ts_shared_2": shared_tensor_subclass_tensor,
-        }
-    except ImportError:
-        pytest.skip("torch is not available")
-
-
-@pytest.fixture
-def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
-    try:
-        import torch
-        from torch.testing._internal.two_tensor import TwoTensor
-
-        if is_wrapper_tensor_subclass_available():
-            # TODO: need to fix safetensor support for tensor subclasses before we can add this
-            # to test
-            # shared_layer = TwoTensor(torch.tensor([4]), torch.tensor([4]))
-            shared_layer = torch.tensor([4])
-        else:
-            shared_layer = torch.tensor([4])
-
-        return {
-            "shared_1": shared_layer,
-            "unique_1": torch.tensor([10]),
-            "unique_2": torch.tensor([30]),
-            "shared_2": shared_layer,
         }
     except ImportError:
         pytest.skip("torch is not available")
@@ -434,6 +412,14 @@ def test_save_torch_state_dict_shared_layers_sharded(
     for filename in index["weight_map"].values():
         state_dict = load_file(tmp_path / filename)
         assert "shared_2" not in state_dict
+
+def test_split_torch_state_dict_into_shards(
+    tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
+):
+    from huggingface_hub.serialization._base import MAX_SHARD_SIZE
+    # the model size is 72, setting max_shard_size to 32 means we'll shard the file
+    state_dict_split = split_torch_state_dict_into_shards(torch_state_dict_shared_layers_tensor_subclass, filename_pattern=constants.PYTORCH_WEIGHTS_FILE_PATTERN, max_shard_size=32)
+    assert state_dict_split.is_sharded
 
 
 def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
