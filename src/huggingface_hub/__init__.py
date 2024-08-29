@@ -252,6 +252,7 @@ _SUBMOD_ATTRS = {
         "update_webhook",
         "upload_file",
         "upload_folder",
+        "upload_large_folder",
         "whoami",
     ],
     "hf_file_system": [
@@ -756,6 +757,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
+        upload_large_folder,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (

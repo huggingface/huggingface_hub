@@ -27,8 +27,10 @@ import pytest
 from huggingface_hub._local_folder import (
     LocalDownloadFileMetadata,
     LocalDownloadFilePaths,
+    LocalUploadFilePaths,
     _huggingface_dir,
     get_local_download_paths,
+    get_local_upload_paths,
     read_download_metadata,
     write_download_metadata,
 )
@@ -178,3 +180,46 @@ def test_read_download_metadata_correct_metadata_but_outdated(tmp_path: Path):
     # File is outdated => return None
     (tmp_path / "file.txt").write_text("content")
     assert read_download_metadata(tmp_path, filename="file.txt") is None
+
+
+def test_local_upload_paths(tmp_path: Path):
+    """Test local upload paths are valid + usable."""
+    paths = get_local_upload_paths(tmp_path, "path/in/repo.txt")
+
+    # Correct paths (also sanitized on windows)
+    assert isinstance(paths, LocalUploadFilePaths)
+    assert paths.file_path == tmp_path / "path" / "in" / "repo.txt"
+    assert paths.metadata_path == tmp_path / ".cache" / "huggingface" / "upload" / "path" / "in" / "repo.txt.metadata"
+    assert paths.lock_path == tmp_path / ".cache" / "huggingface" / "upload" / "path" / "in" / "repo.txt.lock"
+
+    # Paths are usable (parent directories have been created)
+    assert paths.file_path.parent.is_dir()
+    assert paths.metadata_path.parent.is_dir()
+    assert paths.lock_path.parent.is_dir()
+
+
+def test_local_upload_paths_are_cached(tmp_path: Path):
+    """Test local upload paths are cached."""
+    # No need for an exact singleton here.
+    # We just want to avoid recreating the dataclass on consecutive calls (happens often
+    # in the process).
+    paths1 = get_local_download_paths(tmp_path, "path/in/repo.txt")
+    paths2 = get_local_download_paths(tmp_path, "path/in/repo.txt")
+    assert paths1 is paths2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+def test_local_upload_paths_long_paths(tmp_path: Path):
+    """Test long path handling on Windows."""
+    long_file_name = "a" * 255
+    paths = get_local_upload_paths(tmp_path, f"path/long/{long_file_name}.txt")
+
+    # WindowsPath on Windows platform
+    assert isinstance(paths.file_path, WindowsPath)
+    assert isinstance(paths.lock_path, WindowsPath)
+    assert isinstance(paths.metadata_path, WindowsPath)
+
+    # Correct path prefixes
+    assert str(paths.file_path).startswith("\\\\?\\")
+    assert str(paths.lock_path).startswith("\\\\?\\")
+    assert str(paths.metadata_path).startswith("\\\\?\\")

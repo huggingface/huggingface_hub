@@ -22,6 +22,7 @@ from huggingface_hub.commands.repo_files import RepoFilesCommand
 from huggingface_hub.commands.scan_cache import ScanCacheCommand
 from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
+from huggingface_hub.commands.upload_large_folder import UploadLargeFolderCommand
 from huggingface_hub.commands.user import UserCommands
 
 
@@ -39,6 +40,9 @@ def main():
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)
     TagCommands.register_subcommand(commands_parser)
+
+    # Experimental
+    UploadLargeFolderCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()
