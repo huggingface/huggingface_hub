@@ -413,12 +413,17 @@ def test_save_torch_state_dict_shared_layers_sharded(
         state_dict = load_file(tmp_path / filename)
         assert "shared_2" not in state_dict
 
+
 def test_split_torch_state_dict_into_shards(
     tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
 ):
-    from huggingface_hub.serialization._base import MAX_SHARD_SIZE
+
     # the model size is 72, setting max_shard_size to 32 means we'll shard the file
-    state_dict_split = split_torch_state_dict_into_shards(torch_state_dict_shared_layers_tensor_subclass, filename_pattern=constants.PYTORCH_WEIGHTS_FILE_PATTERN, max_shard_size=32)
+    state_dict_split = split_torch_state_dict_into_shards(
+        torch_state_dict_shared_layers_tensor_subclass,
+        filename_pattern=constants.PYTORCH_WEIGHTS_FILE_PATTERN,
+        max_shard_size=32,
+    )
     assert state_dict_split.is_sharded
 
 
