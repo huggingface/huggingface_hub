@@ -256,7 +256,7 @@ ASYNC_POST_CODE = """
 
     def __del__(self):
         if len(self._sessions) > 0:
-            logger.warning(
+            warnings.warn(
                 "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
                 "This can happen if you've stopped streaming data from the server before the stream was complete. "
                 "To close the client properly, you must call `await client.close()` "
