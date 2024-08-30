@@ -417,7 +417,6 @@ def test_save_torch_state_dict_shared_layers_sharded(
 def test_split_torch_state_dict_into_shards(
     tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
 ):
-
     # the model size is 72, setting max_shard_size to 32 means we'll shard the file
     state_dict_split = split_torch_state_dict_into_shards(
         torch_state_dict_shared_layers_tensor_subclass,
