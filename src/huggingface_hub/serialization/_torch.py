@@ -347,7 +347,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
-            attrs, _ = tensor.__tensor_flatten__()
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
             return tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
 
     except ImportError:
@@ -391,7 +391,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
-            attrs, _ = tensor.__tensor_flatten__()
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
             return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
     except ImportError:
         # for torch version less than 2.1, we can fallback to original implementation
@@ -543,7 +543,7 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
         from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
-            attrs, _ = tensor.__tensor_flatten__()
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
             return all(_is_complete(getattr(tensor, attr)) for attr in attrs)
     except ImportError:
         # for torch version less than 2.1, we can fallback to original implementation
