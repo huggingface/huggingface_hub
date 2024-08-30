@@ -334,11 +334,31 @@ class AsyncInferenceClient:
                     await session.close()
                     raise
 
-    def __del__(self):
-        async def _close_all_sessions():
-            await asyncio.gather(*[session.close() for session in self._sessions])
+    async def __aenter__(self):
+        return self
 
-        asyncio.run(_close_all_sessions())
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
+    def __del__(self):
+        if len(self._sessions) > 0:
+            logger.warning(
+                "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
+                "This can happen if you've stopped streaming data from the server before the stream was complete. "
+                "To close the client properly, you must call `await client.close()` "
+                "or use an async context (e.g. `async with AsyncInferenceClient(): ...`."
+            )
+
+    async def close(self):
+        """Close all open sessions.
+
+        By default, 'aiohttp.ClientSession' objects are closed automatically when a call is completed. However, if you
+        are streaming data from the server and you stop before the stream is complete, you must call this method to
+        close the session properly.
+
+        Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
+        """
+        await asyncio.gather(*[session.close() for session in self._sessions])
 
     async def audio_classification(
         self,
