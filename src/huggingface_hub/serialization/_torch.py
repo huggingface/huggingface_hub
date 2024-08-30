@@ -20,7 +20,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
@@ -336,17 +336,24 @@ def split_torch_state_dict_into_shards(
     )
 
 
-def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, int]:
+def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
+    """Returns a unique id for plain tensor
+    or a (potentially nested) Tuple of unique id for the flattened Tensor
+    if the input is a wrapper tensor subclass Tensor
     """
-    Return unique identifier to a tensor storage.
 
-    Multiple different tensors can share the same underlying storage. For
-    example, "meta" tensors all share the same storage, and thus their identifier will all be equal. This identifier is
-    guaranteed to be unique and constant for this tensor's storage during its lifetime. Two tensor storages with
-    non-overlapping lifetimes may have the same id.
+    try:
+        # for torch 2.1 and above we can also handle tensor subclasses
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
-    Taken from https://github.com/huggingface/transformers/blob/1ecf5f7c982d761b4daaa96719d162c324187c64/src/transformers/pytorch_utils.py#L278.
-    """
+        if is_traceable_wrapper_subclass(tensor):
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
+            return tuple(_get_unique_id(getattr(tensor, attr)) for attr in attrs)
+
+    except ImportError:
+        # for torch version less than 2.1, we can fallback to original implementation
+        pass
+
     if tensor.device.type == "xla" and is_torch_tpu_available():
         # NOTE: xla tensors dont have storage
         # use some other unique id to distinguish.
@@ -358,13 +365,38 @@ def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", int, i
     else:
         unique_id = storage_ptr(tensor)
 
-    return tensor.device, unique_id, get_torch_storage_size(tensor)
+    return unique_id
+
+
+def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", Union[int, Tuple[Any, ...]], int]:
+    """
+    Return unique identifier to a tensor storage.
+
+    Multiple different tensors can share the same underlying storage. For
+    example, "meta" tensors all share the same storage, and thus their identifier will all be equal. This identifier is
+    guaranteed to be unique and constant for this tensor's storage during its lifetime. Two tensor storages with
+    non-overlapping lifetimes may have the same id.
+
+    Taken from https://github.com/huggingface/transformers/blob/1ecf5f7c982d761b4daaa96719d162c324187c64/src/transformers/pytorch_utils.py#L278.
+    """
+    return tensor.device, _get_unique_id(tensor), get_torch_storage_size(tensor)
 
 
 def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L31C1-L41C59
     """
+    try:
+        # for torch 2.1 and above we can also handle tensor subclasses
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
+        if is_traceable_wrapper_subclass(tensor):
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
+            return sum(get_torch_storage_size(getattr(tensor, attr)) for attr in attrs)
+    except ImportError:
+        # for torch version less than 2.1, we can fallback to original implementation
+        pass
+
     try:
         return tensor.untyped_storage().nbytes()
     except AttributeError:
@@ -398,10 +430,20 @@ def is_torch_tpu_available(check_device=True):
     return False
 
 
-def storage_ptr(tensor: "torch.Tensor") -> int:
+def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L11.
     """
+    try:
+        # for torch 2.1 and above we can also handle tensor subclasses
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
+        if is_traceable_wrapper_subclass(tensor):
+            return _get_unique_id(tensor)
+    except ImportError:
+        # for torch version less than 2.1, we can fallback to original implementation
+        pass
+
     try:
         return tensor.untyped_storage().data_ptr()
     except Exception:
@@ -496,6 +538,17 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L80
     """
+    try:
+        # for torch 2.1 and above we can also handle tensor subclasses
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+
+        if is_traceable_wrapper_subclass(tensor):
+            attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
+            return all(_is_complete(getattr(tensor, attr)) for attr in attrs)
+    except ImportError:
+        # for torch version less than 2.1, we can fallback to original implementation
+        pass
+
     return tensor.data_ptr() == storage_ptr(tensor) and tensor.nelement() * _get_dtype_size(
         tensor.dtype
     ) == get_torch_storage_size(tensor)

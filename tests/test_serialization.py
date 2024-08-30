@@ -7,12 +7,14 @@ from unittest.mock import Mock
 import pytest
 from pytest_mock import MockerFixture
 
+from huggingface_hub import constants
 from huggingface_hub.serialization import (
     get_tf_storage_size,
     get_torch_storage_size,
     save_torch_model,
     save_torch_state_dict,
     split_state_dict_into_shards_factory,
+    split_torch_state_dict_into_shards,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
 
@@ -29,6 +31,16 @@ def _dummy_get_storage_id(item):
 
 def _dummy_get_storage_size(item):
     return sum(item)
+
+
+# util functions for checking the version for pytorch
+def is_wrapper_tensor_subclass_available():
+    try:
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 @pytest.fixture
@@ -59,6 +71,25 @@ def torch_state_dict() -> Dict[str, "torch.Tensor"]:
 
 
 @pytest.fixture
+def torch_state_dict_tensor_subclass() -> Dict[str, "torch.Tensor"]:
+    try:
+        import torch
+        from torch.testing._internal.two_tensor import TwoTensor
+
+        t = torch.tensor([4])
+        return {
+            "layer_1": torch.tensor([4]),
+            "layer_2": torch.tensor([10]),
+            "layer_3": torch.tensor([30]),
+            "layer_4": torch.tensor([2]),
+            "layer_5": torch.tensor([2]),
+            "layer_6": TwoTensor(t, t),
+        }
+    except ImportError:
+        pytest.skip("torch is not available")
+
+
+@pytest.fixture
 def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
     try:
         import torch
@@ -70,6 +101,31 @@ def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
             "unique_1": torch.tensor([10]),
             "unique_2": torch.tensor([30]),
             "shared_2": shared_layer,
+        }
+    except ImportError:
+        pytest.skip("torch is not available")
+
+
+@pytest.fixture
+def torch_state_dict_shared_layers_tensor_subclass() -> Dict[str, "torch.Tensor"]:
+    try:
+        import torch
+        from torch.testing._internal.two_tensor import TwoTensor
+
+        t = torch.tensor([4])
+        tensor_subclass_tensor = TwoTensor(t, t)
+
+        t = torch.tensor([4])
+        shared_tensor_subclass_tensor = TwoTensor(t, t)
+        return {
+            "layer_1": torch.tensor([4]),
+            "layer_2": torch.tensor([10]),
+            "layer_3": torch.tensor([30]),
+            "layer_4": torch.tensor([2]),
+            "layer_5": torch.tensor([2]),
+            "layer_6": tensor_subclass_tensor,
+            "ts_shared_1": shared_tensor_subclass_tensor,
+            "ts_shared_2": shared_tensor_subclass_tensor,
         }
     except ImportError:
         pytest.skip("torch is not available")
@@ -170,6 +226,18 @@ def test_get_torch_storage_size():
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
+@requires("torch")
+@pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
+def test_get_torch_storage_size_wrapper_tensor_subclass():
+    import torch
+    from torch.testing._internal.two_tensor import TwoTensor
+
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
+    assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
+    t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)
+    assert get_torch_storage_size(TwoTensor(t, TwoTensor(t, t))) == 5 * 2 * 3
+
+
 def test_parse_size_to_int():
     assert parse_size_to_int("1KB") == 1 * 10**3
     assert parse_size_to_int("2MB") == 2 * 10**6
@@ -247,6 +315,38 @@ def test_save_torch_state_dict_unsafe_not_sharded(
     assert not (tmp_path / "pytorch_model.bin.index.json").is_file()
 
 
+@pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
+def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_tensor_subclass: Dict[str, "torch.Tensor"]
+) -> None:
+    """Save as pickle without sharding."""
+    with caplog.at_level("WARNING"):
+        save_torch_state_dict(
+            torch_state_dict_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False
+        )
+    assert "we strongly recommend using safe serialization" in caplog.text
+
+    assert (tmp_path / "pytorch_model.bin").is_file()
+    assert not (tmp_path / "pytorch_model.bin.index.json").is_file()
+
+
+@pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
+def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"],
+) -> None:
+    """Save as pickle without sharding."""
+    with caplog.at_level("WARNING"):
+        save_torch_state_dict(
+            torch_state_dict_shared_layers_tensor_subclass, tmp_path, max_shard_size="1GB", safe_serialization=False
+        )
+    assert "we strongly recommend using safe serialization" in caplog.text
+
+    assert (tmp_path / "pytorch_model.bin").is_file()
+    assert not (tmp_path / "pytorch_model.bin.index.json").is_file()
+
+
 def test_save_torch_state_dict_unsafe_sharded(
     tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
 ) -> None:
@@ -312,6 +412,18 @@ def test_save_torch_state_dict_shared_layers_sharded(
     for filename in index["weight_map"].values():
         state_dict = load_file(tmp_path / filename)
         assert "shared_2" not in state_dict
+
+
+def test_split_torch_state_dict_into_shards(
+    tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
+):
+    # the model size is 72, setting max_shard_size to 32 means we'll shard the file
+    state_dict_split = split_torch_state_dict_into_shards(
+        torch_state_dict_shared_layers_tensor_subclass,
+        filename_pattern=constants.PYTORCH_WEIGHTS_FILE_PATTERN,
+        max_shard_size=32,
+    )
+    assert state_dict_split.is_sharded
 
 
 def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
