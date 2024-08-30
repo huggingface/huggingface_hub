@@ -9530,17 +9530,38 @@ class HfApi:
             yield User(**followed_user)
 
     def auth_check(self, repo_id: str, token: Union[bool, str, None] = None) -> None:
-        """
-        Check if the given user/token has access to a repository.
+    """
+    Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
-        Args:
-            repo_id (str): The ID of the repository to check access for.
-            token (str, optional): The user token for authentication. If not provided, anonymous access is assumed.
+    Args:
+        repo_id (`str`):
+            The repository to like. Example: `"user/my-cool-model"`.
 
-        Raises:
-            GatedRepoError: If the repository is gated and the user does not have access.
-            RepositoryNotFoundError: If the repository does not exist or the user does not have access.
-        """
+        token (Union[bool, str, None], optional):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
+
+    Returns:
+        `None`: This method does not return any value. It will either complete successfully or raise an exception if access is denied.
+
+    Raises:
+        [`~utils.RepositoryNotFoundError`]:
+            If repository is not found (error 404): wrong repo_id/repo_type, private
+            but not authenticated or repo does not exist.
+
+        [`~utils.GatedRepoError`]
+            If the repository exists but is gated and the user is not on the authorized
+            list.
+
+    Example:
+        >>> api = HfApi(token="your_token")
+        >>> api.auth_check(repo_id="user/my-cool-model")
+
+        If the repository exists and the token has the appropriate access, the method completes without error.
+        If the repository is gated or does not exist, the respective error is raised.
+    """
         headers = self._build_hf_headers(token=token)
         path = f"{self.endpoint}/api/datasets/{repo_id}/auth-check"
         r = get_session().get(path, headers=headers)
