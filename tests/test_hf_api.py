@@ -46,6 +46,7 @@ from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -81,18 +82,9 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     logging,
 )
-from huggingface_hub.utils.endpoint_helpers import (
-    _is_emission_within_threshold,
-)
+from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    FULL_NAME,
-    OTHER_TOKEN,
-    OTHER_USER,
-    TOKEN,
-    USER,
-)
+from .testing_constants import ENDPOINT_STAGING, FULL_NAME, OTHER_TOKEN, OTHER_USER, TOKEN, USER
 from .testing_utils import (
     DUMMY_DATASET_ID,
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -4239,3 +4231,27 @@ class TestLargeUpload(HfApiCommonTest):
             for j in range(N_FILES_PER_FOLDER):
                 assert f"subfolder_{i}/file_lfs_{i}_{j}.bin" in uploaded_files
                 assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
+
+
+class TestHfApiAuthCheck(HfApiCommonTest):
+    def setUp(self):
+        self.repo_id = "fake-repo-id"
+
+    @patch.object(HfApi, "auth_check", return_value=None)
+    def test_auth_check_success(self, mock_auth_check):
+        try:
+            self._api.auth_check(repo_id=self.repo_id, token=self._token)
+        except Exception as e:
+            self.fail(f"auth_check raised an exception: {e}")
+
+    @patch.object(HfApi, "auth_check")
+    def test_auth_check_gated_repo_error(self, mock_auth_check):
+        mock_auth_check.side_effect = GatedRepoError("403 Client Error")
+        with self.assertRaises(GatedRepoError):
+            self._api.auth_check(repo_id="gated-repo-id", token=self._token)
+
+    @patch.object(HfApi, "auth_check")
+    def test_auth_check_repo_not_found_error(self, mock_auth_check):
+        mock_auth_check.side_effect = RepositoryNotFoundError("404 Client Error")
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.auth_check(repo_id="non-existent-repo-id", token=self._token)

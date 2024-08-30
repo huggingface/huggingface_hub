@@ -215,7 +215,11 @@ _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
     "\nNote: Creating a commit assumes that the repo already exists on the"
     " Huggingface Hub. Please use `create_repo` if it's not the case."
 )
-
+_AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
+    "\nNote: The repository either does not exist or you do not have access rights."
+    " Please check the repository ID and your access permissions."
+    " If this is a private repository, ensure that your token is correct."
+)
 logger = logging.get_logger(__name__)
 
 
@@ -9525,6 +9529,30 @@ class HfApi:
         for followed_user in r.json():
             yield User(**followed_user)
 
+    def auth_check(self, repo_id: str, token: Union[bool, str, None] = None) -> None:
+        """
+        Check if the given user/token has access to a repository.
+
+        Args:
+            repo_id (str): The ID of the repository to check access for.
+            token (str, optional): The user token for authentication. If not provided, anonymous access is assumed.
+
+        Raises:
+            GatedRepoError: If the repository is gated and the user does not have access.
+            RepositoryNotFoundError: If the repository does not exist or the user does not have access.
+        """
+        headers = self._build_hf_headers(token=token)
+        path = f"{self.endpoint}/api/datasets/{repo_id}/auth-check"
+        r = get_session().get(path, headers=headers)
+        try:
+            hf_raise_for_status(r)
+        except GatedRepoError as e:
+            e.append_to_message(" You are not authorized to access this gated repository.")
+            raise
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_AUTH_CHECK_NO_REPO_ERROR_MESSAGE)
+            raise
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -9564,6 +9592,7 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
+auth_check = api.auth_check
 
 list_metrics = api.list_metrics
 
