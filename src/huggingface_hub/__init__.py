@@ -249,10 +249,10 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_inference_endpoint",
         "update_repo_visibility",
+        "update_repo_settings",
         "update_webhook",
         "upload_file",
         "upload_folder",
-        "upload_large_folder",
         "whoami",
     ],
     "hf_file_system": [
@@ -754,10 +754,10 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_repo_visibility,  # noqa: F401
+        update_repo_settings,  #noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
-        upload_large_folder,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (

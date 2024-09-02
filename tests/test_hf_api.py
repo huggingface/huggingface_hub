@@ -139,6 +139,7 @@ def test_repo_id_no_warning():
     with warnings.catch_warnings(record=True) as record:
         repo_id = api.create_repo(repo_name()).repo_id
         api.update_repo_visibility(repo_id, private=True)
+        api.update_repo_settings(repo_id, gated="auto")
         api.delete_repo(repo_id)
     assert not len(record)
 
@@ -223,6 +224,15 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert res["private"]
         res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
         assert not res["private"]
+        
+        # Test gated status update (new functionality)
+        res = self._api.update_repo_settings(repo_id=repo_id, gated="auto")
+        assert res["gated"] == "auto"
+        res = self._api.update_repo_settings(repo_id=repo_id, gated="manual")
+        assert res["gated"] == "manual"
+        res = self._api.update_repo_settings(repo_id=repo_id, gated=False)
+        assert res["gated"] is False
+        
         self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
@@ -288,6 +298,18 @@ class HfApiEndpointsTest(HfApiCommonTest):
         with pytest.raises(ValueError, match=r"Invalid repo_id*"):
             self._api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
 
+    ## Test for #2447
+    ## See https://github.com/huggingface/huggingface_hub/issues/2447
+    
+    #def test_update_repo_settings(self):
+    #    repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
+    #    res = self._api.update_repo_settings(repo_id=repo_id, gated="auto")
+    #    assert res["gated"] == "auto"
+    #    res = self._api.update_repo_settings(repo_id=repo_id, gated="manual")
+    #    assert res["gated"] == "manual"
+    #    res = self._api.update_repo_settings(repo_id=repo_id, gated=False)
+    #    assert res.get("gated") is False
+    #    self._api.delete_repo(repo_id=repo_id)
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:

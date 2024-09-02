@@ -155,6 +155,20 @@ A repository can be public or private. A private repository is only visible to y
 >>> update_repo_visibility(repo_id=repo_id, private=True)
 ```
 
+### Update repository settings (Gated Access)
+
+The `update_repo_settings` function allows you to control the gated access feature of a repository. Gated access restricts access to the repository's files, requiring users to request access before they can view or download the content.
+You can update the settings of a repository, using the `update_repo_settings` function as shown in the following:
+
+**Note:** This method is currently designed to work primarily with **dataset** repositories.
+
+```py
+>>> from huggingface_hub import HfApi
+
+>>> api = HfApi()
+>>> api.update_repo_settings(repo_id=repo_id, gated="auto")  # Set automatic gating for a dataset
+```
+
 ### Rename your repository
 
 You can rename your repository on the Hub using [`move_repo`]. Using this method, you can also move the repo from a user to
