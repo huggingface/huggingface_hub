@@ -409,3 +409,52 @@ async def test_openai_compatibility_with_stream_true():
     chunked_text = [chunk.choices[0].delta.content async for chunk in output]
     assert len(chunked_text) == 34
     assert "".join(chunked_text) == "Here it goes:\n\n1, 2, 3, 4, 5, 6, 7, 8, 9, 10!"
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+@with_production_testing
+async def test_http_session_correctly_closed() -> None:
+    """
+    Regression test for #2493.
+    Async client should close the HTTP session after the request is done.
+    This is always done except for streamed responses if the stream is not fully consumed.
+    Fixed by keeping a list of sessions and closing them all when deleting the client.
+
+    See https://github.com/huggingface/huggingface_hub/issues/2493.
+    """
+
+    client = AsyncInferenceClient("meta-llama/Meta-Llama-3.1-8B-Instruct")
+    kwargs = {"prompt": "Hi", "stream": True, "max_new_tokens": 1}
+
+    # Test create session + close it + check correctly unregistered
+    await client.text_generation(**kwargs)
+    assert len(client._sessions) == 1
+    await list(client._sessions)[0].close()
+    assert len(client._sessions) == 0
+
+    # Test create multiple sessions + close AsyncInferenceClient + check correctly unregistered
+    await client.text_generation(**kwargs)
+    await client.text_generation(**kwargs)
+    await client.text_generation(**kwargs)
+
+    assert len(client._sessions) == 3
+    await client.close()
+    assert len(client._sessions) == 0
+
+
+@pytest.mark.asyncio
+async def test_use_async_with_inference_client():
+    with patch("huggingface_hub.AsyncInferenceClient.close") as mock_close:
+        async with AsyncInferenceClient():
+            pass
+    mock_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_warns_if_client_deleted_with_opened_sessions():
+    client = AsyncInferenceClient()
+    session = client._get_client_session()
+    with pytest.warns(UserWarning):
+        client.__del__()
+    await session.close()

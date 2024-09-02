@@ -32,6 +32,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Union,
     overload,
 )
@@ -188,6 +189,9 @@ class AsyncInferenceClient:
         # OpenAI compatibility
         self.base_url = base_url
 
+        # Keep track of the sessions to close them properly
+        self._sessions: Set["ClientSession"] = set()
+
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
 
@@ -282,10 +286,10 @@ class AsyncInferenceClient:
             with _open_as_binary(data) as data_as_binary:
                 # Do not use context manager as we don't want to close the connection immediately when returning
                 # a stream
-                client = self._get_client_session(headers=headers)
+                session = self._get_client_session(headers=headers)
 
                 try:
-                    response = await client.post(url, json=json, data=data_as_binary, proxy=self.proxies)
+                    response = await session.post(url, json=json, data=data_as_binary, proxy=self.proxies)
                     response_error_payload = None
                     if response.status != 200:
                         try:
@@ -294,18 +298,18 @@ class AsyncInferenceClient:
                             pass
                     response.raise_for_status()
                     if stream:
-                        return _async_yield_from(client, response)
+                        return _async_yield_from(session, response)
                     else:
                         content = await response.read()
-                        await client.close()
+                        await session.close()
                         return content
                 except asyncio.TimeoutError as error:
-                    await client.close()
+                    await session.close()
                     # Convert any `TimeoutError` to a `InferenceTimeoutError`
                     raise InferenceTimeoutError(f"Inference call timed out: {url}") from error  # type: ignore
                 except aiohttp.ClientResponseError as error:
                     error.response_error_payload = response_error_payload
-                    await client.close()
+                    await session.close()
                     if response.status == 422 and task is not None:
                         error.message += f". Make sure '{task}' task is supported by the model."
                     if response.status == 503:
@@ -327,8 +331,34 @@ class AsyncInferenceClient:
                         continue
                     raise error
                 except Exception:
-                    await client.close()
+                    await session.close()
                     raise
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.close()
+
+    def __del__(self):
+        if len(self._sessions) > 0:
+            warnings.warn(
+                "Deleting 'AsyncInferenceClient' client but some sessions are still open. "
+                "This can happen if you've stopped streaming data from the server before the stream was complete. "
+                "To close the client properly, you must call `await client.close()` "
+                "or use an async context (e.g. `async with AsyncInferenceClient(): ...`."
+            )
+
+    async def close(self):
+        """Close all open sessions.
+
+        By default, 'aiohttp.ClientSession' objects are closed automatically when a call is completed. However, if you
+        are streaming data from the server and you stop before the stream is complete, you must call this method to
+        close the session properly.
+
+        Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
+        """
+        await asyncio.gather(*[session.close() for session in self._sessions])
 
     async def audio_classification(
         self,
@@ -2610,12 +2640,25 @@ class AsyncInferenceClient:
             client_headers.update(headers)
 
         # Return a new aiohttp ClientSession with correct settings.
-        return aiohttp.ClientSession(
+        session = aiohttp.ClientSession(
             headers=client_headers,
             cookies=self.cookies,
             timeout=aiohttp.ClientTimeout(self.timeout),
             trust_env=self.trust_env,
         )
+
+        # Keep track of sessions to close them later
+        self._sessions.add(session)
+
+        # Override the 'close' method to deregister the session when closed
+        session._close = session.close
+
+        async def close_session():
+            await session._close()
+            self._sessions.discard(session)
+
+        session.close = close_session
+        return session
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model or self.base_url
