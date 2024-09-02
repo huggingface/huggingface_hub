@@ -11,20 +11,20 @@ rendered properly in your Markdown viewer.
 <div class="mt-10">
   <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-y-4 md:gap-x-5">
 
-    `<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides/overview">`
-      `<div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">`How-to guides`</div>`
-      `<p class="text-gray-700">`Practical guides to help you achieve a specific goal. Take a look at these guides to learn how to use huggingface_hub to solve real-world problems.`</p>`
-    `</a>`
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides/overview">
+      <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">操作指南</div>
+      <p class="text-gray-700">实用指南可帮助您实现特定目标。查看这些指南，了解如何使用 huggingface_hub 解决实际问题。</p>
+    </a>
 
-    `<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">`
-      `<div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">`Reference`</div>`
-      `<p class="text-gray-700">`Exhaustive and technical description of huggingface_hub classes and methods.`</p>`
-    `</a>`
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">
+      <div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">参考</div>
+      <p class="text-gray-700">huggingface_hub 类和方法的详尽技术描述。</p>
+    </a>
 
-    `<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">`
-      `<div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">`Conceptual guides`</div>`
-      `<p class="text-gray-700">`High-level explanations for building a better understanding of huggingface_hub philosophy.`</p>`
-    `</a>`
+    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">
+      <div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">概念指南</div>
+      <p class="text-gray-700">更好地理解 huggingface_hub 哲学的高级概念。</p>
+    </a>
 
 </div>
 </div>
