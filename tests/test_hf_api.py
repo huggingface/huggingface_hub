@@ -224,7 +224,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert res["private"]
         res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
         assert not res["private"]
-        
+
         # Test gated status update (new functionality)
         res = self._api.update_repo_settings(repo_id=repo_id, gated="auto")
         assert res["gated"] == "auto"
@@ -232,7 +232,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert res["gated"] == "manual"
         res = self._api.update_repo_settings(repo_id=repo_id, gated=False)
         assert res["gated"] is False
-        
+
         self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
@@ -300,8 +300,8 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     ## Test for #2447
     ## See https://github.com/huggingface/huggingface_hub/issues/2447
-    
-    #def test_update_repo_settings(self):
+
+    # def test_update_repo_settings(self):
     #    repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
     #    res = self._api.update_repo_settings(repo_id=repo_id, gated="auto")
     #    assert res["gated"] == "auto"
@@ -310,6 +310,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     #    res = self._api.update_repo_settings(repo_id=repo_id, gated=False)
     #    assert res.get("gated") is False
     #    self._api.delete_repo(repo_id=repo_id)
+
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
