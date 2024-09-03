@@ -1751,7 +1751,9 @@ def _get_metadata_or_catch_error(
                         try:
                             no_exist_file_path.touch()
                         except OSError as e:
-                            logger.error(f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}")
+                            logger.error(
+                                f"Could not cache non-existence of file. Will ignore error and continue. Error: {e}"
+                            )
                         _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
                 raise
 
