@@ -3546,32 +3546,28 @@ class HfApi:
     def update_repo_settings(
         self,
         repo_id: str,
-        gated: Union[str, bool] = False,
+        gated: Literal["auto", "manual", False] = False,
         *,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> Dict[str, Union[str, bool]]:
         if gated not in ["auto", "manual", False]:
-            raise ValueError("Invalid gated status, must be one of 'auto', 'manual', or False")
+            raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
+        
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL  # default repo type
+        
         # Build headers
-        # headers = build_hf_headers(token=token)
+        headers = self._build_hf_headers(token=token)
+        
         r = get_session().put(
-            url=f"{self.endpoint}/api/datasets/{repo_id}/settings",
-            # url=f"https://huggingface.co/api/{repo_type}s/{repo_id}/settings",
-            headers=self._build_hf_headers(token=token),
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
+            headers=headers,
             json={"gated": gated},
         )
-
-        try:
-            hf_raise_for_status(r)
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
-                raise ValueError("Invalid or missing Hugging Face token. Please check your authentication.") from e
-            elif e.response.status_code == 404:
-                raise ValueError(f"Repository not found: {repo_id}") from e
-            else:
-                print(f"HTTP Error {e.response.status_code}: {e}")
-
+        hf_raise_for_status(r)
         return r.json()
 
     def move_repo(
