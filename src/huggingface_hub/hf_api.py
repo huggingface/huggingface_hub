@@ -5220,10 +5220,12 @@ class HfApi:
         print_report_every: int = 60,
     ) -> None:
         """Upload a large folder to the Hub in the most resilient way possible.
+
         Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
         hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
         At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
         to be able to resume the process if interrupted. The whole process might result in several commits.
+
         Args:
             repo_id (`str`):
                 The repository to which the file will be uploaded.
@@ -5253,6 +5255,7 @@ class HfApi:
                 Report is printed to `sys.stdout` every X seconds (60 by defaults) and overwrites the previous report.
             print_report_every (`int`, *optional*):
                 Frequency at which the report is printed. Defaults to 60 seconds.
+
         <Tip>
         A few things to keep in mind:
             - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
@@ -5260,6 +5263,7 @@ class HfApi:
             - You can interrupt and resume the process at any time.
             - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
         </Tip>
+
         <Tip warning={true}>
         While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
             - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
@@ -5267,7 +5271,9 @@ class HfApi:
             - you cannot delete from the repo while uploading. Please make a separate commit first.
             - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
         </Tip>
+
         **Technical details:**
+
         `upload_large_folder` process is as follow:
             1. (Check parameters and setup.)
             2. Create repo if missing.
@@ -5280,6 +5286,7 @@ class HfApi:
             Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
             all files are uploaded and committed.
             5. While workers are up, regularly print a report to sys.stdout.
+
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
             2. Commit if at least 25 files are ready to commit.
@@ -5291,6 +5298,7 @@ class HfApi:
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
             10. Commit if at least 1 file to commit.
+
         Special rules:
             - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
             - Only one worker can commit at a time.
@@ -7693,7 +7701,6 @@ class HfApi:
                 "revision": revision,
                 "task": task,
                 "image": image,
-                "secrets": secrets,
             },
             "name": name,
             "provider": {
@@ -7702,6 +7709,8 @@ class HfApi:
             },
             "type": type,
         }
+        if secrets:
+            payload["model"]["secrets"] = secrets
 
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
