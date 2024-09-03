@@ -17,7 +17,7 @@ rendered properly in your Markdown viewer.
 
 추론 API 기본 URL을 구성합니다. 조직에서 추론 API를 직접 가리키는 것이 아니라 API 게이트웨이를 가리키는 경우 이 변수를 설정할 수 있습니다.
 
-기본값은 `"https://api-inference.huggingface.com"`입니다.
+기본값은 `"https://api-inference.huggingface.co"`입니다.
 
 ### HF_HOME[[hfhome]]
 
