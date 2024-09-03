@@ -5257,19 +5257,23 @@ class HfApi:
                 Frequency at which the report is printed. Defaults to 60 seconds.
 
         <Tip>
+
         A few things to keep in mind:
             - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
             - Do not start several processes in parallel.
             - You can interrupt and resume the process at any time.
             - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
+
         </Tip>
 
         <Tip warning={true}>
+
         While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
             - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
             - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
             - you cannot delete from the repo while uploading. Please make a separate commit first.
             - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
+
         </Tip>
 
         **Technical details:**
@@ -7711,7 +7715,6 @@ class HfApi:
         }
         if secrets:
             payload["model"]["secrets"] = secrets
-
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
@@ -9612,6 +9615,7 @@ delete_file = api.delete_file
 delete_folder = api.delete_folder
 delete_files = api.delete_files
 create_commits_on_pr = api.create_commits_on_pr
+upload_large_folder = api.upload_large_folder
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch
