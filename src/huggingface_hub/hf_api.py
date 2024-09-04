@@ -3546,8 +3546,8 @@ class HfApi:
     def update_repo_settings(
         self,
         repo_id: str,
-        gated: Literal["auto", "manual", False] = False,
         *,
+        gated: Literal["auto", "manual", False] = False,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> Dict[str, Union[str, bool]]:
@@ -3568,7 +3568,6 @@ class HfApi:
             json={"gated": gated},
         )
         hf_raise_for_status(r)
-        return r.json()
 
     def move_repo(
         self,
