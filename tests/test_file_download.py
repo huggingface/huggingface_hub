@@ -741,9 +741,9 @@ class CachedDownloadTests(unittest.TestCase):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
     def test_hf_hub_download_when_tmp_file_is_complete(self):
-        """Regression test for #1000.
+        """Regression test for #2511.
 
-        See https://github.com/huggingface/huggingface_hub/issues/1000.
+        See https://github.com/huggingface/huggingface_hub/issues/2511.
 
         When downloading a file, we first download to a temporary file and then move it to the final location.
         If the temporary file is already partially downloaded, we resume from where we left off.
