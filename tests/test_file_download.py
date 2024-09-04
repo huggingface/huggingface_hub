@@ -740,6 +740,31 @@ class CachedDownloadTests(unittest.TestCase):
                 with self.assertRaises(EnvironmentError):
                     hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=cache_dir)
 
+    def test_hf_hub_download_when_tmp_file_is_complete(self):
+        """Regression test for #1000.
+
+        See https://github.com/huggingface/huggingface_hub/issues/1000.
+
+        When downloading a file, we first download to a temporary file and then move it to the final location.
+        If the temporary file is already partially downloaded, we resume from where we left off.
+        However, if the temporary file is already fully downloaded, we should try to make a GET call with an empty range.
+        This was causing a "416 Range Not Satisfiable" error.
+        """
+        with SoftTemporaryDirectory() as tmpdir:
+            # Download the file once
+            filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
+
+            # Fake tmp file
+            incomplete_filepath = Path(str(filepath.resolve()) + ".incomplete")
+            incomplete_filepath.write_bytes(filepath.read_bytes())  # fake a partial download
+            filepath.resolve().unlink()
+
+            # delete snapshot folder to re-trigger a download
+            shutil.rmtree(filepath.parents[2] / "snapshots")
+
+            # Download must not fail
+            hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
+
     @expect_deprecation("cached_download")
     @expect_deprecation("url_to_filename")
     def test_cached_download_from_github(self):
