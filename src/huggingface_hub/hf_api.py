@@ -9533,37 +9533,61 @@ class HfApi:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
+        This method verifies whether the user, authenticated via the provided token, has access to the specified
+        repository. It raises exceptions if the repository is not found or if the user lacks the required permissions
+        to access it. If the check is successful, `True` is returned.
+
         Args:
-            repo_id (`str`):
-                The repository to like. Example: `"user/my-cool-model"`.
+            repo_id (str):
+                The repository to check for access. Format should be `"user/repo_name"`.
+                Example: `"user/my-cool-model"`.
+
+            repo_type (str, optional):
+                The type of the repository. Should be one of `"model"`, `"dataset"`, or `"space"`.
+                If not specified, the default is `"model"`.
 
             token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
 
         Returns:
-            `None`: This method does not return any value. It will either complete successfully or raise an exception if access is denied.
+            bool:
+                `True` if the user has access to the repository. If an error occurs, an appropriate exception is raised.
 
         Raises:
-            [`~utils.RepositoryNotFoundError`]:
-                If repository is not found (error 404): wrong repo_id/repo_type, private
-                but not authenticated or repo does not exist.
+            RepositoryNotFoundError:
+                Raised if the repository does not exist, is private, or the user does not have access. This can
+                occur if the `repo_id` or `repo_type` is incorrect or if the repository is private but the user
+                is not authenticated.
 
-            [`~utils.GatedRepoError`]
-                If the repository exists but is gated and the user is not on the authorized
-                list.
+            GatedRepoError:
+                Raised if the repository exists but is gated and the user is not authorized to access it.
 
         Example:
-            ```py
-                >>> from huggingface_hub import HfApi
-                >>> api = HfApi(token="your_token")
-                >>> api.auth_check(repo_id="user/my-cool-model")
+            Check if the user has access to a repository:
+
+            ```python
+            >>> from huggingface_hub import auth_check
+            >>> from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+
+            # Check if the user has access to a public repository
+            >>> auth_check("user/my-cool-model")
+            True
+
+            # Handle gated repository or missing repository scenarios
+            >>> try:
+            >>>     auth_check("user/my-gated-repo")
+            >>> except GatedRepoError:
+            >>>     print("You are not authorized to access this gated repository.")
+            >>> except RepositoryNotFoundError:
+            >>>     print("Repository not found or you do not have access to it.")
             ```
 
-            If the repository exists and the token has the appropriate access, the method completes without error.
-            If the repository is gated or does not exist, the respective error is raised.
+            In this example:
+            - If the user has access, the method completes successfully and returns `True`.
+            - If the repository is gated and the user is unauthorized, a `GatedRepoError` is raised.
+            - If the repository is not found or the user is not authenticated, a `RepositoryNotFoundError` is raised.
         """
         headers = self._build_hf_headers(token=token)
         if repo_type is None:
