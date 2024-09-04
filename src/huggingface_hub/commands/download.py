@@ -112,6 +112,12 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             action="store_true",
             help="If True, progress bars are disabled and only the path to the download files is printed.",
         )
+        download_parser.add_argument(
+            "--max-workers",
+            type=int,
+            default=8,
+            help="Maximum number of workers to use for downloading files. Default is 8.",
+        )
         download_parser.set_defaults(func=DownloadCommand)
 
     def __init__(self, args: Namespace) -> None:
@@ -127,6 +133,7 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
         self.force_download: bool = args.force_download
         self.resume_download: Optional[bool] = args.resume_download or None
         self.quiet: bool = args.quiet
+        self.max_workers: int = args.max_workers
 
         if args.local_dir_use_symlinks is not None:
             warnings.warn(
@@ -189,4 +196,5 @@ class DownloadCommand(BaseHuggingfaceCLICommand):
             token=self.token,
             local_dir=self.local_dir,
             library_name="huggingface-cli",
+            max_workers=self.max_workers,
         )

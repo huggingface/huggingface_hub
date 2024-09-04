@@ -825,7 +825,7 @@ class ModelInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
         self.spaces = kwargs.pop("spaces", None)
@@ -947,7 +947,7 @@ class DatasetInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
 
@@ -1069,7 +1069,7 @@ class SpaceInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
         runtime = kwargs.pop("runtime", None)
