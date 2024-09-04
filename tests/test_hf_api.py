@@ -4233,18 +4233,18 @@ class TestLargeUpload(HfApiCommonTest):
                 assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
 
 
-class TestHfApiAuthCheck(HfApiCommonTest):  
-    @use_tmp_repo(repo_type="dataset")  
-    def test_auth_check_success(self, repo_url: RepoUrl) -> None:  
-        self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)  
+class TestHfApiAuthCheck(HfApiCommonTest):
+    @use_tmp_repo(repo_type="dataset")
+    def test_auth_check_success(self, repo_url: RepoUrl) -> None:
+        self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)
 
-    def test_auth_check_repo_missing(self) -> None:  
-        with self.assertRaises(RepositoryNotFoundError):  
-            self._api.auth_check(repo_id="username/missing_repo_id")  
+    def test_auth_check_repo_missing(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.auth_check(repo_id="username/missing_repo_id")
 
     def test_auth_check_gated_repo(self) -> None:
         gated_repo_id = "gated_repo_id"
         self._api.create_repo(repo_id=gated_repo_id, token=TOKEN, gated=True).repo_id
-        
+
         with self.assertRaises(GatedRepoError):
             self._api.auth_check(repo_id=gated_repo_id, token=OTHER_TOKEN)
