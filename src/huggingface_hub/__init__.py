@@ -213,6 +213,7 @@ _SUBMOD_ATTRS = {
         "list_liked_repos",
         "list_metrics",
         "list_models",
+        "list_organization_members",
         "list_pending_access_requests",
         "list_rejected_access_requests",
         "list_repo_commits",
@@ -221,6 +222,8 @@ _SUBMOD_ATTRS = {
         "list_repo_refs",
         "list_repo_tree",
         "list_spaces",
+        "list_user_followers",
+        "list_user_following",
         "list_webhooks",
         "merge_pull_request",
         "model_info",
@@ -718,6 +721,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_liked_repos,  # noqa: F401
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
+        list_organization_members,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
         list_rejected_access_requests,  # noqa: F401
         list_repo_commits,  # noqa: F401
@@ -726,6 +730,8 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_user_followers,  # noqa: F401
+        list_user_following,  # noqa: F401
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
