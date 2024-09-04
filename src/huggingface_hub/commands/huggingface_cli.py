@@ -24,6 +24,7 @@ from huggingface_hub.commands.tag import TagCommands
 from huggingface_hub.commands.upload import UploadCommand
 from huggingface_hub.commands.upload_large_folder import UploadLargeFolderCommand
 from huggingface_hub.commands.user import UserCommands
+from huggingface_hub.commands.version import VersionCommand
 
 
 def main():
@@ -40,13 +41,13 @@ def main():
     ScanCacheCommand.register_subcommand(commands_parser)
     DeleteCacheCommand.register_subcommand(commands_parser)
     TagCommands.register_subcommand(commands_parser)
+    VersionCommand.register_subcommand(commands_parser)
 
     # Experimental
     UploadLargeFolderCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()
-
     if not hasattr(args, "func"):
         parser.print_help()
         exit(1)
