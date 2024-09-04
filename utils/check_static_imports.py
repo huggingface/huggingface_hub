@@ -56,9 +56,9 @@ def check_static_imports(update: bool) -> NoReturn:
         "_SUBMOD_ATTRS = {\n"
         + "\n".join(
             f'    "{module}": [\n'
-            + "\n".join(f'        "{attr}",' for attr in sorted(_SUBMOD_ATTRS[module]))
+            + "\n".join(f'        "{attr}",' for attr in sorted(set(_SUBMOD_ATTRS[module])))
             + "\n    ],"
-            for module in sorted(_SUBMOD_ATTRS.keys())
+            for module in sorted(set(_SUBMOD_ATTRS.keys()))
         )
         + "\n}"
     )
