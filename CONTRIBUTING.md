@@ -148,7 +148,7 @@ Follow these steps to start contributing:
 
 7. Format your code.
 
-   `hugginface_hub` relies on [`ruff`](https://github.com/astral-sh/ruff) to format its source code consistently. You
+   `huggingface_hub` relies on [`ruff`](https://github.com/astral-sh/ruff) to format its source code consistently. You
    can apply automatic style corrections and code verifications with the following command:
 
    ```bash
