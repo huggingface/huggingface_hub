@@ -9529,44 +9529,52 @@ class HfApi:
         for followed_user in r.json():
             yield User(**followed_user)
 
-    def auth_check(self, repo_id: str, token: Union[bool, str, None] = None) -> None:
-    """
-    Check if the provided user token has access to a specific repository on the Hugging Face Hub.
+    def auth_check(self, repo_id: str, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> bool:
+        """
+        Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
-    Args:
-        repo_id (`str`):
-            The repository to like. Example: `"user/my-cool-model"`.
+        Args:
+            repo_id (`str`):
+                The repository to like. Example: `"user/my-cool-model"`.
 
-        token (Union[bool, str, None], optional):
-            A valid user access token (string). Defaults to the locally saved
-            token, which is the recommended method for authentication (see
-            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-            To disable authentication, pass `False`.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
-    Returns:
-        `None`: This method does not return any value. It will either complete successfully or raise an exception if access is denied.
+        Returns:
+            `None`: This method does not return any value. It will either complete successfully or raise an exception if access is denied.
 
-    Raises:
-        [`~utils.RepositoryNotFoundError`]:
-            If repository is not found (error 404): wrong repo_id/repo_type, private
-            but not authenticated or repo does not exist.
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                If repository is not found (error 404): wrong repo_id/repo_type, private
+                but not authenticated or repo does not exist.
 
-        [`~utils.GatedRepoError`]
-            If the repository exists but is gated and the user is not on the authorized
-            list.
+            [`~utils.GatedRepoError`]
+                If the repository exists but is gated and the user is not on the authorized
+                list.
 
-    Example:
-        >>> api = HfApi(token="your_token")
-        >>> api.auth_check(repo_id="user/my-cool-model")
+        Example:
+            ```py
+                >>> from huggingface_hub import HfApi
+                >>> api = HfApi(token="your_token")
+                >>> api.auth_check(repo_id="user/my-cool-model")
+            ```
 
-        If the repository exists and the token has the appropriate access, the method completes without error.
-        If the repository is gated or does not exist, the respective error is raised.
-    """
+            If the repository exists and the token has the appropriate access, the method completes without error.
+            If the repository is gated or does not exist, the respective error is raised.
+        """
         headers = self._build_hf_headers(token=token)
-        path = f"{self.endpoint}/api/datasets/{repo_id}/auth-check"
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
         r = get_session().get(path, headers=headers)
         try:
             hf_raise_for_status(r)
+            return True
         except GatedRepoError as e:
             e.append_to_message(" You are not authorized to access this gated repository.")
             raise
@@ -9593,6 +9601,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+auth_check = api.auth_check
 get_token_permission = api.get_token_permission
 
 list_models = api.list_models

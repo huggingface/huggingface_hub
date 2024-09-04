@@ -4233,25 +4233,18 @@ class TestLargeUpload(HfApiCommonTest):
                 assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
 
 
-class TestHfApiAuthCheck(HfApiCommonTest):
-    def setUp(self):
-        self.repo_id = "fake-repo-id"
+class TestHfApiAuthCheck(HfApiCommonTest):  
+    @use_tmp_repo(repo_type="dataset")  
+    def test_auth_check_success(self, repo_url: RepoUrl) -> None:  
+        self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)  
 
-    @patch.object(HfApi, "auth_check", return_value=None)
-    def test_auth_check_success(self, mock_auth_check):
-        try:
-            self._api.auth_check(repo_id=self.repo_id, token=self._token)
-        except Exception as e:
-            self.fail(f"auth_check raised an exception: {e}")
+    def test_auth_check_repo_missing(self) -> None:  
+        with self.assertRaises(RepositoryNotFoundError):  
+            self._api.auth_check(repo_id="username/missing_repo_id")  
 
-    @patch.object(HfApi, "auth_check")
-    def test_auth_check_gated_repo_error(self, mock_auth_check):
-        mock_auth_check.side_effect = GatedRepoError("403 Client Error")
+    def test_auth_check_gated_repo(self) -> None:
+        gated_repo_id = "gated_repo_id"
+        self._api.create_repo(repo_id=gated_repo_id, token=TOKEN, gated=True).repo_id
+        
         with self.assertRaises(GatedRepoError):
-            self._api.auth_check(repo_id="gated-repo-id", token=self._token)
-
-    @patch.object(HfApi, "auth_check")
-    def test_auth_check_repo_not_found_error(self, mock_auth_check):
-        mock_auth_check.side_effect = RepositoryNotFoundError("404 Client Error")
-        with self.assertRaises(RepositoryNotFoundError):
-            self._api.auth_check(repo_id="non-existent-repo-id", token=self._token)
+            self._api.auth_check(repo_id=gated_repo_id, token=OTHER_TOKEN)
