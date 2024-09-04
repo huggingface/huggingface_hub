@@ -30,7 +30,7 @@ class VersionCommand(BaseHuggingfaceCLICommand):
 
     @staticmethod
     def register_subcommand(parser: _SubParsersAction):
-        env_parser = parser.add_parser("version", help="Print information about the hugginface-cli version.")
+        env_parser = parser.add_parser("version", help="Print information about the huggingface-cli version.")
         env_parser.set_defaults(func=VersionCommand)
 
     def run(self) -> None:
