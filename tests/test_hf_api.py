@@ -46,7 +46,6 @@ from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
-    GatedRepoError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -4239,12 +4238,17 @@ class TestHfApiAuthCheck(HfApiCommonTest):
         self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)
 
     def test_auth_check_repo_missing(self) -> None:
-        with self.assertRaises(RepositoryNotFoundError):
-            self._api.auth_check(repo_id="username/missing_repo_id")
+        self.assertFalse(self._api.auth_check(repo_id="username/missing_repo_id"))
 
     def test_auth_check_gated_repo(self) -> None:
-        gated_repo_id = "gated_repo_id"
-        self._api.create_repo(repo_id=gated_repo_id, token=TOKEN, gated=True).repo_id
+        repo_id = self._api.create_repo(repo_name()).repo_id
 
-        with self.assertRaises(GatedRepoError):
-            self._api.auth_check(repo_id=gated_repo_id, token=OTHER_TOKEN)
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(token=TOKEN),
+        )
+
+        hf_raise_for_status(response)
+
+        self.assertFalse(self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN))
