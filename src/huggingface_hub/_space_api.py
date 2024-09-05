@@ -61,12 +61,17 @@ class SpaceHardware(str, Enum):
     CPU_UPGRADE = "cpu-upgrade"
     T4_SMALL = "t4-small"
     T4_MEDIUM = "t4-medium"
+    L4X1 = "l4x1"
+    L4X4 = "l4x4"
     ZERO_A10G = "zero-a10g"
     A10G_SMALL = "a10g-small"
     A10G_LARGE = "a10g-large"
     A10G_LARGEX2 = "a10g-largex2"
     A10G_LARGEX4 = "a10g-largex4"
     A100_LARGE = "a100-large"
+    V5E_1X1 = "v5e-1x1"
+    V5E_2X2 = "v5e-2x2"
+    V5E_2X4 = "v5e-2x4"
 
 
 class SpaceStorage(str, Enum):
