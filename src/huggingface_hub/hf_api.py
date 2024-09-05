@@ -168,6 +168,7 @@ ExpandModelProperty_T = Literal[
     "spaces",
     "tags",
     "transformersInfo",
+    "trendingScore",
     "widgetData",
 ]
 
@@ -187,17 +188,19 @@ ExpandDatasetProperty_T = Literal[
     "private",
     "siblings",
     "sha",
+    "trendingScore",
     "tags",
 ]
 
 ExpandSpaceProperty_T = Literal[
     "author",
     "cardData",
+    "createdAt",
     "datasets",
     "disabled",
     "lastModified",
-    "createdAt",
     "likes",
+    "models",
     "private",
     "runtime",
     "sdk",
@@ -205,7 +208,7 @@ ExpandSpaceProperty_T = Literal[
     "sha",
     "subdomain",
     "tags",
-    "models",
+    "trendingScore",
 ]
 
 USERNAME_PLACEHOLDER = "hf_user"
@@ -744,6 +747,8 @@ class ModelInfo:
             Model configuration.
         transformers_info (`TransformersInfo`, *optional*):
             Transformers-specific info (auto class, processor, etc.) associated with the model.
+        trending_score (`int`, *optional*):
+            Trending score of the model.
         card_data (`ModelCardData`, *optional*):
             Model Card Metadata  as a [`huggingface_hub.repocard_data.ModelCardData`] object.
         siblings (`List[RepoSibling]`):
@@ -774,6 +779,7 @@ class ModelInfo:
     model_index: Optional[Dict]
     config: Optional[Dict]
     transformers_info: Optional[TransformersInfo]
+    trending_score: Optional[int]
     siblings: Optional[List[RepoSibling]]
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
@@ -796,6 +802,8 @@ class ModelInfo:
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
+        self.trending_score = kwargs.pop("trendingScore", None)
+
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -890,6 +898,10 @@ class DatasetInfo:
             Model Card Metadata  as a [`huggingface_hub.repocard_data.DatasetCardData`] object.
         siblings (`List[RepoSibling]`):
             List of [`huggingface_hub.hf_api.RepoSibling`] objects that constitute the dataset.
+        paperswithcode_id (`str`, *optional*):
+            Papers with code ID of the dataset.
+        trending_score (`int`, *optional*):
+            Trending score of the dataset.
     """
 
     id: str
@@ -905,6 +917,7 @@ class DatasetInfo:
     likes: Optional[int]
     paperswithcode_id: Optional[str]
     tags: Optional[List[str]]
+    trending_score: Optional[int]
     card_data: Optional[DatasetCardData]
     siblings: Optional[List[RepoSibling]]
 
@@ -924,6 +937,8 @@ class DatasetInfo:
         self.likes = kwargs.pop("likes", None)
         self.paperswithcode_id = kwargs.pop("paperswithcode_id", None)
         self.tags = kwargs.pop("tags", None)
+        self.trending_score = kwargs.pop("trendingScore", None)
+
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1009,6 +1024,8 @@ class SpaceInfo:
             List of models used by the Space.
         datasets (`List[str]`, *optional*):
             List of datasets used by the Space.
+        trending_score (`int`, *optional*):
+            Trending score of the Space.
     """
 
     id: str
@@ -1025,6 +1042,7 @@ class SpaceInfo:
     sdk: Optional[str]
     tags: Optional[List[str]]
     siblings: Optional[List[RepoSibling]]
+    trending_score: Optional[int]
     card_data: Optional[SpaceCardData]
     runtime: Optional[SpaceRuntime]
     models: Optional[List[str]]
@@ -1046,6 +1064,7 @@ class SpaceInfo:
         self.likes = kwargs.pop("likes", None)
         self.sdk = kwargs.pop("sdk", None)
         self.tags = kwargs.pop("tags", None)
+        self.trending_score = kwargs.pop("trendingScore", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
         self.card_data = (
             SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
@@ -1681,7 +1700,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -1891,7 +1910,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"` and `"trendingScore"`.
             full (`bool`, *optional*):
                 Whether to fetch all dataset data, including the `last_modified`,
                 the `card_data` and  the files. Can contain useful information such as the
@@ -2074,7 +2093,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"trendingScore"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -2391,7 +2410,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2465,7 +2484,7 @@ class HfApi:
             expand (`List[ExpandDatasetProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `files_metadata` is passed.
-                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"` and `"tags"`.
+                Possible values are `"author"`, `"cardData"`, `"citation"`, `"createdAt"`, `"disabled"`, `"description"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"lastModified"`, `"likes"`, `"paperswithcode_id"`, `"private"`, `"siblings"`, `"sha"`, `"tags"` and `"trendingScore"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -2538,7 +2557,7 @@ class HfApi:
             expand (`List[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"models"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"` and `"trendingScore"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
