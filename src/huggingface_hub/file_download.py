@@ -427,6 +427,10 @@ def http_get(
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
     """
+    if expected_size is not None and resume_size == expected_size:
+        # If the file is already fully downloaded, we don't need to download it again.
+        return
+
     hf_transfer = None
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
         if resume_size != 0:
