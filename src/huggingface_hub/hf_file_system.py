@@ -624,6 +624,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
         if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
             os.makedirs(os.path.dirname(lpath), exist_ok=True)
+            import time
+            time.sleep(10)
 
         # Open file if not already open
         close_file = False
