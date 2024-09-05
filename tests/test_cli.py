@@ -392,6 +392,8 @@ class TestDownloadCommand(unittest.TestCase):
                 "--quiet",
                 "--local-dir",
                 ".",
+                "--max-workers",
+                "4",
             ]
         )
         self.assertEqual(args.repo_id, DUMMY_MODEL_ID)
@@ -405,6 +407,7 @@ class TestDownloadCommand(unittest.TestCase):
         self.assertTrue(args.resume_download)
         self.assertEqual(args.token, "my-token")
         self.assertTrue(args.quiet)
+        self.assertEqual(args.max_workers, 4)
         self.assertEqual(args.func, DownloadCommand)
 
     @patch("huggingface_hub.commands.download.hf_hub_download")
@@ -423,6 +426,7 @@ class TestDownloadCommand(unittest.TestCase):
             local_dir=".",
             local_dir_use_symlinks=None,
             quiet=False,
+            max_workers=8,
         )
 
         # Output path is printed to terminal once run is completed
@@ -459,6 +463,7 @@ class TestDownloadCommand(unittest.TestCase):
             local_dir="/path/to/dir",
             local_dir_use_symlinks=None,
             quiet=False,
+            max_workers=8,
         )
         DownloadCommand(args).run()
 
@@ -475,6 +480,7 @@ class TestDownloadCommand(unittest.TestCase):
             token="hf_****",
             local_dir="/path/to/dir",
             library_name="huggingface-cli",
+            max_workers=8,
         )
 
     @patch("huggingface_hub.commands.download.snapshot_download")
@@ -493,6 +499,7 @@ class TestDownloadCommand(unittest.TestCase):
             quiet=False,
             local_dir=None,
             local_dir_use_symlinks=None,
+            max_workers=8,
         )
         DownloadCommand(args).run()
 
@@ -509,6 +516,7 @@ class TestDownloadCommand(unittest.TestCase):
             local_dir=None,
             token=None,
             library_name="huggingface-cli",
+            max_workers=8,
         )
 
     @patch("huggingface_hub.commands.download.snapshot_download")
@@ -527,6 +535,7 @@ class TestDownloadCommand(unittest.TestCase):
             quiet=False,
             local_dir=None,
             local_dir_use_symlinks=None,
+            max_workers=8,
         )
 
         with self.assertWarns(UserWarning):
@@ -545,6 +554,7 @@ class TestDownloadCommand(unittest.TestCase):
             token=None,
             local_dir=None,
             library_name="huggingface-cli",
+            max_workers=8,
         )
 
         # Same but quiet (no warnings)

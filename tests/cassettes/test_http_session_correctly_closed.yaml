@@ -1,0 +1,159 @@
+interactions:
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
+        the","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Origin:
+      - '*'
+      Cache-Control:
+      - no-cache
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Fri, 30 Aug 2024 13:58:50 GMT
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - origin, access-control-request-method, access-control-request-headers, Origin,
+        Access-Control-Request-Method, Access-Control-Request-Headers
+      x-accel-buffering:
+      - 'no'
+      x-compute-characters:
+      - '41'
+      x-compute-type:
+      - 2-a10-g
+      x-request-id:
+      - 8ZMGhj7Cj90UK12dSJhfj
+      x-sha:
+      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
+        the","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '129'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Fri, 30 Aug 2024 13:58:51 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - gG5snagDwsUuzxQUSHpfs
+      x-sha:
+      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
+        the","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '129'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Fri, 30 Aug 2024 13:58:51 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - 8PS-J7-J2QKF0FyOb9War
+      x-sha:
+      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      user-agent:
+      - unknown/None; hf_hub/0.25.0.dev0; python/3.10.12; torch/2.4.0; tensorflow/2.17.0;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3.1-8B-Instruct
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":279,"text":" the","logprob":-0.63378906,"special":false},"generated_text":"
+        the","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '129'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Fri, 30 Aug 2024 13:58:52 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - _MFpbB44jCKcoM8wai66z
+      x-sha:
+      - 5206a32e0bd3067aef1ce90f5528ade7d866253f
+    status:
+      code: 200
+      message: OK
+version: 1

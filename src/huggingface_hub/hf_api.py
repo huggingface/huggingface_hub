@@ -829,7 +829,7 @@ class ModelInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
         self.spaces = kwargs.pop("spaces", None)
@@ -951,7 +951,7 @@ class DatasetInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
 
@@ -1073,7 +1073,7 @@ class SpaceInfo:
                 )
                 for sibling in siblings
             ]
-            if siblings
+            if siblings is not None
             else None
         )
         runtime = kwargs.pop("runtime", None)
@@ -9437,13 +9437,18 @@ class HfApi:
             message = "\n".join([f"- {error.get('message')}" for error in errors])
             raise ValueError(f"Invalid metadata in README.md.\n{message}") from e
 
-    def get_user_overview(self, username: str) -> User:
+    def get_user_overview(self, username: str, token: Union[bool, str, None] = None) -> User:
         """
         Get an overview of a user on the Hub.
 
         Args:
             username (`str`):
                 Username of the user to get an overview of.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `User`: A [`User`] object with the user's overview.
@@ -9452,18 +9457,24 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the user does not exist on the Hub.
         """
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/overview")
-
+        r = get_session().get(
+            f"{constants.ENDPOINT}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
+        )
         hf_raise_for_status(r)
         return User(**r.json())
 
-    def list_organization_members(self, organization: str) -> Iterable[User]:
+    def list_organization_members(self, organization: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         List of members of an organization on the Hub.
 
         Args:
             organization (`str`):
                 Name of the organization to get the members of.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `Iterable[User]`: A list of [`User`] objects with the members of the organization.
@@ -9473,21 +9484,25 @@ class HfApi:
                 HTTP 404 If the organization does not exist on the Hub.
 
         """
-
-        r = get_session().get(f"{constants.ENDPOINT}/api/organizations/{organization}/members")
-
-        hf_raise_for_status(r)
-
-        for member in r.json():
+        for member in paginate(
+            path=f"{constants.ENDPOINT}/api/organizations/{organization}/members",
+            params={},
+            headers=self._build_hf_headers(token=token),
+        ):
             yield User(**member)
 
-    def list_user_followers(self, username: str) -> Iterable[User]:
+    def list_user_followers(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         Get the list of followers of a user on the Hub.
 
         Args:
             username (`str`):
                 Username of the user to get the followers of.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `Iterable[User]`: A list of [`User`] objects with the followers of the user.
@@ -9497,21 +9512,25 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
-
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/followers")
-
-        hf_raise_for_status(r)
-
-        for follower in r.json():
+        for follower in paginate(
+            path=f"{constants.ENDPOINT}/api/users/{username}/followers",
+            params={},
+            headers=self._build_hf_headers(token=token),
+        ):
             yield User(**follower)
 
-    def list_user_following(self, username: str) -> Iterable[User]:
+    def list_user_following(self, username: str, token: Union[bool, str, None] = None) -> Iterable[User]:
         """
         Get the list of users followed by a user on the Hub.
 
         Args:
             username (`str`):
                 Username of the user to get the users followed by.
+            token (Union[bool, str, None], optional):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
 
         Returns:
             `Iterable[User]`: A list of [`User`] objects with the users followed by the user.
@@ -9521,12 +9540,11 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
 
         """
-
-        r = get_session().get(f"{constants.ENDPOINT}/api/users/{username}/following")
-
-        hf_raise_for_status(r)
-
-        for followed_user in r.json():
+        for followed_user in paginate(
+            path=f"{constants.ENDPOINT}/api/users/{username}/following",
+            params={},
+            headers=self._build_hf_headers(token=token),
+        ):
             yield User(**followed_user)
 
     def auth_check(self, repo_id: str, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> bool:
