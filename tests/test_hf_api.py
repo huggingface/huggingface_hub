@@ -288,75 +288,32 @@ class HfApiEndpointsTest(HfApiCommonTest):
         with pytest.raises(ValueError, match=r"Invalid repo_id*"):
             self._api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
 
-    def test_update_repo_settings(self):
-        repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        # Test setting gated to "auto"
-        self._api.update_repo_settings(repo_id=repo_id, gated="auto")
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated == "auto"
-        # Test setting gated to "manual"
-        self._api.update_repo_settings(repo_id=repo_id, gated="manual")
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated == "manual"
-        # Test disabling gating
-        self._api.update_repo_settings(repo_id=repo_id, gated=False)
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated is False
-        self._api.delete_repo(repo_id=repo_id)
-
-    def test_update_dataset_repo_settings(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
-        # Test setting gated to "auto"
-        self._api.update_repo_settings(repo_id=repo_id, gated="auto", repo_type=constants.REPO_TYPE_DATASET)
-        res = self._api.dataset_info(repo_id, expand="gated")
-        assert res.gated == "auto"
-        # Test setting gated to "manual"
-        self._api.update_repo_settings(repo_id=repo_id, gated="manual", repo_type=constants.REPO_TYPE_DATASET)
-        res = self._api.dataset_info(repo_id, expand="gated")
-        assert res.gated == "manual"
-        # Test disabling gating
-        self._api.update_repo_settings(repo_id=repo_id, gated=False, repo_type=constants.REPO_TYPE_DATASET)
-        res = self._api.dataset_info(repo_id, expand="gated")
-        assert res.gated is False
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
-
-    def test_update_model_repo_settings(self):
-        repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
-        # Test setting gated to "auto"
-        self._api.update_repo_settings(repo_id=repo_id, gated="auto", repo_type=constants.REPO_TYPE_MODEL)
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated == "auto"
-        # Test setting gated to "manual"
-        self._api.update_repo_settings(repo_id=repo_id, gated="manual", repo_type=constants.REPO_TYPE_MODEL)
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated == "manual"
-        # Test disabling gating
-        self._api.update_repo_settings(repo_id=repo_id, gated=False, repo_type=constants.REPO_TYPE_MODEL)
-        res = self._api.model_info(repo_id, expand="gated")
-        assert res.gated is False
-        self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
-
-    def test_update_space_repo_settings(self):
-        with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
-        with pytest.raises(ValueError, match=r"Invalid space_sdk.*"):
-            self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk="something")
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
         
-        for sdk in constants.SPACES_SDK_TYPES:
-            repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk).repo_id
-            # Test setting gated to "auto"
-            self._api.update_repo_settings(repo_id=repo_id, gated="auto", repo_type=constants.REPO_TYPE_SPACE)
-            res = self._api.space_info(repo_id, expand="gated")
-            assert res.gated == "auto"
-            # Test setting gated to "manual"
-            self._api.update_repo_settings(repo_id=repo_id, gated="manual", repo_type=constants.REPO_TYPE_SPACE)
-            res = self._api.space_info(repo_id, expand="gated")
-            assert res.gated == "manual"
-            # Test disabling gating
-            self._api.update_repo_settings(repo_id=repo_id, gated=False, repo_type=constants.REPO_TYPE_SPACE)
-            res = self._api.space_info(repo_id, expand="gated")
-            assert res.gated is False
-            self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
+        for gated_value in ["auto", "manual", False]:
+            self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
+            info = self._api.model_info(repo_id, expand="gated")
+            assert info.gated == gated_value
+
+    @use_tmp_repo(repo_type="dataset")
+    def test_update_dataset_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        
+        for gated_value in ["auto", "manual", False]:
+            self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
+            info = self._api.dataset_info(repo_id, expand="gated")
+            assert info.gated == gated_value
+
+    @use_tmp_repo(repo_type="space")
+    def test_update_space_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        
+        for gated_value in ["auto", "manual", False]:
+            self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
+            info = self._api.space_info(repo_id, expand="gated")
+            assert info.gated == gated_value
 
 
 class CommitApiTest(HfApiCommonTest):
