@@ -1792,6 +1792,14 @@ class HfApiPublicProductionTest(unittest.TestCase):
         for model in self._api.list_models(expand=["gated"], gated=False, limit=5):
             assert model.gated is False
 
+    def test_list_models_inference_warm(self):
+        for model in self._api.list_models(inference=["warm"], expand="inference", limit=5):
+            assert model.inference == "warm"
+
+    def test_list_models_inference_cold(self):
+        for model in self._api.list_models(inference=["cold"], expand="inference", limit=5):
+            assert model.inference == "cold"
+
     def test_model_info(self):
         model = self._api.model_info(repo_id=DUMMY_MODEL_ID)
         self.assertIsInstance(model, ModelInfo)

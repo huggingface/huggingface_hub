@@ -718,13 +718,17 @@ class ModelInfo:
             Is the repo private.
         disabled (`bool`, *optional*):
             Is the repo disabled.
-        gated (`Literal["auto", "manual", False]`, *optional*):
-            Is the repo gated.
-            If so, whether there is manual or automatic approval.
         downloads (`int`):
             Number of downloads of the model over the last 30 days.
         downloads_all_time (`int`):
             Cumulated number of downloads of the model since its creation.
+        gated (`Literal["auto", "manual", False]`, *optional*):
+            Is the repo gated.
+            If so, whether there is manual or automatic approval.
+        inference (`Literal["cold", "frozen", "warm"]`, *optional*):
+            Status of the model on the inference API.
+            Warm models are available for immediate use. Cold models will be loaded on first inference call.
+            Frozen models are not available in Inference API.
         likes (`int`):
             Number of likes of the model.
         library_name (`str`, *optional*):
@@ -760,10 +764,11 @@ class ModelInfo:
     created_at: Optional[datetime]
     last_modified: Optional[datetime]
     private: Optional[bool]
-    gated: Optional[Literal["auto", "manual", False]]
     disabled: Optional[bool]
     downloads: Optional[int]
     downloads_all_time: Optional[int]
+    gated: Optional[Literal["auto", "manual", False]]
+    inference: Optional[Literal["warm", "cold", "frozen"]]
     likes: Optional[int]
     library_name: Optional[str]
     tags: Optional[List[str]]
@@ -793,6 +798,7 @@ class ModelInfo:
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
+        self.inference = kwargs.pop("inference", None)
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
         self.mask_token = kwargs.pop("mask_token", None)
@@ -1611,6 +1617,7 @@ class HfApi:
         filter: Union[str, Iterable[str], None] = None,
         author: Optional[str] = None,
         gated: Optional[bool] = None,
+        inference: Optional[Literal["cold", "frozen", "warm"]] = None,
         library: Optional[Union[str, List[str]]] = None,
         language: Optional[Union[str, List[str]]] = None,
         model_name: Optional[str] = None,
@@ -1639,11 +1646,15 @@ class HfApi:
                 A string or list of string to filter models on the Hub.
             author (`str`, *optional*):
                 A string which identify the author (user or organization) of the
-                returned models
+                returned models.
             gated (`bool`, *optional*):
                 A boolean to filter models on the Hub that are gated or not. By default, all models are returned.
                 If `gated=True` is passed, only gated models are returned.
                 If `gated=False` is passed, only non-gated models are returned.
+            inference (`Literal["cold", "frozen", "warm"]`, *optional*):
+                A string to filter models on the Hub by their state on the Inference API.
+                Warm models are available for immediate use. Cold models will be loaded on first inference call.
+                Frozen models are not available in Inference API.
             library (`str` or `List`, *optional*):
                 A string or list of strings of foundational libraries models were
                 originally trained from, such as pytorch, tensorflow, or allennlp.
@@ -1771,6 +1782,8 @@ class HfApi:
             params["author"] = author
         if gated is not None:
             params["gated"] = gated
+        if inference is not None:
+            params["inference"] = inference
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
         search_list = []
