@@ -2981,8 +2981,10 @@ class ActivityApiTest(unittest.TestCase):
         likers = self.api.list_repo_likers(repo_id, token=TOKEN)
 
         # Check if the test user is in the list of likers
-        liker_usernames = [user.username for user in likers]
-        self.assertGreater(len(likers), 0)
+        likers_list = list(likers)
+        self.assertGreater(len(likers_list), 0)
+
+        liker_usernames = [user.username for user in likers_list]
         self.assertIn(USER, liker_usernames)
 
         # Cleanup
