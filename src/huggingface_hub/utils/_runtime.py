@@ -15,6 +15,7 @@
 """Check presence of installed packages at runtime."""
 
 import importlib.metadata
+import os
 import platform
 import sys
 import warnings
@@ -302,6 +303,11 @@ def is_google_colab() -> bool:
     return _is_google_colab
 
 
+def is_colab_enterprise() -> bool:
+    """Return `True` if code is executed in a Google Colab Enterprise environment."""
+    return os.environ.get("VERTEX_PRODUCT") == "COLAB_ENTERPRISE"
+
+
 def dump_environment_info() -> Dict[str, Any]:
     """Dump information about the machine to help debugging issues.
 
@@ -331,7 +337,7 @@ def dump_environment_info() -> Dict[str, Any]:
         info["Running in iPython ?"] = "No"
     info["Running in notebook ?"] = "Yes" if is_notebook() else "No"
     info["Running in Google Colab ?"] = "Yes" if is_google_colab() else "No"
-
+    info["Running in Google Colab Enterprise ?"] = "Yes" if is_colab_enterprise() else "No"
     # Login info
     info["Token path ?"] = constants.HF_TOKEN_PATH
     info["Has saved token ?"] = token is not None
