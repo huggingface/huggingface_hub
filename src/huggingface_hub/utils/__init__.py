@@ -86,6 +86,7 @@ from ._runtime import (
     is_fastapi_available,
     is_fastcore_available,
     is_google_colab,
+    is_colab_enterprise,
     is_gradio_available,
     is_graphviz_available,
     is_hf_transfer_available,
