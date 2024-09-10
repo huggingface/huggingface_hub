@@ -3585,15 +3585,15 @@ class HfApi:
     ) -> Dict[str, Union[str, bool]]:
         if gated not in ["auto", "manual", False]:
             raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
-        
+
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
-        
+
         # Build headers
         headers = self._build_hf_headers(token=token)
-        
+
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,

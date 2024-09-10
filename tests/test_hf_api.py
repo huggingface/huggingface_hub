@@ -291,7 +291,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     @use_tmp_repo(repo_type="model")
     def test_update_repo_settings(self, repo_url: RepoUrl):
         repo_id = repo_url.repo_id
-        
+
         for gated_value in ["auto", "manual", False]:
             self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
             info = self._api.model_info(repo_id, expand="gated")
@@ -300,7 +300,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     @use_tmp_repo(repo_type="dataset")
     def test_update_dataset_repo_settings(self, repo_url: RepoUrl):
         repo_id = repo_url.repo_id
-        
+
         for gated_value in ["auto", "manual", False]:
             self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
             info = self._api.dataset_info(repo_id, expand="gated")
@@ -309,7 +309,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     @use_tmp_repo(repo_type="space")
     def test_update_space_repo_settings(self, repo_url: RepoUrl):
         repo_id = repo_url.repo_id
-        
+
         for gated_value in ["auto", "manual", False]:
             self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
             info = self._api.space_info(repo_id, expand="gated")
