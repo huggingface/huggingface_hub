@@ -23,6 +23,7 @@ from typing import Any, Dict
 
 from .. import __version__, constants
 
+
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
 _package_versions = {}
