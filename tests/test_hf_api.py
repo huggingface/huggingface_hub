@@ -2968,9 +2968,7 @@ class ActivityApiTest(unittest.TestCase):
     def test_list_repo_likers(self) -> None:
         # a repo with > 5000 likes
         all_likers = list(
-            HfApi().list_repo_likers(
-                repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space", token=TOKEN
-            )
+            HfApi().list_repo_likers(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
         )
         self.assertIsInstance(all_likers[0], User)
         self.assertGreater(len(all_likers), 5000)
