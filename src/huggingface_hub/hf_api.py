@@ -3582,7 +3582,7 @@ class HfApi:
         gated: Literal["auto", "manual", False] = False,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
-    ) -> Dict[str, Union[str, bool]]:
+    ) -> None:
         if gated not in ["auto", "manual", False]:
             raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
 
