@@ -3573,6 +3573,37 @@ class HfApi:
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> None:
+        """
+        Update the gated settings of a repository.
+        To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos.
+
+        Args:
+            repo_id (str):
+                A namespace (user or an organization) and a repo name separated by a /.
+            gated (Literal["auto", "manual", False], optional, defaults to False):
+                The gated release status for the repository.
+                * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
+                * "manual": The repository is gated, and access requests require manual approval.
+                * False: The repository is not gated, and anyone can access it.
+            token (Union[str, bool, None], optional):
+                A valid user access token (string). Defaults to the locally saved token,
+                which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass False.
+            repo_type (str, optional):
+                The type of repository.
+                Must be one of the values in constants.REPO_TYPES.
+                Set to `"dataset"` if uploading to a dataset, `None` or `"model"` if uploading to a model.
+                Default is `"model"`.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If gated is not one of "auto", "manual", or False.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If repo_type is not one of the values in constants.REPO_TYPES.
+            [`~utils.HfHubHTTPError`]:
+                If the request to the Hugging Face Hub API fails.
+        """
         if gated not in ["auto", "manual", False]:
             raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
 
