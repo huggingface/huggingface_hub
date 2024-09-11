@@ -159,6 +159,7 @@ _SUBMOD_ATTRS = {
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "auth_check",
         "cancel_access_request",
         "change_discussion_status",
         "comment_discussion",
@@ -667,6 +668,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        auth_check,  # noqa: F401
         cancel_access_request,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401

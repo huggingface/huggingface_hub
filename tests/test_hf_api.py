@@ -46,6 +46,7 @@ from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -65,6 +66,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    User,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
@@ -81,18 +83,9 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     logging,
 )
-from huggingface_hub.utils.endpoint_helpers import (
-    _is_emission_within_threshold,
-)
+from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    FULL_NAME,
-    OTHER_TOKEN,
-    OTHER_USER,
-    TOKEN,
-    USER,
-)
+from .testing_constants import ENDPOINT_STAGING, FULL_NAME, OTHER_TOKEN, OTHER_USER, TOKEN, USER
 from .testing_utils import (
     DUMMY_DATASET_ID,
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -2972,21 +2965,14 @@ class ActivityApiTest(unittest.TestCase):
         likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
         self.assertEqual(likes.user, OTHER_USER)
 
+    @with_production_testing
     def test_list_repo_likers(self) -> None:
-        # Create a repo + like
-        repo_id = self.api.create_repo(repo_name(), token=TOKEN).repo_id
-        self.api.like(repo_id, token=TOKEN)
-
-        # Use list_repo_likers to get the list of users who liked this repo
-        likers = self.api.list_repo_likers(repo_id, token=TOKEN)
-
-        # Check if the test user is in the list of likers
-        liker_usernames = [user.username for user in likers]
-        self.assertGreater(len(likers), 0)
-        self.assertIn(USER, liker_usernames)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
+        # a repo with > 5000 likes
+        all_likers = list(
+            HfApi().list_repo_likers(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
+        )
+        self.assertIsInstance(all_likers[0], User)
+        self.assertGreater(len(all_likers), 5000)
 
     @with_production_testing
     def test_list_likes_on_production(self) -> None:
@@ -4247,3 +4233,27 @@ class TestLargeUpload(HfApiCommonTest):
             for j in range(N_FILES_PER_FOLDER):
                 assert f"subfolder_{i}/file_lfs_{i}_{j}.bin" in uploaded_files
                 assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
+
+
+class TestHfApiAuthCheck(HfApiCommonTest):
+    @use_tmp_repo(repo_type="dataset")
+    def test_auth_check_success(self, repo_url: RepoUrl) -> None:
+        self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)
+
+    def test_auth_check_repo_missing(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.auth_check(repo_id="username/missing_repo_id")
+
+    def test_auth_check_gated_repo(self) -> None:
+        repo_id = self._api.create_repo(repo_name()).repo_id
+
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(token=TOKEN),
+        )
+
+        hf_raise_for_status(response)
+
+        with self.assertRaises(GatedRepoError):
+            self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN)

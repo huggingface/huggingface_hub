@@ -218,7 +218,11 @@ _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
     "\nNote: Creating a commit assumes that the repo already exists on the"
     " Huggingface Hub. Please use `create_repo` if it's not the case."
 )
-
+_AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
+    "\nNote: The repository either does not exist or you do not have access rights."
+    " Please check the repository ID and your access permissions."
+    " If this is a private repository, ensure that your token is correct."
+)
 logger = logging.get_logger(__name__)
 
 
@@ -2342,7 +2346,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[User]:
+    ) -> Iterable[User]:
         """
         List all users who liked a given repo on the hugging Face Hub.
 
@@ -2364,29 +2368,15 @@ class HfApi:
                 `None`.
 
         Returns:
-            `List[User]`: a list of [`User`] objects.
+            `Iterable[User]`: an iterable of [`huggingface_hub.hf_api.User`] objects.
         """
 
         # Construct the API endpoint
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
-        headers = self._build_hf_headers(token=token)
-
-        # Make the request
-        response = get_session().get(path, headers=headers)
-        hf_raise_for_status(response)
-
-        # Parse the results into User objects
-        likers_data = response.json()
-        return [
-            User(
-                username=user_data["user"],
-                fullname=user_data["fullname"],
-                avatar_url=user_data["avatarUrl"],
-            )
-            for user_data in likers_data
-        ]
+        for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
+            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
 
     @validate_hf_hub_args
     def model_info(
@@ -9575,6 +9565,70 @@ class HfApi:
         ):
             yield User(**followed_user)
 
+    def auth_check(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+    ) -> None:
+        """
+        Check if the provided user token has access to a specific repository on the Hugging Face Hub.
+
+        This method verifies whether the user, authenticated via the provided token, has access to the specified
+        repository. If the repository is not found or if the user lacks the required permissions to access it,
+        the method raises an appropriate exception.
+
+        Args:
+            repo_id (`str`):
+                The repository to check for access. Format should be `"user/repo_name"`.
+                Example: `"user/my-cool-model"`.
+
+            repo_type (`str`, *optional*):
+                The type of the repository. Should be one of `"model"`, `"dataset"`, or `"space"`.
+                If not specified, the default is `"model"`.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                Raised if the repository does not exist, is private, or the user does not have access. This can
+                occur if the `repo_id` or `repo_type` is incorrect or if the repository is private but the user
+                is not authenticated.
+
+            [`~utils.GatedRepoError`]:
+                Raised if the repository exists but is gated and the user is not authorized to access it.
+
+        Example:
+            Check if the user has access to a repository:
+
+            ```python
+            >>> from huggingface_hub import auth_check
+            >>> from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+
+            try:
+                auth_check("user/my-cool-model")
+            except GatedRepoError:
+                # Handle gated repository error
+                print("You do not have permission to access this gated repository.")
+            except RepositoryNotFoundError:
+                # Handle repository not found error
+                print("The repository was not found or you do not have access.")
+            ```
+
+            In this example:
+            - If the user has access, the method completes successfully.
+            - If the repository is gated or does not exist, appropriate exceptions are raised, allowing the user
+            to handle them accordingly.
+        """
+        headers = self._build_hf_headers(token=token)
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
+        r = get_session().get(path, headers=headers)
+        hf_raise_for_status(r)
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -9594,6 +9648,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+auth_check = api.auth_check
 get_token_permission = api.get_token_permission
 
 list_models = api.list_models
@@ -9614,7 +9669,6 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
-
 list_metrics = api.list_metrics
 
 get_model_tags = api.get_model_tags
