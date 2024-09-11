@@ -9579,7 +9579,7 @@ class HfApi:
         ):
             yield User(**followed_user)
 
-    def auth_check(self, repo_id: str, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> None:
+    def auth_check(self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> None:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
@@ -9588,26 +9588,26 @@ class HfApi:
         the method raises an appropriate exception.
 
         Args:
-            repo_id (str):
+            repo_id (`str`):
                 The repository to check for access. Format should be `"user/repo_name"`.
                 Example: `"user/my-cool-model"`.
 
-            repo_type (str, optional):
+            repo_type (`str`, *optional*):
                 The type of the repository. Should be one of `"model"`, `"dataset"`, or `"space"`.
                 If not specified, the default is `"model"`.
 
-            token (Union[bool, str, None], optional):
+            token `(Union[bool, str, None]`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
 
         Raises:
-            RepositoryNotFoundError:
+            [`~utils.RepositoryNotFoundError`]:
                 Raised if the repository does not exist, is private, or the user does not have access. This can
                 occur if the `repo_id` or `repo_type` is incorrect or if the repository is private but the user
                 is not authenticated.
 
-            GatedRepoError:
+            [`~utils.GatedRepoError`]:
                 Raised if the repository exists but is gated and the user is not authorized to access it.
 
         Example:
@@ -9639,14 +9639,7 @@ class HfApi:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
         r = get_session().get(path, headers=headers)
-        try:
-            hf_raise_for_status(r)
-        except GatedRepoError as e:
-            e.append_to_message(" You are not authorized to access this gated repository.")
-            raise
-        except RepositoryNotFoundError as e:
-            e.append_to_message(_AUTH_CHECK_NO_REPO_ERROR_MESSAGE)
-            raise
+        hf_raise_for_status(r)
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
