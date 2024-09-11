@@ -9547,13 +9547,13 @@ class HfApi:
         ):
             yield User(**followed_user)
 
-    def auth_check(self, repo_id: str, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> bool:
+    def auth_check(self, repo_id: str, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> None:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
         This method verifies whether the user, authenticated via the provided token, has access to the specified
-        repository. It raises exceptions if the repository is not found or if the user lacks the required permissions
-        to access it. If the check is successful, `True` is returned.
+        repository. If the repository is not found or if the user lacks the required permissions to access it,
+        the method raises an appropriate exception.
 
         Args:
             repo_id (str):
@@ -9569,11 +9569,6 @@ class HfApi:
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
 
-            Returns:
-                bool:
-                    `True` if the user has access to the repository, otherwise `False`. If the repository is gated or not found,
-                    the method will return `False` without raising an exception.
-
         Raises:
             RepositoryNotFoundError:
                 Raised if the repository does not exist, is private, or the user does not have access. This can
@@ -9588,21 +9583,22 @@ class HfApi:
 
             ```python
             >>> from huggingface_hub import auth_check
+            >>> from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
 
-            # Check if the user has access to a public repository
-            >>> auth_check("user/my-cool-model")
-            True
-
-            # Check if the user has access to a gated or missing repository
-            >>> auth_check("user/my-gated-repo")
-            False
-            >>> auth_check("user/non-existent-repo")
-            False
+            try:
+                auth_check("user/my-cool-model")
+            except GatedRepoError:
+                # Handle gated repository error
+                print("You do not have permission to access this gated repository.")
+            except RepositoryNotFoundError:
+                # Handle repository not found error
+                print("The repository was not found or you do not have access.")
             ```
 
             In this example:
-            - If the user has access, the method completes successfully and returns `True`.
-            - If the repository is gated or does not exist, the method returns `False` without raising an exception.
+            - If the user has access, the method completes successfully.
+            - If the repository is gated or does not exist, appropriate exceptions are raised, allowing the user
+            to handle them accordingly.
         """
         headers = self._build_hf_headers(token=token)
         if repo_type is None:
@@ -9613,11 +9609,12 @@ class HfApi:
         r = get_session().get(path, headers=headers)
         try:
             hf_raise_for_status(r)
-            return True
-        except GatedRepoError:
-            return False
-        except RepositoryNotFoundError:
-            return False
+        except GatedRepoError as e:
+            e.append_to_message(" You are not authorized to access this gated repository.")
+            raise
+        except RepositoryNotFoundError as e:
+            e.append_to_message(_AUTH_CHECK_NO_REPO_ERROR_MESSAGE)
+            raise
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
