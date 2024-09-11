@@ -9579,7 +9579,9 @@ class HfApi:
         ):
             yield User(**followed_user)
 
-    def auth_check(self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None) -> None:
+    def auth_check(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+    ) -> None:
         """
         Check if the provided user token has access to a specific repository on the Hugging Face Hub.
 
