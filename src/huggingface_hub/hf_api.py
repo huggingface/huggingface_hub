@@ -2346,7 +2346,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[User]:
+    ) -> Iterable[User]:
         """
         List all users who liked a given repo on the hugging Face Hub.
 
@@ -2368,29 +2368,15 @@ class HfApi:
                 `None`.
 
         Returns:
-            `List[User]`: a list of [`User`] objects.
+            `Iterable[User]`: an iterable of [`huggingface_hub.hf_api.User`] objects.
         """
 
         # Construct the API endpoint
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
-        headers = self._build_hf_headers(token=token)
-
-        # Make the request
-        response = get_session().get(path, headers=headers)
-        hf_raise_for_status(response)
-
-        # Parse the results into User objects
-        likers_data = response.json()
-        return [
-            User(
-                username=user_data["user"],
-                fullname=user_data["fullname"],
-                avatar_url=user_data["avatarUrl"],
-            )
-            for user_data in likers_data
-        ]
+        for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
+            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
 
     @validate_hf_hub_args
     def model_info(

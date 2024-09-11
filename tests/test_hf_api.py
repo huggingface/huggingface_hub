@@ -66,6 +66,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    User,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
@@ -2964,21 +2965,14 @@ class ActivityApiTest(unittest.TestCase):
         likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
         self.assertEqual(likes.user, OTHER_USER)
 
+    @with_production_testing
     def test_list_repo_likers(self) -> None:
-        # Create a repo + like
-        repo_id = self.api.create_repo(repo_name(), token=TOKEN).repo_id
-        self.api.like(repo_id, token=TOKEN)
-
-        # Use list_repo_likers to get the list of users who liked this repo
-        likers = self.api.list_repo_likers(repo_id, token=TOKEN)
-
-        # Check if the test user is in the list of likers
-        liker_usernames = [user.username for user in likers]
-        self.assertGreater(len(likers), 0)
-        self.assertIn(USER, liker_usernames)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
+        # a repo with > 5000 likes
+        all_likers = list(
+            HfApi().list_repo_likers(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
+        )
+        self.assertIsInstance(all_likers[0], User)
+        self.assertGreater(len(all_likers), 5000)
 
     @with_production_testing
     def test_list_likes_on_production(self) -> None:
