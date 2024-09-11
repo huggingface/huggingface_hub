@@ -60,7 +60,6 @@ extras["tensorflow-testing"] = [
 extras["testing"] = (
     extras["cli"]
     + extras["inference"]
-    + extras["torch"]
     + [
         "jedi",
         "Jinja2",
