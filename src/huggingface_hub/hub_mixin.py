@@ -41,11 +41,11 @@ if is_torch_available():
     import torch  # type: ignore
 
 if is_safetensors_available():
+    import packaging.version
+    import safetensors
     from safetensors.torch import load_model as load_model_as_safetensor
     from safetensors.torch import save_model as save_model_as_safetensor
 
-    import packaging.version
-    import safetensors
 
 logger = logging.get_logger(__name__)
 
