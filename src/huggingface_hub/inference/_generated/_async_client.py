@@ -97,7 +97,7 @@ from .._common import _async_yield_from, _import_aiohttp
 
 if TYPE_CHECKING:
     import numpy as np
-    from aiohttp import ClientSession
+    from aiohttp import ClientResponse, ClientSession
     from PIL.Image import Image
 
 logger = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ class AsyncInferenceClient:
         self.base_url = base_url
 
         # Keep track of the sessions to close them properly
-        self._sessions: Set["ClientSession"] = set()
+        self._sessions: Dict["ClientSession", Set["ClientResponse"]] = dict()
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -358,7 +358,7 @@ class AsyncInferenceClient:
 
         Another possibility is to use an async context (e.g. `async with AsyncInferenceClient(): ...`).
         """
-        await asyncio.gather(*[session.close() for session in self._sessions])
+        await asyncio.gather(*[session.close() for session in self._sessions.keys()])
 
     async def audio_classification(
         self,
@@ -2648,14 +2648,28 @@ class AsyncInferenceClient:
         )
 
         # Keep track of sessions to close them later
-        self._sessions.add(session)
+        self._sessions[session] = set()
 
-        # Override the 'close' method to deregister the session when closed
+        # Override the `._request` method to register responses to be closed
+        session._wrapped_request = session._request
+
+        async def _request(method, url, **kwargs):
+            response = await session._wrapped_request(method, url, **kwargs)
+            self._sessions[session].add(response)
+            return response
+
+        session._request = _request
+
+        # Override the 'close' method to
+        # 1. close ongoing responses
+        # 2. deregister the session when closed
         session._close = session.close
 
         async def close_session():
+            for response in self._sessions[session]:
+                response.close()
             await session._close()
-            self._sessions.discard(session)
+            self._sessions.pop(session, None)
 
         session.close = close_session
         return session

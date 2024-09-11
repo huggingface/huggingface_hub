@@ -82,6 +82,7 @@ from ._runtime import (
     get_tf_version,
     get_torch_version,
     is_aiohttp_available,
+    is_colab_enterprise,
     is_fastai_available,
     is_fastapi_available,
     is_fastcore_available,

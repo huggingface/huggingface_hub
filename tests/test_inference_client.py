@@ -706,6 +706,7 @@ class TestOpenAsBinary(InferenceClientTest):
             self.assertEqual(content, content_bytes)
 
 
+@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
 class TestResolveURL(InferenceClientTest):
     FAKE_ENDPOINT = "https://my-endpoint.hf.co"
 

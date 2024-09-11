@@ -452,6 +452,26 @@ async def test_use_async_with_inference_client():
 
 
 @pytest.mark.asyncio
+@patch("aiohttp.ClientSession._request")
+async def test_client_responses_correctly_closed(request_mock: Mock) -> None:
+    """
+    Regression test for #2521.
+    Async client must close the ClientResponse objects when exiting the async context manager.
+    Fixed by closing the response objects when the session is closed.
+
+    See https://github.com/huggingface/huggingface_hub/issues/2521.
+    """
+    async with AsyncInferenceClient() as client:
+        session = client._get_client_session()
+        response1 = await session.get("http://this-is-a-fake-url.com")
+        response2 = await session.post("http://this-is-a-fake-url.com", json={})
+
+    # Response objects are closed when the AsyncInferenceClient is closed
+    response1.close.assert_called_once()
+    response2.close.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_warns_if_client_deleted_with_opened_sessions():
     client = AsyncInferenceClient()
     session = client._get_client_session()

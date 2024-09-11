@@ -20,7 +20,7 @@ from threading import Lock
 from typing import Optional
 
 from .. import constants
-from ._runtime import is_google_colab
+from ._runtime import is_colab_enterprise, is_google_colab
 
 
 _IS_GOOGLE_COLAB_CHECKED = False
@@ -51,7 +51,8 @@ def _get_token_from_google_colab() -> Optional[str]:
     Token is read from the vault only once per session and then stored in a global variable to avoid re-requesting
     access to the vault.
     """
-    if not is_google_colab():
+    # If it's not a Google Colab or it's Colab Enterprise, fallback to environment variable or token file authentication
+    if not is_google_colab() or is_colab_enterprise():
         return None
 
     # `google.colab.userdata` is not thread-safe
