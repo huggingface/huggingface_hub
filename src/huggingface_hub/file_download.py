@@ -1396,7 +1396,8 @@ def _hf_hub_download_to_cache_dir(
             filename=filename,
             force_download=force_download,
         )
-        _create_symlink(blob_path, pointer_path, new_blob=True)
+        if not os.path.exists(pointer_path):
+            _create_symlink(blob_path, pointer_path, new_blob=True)
 
     return pointer_path
 
