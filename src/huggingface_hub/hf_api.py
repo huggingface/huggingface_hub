@@ -1402,6 +1402,10 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
+        num_following (`int`, *optional*):
+            Number of users this user is following.
+        num_followers (`int`, *optional*):
+            Number of users following this user.
         orgs (list of [`Organization`]):
             List of organizations the user is part of.
     """
@@ -1420,6 +1424,8 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
+    num_following: Optional[int] = None
+    num_followers: Optional[int] = None
     orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
@@ -1436,6 +1442,8 @@ class User:
         self.num_papers = kwargs.pop("numPapers", None)
         self.num_upvotes = kwargs.pop("numUpvotes", None)
         self.num_likes = kwargs.pop("numLikes", None)
+        self.num_following = kwargs.pop("numFollowing", None)
+        self.num_followers = kwargs.pop("numFollowers", None)
         self.user_type = kwargs.pop("type", None)
         self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
