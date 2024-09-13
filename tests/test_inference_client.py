@@ -919,27 +919,6 @@ class TestOpenAICompatibility(unittest.TestCase):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
 
 
-@pytest.mark.parametrize(
-    "base_url",
-    [
-        "http://0.0.0.0:8080/v1",  # expected from OpenAI client
-        "http://0.0.0.0:8080",  # but not mandatory
-        "http://0.0.0.0:8080/v1/",  # ok with trailing '/' as well
-        "http://0.0.0.0:8080/",  # ok with trailing '/' as well
-    ],
-)
-def test_chat_completion_base_url_works_with_v1(base_url: str):
-    """Test that `/v1/chat/completions` is correctly appended to the base URL.
-
-    This is a regression test for https://github.com/huggingface/huggingface_hub/issues/2414
-    """
-    with patch("huggingface_hub.inference._client.InferenceClient.post") as post_mock:
-        client = InferenceClient(base_url=base_url)
-        post_mock.return_value = "{}"
-        client.chat_completion(messages=CHAT_COMPLETION_MESSAGES, stream=False)
-    assert post_mock.call_args_list[0].kwargs["model"] == "http://0.0.0.0:8080/v1/chat/completions"
-
-
 @pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
@@ -975,6 +954,7 @@ def test_stream_chat_completion_response(stop_signal: bytes):
 
 INFERENCE_API_URL = "https://api-inference.huggingface.co/models"
 INFERENCE_ENDPOINT_URL = "https://rur2d6yoccusjxgn.us-east-1.aws.endpoints.huggingface.cloud"  # example
+LOCAL_TGI_URL = "http://0.0.0.0:8080"
 
 
 @pytest.mark.parametrize(
@@ -1058,6 +1038,14 @@ INFERENCE_ENDPOINT_URL = "https://rur2d6yoccusjxgn.us-east-1.aws.endpoints.huggi
             None,
             f"{INFERENCE_ENDPOINT_URL}/v1/",
             f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Local TGI with trailing '/v1'
+            # Regression test for https://github.com/huggingface/huggingface_hub/issues/2414
+            f"{LOCAL_TGI_URL}/v1",  # expected from OpenAI client
+            None,
+            None,
+            f"{LOCAL_TGI_URL}/v1/chat/completions",
         ),
     ],
 )

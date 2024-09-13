@@ -887,26 +887,27 @@ class AsyncInferenceClient:
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
     def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
-        # Determine model
-        # `self.xxx` takes precedence over the method argument only in `chat_completion`
-        # since `chat_completion(..., model=xxx)` is also a payload parameter for the
-        # server, we need to handle it differently
+        # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
+        # `self.base_url` and `self.model` takes precedence over 'model' argument only in `chat_completion`.
         model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
-        is_url = model_id_or_url.startswith(("http://", "https://"))
 
-        # First, resolve the model chat completions URL
-        if model_id_or_url == self.base_url:
-            # base_url passed => add server route
-            model_url = model_id_or_url.rstrip("/")
-            if not model_url.endswith("/v1"):
-                model_url += "/v1"
+        # Resolve URL if it's a model ID
+        model_url = (
+            model_id_or_url
+            if model_id_or_url.startswith(("http://", "https://"))
+            else self._resolve_url(model_id_or_url, task="text-generation")
+        )
+
+        # Strip trailing /
+        model_url = model_url.rstrip("/")
+
+        # Append /chat/completions if not already present
+        if model_url.endswith("/v1"):
             model_url += "/chat/completions"
-        elif is_url:
-            # model is a URL => use it directly
-            model_url = model_id_or_url
-        else:
-            # model is a model ID => resolve it + add server route
-            model_url = self._resolve_url(model_id_or_url).rstrip("/") + "/v1/chat/completions"
+
+        # Append /v1/chat/completions if not already present
+        if not model_url.endswith("/chat/completions"):
+            model_url += "/v1/chat/completions"
 
         return model_url
 
