@@ -473,7 +473,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
-        raise _format(HfHubHTTPError, "", response) from e
+        raise _format(HfHubHTTPError, str(e), response) from e
 
 
 def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Response) -> HfHubHTTPError:

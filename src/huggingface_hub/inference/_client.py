@@ -810,26 +810,7 @@ class InferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
-        # Determine model
-        # `self.xxx` takes precedence over the method argument only in `chat_completion`
-        # since `chat_completion(..., model=xxx)` is also a payload parameter for the
-        # server, we need to handle it differently
-        model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
-        is_url = model_id_or_url.startswith(("http://", "https://"))
-
-        # First, resolve the model chat completions URL
-        if model_id_or_url == self.base_url:
-            # base_url passed => add server route
-            model_url = model_id_or_url.rstrip("/")
-            if not model_url.endswith("/v1"):
-                model_url += "/v1"
-            model_url += "/chat/completions"
-        elif is_url:
-            # model is a URL => use it directly
-            model_url = model_id_or_url
-        else:
-            # model is a model ID => resolve it + add server route
-            model_url = self._resolve_url(model_id_or_url).rstrip("/") + "/v1/chat/completions"
+        model_url = self._resolve_chat_completion_url(model)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
@@ -864,6 +845,30 @@ class InferenceClient:
             return _stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+
+    def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
+        # Determine model
+        # `self.xxx` takes precedence over the method argument only in `chat_completion`
+        # since `chat_completion(..., model=xxx)` is also a payload parameter for the
+        # server, we need to handle it differently
+        model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
+        is_url = model_id_or_url.startswith(("http://", "https://"))
+
+        # First, resolve the model chat completions URL
+        if model_id_or_url == self.base_url:
+            # base_url passed => add server route
+            model_url = model_id_or_url.rstrip("/")
+            if not model_url.endswith("/v1"):
+                model_url += "/v1"
+            model_url += "/chat/completions"
+        elif is_url:
+            # model is a URL => use it directly
+            model_url = model_id_or_url
+        else:
+            # model is a model ID => resolve it + add server route
+            model_url = self._resolve_url(model_id_or_url).rstrip("/") + "/v1/chat/completions"
+
+        return model_url
 
     def document_question_answering(
         self,
