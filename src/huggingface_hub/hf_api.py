@@ -3572,6 +3572,62 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
+    @validate_hf_hub_args
+    def update_repo_settings(
+        self,
+        repo_id: str,
+        *,
+        gated: Literal["auto", "manual", False] = False,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Update the gated settings of a repository.
+        To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a /.
+            gated (`Literal["auto", "manual", False]`, *optional*):
+                The gated release status for the repository.
+                * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
+                * "manual": The repository is gated, and access requests require manual approval.
+                * False (default): The repository is not gated, and anyone can access it.
+            token (`Union[str, bool, None]`, *optional*):
+                A valid user access token (string). Defaults to the locally saved token,
+                which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass False.
+            repo_type (`str`, *optional*):
+                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`.
+                Defaults to `"model"`.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If gated is not one of "auto", "manual", or False.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If repo_type is not one of the values in constants.REPO_TYPES.
+            [`~utils.HfHubHTTPError`]:
+                If the request to the Hugging Face Hub API fails.
+        """
+        if gated not in ["auto", "manual", False]:
+            raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
+
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL  # default repo type
+
+        # Build headers
+        headers = self._build_hf_headers(token=token)
+
+        r = get_session().put(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
+            headers=headers,
+            json={"gated": gated},
+        )
+        hf_raise_for_status(r)
+
     def move_repo(
         self,
         from_id: str,
@@ -9686,6 +9742,7 @@ create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
+update_repo_settings = api.update_repo_settings
 super_squash_history = api.super_squash_history
 move_repo = api.move_repo
 upload_file = api.upload_file

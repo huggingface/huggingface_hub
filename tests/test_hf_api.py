@@ -281,6 +281,25 @@ class HfApiEndpointsTest(HfApiCommonTest):
         with pytest.raises(ValueError, match=r"Invalid repo_id*"):
             self._api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
 
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+
+        for gated_value in ["auto", "manual", False]:
+            self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
+            info = self._api.model_info(repo_id, expand="gated")
+            assert info.gated == gated_value
+
+    @use_tmp_repo(repo_type="dataset")
+    def test_update_dataset_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        repo_type = repo_url.repo_type
+
+        for gated_value in ["auto", "manual", False]:
+            self._api.update_repo_settings(repo_id=repo_id, repo_type=repo_type, gated=gated_value)
+            info = self._api.dataset_info(repo_id, expand="gated")
+            assert info.gated == gated_value
+
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
