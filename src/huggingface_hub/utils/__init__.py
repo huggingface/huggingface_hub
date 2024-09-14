@@ -46,6 +46,7 @@ from ._cache_manager import (
 )
 from ._chunk_utils import chunk_iterable
 from ._datetime import parse_datetime
+from ._deprecation import _deprecate_method
 from ._experimental import experimental
 from ._fixes import SoftTemporaryDirectory, WeakFileLock, yaml_dump
 from ._git_credential import list_credential_helpers, set_git_credential, unset_git_credential

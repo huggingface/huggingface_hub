@@ -146,26 +146,21 @@ an organization). In this section, we will see the settings that you can also co
 
 Some settings are specific to Spaces (hardware, environment variables,...). To configure those, please refer to our [Manage your Spaces](../guides/manage-spaces) guide.
 
-### Update visibility
+### Setup gated access and visibility
 
-A repository can be public or private. A private repository is only visible to you or members of the organization in which the repository is located. Change a repository to private as shown in the following:
+To enhance control over how repos are utilized, the Hub empowers repo authors to enable **access requests** for their repos, and to set the visibility of the repo to **private**.
 
-```py
->>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(repo_id=repo_id, private=True)
-```
+When **access requests** are enabled, users must agree to share their contact information (username and email address) with the repo authors to gain access to the files. A repo with access requests enabled is referred to as a **gated repo**.
 
-### Setup gated access
+And a repository can be public or private. A private repository is only visible to you or members of the organization in which the repository is located.
 
-To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos. User must agree to share their contact information (username and email address) with the repo authors to access the files when enabled. A repo with access requests enabled is called a **gated repo**.
-
-You can set a repo as gated using [`update_repo_settings`]:
+You can configure these settings using [`update_repo_settings`]:
 
 ```py
 >>> from huggingface_hub import HfApi
 
 >>> api = HfApi()
->>> api.update_repo_settings(repo_id=repo_id, gated="auto")  # Set automatic gating for a model
+>>> api.update_repo_settings(repo_id=repo_id, gated="auto", private=True)  # Set automatic gating and visibility for a model
 ```
 
 ### Rename your repository

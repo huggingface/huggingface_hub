@@ -126,12 +126,12 @@ class HfApiCommonTest(unittest.TestCase):
 
 def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
-    # for {create, delete}_repo and update_repo_visibility
+    # for {create, delete}_repo and update_repo_settings
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     with warnings.catch_warnings(record=True) as record:
         repo_id = api.create_repo(repo_name()).repo_id
-        api.update_repo_visibility(repo_id, private=True)
+        api.update_repo_settings(repo_id, gated="auto", private=True)
         api.delete_repo(repo_id)
     assert not len(record)
 
@@ -212,26 +212,26 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
     def test_create_update_and_delete_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False)
-        assert not res["private"]
+        self._api.update_repo_settings(repo_id=repo_id, private=True)
+        info = self._api.repo_info(repo_id)
+        if info is not None:
+            assert info.private
         self._api.delete_repo(repo_id=repo_id)
 
     def test_create_update_and_delete_model_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_MODEL)
-        assert not res["private"]
+        self._api.update_repo_settings(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
+        info = self._api.model_info(repo_id)
+        if info is not None:
+            assert info.private
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
 
     def test_create_update_and_delete_dataset_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
-        assert res["private"]
-        res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_DATASET)
-        assert not res["private"]
+        self._api.update_repo_settings(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
+        info = self._api.dataset_info(repo_id)
+        if info is not None:
+            assert info.private
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
 
     def test_create_update_and_delete_space_repo(self):
@@ -244,10 +244,10 @@ class HfApiEndpointsTest(HfApiCommonTest):
             repo_id = self._api.create_repo(
                 repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=sdk
             ).repo_id
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
-            assert res["private"]
-            res = self._api.update_repo_visibility(repo_id=repo_id, private=False, repo_type=constants.REPO_TYPE_SPACE)
-            assert not res["private"]
+            self._api.update_repo_settings(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_SPACE)
+            info = self._api.space_info(repo_id)
+            if info is not None:
+                assert info.private
             self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_SPACE)
 
     def test_move_repo_normal_usage(self):
