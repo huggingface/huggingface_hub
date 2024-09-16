@@ -24,9 +24,10 @@ from argparse import _SubParsersAction
 from typing import Dict, List, Optional
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND, SliceFileObj
+from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import get_session, hf_raise_for_status, logging
+from ..utils._lfs import SliceFileObj
 
 
 logger = logging.get_logger(__name__)
