@@ -154,6 +154,7 @@ ExpandModelProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
+    "gguf",
     "inference",
     "lastModified",
     "library_name",
@@ -360,6 +361,17 @@ class SafeTensorsInfo(dict):
     total: int
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
+        self.update(asdict(self))
+
+
+@dataclass
+class GGUFInfo(dict):
+    architecture: str
+    chat_template: Optional[str]
+    context_length: Optional[int]
+    total: int
+
+    def __post_init__(self):  # hack to make GGUFInfo backward compatible
         self.update(asdict(self))
 
 
@@ -732,6 +744,8 @@ class ModelInfo:
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
+        gguf (`GGUFInfo`, *optional*):
+            GGUF-specific info (architecture, etc.) associated with the model.
         inference (`Literal["cold", "frozen", "warm"]`, *optional*):
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.
@@ -777,6 +791,7 @@ class ModelInfo:
     downloads: Optional[int]
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
+    gguf: Optional[GGUFInfo]
     inference: Optional[Literal["warm", "cold", "frozen"]]
     likes: Optional[int]
     library_name: Optional[str]
@@ -803,6 +818,7 @@ class ModelInfo:
         self.created_at = parse_datetime(created_at) if created_at else None
         self.private = kwargs.pop("private", None)
         self.gated = kwargs.pop("gated", None)
+        self.gguf = kwargs.pop("gguf", None)
         self.disabled = kwargs.pop("disabled", None)
         self.downloads = kwargs.pop("downloads", None)
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
@@ -1715,7 +1731,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2413,7 +2429,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see

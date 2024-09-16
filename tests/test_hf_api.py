@@ -4222,7 +4222,7 @@ class TestExpandPropertyType(HfApiCommonTest):
             if should_be_added:
                 msg += f"\nNew arg(s) to support: {', '.join(should_be_added)}"
             msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
-            msg += "\nThanks you in advance!"
+            msg += "\nThank you in advance!"
             raise ValueError(msg)
 
 
