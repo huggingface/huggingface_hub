@@ -154,6 +154,7 @@ ExpandModelProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
+    "gguf",
     "inference",
     "lastModified",
     "library_name",
@@ -777,6 +778,7 @@ class ModelInfo:
     downloads: Optional[int]
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
+    gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
     likes: Optional[int]
     library_name: Optional[str]
@@ -808,6 +810,7 @@ class ModelInfo:
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
+        self.gguf = kwargs.pop("gguf", None)
         self.inference = kwargs.pop("inference", None)
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1715,7 +1718,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2413,7 +2416,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
