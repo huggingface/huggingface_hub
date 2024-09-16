@@ -41,8 +41,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
-MAX_NB_REGULAR_FILES_PER_COMMIT = 50
-MAX_NB_LFS_FILES_PER_COMMIT = 100
+MAX_NB_REGULAR_FILES_PER_COMMIT = 75
+MAX_NB_LFS_FILES_PER_COMMIT = 150
 
 
 def upload_large_folder_internal(
@@ -383,7 +383,7 @@ def _determine_next_job(status: LargeUploadStatus) -> Optional[Tuple[WorkerJob, 
             return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
 
         # 2. Commit if at least 100 files are ready to commit
-        elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 100:
+        elif status.nb_workers_commit == 0 and status.queue_commit.qsize() >= 150:
             status.nb_workers_commit += 1
             logger.debug("Job: commit (>100 files ready)")
             return (WorkerJob.COMMIT, _get_items_to_commit(status.queue_commit))
