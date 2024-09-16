@@ -829,7 +829,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
-        if packaging.version.parse(safetensors.__version__) < packaging.version.parse("0.4.3"):
+        if packaging.version.parse(safetensors.__version__) < packaging.version.parse("0.4.3"):  # type: ignore [attr-defined]
             load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
             if map_location != "cpu":
                 logger.warning(
@@ -840,7 +840,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 )
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
-            safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)
+            safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
         return model
 
 
