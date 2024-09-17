@@ -20,6 +20,7 @@ from threading import Lock
 from typing import Optional
 
 from .. import constants
+from ._auth_profiles import _read_profiles, _save_profiles
 from ._runtime import is_colab_enterprise, is_google_colab
 
 
@@ -119,6 +120,44 @@ def _get_token_from_file() -> Optional[str]:
         return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
     except FileNotFoundError:
         return None
+
+
+def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
+    """
+    Get the token from the given profile.
+
+    Args:
+        profile_name (`str`, *optional*, defaults to `"default"`):
+            The name of the profile to get the token from.
+
+    Returns:
+        `str` or `None`: The token, `None` if it doesn't exist.
+
+    """
+    config = _read_profiles()
+    if profile_name in config:
+        return _clean_token(config.get(profile_name, "hf_token"))
+    else:
+        return None
+
+
+def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
+    """
+    Save the given token to the given profile.
+
+    Args:
+        token (`str`):
+            The token to save.
+        profile_name (`str`, *optional*, defaults to `"default"`):
+            The name of the profile to save the token to.
+    """
+    config = _read_profiles()
+    if profile_name not in config:
+        config.add_section(profile_name)
+    # Update the token for the given profile
+    config.set(profile_name, "hf_token", token)
+    # save back to the file
+    _save_profiles(config)
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:

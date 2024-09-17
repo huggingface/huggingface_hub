@@ -15,6 +15,7 @@
 
 import os
 import subprocess
+import warnings
 from functools import partial
 from getpass import getpass
 from pathlib import Path
@@ -33,7 +34,13 @@ from .utils import (
     set_git_credential,
     unset_git_credential,
 )
-from .utils._token import _get_token_from_environment, _get_token_from_google_colab
+from .utils._auth_profiles import _read_profiles, _save_profiles
+from .utils._token import (
+    _get_token_from_environment,
+    _get_token_from_google_colab,
+    _get_token_from_profile,
+    _save_token_to_profile,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -49,6 +56,7 @@ _HF_LOGO_ASCII = """
 
 def login(
     token: Optional[str] = None,
+    profile_name: Optional[str] = None,
     add_to_git_credential: bool = False,
     new_session: bool = True,
     write_permission: bool = False,
@@ -82,6 +90,8 @@ def login(
     Args:
         token (`str`, *optional*):
             User access token to generate from https://huggingface.co/settings/token.
+        profile_name (`str`, *optional*):
+            Name of the profile to add or update. If `None`, will add or update the "default" profile.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
             is configured, a warning will be displayed to the user. If `token` is `None`,
@@ -108,30 +118,57 @@ def login(
                 "`--add-to-git-credential` if using via `huggingface-cli` if "
                 "you want to set the git credential as well."
             )
-        _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
+        _login(
+            token,
+            add_to_git_credential=add_to_git_credential,
+            write_permission=write_permission,
+            profile_name=profile_name,
+        )
     elif is_notebook():
         notebook_login(new_session=new_session, write_permission=write_permission)
     else:
         interpreter_login(new_session=new_session, write_permission=write_permission)
 
 
-def logout() -> None:
+def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
+
+    Args:
+        profile_name (`str`, *optional*):
+            Name of the profile to logout from. If `None`, will logout from the active profile.
+        all (`bool`, defaults to `False`):
+            If `True`, all profiles are deleted.
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the profile name is not found.
     """
     if get_token() is None:
         print("Not logged in!")
         return
+    if all:
+        # Delete all profiles and token
+        for file_path in (constants.HF_TOKEN_PATH, constants.HF_PROFILES_PATH):
+            try:
+                Path(file_path).unlink()
+            except FileNotFoundError:
+                pass
 
+        print("Successfully logged out from all profiles.")
+
+    if profile_name is None:
+        # Logout from the active profile, i.e. delete the token file
+        try:
+            Path(constants.HF_TOKEN_PATH).unlink()
+        except FileNotFoundError:
+            pass
+    else:
+        _logout_from_profile(profile_name)
+        print(f"Successfully removed profile: `{profile_name}`")
+        return
     # Delete token from git credentials
     unset_git_credential()
-
-    # Delete token file
-    try:
-        Path(constants.HF_TOKEN_PATH).unlink()
-    except FileNotFoundError:
-        pass
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
@@ -144,8 +181,58 @@ def logout() -> None:
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
-
     print("Successfully logged out.")
+
+
+def auth_switch(profile_name: str) -> None:
+    """Switch to a different profile.
+
+    Args:
+        profile_name (`str`):
+            Name of the profile to switch to.
+
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the profile name is not found.
+    """
+    token = _get_token_from_profile(profile_name)
+    if token:
+        # Write token to HF_TOKEN_PATH
+        _set_active_profile(profile_name)
+        print(f"Switched to profile: {profile_name}")
+        if _get_token_from_environment():
+            warnings.warn(
+                "The environment variable `HF_TOKEN` is set and will override " "the token from the profile."
+            )
+    else:
+        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+
+
+def auth_list() -> None:
+    """List all available profiles."""
+    profiles = _read_profiles()
+    current_profile = None
+
+    if not profiles.sections():
+        print("No profiles found.")
+        return
+    for profile in profiles.sections():
+        if profiles.get(profile, "hf_token") == get_token():
+            current_profile = profile
+    # Print header
+    print(f"{'Profile Name':^20} {'Token':^20}")
+    print(f"{'-'*20} {'-'*20}")
+
+    # Print profiles
+    for profile in profiles.sections():
+        token = profiles.get(profile, "hf_token", fallback="<not set>")
+        masked_token = f"{token[:4]}{'*' * 8}" if token != "<not set>" else token
+        is_current = "*" if profile == current_profile else " "
+
+        print(f"{is_current} {profile:^19} {masked_token:^20}")
+
+    if _get_token_from_environment():
+        print("\nNote: Environment variable `HF_TOKEN` is set and is the current active token.")
 
 
 ###
@@ -189,9 +276,15 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
+    profile_name = input("Enter profile name (default: 'default'): ") or "default"
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
-    _login(token=token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
+    _login(
+        token=token,
+        profile_name=profile_name,
+        add_to_git_credential=add_to_git_credential,
+        write_permission=write_permission,
+    )
 
 
 ###
@@ -296,7 +389,12 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 ###
 
 
-def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
+def _login(
+    token: str,
+    add_to_git_credential: bool,
+    write_permission: bool = False,
+    profile_name: Optional[str] = None,
+) -> None:
     from .hf_api import get_token_permission  # avoid circular import
 
     if token.startswith("api_org"):
@@ -321,13 +419,54 @@ def _login(token: str, add_to_git_credential: bool, write_permission: bool = Fal
             )
         else:
             print("Token has not been saved to git credential helper.")
+    profile_name = profile_name or "default"
+    # Save token to profiles file
+    _save_token_to_profile(token, profile_name)
+    # Set active profile
+    _set_active_profile(profile_name)
+    print("Login successful.")
+    if _get_token_from_environment():
+        print("Note: Environment variable`HF_TOKEN` is set and is the current active token.")
+    else:
+        print(f"The current active profile is: `{profile_name}`")
 
-    # Save token
-    path = Path(constants.HF_TOKEN_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(token)
-    print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
-    print("Login successful")
+
+def _logout_from_profile(profile_name: str) -> None:
+    """Logout from a profile.
+
+    Args:
+        profile_name (`str`):
+            The name of the profile to logout from.
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the profile name is not found.
+    """
+    config = _read_profiles()
+    if config.get(profile_name, "hf_token") == get_token():
+        warnings.warn(f"Active profile {profile_name} will been deleted.")
+    if profile_name in config:
+        config.remove_section(profile_name)
+        _save_profiles(config)
+    else:
+        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+
+
+def _set_active_profile(profile_name: str) -> None:
+    """Set the active profile.
+
+    Args:
+        profile_name (`str`):
+            The name of the profile to set as active.
+    """
+    token = _get_token_from_profile(profile_name)
+    if token:
+        # Write token to HF_TOKEN_PATH
+        path = Path(constants.HF_TOKEN_PATH)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(token)
+        print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
+    else:
+        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
 
 
 def _current_token_okay(write_permission: bool = False):

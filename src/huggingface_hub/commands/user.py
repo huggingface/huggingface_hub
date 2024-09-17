@@ -17,18 +17,15 @@ from argparse import _SubParsersAction
 from requests.exceptions import HTTPError
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import (
-    ENDPOINT,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
-    SPACES_SDK_TYPES,
-)
+from huggingface_hub.constants import ENDPOINT, REPO_TYPES, REPO_TYPES_URL_PREFIXES, SPACES_SDK_TYPES
 from huggingface_hub.hf_api import HfApi
 
 from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 # for backward compatibility
     NOTEBOOK_LOGIN_PASSWORD_HTML,
     NOTEBOOK_LOGIN_TOKEN_HTML_END,
     NOTEBOOK_LOGIN_TOKEN_HTML_START,
+    auth_list,
+    auth_switch,
     login,
     logout,
     notebook_login,
@@ -47,6 +44,11 @@ class UserCommands(BaseHuggingfaceCLICommand):
             help="Token generated from https://huggingface.co/settings/tokens",
         )
         login_parser.add_argument(
+            "--profile-name",
+            type=str,
+            help="Optional: Name of the profile to log in to.",
+        )
+        login_parser.add_argument(
             "--add-to-git-credential",
             action="store_true",
             help="Optional: Save token to git credential helper.",
@@ -54,9 +56,31 @@ class UserCommands(BaseHuggingfaceCLICommand):
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
         whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
         whoami_parser.set_defaults(func=lambda args: WhoamiCommand(args))
+
         logout_parser = parser.add_parser("logout", help="Log out")
+        logout_parser.add_argument(
+            "--profile-name",
+            type=str,
+            help="Optional: Name of the profile to log out from.",
+        )
+        logout_parser.add_argument(
+            "--all",
+            action="store_true",
+            help="Optional: Log out from all profiles.",
+        )
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
+        auth_parser = parser.add_parser("auth", help="Other authentication related commands")
+        auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
+        auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between profiles")
+        auth_switch_parser.add_argument(
+            "--profile-name",
+            type=str,
+            help="Optional: Name of the profile to switch to.",
+        )
+        auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
+        auth_list_parser = auth_subparsers.add_parser("list", help="List all profiles")
+        auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))
         # new system: git-based repo system
         repo_parser = parser.add_parser("repo", help="{create} Commands to interact with your huggingface.co repos.")
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
@@ -95,12 +119,26 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        login(token=self.args.token, add_to_git_credential=self.args.add_to_git_credential)
+        login(
+            token=self.args.token,
+            profile_name=self.args.profile_name,
+            add_to_git_credential=self.args.add_to_git_credential,
+        )
 
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
-        logout()
+        logout(profile_name=self.args.profile_name, all=self.args.all)
+
+
+class AuthSwitchCommand(BaseUserCommand):
+    def run(self):
+        auth_switch(profile_name=self.args.profile_name)
+
+
+class AuthListCommand(BaseUserCommand):
+    def run(self):
+        auth_list()
 
 
 class WhoamiCommand(BaseUserCommand):
