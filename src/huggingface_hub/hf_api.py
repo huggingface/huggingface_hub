@@ -136,6 +136,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -4018,6 +4019,9 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
+    @_deprecate_method(
+        version="0.27", message="This is an experimental feature. Please use `upload_large_folder` instead."
+    )
     def create_commits_on_pr(
         self,
         *,
@@ -4856,8 +4860,10 @@ class HfApi:
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
             multi_commits (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True and `multi_commits` is used, more information will be displayed to the user.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
@@ -9472,14 +9478,24 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
+        if len(filtered_repo_objects) > 30:
+            logger.info(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
+                "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
+                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
+            )
 
-        return [
+        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
+        operations = [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
+        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
+        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None):
         """
