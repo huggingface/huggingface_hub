@@ -4093,6 +4093,8 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_upvotes > 10
         assert len(overview.orgs) > 0
         assert any(org.name == "huggingface" for org in overview.orgs)
+        assert overview.num_following > 300
+        assert overview.num_followers > 1000
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
