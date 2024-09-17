@@ -5342,7 +5342,7 @@ class HfApi:
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
-            2. Commit if at least 25 files are ready to commit.
+            2. Commit if at least 150 files are ready to commit.
             3. Get upload mode if at least 10 files have been hashed.
             4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
             5. Hash file if at least 1 file and no worker is hashing.
@@ -5350,7 +5350,8 @@ class HfApi:
             7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
-            10. Commit if at least 1 file to commit.
+            10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
+            11. Commit if at least 1 file to commit and all other queues are empty.
 
         Special rules:
             - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
