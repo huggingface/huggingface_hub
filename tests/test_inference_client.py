@@ -16,6 +16,7 @@ import json
 import time
 import unittest
 from pathlib import Path
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -918,27 +919,6 @@ class TestOpenAICompatibility(unittest.TestCase):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
 
 
-@pytest.mark.parametrize(
-    "base_url",
-    [
-        "http://0.0.0.0:8080/v1",  # expected from OpenAI client
-        "http://0.0.0.0:8080",  # but not mandatory
-        "http://0.0.0.0:8080/v1/",  # ok with trailing '/' as well
-        "http://0.0.0.0:8080/",  # ok with trailing '/' as well
-    ],
-)
-def test_chat_completion_base_url_works_with_v1(base_url: str):
-    """Test that `/v1/chat/completions` is correctly appended to the base URL.
-
-    This is a regression test for https://github.com/huggingface/huggingface_hub/issues/2414
-    """
-    with patch("huggingface_hub.inference._client.InferenceClient.post") as post_mock:
-        client = InferenceClient(base_url=base_url)
-        post_mock.return_value = "{}"
-        client.chat_completion(messages=CHAT_COMPLETION_MESSAGES, stream=False)
-    assert post_mock.call_args_list[0].kwargs["model"] == "http://0.0.0.0:8080/v1/chat/completions"
-
-
 @pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
@@ -970,3 +950,108 @@ def test_stream_chat_completion_response(stop_signal: bytes):
     assert len(output) == 2
     assert output[0].choices[0].delta.content == "Both"
     assert output[1].choices[0].delta.content == " Rust"
+
+
+INFERENCE_API_URL = "https://api-inference.huggingface.co/models"
+INFERENCE_ENDPOINT_URL = "https://rur2d6yoccusjxgn.us-east-1.aws.endpoints.huggingface.cloud"  # example
+LOCAL_TGI_URL = "http://0.0.0.0:8080"
+
+
+@pytest.mark.parametrize(
+    ("client_model", "client_base_url", "model", "expected_url"),
+    [
+        (
+            # Inference API - model global to client
+            "username/repo_name",
+            None,
+            None,
+            f"{INFERENCE_API_URL}/username/repo_name/v1/chat/completions",
+        ),
+        (
+            # Inference API - model specific to request
+            None,
+            None,
+            "username/repo_name",
+            f"{INFERENCE_API_URL}/username/repo_name/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url global to client as 'model'
+            INFERENCE_ENDPOINT_URL,
+            None,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url global to client as 'base_url'
+            None,
+            INFERENCE_ENDPOINT_URL,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url specific to request
+            None,
+            None,
+            INFERENCE_ENDPOINT_URL,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url global to client as 'base_url' - explicit model id
+            None,
+            INFERENCE_ENDPOINT_URL,
+            "username/repo_name",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - full url global to client as 'model'
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+            None,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - full url global to client as 'base_url'
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - full url specific to request
+            None,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url with '/v1' (OpenAI compatibility)
+            # Regression test for https://github.com/huggingface/huggingface_hub/pull/2418
+            None,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Inference Endpoint - url with '/v1/' (OpenAI compatibility)
+            # Regression test for https://github.com/huggingface/huggingface_hub/pull/2418
+            None,
+            None,
+            f"{INFERENCE_ENDPOINT_URL}/v1/",
+            f"{INFERENCE_ENDPOINT_URL}/v1/chat/completions",
+        ),
+        (
+            # Local TGI with trailing '/v1'
+            # Regression test for https://github.com/huggingface/huggingface_hub/issues/2414
+            f"{LOCAL_TGI_URL}/v1",  # expected from OpenAI client
+            None,
+            None,
+            f"{LOCAL_TGI_URL}/v1/chat/completions",
+        ),
+    ],
+)
+def test_resolve_chat_completion_url(
+    client_model: Optional[str], client_base_url: Optional[str], model: Optional[str], expected_url: str
+):
+    client = InferenceClient(model=client_model, base_url=client_base_url)
+    url = client._resolve_chat_completion_url(model)
+    assert url == expected_url

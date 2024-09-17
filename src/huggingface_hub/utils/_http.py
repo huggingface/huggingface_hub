@@ -43,6 +43,7 @@ from ..errors import (
 )
 from . import logging
 from ._fixes import JSONDecodeError
+from ._lfs import SliceFileObj
 from ._typing import HTTP_METHOD_T
 
 
@@ -290,7 +291,7 @@ def http_backoff(
     # first HTTP request. We need to save the initial position so that the full content
     # of the file is re-sent on http backoff. See warning tip in docstring.
     io_obj_initial_pos = None
-    if "data" in kwargs and isinstance(kwargs["data"], io.IOBase):
+    if "data" in kwargs and isinstance(kwargs["data"], (io.IOBase, SliceFileObj)):
         io_obj_initial_pos = kwargs["data"].tell()
 
     session = get_session()
@@ -473,7 +474,7 @@ def hf_raise_for_status(response: Response, endpoint_name: Optional[str] = None)
 
         # Convert `HTTPError` into a `HfHubHTTPError` to display request information
         # as well (request id and/or server error message)
-        raise _format(HfHubHTTPError, "", response) from e
+        raise _format(HfHubHTTPError, str(e), response) from e
 
 
 def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Response) -> HfHubHTTPError:
