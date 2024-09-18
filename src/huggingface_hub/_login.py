@@ -184,12 +184,17 @@ def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
     print("Successfully logged out.")
 
 
-def auth_switch(profile_name: str) -> None:
+def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
     """Switch to a different profile.
 
     Args:
         profile_name (`str`):
             Name of the profile to switch to.
+        add_to_git_credential (`bool`, defaults to `False`):
+            If `True`, token will be set as git credential. If no git credential helper
+            is configured, a warning will be displayed to the user. If `token` is `None`,
+            the value of `add_to_git_credential` is ignored and will be prompted again
+            to the end user.
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
@@ -198,7 +203,7 @@ def auth_switch(profile_name: str) -> None:
     token = _get_token_from_profile(profile_name)
     if token:
         # Write token to HF_TOKEN_PATH
-        _set_active_profile(profile_name)
+        _set_active_profile(profile_name, add_to_git_credential)
         print(f"Switched to profile: {profile_name}")
         if _get_token_from_environment():
             warnings.warn(
