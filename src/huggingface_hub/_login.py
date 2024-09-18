@@ -439,9 +439,9 @@ def _logout_from_profile(profile_name: str) -> None:
             If the profile name is not found.
     """
     config = _read_profiles()
-    if config.get(profile_name, "hf_token") == get_token():
-        warnings.warn(f"Active profile `{profile_name}` will been deleted.")
     if profile_name in config:
+        if config.get(profile_name, "hf_token") == get_token():
+            warnings.warn(f"Active profile `{profile_name}` will been deleted.")
         config.remove_section(profile_name)
         _save_profiles(config)
     else:
