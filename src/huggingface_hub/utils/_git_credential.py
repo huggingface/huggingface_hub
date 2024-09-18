@@ -54,7 +54,6 @@ def list_credential_helpers(folder: Optional[str] = None) -> List[str]:
         raise EnvironmentError(exc.stderr)
 
 
-# TODO: Update set_git_credential and unset_git_credential to use the profile name
 def set_git_credential(token: str, username: str = "hf_user", folder: Optional[str] = None) -> None:
     """Save a username/token pair in git credential for HF Hub registry.
 

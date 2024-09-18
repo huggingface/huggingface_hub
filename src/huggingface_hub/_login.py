@@ -156,19 +156,19 @@ def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
                 pass
 
         print("Successfully logged out from all profiles.")
-
-    if profile_name is None:
+    elif profile_name:
+        _logout_from_profile(profile_name)
+        print(f"Successfully removed profile: `{profile_name}`")
+    else:
         # Logout from the active profile, i.e. delete the token file
         try:
             Path(constants.HF_TOKEN_PATH).unlink()
         except FileNotFoundError:
             pass
-    else:
-        _logout_from_profile(profile_name)
-        print(f"Successfully removed profile: `{profile_name}`")
-        return
-    # Delete token from git credentials
-    unset_git_credential()
+        print("Successfully logged out from the active profile.")
+
+    if _is_git_credential_helper_configured():
+        unset_git_credential()
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
@@ -216,12 +216,13 @@ def auth_list() -> None:
     if not profiles.sections():
         print("No profiles found.")
         return
+    # Find current profile
     for profile in profiles.sections():
         if profiles.get(profile, "hf_token") == get_token():
             current_profile = profile
     # Print header
-    print(f"{'Profile Name':^20} {'Token':^20}")
-    print(f"{'-'*20} {'-'*20}")
+    print(f"{'profile name':^20} {'token':^20}")
+    print(f"{'-'*20}{'-'*20}")
 
     # Print profiles
     for profile in profiles.sections():
@@ -410,20 +411,11 @@ def _login(
         )
     print(f"Token is valid (permission: {permission}).")
 
-    if add_to_git_credential:
-        if _is_git_credential_helper_configured():
-            set_git_credential(token)
-            print(
-                "Your token has been saved in your configured git credential helpers"
-                + f" ({','.join(list_credential_helpers())})."
-            )
-        else:
-            print("Token has not been saved to git credential helper.")
     profile_name = profile_name or "default"
     # Save token to profiles file
-    _save_token_to_profile(token, profile_name)
+    _save_token_to_profile(token=token, profile_name=profile_name)
     # Set active profile
-    _set_active_profile(profile_name)
+    _set_active_profile(profile_name=profile_name, add_to_git_credential=add_to_git_credential)
     print("Login successful.")
     if _get_token_from_environment():
         print("Note: Environment variable`HF_TOKEN` is set and is the current active token.")
@@ -443,7 +435,7 @@ def _logout_from_profile(profile_name: str) -> None:
     """
     config = _read_profiles()
     if config.get(profile_name, "hf_token") == get_token():
-        warnings.warn(f"Active profile {profile_name} will been deleted.")
+        warnings.warn(f"Active profile `{profile_name}` will been deleted.")
     if profile_name in config:
         config.remove_section(profile_name)
         _save_profiles(config)
@@ -451,7 +443,10 @@ def _logout_from_profile(profile_name: str) -> None:
         raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
 
 
-def _set_active_profile(profile_name: str) -> None:
+def _set_active_profile(
+    profile_name: str,
+    add_to_git_credential: bool,
+) -> None:
     """Set the active profile.
 
     Args:
@@ -460,11 +455,21 @@ def _set_active_profile(profile_name: str) -> None:
     """
     token = _get_token_from_profile(profile_name)
     if token:
+        if add_to_git_credential:
+            if _is_git_credential_helper_configured():
+                set_git_credential(token)
+                print(
+                    "Your token has been saved in your configured git credential helpers"
+                    + f" ({','.join(list_credential_helpers())})."
+                )
+            else:
+                print("Token has not been saved to git credential helper.")
         # Write token to HF_TOKEN_PATH
         path = Path(constants.HF_TOKEN_PATH)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(token)
         print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
+
     else:
         raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
 
