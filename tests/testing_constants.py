@@ -14,3 +14,6 @@ ENDPOINT_PRODUCTION = "https://huggingface.co"
 ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
 
 ENDPOINT_PRODUCTION_URL_SCHEME = ENDPOINT_PRODUCTION + "/{repo_id}/resolve/{revision}/{filename}"
+
+HF_TOKEN_PATH = "~/.huggingface/testing_token"
+HF_PROFILES_PATH = "~/.huggingface/testing_profiles"

@@ -1,6 +1,7 @@
 import os
 import shutil
 from typing import Generator
+from unittest.mock import patch
 
 import pytest
 from _pytest.fixtures import SubRequest
@@ -8,6 +9,7 @@ from _pytest.fixtures import SubRequest
 import huggingface_hub
 from huggingface_hub.utils import SoftTemporaryDirectory, logging
 
+from .testing_constants import ENDPOINT_STAGING, HF_PROFILES_PATH, HF_TOKEN_PATH
 from .testing_utils import set_write_permission_and_retry
 
 
@@ -56,3 +58,25 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def disable_experimental_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(huggingface_hub.constants, "HF_HUB_DISABLE_EXPERIMENTAL_WARNING", True)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def use_tmp_file_paths():
+    """
+    Fixture to temporarily override HF_TOKEN_PATH, HF_PROFILES_PATH, and ENDPOINT.
+
+    This fixture patches the constants in the huggingface_hub module to use the
+    specified paths and the staging endpoint. It also ensures that the files are
+    deleted after all tests in the module are completed.
+    """
+    with patch.multiple(
+        "huggingface_hub.constants",
+        HF_TOKEN_PATH=HF_TOKEN_PATH,
+        HF_PROFILES_PATH=HF_PROFILES_PATH,
+        ENDPOINT=ENDPOINT_STAGING,
+    ):
+        yield
+    # Remove the temporary files after all tests in the module are completed.
+    for path in [HF_TOKEN_PATH, HF_PROFILES_PATH]:
+        if os.path.exists(path):
+            os.remove(path)
