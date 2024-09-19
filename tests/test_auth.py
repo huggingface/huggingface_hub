@@ -12,7 +12,29 @@ from huggingface_hub.utils._auth import (
     get_profiles,
 )
 
-from .testing_constants import OTHER_TOKEN, TOKEN
+from .testing_constants import ENDPOINT_STAGING, HF_PROFILES_PATH, HF_TOKEN_PATH, OTHER_TOKEN, TOKEN
+
+
+@pytest.fixture(scope="module", autouse=True)
+def use_tmp_file_paths():
+    """
+    Fixture to temporarily override HF_TOKEN_PATH, HF_PROFILES_PATH, and ENDPOINT.
+
+    This fixture patches the constants in the huggingface_hub module to use the
+    specified paths and the staging endpoint. It also ensures that the files are
+    deleted after all tests in the module are completed.
+    """
+    with patch.multiple(
+        "huggingface_hub.constants",
+        HF_TOKEN_PATH=HF_TOKEN_PATH,
+        HF_PROFILES_PATH=HF_PROFILES_PATH,
+        ENDPOINT=ENDPOINT_STAGING,
+    ):
+        yield
+    # Remove the temporary files after all tests in the module are completed.
+    for path in [HF_TOKEN_PATH, HF_PROFILES_PATH]:
+        if os.path.exists(path):
+            os.remove(path)
 
 
 class TestGetTokenFromProfile:
