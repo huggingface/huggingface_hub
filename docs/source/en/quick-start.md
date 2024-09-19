@@ -76,7 +76,7 @@ The easiest way to authenticate is to save the token on your machine. You can do
 huggingface-cli login
 ```
 
-The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
+The command will tell you if you are already logged in and prompt you for your token and a profile name (optional, defaults to `default`). The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). The profile is saved in your `HF_HOME` directory as well (defaults to `~/.cache/huggingface/profiles`). Any script or library interacting with the Hub will use this token when sending requests.
 
 Alternatively, you can programmatically login using [`login`] in a notebook or a script:
 
@@ -92,6 +92,21 @@ You can only be logged in to one account at a time. Logging in to a new account 
 Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
 
 </Tip>
+
+### Multiple token profiles
+
+If you need to switch between different tokens locally, you can save multiple tokens on your machine by assigning a profile name to each token when logging in.
+
+To switch between these tokens, you can use the [`auth switch`] command:
+
+```bash
+huggingface-cli auth switch
+```
+
+This command will prompt you to select a token profile from a list of saved profiles. Once selected, the chosen profile becomes the _active_ profile, and its corresponding token will be used for all interactions with the Hub.
+
+
+You can list all available token profiles on your machine with `huggingface-cli auth list`.
 
 ### Environment variable
 

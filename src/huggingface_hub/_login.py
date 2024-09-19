@@ -105,7 +105,7 @@ def login(
         write_permission (`bool`, defaults to `False`):
             If `True`, requires a token with write permission.
         profile_name (`str`, *optional*):
-            Name of the profile to add or update. If `None`, will add or update the "default" profile.
+            Name of the token profile to add or update. If `None`, will add or update the "default" token profile.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -142,7 +142,7 @@ def logout(profile_name: Optional[str] = None) -> None:
 
     Args:
         profile_name (`str`, *optional*):
-            Name of the profile to logout from. If `None`, will logout from all profiles.
+            Name of the token profile to logout from. If `None`, will logout from all token profiles.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
@@ -157,10 +157,10 @@ def logout(profile_name: Optional[str] = None) -> None:
                 Path(file_path).unlink()
             except FileNotFoundError:
                 pass
-        print("Successfully logged out from all profiles.")
+        print("Successfully logged out from all token profiles.")
     else:
         _logout_from_profile(profile_name)
-        print(f"Successfully logged out from profile: {profile_name}.")
+        print(f"Successfully logged out from token profile: {profile_name}.")
 
     unset_git_credential()
 
@@ -178,11 +178,11 @@ def logout(profile_name: Optional[str] = None) -> None:
 
 
 def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
-    """Switch to a different profile.
+    """Switch to a different token.
 
     Args:
         profile_name (`str`):
-            Name of the profile to switch to.
+            Name of the token profile to switch to.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
             is configured, a warning will be displayed to the user. If `token` is `None`,
@@ -205,7 +205,7 @@ def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
 
 
 def auth_list() -> None:
-    """List all available profiles."""
+    """List all available token profiles."""
     profiles = get_profiles()
     current_profile = None
 
@@ -439,6 +439,7 @@ def _logout_from_profile(profile_name: str) -> None:
             If the profile name is not found.
     """
     profiles = get_profiles()
+    # If there is no profiles saved or the profile name is not found, do nothing
     if not profiles or profile_name not in profiles:
         return
 

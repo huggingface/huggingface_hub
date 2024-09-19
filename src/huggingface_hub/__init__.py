@@ -67,6 +67,8 @@ _SUBMOD_ATTRS = {
         "login",
         "logout",
         "notebook_login",
+        "auth_switch",
+        "auth_list",
     ],
     "_multi_commits": [
         "MultiCommitException",

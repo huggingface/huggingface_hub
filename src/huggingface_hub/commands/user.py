@@ -173,7 +173,7 @@ class AuthSwitchCommand(BaseUserCommand):
 
         try:
             return inquirer.select(
-                message="Select a profile:",
+                message="Select a profile to switch to:",
                 choices=choices,
                 default=None,
             ).execute()
