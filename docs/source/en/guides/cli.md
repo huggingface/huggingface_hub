@@ -92,7 +92,7 @@ Once you have your token, run the following command in your terminal:
 >>> huggingface-cli login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. Then you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+This command will prompt you for a token. Copy-paste yours and press *Enter*. After that, it will prompt you for a profile name (optional, defaults to `default`). Then, you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -102,7 +102,8 @@ _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|    
 _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
 
 To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Token:
+Enter your token (input will not be visible):
+Enter profile name (default: 'default'):
 Add token as git credential? (Y/n)
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
@@ -116,9 +117,11 @@ Alternatively, if you want to log-in without being prompted, you can pass the to
 # Or using an environment variable
 >>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential
 Token is valid (permission: write).
+The profile `myprofile` has been saved to /home/wauplin/.cache/huggingface/profiles
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
+The current active profile is: `myprofile`
 ```
 
 For more details about authentication, check out [this section](../quick-start#authentication).
@@ -137,7 +140,7 @@ If you are not logged in, an error message will be printed.
 
 ## huggingface-cli logout
 
-This commands logs you out. In practice, it will delete the token saved on your machine.
+This commands logs you out. In practice, it will delete all profiles and the corresponding tokens saved on your machine. If you want to remove a specific token profile, you can specify the profile name as an argument.
 
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
 
@@ -431,7 +434,7 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 
 ## huggingface-cli repo-files
 
-If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command. 
+If you want to delete files from a Hugging Face repository, use the `huggingface-cli repo-files` command.
 
 ### Delete files
 
@@ -439,17 +442,17 @@ The `huggingface-cli repo-files <repo_id> delete` sub-command allows you to dele
 
 Delete a folder :
 ```bash
->>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/  
+>>> huggingface-cli repo-files Wauplin/my-cool-model delete folder/
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
-Delete multiple files: 
+Delete multiple files:
 ```bash
 >>> huggingface-cli repo-files Wauplin/my-cool-model delete file.txt folder/pytorch_model.bin
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
-Use Unix-style wildcards to delete sets of files: 
+Use Unix-style wildcards to delete sets of files:
 ```bash
 >>> huggingface-cli repo-files Wauplin/my-cool-model delete "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
@@ -460,7 +463,7 @@ Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-coo
 To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `huggingface-cli login`) will be used. If you want to authenticate explicitly, use the `--token` option:
 
 ```bash
->>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt 
+>>> huggingface-cli repo-files --token=hf_**** Wauplin/my-cool-model delete file.txt
 ```
 
 ## huggingface-cli scan-cache

@@ -204,7 +204,7 @@ def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
     profiles = get_profiles()
     profiles[profile_name] = token
     _save_profiles(profiles)
-    print(f"Your profile `{profile_name}` has been saved to {profiles_path}")
+    print(f"The profile `{profile_name}` has been saved to {profiles_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:
