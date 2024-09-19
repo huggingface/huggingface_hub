@@ -124,7 +124,6 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
-    _deprecate_method,
     build_hf_headers,
     experimental,
     filter_repo_objects,
@@ -3525,9 +3524,7 @@ class HfApi:
             if not missing_ok:
                 raise
 
-    @_deprecate_method(
-        version="0.29.x", message="This method will be removed in v0.29.x. Please use `update_repo_settings` instead."
-    )
+    @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
     def update_repo_visibility(
         self,
         repo_id: str,
@@ -3584,8 +3581,8 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        gated: Optional[Literal["auto", "manual", False]] = False,
-        private: Optional[bool] = False,
+        gated: Optional[Literal["auto", "manual", False]] = None,
+        private: Optional[bool] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> None:
