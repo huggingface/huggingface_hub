@@ -137,6 +137,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -1406,6 +1407,10 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
+        num_following (`int`, *optional*):
+            Number of users this user is following.
+        num_followers (`int`, *optional*):
+            Number of users following this user.
         orgs (list of [`Organization`]):
             List of organizations the user is part of.
     """
@@ -1424,6 +1429,8 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
+    num_following: Optional[int] = None
+    num_followers: Optional[int] = None
     orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
@@ -1440,6 +1447,8 @@ class User:
         self.num_papers = kwargs.pop("numPapers", None)
         self.num_upvotes = kwargs.pop("numUpvotes", None)
         self.num_likes = kwargs.pop("numLikes", None)
+        self.num_following = kwargs.pop("numFollowing", None)
+        self.num_followers = kwargs.pop("numFollowers", None)
         self.user_type = kwargs.pop("type", None)
         self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
@@ -4024,6 +4033,9 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
+    @_deprecate_method(
+        version="0.27", message="This is an experimental feature. Please use `upload_large_folder` instead."
+    )
     def create_commits_on_pr(
         self,
         *,
@@ -4862,8 +4874,10 @@ class HfApi:
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
             multi_commits (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True and `multi_commits` is used, more information will be displayed to the user.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
@@ -5356,7 +5370,7 @@ class HfApi:
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
-            2. Commit if at least 25 files are ready to commit.
+            2. Commit if at least 150 files are ready to commit.
             3. Get upload mode if at least 10 files have been hashed.
             4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
             5. Hash file if at least 1 file and no worker is hashing.
@@ -5364,7 +5378,8 @@ class HfApi:
             7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
-            10. Commit if at least 1 file to commit.
+            10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
+            11. Commit if at least 1 file to commit and all other queues are empty.
 
         Special rules:
             - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
@@ -8972,7 +8987,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -9477,14 +9492,24 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
+        if len(filtered_repo_objects) > 30:
+            logger.info(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
+                "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
+                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
+            )
 
-        return [
+        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
+        operations = [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
+        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
+        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None):
         """
