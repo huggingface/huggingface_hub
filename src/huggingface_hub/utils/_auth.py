@@ -125,7 +125,7 @@ def _get_token_from_file() -> Optional[str]:
         return None
 
 
-def _get_profiles() -> Dict[str, str]:
+def get_profiles() -> Dict[str, str]:
     """
     Returns the parsed INI file containing the auth profiles.
     The file is located at `HF_PROFILES_PATH`, defaulting to `~/.cache/huggingface/profiles`.
@@ -183,7 +183,7 @@ def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
         `str` or `None`: The token, `None` if it doesn't exist.
 
     """
-    profiles = _get_profiles()
+    profiles = get_profiles()
     if profile_name not in profiles:
         return None
     return _clean_token(profiles[profile_name])
@@ -201,7 +201,7 @@ def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
             The name of the profile to save the token to.
     """
     profiles_path = Path(constants.HF_PROFILES_PATH)
-    profiles = _get_profiles()
+    profiles = get_profiles()
     profiles[profile_name] = token
     _save_profiles(profiles)
     print(f"Your profile `{profile_name}` has been saved to {profiles_path}")

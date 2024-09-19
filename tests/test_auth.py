@@ -6,10 +6,10 @@ import pytest
 from huggingface_hub import constants
 from huggingface_hub._login import _login, _set_active_profile, auth_switch, logout
 from huggingface_hub.utils._auth import (
-    _get_profiles,
     _get_token_from_file,
     _get_token_from_profile,
     _save_token_to_profile,
+    get_profiles,
 )
 
 from .testing_constants import OTHER_TOKEN, TOKEN
@@ -29,7 +29,7 @@ class TestSaveTokenToProfile:
     def test_save_token_new_profile(self):
         _save_token_to_profile(TOKEN, "new_profile")
 
-        profiles = _get_profiles()
+        profiles = get_profiles()
         assert "new_profile" in profiles
         assert profiles["new_profile"] == TOKEN
 
@@ -96,7 +96,7 @@ class TestLogout:
         logout("profile_1")
 
         # Check that profile_1 is removed
-        profiles = _get_profiles()
+        profiles = get_profiles()
         assert "profile_1" not in profiles
         assert "profile_2" in profiles
 
@@ -108,7 +108,7 @@ class TestLogout:
 
         # Check that both files are deleted
         assert not os.path.exists(constants.HF_TOKEN_PATH)
-        profiles = _get_profiles()
+        profiles = get_profiles()
         assert "active_profile" not in profiles
 
 

@@ -37,12 +37,12 @@ from .utils import (
     unset_git_credential,
 )
 from .utils._auth import (
-    _get_profiles,
     _get_token_from_environment,
     _get_token_from_google_colab,
     _get_token_from_profile,
     _save_profiles,
     _save_token_to_profile,
+    get_profiles,
 )
 
 
@@ -147,7 +147,7 @@ def logout(profile_name: Optional[str] = None) -> None:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
     """
-    if get_token() is None and not _get_profiles():  # No active token and no profiles
+    if get_token() is None and not get_profiles():  # No active token and no profiles
         print("Not logged in!")
         return
     if not profile_name:
@@ -206,7 +206,7 @@ def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
 
 def auth_list() -> None:
     """List all available profiles."""
-    profiles = _get_profiles()
+    profiles = get_profiles()
     current_profile = None
 
     if not profiles:
@@ -438,7 +438,7 @@ def _logout_from_profile(profile_name: str) -> None:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
     """
-    profiles = _get_profiles()
+    profiles = get_profiles()
     if not profiles:
         return
     try:
