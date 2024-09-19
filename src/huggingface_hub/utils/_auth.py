@@ -201,9 +201,6 @@ def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
             The name of the profile to save the token to.
     """
     profiles_path = Path(constants.HF_PROFILES_PATH)
-    if not profiles_path.exists():
-        profiles_path.parent.mkdir(parents=True, exist_ok=True)
-        profiles_path.touch()
     profiles = _read_profiles()
     profiles[profile_name] = token
     _save_profiles(profiles)
