@@ -35,6 +35,7 @@ from huggingface_hub.errors import (
 )
 
 from . import tqdm as _tqdm  # _tqdm is the module
+from ._auth import get_token
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,
@@ -103,24 +104,9 @@ from ._runtime import (
     is_tf_available,
     is_torch_available,
 )
-from ._safetensors import (
-    SafetensorsFileMetadata,
-    SafetensorsRepoMetadata,
-    TensorInfo,
-)
+from ._safetensors import SafetensorsFileMetadata, SafetensorsRepoMetadata, TensorInfo
 from ._subprocess import capture_output, run_interactive_subprocess, run_subprocess
 from ._telemetry import send_telemetry
-from ._token import get_token
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
-from ._validators import (
-    smoothly_deprecate_use_auth_token,
-    validate_hf_hub_args,
-    validate_repo_id,
-)
-from .tqdm import (
-    are_progress_bars_disabled,
-    disable_progress_bars,
-    enable_progress_bars,
-    tqdm,
-    tqdm_stream_file,
-)
+from ._validators import smoothly_deprecate_use_auth_token, validate_hf_hub_args, validate_repo_id
+from .tqdm import are_progress_bars_disabled, disable_progress_bars, enable_progress_bars, tqdm, tqdm_stream_file

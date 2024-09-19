@@ -63,11 +63,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
             type=str,
             help="Optional: Name of the profile to log out from.",
         )
-        logout_parser.add_argument(
-            "--all",
-            action="store_true",
-            help="Optional: Log out from all profiles.",
-        )
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
         auth_parser = parser.add_parser("auth", help="Other authentication related commands")
@@ -128,7 +123,7 @@ class LoginCommand(BaseUserCommand):
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
-        logout(profile_name=self.args.profile_name, all=self.args.all)
+        logout(profile_name=self.args.profile_name)
 
 
 class AuthSwitchCommand(BaseUserCommand):

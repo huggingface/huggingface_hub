@@ -13,20 +13,23 @@
 # limitations under the License.
 """Contains an helper to get the token from machine (env variable, secret or config file)."""
 
+import configparser
+import logging
 import os
 import warnings
 from pathlib import Path
 from threading import Lock
-from typing import Optional
+from typing import Dict, Optional
 
 from .. import constants
-from ._auth_profiles import _read_profiles, _save_profiles
 from ._runtime import is_colab_enterprise, is_google_colab
 
 
 _IS_GOOGLE_COLAB_CHECKED = False
 _GOOGLE_COLAB_SECRET_LOCK = Lock()
 _GOOGLE_COLAB_SECRET: Optional[str] = None
+
+logger = logging.getLogger(__name__)
 
 
 def get_token() -> Optional[str]:
@@ -69,8 +72,8 @@ def _get_token_from_google_colab() -> Optional[str]:
             return _GOOGLE_COLAB_SECRET
 
         try:
-            from google.colab import userdata
-            from google.colab.errors import Error as ColabError
+            from google.colab import userdata  # type: ignore
+            from google.colab.errors import Error as ColabError  # type: ignore
         except ImportError:
             return None
 
@@ -122,6 +125,52 @@ def _get_token_from_file() -> Optional[str]:
         return None
 
 
+def _read_profiles() -> Dict[str, str]:
+    """
+    Returns the parsed INI file containing the auth profiles.
+    The file is located at `HF_PROFILES_PATH`, defaulting to `~/.cache/huggingface/profiles`.
+    If the file does not exist,
+
+    Returns: `Dict[str, str]`
+        Key is the profile name and value is the token.
+
+    Raises:
+        FileNotFoundError: If the profiles file does not exist.
+    """
+    profiles_path = Path(constants.HF_PROFILES_PATH)
+    if not profiles_path.exists():
+        profiles = {}
+    config = configparser.ConfigParser()
+    try:
+        config.read(profiles_path)
+        profiles = {profile: config.get(profile, "hf_token") for profile in config.sections()}
+    except configparser.Error as e:
+        logger.error(f"Error parsing profiles file: {e}")
+        profiles = {}
+    return profiles
+
+
+def _save_profiles(profiles: Dict[str, str]) -> None:
+    """
+    Saves the given configuration to the profiles file.
+
+    Args:
+        profiles (`Dict[str, str]`):
+            The profiles to save. Key is the profile name and value is the token.
+    """
+    profiles_path = Path(constants.HF_PROFILES_PATH)
+
+    # Write the profiles into an INI file
+    config = configparser.ConfigParser()
+    for profile_name, token in profiles.items():
+        config.add_section(profile_name)
+        config.set(profile_name, "hf_token", token)
+
+    profiles_path.parent.mkdir(parents=True, exist_ok=True)
+    with profiles_path.open("w+") as config_file:
+        config.write(config_file)
+
+
 def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
     """
     Get the token from the given profile.
@@ -134,30 +183,31 @@ def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
         `str` or `None`: The token, `None` if it doesn't exist.
 
     """
-    config = _read_profiles()
-    if profile_name in config:
-        return _clean_token(config.get(profile_name, "hf_token"))
-    else:
+    profiles = _read_profiles()
+    if profile_name not in profiles:
         return None
+    return _clean_token(profiles[profile_name])
 
 
 def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
     """
     Save the given token to the given profile.
 
+    If the profiles file does not exist, it will be created.
     Args:
         token (`str`):
             The token to save.
         profile_name (`str`, *optional*, defaults to `"default"`):
             The name of the profile to save the token to.
     """
-    config = _read_profiles()
-    if profile_name not in config:
-        config.add_section(profile_name)
-    # Update the token for the given profile
-    config.set(profile_name, "hf_token", token)
-    # save back to the file
-    _save_profiles(config)
+    profiles_path = Path(constants.HF_PROFILES_PATH)
+    if not profiles_path.exists():
+        profiles_path.parent.mkdir(parents=True, exist_ok=True)
+        profiles_path.touch()
+    profiles = _read_profiles()
+    profiles[profile_name] = token
+    _save_profiles(profiles)
+    print(f"Your profile `{profile_name}` has been saved to {profiles_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:

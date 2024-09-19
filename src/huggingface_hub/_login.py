@@ -21,6 +21,8 @@ from getpass import getpass
 from pathlib import Path
 from typing import Optional
 
+from huggingface_hub.utils._deprecation import _deprecate_positional_args
+
 from . import constants
 from .commands._cli_utils import ANSI
 from .utils import (
@@ -34,11 +36,12 @@ from .utils import (
     set_git_credential,
     unset_git_credential,
 )
-from .utils._auth_profiles import _read_profiles, _save_profiles
-from .utils._token import (
+from .utils._auth import (
     _get_token_from_environment,
     _get_token_from_google_colab,
     _get_token_from_profile,
+    _read_profiles,
+    _save_profiles,
     _save_token_to_profile,
 )
 
@@ -54,12 +57,14 @@ _HF_LOGO_ASCII = """
 """
 
 
+@_deprecate_positional_args(version="0.27")
 def login(
     token: Optional[str] = None,
-    profile_name: Optional[str] = None,
     add_to_git_credential: bool = False,
     new_session: bool = True,
     write_permission: bool = False,
+    *,
+    profile_name: Optional[str] = None,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -90,8 +95,6 @@ def login(
     Args:
         token (`str`, *optional*):
             User access token to generate from https://huggingface.co/settings/token.
-        profile_name (`str`, *optional*):
-            Name of the profile to add or update. If `None`, will add or update the "default" profile.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
             is configured, a warning will be displayed to the user. If `token` is `None`,
@@ -101,6 +104,8 @@ def login(
             If `True`, will request a token even if one is already saved on the machine.
         write_permission (`bool`, defaults to `False`):
             If `True`, requires a token with write permission.
+        profile_name (`str`, *optional*):
+            Name of the profile to add or update. If `None`, will add or update the "default" profile.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -130,16 +135,14 @@ def login(
         interpreter_login(new_session=new_session, write_permission=write_permission)
 
 
-def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
+def logout(profile_name: Optional[str] = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
 
     Args:
         profile_name (`str`, *optional*):
-            Name of the profile to logout from. If `None`, will logout from the active profile.
-        all (`bool`, defaults to `False`):
-            If `True`, all profiles are deleted.
+            Name of the profile to logout from. If `None`, will logout from all profiles.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
@@ -147,28 +150,19 @@ def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
     if get_token() is None:
         print("Not logged in!")
         return
-    if all:
+    if not profile_name:
         # Delete all profiles and token
         for file_path in (constants.HF_TOKEN_PATH, constants.HF_PROFILES_PATH):
             try:
                 Path(file_path).unlink()
             except FileNotFoundError:
                 pass
-
         print("Successfully logged out from all profiles.")
-    elif profile_name:
-        _logout_from_profile(profile_name)
-        print(f"Successfully removed profile: `{profile_name}`")
     else:
-        # Logout from the active profile, i.e. delete the token file
-        try:
-            Path(constants.HF_TOKEN_PATH).unlink()
-        except FileNotFoundError:
-            pass
-        print("Successfully logged out from the active profile.")
+        _logout_from_profile(profile_name)
+        print(f"Successfully logged out from profile: {profile_name}.")
 
-    if _is_git_credential_helper_configured():
-        unset_git_credential()
+    unset_git_credential()
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
@@ -181,7 +175,6 @@ def logout(profile_name: Optional[str] = None, all: bool = False) -> None:
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
-    print("Successfully logged out.")
 
 
 def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
@@ -201,16 +194,14 @@ def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
             If the profile name is not found.
     """
     token = _get_token_from_profile(profile_name)
-    if token:
-        # Write token to HF_TOKEN_PATH
-        _set_active_profile(profile_name, add_to_git_credential)
-        print(f"Switched to profile: {profile_name}")
-        if _get_token_from_environment():
-            warnings.warn(
-                "The environment variable `HF_TOKEN` is set and will override " "the token from the profile."
-            )
-    else:
+    if not token:
         raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+    # Write token to HF_TOKEN_PATH
+    _set_active_profile(profile_name, add_to_git_credential)
+    print(f"Switched to profile: {profile_name}")
+    token_from_environment = _get_token_from_environment()
+    if token_from_environment is not None and token_from_environment != token:
+        warnings.warn("The environment variable `HF_TOKEN` is set and will override the token from the profile.")
 
 
 def auth_list() -> None:
@@ -218,27 +209,34 @@ def auth_list() -> None:
     profiles = _read_profiles()
     current_profile = None
 
-    if not profiles.sections():
+    if not profiles:
         print("No profiles found.")
         return
     # Find current profile
-    for profile in profiles.sections():
-        if profiles.get(profile, "hf_token") == get_token():
-            current_profile = profile
+    current_token = get_token()
+    for profile_name in profiles:
+        if profiles.get(profile_name) == current_token:
+            current_profile = profile_name
     # Print header
     print(f"{'profile name':^20} {'token':^20}")
     print(f"{'-'*20}{'-'*20}")
 
     # Print profiles
-    for profile in profiles.sections():
-        token = profiles.get(profile, "hf_token", fallback="<not set>")
-        masked_token = f"{token[:4]}{'*' * 8}" if token != "<not set>" else token
-        is_current = "*" if profile == current_profile else " "
+    for profile_name in profiles:
+        token = profiles.get(profile_name, "<not set>")
+        masked_token = f"hf_****{token[-4:]}" if token != "<not set>" else token
+        is_current = "*" if profile_name == current_profile else " "
 
-        print(f"{is_current} {profile:^19} {masked_token:^20}")
+        print(f"{is_current} {profile_name:^19} {masked_token:^20}")
 
     if _get_token_from_environment():
-        print("\nNote: Environment variable `HF_TOKEN` is set and is the current active token.")
+        print(
+            "\nNote: Environment variable `HF_TOKEN` is set and is the current active token independently from the profiles listed above."
+        )
+    elif current_profile is None:
+        print(
+            "\nNote: No active profile is set and no environment variable `HF_TOKEN` is found. Use `huggingface-cli login` to log in."
+        )
 
 
 ###
@@ -423,7 +421,9 @@ def _login(
     _set_active_profile(profile_name=profile_name, add_to_git_credential=add_to_git_credential)
     print("Login successful.")
     if _get_token_from_environment():
-        print("Note: Environment variable`HF_TOKEN` is set and is the current active token.")
+        print(
+            "Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured."
+        )
     else:
         print(f"The current active profile is: `{profile_name}`")
 
@@ -438,14 +438,20 @@ def _logout_from_profile(profile_name: str) -> None:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
     """
-    config = _read_profiles()
-    if profile_name in config:
-        if config.get(profile_name, "hf_token") == get_token():
-            warnings.warn(f"Active profile `{profile_name}` will been deleted.")
-        config.remove_section(profile_name)
-        _save_profiles(config)
-    else:
-        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+    profiles = _read_profiles()
+    if not profiles:
+        return
+    try:
+        if profiles.get(profile_name) == get_token():
+            warnings.warn(f"Active profile `{profile_name}` will be deleted.")
+            try:
+                Path(constants.HF_TOKEN_PATH).unlink()
+            except FileNotFoundError:
+                pass
+        del profiles[profile_name]
+        _save_profiles(profiles)
+    except KeyError:
+        return
 
 
 def _set_active_profile(
