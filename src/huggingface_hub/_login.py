@@ -439,19 +439,16 @@ def _logout_from_profile(profile_name: str) -> None:
             If the profile name is not found.
     """
     profiles = get_profiles()
-    if not profiles:
+    if not profiles or profile_name not in profiles:
         return
-    try:
-        if profiles.get(profile_name) == get_token():
-            warnings.warn(f"Active profile `{profile_name}` will be deleted.")
-            try:
-                Path(constants.HF_TOKEN_PATH).unlink()
-            except FileNotFoundError:
-                pass
-        del profiles[profile_name]
-        _save_profiles(profiles)
-    except KeyError:
-        return
+
+    token = profiles[profile_name]
+    del profiles[profile_name]
+    _save_profiles(profiles)
+
+    if token == get_token():
+        warnings.warn(f"Active profile '{profile_name}' has been deleted.")
+        Path(constants.HF_TOKEN_PATH).unlink(missing_ok=True)
 
 
 def _set_active_profile(
