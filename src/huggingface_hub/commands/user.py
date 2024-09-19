@@ -13,6 +13,7 @@
 # limitations under the License.
 import subprocess
 from argparse import _SubParsersAction
+from typing import Optional
 
 from requests.exceptions import HTTPError
 
@@ -30,8 +31,19 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     logout,
     notebook_login,
 )
-from ..utils import get_token
-from ._cli_utils import ANSI
+from ..utils import get_profiles, get_token, logging
+from ._cli_utils import ANSI, require_dependency
+
+
+logger = logging.get_logger(__name__)
+
+try:
+    from InquirerPy import inquirer
+    from InquirerPy.base.control import Choice
+
+    _inquirer_py_available = True
+except ImportError:
+    _inquirer_py_available = False
 
 
 class UserCommands(BaseHuggingfaceCLICommand):
@@ -72,6 +84,19 @@ class UserCommands(BaseHuggingfaceCLICommand):
             "--profile-name",
             type=str,
             help="Optional: Name of the profile to switch to.",
+        )
+        auth_switch_parser.add_argument(
+            "--add-to-git-credential",
+            action="store_true",
+            help="Optional: Save token to git credential helper.",
+        )
+        auth_switch_parser.add_argument(
+            "--disable-tui",
+            action="store_true",
+            help=(
+                "Disable Terminal User Interface (TUI) mode. Useful if your"
+                " platform/terminal doesn't support the selection menu."
+            ),
         )
         auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
         auth_list_parser = auth_subparsers.add_parser("list", help="List all profiles")
@@ -128,7 +153,33 @@ class LogoutCommand(BaseUserCommand):
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
-        auth_switch(profile_name=self.args.profile_name)
+        profile_name = self.args.profile_name
+        if profile_name is None and not self.args.disable_tui:
+            profile_name = self._select_profile_tui()
+
+        if profile_name is None:
+            logger.error("No profile name provided. Please specify a profile name or enable TUI.")
+            return
+        auth_switch(profile_name, add_to_git_credential=self.args.add_to_git_credential)
+
+    @require_dependency("InquirerPy", _inquirer_py_available, "disable-tui")
+    def _select_profile_tui(self) -> Optional[str]:
+        profiles = get_profiles()
+        choices = [Choice(profile, name=profile) for profile in profiles]
+
+        if not choices:
+            logger.error("No profiles found. Please login first.")
+            return None
+
+        try:
+            return inquirer.select(
+                message="Select a profile:",
+                choices=choices,
+                default=None,
+            ).execute()
+        except KeyboardInterrupt:
+            logger.info("Profile selection cancelled.")
+            return None
 
 
 class AuthListCommand(BaseUserCommand):

@@ -58,13 +58,12 @@ See discussions in https://github.com/huggingface/huggingface_hub/issues/1025.
 
 import os
 from argparse import Namespace, _SubParsersAction
-from functools import wraps
 from tempfile import mkstemp
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 from ..utils import CachedRepoInfo, CachedRevisionInfo, HFCacheInfo, scan_cache_dir
 from . import BaseHuggingfaceCLICommand
-from ._cli_utils import ANSI
+from ._cli_utils import ANSI, require_dependency
 
 
 try:
@@ -75,24 +74,6 @@ try:
     _inquirer_py_available = True
 except ImportError:
     _inquirer_py_available = False
-
-
-def require_inquirer_py(fn: Callable) -> Callable:
-    """Decorator to flag methods that require `InquirerPy`."""
-
-    # TODO: refactor this + imports in a unified pattern across codebase
-    @wraps(fn)
-    def _inner(*args, **kwargs):
-        if not _inquirer_py_available:
-            raise ImportError(
-                "The `delete-cache` command requires extra dependencies to work with"
-                " the TUI.\nPlease run `pip install huggingface_hub[cli]` to install"
-                " them.\nOtherwise, disable TUI using the `--disable-tui` flag."
-            )
-
-        return fn(*args, **kwargs)
-
-    return _inner
 
 
 # Possibility for the user to cancel deletion
@@ -163,7 +144,7 @@ class DeleteCacheCommand(BaseHuggingfaceCLICommand):
         print("Deletion is cancelled. Do nothing.")
 
 
-@require_inquirer_py
+@require_dependency("InquirerPy", _inquirer_py_available, "disable-tui")
 def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> List[str]:
     """Ask the user for a manual review of the revisions to delete.
 
@@ -207,7 +188,7 @@ def _manual_review_tui(hf_cache_info: HFCacheInfo, preselected: List[str]) -> Li
         return []  # Quit without deletion
 
 
-@require_inquirer_py
+@require_dependency("InquirerPy", _inquirer_py_available, "disable-tui")
 def _ask_for_confirmation_tui(message: str, default: bool = True) -> bool:
     """Ask for confirmation using Inquirer."""
     return inquirer.confirm(message, default=default).execute()
