@@ -488,7 +488,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
@@ -513,7 +513,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
@@ -538,7 +538,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -562,7 +562,7 @@ class AsyncInferenceClient:
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -597,7 +597,7 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
+            messages (List of [`ChatCompletionInputMessage`]):
                 Conversation history consisting of roles and content pairs.
             model (`str`, *optional*):
                 The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -701,7 +701,7 @@ class AsyncInferenceClient:
         )
         ```
 
-        Example (stream=True):
+        Example using streaming:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
@@ -739,6 +739,41 @@ class AsyncInferenceClient:
 
         for chunk in output:
             print(chunk.choices[0].delta.content)
+        ```
+
+        Example using Image + Text as input:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+
+        # provide a remote URL
+        >>> image_url ="https://cdn.britannica.com/61/93061-050-99147DCE/Statue-of-Liberty-Island-New-York-Bay.jpg"
+        # or a base64-encoded image
+        >>> image_path = "/path/to/image.jpeg"
+        >>> with open(image_path, "rb") as f:
+        ...     base64_image = base64.b64encode(f.read()).decode("utf-8")
+        >>> image_url = f"data:image/jpeg;base64,{base64_image}"
+
+        >>> client = AsyncInferenceClient("mistralai/Mistral-Nemo-Instruct-2407")
+        >>> output = await client.chat.completions.create(
+        ...     messages=[
+        ...         {
+        ...             "role": "user",
+        ...             "content": [
+        ...                 {
+        ...                     "type": "image_url",
+        ...                     "image_url": {"url": image_url},
+        ...                 },
+        ...                 {
+        ...                     "type": "text",
+        ...                     "text": "Describe this image in one sentence.",
+        ...                 },
+        ...             ],
+        ...         },
+        ...     ],
+        ... )
+        >>> output
+        A determine figure of Lady Liberty stands tall, holding a torch aloft, atop a pedestal on an island.
         ```
 
         Example using tools:
