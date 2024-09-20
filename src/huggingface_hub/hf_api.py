@@ -3525,6 +3525,7 @@ class HfApi:
                 raise
 
     @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
+    @validate_hf_hub_args
     def update_repo_visibility(
         self,
         repo_id: str,
@@ -3533,7 +3534,9 @@ class HfApi:
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> Dict[str, bool]:
-        """(Deprecated) Update the visibility setting of a repository.
+        """Update the visibility setting of a repository.
+
+        Deprecated. Use `update_repo_settings` instead.
 
         Args:
             repo_id (`str`, *optional*):
@@ -3599,8 +3602,8 @@ class HfApi:
                 The gated release status for the repository.
                 * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
                 * "manual": The repository is gated, and access requests require manual approval.
-                * False (default): The repository is not gated, and anyone can access it.
-            private (`bool`, *optional*, defaults to `False`):
+                * False : The gated status for the repository. If set to `None` (default), the `gated` setting of the repository won't be updated.
+            private (`bool`, *optional*):
                 Whether the model repo should be private.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
@@ -3608,7 +3611,7 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass False.
             repo_type (`str`, *optional*):
-                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`.
+                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
                 Defaults to `"model"`.
 
         Raises:
@@ -3622,24 +3625,34 @@ class HfApi:
                 If the repository to download from cannot be found. This may be because it doesn't exist,
                 or because it is set to `private` and you do not have access.
         """
-        if gated is not None and gated not in ["auto", "manual", False]:
-            raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
 
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
+        # Check if both gated and private are None
+        if gated is None and private is None:
+            raise ValueError("At least one of 'gated' or 'private' must be provided.")
+
         # Build headers
         headers = self._build_hf_headers(token=token)
 
-        # Preparing the JSON payload for the PUT request
-        payload = {"gated": gated, "private": private}
+        # Prepare the JSON payload for the PUT request
+        payload: Dict = {}
+
+        if gated is not None:
+            if gated not in ["auto", "manual", False]:
+                raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
+            payload["gated"] = gated
+
+        if private is not None:
+            payload["private"] = private
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
-            json={key: value for key, value in payload.items() if value is not None},
+            json=payload,
         )
         hf_raise_for_status(r)
 
