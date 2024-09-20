@@ -77,8 +77,8 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
-    ChatCompletionInputTool,
-    ChatCompletionInputToolTypeClass,
+    ChatCompletionInputStreamOptions,
+    ChatCompletionInputToolType,
     ChatCompletionOutput,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
@@ -95,6 +95,7 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationOutput,
     TextGenerationStreamOutput,
     TokenClassificationOutputElement,
+    ToolElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
@@ -465,10 +466,11 @@ class InferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput: ...
@@ -489,10 +491,11 @@ class InferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
@@ -513,10 +516,11 @@ class InferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
@@ -537,10 +541,11 @@ class InferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
@@ -594,6 +599,8 @@ class InferenceClient:
                 Defaults to None.
             stream (`bool`, *optional*):
                 Enable realtime streaming of responses. Defaults to False.
+            stream_options ([`ChatCompletionInputStreamOptions`], *optional*):
+                Options for streaming completions.
             temperature (`float`, *optional*):
                 Controls randomness of the generations. Lower values ensure
                 less random completions. Range: [0, 2]. Defaults to 1.0.
@@ -604,11 +611,11 @@ class InferenceClient:
             top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
-            tool_choice ([`ChatCompletionInputToolTypeClass`] or `str`, *optional*):
+            tool_choice ([`ChatCompletionInputToolType`] or `str`, *optional*):
                 The tool to use for the completion. Defaults to "auto".
             tool_prompt (`str`, *optional*):
                 A prompt to be appended before the tools.
-            tools (List of [`ChatCompletionInputTool`], *optional*):
+            tools (List of [`ToolElement`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
 
@@ -837,6 +844,7 @@ class InferenceClient:
             top_logprobs=top_logprobs,
             top_p=top_p,
             stream=stream,
+            stream_options=stream_options,
         )
         payload = {key: value for key, value in payload.items() if value is not None}
         data = self.post(model=model_url, json=payload, stream=stream)
@@ -1094,7 +1102,7 @@ class InferenceClient:
         response = self.post(data=image, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item.mask = _b64_to_image(item.mask)
+            item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
         return output
 
     def image_to_image(
