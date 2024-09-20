@@ -125,14 +125,15 @@ class HfApiCommonTest(unittest.TestCase):
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
 
+@expect_deprecation("update_repo_visibility")
 def test_repo_id_no_warning():
     # tests that passing repo_id as positional arg doesn't raise any warnings
-    # for {create, delete}_repo and update_repo_settings
+    # for {create, delete}_repo and update_repo_visibility
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     with warnings.catch_warnings(record=True) as record:
         repo_id = api.create_repo(repo_name()).repo_id
-        api.update_repo_settings(repo_id, gated="auto", private=True)
+        api.update_repo_visibility(repo_id, private=True)
         api.delete_repo(repo_id)
     assert not len(record)
 
