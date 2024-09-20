@@ -165,12 +165,11 @@ class AuthSwitchCommand(BaseUserCommand):
     @require_dependency("InquirerPy", _inquirer_py_available, "disable-tui")
     def _select_profile_tui(self) -> Optional[str]:
         profiles = get_profiles()
-        choices = [Choice(profile, name=profile) for profile in profiles]
 
-        if not choices:
+        if not profiles:
             logger.error("No profiles found. Please login first.")
             return None
-
+        choices = [Choice(profile, name=profile) for profile in profiles]
         try:
             return inquirer.select(
                 message="Select a profile to switch to:",

@@ -207,13 +207,13 @@ def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
 def auth_list() -> None:
     """List all available token profiles."""
     profiles = get_profiles()
-    current_profile = None
 
     if not profiles:
         print("No profiles found.")
         return
     # Find current profile
     current_token = get_token()
+    current_profile = None
     for profile_name in profiles:
         if profiles.get(profile_name) == current_token:
             current_profile = profile_name
@@ -224,7 +224,7 @@ def auth_list() -> None:
     # Print profiles
     for profile_name in profiles:
         token = profiles.get(profile_name, "<not set>")
-        masked_token = f"hf_****{token[-4:]}" if token != "<not set>" else token
+        masked_token = f"{token[:3]}****{token[-4:]}" if token != "<not set>" else token
         is_current = "*" if profile_name == current_profile else " "
 
         print(f"{is_current} {profile_name:^19} {masked_token:^20}")
