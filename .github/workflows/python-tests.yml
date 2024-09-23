@@ -14,7 +14,10 @@ on:
 
 jobs:
   build-ubuntu:
-    runs-on: ubuntu-latest
+    # TODO: xethub-poc: undo when poc complete
+    # runs-on: ubuntu-latest
+    runs-on:
+      group: cpu-high
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
@@ -151,6 +154,8 @@ jobs:
     # Please make sure to keep it updated as well.
     # Lighter version of the tests with only 1 test suite running on Python3.8.
     runs-on: windows-latest
+    # TODO: xethub-poc: undo when poc complete
+    if: false
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps

@@ -5,7 +5,10 @@ name: Secret Leaks
 
 jobs:
   trufflehog:
-    runs-on: ubuntu-latest
+    # TODO: xethub-poc: undo when poc complete
+    # runs-on: ubuntu-latest
+    runs-on:
+      group: cpu-low
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

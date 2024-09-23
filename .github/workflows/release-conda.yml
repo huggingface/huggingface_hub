@@ -12,6 +12,8 @@ env:
 
 jobs:
   build_and_package:
+    # TODO: xethub-poc: undo when poc complete
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:

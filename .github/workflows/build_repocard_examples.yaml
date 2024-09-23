@@ -10,6 +10,8 @@ env:
 
 jobs:
   build:
+    # TODO: xethub-poc: undo when poc complete
+    if: false
     runs-on: ubuntu-latest
 
     steps:
