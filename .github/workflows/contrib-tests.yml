@@ -14,7 +14,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # TODO: xethub-poc: undo when poc complete
+    # runs-on: ubuntu-latest
+    runs-on:
+      group: cpu-high
     strategy:
       fail-fast: false
       matrix:

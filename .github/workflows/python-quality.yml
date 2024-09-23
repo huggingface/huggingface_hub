@@ -15,7 +15,10 @@ on:
 
 jobs:
   check_code_quality:
-    runs-on: ubuntu-latest
+    # TODO: xethub-poc: undo when poc complete
+    # runs-on: ubuntu-latest
+    runs-on:
+      group: cpu-high
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 

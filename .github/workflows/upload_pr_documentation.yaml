@@ -8,6 +8,8 @@ on:
 
 jobs:
   build:
+    # TODO: xethub-poc: undo when poc complete
+    if: false
     uses: huggingface/doc-builder/.github/workflows/upload_pr_documentation.yml@main
     with:
       package_name: huggingface_hub
