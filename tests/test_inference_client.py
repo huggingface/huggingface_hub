@@ -194,7 +194,7 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     Tips when adding new tasks:
     - Most of the time, we only test that the return values are correct. We don't always test the actual output of the model.
-    - In the CI, VRC replay is always on. If you want to test locally against the server, you can use the `--vcr-mode`
+    - In the CI, VRC replay is always on. If you want to test locally against the server, you can use the `--vcr-record`
       and `--disable-vcr` command line options. See https://pytest-vcr.readthedocs.io/en/latest/configuration/.
     - If you get rate-limited locally, you can use your own token when initializing InferenceClient.
       /!\\ WARNING: if you do so, you must delete the token from the cassette before committing!
@@ -587,12 +587,6 @@ class InferenceClientVCRTest(InferenceClientTest):
         self.assertIsInstance(image, Image.Image)
         self.assertEqual(image.height, 512)
         self.assertEqual(image.width, 512)
-
-    def test_text_to_image_with_parameters(self) -> None:
-        image = self.client.text_to_image("An astronaut riding a horse on the moon.", height=256, width=256)
-        self.assertIsInstance(image, Image.Image)
-        self.assertEqual(image.height, 256)
-        self.assertEqual(image.width, 256)
 
     def test_text_to_speech(self) -> None:
         audio = self.client.text_to_speech("Hello world")

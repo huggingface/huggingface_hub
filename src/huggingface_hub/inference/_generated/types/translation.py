@@ -18,12 +18,16 @@ class TranslationGenerationParameters(BaseInferenceType):
     Additional inference parameters for Text2text Generation
     """
 
+    src_lang: Optional[str] = None
+    """The source language of the text. Required for models that can translate from multiple languages."""
+    tgt_lang: Optional[str] = None
+    """Target language to translate to. Required for models that can translate to multiple languages."""
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[Dict[str, Any]] = None
-    """Additional parametrization of the text generation algorithm"""
     truncation: Optional["TranslationGenerationTruncationStrategy"] = None
     """The truncation strategy to use"""
+    generate_parameters: Optional[Dict[str, Any]] = None
+    """Additional parametrization of the text generation algorithm"""
 
 
 @dataclass
