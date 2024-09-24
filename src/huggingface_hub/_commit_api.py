@@ -21,6 +21,7 @@ from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
+    HfXetMetadata,
     chunk_iterable,
     get_session,
     hf_raise_for_status,
@@ -28,6 +29,7 @@ from .utils import (
     sha,
     tqdm_stream_file,
     validate_hf_hub_args,
+    xet_metadata_or_none,
 )
 from .utils import tqdm as hf_tqdm
 
@@ -39,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.get_logger(__name__)
 
 
-UploadMode = Literal["lfs", "regular"]
+UploadMode = Literal["lfs", "regular", "xet"]
 
 # Max is 1,000 per request on the Hub for HfApi.get_paths_info
 # Otherwise we get:
@@ -452,18 +454,128 @@ def _upload_lfs_files(
         )
 
 
+@validate_hf_hub_args
+def _fetch_xet_token(
+    repo_type: str,
+    repo_id: str,
+    headers: Dict[str, str],
+    revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
+) -> HfXetMetadata:
+    """
+    Requests the Hub "xet-access-token" endpoint to get a write access token for storing in xet storage.
+
+    Args:
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+    Returns:
+        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+
+    resp = get_session().get(
+        f"{endpoint}/api/{repo_type}s/{repo_id}/xet-access-token/{revision}",
+        headers=headers,
+    )
+    metadata = xet_metadata_or_none(resp.headers)
+    if metadata is None:
+        raise ValueError("Xet headers have not been correctly set by the server.")
+    return metadata
+
+
+@validate_hf_hub_args
+def _upload_xet_files(
+    *,
+    additions: List[CommitOperationAdd],
+    repo_type: str,
+    repo_id: str,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+    revision: Optional[str] = None,
+):
+    """
+    Uploads the content of `additions` to the Hub using the xet storage protocol.
+
+    This chunks the files and deduplicates the chunks before uploading them to xetcas storage.
+    Args:
+        additions (`List` of `CommitOperationAdd`):
+            The files to be uploaded
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint: (`str`, *optional*):
+            The endpoint to use for the xetcas service. Defaults to `constants.ENDPOINT`.
+        revision (`str`, *optional*):
+            The git revision to upload to.
+    Raises:
+        [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
+            If an upload failed for any reason
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the server returns malformed responses or if the user is unauthorized to upload to xet storage.
+        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+            If the LFS batch endpoint returned an HTTP error.
+    """
+    # TODO: use HF_HUB_ENABLE_HF_XET env variable
+    try:
+        from hf_xet import PyPointerFile, upload_files
+    except ImportError:
+        raise ValueError(
+            "Optimized upload using hf_xet is enabled for this repo but the hf_xet "
+            "package is not available in your environment. Try pip install hf_xet."
+        )
+
+    xet_meta = _fetch_xet_token(repo_type, repo_id, headers, revision, endpoint)
+    if xet_meta is None:
+        raise ValueError(
+            f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
+            f"Please check that you have configured your access token with write access to the repo."
+        )
+    xet_endpoint = xet_meta.endpoint
+    access_token = xet_meta.access_token
+
+    for chunk in chunk_iterable(additions, chunk_size=256):
+        _chunk = [op for op in chunk]
+        chunk_map: Dict[str, CommitOperationAdd] = {str(op.path_or_fileobj): op for op in _chunk}
+        paths = [str(op.path_or_fileobj) for op in _chunk]
+        pointer_files: List[PyPointerFile] = upload_files(paths, xet_endpoint, access_token)
+        for pf in pointer_files:
+            path = pf.path
+            op = chunk_map[path]
+            op.upload_info.size = pf.filesize
+            op.upload_info.sha256 = bytes.fromhex(pf.hash)
+    return
+
+
 def _validate_preupload_info(preupload_info: dict):
     files = preupload_info.get("files")
+    has_xet = False
     if not isinstance(files, list):
         raise ValueError("preupload_info is improperly formatted")
     for file_info in files:
+        has_xet = has_xet or file_info["uploadMode"] == "xet"
         if not (
             isinstance(file_info, dict)
             and isinstance(file_info.get("path"), str)
             and isinstance(file_info.get("uploadMode"), str)
-            and (file_info["uploadMode"] in ("lfs", "regular"))
+            and (file_info["uploadMode"] in ("lfs", "regular", "xet"))
         ):
             raise ValueError("preupload_info is improperly formatted:")
+    if has_xet and not isinstance(preupload_info.get("casEndpoint"), str):
+        raise ValueError("xet file detected but casEndpoint is not None")
     return preupload_info
 
 
@@ -479,8 +591,8 @@ def _fetch_upload_modes(
     gitignore_content: Optional[str] = None,
 ) -> None:
     """
-    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob
-    or as git LFS blob. Input `additions` are mutated in-place with the upload mode.
+    Requests the Hub "preupload" endpoint to determine whether each input file should be uploaded as a regular git blob,
+    as a git LFS blob, or as a XET file. Input `additions` are mutated in-place with the upload mode.
 
     Args:
         additions (`Iterable` of :class:`CommitOperationAdd`):
@@ -687,13 +799,24 @@ def _prepare_commit_payload(
                     "size": operation.upload_info.size,
                 },
             }
-        # 2.c. Case deleting a file or folder
+        # 2.c. Case adding a XET file
+        elif isinstance(operation, CommitOperationAdd) and operation._upload_mode == "xet":
+            yield {
+                "key": "xetFile",
+                "value": {
+                    "path": operation.path_in_repo,
+                    # TODO: xetpoc - we should validate whether this is what we want here.
+                    "oid": operation.upload_info.sha256.hex(),
+                    "size": operation.upload_info.size,
+                },
+            }
+        # 2.d. Case deleting a file or folder
         elif isinstance(operation, CommitOperationDelete):
             yield {
                 "key": "deletedFolder" if operation.is_folder else "deletedFile",
                 "value": {"path": operation.path_in_repo},
             }
-        # 2.d. Case copying a file or folder
+        # 2.e. Case copying a file or folder
         elif isinstance(operation, CommitOperationCopy):
             file_to_copy = files_to_copy[(operation.src_path_in_repo, operation.src_revision)]
             if isinstance(file_to_copy, bytes):
@@ -718,7 +841,7 @@ def _prepare_commit_payload(
                 raise ValueError(
                     "Malformed files_to_copy (should be raw file content as bytes or RepoFile objects with LFS info."
                 )
-        # 2.e. Never expected to happen
+        # 2.f. Never expected to happen
         else:
             raise ValueError(
                 f"Unknown operation to commit. Operation: {operation}. Upload mode:"

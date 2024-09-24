@@ -58,6 +58,7 @@ from ._commit_api import (
     _fetch_upload_modes,
     _prepare_commit_payload,
     _upload_lfs_files,
+    _upload_xet_files,
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
@@ -4431,6 +4432,11 @@ class HfApi:
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
+        # TODO: xetpoc - add logging for xet files like lfs below
+        new_xet_additions = [
+            addition for addition in new_additions if addition._upload_mode == "xet" and not addition._should_ignore
+        ]
+
         # Filter out files listed in .gitignore
         new_lfs_additions_to_upload = []
         for addition in new_lfs_additions:
@@ -4443,6 +4449,19 @@ class HfApi:
                 f"Skipped upload for {len(new_lfs_additions) - len(new_lfs_additions_to_upload)} LFS file(s) "
                 "(ignored by gitignore file)."
             )
+
+        # Upload new XET files
+        _upload_xet_files(
+            additions=new_xet_additions,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            headers=headers,
+            endpoint=self.endpoint,
+            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+            # should still be able to create PRs even if they don't have write permission on the target branch of the
+            # PR (i.e. `revision`).
+            revision=revision if not create_pr else None,
+        )
 
         # Upload new LFS files
         _upload_lfs_files(

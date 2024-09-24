@@ -65,10 +65,16 @@ _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
 ENDPOINT = os.getenv("HF_ENDPOINT") or (_HF_DEFAULT_STAGING_ENDPOINT if _staging_mode else _HF_DEFAULT_ENDPOINT)
 
+# TODO: xetpoc - change this to the production endpoint
+_HF_DEFAULT_SANDBOX_ENDPOINT = "http://cas-server.us.dev.moon.huggingface.tech/"
+XET_ENDPOINT = os.getenv("HF_XET_ENDPOINT") or _HF_DEFAULT_SANDBOX_ENDPOINT
+
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
+HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
+HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
