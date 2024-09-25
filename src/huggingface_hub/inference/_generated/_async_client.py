@@ -754,7 +754,7 @@ class AsyncInferenceClient:
         ...     base64_image = base64.b64encode(f.read()).decode("utf-8")
         >>> image_url = f"data:image/jpeg;base64,{base64_image}"
 
-        >>> client = AsyncInferenceClient("mistralai/Mistral-Nemo-Instruct-2407")
+        >>> client = AsyncInferenceClient("HuggingFaceM4/idefics2-8b-chatty")
         >>> output = await client.chat.completions.create(
         ...     messages=[
         ...         {
