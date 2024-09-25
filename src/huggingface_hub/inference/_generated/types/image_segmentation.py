@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 
 from .base import BaseInferenceType
 
@@ -32,8 +32,10 @@ class ImageSegmentationParameters(BaseInferenceType):
 class ImageSegmentationInput(BaseInferenceType):
     """Inputs for Image Segmentation inference"""
 
-    inputs: Any
-    """The input image data"""
+    inputs: str
+    """The input image data as a base64-encoded string. If no `parameters` are provided, you can
+    also provide the image data as a raw bytes payload.
+    """
     parameters: Optional[ImageSegmentationParameters] = None
     """Additional inference parameters"""
 
@@ -45,8 +47,8 @@ class ImageSegmentationOutputElement(BaseInferenceType):
     """
 
     label: str
-    """The label of the predicted segment"""
-    mask: Any
-    """The corresponding mask as a black-and-white image"""
+    """The label of the predicted segment."""
+    mask: str
+    """The corresponding mask as a black-and-white image (base64-encoded)."""
     score: Optional[float] = None
-    """The score or confidence degreee the model has"""
+    """The score or confidence degree the model has."""

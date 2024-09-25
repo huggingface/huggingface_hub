@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from .base import BaseInferenceType
 
@@ -13,7 +13,7 @@ EarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
-class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
+class TextToSpeechGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process
     Ad-hoc parametrization of the text generation process
     """
@@ -75,44 +75,33 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
 
 
 @dataclass
-class AutomaticSpeechRecognitionParameters(BaseInferenceType):
+class TextToSpeechParameters(BaseInferenceType):
     """Additional inference parameters
-    Additional inference parameters for Automatic Speech Recognition
+    Additional inference parameters for Text To Speech
     """
 
-    generate: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
+    generate: Optional[TextToSpeechGenerationParameters] = None
     """Parametrization of the text generation process"""
-    return_timestamps: Optional[bool] = None
-    """Whether to output corresponding timestamps with the generated text"""
 
 
 @dataclass
-class AutomaticSpeechRecognitionInput(BaseInferenceType):
-    """Inputs for Automatic Speech Recognition inference"""
+class TextToSpeechInput(BaseInferenceType):
+    """Inputs for Text To Speech inference"""
 
     inputs: str
-    """The input audio data as a base64-encoded string. If no `parameters` are provided, you can
-    also provide the audio data as a raw bytes payload.
-    """
-    parameters: Optional[AutomaticSpeechRecognitionParameters] = None
+    """The input text data"""
+    parameters: Optional[TextToSpeechParameters] = None
     """Additional inference parameters"""
 
 
 @dataclass
-class AutomaticSpeechRecognitionOutputChunk(BaseInferenceType):
-    text: str
-    """A chunk of text identified by the model"""
-    timestamps: List[float]
-    """The start and end timestamps corresponding with the text"""
-
-
-@dataclass
-class AutomaticSpeechRecognitionOutput(BaseInferenceType):
-    """Outputs of inference for the Automatic Speech Recognition task"""
-
-    text: str
-    """The recognized text."""
-    chunks: Optional[List[AutomaticSpeechRecognitionOutputChunk]] = None
-    """When returnTimestamps is enabled, chunks contains a list of audio chunks identified by
-    the model.
+class TextToSpeechOutput(BaseInferenceType):
+    """Outputs for Text to Speech inference
+    Outputs of inference for the Text To Audio task
     """
+
+    audio: Any
+    """The generated audio waveform."""
+    sampling_rate: Any
+    text_to_speech_output_sampling_rate: Optional[float] = None
+    """The sampling rate of the generated audio waveform."""

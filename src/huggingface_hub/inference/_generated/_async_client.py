@@ -64,8 +64,8 @@ from huggingface_hub.inference._generated.types import (
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
-    ChatCompletionInputTool,
-    ChatCompletionInputToolTypeClass,
+    ChatCompletionInputStreamOptions,
+    ChatCompletionInputToolType,
     ChatCompletionOutput,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
@@ -82,6 +82,7 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationOutput,
     TextGenerationStreamOutput,
     TokenClassificationOutputElement,
+    ToolElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
@@ -487,7 +488,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: Literal[False] = False,
@@ -500,10 +501,11 @@ class AsyncInferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput: ...
@@ -511,7 +513,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(  # type: ignore
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: Literal[True] = True,
@@ -524,10 +526,11 @@ class AsyncInferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> AsyncIterable[ChatCompletionStreamOutput]: ...
@@ -535,7 +538,7 @@ class AsyncInferenceClient:
     @overload
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -548,17 +551,18 @@ class AsyncInferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]: ...
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict],
         *,
         model: Optional[str] = None,
         stream: bool = False,
@@ -572,10 +576,11 @@ class AsyncInferenceClient:
         response_format: Optional[ChatCompletionInputGrammarType] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
+        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolTypeClass, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ChatCompletionInputTool]] = None,
+        tools: Optional[List[ToolElement]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, AsyncIterable[ChatCompletionStreamOutput]]:
@@ -592,7 +597,7 @@ class AsyncInferenceClient:
         </Tip>
 
         Args:
-            messages (List[Union[`SystemMessage`, `UserMessage`, `AssistantMessage`]]):
+            messages (List of [`ChatCompletionInputMessage`]):
                 Conversation history consisting of roles and content pairs.
             model (`str`, *optional*):
                 The model to use for chat-completion. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -629,6 +634,8 @@ class AsyncInferenceClient:
                 Defaults to None.
             stream (`bool`, *optional*):
                 Enable realtime streaming of responses. Defaults to False.
+            stream_options ([`ChatCompletionInputStreamOptions`], *optional*):
+                Options for streaming completions.
             temperature (`float`, *optional*):
                 Controls randomness of the generations. Lower values ensure
                 less random completions. Range: [0, 2]. Defaults to 1.0.
@@ -639,11 +646,11 @@ class AsyncInferenceClient:
             top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
-            tool_choice ([`ChatCompletionInputToolTypeClass`] or `str`, *optional*):
+            tool_choice ([`ChatCompletionInputToolType`] or `str`, *optional*):
                 The tool to use for the completion. Defaults to "auto".
             tool_prompt (`str`, *optional*):
                 A prompt to be appended before the tools.
-            tools (List of [`ChatCompletionInputTool`], *optional*):
+            tools (List of [`ToolElement`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
 
@@ -694,7 +701,7 @@ class AsyncInferenceClient:
         )
         ```
 
-        Example (stream=True):
+        Example using streaming:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
@@ -732,6 +739,41 @@ class AsyncInferenceClient:
 
         for chunk in output:
             print(chunk.choices[0].delta.content)
+        ```
+
+        Example using Image + Text as input:
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+
+        # provide a remote URL
+        >>> image_url ="https://cdn.britannica.com/61/93061-050-99147DCE/Statue-of-Liberty-Island-New-York-Bay.jpg"
+        # or a base64-encoded image
+        >>> image_path = "/path/to/image.jpeg"
+        >>> with open(image_path, "rb") as f:
+        ...     base64_image = base64.b64encode(f.read()).decode("utf-8")
+        >>> image_url = f"data:image/jpeg;base64,{base64_image}"
+
+        >>> client = AsyncInferenceClient("HuggingFaceM4/idefics2-8b-chatty")
+        >>> output = await client.chat.completions.create(
+        ...     messages=[
+        ...         {
+        ...             "role": "user",
+        ...             "content": [
+        ...                 {
+        ...                     "type": "image_url",
+        ...                     "image_url": {"url": image_url},
+        ...                 },
+        ...                 {
+        ...                     "type": "text",
+        ...                     "text": "Describe this image in one sentence.",
+        ...                 },
+        ...             ],
+        ...         },
+        ...     ],
+        ... )
+        >>> output
+        A determine figure of Lady Liberty stands tall, holding a torch aloft, atop a pedestal on an island.
         ```
 
         Example using tools:
@@ -877,6 +919,7 @@ class AsyncInferenceClient:
             top_logprobs=top_logprobs,
             top_p=top_p,
             stream=stream,
+            stream_options=stream_options,
         )
         payload = {key: value for key, value in payload.items() if value is not None}
         data = await self.post(model=model_url, json=payload, stream=stream)
@@ -1139,7 +1182,7 @@ class AsyncInferenceClient:
         response = await self.post(data=image, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item.mask = _b64_to_image(item.mask)
+            item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
         return output
 
     async def image_to_image(
