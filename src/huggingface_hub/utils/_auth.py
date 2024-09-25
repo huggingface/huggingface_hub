@@ -162,21 +162,21 @@ def _save_profiles(profiles: Dict[str, str]) -> None:
 
     # Write the profiles into an INI file
     config = configparser.ConfigParser()
-    for profile_name, token in profiles.items():
-        config.add_section(profile_name)
-        config.set(profile_name, "hf_token", token)
+    for profile in sorted(profiles.keys()):
+        config.add_section(profile)
+        config.set(profile, "hf_token", profiles[profile])
 
     profiles_path.parent.mkdir(parents=True, exist_ok=True)
-    with profiles_path.open("w+") as config_file:
+    with profiles_path.open("w") as config_file:
         config.write(config_file)
 
 
-def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
+def _get_token_from_profile(profile: str = "default") -> Optional[str]:
     """
     Get the token from the given profile.
 
     Args:
-        profile_name (`str`, *optional*, defaults to `"default"`):
+        profile (`str`, *optional*, defaults to `"default"`):
             The name of the profile to get the token from.
 
     Returns:
@@ -184,12 +184,12 @@ def _get_token_from_profile(profile_name: str = "default") -> Optional[str]:
 
     """
     profiles = get_profiles()
-    if profile_name not in profiles:
+    if profile not in profiles:
         return None
-    return _clean_token(profiles[profile_name])
+    return _clean_token(profiles[profile])
 
 
-def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
+def _save_token_to_profile(token: str, profile: str = "default") -> None:
     """
     Save the given token to the given profile.
 
@@ -197,14 +197,14 @@ def _save_token_to_profile(token: str, profile_name: str = "default") -> None:
     Args:
         token (`str`):
             The token to save.
-        profile_name (`str`, *optional*, defaults to `"default"`):
+        profile (`str`, *optional*, defaults to `"default"`):
             The name of the profile to save the token to.
     """
     profiles_path = Path(constants.HF_PROFILES_PATH)
     profiles = get_profiles()
-    profiles[profile_name] = token
+    profiles[profile] = token
     _save_profiles(profiles)
-    print(f"The profile `{profile_name}` has been saved to {profiles_path}")
+    print(f"The profile `{profile}` has been saved to {profiles_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:

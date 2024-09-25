@@ -1,4 +1,5 @@
 import os
+import tempfile
 from unittest.mock import patch
 
 import pytest
@@ -12,10 +13,10 @@ from huggingface_hub.utils._auth import (
     get_profiles,
 )
 
-from .testing_constants import ENDPOINT_STAGING, HF_PROFILES_PATH, HF_TOKEN_PATH, OTHER_TOKEN, TOKEN
+from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def use_tmp_file_paths():
     """
     Fixture to temporarily override HF_TOKEN_PATH, HF_PROFILES_PATH, and ENDPOINT.
@@ -24,17 +25,16 @@ def use_tmp_file_paths():
     specified paths and the staging endpoint. It also ensures that the files are
     deleted after all tests in the module are completed.
     """
-    with patch.multiple(
-        "huggingface_hub.constants",
-        HF_TOKEN_PATH=HF_TOKEN_PATH,
-        HF_PROFILES_PATH=HF_PROFILES_PATH,
-        ENDPOINT=ENDPOINT_STAGING,
-    ):
-        yield
-    # Remove the temporary files after all tests in the module are completed.
-    for path in [HF_TOKEN_PATH, HF_PROFILES_PATH]:
-        if os.path.exists(path):
-            os.remove(path)
+    with tempfile.TemporaryDirectory() as tmp_hf_home:
+        hf_token_path = os.path.join(tmp_hf_home, "token")
+        hf_profiles_path = os.path.join(tmp_hf_home, "profiles")
+        with patch.multiple(
+            constants,
+            HF_TOKEN_PATH=hf_token_path,
+            HF_PROFILES_PATH=hf_profiles_path,
+            ENDPOINT=ENDPOINT_STAGING,
+        ):
+            yield
 
 
 class TestGetTokenFromProfile:
@@ -79,7 +79,7 @@ class TestSetActiveProfile:
 class TestLogin:
     @patch("huggingface_hub.hf_api.get_token_permission", return_value="write")
     def test_login_success(self, mock_get_token_permission):
-        _login(TOKEN, add_to_git_credential=False, profile_name="test_profile")
+        _login(TOKEN, add_to_git_credential=False, profile="test_profile")
 
         assert _get_token_from_profile("test_profile") == TOKEN
         assert _get_token_from_file() == TOKEN

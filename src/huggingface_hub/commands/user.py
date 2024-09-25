@@ -32,7 +32,7 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     notebook_login,
 )
 from ..utils import get_profiles, get_token, logging
-from ._cli_utils import ANSI, require_dependency
+from ._cli_utils import ANSI
 
 
 logger = logging.get_logger(__name__)
@@ -56,7 +56,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
             help="Token generated from https://huggingface.co/settings/tokens",
         )
         login_parser.add_argument(
-            "--profile-name",
+            "--profile",
             type=str,
             help="Optional: Name of the profile to log in to.",
         )
@@ -71,7 +71,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
 
         logout_parser = parser.add_parser("logout", help="Log out")
         logout_parser.add_argument(
-            "--profile-name",
+            "--profile",
             type=str,
             help="Optional: Name of the profile to log out from.",
         )
@@ -81,7 +81,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
         auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
         auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between profiles")
         auth_switch_parser.add_argument(
-            "--profile-name",
+            "--profile",
             type=str,
             help="Optional: Name of the profile to switch to.",
         )
@@ -141,34 +141,54 @@ class LoginCommand(BaseUserCommand):
     def run(self):
         login(
             token=self.args.token,
-            profile_name=self.args.profile_name,
+            profile=self.args.profile,
             add_to_git_credential=self.args.add_to_git_credential,
         )
 
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
-        logout(profile_name=self.args.profile_name)
+        logout(profile=self.args.profile)
 
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
-        profile_name = self.args.profile_name
-        if profile_name is None and not self.args.disable_tui:
-            profile_name = self._select_profile_tui()
+        profile = self.args.profile
+        if profile is None:
+            profile = self._select_profile()
 
-        if profile_name is None:
-            logger.error("No profile name provided. Please specify a profile name or enable TUI.")
-            return
-        auth_switch(profile_name, add_to_git_credential=self.args.add_to_git_credential)
+        if profile is None:
+            print("No profile name provided. Aborting.")
+            exit()
+        auth_switch(profile, add_to_git_credential=self.args.add_to_git_credential)
 
-    @require_dependency("InquirerPy", _inquirer_py_available, "disable-tui")
-    def _select_profile_tui(self) -> Optional[str]:
-        profiles = get_profiles()
+    def _select_profile(self) -> Optional[str]:
+        profiles = list(get_profiles().keys())
 
         if not profiles:
             logger.error("No profiles found. Please login first.")
             return None
+
+        if _inquirer_py_available:
+            return self._select_profile_tui(profiles)
+        # if inquirer is not available, use a simpler terminal UI
+        print("Available profiles:")
+        for i, profile in enumerate(profiles, 1):
+            print(f"{i}. {profile}")
+        while True:
+            try:
+                choice = input("Enter the number of the profile to switch to (or 'q' to quit): ")
+                if choice.lower() == "q":
+                    return None
+                index = int(choice) - 1
+                if 0 <= index < len(profiles):
+                    return profiles[index]
+                else:
+                    print("Invalid selection. Please try again.")
+            except ValueError:
+                print("Invalid input. Please enter a number or 'q' to quit.")
+
+    def _select_profile_tui(self, profiles: list[str]) -> Optional[str]:
         choices = [Choice(profile, name=profile) for profile in profiles]
         try:
             return inquirer.select(

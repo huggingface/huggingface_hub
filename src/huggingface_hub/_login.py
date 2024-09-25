@@ -38,6 +38,7 @@ from .utils import (
 )
 from .utils._auth import (
     _get_token_from_environment,
+    _get_token_from_file,
     _get_token_from_google_colab,
     _get_token_from_profile,
     _save_profiles,
@@ -64,7 +65,7 @@ def login(
     new_session: bool = True,
     write_permission: bool = False,
     *,
-    profile_name: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> None:
     """Login the machine to access the Hub.
 
@@ -104,7 +105,7 @@ def login(
             If `True`, will request a token even if one is already saved on the machine.
         write_permission (`bool`, defaults to `False`):
             If `True`, requires a token with write permission.
-        profile_name (`str`, *optional*):
+        profile (`str`, *optional*):
             Name of the token profile to add or update. If `None`, will add or update the "default" token profile.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
@@ -127,7 +128,7 @@ def login(
             token,
             add_to_git_credential=add_to_git_credential,
             write_permission=write_permission,
-            profile_name=profile_name,
+            profile=profile,
         )
     elif is_notebook():
         notebook_login(new_session=new_session, write_permission=write_permission)
@@ -135,13 +136,13 @@ def login(
         interpreter_login(new_session=new_session, write_permission=write_permission)
 
 
-def logout(profile_name: Optional[str] = None) -> None:
+def logout(profile: Optional[str] = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
 
     Args:
-        profile_name (`str`, *optional*):
+        profile (`str`, *optional*):
             Name of the token profile to logout from. If `None`, will logout from all token profiles.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
@@ -150,7 +151,7 @@ def logout(profile_name: Optional[str] = None) -> None:
     if get_token() is None and not get_profiles():  # No active token and no profiles
         print("Not logged in!")
         return
-    if not profile_name:
+    if not profile:
         # Delete all profiles and token
         for file_path in (constants.HF_TOKEN_PATH, constants.HF_PROFILES_PATH):
             try:
@@ -159,8 +160,8 @@ def logout(profile_name: Optional[str] = None) -> None:
                 pass
         print("Successfully logged out from all token profiles.")
     else:
-        _logout_from_profile(profile_name)
-        print(f"Successfully logged out from token profile: {profile_name}.")
+        _logout_from_profile(profile)
+        print(f"Successfully logged out from token profile: {profile}.")
 
     unset_git_credential()
 
@@ -177,11 +178,11 @@ def logout(profile_name: Optional[str] = None) -> None:
         )
 
 
-def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
+def auth_switch(profile: str, add_to_git_credential: bool = False) -> None:
     """Switch to a different token.
 
     Args:
-        profile_name (`str`):
+        profile (`str`):
             Name of the token profile to switch to.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
@@ -193,12 +194,12 @@ def auth_switch(profile_name: str, add_to_git_credential: bool = False) -> None:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the profile name is not found.
     """
-    token = _get_token_from_profile(profile_name)
+    token = _get_token_from_profile(profile)
     if not token:
-        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+        raise ValueError(f"Profile {profile} not found in {constants.HF_PROFILES_PATH}")
     # Write token to HF_TOKEN_PATH
-    _set_active_profile(profile_name, add_to_git_credential)
-    print(f"Switched to profile: {profile_name}")
+    _set_active_profile(profile, add_to_git_credential)
+    print(f"Switched to profile: {profile}")
     token_from_environment = _get_token_from_environment()
     if token_from_environment is not None and token_from_environment != token:
         warnings.warn("The environment variable `HF_TOKEN` is set and will override the token from the profile.")
@@ -214,20 +215,21 @@ def auth_list() -> None:
     # Find current profile
     current_token = get_token()
     current_profile = None
-    for profile_name in profiles:
-        if profiles.get(profile_name) == current_token:
-            current_profile = profile_name
+    for profile in profiles:
+        if profiles.get(profile) == current_token:
+            current_profile = profile
     # Print header
-    print(f"{'profile name':^20} {'token':^20}")
-    print(f"{'-'*20}{'-'*20}")
+    max_offset = max(len("profile"), max(len(profile) for profile in profiles)) + 2
+    print(f"  {{:<{max_offset}}}| {{:<15}}".format("profile", "token"))
+    print("-" * (max_offset + 2) + "|" + "-" * 15)
 
     # Print profiles
-    for profile_name in profiles:
-        token = profiles.get(profile_name, "<not set>")
+    for profile in profiles:
+        token = profiles.get(profile, "<not set>")
         masked_token = f"{token[:3]}****{token[-4:]}" if token != "<not set>" else token
-        is_current = "*" if profile_name == current_profile else " "
+        is_current = "*" if profile == current_profile else " "
 
-        print(f"{is_current} {profile_name:^19} {masked_token:^20}")
+        print(f"{is_current} {{:<{max_offset}}}| {{:<15}}".format(profile, masked_token))
 
     if _get_token_from_environment():
         print(
@@ -280,12 +282,12 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     if os.name == "nt":
         print("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
-    profile_name = input("Enter profile name (default: 'default'): ") or "default"
+    profile = input("Enter profile name (default: 'default'): ") or "default"
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
     _login(
         token=token,
-        profile_name=profile_name,
+        profile=profile,
         add_to_git_credential=add_to_git_credential,
         write_permission=write_permission,
     )
@@ -397,7 +399,7 @@ def _login(
     token: str,
     add_to_git_credential: bool,
     write_permission: bool = False,
-    profile_name: Optional[str] = None,
+    profile: Optional[str] = None,
 ) -> None:
     from .hf_api import get_token_permission  # avoid circular import
 
@@ -414,25 +416,25 @@ def _login(
         )
     print(f"Token is valid (permission: {permission}).")
 
-    profile_name = profile_name or "default"
+    profile = profile or "default"
     # Save token to profiles file
-    _save_token_to_profile(token=token, profile_name=profile_name)
+    _save_token_to_profile(token=token, profile=profile)
     # Set active profile
-    _set_active_profile(profile_name=profile_name, add_to_git_credential=add_to_git_credential)
+    _set_active_profile(profile=profile, add_to_git_credential=add_to_git_credential)
     print("Login successful.")
     if _get_token_from_environment():
         print(
             "Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured."
         )
     else:
-        print(f"The current active profile is: `{profile_name}`")
+        print(f"The current active profile is: `{profile}`")
 
 
-def _logout_from_profile(profile_name: str) -> None:
+def _logout_from_profile(profile: str) -> None:
     """Logout from a profile.
 
     Args:
-        profile_name (`str`):
+        profile (`str`):
             The name of the profile to logout from.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
@@ -440,47 +442,45 @@ def _logout_from_profile(profile_name: str) -> None:
     """
     profiles = get_profiles()
     # If there is no profiles saved or the profile name is not found, do nothing
-    if not profiles or profile_name not in profiles:
+    if not profiles or profile not in profiles:
         return
 
-    token = profiles[profile_name]
-    del profiles[profile_name]
+    token = profiles[profile]
+    del profiles[profile]
     _save_profiles(profiles)
 
-    if token == get_token():
-        warnings.warn(f"Active profile '{profile_name}' has been deleted.")
+    if token == _get_token_from_file():
+        warnings.warn(f"Active profile '{profile}' has been deleted.")
         Path(constants.HF_TOKEN_PATH).unlink(missing_ok=True)
 
 
 def _set_active_profile(
-    profile_name: str,
+    profile: str,
     add_to_git_credential: bool,
 ) -> None:
     """Set the active profile.
 
     Args:
-        profile_name (`str`):
+        profile (`str`):
             The name of the profile to set as active.
     """
-    token = _get_token_from_profile(profile_name)
-    if token:
-        if add_to_git_credential:
-            if _is_git_credential_helper_configured():
-                set_git_credential(token)
-                print(
-                    "Your token has been saved in your configured git credential helpers"
-                    + f" ({','.join(list_credential_helpers())})."
-                )
-            else:
-                print("Token has not been saved to git credential helper.")
-        # Write token to HF_TOKEN_PATH
-        path = Path(constants.HF_TOKEN_PATH)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(token)
-        print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
-
-    else:
-        raise ValueError(f"Profile {profile_name} not found in {constants.HF_PROFILES_PATH}")
+    token = _get_token_from_profile(profile)
+    if not token:
+        raise ValueError(f"Profile {profile} not found in {constants.HF_PROFILES_PATH}")
+    if add_to_git_credential:
+        if _is_git_credential_helper_configured():
+            set_git_credential(token)
+            print(
+                "Your token has been saved in your configured git credential helpers"
+                + f" ({','.join(list_credential_helpers())})."
+            )
+        else:
+            print("Token has not been saved to git credential helper.")
+    # Write token to HF_TOKEN_PATH
+    path = Path(constants.HF_TOKEN_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(token)
+    print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
 
 def _current_token_okay(write_permission: bool = False):

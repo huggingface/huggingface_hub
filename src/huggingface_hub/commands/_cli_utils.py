@@ -14,8 +14,7 @@
 """Contains a utility for good-looking prints."""
 
 import os
-from functools import wraps
-from typing import Callable, List, Optional, Union
+from typing import List, Union
 
 
 class ANSI:
@@ -68,35 +67,3 @@ def tabulate(rows: List[List[Union[str, int]]], headers: List[str]) -> str:
     for row in rows:
         lines.append(row_format.format(*row))
     return "\n".join(lines)
-
-
-# TODO: Make it more generic to use across the codebase
-def require_dependency(dependency_name: str, dependency_available: bool, flag_name: Optional[str] = None):
-    """
-    Decorator to flag methods that require an optional dependency.
-
-    Args:
-        dependency_name (`str`): Name of the dependency.
-        dependency_available (`bool`): Whether the dependency is available.
-        flag_name (`str`, optional): Name of the flag to disable the feature requiring the dependency.
-
-    Returns:
-        Callable: Decorator function.
-    """
-
-    def decorator(fn: Callable) -> Callable:
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            if not dependency_available:
-                error_message = (
-                    f"The command requires {dependency_name} to work with this feature.\n"
-                    f"Please run `pip install huggingface_hub[cli]` to install it."
-                )
-                if flag_name:
-                    error_message += f"\nOtherwise, use the `--{flag_name}` flag to disable this feature."
-                raise ImportError(error_message)
-            return fn(*args, **kwargs)
-
-        return wrapper
-
-    return decorator

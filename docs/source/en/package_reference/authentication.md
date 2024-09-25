@@ -2,7 +2,7 @@
 rendered properly in your Markdown viewer.
 -->
 
-# Login, Logout, and Token Management
+# Authentication
 
 The `huggingface_hub` library allows users to programmatically manage authentication to the Hub. This includes logging in, logging out, switching between tokens, and listing available tokens.
 
