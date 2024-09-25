@@ -71,6 +71,7 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionInputToolTypeClass,
     ChatCompletionOutput,
     ChatCompletionStreamOutput,
+    ClassificationOutputTransform,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -84,6 +85,7 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
+    TextToImageTargetSize,
     TokenClassificationOutputElement,
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
@@ -1822,8 +1824,8 @@ class InferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        function_to_apply: Optional[Literal["sigmoid", "softmax", "none"]] = None,
         top_k: Optional[int] = None,
+        function_to_apply: Optional["ClassificationOutputTransform"] = None,
     ) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
@@ -1836,10 +1838,11 @@ class InferenceClient:
                 The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
                 Defaults to None.
-            function_to_apply (`Literal["sigmoid", "softmax", "none"]`, *optional*):
-                The function to apply to the output.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
+            function_to_apply (`"ClassificationOutputTransform"`, *optional*):
+                The function to apply to the output.
+
         Returns:
             `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
 
@@ -2377,6 +2380,9 @@ class InferenceClient:
         num_inference_steps: Optional[float] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
+        scheduler: Optional[str] = None,
+        target_size: Optional[TextToImageTargetSize] = None,
+        seed: Optional[int] = None,
         **kwargs,
     ) -> "Image":
         """
@@ -2407,6 +2413,12 @@ class InferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended text-to-image model will be used.
                 Defaults to None.
+            scheduler (`str`, *optional*):
+                Override the scheduler with a compatible one.
+            target_size (`TextToImageTargetSize`, *optional*):
+                The size in pixel of the output image
+            seed (`int`, *optional*):
+                Seed for the random number generator.
 
         Returns:
             `Image`: The generated image.
@@ -2440,6 +2452,9 @@ class InferenceClient:
             "width": width,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
+            "scheduler": scheduler,
+            "target_size": target_size,
+            "seed": seed,
             **kwargs,
         }
         for key, value in parameters.items():

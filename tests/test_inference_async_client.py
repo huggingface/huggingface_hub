@@ -275,8 +275,8 @@ def test_sync_vs_async_signatures() -> None:
 
         # Check that the async method is async
         async_method = getattr(async_client, name)
-        # Since the method is decorated with @_deprecate_arguments, we need to unwrap the async method to get the actual coroutine function
-        # TODO: Remove this once the @_deprecate_arguments decorator is removed from the AsyncInferenceClient.summarization() method.
+        # Since some methods are decorated with @_deprecate_arguments, we need to unwrap the async method to get the actual coroutine function
+        # TODO: Remove this once the @_deprecate_arguments decorator is removed from the AsyncInferenceClient methods.
         assert inspect.iscoroutinefunction(inspect.unwrap(async_method))
 
         # Check that expected inputs and outputs are the same

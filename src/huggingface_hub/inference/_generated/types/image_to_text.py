@@ -80,8 +80,7 @@ class ImageToTextParameters(BaseInferenceType):
     Additional inference parameters for Image To Text
     """
 
-    # TODO: Temporary fix to allow passing `generate_kwargs` instead of `generate as a parameter
-    generate_kwargs: Optional[ImageToTextGenerationParameters] = None
+    generate: Optional[ImageToTextGenerationParameters] = None
     """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""

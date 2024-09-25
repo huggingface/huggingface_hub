@@ -82,7 +82,12 @@ from .table_question_answering import (
     TableQuestionAnsweringOutputElement,
 )
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
-from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
+from .text_classification import (
+    ClassificationOutputTransform,
+    TextClassificationInput,
+    TextClassificationOutputElement,
+    TextClassificationParameters,
+)
 from .text_generation import (
     TextGenerationInput,
     TextGenerationInputGenerateParameters,
