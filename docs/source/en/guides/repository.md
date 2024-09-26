@@ -151,8 +151,8 @@ Some settings are specific to Spaces (hardware, environment variables,...). To c
 A repository can be public or private. A private repository is only visible to you or members of the organization in which the repository is located. Change a repository to private as shown in the following:
 
 ```py
->>> from huggingface_hub import update_repo_visibility
->>> update_repo_visibility(repo_id=repo_id, private=True)
+>>> from huggingface_hub import update_repo_settings
+>>> update_repo_settings(repo_id=repo_id, private=True)
 ```
 
 ### Setup gated access
