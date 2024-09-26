@@ -175,7 +175,7 @@ class CardData:
     def __init__(self, ignore_metadata_errors: bool = False, **kwargs):
         self.__dict__.update(kwargs)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self):
         """Converts CardData to a dict.
 
         Returns:
@@ -195,7 +195,7 @@ class CardData:
         """
         pass
 
-    def to_yaml(self, line_break=None) -> str:
+    def to_yaml(self, line_break=None, original_order: Optional[List[str]] = None) -> str:
         """Dumps CardData to a YAML block for inclusion in a README.md file.
 
         Args:
@@ -205,6 +205,10 @@ class CardData:
         Returns:
             `str`: CardData represented as a YAML block.
         """
+        if original_order:
+            self.__dict__ = {
+                k: self.__dict__[k] for k in original_order + list(set(self.__dict__.keys()) - set(original_order))
+            }
         return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 
     def __repr__(self):

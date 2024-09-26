@@ -83,7 +83,7 @@ class RepoCard:
     def content(self):
         """The content of the RepoCard, including the YAML block and the Markdown body."""
         line_break = _detect_line_ending(self._content) or "\n"
-        return f"---{line_break}{self.data.to_yaml(line_break=line_break)}{line_break}---{line_break}{self.text}"
+        return f"---{line_break}{self.data.to_yaml(line_break=line_break, original_order=self._original_order)}{line_break}---{line_break}{self.text}"
 
     @content.setter
     def content(self, content: str):
@@ -110,6 +110,7 @@ class RepoCard:
             self.text = content
 
         self.data = self.card_data_class(**data_dict, ignore_metadata_errors=self.ignore_metadata_errors)
+        self._original_order = list(data_dict.keys())
 
     def __str__(self):
         return self.content
@@ -330,7 +331,7 @@ class RepoCard:
         if template_str is None:
             template_str = Path(cls.default_template_path).read_text()
         template = jinja2.Template(template_str)
-        content = template.render(card_data=card_data.to_yaml(), **kwargs)
+        content = template.render(card_data=card_data.to_yaml(original_order=cls._original_order), **kwargs)
         return cls(content)
 
 
