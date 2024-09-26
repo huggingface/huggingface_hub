@@ -813,7 +813,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers=self.fs._api._build_hf_headers(),
-                retry_on_status_codes=(502, 503, 504),
+                retry_on_status_codes=(500, 502, 503, 504),
                 stream=True,
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
@@ -835,7 +835,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
                 "GET",
                 url,
                 headers={"Range": "bytes=%d-" % self.loc, **self.fs._api._build_hf_headers()},
-                retry_on_status_codes=(502, 503, 504),
+                retry_on_status_codes=(500, 502, 503, 504),
                 stream=True,
                 timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
             )
