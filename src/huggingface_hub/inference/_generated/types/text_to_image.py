@@ -24,19 +24,21 @@ class TextToImageParameters(BaseInferenceType):
     """
 
     guidance_scale: Optional[float] = None
-    """A higher guidance scale value encourages the model to generate images closely linked to the text prompt,
-    but values too high may cause saturation and other artifacts.
+    """A higher guidance scale value encourages the model to generate images closely linked to
+    the text prompt, but values too high may cause saturation and other artifacts.
     """
     negative_prompt: Optional[List[str]] = None
     """One or several prompt to guide what NOT to include in image generation."""
     num_inference_steps: Optional[int] = None
-    """The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference."""
+    """The number of denoising steps. More denoising steps usually lead to a higher quality
+    image at the expense of slower inference.
+    """
     scheduler: Optional[str] = None
     """Override the scheduler with a compatible one."""
-    target_size: Optional[TextToImageTargetSize] = None
-    """The size in pixel of the output image"""
     seed: Optional[int] = None
     """Seed for the random number generator."""
+    target_size: Optional[TextToImageTargetSize] = None
+    """The size in pixel of the output image"""
 
 
 @dataclass
@@ -44,7 +46,7 @@ class TextToImageInput(BaseInferenceType):
     """Inputs for Text To Image inference"""
 
     inputs: str
-    """The input text data (sometimes called "prompt\""""
+    """The input text data (sometimes called "prompt")"""
     parameters: Optional[TextToImageParameters] = None
     """Additional inference parameters"""
 
@@ -54,4 +56,4 @@ class TextToImageOutput(BaseInferenceType):
     """Outputs of inference for the Text To Image task"""
 
     image: Any
-    """The generated image"""
+    """The generated image returned as raw bytes in the payload."""

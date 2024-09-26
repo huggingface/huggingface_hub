@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 
 from .base import BaseInferenceType
 
@@ -19,6 +19,7 @@ class ImageClassificationParameters(BaseInferenceType):
     """
 
     function_to_apply: Optional["ClassificationOutputTransform"] = None
+    """The function to apply to the output."""
     top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
@@ -27,8 +28,10 @@ class ImageClassificationParameters(BaseInferenceType):
 class ImageClassificationInput(BaseInferenceType):
     """Inputs for Image Classification inference"""
 
-    inputs: Any
-    """The input image data"""
+    inputs: str
+    """The input image data as a base64-encoded string. If no `parameters` are provided, you can
+    also provide the image data as a raw bytes payload.
+    """
     parameters: Optional[ImageClassificationParameters] = None
     """Additional inference parameters"""
 

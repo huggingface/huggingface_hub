@@ -24,8 +24,8 @@ from .chat_completion import (
     ChatCompletionInputGrammarType,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
-    ChatCompletionInputTool,
-    ChatCompletionInputToolTypeClass,
+    ChatCompletionInputStreamOptions,
+    ChatCompletionInputToolType,
     ChatCompletionInputURL,
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
@@ -44,6 +44,8 @@ from .chat_completion import (
     ChatCompletionStreamOutputLogprob,
     ChatCompletionStreamOutputLogprobs,
     ChatCompletionStreamOutputTopLogprob,
+    ChatCompletionStreamOutputUsage,
+    ToolElement,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
@@ -75,7 +77,7 @@ from .question_answering import (
     QuestionAnsweringParameters,
 )
 from .sentence_similarity import SentenceSimilarityInput, SentenceSimilarityInputData
-from .summarization import SummarizationGenerationParameters, SummarizationInput, SummarizationOutput
+from .summarization import SummarizationInput, SummarizationOutput, SummarizationParameters
 from .table_question_answering import (
     TableQuestionAnsweringInput,
     TableQuestionAnsweringInputData,
@@ -103,12 +105,18 @@ from .text_generation import (
 )
 from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize
+from .text_to_speech import (
+    TextToSpeechGenerationParameters,
+    TextToSpeechInput,
+    TextToSpeechOutput,
+    TextToSpeechParameters,
+)
 from .token_classification import (
     TokenClassificationInput,
     TokenClassificationOutputElement,
     TokenClassificationParameters,
 )
-from .translation import TranslationGenerationParameters, TranslationInput, TranslationOutput
+from .translation import TranslationInput, TranslationOutput, TranslationParameters
 from .video_classification import (
     VideoClassificationInput,
     VideoClassificationOutputElement,

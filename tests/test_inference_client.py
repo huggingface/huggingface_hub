@@ -47,7 +47,7 @@ from huggingface_hub import (
     hf_hub_download,
 )
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
 from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
 from huggingface_hub.utils import build_hf_headers
@@ -916,7 +916,14 @@ class TestOpenAICompatibility(unittest.TestCase):
             InferenceClient(model="meta-llama/Meta-Llama-3-8B-Instruct", base_url="http://127.0.0.1:8000")
 
 
-@pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
+@pytest.mark.parametrize(
+    "stop_signal",
+    [
+        b"data: [DONE]",
+        b"data: [DONE]\n",
+        b"data: [DONE] ",
+    ],
+)
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
         b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
@@ -932,7 +939,14 @@ def test_stream_text_generation_response(stop_signal: bytes):
     assert output == [" trying", " to"]
 
 
-@pytest.mark.parametrize("stop_signal", [b"data: [DONE]", b"data: [DONE]\n", b"data: [DONE] "])
+@pytest.mark.parametrize(
+    "stop_signal",
+    [
+        b"data: [DONE]",
+        b"data: [DONE]\n",
+        b"data: [DONE] ",
+    ],
+)
 def test_stream_chat_completion_response(stop_signal: bytes):
     data = [
         b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
@@ -947,6 +961,20 @@ def test_stream_chat_completion_response(stop_signal: bytes):
     assert len(output) == 2
     assert output[0].choices[0].delta.content == "Both"
     assert output[1].choices[0].delta.content == " Rust"
+
+
+def test_chat_completion_error_in_stream():
+    """
+    Regression test for https://github.com/huggingface/huggingface_hub/issues/2514.
+    When an error is encountered in the stream, it should raise a TextGenerationError (e.g. a ValidationError).
+    """
+    data = [
+        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        b'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
+    ]
+    with pytest.raises(ValidationError):
+        for token in _stream_chat_completion_response(data):
+            pass
 
 
 INFERENCE_API_URL = "https://api-inference.huggingface.co/models"
