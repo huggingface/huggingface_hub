@@ -3599,10 +3599,10 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a /.
             gated (`Literal["auto", "manual", False]`, *optional*):
-                The gated release status for the repository.
+                The gated status for the repository. If set to `None` (default), the `gated` setting of the repository won't be updated.
                 * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
                 * "manual": The repository is gated, and access requests require manual approval.
-                * False : The gated status for the repository. If set to `None` (default), the `gated` setting of the repository won't be updated.
+                * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
                 Whether the model repo should be private.
             token (`Union[str, bool, None]`, *optional*):

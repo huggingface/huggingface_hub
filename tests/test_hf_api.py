@@ -20,7 +20,6 @@ import time
 import types
 import unittest
 import uuid
-import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
@@ -123,19 +122,6 @@ class HfApiCommonTest(unittest.TestCase):
         """Share the valid token in all tests below."""
         cls._token = TOKEN
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-
-@expect_deprecation("update_repo_visibility")
-def test_repo_id_no_warning():
-    # tests that passing repo_id as positional arg doesn't raise any warnings
-    # for {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    with warnings.catch_warnings(record=True) as record:
-        repo_id = api.create_repo(repo_name()).repo_id
-        api.update_repo_visibility(repo_id, private=True)
-        api.delete_repo(repo_id)
-    assert not len(record)
 
 
 class HfApiRepoFileExistsTest(HfApiCommonTest):
