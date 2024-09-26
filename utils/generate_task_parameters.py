@@ -73,29 +73,38 @@ class DataclassFieldCollector(cst.CSTVisitor):
 
     def visit_ClassDef(self, node: cst.ClassDef) -> None:
         """Visit class definitions to find the target dataclass."""
-        if node.name.value == self.dataclass_name:
-            body_statements = node.body.body
-            for index, field in enumerate(body_statements):
-                if isinstance(field, cst.SimpleStatementLine):
-                    for stmt in field.body:
-                        if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
-                            param_name = stmt.target.value
-                            param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
-                            docstring = self._extract_docstring(body_statements, index)
-                            self.parameters[param_name] = {
-                                "type": param_type,
-                                "docstring": docstring,
-                            }
+        # Skip if the class is not the target dataclass
+        if node.name.value != self.dataclass_name:
+            return
+        # Get all statements in the class body
+        body_statements = node.body.body
+
+        for index, field in enumerate(body_statements):
+            # Check if the statement is a simple statement (like a variable declaration)
+            if isinstance(field, cst.SimpleStatementLine):
+                for stmt in field.body:
+                    # Check if it's an annotated assignment (typical for dataclass fields)
+                    if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
+                        param_name = stmt.target.value
+                        param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
+                        docstring = self._extract_docstring(body_statements, index)
+                        self.parameters[param_name] = {
+                            "type": param_type,
+                            "docstring": docstring,
+                        }
 
     @staticmethod
     def _extract_docstring(body_statements: List[cst.CSTNode], field_index: int) -> str:
         """Extract the docstring following a field definition."""
         if field_index + 1 < len(body_statements):
+            # Check if the next statement is a simple statement (like a string)
             next_stmt = body_statements[field_index + 1]
             if isinstance(next_stmt, cst.SimpleStatementLine):
                 for stmt in next_stmt.body:
+                    # Check if the statement is a string expression (potential docstring)
                     if isinstance(stmt, cst.Expr) and isinstance(stmt.value, cst.SimpleString):
                         return stmt.value.evaluated_value.strip()
+        # No docstring found or there's no statement after the field
         return ""
 
 
@@ -188,6 +197,7 @@ class AddParameters(cst.CSTTransformer):
         docstring_lines = docstring.split("\n")
         args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
 
+        # If there is no "Args:" section, insert it after the first section that is not empty and not a sub-section
         if args_index is None:
             insertion_index = next(
                 (
@@ -200,6 +210,7 @@ class AddParameters(cst.CSTTransformer):
             docstring_lines.insert(insertion_index, "Args:")
             args_index = insertion_index
             insertion_index += 1
+        # If there is an "Args:" section, insert the parameters at the end of the "Args:" section
         else:
             insertion_index = next(
                 (
@@ -234,23 +245,26 @@ class AddImports(cst.CSTTransformer):
 
     def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
         """Insert the import statements into the module."""
-        if not self.added:
-            insertion_index = 0
-            for idx, stmt in enumerate(updated_node.body):
-                if not isinstance(stmt, cst.SimpleStatementLine):
-                    insertion_index = idx
-                    break
-                elif not isinstance(stmt.body[0], (cst.Import, cst.ImportFrom)):
-                    insertion_index = idx
-                    break
-            new_body = (
-                list(updated_node.body[:insertion_index])
-                + list(self.imports_to_add)
-                + list(updated_node.body[insertion_index:])
-            )
-            self.added = True
-            return updated_node.with_changes(body=new_body)
-        return updated_node
+        # If imports were already added, don't add them again
+        if self.added:
+            return updated_node
+        insertion_index = 0
+        # Find the index where to insert the imports: make sure the imports are inserted before any code and after all imports (not necessary, we can remove/simplify this part)
+        for idx, stmt in enumerate(updated_node.body):
+            if not isinstance(stmt, cst.SimpleStatementLine):
+                insertion_index = idx
+                break
+            elif not isinstance(stmt.body[0], (cst.Import, cst.ImportFrom)):
+                insertion_index = idx
+                break
+        # Insert the imports
+        new_body = (
+            list(updated_node.body[:insertion_index])
+            + list(self.imports_to_add)
+            + list(updated_node.body[insertion_index:])
+        )
+        self.added = True
+        return updated_node.with_changes(body=new_body)
 
 
 #### UTILS
@@ -300,12 +314,14 @@ def get_imports_to_add(
     Get the needed imports for missing parameters.
 
     Args:
-        parameters: Dictionary of parameters with types.
-        parameters_module: The module where the parameters are defined.
-        inference_client_module: The module of the inference client.
+        parameters (Dict[str, Dict[str, str]]): Dictionary of parameters with their type and docstring.
+        eg: {"function_to_apply": {"type": "ClassificationOutputTransform", "docstring": "Function to apply to the input."}}
+        parameters_module (cst.Module): The module where the parameters are defined.
+        inference_client_module (cst.Module): The module of the inference client.
 
     Returns:
         Dict[str, List[str]]: A dictionary mapping modules to list of types to import.
+        eg: {"huggingface_hub.inference._generated.types": ["ClassificationOutputTransform"]}
     """
     # Collect all type names from parameter annotations
     types_to_import = set()
@@ -337,7 +353,8 @@ def _generate_import_statements(import_dict: Dict[str, List[str]]) -> str:
     Generate import statements from a dictionary of needed imports.
 
     Args:
-        import_dict: Dictionary mapping modules to list of types to import.
+        import_dict (Dict[str, List[str]]): Dictionary mapping modules to list of types to import.
+        eg: {"typing": ["List", "Dict"], "huggingface_hub.inference._generated.types": ["ClassificationOutputTransform"]}
 
     Returns:
         str: The import statements as a string.
@@ -379,7 +396,13 @@ def _parse_module_from_file(filepath: Path) -> cst.Module:
 
 
 def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
-    """Check if the method has missing parameters and update the InferenceClient source code if needed."""
+    """
+    Check if task methods have missing parameters and update the InferenceClient source code if needed.
+
+    Args:
+        method_params (Dict[str, str]): Dictionary mapping method names to their parameters dataclass names.
+        update (bool): Whether to update the InferenceClient source code if missing parameters are found.
+    """
     imports = {}
     logs = []
     inference_client_filename = INFERENCE_CLIENT_FILE
@@ -442,11 +465,13 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
 
 def update_inference_client(update: bool):
     print(f"🙈 Skipping the following tasks: {TASKS_TO_SKIP}")
+    # Get all tasks from the ./src/huggingface_hub/inference/_generated/types/
     tasks = set()
     for file in INFERENCE_TYPES_PATH.glob("*.py"):
         if file.stem not in TASKS_TO_SKIP:
             tasks.add(file.stem)
 
+    # Construct a mapping between method names and their parameters dataclass names
     method_params = {}
     for method_name, _ in inspect.getmembers(InferenceClient, predicate=inspect.isfunction):
         if method_name.startswith("_") or method_name not in tasks:
