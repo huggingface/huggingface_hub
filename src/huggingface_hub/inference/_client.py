@@ -715,7 +715,7 @@ class InferenceClient:
         ...     base64_image = base64.b64encode(f.read()).decode("utf-8")
         >>> image_url = f"data:image/jpeg;base64,{base64_image}"
 
-        >>> client = InferenceClient("HuggingFaceM4/idefics2-8b-chatty")
+        >>> client = InferenceClient("meta-llama/Llama-3.2-11B-Vision-Instruct")
         >>> output = client.chat.completions.create(
         ...     messages=[
         ...         {
@@ -734,7 +734,7 @@ class InferenceClient:
         ...     ],
         ... )
         >>> output
-        A determine figure of Lady Liberty stands tall, holding a torch aloft, atop a pedestal on an island.
+        The image depicts the iconic Statue of Liberty situated in New York Harbor, New York, on a clear day.
         ```
 
         Example using tools:

@@ -161,6 +161,7 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
+    @expect_deprecation("update_repo_visibility")
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.

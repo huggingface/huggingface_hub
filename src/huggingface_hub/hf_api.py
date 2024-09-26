@@ -3524,6 +3524,7 @@ class HfApi:
             if not missing_ok:
                 raise
 
+    @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
     @validate_hf_hub_args
     def update_repo_visibility(
         self,
@@ -3534,6 +3535,8 @@ class HfApi:
         repo_type: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
+
+        Deprecated. Use `update_repo_settings` instead.
 
         Args:
             repo_id (`str`, *optional*):
@@ -3581,29 +3584,34 @@ class HfApi:
         self,
         repo_id: str,
         *,
-        gated: Literal["auto", "manual", False] = False,
+        gated: Optional[Literal["auto", "manual", False]] = None,
+        private: Optional[bool] = None,
         token: Union[str, bool, None] = None,
         repo_type: Optional[str] = None,
     ) -> None:
         """
-        Update the gated settings of a repository.
-        To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos.
+        Update the settings of a repository, including gated access and visibility.
+
+        To give more control over how repos are used, the Hub allows repo authors to enable
+        access requests for their repos, and also to set the visibility of the repo to private.
 
         Args:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a /.
             gated (`Literal["auto", "manual", False]`, *optional*):
-                The gated release status for the repository.
+                The gated status for the repository. If set to `None` (default), the `gated` setting of the repository won't be updated.
                 * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
                 * "manual": The repository is gated, and access requests require manual approval.
-                * False (default): The repository is not gated, and anyone can access it.
+                * False : The repository is not gated, and anyone can access it.
+            private (`bool`, *optional*):
+                Whether the model repo should be private.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass False.
             repo_type (`str`, *optional*):
-                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`.
+                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
                 Defaults to `"model"`.
 
         Raises:
@@ -3613,22 +3621,38 @@ class HfApi:
                 If repo_type is not one of the values in constants.REPO_TYPES.
             [`~utils.HfHubHTTPError`]:
                 If the request to the Hugging Face Hub API fails.
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
         """
-        if gated not in ["auto", "manual", False]:
-            raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
 
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL  # default repo type
 
+        # Check if both gated and private are None
+        if gated is None and private is None:
+            raise ValueError("At least one of 'gated' or 'private' must be provided.")
+
         # Build headers
         headers = self._build_hf_headers(token=token)
+
+        # Prepare the JSON payload for the PUT request
+        payload: Dict = {}
+
+        if gated is not None:
+            if gated not in ["auto", "manual", False]:
+                raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
+            payload["gated"] = gated
+
+        if private is not None:
+            payload["private"] = private
 
         r = get_session().put(
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
-            json={"gated": gated},
+            json=payload,
         )
         hf_raise_for_status(r)
 
