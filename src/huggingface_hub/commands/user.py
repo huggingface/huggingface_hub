@@ -31,7 +31,7 @@ from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 
     logout,
     notebook_login,
 )
-from ..utils import get_profiles, get_token, logging
+from ..utils import get_stored_tokens, get_token, logging
 from ._cli_utils import ANSI
 
 
@@ -56,11 +56,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
             help="Token generated from https://huggingface.co/settings/tokens",
         )
         login_parser.add_argument(
-            "--profile",
-            type=str,
-            help="Optional: Name of the profile to log in to.",
-        )
-        login_parser.add_argument(
             "--add-to-git-credential",
             action="store_true",
             help="Optional: Save token to git credential helper.",
@@ -71,19 +66,19 @@ class UserCommands(BaseHuggingfaceCLICommand):
 
         logout_parser = parser.add_parser("logout", help="Log out")
         logout_parser.add_argument(
-            "--profile",
+            "--token-name",
             type=str,
-            help="Optional: Name of the profile to log out from.",
+            help="Optional: Name of the access token to log out from.",
         )
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
         auth_parser = parser.add_parser("auth", help="Other authentication related commands")
         auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
-        auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between profiles")
+        auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between access tokens")
         auth_switch_parser.add_argument(
-            "--profile",
+            "--token-name",
             type=str,
-            help="Optional: Name of the profile to switch to.",
+            help="Optional: Name of the access token to switch to.",
         )
         auth_switch_parser.add_argument(
             "--add-to-git-credential",
@@ -99,7 +94,7 @@ class UserCommands(BaseHuggingfaceCLICommand):
             ),
         )
         auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
-        auth_list_parser = auth_subparsers.add_parser("list", help="List all profiles")
+        auth_list_parser = auth_subparsers.add_parser("list", help="List all stored access tokens")
         auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))
         # new system: git-based repo system
         repo_parser = parser.add_parser("repo", help="{create} Commands to interact with your huggingface.co repos.")
@@ -141,63 +136,62 @@ class LoginCommand(BaseUserCommand):
     def run(self):
         login(
             token=self.args.token,
-            profile=self.args.profile,
             add_to_git_credential=self.args.add_to_git_credential,
         )
 
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
-        logout(profile=self.args.profile)
+        logout(token_name=self.args.token_name)
 
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
-        profile = self.args.profile
-        if profile is None:
-            profile = self._select_profile()
+        token_name = self.args.token_name
+        if token_name is None:
+            token_name = self._select_token_name()
 
-        if profile is None:
-            print("No profile name provided. Aborting.")
+        if token_name is None:
+            print("No token name provided. Aborting.")
             exit()
-        auth_switch(profile, add_to_git_credential=self.args.add_to_git_credential)
+        auth_switch(token_name, add_to_git_credential=self.args.add_to_git_credential)
 
-    def _select_profile(self) -> Optional[str]:
-        profiles = list(get_profiles().keys())
+    def _select_token_name(self) -> Optional[str]:
+        token_names = list(get_stored_tokens().keys())
 
-        if not profiles:
-            logger.error("No profiles found. Please login first.")
+        if not token_names:
+            logger.error("No stored tokens found. Please login first.")
             return None
 
         if _inquirer_py_available:
-            return self._select_profile_tui(profiles)
+            return self._select_token_name_tui(token_names)
         # if inquirer is not available, use a simpler terminal UI
-        print("Available profiles:")
-        for i, profile in enumerate(profiles, 1):
-            print(f"{i}. {profile}")
+        print("Available stored tokens:")
+        for i, token_name in enumerate(token_names, 1):
+            print(f"{i}. {token_name}")
         while True:
             try:
-                choice = input("Enter the number of the profile to switch to (or 'q' to quit): ")
+                choice = input("Enter the number of the token to switch to (or 'q' to quit): ")
                 if choice.lower() == "q":
                     return None
                 index = int(choice) - 1
-                if 0 <= index < len(profiles):
-                    return profiles[index]
+                if 0 <= index < len(token_names):
+                    return token_names[index]
                 else:
                     print("Invalid selection. Please try again.")
             except ValueError:
                 print("Invalid input. Please enter a number or 'q' to quit.")
 
-    def _select_profile_tui(self, profiles: list[str]) -> Optional[str]:
-        choices = [Choice(profile, name=profile) for profile in profiles]
+    def _select_token_name_tui(self, token_names: list[str]) -> Optional[str]:
+        choices = [Choice(token_name, name=token_name) for token_name in token_names]
         try:
             return inquirer.select(
-                message="Select a profile to switch to:",
+                message="Select a token to switch to:",
                 choices=choices,
                 default=None,
             ).execute()
         except KeyboardInterrupt:
-            logger.info("Profile selection cancelled.")
+            logger.info("Token selection cancelled.")
             return None
 
 

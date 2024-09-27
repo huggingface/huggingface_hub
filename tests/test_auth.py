@@ -5,12 +5,12 @@ from unittest.mock import patch
 import pytest
 
 from huggingface_hub import constants
-from huggingface_hub._login import _login, _set_active_profile, auth_switch, logout
+from huggingface_hub._login import _login, _set_active_token, auth_switch, logout
 from huggingface_hub.utils._auth import (
+    _get_token_by_name,
     _get_token_from_file,
-    _get_token_from_profile,
-    _save_token_to_profile,
-    get_profiles,
+    _save_token,
+    get_stored_tokens,
 )
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
@@ -19,7 +19,7 @@ from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 @pytest.fixture(autouse=True)
 def use_tmp_file_paths():
     """
-    Fixture to temporarily override HF_TOKEN_PATH, HF_PROFILES_PATH, and ENDPOINT.
+    Fixture to temporarily override HF_TOKEN_PATH, HF_STORED_TOKENS_PATH, and ENDPOINT.
 
     This fixture patches the constants in the huggingface_hub module to use the
     specified paths and the staging endpoint. It also ensures that the files are
@@ -27,127 +27,165 @@ def use_tmp_file_paths():
     """
     with tempfile.TemporaryDirectory() as tmp_hf_home:
         hf_token_path = os.path.join(tmp_hf_home, "token")
-        hf_profiles_path = os.path.join(tmp_hf_home, "profiles")
+        hf_stored_tokens_path = os.path.join(tmp_hf_home, "stored_tokens")
         with patch.multiple(
             constants,
             HF_TOKEN_PATH=hf_token_path,
-            HF_PROFILES_PATH=hf_profiles_path,
+            HF_STORED_TOKENS_PATH=hf_stored_tokens_path,
             ENDPOINT=ENDPOINT_STAGING,
         ):
             yield
 
 
-class TestGetTokenFromProfile:
+class TestGetTokenByName:
     def test_get_existing_token(self):
-        _save_token_to_profile(TOKEN, "test_profile")
-        token = _get_token_from_profile("test_profile")
+        _save_token(TOKEN, "test_token")
+        token = _get_token_by_name("test_token")
         assert token == TOKEN
 
     def test_get_non_existent_token(self):
-        assert _get_token_from_profile("non_existent") is None
+        assert _get_token_by_name("non_existent") is None
 
 
-class TestSaveTokenToProfile:
-    def test_save_token_new_profile(self):
-        _save_token_to_profile(TOKEN, "new_profile")
+class TestSaveToken:
+    def test_save_new_token(self):
+        _save_token(TOKEN, "new_token")
 
-        profiles = get_profiles()
-        assert "new_profile" in profiles
-        assert profiles["new_profile"] == TOKEN
+        stored_tokens = get_stored_tokens()
+        assert "new_token" in stored_tokens
+        assert stored_tokens["new_token"] == TOKEN
 
-    def test_overwrite_existing_profile(self):
-        _save_token_to_profile(TOKEN, "test_profile")
-        _save_token_to_profile("new_token", "test_profile")
+    def test_overwrite_existing_token(self):
+        _save_token(TOKEN, "test_token")
+        _save_token("new_token", "test_token")
 
-        assert _get_token_from_profile("test_profile") == "new_token"
+        assert _get_token_by_name("test_token") == "new_token"
 
 
-class TestSetActiveProfile:
-    def test_set_active_profile_success(self):
-        _save_token_to_profile(TOKEN, "test_profile")
-        _set_active_profile("test_profile", add_to_git_credential=False)
+class TestSetActiveToken:
+    def test_set_active_token_success(self):
+        _save_token(TOKEN, "test_token")
+        _set_active_token("test_token", add_to_git_credential=False)
         assert _get_token_from_file() == TOKEN
 
-    def test_set_active_profile_non_existent(self):
-        non_existent_profile = "non_existent"
+    def test_set_active_token_non_existent(self):
+        non_existent_token = "non_existent"
         with pytest.raises(
-            ValueError, match=rf"Profile {non_existent_profile} not found in {constants.HF_PROFILES_PATH}"
+            ValueError, match=rf"Token {non_existent_token} not found in {constants.HF_STORED_TOKENS_PATH}"
         ):
-            _set_active_profile(non_existent_profile, add_to_git_credential=False)
+            _set_active_token(non_existent_token, add_to_git_credential=False)
 
 
 class TestLogin:
-    @patch("huggingface_hub.hf_api.get_token_permission", return_value="write")
-    def test_login_success(self, mock_get_token_permission):
-        _login(TOKEN, add_to_git_credential=False, profile="test_profile")
+    @patch(
+        "huggingface_hub.hf_api.whoami",
+        return_value={
+            "auth": {
+                "accessToken": {
+                    "displayName": "test_token",
+                    "role": "write",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                }
+            }
+        },
+    )
+    def test_login_success(self, mock_whoami):
+        _login(TOKEN, add_to_git_credential=False)
 
-        assert _get_token_from_profile("test_profile") == TOKEN
+        assert _get_token_by_name("test_token") == TOKEN
         assert _get_token_from_file() == TOKEN
 
-    @patch("huggingface_hub.hf_api.get_token_permission")
-    def test_login_errors(self, mock_get_token_permission):
-        mock_get_token_permission.return_value = None
+    @patch(
+        "huggingface_hub.hf_api.whoami",
+        return_value={
+            "auth": {
+                "accessToken": {
+                    "displayName": "test_token",
+                    "role": None,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                }
+            }
+        },
+    )
+    def test_login_errors(self, mock_whoami):
+        mock_whoami.return_value = {
+            "auth": {
+                "accessToken": {
+                    "displayName": "test_token",
+                    "role": None,
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                }
+            }
+        }
         with pytest.raises(ValueError, match="Invalid token passed!"):
             _login("invalid_token", add_to_git_credential=False, write_permission=False)
 
-        mock_get_token_permission.return_value = "read"
+        mock_whoami.return_value = {
+            "auth": {
+                "accessToken": {
+                    "displayName": "test_token",
+                    "role": "read",
+                    "createdAt": "2024-01-01T00:00:00.000Z",
+                }
+            }
+        }
         with pytest.raises(ValueError, match=r"Token is valid but is 'read-only' and a 'write' token is required.*"):
             _login(TOKEN, add_to_git_credential=False, write_permission=True)
 
 
 class TestLogout:
     def test_logout_deletes_files(self):
-        _save_token_to_profile(TOKEN, "test_profile")
-        _set_active_profile("test_profile", add_to_git_credential=False)
+        _save_token(TOKEN, "test_token")
+        _set_active_token("test_token", add_to_git_credential=False)
 
         assert os.path.exists(constants.HF_TOKEN_PATH)
-        assert os.path.exists(constants.HF_PROFILES_PATH)
+        assert os.path.exists(constants.HF_STORED_TOKENS_PATH)
 
         logout()
         # Check that both files are deleted
         assert not os.path.exists(constants.HF_TOKEN_PATH)
-        assert not os.path.exists(constants.HF_PROFILES_PATH)
+        assert not os.path.exists(constants.HF_STORED_TOKENS_PATH)
 
-    def test_logout_specific_profile(self):
-        # Create two profiles
-        _save_token_to_profile(TOKEN, "profile_1")
-        _save_token_to_profile(OTHER_TOKEN, "profile_2")
+    def test_logout_specific_token(self):
+        # Create two tokens
+        _save_token(TOKEN, "token_1")
+        _save_token(OTHER_TOKEN, "token_2")
 
-        assert os.path.exists(constants.HF_PROFILES_PATH)
+        assert os.path.exists(constants.HF_STORED_TOKENS_PATH)
 
-        logout("profile_1")
+        logout("token_1")
 
-        # Check that profile_1 is removed
-        profiles = get_profiles()
-        assert "profile_1" not in profiles
-        assert "profile_2" in profiles
+        # Check that token_1 is removed
+        stored_tokens = get_stored_tokens()
+        assert "token_1" not in stored_tokens
+        assert "token_2" in stored_tokens
 
-    def test_logout_active_profile(self):
-        _save_token_to_profile(TOKEN, "active_profile")
-        _set_active_profile("active_profile", add_to_git_credential=False)
+    def test_logout_active_token(self):
+        _save_token(TOKEN, "active_token")
+        _set_active_token("active_token", add_to_git_credential=False)
 
-        logout("active_profile")
+        logout("active_token")
 
         # Check that both files are deleted
         assert not os.path.exists(constants.HF_TOKEN_PATH)
-        profiles = get_profiles()
-        assert "active_profile" not in profiles
+        stored_tokens = get_stored_tokens()
+        assert "active_token" not in stored_tokens
 
 
 class TestAuthSwitch:
-    def test_auth_switch_existing_profile(self):
-        # Add two profiles
-        _save_token_to_profile(TOKEN, "test_profile_1")
-        _save_token_to_profile(OTHER_TOKEN, "test_profile_2")
-        # Set `test_profile_1` as the active profile
-        _set_active_profile("test_profile_1", add_to_git_credential=False)
+    def test_auth_switch_existing_token(self):
+        # Add two access tokens
+        _save_token(TOKEN, "test_token_1")
+        _save_token(OTHER_TOKEN, "test_token_2")
+        # Set `test_token_1` as the active token
+        _set_active_token("test_token_1", add_to_git_credential=False)
 
-        # Switch to `test_profile_2`
-        auth_switch("test_profile_2", add_to_git_credential=False)
+        # Switch to `test_token_2`
+        auth_switch("test_token_2", add_to_git_credential=False)
 
         assert _get_token_from_file() == OTHER_TOKEN
 
-    def test_auth_switch_nonexistent_profile(self):
-        with patch("huggingface_hub.utils._auth._get_token_from_profile", return_value=None):
+    def test_auth_switch_nonexisting_token(self):
+        with patch("huggingface_hub.utils._auth._get_token_by_name", return_value=None):
             with pytest.raises(ValueError):
-                auth_switch("nonexistent_profile")
+                auth_switch("nonexistent_token")

@@ -92,7 +92,7 @@ Once you have your token, run the following command in your terminal:
 >>> huggingface-cli login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. After that, it will prompt you for a profile name (optional, defaults to `default`). Then, you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+This command will prompt you for a token. Copy-paste yours and press *Enter*. Then, you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
 
 ```
 _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
@@ -103,7 +103,6 @@ _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|    
 
 To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
 Enter your token (input will not be visible):
-Enter profile name (default: 'default'):
 Add token as git credential? (Y/n)
 Token is valid (permission: write).
 Your token has been saved in your configured git credential helpers (store).
@@ -115,13 +114,13 @@ Alternatively, if you want to log-in without being prompted, you can pass the to
 
 ```bash
 # Or using an environment variable
->>> huggingface-cli login --token $HUGGINGFACE_TOKEN --add-to-git-credential
+>>> huggingface-cli login --token $HF_TOKEN --add-to-git-credential
 Token is valid (permission: write).
-The profile `myprofile` has been saved to /home/wauplin/.cache/huggingface/profiles
+The token `token_name` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
-The current active profile is: `myprofile`
+The current active token is: `token_name`
 ```
 
 For more details about authentication, check out [this section](../quick-start#authentication).
@@ -140,7 +139,7 @@ If you are not logged in, an error message will be printed.
 
 ## huggingface-cli logout
 
-This commands logs you out. In practice, it will delete all profiles and the corresponding tokens saved on your machine. If you want to remove a specific token profile, you can specify the profile name as an argument.
+This commands logs you out. In practice, it will delete all tokens stored on your machine. If you want to remove a specific token, you can specify the token name as an argument.
 
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
 

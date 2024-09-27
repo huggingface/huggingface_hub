@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
 )
 
 from . import tqdm as _tqdm  # _tqdm is the module
-from ._auth import get_profiles, get_token
+from ._auth import get_stored_tokens, get_token
 from ._cache_assets import cached_assets_path
 from ._cache_manager import (
     CachedFileInfo,

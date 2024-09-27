@@ -125,86 +125,83 @@ def _get_token_from_file() -> Optional[str]:
         return None
 
 
-def get_profiles() -> Dict[str, str]:
+def get_stored_tokens() -> Dict[str, str]:
     """
-    Returns the parsed INI file containing the auth profiles.
-    The file is located at `HF_PROFILES_PATH`, defaulting to `~/.cache/huggingface/profiles`.
-    If the file does not exist,
+    Returns the parsed INI file containing the access tokens.
+    The file is located at `HF_STORED_TOKENS_PATH`, defaulting to `~/.cache/huggingface/stored_tokens`.
+    If the file does not exist, an empty dictionary is returned.
 
     Returns: `Dict[str, str]`
-        Key is the profile name and value is the token.
-
-    Raises:
-        FileNotFoundError: If the profiles file does not exist.
+        Key is the token name and value is the token.
     """
-    profiles_path = Path(constants.HF_PROFILES_PATH)
-    if not profiles_path.exists():
-        profiles = {}
+    tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
+    if not tokens_path.exists():
+        stored_tokens = {}
     config = configparser.ConfigParser()
     try:
-        config.read(profiles_path)
-        profiles = {profile: config.get(profile, "hf_token") for profile in config.sections()}
+        config.read(tokens_path)
+        stored_tokens = {token_name: config.get(token_name, "hf_token") for token_name in config.sections()}
     except configparser.Error as e:
-        logger.error(f"Error parsing profiles file: {e}")
-        profiles = {}
-    return profiles
+        logger.error(f"Error parsing stored tokens file: {e}")
+        stored_tokens = {}
+    return stored_tokens
 
 
-def _save_profiles(profiles: Dict[str, str]) -> None:
+def _save_stored_tokens(stored_tokens: Dict[str, str]) -> None:
     """
-    Saves the given configuration to the profiles file.
+    Saves the given configuration to the stored tokens file.
 
     Args:
-        profiles (`Dict[str, str]`):
-            The profiles to save. Key is the profile name and value is the token.
+        stored_tokens (`Dict[str, str]`):
+            The stored tokens to save. Key is the token name and value is the token.
     """
-    profiles_path = Path(constants.HF_PROFILES_PATH)
+    stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
 
-    # Write the profiles into an INI file
+    # Write the stored tokens into an INI file
     config = configparser.ConfigParser()
-    for profile in sorted(profiles.keys()):
-        config.add_section(profile)
-        config.set(profile, "hf_token", profiles[profile])
+    for token_name in sorted(stored_tokens.keys()):
+        config.add_section(token_name)
+        config.set(token_name, "hf_token", stored_tokens[token_name])
 
-    profiles_path.parent.mkdir(parents=True, exist_ok=True)
-    with profiles_path.open("w") as config_file:
+    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True)
+    with stored_tokens_path.open("w") as config_file:
         config.write(config_file)
 
 
-def _get_token_from_profile(profile: str = "default") -> Optional[str]:
+def _get_token_by_name(token_name: str) -> Optional[str]:
     """
-    Get the token from the given profile.
+    Get the token by name.
 
     Args:
-        profile (`str`, *optional*, defaults to `"default"`):
-            The name of the profile to get the token from.
+        token_name (`str`):
+            The name of the token to get.
 
     Returns:
         `str` or `None`: The token, `None` if it doesn't exist.
 
     """
-    profiles = get_profiles()
-    if profile not in profiles:
+    stored_tokens = get_stored_tokens()
+    if token_name not in stored_tokens:
         return None
-    return _clean_token(profiles[profile])
+    return _clean_token(stored_tokens[token_name])
 
 
-def _save_token_to_profile(token: str, profile: str = "default") -> None:
+def _save_token(token: str, token_name: str) -> None:
     """
-    Save the given token to the given profile.
+    Save the given token.
 
-    If the profiles file does not exist, it will be created.
+    If the stored tokens file does not exist, it will be created.
     Args:
         token (`str`):
             The token to save.
-        profile (`str`, *optional*, defaults to `"default"`):
-            The name of the profile to save the token to.
+        token_name (`str`):
+            The name of the token.
     """
-    profiles_path = Path(constants.HF_PROFILES_PATH)
-    profiles = get_profiles()
-    profiles[profile] = token
-    _save_profiles(profiles)
-    print(f"The profile `{profile}` has been saved to {profiles_path}")
+    tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
+    stored_tokens = get_stored_tokens()
+    stored_tokens[token_name] = token
+    _save_stored_tokens(stored_tokens)
+    print(f"The token `{token_name}` has been saved to {tokens_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:
