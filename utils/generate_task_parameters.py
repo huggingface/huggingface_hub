@@ -77,10 +77,9 @@ class DataclassFieldCollector(cst.CSTVisitor):
             return
         # Get all statements in the class body
         body_statements = node.body.body
-
         for index, field in enumerate(body_statements):
             # Check if the statement is a simple statement (like a variable declaration)
-            if isinstance(field, cst.SimpleStatementLine):
+            if not isinstance(field, cst.SimpleStatementLine):
                 for stmt in field.body:
                     # Check if it's an annotated assignment (typical for dataclass fields)
                     if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
@@ -309,7 +308,7 @@ def get_imports_to_add(
     # Collect all type names from parameter annotations
     types_to_import = set()
     for param_info in parameters.values():
-        types_to_import.update(_collect_type_names_from_annotation(param_info["type"]))
+        types_to_import.update(_collect_type_hints_from_annotation(param_info["type"]))
 
     # Gather existing imports in the inference client module
     context = CodemodContext()
@@ -352,7 +351,17 @@ def _generate_import_statements(import_dict: Dict[str, List[str]]) -> str:
     return "\n".join(import_statements)
 
 
-def _collect_type_names_from_annotation(annotation_str: str) -> Set[str]:
+# TODO: Needs to be improved, maybe using `typing.get_type_hints` instead (we gonna need to access the method though)?
+def _collect_type_hints_from_annotation(annotation_str: str) -> Set[str]:
+    """
+    Collect type hints from an annotation string.
+
+    Args:
+        annotation_str (str): The annotation string.
+
+    Returns:
+        Set[str]: A set of type hints.
+    """
     type_string = annotation_str.replace(" ", "")
     builtin_types = {d for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
     types = re.findall(r"\w+|'[^']+'|\"[^\"]+\"", type_string)
@@ -372,10 +381,15 @@ def _get_parameter_type_name(method_name: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _parse_module_from_file(filepath: Path) -> cst.Module:
-    with open(filepath, "r", encoding="utf-8") as f:
-        code = f.read()
-    return cst.parse_module(code)
+def _parse_module_from_file(filepath: Path) -> Optional[cst.Module]:
+    try:
+        code = filepath.read_text(encoding="utf-8")
+        return cst.parse_module(code)
+    except FileNotFoundError:
+        print(f"File not found: {filepath}")
+    except cst.ParserSyntaxError as e:
+        print(f"Syntax error while parsing {filepath}: {e}")
+    return None
 
 
 def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
