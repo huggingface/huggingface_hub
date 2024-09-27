@@ -19,16 +19,14 @@ import argparse
 import builtins
 import inspect
 import re
-import subprocess
-import tempfile
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, NoReturn, Optional, Set
 
 import libcst as cst
+from helpers import format_source_code
 from libcst.codemod import CodemodContext
 from libcst.codemod.visitors import GatherImportsVisitor
-from ruff.__main__ import find_ruff_bin
 
 from huggingface_hub.inference._client import InferenceClient
 
@@ -269,22 +267,6 @@ class AddImports(cst.CSTTransformer):
 
 
 #### UTILS
-
-
-def format_source_code(code: str) -> str:
-    """Format the generated source code using Ruff."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = Path(tmpdir) / "tmp.py"
-        filepath.write_text(code)
-        ruff_bin = find_ruff_bin()
-        if not ruff_bin:
-            raise FileNotFoundError("Ruff executable not found.")
-        try:
-            subprocess.run([ruff_bin, "check", str(filepath), "--fix", "--quiet"], check=True)
-            subprocess.run([ruff_bin, "format", str(filepath), "--quiet"], check=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Error running Ruff: {e}")
-        return filepath.read_text()
 
 
 def check_missing_parameters(

@@ -15,14 +15,11 @@
 """Contains a tool to generate `src/huggingface_hub/inference/_generated/types`."""
 
 import argparse
-import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Literal, NoReturn
 
-from helpers import check_and_update_file_content
-from ruff.__main__ import find_ruff_bin
+from helpers import check_and_update_file_content, format_source_code
 
 
 huggingface_hub_folder_path = Path(__file__).parents[1] / "src" / "huggingface_hub"
@@ -254,17 +251,6 @@ def add_dataclasses_to_main_init(content: str, dataclasses: Dict[str, List[str]]
     dataclasses_str = ", ".join(f"'{cls}'" for cls in dataclasses_list)
 
     return MAIN_INIT_PY_REGEX.sub(f'"inference._generated.types": [{dataclasses_str}]', content)
-
-
-def format_source_code(code: str) -> str:
-    """Apply formatter on the generated source code."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = Path(tmpdir) / "tmp.py"
-        filepath.write_text(code)
-        ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "check", str(filepath), "--fix", "--quiet"])
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
-        return filepath.read_text()
 
 
 def generate_reference_package(dataclasses: Dict[str, List[str]], language: Literal["en", "ko"]) -> str:
