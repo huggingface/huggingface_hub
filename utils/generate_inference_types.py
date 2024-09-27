@@ -56,6 +56,16 @@ INHERITED_DATACLASS_REGEX = re.compile(
     re.VERBOSE | re.MULTILINE,
 )
 
+TYPE_ALIAS_REGEX = re.compile(
+    r"""
+    ^(?!\s) # to make sure the line does not start with whitespace (top-level)
+    (\w+)
+    \s*=\s*
+    (.+)
+    $
+    """,
+    re.VERBOSE | re.MULTILINE,
+)
 OPTIONAL_FIELD_REGEX = re.compile(r": Optional\[(.+)\]$", re.MULTILINE)
 
 
@@ -78,6 +88,7 @@ MAIN_INIT_PY_REGEX = re.compile(
     re.MULTILINE | re.VERBOSE | re.DOTALL,
 )
 
+
 # List of classes that are shared across multiple modules
 # This is used to fix the naming of the classes (to make them unique by task)
 SHARED_CLASSES = [
@@ -86,6 +97,7 @@ SHARED_CLASSES = [
     "ClassificationOutput",
     "GenerationParameters",
     "TargetSize",
+    "EarlyStoppingEnum",
 ]
 
 REFERENCE_PACKAGE_EN_CONTENT = """
@@ -130,6 +142,27 @@ rendered properly in your Markdown viewer.
 """
 
 
+def _replace_class_name(content: str, cls: str, new_cls: str) -> str:
+    """
+    Replace the class name `cls` with the new class name `new_cls` in the content.
+    """
+    pattern = rf"""
+        (?<![\w'"])
+        (['"]?)
+        {cls}
+        (['"]?)
+        (?![\w'"])
+    """
+
+    def replacement(m):
+        quote_start = m.group(1) or ""
+        quote_end = m.group(2) or ""
+        return f"{quote_start}{new_cls}{quote_end}"
+
+    content = re.sub(pattern, replacement, content, flags=re.VERBOSE)
+    return content
+
+
 def _inherit_from_base(content: str) -> str:
     content = content.replace(
         "\nfrom dataclasses import", "\nfrom .base import BaseInferenceType\nfrom dataclasses import"
@@ -144,8 +177,9 @@ def _delete_empty_lines(content: str) -> str:
 
 def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
     for cls in SHARED_CLASSES:
-        cls_definition = f"\nclass {cls}"
-
+        # No need to fix the naming of a shared class if it's not used in the module
+        if cls not in content:
+            continue
         # Update class definition
         # Very hacky way to build "AudioClassificationOutputElement" instead of "ClassificationOutput"
         new_cls = "".join(part.capitalize() for part in module_name.split("_"))
@@ -157,18 +191,8 @@ def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
         if new_cls.endswith("ClassificationOutput"):
             # to get "AudioClassificationOutputElement"
             new_cls += "Element"
-        new_cls_definition = "\nclass " + new_cls
-        content = content.replace(cls_definition, new_cls_definition)
+        content = _replace_class_name(content, cls, new_cls)
 
-        # Update regular class usage
-        regular_cls = f": {cls}\n"
-        new_regular_cls = f": {new_cls}\n"
-        content = content.replace(regular_cls, new_regular_cls)
-
-        # Update optional class usage
-        optional_cls = f"Optional[{cls}]"
-        new_optional_cls = f"Optional[{new_cls}]"
-        content = content.replace(optional_cls, new_optional_cls)
     return content
 
 
@@ -198,7 +222,12 @@ def _make_optional_fields_default_to_none(content: str):
 
 def _list_dataclasses(content: str) -> List[str]:
     """List all dataclasses defined in the module."""
-    return INHERITED_DATACLASS_REGEX.findall(content)
+    # dirty hack to make sure we include the type aliases (only for shared classes) in the __init__.py file
+    all_aliases = TYPE_ALIAS_REGEX.findall(content)
+    shared_class_pattern = r"(\w+(?:" + "|".join(re.escape(cls) for cls in SHARED_CLASSES) + r"))$"
+    shared_class_regex = re.compile(shared_class_pattern)
+    shared_aliases = [alias_class for alias_class, _ in all_aliases if shared_class_regex.search(alias_class)]
+    return INHERITED_DATACLASS_REGEX.findall(content) + shared_aliases
 
 
 def fix_inference_classes(content: str, module_name: str) -> str:
@@ -259,7 +288,7 @@ def generate_reference_package(dataclasses: Dict[str, List[str]], language: Lite
 
 
 def check_inference_types(update: bool) -> NoReturn:
-    """Check AsyncInferenceClient is correctly defined and consistent with InferenceClient.
+    """Check and update inference types.
 
     This script is used in the `make style` and `make quality` checks.
     """

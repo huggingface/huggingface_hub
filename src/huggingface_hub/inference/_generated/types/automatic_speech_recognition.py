@@ -9,7 +9,7 @@ from typing import List, Literal, Optional, Union
 from .base import BaseInferenceType
 
 
-EarlyStoppingEnum = Literal["never"]
+AutomaticSpeechRecognitionEarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
@@ -20,7 +20,7 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
-    early_stopping: Optional[Union[bool, "EarlyStoppingEnum"]] = None
+    early_stopping: Optional[Union[bool, "AutomaticSpeechRecognitionEarlyStoppingEnum"]] = None
     """Controls the stopping condition for beam-based methods."""
     epsilon_cutoff: Optional[float] = None
     """If set to float strictly between 0 and 1, only tokens with a conditional probability

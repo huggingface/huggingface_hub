@@ -21,6 +21,7 @@ import inspect
 import re
 import subprocess
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, NoReturn, Optional, Set
 
@@ -403,7 +404,7 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
         method_params (Dict[str, str]): Dictionary mapping method names to their parameters dataclass names.
         update (bool): Whether to update the InferenceClient source code if missing parameters are found.
     """
-    imports = {}
+    merged_imports = defaultdict(set)
     logs = []
     inference_client_filename = INFERENCE_CLIENT_FILE
     # Read and parse the inference client module
@@ -423,8 +424,8 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
         if update:
             ## Get missing imports to add
             needed_imports = get_imports_to_add(missing_params, parameters_module, modified_module)
-            imports.update(needed_imports)
-
+            for module, imports_to_add in needed_imports.items():
+                merged_imports[module].update(imports_to_add)
             # Update method parameters and docstring
             modified_module = modified_module.visit(AddParameters(method_name, missing_params))
             has_changes = True
@@ -432,8 +433,8 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
             logs.append(f"❌ Missing parameters found in `{method_name}`.")
 
     if has_changes:
-        if any(imports):
-            import_statements = _generate_import_statements(imports)
+        if merged_imports:
+            import_statements = _generate_import_statements(merged_imports)
             imports_to_add = cst.parse_module(import_statements).body
             # Update inference client module with the missing imports
             modified_module = modified_module.visit(AddImports(imports_to_add))

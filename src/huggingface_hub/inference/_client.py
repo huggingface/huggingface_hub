@@ -71,7 +71,6 @@ from huggingface_hub.inference._generated.types import (
     ChatCompletionInputToolType,
     ChatCompletionOutput,
     ChatCompletionStreamOutput,
-    ClassificationOutputTransform,
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
@@ -82,10 +81,12 @@ from huggingface_hub.inference._generated.types import (
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
+    TextClassificationOutputTransform,
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
     TextToImageTargetSize,
+    TextToSpeechEarlyStoppingEnum,
     TokenClassificationOutputElement,
     ToolElement,
     TranslationOutput,
@@ -1174,7 +1175,7 @@ class InferenceClient:
 
         else:
             data = None
-            payload = {"inputs": image}
+            payload = {"inputs": _b64_encode(image)}
             for key, value in parameters.items():
                 if value is not None:
                     payload.setdefault("parameters", {})[key] = value
@@ -1867,7 +1868,7 @@ class InferenceClient:
         *,
         model: Optional[str] = None,
         top_k: Optional[int] = None,
-        function_to_apply: Optional["ClassificationOutputTransform"] = None,
+        function_to_apply: Optional["TextClassificationOutputTransform"] = None,
     ) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
@@ -1882,7 +1883,7 @@ class InferenceClient:
                 Defaults to None.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
-            function_to_apply (`"ClassificationOutputTransform"`, *optional*):
+            function_to_apply (`"TextClassificationOutputTransform"`, *optional*):
                 The function to apply to the output.
 
         Returns:
@@ -2505,7 +2506,28 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
-    def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
+    def text_to_speech(
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        do_sample: Optional[bool] = None,
+        early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
+        epsilon_cutoff: Optional[float] = None,
+        eta_cutoff: Optional[float] = None,
+        max_length: Optional[int] = None,
+        max_new_tokens: Optional[int] = None,
+        min_length: Optional[int] = None,
+        min_new_tokens: Optional[int] = None,
+        num_beam_groups: Optional[int] = None,
+        num_beams: Optional[int] = None,
+        penalty_alpha: Optional[float] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        typical_p: Optional[float] = None,
+        use_cache: Optional[bool] = None,
+    ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
@@ -2516,6 +2538,54 @@ class InferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended text-to-speech model will be used.
                 Defaults to None.
+            do_sample (`bool`, *optional*):
+                Whether to use sampling instead of greedy decoding when generating new tokens.
+            early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"`, *optional*):
+                Controls the stopping condition for beam-based methods.
+            epsilon_cutoff (`float`, *optional*):
+                If set to float strictly between 0 and 1, only tokens with a conditional probability
+                greater than epsilon_cutoff will be sampled. In the paper, suggested values range from
+                3e-4 to 9e-4, depending on the size of the model. See [Truncation Sampling as Language
+                Model Desmoothing](https://hf.co/papers/2210.15191) for more details.
+            eta_cutoff (`float`, *optional*):
+                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to
+                float strictly between 0 and 1, a token is only considered if it is greater than either
+                eta_cutoff or sqrt(eta_cutoff) * exp(-entropy(softmax(next_token_logits))). The latter
+                term is intuitively the expected next token probability, scaled by sqrt(eta_cutoff). In
+                the paper, suggested values range from 3e-4 to 2e-3, depending on the size of the model.
+                See [Truncation Sampling as Language Model Desmoothing](https://hf.co/papers/2210.15191)
+                for more details.
+            max_length (`int`, *optional*):
+                The maximum length (in tokens) of the generated text, including the input.
+            max_new_tokens (`int`, *optional*):
+                The maximum number of tokens to generate. Takes precedence over maxLength.
+            min_length (`int`, *optional*):
+                The minimum length (in tokens) of the generated text, including the input.
+            min_new_tokens (`int`, *optional*):
+                The minimum number of tokens to generate. Takes precedence over maxLength.
+            num_beam_groups (`int`, *optional*):
+                Number of groups to divide num_beams into in order to ensure diversity among different
+                groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
+            num_beams (`int`, *optional*):
+                Number of beams to use for beam search.
+            penalty_alpha (`float`, *optional*):
+                The value balances the model confidence and the degeneration penalty in contrastive
+                search decoding.
+            temperature (`float`, *optional*):
+                The value used to modulate the next token probabilities.
+            top_k (`int`, *optional*):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`, *optional*):
+                If set to float < 1, only the smallest set of most probable tokens with probabilities
+                that add up to top_p or higher are kept for generation.
+            typical_p (`float`, *optional*):
+                Local typicality measures how similar the conditional probability of predicting a target
+                token next is to the expected conditional probability of predicting a random token next,
+                given the partial text already generated. If set to float < 1, the smallest set of the
+                most locally typical tokens with probabilities that add up to typical_p or higher are
+                kept for generation. See [this paper](https://hf.co/papers/2202.00666) for more details.
+            use_cache (`bool`, *optional*):
+                Whether the model should use the past last key/values attentions to speed up decoding
 
         Returns:
             `bytes`: The generated audio.
@@ -2536,7 +2606,30 @@ class InferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        return self.post(json={"inputs": text}, model=model, task="text-to-speech")
+        payload: Dict[str, Any] = {"inputs": text}
+        parameters = {
+            "do_sample": do_sample,
+            "early_stopping": early_stopping,
+            "epsilon_cutoff": epsilon_cutoff,
+            "eta_cutoff": eta_cutoff,
+            "max_length": max_length,
+            "max_new_tokens": max_new_tokens,
+            "min_length": min_length,
+            "min_new_tokens": min_new_tokens,
+            "num_beam_groups": num_beam_groups,
+            "num_beams": num_beams,
+            "penalty_alpha": penalty_alpha,
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_p": top_p,
+            "typical_p": typical_p,
+            "use_cache": use_cache,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
+        response = self.post(json=payload, model=model, task="text-to-speech")
+        return response
 
     def token_classification(
         self,

@@ -280,9 +280,11 @@ _SUBMOD_ATTRS = {
     "inference._generated.types": [
         "AudioClassificationInput",
         "AudioClassificationOutputElement",
+        "AudioClassificationOutputTransform",
         "AudioClassificationParameters",
         "AudioToAudioInput",
         "AudioToAudioOutputElement",
+        "AutomaticSpeechRecognitionEarlyStoppingEnum",
         "AutomaticSpeechRecognitionGenerationParameters",
         "AutomaticSpeechRecognitionInput",
         "AutomaticSpeechRecognitionOutput",
@@ -327,6 +329,7 @@ _SUBMOD_ATTRS = {
         "FillMaskParameters",
         "ImageClassificationInput",
         "ImageClassificationOutputElement",
+        "ImageClassificationOutputTransform",
         "ImageClassificationParameters",
         "ImageSegmentationInput",
         "ImageSegmentationOutputElement",
@@ -335,6 +338,7 @@ _SUBMOD_ATTRS = {
         "ImageToImageOutput",
         "ImageToImageParameters",
         "ImageToImageTargetSize",
+        "ImageToTextEarlyStoppingEnum",
         "ImageToTextGenerationParameters",
         "ImageToTextInput",
         "ImageToTextOutput",
@@ -360,6 +364,7 @@ _SUBMOD_ATTRS = {
         "Text2TextGenerationParameters",
         "TextClassificationInput",
         "TextClassificationOutputElement",
+        "TextClassificationOutputTransform",
         "TextClassificationParameters",
         "TextGenerationInput",
         "TextGenerationInputGenerateParameters",
@@ -372,6 +377,7 @@ _SUBMOD_ATTRS = {
         "TextGenerationStreamOutput",
         "TextGenerationStreamOutputStreamDetails",
         "TextGenerationStreamOutputToken",
+        "TextToAudioEarlyStoppingEnum",
         "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
@@ -380,6 +386,7 @@ _SUBMOD_ATTRS = {
         "TextToImageOutput",
         "TextToImageParameters",
         "TextToImageTargetSize",
+        "TextToSpeechEarlyStoppingEnum",
         "TextToSpeechGenerationParameters",
         "TextToSpeechInput",
         "TextToSpeechOutput",
@@ -393,6 +400,7 @@ _SUBMOD_ATTRS = {
         "TranslationParameters",
         "VideoClassificationInput",
         "VideoClassificationOutputElement",
+        "VideoClassificationOutputTransform",
         "VideoClassificationParameters",
         "VisualQuestionAnsweringInput",
         "VisualQuestionAnsweringInputData",
@@ -794,9 +802,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from .inference._generated.types import (
         AudioClassificationInput,  # noqa: F401
         AudioClassificationOutputElement,  # noqa: F401
+        AudioClassificationOutputTransform,  # noqa: F401
         AudioClassificationParameters,  # noqa: F401
         AudioToAudioInput,  # noqa: F401
         AudioToAudioOutputElement,  # noqa: F401
+        AutomaticSpeechRecognitionEarlyStoppingEnum,  # noqa: F401
         AutomaticSpeechRecognitionGenerationParameters,  # noqa: F401
         AutomaticSpeechRecognitionInput,  # noqa: F401
         AutomaticSpeechRecognitionOutput,  # noqa: F401
@@ -841,6 +851,7 @@ if TYPE_CHECKING:  # pragma: no cover
         FillMaskParameters,  # noqa: F401
         ImageClassificationInput,  # noqa: F401
         ImageClassificationOutputElement,  # noqa: F401
+        ImageClassificationOutputTransform,  # noqa: F401
         ImageClassificationParameters,  # noqa: F401
         ImageSegmentationInput,  # noqa: F401
         ImageSegmentationOutputElement,  # noqa: F401
@@ -849,6 +860,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
         ImageToImageTargetSize,  # noqa: F401
+        ImageToTextEarlyStoppingEnum,  # noqa: F401
         ImageToTextGenerationParameters,  # noqa: F401
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
@@ -874,6 +886,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Text2TextGenerationParameters,  # noqa: F401
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
+        TextClassificationOutputTransform,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
         TextGenerationInput,  # noqa: F401
         TextGenerationInputGenerateParameters,  # noqa: F401
@@ -886,6 +899,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationStreamOutput,  # noqa: F401
         TextGenerationStreamOutputStreamDetails,  # noqa: F401
         TextGenerationStreamOutputToken,  # noqa: F401
+        TextToAudioEarlyStoppingEnum,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
@@ -894,6 +908,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
         TextToImageTargetSize,  # noqa: F401
+        TextToSpeechEarlyStoppingEnum,  # noqa: F401
         TextToSpeechGenerationParameters,  # noqa: F401
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
@@ -907,6 +922,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TranslationParameters,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
         VideoClassificationOutputElement,  # noqa: F401
+        VideoClassificationOutputTransform,  # noqa: F401
         VideoClassificationParameters,  # noqa: F401
         VisualQuestionAnsweringInput,  # noqa: F401
         VisualQuestionAnsweringInputData,  # noqa: F401
