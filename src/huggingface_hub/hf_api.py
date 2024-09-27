@@ -118,7 +118,6 @@ from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
     HfFolder,  # noqa: F401 # kept for backward compatibility
-    LocalTokenNotFoundError,
     NotASafetensorsRepoError,
     SafetensorsFileMetadata,
     SafetensorsParsingError,
@@ -1622,11 +1621,17 @@ class HfApi:
         Returns:
             `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
             token passed or token is invalid.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If the token is invalid, this error will be raised, potentially including
+                additional details for the invalidity.
         """
         try:
-            return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HTTPError):
-            return None
+            permission = whoami(token=token)["auth"]["accessToken"]["role"]
+        except HTTPError as e:
+            raise ValueError("Invalid token passed!") from e
+        return permission
 
     def get_model_tags(self) -> Dict:
         """
