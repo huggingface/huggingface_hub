@@ -734,6 +734,8 @@ class ModelInfo:
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
+        gguf (`Dict`, *optional*):
+            GGUF information of the model.
         inference (`Literal["cold", "frozen", "warm"]`, *optional*):
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.

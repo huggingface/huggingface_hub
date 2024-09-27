@@ -276,6 +276,8 @@ class ModelCardData(CardData):
             `eval_results` to construct the `model-index` within the card's metadata. The name
             you supply here is what will be used on PapersWithCode's leaderboards. If None is provided
             then the repo name is used as a default. Defaults to None.
+        pipeline_tag (`str`, *optional*):
+            The pipeline tag associated with the model. Example: "text-classification".
         tags (`List[str]`, *optional*):
             List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
