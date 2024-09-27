@@ -18,6 +18,7 @@ from pathlib import Path
 
 
 def check_and_update_file_content(file: Path, expected_content: str, update: bool):
+    expected_content = expected_content.rstrip("\n") + "\n"
     content = file.read_text() if file.exists() else None
     if content != expected_content:
         if update:
