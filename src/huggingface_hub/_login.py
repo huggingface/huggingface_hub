@@ -395,9 +395,7 @@ def _login(
 
     token_info = whoami(token)
     permission = token_info["auth"]["accessToken"]["role"]
-    if permission is None:
-        raise ValueError("Invalid token passed!")
-    elif write_permission and permission != "write":
+    if write_permission and permission != "write":
         raise ValueError(
             "Token is valid but is 'read-only' and a 'write' token is required.\nPlease provide a new token with"
             " correct permission."
@@ -433,8 +431,7 @@ def _logout_from_token(token_name: str) -> None:
     if not stored_tokens or token_name not in stored_tokens:
         return
 
-    token = stored_tokens[token_name]
-    del stored_tokens[token_name]
+    token = stored_tokens.pop(token_name)
     _save_stored_tokens(stored_tokens)
 
     if token == _get_token_from_file():

@@ -85,14 +85,6 @@ class UserCommands(BaseHuggingfaceCLICommand):
             action="store_true",
             help="Optional: Save token to git credential helper.",
         )
-        auth_switch_parser.add_argument(
-            "--disable-tui",
-            action="store_true",
-            help=(
-                "Disable Terminal User Interface (TUI) mode. Useful if your"
-                " platform/terminal doesn't support the selection menu."
-            ),
-        )
         auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
         auth_list_parser = auth_subparsers.add_parser("list", help="List all stored access tokens")
         auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))

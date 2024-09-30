@@ -104,7 +104,7 @@ huggingface-cli auth switch
 This command will prompt you to select a token by its name from a list of saved tokens. Once selected, the chosen token becomes the _active_ token, and it will be used for all interactions with the Hub.
 
 
-You can list all available accesstokens on your machine with `huggingface-cli auth list`.
+You can list all available access tokens on your machine with `huggingface-cli auth list`.
 
 ### Environment variable
 
