@@ -37,17 +37,7 @@ import logging
 import re
 import time
 import warnings
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
 from requests.structures import CaseInsensitiveDict
@@ -101,12 +91,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.utils import (
-    build_hf_headers,
-    get_session,
-    hf_raise_for_status,
-)
-from huggingface_hub.utils._deprecation import _deprecate_positional_args
+from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 
 
 if TYPE_CHECKING:
@@ -158,7 +143,6 @@ class InferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
-    @_deprecate_positional_args(version="0.26")
     def __init__(
         self,
         model: Optional[str] = None,

@@ -24,18 +24,7 @@ import logging
 import re
 import time
 import warnings
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Set,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
 from requests.structures import CaseInsensitiveDict
 
@@ -88,10 +77,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.utils import (
-    build_hf_headers,
-)
-from huggingface_hub.utils._deprecation import _deprecate_positional_args
+from huggingface_hub.utils import build_hf_headers
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -148,7 +134,6 @@ class AsyncInferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
-    @_deprecate_positional_args(version="0.26")
     def __init__(
         self,
         model: Optional[str] = None,

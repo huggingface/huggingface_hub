@@ -3274,7 +3274,6 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             etag_timeout=10,
             resume_download=None,
             local_files_only=False,
-            legacy_cache_layout=False,
             headers=None,
         )
 
