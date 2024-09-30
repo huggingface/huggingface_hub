@@ -187,7 +187,7 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
         raise ValueError(f"Access token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
     # Write token to HF_TOKEN_PATH
     _set_active_token(token_name, add_to_git_credential)
-    print(f"Switched to access token: {token_name}")
+    print(f"The current active token is: {token_name}")
     token_from_environment = _get_token_from_environment()
     if token_from_environment is not None and token_from_environment != token:
         warnings.warn(
