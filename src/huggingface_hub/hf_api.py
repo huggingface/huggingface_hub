@@ -5471,7 +5471,6 @@ class HfApi:
         local_files_only: bool = False,
         # Deprecated args
         resume_download: Optional[bool] = None,
-        legacy_cache_layout: bool = False,
         force_filename: Optional[str] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
@@ -5592,7 +5591,6 @@ class HfApi:
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
-            legacy_cache_layout=legacy_cache_layout,
         )
 
     @validate_hf_hub_args
