@@ -72,24 +72,19 @@ class DataclassFieldCollector(cst.CSTVisitor):
 
     def visit_ClassDef(self, node: cst.ClassDef) -> None:
         """Visit class definitions to find the target dataclass."""
-        # Skip if the class is not the target dataclass
-        if node.name.value != self.dataclass_name:
-            return
-        # Get all statements in the class body
-        body_statements = node.body.body
-        for index, field in enumerate(body_statements):
-            # Check if the statement is a simple statement (like a variable declaration)
-            if not isinstance(field, cst.SimpleStatementLine):
-                for stmt in field.body:
-                    # Check if it's an annotated assignment (typical for dataclass fields)
-                    if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
-                        param_name = stmt.target.value
-                        param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
-                        docstring = self._extract_docstring(body_statements, index)
-                        self.parameters[param_name] = {
-                            "type": param_type,
-                            "docstring": docstring,
-                        }
+        if node.name.value == self.dataclass_name:
+            body_statements = node.body.body
+            for index, field in enumerate(body_statements):
+                if isinstance(field, cst.SimpleStatementLine):
+                    for stmt in field.body:
+                        if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
+                            param_name = stmt.target.value
+                            param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
+                            docstring = self._extract_docstring(body_statements, index)
+                            self.parameters[param_name] = {
+                                "type": param_type,
+                                "docstring": docstring,
+                            }
 
     @staticmethod
     def _extract_docstring(body_statements: List[cst.CSTNode], field_index: int) -> str:
@@ -278,11 +273,11 @@ def check_missing_parameters(
     params_collector = DataclassFieldCollector(parameter_type_name)
     parameters_module.visit(params_collector)
     parameters = params_collector.parameters
+
     # Get existing arguments from the method
     method_argument_collector = ArgumentsCollector(method_name)
     inference_client_module.visit(method_argument_collector)
     existing_args = method_argument_collector.existing_args
-
     missing_params = {k: v for k, v in parameters.items() if k not in existing_args}
     return missing_params
 
