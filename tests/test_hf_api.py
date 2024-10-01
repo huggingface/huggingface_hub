@@ -1754,11 +1754,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert all(tag in model.tags for tag in ["bert", "jax"])
 
     def test_list_models_with_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=True, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
 
     def test_list_models_without_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=False, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=False, limit=20):
             self.assertIsNone(model.config)
 
     def test_list_models_expand_author(self):
