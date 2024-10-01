@@ -507,8 +507,9 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
                     server_errors.append(error["message"])
 
     except JSONDecodeError:
-        # Case error is directly returned as text
-        if response.text:
+        # If content is not JSON and not HTML, append the text
+        content_type = response.headers.get("Content-Type", "")
+        if response.text and "html" not in content_type.lower():
             server_errors.append(response.text)
 
     # Strip all server messages
@@ -528,11 +529,16 @@ def _format(error_type: Type[HfHubHTTPError], custom_message: str, response: Res
             final_error_message += "\n" + server_message
         else:
             final_error_message += "\n\n" + server_message
-
     # Add Request ID
     request_id = str(response.headers.get(X_REQUEST_ID, ""))
-    if len(request_id) > 0 and request_id.lower() not in final_error_message.lower():
+    if request_id:
         request_id_message = f" (Request ID: {request_id})"
+    else:
+        # Fallback to X-Amzn-Trace-Id
+        request_id = str(response.headers.get(X_AMZN_TRACE_ID, ""))
+        if request_id:
+            request_id_message = f" (Amzn Trace ID: {request_id})"
+    if request_id and request_id.lower() not in final_error_message.lower():
         if "\n" in final_error_message:
             newline_index = final_error_message.index("\n")
             final_error_message = (
