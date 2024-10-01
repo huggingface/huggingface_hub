@@ -72,11 +72,14 @@ class DataclassFieldCollector(cst.CSTVisitor):
 
     def visit_ClassDef(self, node: cst.ClassDef) -> None:
         """Visit class definitions to find the target dataclass."""
+
         if node.name.value == self.dataclass_name:
             body_statements = node.body.body
             for index, field in enumerate(body_statements):
+                # Check if the statement is a simple statement (like a variable declaration)
                 if isinstance(field, cst.SimpleStatementLine):
                     for stmt in field.body:
+                        # Check if it's an annotated assignment (typical for dataclass fields)
                         if isinstance(stmt, cst.AnnAssign) and isinstance(stmt.target, cst.Name):
                             param_name = stmt.target.value
                             param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
