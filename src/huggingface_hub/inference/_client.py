@@ -2579,11 +2579,11 @@ class InferenceClient:
                 If set to float < 1, only the smallest set of most probable tokens with probabilities
                 that add up to top_p or higher are kept for generation.
             typical_p (`float`, *optional*):
-                Local typicality measures how similar the conditional probability of predicting a target
-                token next is to the expected conditional probability of predicting a random token next,
-                given the partial text already generated. If set to float < 1, the smallest set of the
-                most locally typical tokens with probabilities that add up to typical_p or higher are
-                kept for generation. See [this paper](https://hf.co/papers/2202.00666) for more details.
+                Local typicality measures how similar the conditional probability of predicting a target token next is
+                to the expected conditional probability of predicting a random token next, given the partial text
+                already generated. If set to float < 1, the smallest set of the most locally typical tokens with
+                probabilities that add up to typical_p or higher are kept for generation. See [this
+                paper](https://hf.co/papers/2202.00666) for more details.
             use_cache (`bool`, *optional*):
                 Whether the model should use the past last key/values attentions to speed up decoding
 

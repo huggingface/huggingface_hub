@@ -19,6 +19,7 @@ import argparse
 import builtins
 import inspect
 import re
+import textwrap
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, NoReturn, Optional, Set
@@ -206,28 +207,67 @@ class AddParameters(cst.CSTTransformer):
             docstring_lines.insert(insertion_index, "Args:")
             args_index = insertion_index
             insertion_index += 1
-        # If there is an "Args:" section, insert the parameters at the end of the "Args:" section
         else:
-            insertion_index = next(
-                (
-                    i
-                    for i in range(args_index + 1, len(docstring_lines))
-                    if docstring_lines[i].strip() == ""
-                    and i + 1 < len(docstring_lines)
-                    and docstring_lines[i + 1].strip().lower() in ("returns:", "raises:", "examples:", "example:")
-                ),
-                len(docstring_lines),
-            )
+            # Find the end of the existing "Args:" section
+            insertion_index = args_index + 1
+            while insertion_index < len(docstring_lines):
+                line = docstring_lines[insertion_index]
+                if line.strip() == "":
+                    # Check if the next non-empty line starts a new section
+                    next_non_empty = next(
+                        (
+                            docstring_lines[i]
+                            for i in range(insertion_index + 1, len(docstring_lines))
+                            if docstring_lines[i].strip() != ""
+                        ),
+                        None,
+                    )
+                    # Dirty hack to stop at the next section
+                    if next_non_empty and next_non_empty.strip().lower() in (
+                        "returns:",
+                        "raises:",
+                        "examples:",
+                        "example:",
+                    ):
+                        break
+                insertion_index += 1
 
-        indentation = " " * (len(docstring_lines[args_index]) - len(docstring_lines[args_index].lstrip())) + "    "
+        # Calculate the base indentation
+        base_indentation = docstring_lines[args_index][
+            : len(docstring_lines[args_index]) - len(docstring_lines[args_index].lstrip())
+        ]
+        param_indentation = base_indentation + "    "  # Indent parameters under "Args:"
+        description_indentation = param_indentation + "    "  # Indent descriptions under parameter names
 
         param_docs = []
         for param_name, param_info in self.missing_params.items():
             param_type_str = param_info["type"].replace("Optional[", "").rstrip("]")
             optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
-            param_doc = f"{indentation}{param_name} (`{param_type_str}`, {optional_str}):\n{indentation}    {param_info['docstring'] or ''}"
+            param_docstring = (param_info.get("docstring") or "").strip()
+
+            # Clean up the docstring to remove extra spaces
+            param_docstring = " ".join(param_docstring.split())
+
+            # Prepare the parameter line
+            param_line = f"{param_indentation}{param_name} (`{param_type_str}`, {optional_str}):"
+
+            # Wrap the parameter docstring
+            wrapped_description = textwrap.fill(
+                param_docstring,
+                width=119,
+                initial_indent=description_indentation,
+                subsequent_indent=description_indentation,
+            )
+
+            # Combine parameter line and description
+            if param_docstring:
+                param_doc = f"{param_line}\n{wrapped_description}"
+            else:
+                param_doc = param_line
+
             param_docs.append(param_doc)
 
+        # Insert the new parameter docs into the docstring
         docstring_lines[insertion_index:insertion_index] = param_docs
         return "\n".join(docstring_lines)
 
