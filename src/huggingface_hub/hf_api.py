@@ -358,7 +358,7 @@ class TransformersInfo(dict):
 
 @dataclass
 class SafeTensorsInfo(dict):
-    parameters: List[Dict[str, int]]
+    parameters: Dict[str, int]
     total: int
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
