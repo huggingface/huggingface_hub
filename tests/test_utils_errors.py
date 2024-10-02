@@ -11,7 +11,7 @@ from huggingface_hub.errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from huggingface_hub.utils._http import REPO_API_REGEX, X_REQUEST_ID, _format, hf_raise_for_status
+from huggingface_hub.utils._http import REPO_API_REGEX, X_AMZN_TRACE_ID, X_REQUEST_ID, _format, hf_raise_for_status
 
 
 class TestErrorUtils(unittest.TestCase):
@@ -256,6 +256,20 @@ class TestHfHubHTTPError(unittest.TestCase):
         error = _format(HfHubHTTPError, "this is a message", response=self.response)
         assert str(error) == "this is a message\n\nError message duplicated in headers and body."
         assert error.server_message == "Error message duplicated in headers and body."
+
+    def test_hf_hub_http_error_without_request_id_with_amzn_trace_id(self) -> None:
+        """Test request id is not duplicated in error message (case insensitive)"""
+        self.response.headers = {X_AMZN_TRACE_ID: "test-trace-id"}
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message (Amzn Trace ID: test-trace-id)"
+        assert error.request_id == "test-trace-id"
+
+    def test_hf_hub_http_error_with_request_id_and_amzn_trace_id(self) -> None:
+        """Test request id is not duplicated in error message (case insensitive)"""
+        self.response.headers = {X_AMZN_TRACE_ID: "test-trace-id", X_REQUEST_ID: "test-id"}
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message (Request ID: test-id)"
+        assert error.request_id == "test-id"
 
 
 @pytest.mark.parametrize(
