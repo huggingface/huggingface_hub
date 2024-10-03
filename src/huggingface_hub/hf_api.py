@@ -9754,7 +9754,7 @@ class HfApi:
                 A search query string to find papers.
                 If provided, returns papers that match the query.
         Returns:
-            `Iterable[PaperInfo]`: A list of [`PaperInfo`] objects.
+            `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
 
         Raises:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
@@ -9786,10 +9786,13 @@ class HfApi:
         """
         if date is None and query is None:
             raise ValueError("Provide one of `date` or `query`.")
+        path = f"{self.endpoint}/api/daily_papers"
+        params = {}
         if date:
-            r = get_session().get(f"{constants.ENDPOINT}/api/daily_papers?date={date}")
-        elif query:
-            r = get_session().get(f"{constants.ENDPOINT}/api/papers/search?q={query}")
+            params["date"] = date
+        if query:
+            params["q"] = query
+        r = get_session().get(path, params=params)
         hf_raise_for_status(r)
         for paper in r.json():
             yield PaperInfo(**paper)
@@ -9809,7 +9812,7 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the paper does not exist on the Hub.
         """
-        r = get_session().get(f"{constants.ENDPOINT}/api/papers/{id}")
+        r = get_session().get(f"{self.endpoint}/api/papers/{id}")
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
