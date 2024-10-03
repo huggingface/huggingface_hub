@@ -207,7 +207,9 @@ class CardData:
         """
         if original_order:
             self.__dict__ = {
-                k: self.__dict__[k] for k in original_order + list(set(self.__dict__.keys()) - set(original_order))
+                k: self.__dict__[k]
+                for k in original_order + list(set(self.__dict__.keys()) - set(original_order))
+                if k in self.__dict__
             }
         return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
 

@@ -331,7 +331,7 @@ class RepoCard:
         if template_str is None:
             template_str = Path(cls.default_template_path).read_text()
         template = jinja2.Template(template_str)
-        content = template.render(card_data=card_data.to_yaml(original_order=cls._original_order), **kwargs)
+        content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
 
 

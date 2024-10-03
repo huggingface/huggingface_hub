@@ -850,7 +850,6 @@ class ModelCardTest(TestCaseWithHfApi):
     def test_preserve_order_load_save(self):
         model_card = ModelCard(DUMMY_MODELCARD)
         model_card.data.license = "test"
-        model_card.content
         self.assertEqual(model_card.content, "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n")
 
 
