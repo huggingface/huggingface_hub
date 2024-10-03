@@ -847,6 +847,11 @@ class ModelCardTest(TestCaseWithHfApi):
         self.assertTrue(card.data.to_dict().get("eval_results") is None)
         self.assertEqual(str(card)[: len(DUMMY_MODELCARD_EVAL_RESULT)], DUMMY_MODELCARD_EVAL_RESULT)
 
+    def test_preserve_order_load_save(self):
+        model_card = ModelCard(DUMMY_MODELCARD)
+        model_card.data.license = "test"
+        self.assertEqual(model_card.content, "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n")
+
 
 class DatasetCardTest(TestCaseWithHfApi):
     def test_load_datasetcard_from_file(self):
