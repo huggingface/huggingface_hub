@@ -9812,7 +9812,8 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 If the paper does not exist on the Hub.
         """
-        r = get_session().get(f"{self.endpoint}/api/papers/{id}")
+        path = f"{self.endpoint}/api/papers/{id}"
+        r = get_session().get(path)
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
