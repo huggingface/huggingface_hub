@@ -4122,7 +4122,7 @@ class DailyPaperApiTest(unittest.TestCase):
 
     def test_get_paper_by_id(self) -> None:
         paper_id = "1706.03762"
-        paper = self.api.paper_info(paper_id=paper_id)
+        paper = self.api.paper_info(id=paper_id)
         assert paper.title == "Attention Is All You Need"
 
 
