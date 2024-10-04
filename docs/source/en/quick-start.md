@@ -93,6 +93,19 @@ Once logged in, all requests to the Hub - even methods that don't necessarily re
 
 </Tip>
 
+### Manage multiple tokens locally
+
+You can save multiple tokens on your machine by simply logging in with the [`login`] command with each token. If you need to switch between these tokens locally, you can use the [`auth switch`] command:
+
+```bash
+huggingface-cli auth switch
+```
+
+This command will prompt you to select a token by its name from a list of saved tokens. Once selected, the chosen token becomes the _active_ token, and it will be used for all interactions with the Hub.
+
+
+You can list all available access tokens on your machine with `huggingface-cli auth list`.
+
 ### Environment variable
 
 The environment variable `HF_TOKEN` can also be used to authenticate yourself. This is especially useful in a Space where you can set `HF_TOKEN` as a [Space secret](https://huggingface.co/docs/hub/spaces-overview#managing-secrets).

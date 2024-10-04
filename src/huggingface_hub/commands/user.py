@@ -13,28 +13,37 @@
 # limitations under the License.
 import subprocess
 from argparse import _SubParsersAction
+from typing import Optional
 
 from requests.exceptions import HTTPError
 
 from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.constants import (
-    ENDPOINT,
-    REPO_TYPES,
-    REPO_TYPES_URL_PREFIXES,
-    SPACES_SDK_TYPES,
-)
+from huggingface_hub.constants import ENDPOINT, REPO_TYPES, REPO_TYPES_URL_PREFIXES, SPACES_SDK_TYPES
 from huggingface_hub.hf_api import HfApi
 
 from .._login import (  # noqa: F401 # for backward compatibility  # noqa: F401 # for backward compatibility
     NOTEBOOK_LOGIN_PASSWORD_HTML,
     NOTEBOOK_LOGIN_TOKEN_HTML_END,
     NOTEBOOK_LOGIN_TOKEN_HTML_START,
+    auth_list,
+    auth_switch,
     login,
     logout,
     notebook_login,
 )
-from ..utils import get_token
+from ..utils import get_stored_tokens, get_token, logging
 from ._cli_utils import ANSI
+
+
+logger = logging.get_logger(__name__)
+
+try:
+    from InquirerPy import inquirer
+    from InquirerPy.base.control import Choice
+
+    _inquirer_py_available = True
+except ImportError:
+    _inquirer_py_available = False
 
 
 class UserCommands(BaseHuggingfaceCLICommand):
@@ -54,9 +63,31 @@ class UserCommands(BaseHuggingfaceCLICommand):
         login_parser.set_defaults(func=lambda args: LoginCommand(args))
         whoami_parser = parser.add_parser("whoami", help="Find out which huggingface.co account you are logged in as.")
         whoami_parser.set_defaults(func=lambda args: WhoamiCommand(args))
+
         logout_parser = parser.add_parser("logout", help="Log out")
+        logout_parser.add_argument(
+            "--token-name",
+            type=str,
+            help="Optional: Name of the access token to log out from.",
+        )
         logout_parser.set_defaults(func=lambda args: LogoutCommand(args))
 
+        auth_parser = parser.add_parser("auth", help="Other authentication related commands")
+        auth_subparsers = auth_parser.add_subparsers(help="Authentication subcommands")
+        auth_switch_parser = auth_subparsers.add_parser("switch", help="Switch between access tokens")
+        auth_switch_parser.add_argument(
+            "--token-name",
+            type=str,
+            help="Optional: Name of the access token to switch to.",
+        )
+        auth_switch_parser.add_argument(
+            "--add-to-git-credential",
+            action="store_true",
+            help="Optional: Save token to git credential helper.",
+        )
+        auth_switch_parser.set_defaults(func=lambda args: AuthSwitchCommand(args))
+        auth_list_parser = auth_subparsers.add_parser("list", help="List all stored access tokens")
+        auth_list_parser.set_defaults(func=lambda args: AuthListCommand(args))
         # new system: git-based repo system
         repo_parser = parser.add_parser("repo", help="{create} Commands to interact with your huggingface.co repos.")
         repo_subparsers = repo_parser.add_subparsers(help="huggingface.co repos related commands")
@@ -95,12 +126,70 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
-        login(token=self.args.token, add_to_git_credential=self.args.add_to_git_credential)
+        login(
+            token=self.args.token,
+            add_to_git_credential=self.args.add_to_git_credential,
+        )
 
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
-        logout()
+        logout(token_name=self.args.token_name)
+
+
+class AuthSwitchCommand(BaseUserCommand):
+    def run(self):
+        token_name = self.args.token_name
+        if token_name is None:
+            token_name = self._select_token_name()
+
+        if token_name is None:
+            print("No token name provided. Aborting.")
+            exit()
+        auth_switch(token_name, add_to_git_credential=self.args.add_to_git_credential)
+
+    def _select_token_name(self) -> Optional[str]:
+        token_names = list(get_stored_tokens().keys())
+
+        if not token_names:
+            logger.error("No stored tokens found. Please login first.")
+            return None
+
+        if _inquirer_py_available:
+            return self._select_token_name_tui(token_names)
+        # if inquirer is not available, use a simpler terminal UI
+        print("Available stored tokens:")
+        for i, token_name in enumerate(token_names, 1):
+            print(f"{i}. {token_name}")
+        while True:
+            try:
+                choice = input("Enter the number of the token to switch to (or 'q' to quit): ")
+                if choice.lower() == "q":
+                    return None
+                index = int(choice) - 1
+                if 0 <= index < len(token_names):
+                    return token_names[index]
+                else:
+                    print("Invalid selection. Please try again.")
+            except ValueError:
+                print("Invalid input. Please enter a number or 'q' to quit.")
+
+    def _select_token_name_tui(self, token_names: list[str]) -> Optional[str]:
+        choices = [Choice(token_name, name=token_name) for token_name in token_names]
+        try:
+            return inquirer.select(
+                message="Select a token to switch to:",
+                choices=choices,
+                default=None,
+            ).execute()
+        except KeyboardInterrupt:
+            logger.info("Token selection cancelled.")
+            return None
+
+
+class AuthListCommand(BaseUserCommand):
+    def run(self):
+        auth_list()
 
 
 class WhoamiCommand(BaseUserCommand):

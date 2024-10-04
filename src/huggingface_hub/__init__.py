@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.25.0.dev0"
+__version__ = "0.26.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -63,6 +63,8 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_login": [
+        "auth_list",
+        "auth_switch",
         "interpreter_login",
         "login",
         "logout",
@@ -129,7 +131,6 @@ _SUBMOD_ATTRS = {
     "file_download": [
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
-        "cached_download",
         "get_hf_file_metadata",
         "hf_hub_download",
         "hf_hub_url",
@@ -591,6 +592,8 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._login import (
+        auth_list,  # noqa: F401
+        auth_switch,  # noqa: F401
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
         logout,  # noqa: F401
@@ -653,7 +656,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
         HfFileMetadata,  # noqa: F401
-        cached_download,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
         hf_hub_url,  # noqa: F401

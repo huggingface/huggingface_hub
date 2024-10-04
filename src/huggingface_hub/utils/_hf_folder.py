@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from .. import constants
-from ._token import get_token
+from ._auth import get_token
 
 
 class HfFolder:

@@ -13,7 +13,6 @@
 # limitations under the License.
 import io
 import os
-import re
 import shutil
 import stat
 import unittest
@@ -30,13 +29,7 @@ from requests import Response
 import huggingface_hub.file_download
 from huggingface_hub import HfApi, RepoUrl, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import (
-    EntryNotFoundError,
-    GatedRepoError,
-    LocalEntryNotFoundError,
-    RepositoryNotFoundError,
-    RevisionNotFoundError,
-)
+from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -45,33 +38,22 @@ from huggingface_hub.file_download import (
     _get_pointer_path,
     _normalize_etag,
     _request_wrapper,
-    cached_download,
-    filename_to_url,
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
     http_get,
     try_to_load_from_cache,
 )
-from huggingface_hub.utils import (
-    SoftTemporaryDirectory,
-    get_session,
-    hf_raise_for_status,
-)
+from huggingface_hub.utils import SoftTemporaryDirectory, get_session, hf_raise_for_status
 
 from .testing_constants import ENDPOINT_STAGING, OTHER_TOKEN, TOKEN
 from .testing_utils import (
     DUMMY_MODEL_ID,
-    DUMMY_MODEL_ID_PINNED_SHA1,
-    DUMMY_MODEL_ID_PINNED_SHA256,
-    DUMMY_MODEL_ID_REVISION_INVALID,
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     DUMMY_RENAMED_NEW_MODEL_ID,
     DUMMY_RENAMED_OLD_MODEL_ID,
     SAMPLE_DATASET_IDENTIFIER,
-    OfflineSimulationMode,
     expect_deprecation,
-    offline,
     repo_name,
     use_tmp_repo,
     with_production_testing,
@@ -161,6 +143,7 @@ class StagingDownloadTests(unittest.TestCase):
                     repo_id=repo_url.repo_id, filename=".gitattributes", token=OTHER_TOKEN, cache_dir=tmpdir
                 )
 
+    @expect_deprecation("update_repo_visibility")
     @use_tmp_repo()
     def test_download_regular_file_from_private_renamed_repo(self, repo_url: RepoUrl) -> None:
         """Regression test for #1999.
@@ -186,41 +169,6 @@ class StagingDownloadTests(unittest.TestCase):
 
 @with_production_testing
 class CachedDownloadTests(unittest.TestCase):
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    def test_bogus_url(self):
-        url = "https://bogus"
-        with self.assertRaisesRegex(ValueError, "Connection error"):
-            _ = cached_download(url, legacy_cache_layout=True)
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    def test_no_connection(self):
-        invalid_url = hf_hub_url(
-            DUMMY_MODEL_ID,
-            filename=constants.CONFIG_NAME,
-            revision=DUMMY_MODEL_ID_REVISION_INVALID,
-        )
-        valid_url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision=REVISION_ID_DEFAULT)
-        self.assertIsNotNone(cached_download(valid_url, force_download=True, legacy_cache_layout=True))
-        for offline_mode in OfflineSimulationMode:
-            with offline(mode=offline_mode):
-                with self.assertRaisesRegex(ValueError, "Connection error"):
-                    _ = cached_download(invalid_url, legacy_cache_layout=True)
-                with self.assertRaisesRegex(ValueError, "Connection error"):
-                    _ = cached_download(valid_url, force_download=True, legacy_cache_layout=True)
-                self.assertIsNotNone(cached_download(valid_url, legacy_cache_layout=True))
-
-    @expect_deprecation("cached_download")
-    def test_file_not_found_on_repo(self):
-        # Valid revision (None) but missing file on repo.
-        url = hf_hub_url(DUMMY_MODEL_ID, filename="missing.bin")
-        with self.assertRaisesRegex(
-            EntryNotFoundError,
-            re.compile("404 Client Error(.*)Entry Not Found", flags=re.DOTALL),
-        ):
-            _ = cached_download(url, legacy_cache_layout=True)
-
     def test_file_not_found_locally_and_network_disabled(self):
         # Valid file but missing locally and network is disabled.
         with SoftTemporaryDirectory() as tmpdir:
@@ -242,21 +190,6 @@ class CachedDownloadTests(unittest.TestCase):
                     filename=constants.CONFIG_NAME,
                     cache_dir=tmpdir,
                     local_files_only=True,
-                )
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    def test_file_not_found_locally_and_network_disabled_legacy(self):
-        # Valid file but missing locally and network is disabled.
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME)
-        with SoftTemporaryDirectory() as tmpdir:
-            # Get without network must fail
-            with pytest.raises(LocalEntryNotFoundError):
-                cached_download(
-                    url,
-                    legacy_cache_layout=True,
-                    local_files_only=True,
-                    cache_dir=tmpdir,
                 )
 
     def test_private_repo_and_file_cached_locally(self):
@@ -292,95 +225,6 @@ class CachedDownloadTests(unittest.TestCase):
             # Set permission back for cleanup
             _recursive_chmod(tmpdir, 0o777)
 
-    @expect_deprecation("cached_download")
-    def test_revision_not_found(self):
-        # Valid file but missing revision
-        url = hf_hub_url(
-            DUMMY_MODEL_ID,
-            filename=constants.CONFIG_NAME,
-            revision=DUMMY_MODEL_ID_REVISION_INVALID,
-        )
-        with self.assertRaisesRegex(
-            RevisionNotFoundError,
-            re.compile("404 Client Error(.*)Revision Not Found", flags=re.DOTALL),
-        ):
-            _ = cached_download(url, legacy_cache_layout=True)
-
-    @expect_deprecation("cached_download")
-    def test_repo_not_found(self):
-        # Invalid model file.
-        url = hf_hub_url("bert-base", filename="pytorch_model.bin")
-        with self.assertRaisesRegex(
-            RepositoryNotFoundError,
-            re.compile("401 Client Error(.*)Repository Not Found", flags=re.DOTALL),
-        ):
-            _ = cached_download(url, legacy_cache_layout=True)
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    @expect_deprecation("filename_to_url")
-    def test_standard_object(self):
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision=REVISION_ID_DEFAULT)
-        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA1}"'))
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    @expect_deprecation("filename_to_url")
-    def test_standard_object_rev(self):
-        # Same object, but different revision
-        url = hf_hub_url(
-            DUMMY_MODEL_ID,
-            filename=constants.CONFIG_NAME,
-            revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
-        )
-        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
-        # Caution: check that the etag is *not* equal to the one from `test_standard_object`
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    @expect_deprecation("filename_to_url")
-    def test_lfs_object(self):
-        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.PYTORCH_WEIGHTS_NAME, revision=REVISION_ID_DEFAULT)
-        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertEqual(metadata, (url, f'"{DUMMY_MODEL_ID_PINNED_SHA256}"'))
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    @expect_deprecation("filename_to_url")
-    def test_dataset_standard_object_rev(self):
-        url = hf_hub_url(
-            DATASET_ID,
-            filename=DATASET_SAMPLE_PY_FILE,
-            repo_type=constants.REPO_TYPE_DATASET,
-            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
-        )
-        # now let's download
-        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertNotEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    @expect_deprecation("filename_to_url")
-    def test_dataset_lfs_object(self):
-        url = hf_hub_url(
-            DATASET_ID,
-            filename="dev-v1.1.json",
-            repo_type=constants.REPO_TYPE_DATASET,
-            revision=DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT,
-        )
-        filepath = cached_download(url, force_download=True, legacy_cache_layout=True)
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertEqual(
-            metadata,
-            (url, '"95aa6a52d5d6a735563366753ca50492a658031da74f301ac5238b03966972c9"'),
-        )
-
     @xfail_on_windows(reason="umask is UNIX-specific")
     def test_hf_hub_download_custom_cache_permission(self):
         """Checks `hf_hub_download` respect the cache dir permission.
@@ -408,23 +252,6 @@ class CachedDownloadTests(unittest.TestCase):
         with SoftTemporaryDirectory() as tmpdir:
             filepath = hf_hub_download(DUMMY_RENAMED_OLD_MODEL_ID, "config.json", cache_dir=tmpdir)
             self.assertTrue(os.path.exists(filepath))
-
-    def test_download_from_a_renamed_repo_with_cached_download(self):
-        """Checks `cached_download` works also on a renamed repo.
-
-        Regression test for #981.
-        https://github.com/huggingface/huggingface_hub/issues/981
-        """
-        with pytest.warns(FutureWarning):
-            with SoftTemporaryDirectory() as tmpdir:
-                filepath = cached_download(
-                    hf_hub_url(
-                        DUMMY_RENAMED_OLD_MODEL_ID,
-                        filename="config.json",
-                    ),
-                    cache_dir=tmpdir,
-                )
-                self.assertTrue(os.path.exists(filepath))
 
     def test_hf_hub_download_with_empty_subfolder(self):
         """
@@ -542,21 +369,6 @@ class CachedDownloadTests(unittest.TestCase):
             ),
             "https://hf-ci.co/julien-c/dummy-unknown/resolve/main/config.json",
         )
-
-    @expect_deprecation("hf_hub_download")
-    @expect_deprecation("cached_download")
-    @expect_deprecation("filename_to_url")
-    @expect_deprecation("url_to_filename")
-    def test_hf_hub_download_legacy(self):
-        filepath = hf_hub_download(
-            DUMMY_MODEL_ID,
-            filename=constants.CONFIG_NAME,
-            revision=REVISION_ID_DEFAULT,
-            force_download=True,
-            legacy_cache_layout=True,
-        )
-        metadata = filename_to_url(filepath, legacy_cache_layout=True)
-        self.assertEqual(metadata[1], f'"{DUMMY_MODEL_ID_PINNED_SHA1}"')
 
     def test_try_to_load_from_cache_exist(self):
         # Make sure the file is cached
@@ -764,25 +576,6 @@ class CachedDownloadTests(unittest.TestCase):
 
             # Download must not fail
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
-
-    @expect_deprecation("cached_download")
-    @expect_deprecation("url_to_filename")
-    def test_cached_download_from_github(self):
-        """Regression test for #1449.
-
-        File consistency check was failing due to compression in HTTP request which made the expected size smaller than
-        the actual one. `cached_download` is deprecated but still heavily used so we need to make sure it works.
-
-        See:
-        - https://github.com/huggingface/huggingface_hub/issues/1449.
-        - https://github.com/huggingface/diffusers/issues/3213.
-        """
-        with SoftTemporaryDirectory() as cache_dir:
-            cached_download(
-                url="https://raw.githubusercontent.com/huggingface/diffusers/v0.15.1/examples/community/lpw_stable_diffusion.py",
-                token=None,
-                cache_dir=cache_dir,
-            )
 
     @unittest.skipIf(os.name == "nt", "Lock files are always deleted on Windows.")
     def test_keep_lock_file(self):
