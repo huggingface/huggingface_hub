@@ -13,7 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""**Experimental** Utility script to check and update the InferenceClient task methods arguments and docstrings based on the tasks input parameters."""
+"""
+Utility script to check and update the InferenceClient task methods arguments and docstrings
+based on the tasks input parameters.
+
+What this script does:
+- [x] detect missing parameters in method signature
+- [x] add missing parameters to methods signature
+- [ ] detect outdated parameters in method signature
+- [ ] update outdated parameters in method signature
+
+- [x] detect missing parameters in method docstrings
+- [x] add missing parameters to methods docstrings
+- [ ] detect outdated parameters in method docstrings
+- [ ] update outdated parameters in method docstrings
+
+- [ ] detect when parameter not used in method implementation
+- [ ] update method implementation when parameter not used
+Related resources:
+- https://github.com/huggingface/huggingface_hub/issues/2063
+- https://github.com/huggingface/huggingface_hub/issues/2557
+- https://github.com/huggingface/huggingface_hub/pull/2561
+"""
 
 import argparse
 import builtins
@@ -483,7 +504,7 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
             "❌ Mismatch between between parameters defined in tasks methods signature in "
             "`./src/huggingface_hub/inference/_client.py` and parameters defined in "
             "`./src/huggingface_hub/inference/_generated/types.py \n"
-            "Please run `make style` or `python utils/generate_task_parameters.py --update"
+            "Please run `make inference_update` or `python utils/generate_task_parameters.py --update"
         )
         exit(1)
     else:

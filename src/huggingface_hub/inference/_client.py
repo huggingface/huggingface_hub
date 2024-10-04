@@ -328,7 +328,6 @@ class InferenceClient:
     ) -> List[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AudioClassificationPipeline).
 
         Args:
             audio (Union[str, Path, bytes, BinaryIO]):
@@ -937,7 +936,6 @@ class InferenceClient:
     ) -> List[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
@@ -1085,7 +1083,7 @@ class InferenceClient:
     ) -> List[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FillMaskPipeline).
+
         Args:
             text (`str`):
                 a string to be filled from, must contain the [MASK] token (check model card for exact name of the mask).
@@ -1138,7 +1136,6 @@ class InferenceClient:
     ) -> List[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageClassificationPipeline).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
@@ -1195,7 +1192,7 @@ class InferenceClient:
     ) -> List[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageSegmentationPipeline).
+
         <Tip warning={true}>
 
         You must have `PIL` installed if you want to work with images (`pip install Pillow`).
@@ -1465,7 +1462,6 @@ class InferenceClient:
     ) -> List[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ObjectDetectionPipeline).
 
         <Tip warning={true}>
 
@@ -1533,7 +1529,6 @@ class InferenceClient:
     ) -> Union[QuestionAnsweringOutputElement, List[QuestionAnsweringOutputElement]]:
         """
         Retrieve the answer to a question from a given text.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.QuestionAnsweringPipeline).
 
         Args:
             question (`str`):
@@ -1671,7 +1666,6 @@ class InferenceClient:
     ) -> SummarizationOutput:
         """
         Generate a summary of a given text using a specified model.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.SummarizationPipeline).
 
         Args:
             text (`str`):
@@ -1730,7 +1724,6 @@ class InferenceClient:
     ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TableQuestionAnsweringPipeline).
 
         Args:
             table (`str`):
@@ -1872,7 +1865,6 @@ class InferenceClient:
     ) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextClassificationPipeline).
 
         Args:
             text (`str`):
@@ -2643,7 +2635,6 @@ class InferenceClient:
         """
         Perform token classification on the given text.
         Usually used for sentence parsing, either grammatical, or Named Entity Recognition (NER) to understand keywords contained within text.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline).
 
         Args:
             text (`str`):
@@ -2725,7 +2716,6 @@ class InferenceClient:
         your specific use case. Source and target languages usually depend on the model.
         However, it is possible to specify source and target languages for certain models. If you are working with one of these models,
         you can use `src_lang` and `tgt_lang` arguments to pass the relevant information.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TranslationPipeline).
 
         Args:
             text (`str`):
@@ -2802,7 +2792,6 @@ class InferenceClient:
     ) -> List[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VisualQuestionAnsweringPipeline).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
@@ -2857,7 +2846,6 @@ class InferenceClient:
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotClassificationPipeline).
 
         Args:
             text (`str`):
@@ -2960,7 +2948,6 @@ class InferenceClient:
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
-        For more details about the input parameters, see the [pipeline documentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotImageClassificationPipeline).
 
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
