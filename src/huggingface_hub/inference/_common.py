@@ -350,6 +350,12 @@ def _format_chat_completion_stream_output(
     # Decode payload
     payload = byte_payload.decode("utf-8")
     json_payload = json.loads(payload.lstrip("data:").rstrip("/n"))
+
+    # Either an error as being returned
+    if json_payload.get("error") is not None:
+        raise _parse_text_generation_error(json_payload["error"], json_payload.get("error_type"))
+
+    # Or parse token payload
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 

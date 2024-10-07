@@ -20,7 +20,6 @@ import time
 import types
 import unittest
 import uuid
-import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
@@ -93,6 +92,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -122,18 +122,6 @@ class HfApiCommonTest(unittest.TestCase):
         """Share the valid token in all tests below."""
         cls._token = TOKEN
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-
-def test_repo_id_no_warning():
-    # tests that passing repo_id as positional arg doesn't raise any warnings
-    # for {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    with warnings.catch_warnings(record=True) as record:
-        repo_id = api.create_repo(repo_name()).repo_id
-        api.update_repo_visibility(repo_id, private=True)
-        api.delete_repo(repo_id)
-    assert not len(record)
 
 
 class HfApiRepoFileExistsTest(HfApiCommonTest):
@@ -210,6 +198,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
@@ -218,6 +207,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_model_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
@@ -226,6 +216,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_dataset_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
@@ -234,6 +225,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_space_repo(self):
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
             self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
@@ -286,9 +278,11 @@ class HfApiEndpointsTest(HfApiCommonTest):
         repo_id = repo_url.repo_id
 
         for gated_value in ["auto", "manual", False]:
-            self._api.update_repo_settings(repo_id=repo_id, gated=gated_value)
-            info = self._api.model_info(repo_id, expand="gated")
-            assert info.gated == gated_value
+            for private_value in [True, False]:  # Test both private and public settings
+                self._api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
+                info = self._api.model_info(repo_id)
+                assert info.gated == gated_value
+                assert info.private == private_value  # Verify the private setting
 
     @use_tmp_repo(repo_type="dataset")
     def test_update_dataset_repo_settings(self, repo_url: RepoUrl):
@@ -296,9 +290,13 @@ class HfApiEndpointsTest(HfApiCommonTest):
         repo_type = repo_url.repo_type
 
         for gated_value in ["auto", "manual", False]:
-            self._api.update_repo_settings(repo_id=repo_id, repo_type=repo_type, gated=gated_value)
-            info = self._api.dataset_info(repo_id, expand="gated")
-            assert info.gated == gated_value
+            for private_value in [True, False]:
+                self._api.update_repo_settings(
+                    repo_id=repo_id, repo_type=repo_type, gated=gated_value, private=private_value
+                )
+                info = self._api.dataset_info(repo_id)
+                assert info.gated == gated_value
+                assert info.private == private_value
 
 
 class CommitApiTest(HfApiCommonTest):
@@ -1756,11 +1754,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert all(tag in model.tags for tag in ["bert", "jax"])
 
     def test_list_models_with_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=True, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
 
     def test_list_models_without_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=False, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=False, limit=20):
             self.assertIsNone(model.config)
 
     def test_list_models_expand_author(self):
@@ -3276,7 +3274,6 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             etag_timeout=10,
             resume_download=None,
             local_files_only=False,
-            legacy_cache_layout=False,
             headers=None,
         )
 

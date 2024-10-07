@@ -9,33 +9,31 @@ from typing import Any, Dict, Literal, Optional
 from .base import BaseInferenceType
 
 
-SummarizationGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
+SummarizationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
 @dataclass
-class SummarizationGenerationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text2text Generation
+class SummarizationParameters(BaseInferenceType):
+    """Additional inference parameters.
+    Additional inference parameters for summarization.
     """
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
     generate_parameters: Optional[Dict[str, Any]] = None
-    """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["SummarizationGenerationTruncationStrategy"] = None
-    """The truncation strategy to use"""
+    """Additional parametrization of the text generation algorithm."""
+    truncation: Optional["SummarizationTruncationStrategy"] = None
+    """The truncation strategy to use."""
 
 
 @dataclass
 class SummarizationInput(BaseInferenceType):
-    """Inputs for Summarization inference
-    Inputs for Text2text Generation inference
-    """
+    """Inputs for Summarization inference"""
 
     inputs: str
-    """The input text data"""
-    parameters: Optional[SummarizationGenerationParameters] = None
-    """Additional inference parameters"""
+    """The input text to summarize."""
+    parameters: Optional[SummarizationParameters] = None
+    """Additional inference parameters."""
 
 
 @dataclass

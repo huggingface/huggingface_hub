@@ -142,6 +142,7 @@ class TextGenerationOutput(BaseInferenceType):
 class TextGenerationStreamOutputStreamDetails(BaseInferenceType):
     finish_reason: "TextGenerationOutputFinishReason"
     generated_tokens: int
+    input_length: int
     seed: Optional[int] = None
 
 

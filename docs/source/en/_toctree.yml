@@ -1,4 +1,4 @@
-- title: "Get started"
+- title: 'Get started'
   sections:
     - local: index
       title: Home
@@ -6,7 +6,7 @@
       title: Quickstart
     - local: installation
       title: Installation
-- title: "How-to guides"
+- title: 'How-to guides'
   sections:
     - local: guides/overview
       title: Overview
@@ -40,16 +40,16 @@
       title: Integrate a library
     - local: guides/webhooks
       title: Webhooks
-- title: "Conceptual guides"
+- title: 'Conceptual guides'
   sections:
     - local: concepts/git_vs_http
       title: Git vs HTTP paradigm
-- title: "Reference"
+- title: 'Reference'
   sections:
     - local: package_reference/overview
       title: Overview
-    - local: package_reference/login
-      title: Login and logout
+    - local: package_reference/authentication
+      title: Authentication
     - local: package_reference/environment_variables
       title: Environment variables
     - local: package_reference/repository

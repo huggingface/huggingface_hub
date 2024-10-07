@@ -8,7 +8,7 @@ from huggingface_hub.errors import LocalEntryNotFoundError, RepositoryNotFoundEr
 from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import TOKEN
-from .testing_utils import OfflineSimulationMode, offline, repo_name
+from .testing_utils import OfflineSimulationMode, expect_deprecation, offline, repo_name
 
 
 class SnapshotDownloadTests(unittest.TestCase):
@@ -95,6 +95,7 @@ class SnapshotDownloadTests(unittest.TestCase):
             # folder name contains the revision's commit sha.
             self.assertTrue(self.first_commit_hash in storage_folder)
 
+    @expect_deprecation("update_repo_visibility")
     def test_download_private_model(self):
         self.api.update_repo_visibility(repo_id=self.repo_id, private=True)
 
