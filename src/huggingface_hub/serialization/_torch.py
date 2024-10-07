@@ -368,7 +368,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     return unique_id
 
 
-def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", Union[int, Tuple[Any, ...]], int]:
+def get_torch_storage_id(tensor: "torch.Tensor") -> Optional[Tuple["torch.device", Union[int, Tuple[Any, ...]], int]]:
     """
     Return unique identifier to a tensor storage.
 
@@ -379,7 +379,10 @@ def get_torch_storage_id(tensor: "torch.Tensor") -> Tuple["torch.device", Union[
 
     Taken from https://github.com/huggingface/transformers/blob/1ecf5f7c982d761b4daaa96719d162c324187c64/src/transformers/pytorch_utils.py#L278.
     """
-    return tensor.device, _get_unique_id(tensor), get_torch_storage_size(tensor)
+    if tensor.device.type == "meta":
+        return None
+    else:
+        return tensor.device, _get_unique_id(tensor), get_torch_storage_size(tensor)
 
 
 def get_torch_storage_size(tensor: "torch.Tensor") -> int:
