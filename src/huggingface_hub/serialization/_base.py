@@ -106,7 +106,8 @@ def split_state_dict_into_shards_factory(
 
         # If a `tensor` shares the same underlying storage as another tensor, we put `tensor` in the same `block`
         storage_id = get_storage_id(tensor)
-        if storage_id is not None:
+        # We skip tensors on meta, otherwise it will skip the tensor
+        if storage_id is not None and storage_id[0].type!='meta':
             if storage_id in storage_id_to_tensors:
                 # We skip this tensor for now and will reassign to correct shard later
                 storage_id_to_tensors[storage_id].append(key)
