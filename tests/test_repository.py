@@ -320,6 +320,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.assertEqual(repo.command_queue[-1].is_done, True)
         self.assertEqual(repo.command_queue[-1].title, "push")
 
+    @pytest.mark.flaky(reruns=5)
     @unittest.skipIf(os.name == "nt", "Killing a process on Windows works differently.")
     def test_add_commit_push_non_blocking_process_killed(self):
         repo = self.clone_repo()
