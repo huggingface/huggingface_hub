@@ -143,6 +143,37 @@ class SnapshotDownloadTests(unittest.TestCase):
             )
             self.assertTrue(self.first_commit_hash in storage_folder)  # has expected revision
 
+        # Test with local_dir
+        with SoftTemporaryDirectory() as tmpdir:
+            # first download folder to local_dir
+            snapshot_download(self.repo_id, local_dir=tmpdir)
+            # now load from local_dir
+            storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
+            self.assertEquals(str(tmpdir), storage_folder)
+
+    def test_download_model_to_local_dir_with_offline_mode(self):
+        """Test that an already downloaded folder is returned when there is a connection error"""
+        # first download folder to local_dir
+        with SoftTemporaryDirectory() as tmpdir:
+            snapshot_download(self.repo_id, local_dir=tmpdir)
+            # Check that the folder is returned when there is a connection error
+            for offline_mode in OfflineSimulationMode:
+                with offline(mode=offline_mode):
+                    storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir)
+                    self.assertEquals(str(tmpdir), storage_folder)
+
+    def test_download_model_offline_mode_not_in_local_dir(self):
+        """Test when connection error but local_dir is empty."""
+        with SoftTemporaryDirectory() as tmpdir:
+            with self.assertRaises(LocalEntryNotFoundError):
+                snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
+
+        for offline_mode in OfflineSimulationMode:
+            with offline(mode=offline_mode):
+                with SoftTemporaryDirectory() as tmpdir:
+                    with self.assertRaises(LocalEntryNotFoundError):
+                        snapshot_download(self.repo_id, local_dir=tmpdir)
+
     def test_download_model_offline_mode_not_cached(self):
         """Test when connection error but cache is empty."""
         with SoftTemporaryDirectory() as tmpdir:
