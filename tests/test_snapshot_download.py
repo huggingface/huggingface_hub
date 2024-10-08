@@ -153,11 +153,11 @@ class SnapshotDownloadTests(unittest.TestCase):
             self.assertTrue(str(tmpdir) in storage_folder)  # has expected revision
 
     def test_download_model_offline_mode_not_in_local(self):
-        """Test when connection error but cache is empty."""
+        """Test that an already downloaded folder is returned when there is a connection error"""
         # first download folder to local_dir
         with SoftTemporaryDirectory() as tmpdir:
             snapshot_download(self.repo_id, local_dir=tmpdir)
-            # Test that an already downloaded folder is returned when there is a connection error
+            # Check that the folder is returned when there is a connection error
             for offline_mode in OfflineSimulationMode:
                 with offline(mode=offline_mode):
                     storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir)
