@@ -210,7 +210,9 @@ def snapshot_download(
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
-                logger.warning(f"Returning existing local_dir `{local_dir}`as it exists and is not empty.")
+                logger.warning(
+                    f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
+                )
                 return str(local_dir.resolve())
         # If we couldn't find the appropriate folder on disk, raise an error.
         if local_files_only:
