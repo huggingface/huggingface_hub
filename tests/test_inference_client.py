@@ -859,7 +859,7 @@ class TestListDeployedModels(unittest.TestCase):
                 self.assertIsInstance(model, str)
 
         self.assertIn("text-generation", models_by_task)
-        self.assertIn("HuggingFaceH4/zephyr-7b-beta", models_by_task["text-generation"])
+        self.assertIn("bigscience/bloom", models_by_task["text-generation"])
 
 
 @pytest.mark.vcr

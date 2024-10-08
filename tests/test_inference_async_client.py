@@ -325,7 +325,7 @@ async def test_list_deployed_models_single_frameworks() -> None:
             assert isinstance(model, str)
 
     assert "text-generation" in models_by_task
-    assert "HuggingFaceH4/zephyr-7b-beta" in models_by_task["text-generation"]
+    assert "bigscience/bloom" in models_by_task["text-generation"]
 
 
 @pytest.mark.asyncio
