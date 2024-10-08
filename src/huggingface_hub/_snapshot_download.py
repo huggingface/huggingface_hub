@@ -206,7 +206,7 @@ def snapshot_download(
                 # Snapshot folder exists => let's return it
                 # (but we can't check if all the files are actually there)
                 return snapshot_folder
-
+        # If local_dir is not None, return it if it exists and is not empty
         if local_dir is not None:
             local_dir = Path(local_dir)
             if local_dir.is_dir() and any(local_dir.iterdir()):
