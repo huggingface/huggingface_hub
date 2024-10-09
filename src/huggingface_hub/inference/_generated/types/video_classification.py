@@ -9,7 +9,7 @@ from typing import Any, Literal, Optional
 from .base import BaseInferenceType
 
 
-ClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
+VideoClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 
 @dataclass
@@ -20,7 +20,7 @@ class VideoClassificationParameters(BaseInferenceType):
 
     frame_sampling_rate: Optional[int] = None
     """The sampling rate used to select frames from the video."""
-    function_to_apply: Optional["ClassificationOutputTransform"] = None
+    function_to_apply: Optional["VideoClassificationOutputTransform"] = None
     num_frames: Optional[int] = None
     """The number of sampled frames to consider for classification."""
     top_k: Optional[int] = None

@@ -11,6 +11,7 @@ quality:
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
 	python utils/generate_async_inference_client.py
+
 	mypy src
 
 style:
@@ -20,11 +21,14 @@ style:
 	python utils/check_static_imports.py --update
 	python utils/generate_async_inference_client.py --update
 
-inference_types_check:
+inference_check:
 	python utils/generate_inference_types.py
+	python utils/generate_task_parameters.py
 
-inference_types_update:
+inference_update:
 	python utils/generate_inference_types.py --update
+	python utils/generate_task_parameters.py --update
+
 
 repocard:
 	python utils/push_repocard_examples.py

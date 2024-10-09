@@ -49,10 +49,7 @@ from huggingface_hub import (
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import (
-    _stream_chat_completion_response,
-    _stream_text_generation_response,
-)
+from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
 from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -194,7 +191,7 @@ class InferenceClientVCRTest(InferenceClientTest):
 
     Tips when adding new tasks:
     - Most of the time, we only test that the return values are correct. We don't always test the actual output of the model.
-    - In the CI, VRC replay is always on. If you want to test locally against the server, you can use the `--vcr-mode`
+    - In the CI, VRC replay is always on. If you want to test locally against the server, you can use the `--vcr-record`
       and `--disable-vcr` command line options. See https://pytest-vcr.readthedocs.io/en/latest/configuration/.
     - If you get rate-limited locally, you can use your own token when initializing InferenceClient.
       /!\\ WARNING: if you do so, you must delete the token from the cassette before committing!

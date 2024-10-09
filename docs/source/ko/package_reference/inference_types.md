@@ -397,5 +397,3 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInputData
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionOutputElement
-
-

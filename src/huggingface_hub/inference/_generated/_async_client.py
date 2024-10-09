@@ -50,6 +50,7 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
+    AudioClassificationOutputTransform,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
@@ -67,9 +68,12 @@ from huggingface_hub.inference._generated.types import (
     SummarizationOutput,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
+    TextClassificationOutputTransform,
     TextGenerationInputGrammarType,
     TextGenerationOutput,
     TextGenerationStreamOutput,
+    TextToImageTargetSize,
+    TextToSpeechEarlyStoppingEnum,
     TokenClassificationOutputElement,
     ToolElement,
     TranslationOutput,
@@ -78,6 +82,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotImageClassificationOutputElement,
 )
 from huggingface_hub.utils import build_hf_headers
+from huggingface_hub.utils._deprecation import _deprecate_arguments
 
 from .._common import _async_yield_from, _import_aiohttp
 
@@ -351,6 +356,8 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
+        top_k: Optional[int] = None,
+        function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
     ) -> List[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
@@ -363,6 +370,10 @@ class AsyncInferenceClient:
                 The model to use for audio classification. Can be a model ID hosted on the Hugging Face Hub
                 or a URL to a deployed Inference Endpoint. If not provided, the default recommended model for
                 audio classification will be used.
+            top_k (`int`, *optional*):
+                When specified, limits the output to the top K most probable classes.
+            function_to_apply (`"AudioClassificationOutputTransform"`, *optional*):
+                The function to apply to the output.
 
         Returns:
             `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -386,7 +397,19 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        response = await self.post(data=audio, model=model, task="audio-classification")
+        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
+        if all(parameter is None for parameter in parameters.values()):
+            # if no parameters are provided, send audio as raw data
+            data = audio
+            payload: Optional[Dict[str, Any]] = None
+        else:
+            # Or some parameters are provided -> send audio as base64 encoded string
+            data = None
+            payload = {"inputs": _b64_encode(audio)}
+            for key, value in parameters.items():
+                if value is not None:
+                    payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, data=data, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     async def audio_to_audio(
@@ -945,6 +968,14 @@ class AsyncInferenceClient:
         question: str,
         *,
         model: Optional[str] = None,
+        doc_stride: Optional[int] = None,
+        handle_impossible_answer: Optional[bool] = None,
+        lang: Optional[str] = None,
+        max_answer_len: Optional[int] = None,
+        max_question_len: Optional[int] = None,
+        max_seq_len: Optional[int] = None,
+        top_k: Optional[int] = None,
+        word_boxes: Optional[List[Union[List[float], str]]] = None,
     ) -> List[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
@@ -958,7 +989,29 @@ class AsyncInferenceClient:
                 The model to use for the document question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended document question answering model will be used.
                 Defaults to None.
-
+            doc_stride (`int`, *optional*):
+                If the words in the document are too long to fit with the question for the model, it will
+                be split in several chunks with some overlap. This argument controls the size of that
+                overlap.
+            handle_impossible_answer (`bool`, *optional*):
+                Whether to accept impossible as an answer.
+            lang (`str`, *optional*):
+                Language to use while running OCR.
+            max_answer_len (`int`, *optional*):
+                The maximum length of predicted answers (e.g., only answers with a shorter length are
+                considered).
+            max_question_len (`int`, *optional*):
+                The maximum length of the question after tokenization. It will be truncated if needed.
+            max_seq_len (`int`, *optional*):
+                The maximum length of the total sentence (context + question) in tokens of each chunk
+                passed to the model. The context will be split in several chunks (using doc_stride as
+                overlap) if needed.
+            top_k (`int`, *optional*):
+                The number of answers to return (will be chosen by order of likelihood). Can return less
+                than top_k answers if there are not enough options available within the context.
+            word_boxes (`List[Union[List[float], str]]`, *optional*):
+                A list of words and bounding boxes (normalized 0->1000). If provided, the inference will
+                skip the OCR step and use the provided bounding boxes instead.
         Returns:
             `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
@@ -968,16 +1021,30 @@ class AsyncInferenceClient:
             `aiohttp.ClientResponseError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
 
+
         Example:
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
-        [DocumentQuestionAnsweringOutputElement(score=0.42515629529953003, answer='us-001', start=16, end=16)]
+        [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16, words=None)]
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        parameters = {
+            "doc_stride": doc_stride,
+            "handle_impossible_answer": handle_impossible_answer,
+            "lang": lang,
+            "max_answer_len": max_answer_len,
+            "max_question_len": max_question_len,
+            "max_seq_len": max_seq_len,
+            "top_k": top_k,
+            "word_boxes": word_boxes,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
         response = await self.post(json=payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
@@ -1002,7 +1069,7 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint. If not provided, the default recommended conversational model will be used.
                 Defaults to None.
             normalize (`bool`, *optional*):
-                Whether to normalize the embeddings or not. Defaults to None.
+                Whether to normalize the embeddings or not.
                 Only available on server powered by Text-Embedding-Inference.
             prompt_name (`str`, *optional*):
                 The name of the prompt that should be used by for encoding. If not set, no prompt will be applied.
@@ -1011,7 +1078,7 @@ class AsyncInferenceClient:
                 then the sentence "What is the capital of France?" will be encoded as "query: What is the capital of France?"
                 because the prompt text will be prepended before any text to encode.
             truncate (`bool`, *optional*):
-                Whether to truncate the embeddings or not. Defaults to None.
+                Whether to truncate the embeddings or not.
                 Only available on server powered by Text-Embedding-Inference.
             truncation_direction (`Literal["Left", "Right"]`, *optional*):
                 Which side of the input should be truncated when `truncate=True` is passed.
@@ -1038,19 +1105,27 @@ class AsyncInferenceClient:
         ```
         """
         payload: Dict = {"inputs": text}
-        if normalize is not None:
-            payload["normalize"] = normalize
-        if prompt_name is not None:
-            payload["prompt_name"] = prompt_name
-        if truncate is not None:
-            payload["truncate"] = truncate
-        if truncation_direction is not None:
-            payload["truncation_direction"] = truncation_direction
+        parameters = {
+            "normalize": normalize,
+            "prompt_name": prompt_name,
+            "truncate": truncate,
+            "truncation_direction": truncation_direction,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
         response = await self.post(json=payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
-    async def fill_mask(self, text: str, *, model: Optional[str] = None) -> List[FillMaskOutputElement]:
+    async def fill_mask(
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        targets: Optional[List[str]] = None,
+        top_k: Optional[int] = None,
+    ) -> List[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
 
@@ -1060,8 +1135,13 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-                Defaults to None.
-
+            targets (`List[str]`, *optional*):
+                When passed, the model will limit the scores to the passed targets instead of looking up
+                in the whole vocabulary. If the provided targets are not in the model vocab, they will be
+                tokenized and the first resulting token will be used (with a warning, and that might be
+                slower).
+            top_k (`int`, *optional*):
+                When passed, overrides the number of predictions to return.
         Returns:
             `List[FillMaskOutputElement]`: a list of [`FillMaskOutputElement`] items containing the predicted label, associated
             probability, token reference, and completed text.
@@ -1084,7 +1164,12 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="fill-mask")
+        payload: Dict = {"inputs": text}
+        parameters = {"targets": targets, "top_k": top_k}
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
     async def image_classification(
@@ -1092,6 +1177,8 @@ class AsyncInferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
+        function_to_apply: Optional[Literal["sigmoid", "softmax", "none"]] = None,
+        top_k: Optional[int] = None,
     ) -> List[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
@@ -1102,7 +1189,10 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
-
+            function_to_apply (`Literal["sigmoid", "softmax", "none"]`, *optional*):
+                The function to apply to the output scores.
+            top_k (`int`, *optional*):
+                When specified, limits the output to the top K most probable classes.
         Returns:
             `List[ImageClassificationOutputElement]`: a list of [`ImageClassificationOutputElement`] items containing the predicted label and associated probability.
 
@@ -1118,10 +1208,23 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.image_classification("https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg")
-        [ImageClassificationOutputElement(score=0.9779096841812134, label='Blenheim spaniel'), ...]
+        [ImageClassificationOutputElement(label='Blenheim spaniel', score=0.9779096841812134), ...]
         ```
         """
-        response = await self.post(data=image, model=model, task="image-classification")
+        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
+
+        if all(parameter is None for parameter in parameters.values()):
+            data = image
+            payload: Optional[Dict[str, Any]] = None
+
+        else:
+            data = None
+            payload = {"inputs": _b64_encode(image)}
+            for key, value in parameters.items():
+                if value is not None:
+                    payload.setdefault("parameters", {})[key] = value
+
+        response = await self.post(json=payload, data=data, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     async def image_segmentation(
@@ -1129,6 +1232,10 @@ class AsyncInferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
+        mask_threshold: Optional[float] = None,
+        overlap_mask_area_threshold: Optional[float] = None,
+        subtask: Optional[Literal["instance", "panoptic", "semantic"]] = None,
+        threshold: Optional[float] = None,
     ) -> List[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
@@ -1145,7 +1252,14 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for image segmentation. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image segmentation will be used.
-
+            mask_threshold (`float`, *optional*):
+                Threshold to use when turning the predicted masks into binary values.
+            overlap_mask_area_threshold (`float`, *optional*):
+                Mask overlap threshold to eliminate small, disconnected segments.
+            subtask (`Literal["instance", "panoptic", "semantic"]`, *optional*):
+                Segmentation task to be performed, depending on model capabilities.
+            threshold (`float`, *optional*):
+                Probability threshold to filter out predicted masks.
         Returns:
             `List[ImageSegmentationOutputElement]`: A list of [`ImageSegmentationOutputElement`] items containing the segmented masks and associated attributes.
 
@@ -1160,11 +1274,28 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> await client.image_segmentation("cat.jpg"):
+        >>> await client.image_segmentation("cat.jpg")
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
-        response = await self.post(data=image, model=model, task="image-segmentation")
+        parameters = {
+            "mask_threshold": mask_threshold,
+            "overlap_mask_area_threshold": overlap_mask_area_threshold,
+            "subtask": subtask,
+            "threshold": threshold,
+        }
+        if all(parameter is None for parameter in parameters.values()):
+            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
+            data = image
+            payload: Optional[Dict[str, Any]] = None
+        else:
+            # if parameters are provided, the image needs to be a base64-encoded string
+            data = None
+            payload = {"inputs": _b64_encode(image)}
+            for key, value in parameters.items():
+                if value is not None:
+                    payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, data=data, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1245,7 +1376,7 @@ class AsyncInferenceClient:
             data = image
             payload: Optional[Dict[str, Any]] = None
         else:
-            # Or an image + some parameters => use base64 encoding
+            # if parameters are provided, the image needs to be a base64-encoded string
             data = None
             payload = {"inputs": _b64_encode(image)}
             for key, value in parameters.items():
@@ -1383,10 +1514,7 @@ class AsyncInferenceClient:
         return models_by_task
 
     async def object_detection(
-        self,
-        image: ContentT,
-        *,
-        model: Optional[str] = None,
+        self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
     ) -> List[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
@@ -1403,7 +1531,8 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for object detection. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for object detection (DETR) will be used.
-
+            threshold (`float`, *optional*):
+                The probability necessary to make a prediction.
         Returns:
             `List[ObjectDetectionOutputElement]`: A list of [`ObjectDetectionOutputElement`] items containing the bounding boxes and associated attributes.
 
@@ -1424,13 +1553,37 @@ class AsyncInferenceClient:
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
-        # detect objects
-        response = await self.post(data=image, model=model, task="object-detection")
+        parameters = {
+            "threshold": threshold,
+        }
+        if all(parameter is None for parameter in parameters.values()):
+            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
+            data = image
+            payload: Optional[Dict[str, Any]] = None
+        else:
+            # if parameters are provided, the image needs to be a base64-encoded string
+            data = None
+            payload = {"inputs": _b64_encode(image)}
+            for key, value in parameters.items():
+                if value is not None:
+                    payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, data=data, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     async def question_answering(
-        self, question: str, context: str, *, model: Optional[str] = None
-    ) -> QuestionAnsweringOutputElement:
+        self,
+        question: str,
+        context: str,
+        *,
+        model: Optional[str] = None,
+        align_to_words: Optional[bool] = None,
+        doc_stride: Optional[int] = None,
+        handle_impossible_answer: Optional[bool] = None,
+        max_answer_len: Optional[int] = None,
+        max_question_len: Optional[int] = None,
+        max_seq_len: Optional[int] = None,
+        top_k: Optional[int] = None,
+    ) -> Union[QuestionAnsweringOutputElement, List[QuestionAnsweringOutputElement]]:
         """
         Retrieve the answer to a question from a given text.
 
@@ -1442,10 +1595,31 @@ class AsyncInferenceClient:
             model (`str`):
                 The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
-
+            align_to_words (`bool`, *optional*):
+                Attempts to align the answer to real words. Improves quality on space separated
+                languages. Might hurt on non-space-separated languages (like Japanese or Chinese).
+            doc_stride (`int`, *optional*):
+                If the context is too long to fit with the question for the model, it will be split in
+                several chunks with some overlap. This argument controls the size of that overlap.
+            handle_impossible_answer (`bool`, *optional*):
+                Whether to accept impossible as an answer.
+            max_answer_len (`int`, *optional*):
+                The maximum length of predicted answers (e.g., only answers with a shorter length are
+                considered).
+            max_question_len (`int`, *optional*):
+                The maximum length of the question after tokenization. It will be truncated if needed.
+            max_seq_len (`int`, *optional*):
+                The maximum length of the total sentence (context + question) in tokens of each chunk
+                passed to the model. The context will be split in several chunks (using docStride as
+                overlap) if needed.
+            top_k (`int`, *optional*):
+                The number of answers to return (will be chosen by order of likelihood). Note that we
+                return less than topk answers if there are not enough options available within the
+                context.
         Returns:
-            [`QuestionAnsweringOutputElement`]: an question answering output containing the score, start index, end index, and answer.
-
+            Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
+                When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
+                When top_k is greater than 1, it returns a list of `QuestionAnsweringOutputElement`.
         Raises:
             [`InferenceTimeoutError`]:
                 If the model is unavailable or the request times out.
@@ -1458,17 +1632,30 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.question_answering(question="What's my name?", context="My name is Clara and I live in Berkeley.")
-        QuestionAnsweringOutputElement(score=0.9326562285423279, start=11, end=16, answer='Clara')
+        QuestionAnsweringOutputElement(answer='Clara', end=16, score=0.9326565265655518, start=11)
         ```
         """
-
+        parameters = {
+            "align_to_words": align_to_words,
+            "doc_stride": doc_stride,
+            "handle_impossible_answer": handle_impossible_answer,
+            "max_answer_len": max_answer_len,
+            "max_question_len": max_question_len,
+            "max_seq_len": max_seq_len,
+            "top_k": top_k,
+        }
         payload: Dict[str, Any] = {"question": question, "context": context}
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
         response = await self.post(
             json=payload,
             model=model,
             task="question-answering",
         )
-        return QuestionAnsweringOutputElement.parse_obj_as_instance(response)
+        # Parse the response as a single `QuestionAnsweringOutputElement` when top_k is 1 or not provided, or a list of `QuestionAnsweringOutputElement` to ensure backward compatibility.
+        output = QuestionAnsweringOutputElement.parse_obj(response)
+        return output
 
     async def sentence_similarity(
         self, sentence: str, other_sentences: List[str], *, model: Optional[str] = None
@@ -1518,12 +1705,23 @@ class AsyncInferenceClient:
         )
         return _bytes_to_list(response)
 
+    @_deprecate_arguments(
+        version="0.29",
+        deprecated_args=["parameters"],
+        custom_message=(
+            "The `parameters` argument is deprecated and will be removed in a future version. "
+            "Provide individual parameters instead: `clean_up_tokenization_spaces`, `generate_parameters`, and `truncation`."
+        ),
+    )
     async def summarization(
         self,
         text: str,
         *,
         parameters: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
+        clean_up_tokenization_spaces: Optional[bool] = None,
+        generate_parameters: Optional[Dict[str, Any]] = None,
+        truncation: Optional[Literal["do_not_truncate", "longest_first", "only_first", "only_second"]] = None,
     ) -> SummarizationOutput:
         """
         Generate a summary of a given text using a specified model.
@@ -1536,8 +1734,13 @@ class AsyncInferenceClient:
                 for more details.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
-
+                Inference Endpoint. If not provided, the default recommended model for summarization will be used.
+            clean_up_tokenization_spaces (`bool`, *optional*):
+                Whether to clean up the potential extra spaces in the text output.
+            generate_parameters (`Dict[str, Any]`, *optional*):
+                Additional parametrization of the text generation algorithm.
+            truncation (`Literal["do_not_truncate", "longest_first", "only_first", "only_second"]`, *optional*):
+                The truncation strategy to use.
         Returns:
             [`SummarizationOutput`]: The generated summary text.
 
@@ -1559,11 +1762,25 @@ class AsyncInferenceClient:
         payload: Dict[str, Any] = {"inputs": text}
         if parameters is not None:
             payload["parameters"] = parameters
+        else:
+            parameters = {
+                "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+                "generate_parameters": generate_parameters,
+                "truncation": truncation,
+            }
+            for key, value in parameters.items():
+                if value is not None:
+                    payload.setdefault("parameters", {})[key] = value
         response = await self.post(json=payload, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
     async def table_question_answering(
-        self, table: Dict[str, Any], query: str, *, model: Optional[str] = None
+        self,
+        table: Dict[str, Any],
+        query: str,
+        *,
+        model: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
     ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
@@ -1577,6 +1794,8 @@ class AsyncInferenceClient:
             model (`str`):
                 The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face
                 Hub or a URL to a deployed Inference Endpoint.
+            parameters (`Dict[str, Any]`, *optional*):
+                Additional inference parameters. Defaults to None.
 
         Returns:
             [`TableQuestionAnsweringOutputElement`]: a table question answering output containing the answer, coordinates, cells and the aggregator used.
@@ -1598,11 +1817,15 @@ class AsyncInferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
+        payload: Dict[str, Any] = {
+            "query": query,
+            "table": table,
+        }
+
+        if parameters is not None:
+            payload["parameters"] = parameters
         response = await self.post(
-            json={
-                "query": query,
-                "table": table,
-            },
+            json=payload,
             model=model,
             task="table-question-answering",
         )
@@ -1696,7 +1919,12 @@ class AsyncInferenceClient:
         return _bytes_to_list(response)
 
     async def text_classification(
-        self, text: str, *, model: Optional[str] = None
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        top_k: Optional[int] = None,
+        function_to_apply: Optional["TextClassificationOutputTransform"] = None,
     ) -> List[TextClassificationOutputElement]:
         """
         Perform text classification (e.g. sentiment-analysis) on the given text.
@@ -1708,6 +1936,10 @@ class AsyncInferenceClient:
                 The model to use for the text classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended text classification model will be used.
                 Defaults to None.
+            top_k (`int`, *optional*):
+                When specified, limits the output to the top K most probable classes.
+            function_to_apply (`"TextClassificationOutputTransform"`, *optional*):
+                The function to apply to the output.
 
         Returns:
             `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
@@ -1730,7 +1962,15 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        response = await self.post(json={"inputs": text}, model=model, task="text-classification")
+        payload: Dict[str, Any] = {"inputs": text}
+        parameters = {
+            "function_to_apply": function_to_apply,
+            "top_k": top_k,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, model=model, task="text-classification")
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
@@ -2240,6 +2480,9 @@ class AsyncInferenceClient:
         num_inference_steps: Optional[float] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
+        scheduler: Optional[str] = None,
+        target_size: Optional[TextToImageTargetSize] = None,
+        seed: Optional[int] = None,
         **kwargs,
     ) -> "Image":
         """
@@ -2268,7 +2511,14 @@ class AsyncInferenceClient:
                 usually at the expense of lower image quality.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+                Inference Endpoint. If not provided, the default recommended text-to-image model will be used.
+                Defaults to None.
+            scheduler (`str`, *optional*):
+                Override the scheduler with a compatible one.
+            target_size (`TextToImageTargetSize`, *optional*):
+                The size in pixel of the output image
+            seed (`int`, *optional*):
+                Seed for the random number generator.
 
         Returns:
             `Image`: The generated image.
@@ -2303,6 +2553,9 @@ class AsyncInferenceClient:
             "width": width,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
+            "scheduler": scheduler,
+            "target_size": target_size,
+            "seed": seed,
             **kwargs,
         }
         for key, value in parameters.items():
@@ -2311,7 +2564,28 @@ class AsyncInferenceClient:
         response = await self.post(json=payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
-    async def text_to_speech(self, text: str, *, model: Optional[str] = None) -> bytes:
+    async def text_to_speech(
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        do_sample: Optional[bool] = None,
+        early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
+        epsilon_cutoff: Optional[float] = None,
+        eta_cutoff: Optional[float] = None,
+        max_length: Optional[int] = None,
+        max_new_tokens: Optional[int] = None,
+        min_length: Optional[int] = None,
+        min_new_tokens: Optional[int] = None,
+        num_beam_groups: Optional[int] = None,
+        num_beams: Optional[int] = None,
+        penalty_alpha: Optional[float] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
+        typical_p: Optional[float] = None,
+        use_cache: Optional[bool] = None,
+    ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
 
@@ -2320,7 +2594,56 @@ class AsyncInferenceClient:
                 The text to synthesize.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+                Inference Endpoint. If not provided, the default recommended text-to-speech model will be used.
+                Defaults to None.
+            do_sample (`bool`, *optional*):
+                Whether to use sampling instead of greedy decoding when generating new tokens.
+            early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"`, *optional*):
+                Controls the stopping condition for beam-based methods.
+            epsilon_cutoff (`float`, *optional*):
+                If set to float strictly between 0 and 1, only tokens with a conditional probability
+                greater than epsilon_cutoff will be sampled. In the paper, suggested values range from
+                3e-4 to 9e-4, depending on the size of the model. See [Truncation Sampling as Language
+                Model Desmoothing](https://hf.co/papers/2210.15191) for more details.
+            eta_cutoff (`float`, *optional*):
+                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to
+                float strictly between 0 and 1, a token is only considered if it is greater than either
+                eta_cutoff or sqrt(eta_cutoff) * exp(-entropy(softmax(next_token_logits))). The latter
+                term is intuitively the expected next token probability, scaled by sqrt(eta_cutoff). In
+                the paper, suggested values range from 3e-4 to 2e-3, depending on the size of the model.
+                See [Truncation Sampling as Language Model Desmoothing](https://hf.co/papers/2210.15191)
+                for more details.
+            max_length (`int`, *optional*):
+                The maximum length (in tokens) of the generated text, including the input.
+            max_new_tokens (`int`, *optional*):
+                The maximum number of tokens to generate. Takes precedence over maxLength.
+            min_length (`int`, *optional*):
+                The minimum length (in tokens) of the generated text, including the input.
+            min_new_tokens (`int`, *optional*):
+                The minimum number of tokens to generate. Takes precedence over maxLength.
+            num_beam_groups (`int`, *optional*):
+                Number of groups to divide num_beams into in order to ensure diversity among different
+                groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
+            num_beams (`int`, *optional*):
+                Number of beams to use for beam search.
+            penalty_alpha (`float`, *optional*):
+                The value balances the model confidence and the degeneration penalty in contrastive
+                search decoding.
+            temperature (`float`, *optional*):
+                The value used to modulate the next token probabilities.
+            top_k (`int`, *optional*):
+                The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            top_p (`float`, *optional*):
+                If set to float < 1, only the smallest set of most probable tokens with probabilities
+                that add up to top_p or higher are kept for generation.
+            typical_p (`float`, *optional*):
+                Local typicality measures how similar the conditional probability of predicting a target token next is
+                to the expected conditional probability of predicting a random token next, given the partial text
+                already generated. If set to float < 1, the smallest set of the most locally typical tokens with
+                probabilities that add up to typical_p or higher are kept for generation. See [this
+                paper](https://hf.co/papers/2202.00666) for more details.
+            use_cache (`bool`, *optional*):
+                Whether the model should use the past last key/values attentions to speed up decoding
 
         Returns:
             `bytes`: The generated audio.
@@ -2342,10 +2665,39 @@ class AsyncInferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        return await self.post(json={"inputs": text}, model=model, task="text-to-speech")
+        payload: Dict[str, Any] = {"inputs": text}
+        parameters = {
+            "do_sample": do_sample,
+            "early_stopping": early_stopping,
+            "epsilon_cutoff": epsilon_cutoff,
+            "eta_cutoff": eta_cutoff,
+            "max_length": max_length,
+            "max_new_tokens": max_new_tokens,
+            "min_length": min_length,
+            "min_new_tokens": min_new_tokens,
+            "num_beam_groups": num_beam_groups,
+            "num_beams": num_beams,
+            "penalty_alpha": penalty_alpha,
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_p": top_p,
+            "typical_p": typical_p,
+            "use_cache": use_cache,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
+        response = await self.post(json=payload, model=model, task="text-to-speech")
+        return response
 
     async def token_classification(
-        self, text: str, *, model: Optional[str] = None
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        aggregation_strategy: Optional[Literal["none", "simple", "first", "average", "max"]] = None,
+        ignore_labels: Optional[List[str]] = None,
+        stride: Optional[int] = None,
     ) -> List[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
@@ -2358,6 +2710,12 @@ class AsyncInferenceClient:
                 The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
                 Defaults to None.
+            aggregation_strategy (`Literal["none", "simple", "first", "average", "max"]`, *optional*):
+                The strategy used to fuse tokens based on model predictions.
+            ignore_labels (`List[str]`, *optional*):
+                A list of labels to ignore.
+            stride (`int`, *optional*):
+                The number of overlapping tokens between chunks when splitting the input text.
 
         Returns:
             `List[TokenClassificationOutputElement]`: List of [`TokenClassificationOutputElement`] items containing the entity group, confidence score, word, start and end index.
@@ -2393,6 +2751,14 @@ class AsyncInferenceClient:
         ```
         """
         payload: Dict[str, Any] = {"inputs": text}
+        parameters = {
+            "aggregation_strategy": aggregation_strategy,
+            "ignore_labels": ignore_labels,
+            "stride": stride,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
         response = await self.post(
             json=payload,
             model=model,
@@ -2401,7 +2767,15 @@ class AsyncInferenceClient:
         return TokenClassificationOutputElement.parse_obj_as_list(response)
 
     async def translation(
-        self, text: str, *, model: Optional[str] = None, src_lang: Optional[str] = None, tgt_lang: Optional[str] = None
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        src_lang: Optional[str] = None,
+        tgt_lang: Optional[str] = None,
+        clean_up_tokenization_spaces: Optional[bool] = None,
+        truncation: Optional[Literal["do_not_truncate", "longest_first", "only_first", "only_second"]] = None,
+        generate_parameters: Optional[Dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -2410,7 +2784,6 @@ class AsyncInferenceClient:
         your specific use case. Source and target languages usually depend on the model.
         However, it is possible to specify source and target languages for certain models. If you are working with one of these models,
         you can use `src_lang` and `tgt_lang` arguments to pass the relevant information.
-        You can find this information in the model card.
 
         Args:
             text (`str`):
@@ -2420,9 +2793,15 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint. If not provided, the default recommended translation model will be used.
                 Defaults to None.
             src_lang (`str`, *optional*):
-                Source language of the translation task, i.e. input language. Cannot be passed without `tgt_lang`.
+                The source language of the text. Required for models that can translate from multiple languages.
             tgt_lang (`str`, *optional*):
-                Target language of the translation task, i.e. output language. Cannot be passed without `src_lang`.
+                Target language to translate to. Required for models that can translate to multiple languages.
+            clean_up_tokenization_spaces (`bool`, *optional*):
+                Whether to clean up the potential extra spaces in the text output.
+            truncation (`Literal["do_not_truncate", "longest_first", "only_first", "only_second"]`, *optional*):
+                The truncation strategy to use.
+            generate_parameters (`Dict[str, Any]`, *optional*):
+                Additional parametrization of the text generation algorithm.
 
         Returns:
             [`TranslationOutput`]: The generated translated text.
@@ -2458,11 +2837,17 @@ class AsyncInferenceClient:
 
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
-
-        # If both `src_lang` and `tgt_lang` are given, pass them to the request body
-        payload: Dict = {"inputs": text}
-        if src_lang and tgt_lang:
-            payload["parameters"] = {"src_lang": src_lang, "tgt_lang": tgt_lang}
+        payload: Dict[str, Any] = {"inputs": text}
+        parameters = {
+            "src_lang": src_lang,
+            "tgt_lang": tgt_lang,
+            "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
+            "truncation": truncation,
+            "generate_parameters": generate_parameters,
+        }
+        for key, value in parameters.items():
+            if value is not None:
+                payload.setdefault("parameters", {})[key] = value
         response = await self.post(json=payload, model=model, task="translation")
         return TranslationOutput.parse_obj_as_list(response)[0]
 
@@ -2472,6 +2857,7 @@ class AsyncInferenceClient:
         question: str,
         *,
         model: Optional[str] = None,
+        top_k: Optional[int] = None,
     ) -> List[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
@@ -2485,7 +2871,10 @@ class AsyncInferenceClient:
                 The model to use for the visual question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
                 Defaults to None.
-
+            top_k (`int`, *optional*):
+                The number of answers to return (will be chosen by order of likelihood). Note that we
+                return less than topk answers if there are not enough options available within the
+                context.
         Returns:
             `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
@@ -2511,6 +2900,8 @@ class AsyncInferenceClient:
         ```
         """
         payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        if top_k is not None:
+            payload.setdefault("parameters", {})["top_k"] = top_k
         response = await self.post(json=payload, model=model, task="visual-question-answering")
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
@@ -2541,7 +2932,7 @@ class AsyncInferenceClient:
                 The model then evaluates for both hypotheses if they are entailed in the provided `text` or not.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+                Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot classification model will be used.
 
         Returns:
             `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -2620,7 +3011,12 @@ class AsyncInferenceClient:
         ]
 
     async def zero_shot_image_classification(
-        self, image: ContentT, labels: List[str], *, model: Optional[str] = None
+        self,
+        image: ContentT,
+        labels: List[str],
+        *,
+        model: Optional[str] = None,
+        hypothesis_template: Optional[str] = None,
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -2632,8 +3028,10 @@ class AsyncInferenceClient:
                 List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
-                Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
-
+                Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
+            hypothesis_template (`str`, *optional*):
+                The sentence used in conjunction with `labels` to attempt the text classification by replacing the
+                placeholder with the candidate labels.
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
@@ -2660,8 +3058,13 @@ class AsyncInferenceClient:
         if len(labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
 
+        payload = {
+            "inputs": {"image": _b64_encode(image), "candidateLabels": ",".join(labels)},
+        }
+        if hypothesis_template is not None:
+            payload.setdefault("parameters", {})["hypothesis_template"] = hypothesis_template
         response = await self.post(
-            json={"image": _b64_encode(image), "parameters": {"candidate_labels": ",".join(labels)}},
+            json=payload,
             model=model,
             task="zero-shot-image-classification",
         )

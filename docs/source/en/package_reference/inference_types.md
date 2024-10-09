@@ -398,5 +398,3 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInputData
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionOutputElement
-
-
