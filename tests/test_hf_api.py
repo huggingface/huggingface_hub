@@ -4106,6 +4106,28 @@ class UserApiTest(unittest.TestCase):
         assert len(list(following)) > 500
 
 
+class PaperApiTest(unittest.TestCase):
+    @classmethod
+    @with_production_testing
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
+
+    def test_papers_by_query(self) -> None:
+        papers = list(self.api.list_papers(query="llama"))
+        assert len(papers) > 0
+        assert "The Llama 3 Herd of Models" in [paper.title for paper in papers]
+
+    def test_get_paper_by_id_success(self) -> None:
+        paper = self.api.paper_info("2407.21783")
+        assert paper.title == "The Llama 3 Herd of Models"
+
+    def test_get_paper_by_id_not_found(self) -> None:
+        with self.assertRaises(HfHubHTTPError) as context:
+            self.api.paper_info("1234.56789")
+        assert context.exception.response.status_code == 404
+
+
 class WebhookApiTest(HfApiCommonTest):
     def setUp(self) -> None:
         super().setUp()

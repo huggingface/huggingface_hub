@@ -216,6 +216,7 @@ _SUBMOD_ATTRS = {
         "list_metrics",
         "list_models",
         "list_organization_members",
+        "list_papers",
         "list_pending_access_requests",
         "list_rejected_access_requests",
         "list_repo_commits",
@@ -230,6 +231,7 @@ _SUBMOD_ATTRS = {
         "merge_pull_request",
         "model_info",
         "move_repo",
+        "paper_info",
         "parse_safetensors_file_metadata",
         "pause_inference_endpoint",
         "pause_space",
@@ -741,6 +743,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_metrics,  # noqa: F401
         list_models,  # noqa: F401
         list_organization_members,  # noqa: F401
+        list_papers,  # noqa: F401
         list_pending_access_requests,  # noqa: F401
         list_rejected_access_requests,  # noqa: F401
         list_repo_commits,  # noqa: F401
@@ -755,6 +758,7 @@ if TYPE_CHECKING:  # pragma: no cover
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
         move_repo,  # noqa: F401
+        paper_info,  # noqa: F401
         parse_safetensors_file_metadata,  # noqa: F401
         pause_inference_endpoint,  # noqa: F401
         pause_space,  # noqa: F401
