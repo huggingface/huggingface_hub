@@ -62,6 +62,7 @@ from .utils import (
     is_tf_available,  # noqa: F401 # for backward compatibility
     is_torch_available,  # noqa: F401 # for backward compatibility
     logging,
+    refresh_xet_metadata,
     reset_sessions,
     tqdm,
     validate_hf_hub_args,
@@ -1943,8 +1944,19 @@ def _download_to_tmp_and_move(
                     "package is not available in your environment. Try pip install hf_xet."
                 )
 
+            def token_refresher() -> Tuple[str, int]:
+                xet_metadata = refresh_xet_metadata(xet, headers)
+                if xet_metadata is None:
+                    raise ValueError("Failed to refresh token using xet metadata.")
+                return xet_metadata.access_token, xet_metadata.expiration_unix_epoch
+
             py_file = [PyPointerFile(path=str(incomplete_path.absolute()), hash=etag, filesize=expected_size)]
-            download_files(py_file, endpoint=xet.endpoint, token=xet.access_token)
+            download_files(
+                py_file,
+                endpoint=xet.endpoint,
+                token_info=(xet.access_token, xet.expiration_unix_epoch),
+                token_refresher=token_refresher,
+            )
             # TODO: xetpoc - the http_get path is building this out, so we're replicating that logic here
             parent_dir = destination_path.parent
             if not parent_dir.exists():

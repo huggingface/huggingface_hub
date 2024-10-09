@@ -1,15 +1,19 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, Optional, Union
 
 from requests.structures import CaseInsensitiveDict
 
 from .. import constants
+from . import get_session, validate_hf_hub_args
 
 
 @dataclass(frozen=True)
 class HfXetMetadata:
     endpoint: str
     access_token: str
+    expiration_unix_epoch: int
+    refresh_route: Optional[str] = None
 
 
 def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]]) -> Optional[HfXetMetadata]:
@@ -22,7 +26,126 @@ def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]
     """
     xet_endpoint = headers.get(constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT)
     access_token = headers.get(constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN)
+    expiration = headers.get(constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION)
+    refresh_route = headers.get(constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE)
 
-    if xet_endpoint is None or access_token is None:
+    if xet_endpoint is None or access_token is None or expiration is None:
         return None
-    return HfXetMetadata(endpoint=xet_endpoint, access_token=access_token)
+
+    try:
+        expiration_unix_epoch = int(expiration)
+    except (ValueError, TypeError):
+        return None
+
+    return HfXetMetadata(
+        endpoint=xet_endpoint,
+        access_token=access_token,
+        expiration_unix_epoch=expiration_unix_epoch,
+        refresh_route=refresh_route,
+    )
+
+
+class XetTokenType(str, Enum):
+    READ = "read"
+    WRITE = "write"
+
+
+@validate_hf_hub_args
+def refresh_xet_metadata(
+    xet: HfXetMetadata,
+    headers: Dict[str, str],
+    endpoint: Optional[str] = None,
+) -> HfXetMetadata:
+    """
+    Utilizes the information in the parsed metadata to request the Hub xet access token.
+
+    Args:
+        xet: (`HfXetMetadata`):
+            The xet metadata provided by the Hub API.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        endpoint (`str`, `optional`):
+            The endpoint to use for the request. Defaults to the Hub endpoint.
+    Returns:
+        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    if xet.refresh_route is None:
+        raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
+    url = f"{endpoint}{xet.refresh_route}"
+    return _fetch_xet_token_with_url(url, headers)
+
+
+@validate_hf_hub_args
+def fetch_xet_token_from_repo_info(
+    token_type: XetTokenType,
+    repo_type: str,
+    repo_id: str,
+    headers: Dict[str, str],
+    revision: Optional[str] = None,
+    endpoint: Optional[str] = None,
+) -> HfXetMetadata:
+    """
+    Uses the repo info to request a xet access token from Hub.
+
+    Args:
+        token_type (`XetTokenType`):
+            Type of the token to request: `"read"` or `"write"`.
+        repo_type (`str`):
+            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
+        repo_id (`str`):
+            A namespace (user or an organization) and a repo name separated
+            by a `/`.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+        revision (`str`, `optional`):
+            The revision of the repo to get the token for.
+        endpoint (`str`, `optional`):
+            The endpoint to use for the request. Defaults to the Hub endpoint.
+    Returns:
+        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
+    url = f"{endpoint}/api/{repo_type}s/{repo_id}/xet-{token_type.value}-token/{revision}"
+    return _fetch_xet_token_with_url(url, headers)
+
+
+@validate_hf_hub_args
+def _fetch_xet_token_with_url(
+    url: str,
+    headers: Dict[str, str],
+) -> HfXetMetadata:
+    """
+    Requests the xet access token from the supplied URL.
+
+    Args:
+        url: (`str`):
+            The access token endpoint URL.
+        headers (`Dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+    Returns:
+        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    resp = get_session().get(
+        headers=headers,
+        url=url,
+    )
+    metadata = xet_metadata_or_none(resp.headers)
+    if metadata is None:
+        raise ValueError("Xet headers have not been correctly set by the server.")
+    return metadata

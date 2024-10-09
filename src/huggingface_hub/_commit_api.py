@@ -21,15 +21,15 @@ from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
-    HfXetMetadata,
+    XetTokenType,
     chunk_iterable,
+    fetch_xet_token_from_repo_info,
     get_session,
     hf_raise_for_status,
     logging,
     sha,
     tqdm_stream_file,
     validate_hf_hub_args,
-    xet_metadata_or_none,
 )
 from .utils import tqdm as hf_tqdm
 
@@ -455,45 +455,6 @@ def _upload_lfs_files(
 
 
 @validate_hf_hub_args
-def _fetch_xet_token(
-    repo_type: str,
-    repo_id: str,
-    headers: Dict[str, str],
-    revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
-) -> HfXetMetadata:
-    """
-    Requests the Hub "xet-access-token" endpoint to get a write access token for storing in xet storage.
-
-    Args:
-        repo_type (`str`):
-            Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
-        repo_id (`str`):
-            A namespace (user or an organization) and a repo name separated
-            by a `/`.
-        headers (`Dict[str, str]`):
-            Headers to use for the request, including authorization headers and user agent.
-    Returns:
-        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
-    Raises:
-        [`~utils.HfHubHTTPError`]
-            If the Hub API returned an error.
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If the Hub API response is improperly formatted.
-    """
-    endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-
-    resp = get_session().get(
-        f"{endpoint}/api/{repo_type}s/{repo_id}/xet-access-token/{revision}",
-        headers=headers,
-    )
-    metadata = xet_metadata_or_none(resp.headers)
-    if metadata is None:
-        raise ValueError("Xet headers have not been correctly set by the server.")
-    return metadata
-
-
-@validate_hf_hub_args
 def _upload_xet_files(
     *,
     additions: List[CommitOperationAdd],
@@ -538,20 +499,40 @@ def _upload_xet_files(
             "package is not available in your environment. Try pip install hf_xet."
         )
 
-    xet_meta = _fetch_xet_token(repo_type, repo_id, headers, revision, endpoint)
+    xet_meta = fetch_xet_token_from_repo_info(
+        token_type=XetTokenType.WRITE,
+        repo_type=repo_type,
+        repo_id=repo_id,
+        headers=headers,
+        revision=revision,
+        endpoint=endpoint,
+    )
     if xet_meta is None:
         raise ValueError(
             f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
             f"Please check that you have configured your access token with write access to the repo."
         )
     xet_endpoint = xet_meta.endpoint
-    access_token = xet_meta.access_token
+    access_token_info = (xet_meta.access_token, xet_meta.expiration_unix_epoch)
+
+    def token_refresher() -> Tuple[str, int]:
+        xet_metadata = fetch_xet_token_from_repo_info(
+            token_type=XetTokenType.WRITE,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            headers=headers,
+            revision=revision,
+            endpoint=endpoint,
+        )
+        if xet_metadata is None:
+            raise ValueError("Failed to refresh xet token")
+        return xet_metadata.access_token, xet_metadata.expiration_unix_epoch
 
     for chunk in chunk_iterable(additions, chunk_size=256):
         _chunk = [op for op in chunk]
         chunk_map: Dict[str, CommitOperationAdd] = {str(op.path_or_fileobj): op for op in _chunk}
         paths = [str(op.path_or_fileobj) for op in _chunk]
-        pointer_files: List[PyPointerFile] = upload_files(paths, xet_endpoint, access_token)
+        pointer_files: List[PyPointerFile] = upload_files(paths, xet_endpoint, access_token_info, token_refresher)
         for pf in pointer_files:
             path = pf.path
             op = chunk_map[path]

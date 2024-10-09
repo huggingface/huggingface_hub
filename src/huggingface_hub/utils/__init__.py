@@ -117,7 +117,13 @@ from ._validators import (
     validate_hf_hub_args,
     validate_repo_id,
 )
-from ._xet import HfXetMetadata, xet_metadata_or_none
+from ._xet import (
+    HfXetMetadata,
+    XetTokenType,
+    fetch_xet_token_from_repo_info,
+    refresh_xet_metadata,
+    xet_metadata_or_none,
+)
 from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,
