@@ -9744,16 +9744,22 @@ class HfApi:
         token: Union[bool, str, None] = None,
     ) -> Iterable[PaperInfo]:
         """
-        List daily papers on the Hugging Face Hub, given a date or a search query.
+        List daily papers on the Hugging Face Hub given a search query.
 
         Args:
             query (`str`, *optional*):
                 A search query string to find papers.
                 If provided, returns papers that match the query.
+            token (Union[bool, str, None], *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
         Returns:
             `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
 
-        Example usage with the `query` argument:
+        Example:
 
         ```python
         >>> from huggingface_hub import HfApi
