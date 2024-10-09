@@ -9740,38 +9740,18 @@ class HfApi:
     def list_papers(
         self,
         *,
-        date: Optional[str] = None,
         query: Optional[str] = None,
+        token: Union[bool, str, None] = None,
     ) -> Iterable[PaperInfo]:
         """
         List daily papers on the Hugging Face Hub, given a date or a search query.
 
         Args:
-            date (`str`, *optional*):
-                The date to retrieve papers for, in the format 'YYYY-MM-DD'.
-                If provided, returns papers submitted on this date.
             query (`str`, *optional*):
                 A search query string to find papers.
                 If provided, returns papers that match the query.
         Returns:
             `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
-
-        Raises:
-            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
-                HTTP 400 if the date is invalid.
-            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-                If neither `date` nor `query` is provided.
-
-        Example usage with the `date` argument:
-
-        ```python
-        >>> from huggingface_hub import HfApi
-
-        >>> api = HfApi()
-
-        # List all papers submitted on a specific date
-        >>> api.list_papers(date="2024-09-17")
-        ```
 
         Example usage with the `query` argument:
 
@@ -9784,19 +9764,14 @@ class HfApi:
         >>> api.list_papers(query="attention")
         ```
         """
-        if date is None and query is None:
-            raise ValueError("Provide one of `date` or `query`.")
         path = f"{self.endpoint}/api/papers/search"
         params = {}
-        if date:
-            params["date"] = date
         if query:
             params["q"] = query
         r = get_session().get(
             path,
             params=params,
-          
-  headers=self._build_hf_headers(token=token),
+            headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
         for paper in r.json():
