@@ -10,12 +10,7 @@ from . import constants
 from .errors import GatedRepoError, LocalEntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import REGEX_COMMIT_HASH, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, ModelInfo, SpaceInfo
-from .utils import (
-    OfflineModeIsEnabled,
-    filter_repo_objects,
-    logging,
-    validate_hf_hub_args,
-)
+from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils import tqdm as hf_tqdm
 
 
@@ -191,6 +186,7 @@ def snapshot_download(
     # => let's look if we can find the appropriate folder in the cache:
     #    - if the specified revision is a commit hash, look inside "snapshots".
     #    - f the specified revision is a branch or tag, look inside "refs".
+    # => if local_dir is not None, we will return the path to the local folder if it exists.
     if repo_info is None:
         # Try to get which commit hash corresponds to the specified revision
         commit_hash = None
@@ -210,7 +206,14 @@ def snapshot_download(
                 # Snapshot folder exists => let's return it
                 # (but we can't check if all the files are actually there)
                 return snapshot_folder
-
+        # If local_dir is not None, return it if it exists and is not empty
+        if local_dir is not None:
+            local_dir = Path(local_dir)
+            if local_dir.is_dir() and any(local_dir.iterdir()):
+                logger.warning(
+                    f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
+                )
+                return str(local_dir.resolve())
         # If we couldn't find the appropriate folder on disk, raise an error.
         if local_files_only:
             raise LocalEntryNotFoundError(
