@@ -15,6 +15,7 @@
 
 import os
 import subprocess
+import warnings
 from functools import partial
 from getpass import getpass
 from pathlib import Path
@@ -33,7 +34,15 @@ from .utils import (
     set_git_credential,
     unset_git_credential,
 )
-from .utils._token import _get_token_from_environment, _get_token_from_google_colab
+from .utils._auth import (
+    _get_token_by_name,
+    _get_token_from_environment,
+    _get_token_from_file,
+    _get_token_from_google_colab,
+    _save_stored_tokens,
+    _save_token,
+    get_stored_tokens,
+)
 
 
 logger = logging.get_logger(__name__)
@@ -115,23 +124,34 @@ def login(
         interpreter_login(new_session=new_session, write_permission=write_permission)
 
 
-def logout() -> None:
+def logout(token_name: Optional[str] = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
+
+    Args:
+        token_name (`str`, *optional*):
+            Name of the access token to logout from. If `None`, will logout from all saved access tokens.
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the access token name is not found.
     """
-    if get_token() is None:
+    if get_token() is None and not get_stored_tokens():  # No active token and no saved access tokens
         print("Not logged in!")
         return
+    if not token_name:
+        # Delete all saved access tokens and token
+        for file_path in (constants.HF_TOKEN_PATH, constants.HF_STORED_TOKENS_PATH):
+            try:
+                Path(file_path).unlink()
+            except FileNotFoundError:
+                pass
+        print("Successfully logged out from all access tokens.")
+    else:
+        _logout_from_token(token_name)
+        print(f"Successfully logged out from access token: {token_name}.")
 
-    # Delete token from git credentials
     unset_git_credential()
-
-    # Delete token file
-    try:
-        Path(constants.HF_TOKEN_PATH).unlink()
-    except FileNotFoundError:
-        pass
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
@@ -145,7 +165,70 @@ def logout() -> None:
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
 
-    print("Successfully logged out.")
+
+def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
+    """Switch to a different access token.
+
+    Args:
+        token_name (`str`):
+            Name of the access token to switch to.
+        add_to_git_credential (`bool`, defaults to `False`):
+            If `True`, token will be set as git credential. If no git credential helper
+            is configured, a warning will be displayed to the user. If `token` is `None`,
+            the value of `add_to_git_credential` is ignored and will be prompted again
+            to the end user.
+
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the access token name is not found.
+    """
+    token = _get_token_by_name(token_name)
+    if not token:
+        raise ValueError(f"Access token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
+    # Write token to HF_TOKEN_PATH
+    _set_active_token(token_name, add_to_git_credential)
+    print(f"The current active token is: {token_name}")
+    token_from_environment = _get_token_from_environment()
+    if token_from_environment is not None and token_from_environment != token:
+        warnings.warn(
+            "The environment variable `HF_TOKEN` is set and will override the access token you've just switched to."
+        )
+
+
+def auth_list() -> None:
+    """List all stored access tokens."""
+    tokens = get_stored_tokens()
+
+    if not tokens:
+        print("No access tokens found.")
+        return
+    # Find current token
+    current_token = get_token()
+    current_token_name = None
+    for token_name in tokens:
+        if tokens.get(token_name) == current_token:
+            current_token_name = token_name
+    # Print header
+    max_offset = max(len("token"), max(len(token) for token in tokens)) + 2
+    print(f"  {{:<{max_offset}}}| {{:<15}}".format("name", "token"))
+    print("-" * (max_offset + 2) + "|" + "-" * 15)
+
+    # Print saved access tokens
+    for token_name in tokens:
+        token = tokens.get(token_name, "<not set>")
+        masked_token = f"{token[:3]}****{token[-4:]}" if token != "<not set>" else token
+        is_current = "*" if token == current_token else " "
+
+        print(f"{is_current} {{:<{max_offset}}}| {{:<15}}".format(token_name, masked_token))
+
+    if _get_token_from_environment():
+        print(
+            "\nNote: Environment variable `HF_TOKEN` is set and is the current active token independently from the stored tokens listed above."
+        )
+    elif current_token_name is None:
+        print(
+            "\nNote: No active token is set and no environment variable `HF_TOKEN` is found. Use `huggingface-cli login` to log in."
+        )
 
 
 ###
@@ -191,7 +274,11 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     token = getpass("Enter your token (input will not be visible): ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
-    _login(token=token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
+    _login(
+        token=token,
+        add_to_git_credential=add_to_git_credential,
+        write_permission=write_permission,
+    )
 
 
 ###
@@ -296,22 +383,75 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 ###
 
 
-def _login(token: str, add_to_git_credential: bool, write_permission: bool = False) -> None:
-    from .hf_api import get_token_permission  # avoid circular import
+def _login(
+    token: str,
+    add_to_git_credential: bool,
+    write_permission: bool = False,
+) -> None:
+    from .hf_api import whoami  # avoid circular import
 
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token, not an organization token.")
 
-    permission = get_token_permission(token)
-    if permission is None:
-        raise ValueError("Invalid token passed!")
-    elif write_permission and permission != "write":
+    token_info = whoami(token)
+    permission = token_info["auth"]["accessToken"]["role"]
+    if write_permission and permission != "write":
         raise ValueError(
             "Token is valid but is 'read-only' and a 'write' token is required.\nPlease provide a new token with"
             " correct permission."
         )
     print(f"Token is valid (permission: {permission}).")
 
+    token_name = token_info["auth"]["accessToken"]["displayName"]
+    # Store token locally
+    _save_token(token=token, token_name=token_name)
+    # Set active token
+    _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential)
+    print("Login successful.")
+    if _get_token_from_environment():
+        print(
+            "Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured."
+        )
+    else:
+        print(f"The current active token is: `{token_name}`")
+
+
+def _logout_from_token(token_name: str) -> None:
+    """Logout from a specific access token.
+
+    Args:
+        token_name (`str`):
+            The name of the access token to logout from.
+    Raises:
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
+            If the access token name is not found.
+    """
+    stored_tokens = get_stored_tokens()
+    # If there is no access tokens saved or the access token name is not found, do nothing
+    if not stored_tokens or token_name not in stored_tokens:
+        return
+
+    token = stored_tokens.pop(token_name)
+    _save_stored_tokens(stored_tokens)
+
+    if token == _get_token_from_file():
+        warnings.warn(f"Active token '{token_name}' has been deleted.")
+        Path(constants.HF_TOKEN_PATH).unlink(missing_ok=True)
+
+
+def _set_active_token(
+    token_name: str,
+    add_to_git_credential: bool,
+) -> None:
+    """Set the active access token.
+
+    Args:
+        token_name (`str`):
+            The name of the token to set as active.
+    """
+    token = _get_token_by_name(token_name)
+    if not token:
+        raise ValueError(f"Token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
             set_git_credential(token)
@@ -321,13 +461,11 @@ def _login(token: str, add_to_git_credential: bool, write_permission: bool = Fal
             )
         else:
             print("Token has not been saved to git credential helper.")
-
-    # Save token
+    # Write token to HF_TOKEN_PATH
     path = Path(constants.HF_TOKEN_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(token)
     print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
-    print("Login successful")
 
 
 def _current_token_okay(write_permission: bool = False):

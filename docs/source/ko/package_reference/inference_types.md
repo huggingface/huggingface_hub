@@ -62,9 +62,9 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputMessageChunk
 
-[[autodoc]] huggingface_hub.ChatCompletionInputTool
+[[autodoc]] huggingface_hub.ChatCompletionInputStreamOptions
 
-[[autodoc]] huggingface_hub.ChatCompletionInputToolTypeClass
+[[autodoc]] huggingface_hub.ChatCompletionInputToolType
 
 [[autodoc]] huggingface_hub.ChatCompletionInputURL
 
@@ -101,6 +101,10 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputLogprobs
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
+
+[[autodoc]] huggingface_hub.ChatCompletionStreamOutputUsage
+
+[[autodoc]] huggingface_hub.ToolElement
 
 
 
@@ -216,13 +220,13 @@ rendered properly in your Markdown viewer.
 
 
 
-## summarization[[huggingface_hub.SummarizationGenerationParameters]]
-
-[[autodoc]] huggingface_hub.SummarizationGenerationParameters
+## summarization[[huggingface_hub.SummarizationInput]]
 
 [[autodoc]] huggingface_hub.SummarizationInput
 
 [[autodoc]] huggingface_hub.SummarizationOutput
+
+[[autodoc]] huggingface_hub.SummarizationParameters
 
 
 
@@ -306,6 +310,18 @@ rendered properly in your Markdown viewer.
 
 
 
+## text_to_speech[[huggingface_hub.TextToSpeechGenerationParameters]]
+
+[[autodoc]] huggingface_hub.TextToSpeechGenerationParameters
+
+[[autodoc]] huggingface_hub.TextToSpeechInput
+
+[[autodoc]] huggingface_hub.TextToSpeechOutput
+
+[[autodoc]] huggingface_hub.TextToSpeechParameters
+
+
+
 ## token_classification[[huggingface_hub.TokenClassificationInput]]
 
 [[autodoc]] huggingface_hub.TokenClassificationInput
@@ -316,13 +332,13 @@ rendered properly in your Markdown viewer.
 
 
 
-## translation[[huggingface_hub.TranslationGenerationParameters]]
-
-[[autodoc]] huggingface_hub.TranslationGenerationParameters
+## translation[[huggingface_hub.TranslationInput]]
 
 [[autodoc]] huggingface_hub.TranslationInput
 
 [[autodoc]] huggingface_hub.TranslationOutput
+
+[[autodoc]] huggingface_hub.TranslationParameters
 
 
 
@@ -381,5 +397,3 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInputData
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionOutputElement
-
-

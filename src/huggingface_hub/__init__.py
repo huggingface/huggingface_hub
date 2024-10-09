@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.25.0.dev0"
+__version__ = "0.26.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -63,6 +63,8 @@ _SUBMOD_ATTRS = {
         "InferenceEndpointType",
     ],
     "_login": [
+        "auth_list",
+        "auth_switch",
         "interpreter_login",
         "login",
         "logout",
@@ -129,7 +131,6 @@ _SUBMOD_ATTRS = {
     "file_download": [
         "HfFileMetadata",
         "_CACHED_NO_EXIST",
-        "cached_download",
         "get_hf_file_metadata",
         "hf_hub_download",
         "hf_hub_url",
@@ -159,6 +160,7 @@ _SUBMOD_ATTRS = {
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "auth_check",
         "cancel_access_request",
         "change_discussion_status",
         "comment_discussion",
@@ -251,6 +253,7 @@ _SUBMOD_ATTRS = {
         "update_collection_item",
         "update_collection_metadata",
         "update_inference_endpoint",
+        "update_repo_settings",
         "update_repo_visibility",
         "update_webhook",
         "upload_file",
@@ -278,9 +281,11 @@ _SUBMOD_ATTRS = {
     "inference._generated.types": [
         "AudioClassificationInput",
         "AudioClassificationOutputElement",
+        "AudioClassificationOutputTransform",
         "AudioClassificationParameters",
         "AudioToAudioInput",
         "AudioToAudioOutputElement",
+        "AutomaticSpeechRecognitionEarlyStoppingEnum",
         "AutomaticSpeechRecognitionGenerationParameters",
         "AutomaticSpeechRecognitionInput",
         "AutomaticSpeechRecognitionOutput",
@@ -292,8 +297,8 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputGrammarType",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
-        "ChatCompletionInputTool",
-        "ChatCompletionInputToolTypeClass",
+        "ChatCompletionInputStreamOptions",
+        "ChatCompletionInputToolType",
         "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
@@ -312,6 +317,7 @@ _SUBMOD_ATTRS = {
         "ChatCompletionStreamOutputLogprob",
         "ChatCompletionStreamOutputLogprobs",
         "ChatCompletionStreamOutputTopLogprob",
+        "ChatCompletionStreamOutputUsage",
         "DepthEstimationInput",
         "DepthEstimationOutput",
         "DocumentQuestionAnsweringInput",
@@ -324,6 +330,7 @@ _SUBMOD_ATTRS = {
         "FillMaskParameters",
         "ImageClassificationInput",
         "ImageClassificationOutputElement",
+        "ImageClassificationOutputTransform",
         "ImageClassificationParameters",
         "ImageSegmentationInput",
         "ImageSegmentationOutputElement",
@@ -332,6 +339,7 @@ _SUBMOD_ATTRS = {
         "ImageToImageOutput",
         "ImageToImageParameters",
         "ImageToImageTargetSize",
+        "ImageToTextEarlyStoppingEnum",
         "ImageToTextGenerationParameters",
         "ImageToTextInput",
         "ImageToTextOutput",
@@ -346,9 +354,9 @@ _SUBMOD_ATTRS = {
         "QuestionAnsweringParameters",
         "SentenceSimilarityInput",
         "SentenceSimilarityInputData",
-        "SummarizationGenerationParameters",
         "SummarizationInput",
         "SummarizationOutput",
+        "SummarizationParameters",
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
@@ -357,6 +365,7 @@ _SUBMOD_ATTRS = {
         "Text2TextGenerationParameters",
         "TextClassificationInput",
         "TextClassificationOutputElement",
+        "TextClassificationOutputTransform",
         "TextClassificationParameters",
         "TextGenerationInput",
         "TextGenerationInputGenerateParameters",
@@ -369,6 +378,7 @@ _SUBMOD_ATTRS = {
         "TextGenerationStreamOutput",
         "TextGenerationStreamOutputStreamDetails",
         "TextGenerationStreamOutputToken",
+        "TextToAudioEarlyStoppingEnum",
         "TextToAudioGenerationParameters",
         "TextToAudioInput",
         "TextToAudioOutput",
@@ -377,14 +387,21 @@ _SUBMOD_ATTRS = {
         "TextToImageOutput",
         "TextToImageParameters",
         "TextToImageTargetSize",
+        "TextToSpeechEarlyStoppingEnum",
+        "TextToSpeechGenerationParameters",
+        "TextToSpeechInput",
+        "TextToSpeechOutput",
+        "TextToSpeechParameters",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
-        "TranslationGenerationParameters",
+        "ToolElement",
         "TranslationInput",
         "TranslationOutput",
+        "TranslationParameters",
         "VideoClassificationInput",
         "VideoClassificationOutputElement",
+        "VideoClassificationOutputTransform",
         "VideoClassificationParameters",
         "VisualQuestionAnsweringInput",
         "VisualQuestionAnsweringInputData",
@@ -575,6 +592,8 @@ if TYPE_CHECKING:  # pragma: no cover
         InferenceEndpointType,  # noqa: F401
     )
     from ._login import (
+        auth_list,  # noqa: F401
+        auth_switch,  # noqa: F401
         interpreter_login,  # noqa: F401
         login,  # noqa: F401
         logout,  # noqa: F401
@@ -637,7 +656,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .file_download import (
         _CACHED_NO_EXIST,  # noqa: F401
         HfFileMetadata,  # noqa: F401
-        cached_download,  # noqa: F401
         get_hf_file_metadata,  # noqa: F401
         hf_hub_download,  # noqa: F401
         hf_hub_url,  # noqa: F401
@@ -667,6 +685,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        auth_check,  # noqa: F401
         cancel_access_request,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
@@ -759,6 +778,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
+        update_repo_settings,  # noqa: F401
         update_repo_visibility,  # noqa: F401
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
@@ -784,9 +804,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from .inference._generated.types import (
         AudioClassificationInput,  # noqa: F401
         AudioClassificationOutputElement,  # noqa: F401
+        AudioClassificationOutputTransform,  # noqa: F401
         AudioClassificationParameters,  # noqa: F401
         AudioToAudioInput,  # noqa: F401
         AudioToAudioOutputElement,  # noqa: F401
+        AutomaticSpeechRecognitionEarlyStoppingEnum,  # noqa: F401
         AutomaticSpeechRecognitionGenerationParameters,  # noqa: F401
         AutomaticSpeechRecognitionInput,  # noqa: F401
         AutomaticSpeechRecognitionOutput,  # noqa: F401
@@ -798,8 +820,8 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputGrammarType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
-        ChatCompletionInputTool,  # noqa: F401
-        ChatCompletionInputToolTypeClass,  # noqa: F401
+        ChatCompletionInputStreamOptions,  # noqa: F401
+        ChatCompletionInputToolType,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
@@ -818,6 +840,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionStreamOutputLogprob,  # noqa: F401
         ChatCompletionStreamOutputLogprobs,  # noqa: F401
         ChatCompletionStreamOutputTopLogprob,  # noqa: F401
+        ChatCompletionStreamOutputUsage,  # noqa: F401
         DepthEstimationInput,  # noqa: F401
         DepthEstimationOutput,  # noqa: F401
         DocumentQuestionAnsweringInput,  # noqa: F401
@@ -830,6 +853,7 @@ if TYPE_CHECKING:  # pragma: no cover
         FillMaskParameters,  # noqa: F401
         ImageClassificationInput,  # noqa: F401
         ImageClassificationOutputElement,  # noqa: F401
+        ImageClassificationOutputTransform,  # noqa: F401
         ImageClassificationParameters,  # noqa: F401
         ImageSegmentationInput,  # noqa: F401
         ImageSegmentationOutputElement,  # noqa: F401
@@ -838,6 +862,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
         ImageToImageTargetSize,  # noqa: F401
+        ImageToTextEarlyStoppingEnum,  # noqa: F401
         ImageToTextGenerationParameters,  # noqa: F401
         ImageToTextInput,  # noqa: F401
         ImageToTextOutput,  # noqa: F401
@@ -852,9 +877,9 @@ if TYPE_CHECKING:  # pragma: no cover
         QuestionAnsweringParameters,  # noqa: F401
         SentenceSimilarityInput,  # noqa: F401
         SentenceSimilarityInputData,  # noqa: F401
-        SummarizationGenerationParameters,  # noqa: F401
         SummarizationInput,  # noqa: F401
         SummarizationOutput,  # noqa: F401
+        SummarizationParameters,  # noqa: F401
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
@@ -863,6 +888,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Text2TextGenerationParameters,  # noqa: F401
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
+        TextClassificationOutputTransform,  # noqa: F401
         TextClassificationParameters,  # noqa: F401
         TextGenerationInput,  # noqa: F401
         TextGenerationInputGenerateParameters,  # noqa: F401
@@ -875,6 +901,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationStreamOutput,  # noqa: F401
         TextGenerationStreamOutputStreamDetails,  # noqa: F401
         TextGenerationStreamOutputToken,  # noqa: F401
+        TextToAudioEarlyStoppingEnum,  # noqa: F401
         TextToAudioGenerationParameters,  # noqa: F401
         TextToAudioInput,  # noqa: F401
         TextToAudioOutput,  # noqa: F401
@@ -883,14 +910,21 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToImageOutput,  # noqa: F401
         TextToImageParameters,  # noqa: F401
         TextToImageTargetSize,  # noqa: F401
+        TextToSpeechEarlyStoppingEnum,  # noqa: F401
+        TextToSpeechGenerationParameters,  # noqa: F401
+        TextToSpeechInput,  # noqa: F401
+        TextToSpeechOutput,  # noqa: F401
+        TextToSpeechParameters,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
-        TranslationGenerationParameters,  # noqa: F401
+        ToolElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
+        TranslationParameters,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
         VideoClassificationOutputElement,  # noqa: F401
+        VideoClassificationOutputTransform,  # noqa: F401
         VideoClassificationParameters,  # noqa: F401
         VisualQuestionAnsweringInput,  # noqa: F401
         VisualQuestionAnsweringInputData,  # noqa: F401

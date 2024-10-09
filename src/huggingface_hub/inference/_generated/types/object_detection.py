@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from .base import BaseInferenceType
 
@@ -23,8 +23,10 @@ class ObjectDetectionParameters(BaseInferenceType):
 class ObjectDetectionInput(BaseInferenceType):
     """Inputs for Object Detection inference"""
 
-    inputs: Any
-    """The input image data"""
+    inputs: str
+    """The input image data as a base64-encoded string. If no `parameters` are provided, you can
+    also provide the image data as a raw bytes payload.
+    """
     parameters: Optional[ObjectDetectionParameters] = None
     """Additional inference parameters"""
 
@@ -36,9 +38,13 @@ class ObjectDetectionBoundingBox(BaseInferenceType):
     """
 
     xmax: int
+    """The x-coordinate of the bottom-right corner of the bounding box."""
     xmin: int
+    """The x-coordinate of the top-left corner of the bounding box."""
     ymax: int
+    """The y-coordinate of the bottom-right corner of the bounding box."""
     ymin: int
+    """The y-coordinate of the top-left corner of the bounding box."""
 
 
 @dataclass
@@ -50,6 +56,6 @@ class ObjectDetectionOutputElement(BaseInferenceType):
     image.
     """
     label: str
-    """The predicted label for the bounding box"""
+    """The predicted label for the bounding box."""
     score: float
-    """The associated score / probability"""
+    """The associated score / probability."""

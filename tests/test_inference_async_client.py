@@ -275,7 +275,9 @@ def test_sync_vs_async_signatures() -> None:
 
         # Check that the async method is async
         async_method = getattr(async_client, name)
-        assert inspect.iscoroutinefunction(async_method)
+        # Since some methods are decorated with @_deprecate_arguments, we need to unwrap the async method to get the actual coroutine function
+        # TODO: Remove this once the @_deprecate_arguments decorator is removed from the AsyncInferenceClient methods.
+        assert inspect.iscoroutinefunction(inspect.unwrap(async_method))
 
         # Check that expected inputs and outputs are the same
         sync_sig = inspect.signature(sync_method)
@@ -325,7 +327,7 @@ async def test_list_deployed_models_single_frameworks() -> None:
             assert isinstance(model, str)
 
     assert "text-generation" in models_by_task
-    assert "bigscience/bloom" in models_by_task["text-generation"]
+    assert "HuggingFaceH4/zephyr-7b-beta" in models_by_task["text-generation"]
 
 
 @pytest.mark.asyncio

@@ -9,32 +9,38 @@ from typing import Any, Dict, Literal, Optional
 from .base import BaseInferenceType
 
 
-TranslationGenerationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
+TranslationTruncationStrategy = Literal["do_not_truncate", "longest_first", "only_first", "only_second"]
 
 
 @dataclass
-class TranslationGenerationParameters(BaseInferenceType):
+class TranslationParameters(BaseInferenceType):
     """Additional inference parameters
-    Additional inference parameters for Text2text Generation
+    Additional inference parameters for Translation
     """
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
     generate_parameters: Optional[Dict[str, Any]] = None
-    """Additional parametrization of the text generation algorithm"""
-    truncation: Optional["TranslationGenerationTruncationStrategy"] = None
-    """The truncation strategy to use"""
+    """Additional parametrization of the text generation algorithm."""
+    src_lang: Optional[str] = None
+    """The source language of the text. Required for models that can translate from multiple
+    languages.
+    """
+    tgt_lang: Optional[str] = None
+    """Target language to translate to. Required for models that can translate to multiple
+    languages.
+    """
+    truncation: Optional["TranslationTruncationStrategy"] = None
+    """The truncation strategy to use."""
 
 
 @dataclass
 class TranslationInput(BaseInferenceType):
-    """Inputs for Translation inference
-    Inputs for Text2text Generation inference
-    """
+    """Inputs for Translation inference"""
 
     inputs: str
-    """The input text data"""
-    parameters: Optional[TranslationGenerationParameters] = None
+    """The text to translate."""
+    parameters: Optional[TranslationParameters] = None
     """Additional inference parameters"""
 
 

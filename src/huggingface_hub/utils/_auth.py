@@ -13,11 +13,13 @@
 # limitations under the License.
 """Contains an helper to get the token from machine (env variable, secret or config file)."""
 
+import configparser
+import logging
 import os
 import warnings
 from pathlib import Path
 from threading import Lock
-from typing import Optional
+from typing import Dict, Optional
 
 from .. import constants
 from ._runtime import is_colab_enterprise, is_google_colab
@@ -26,6 +28,8 @@ from ._runtime import is_colab_enterprise, is_google_colab
 _IS_GOOGLE_COLAB_CHECKED = False
 _GOOGLE_COLAB_SECRET_LOCK = Lock()
 _GOOGLE_COLAB_SECRET: Optional[str] = None
+
+logger = logging.getLogger(__name__)
 
 
 def get_token() -> Optional[str]:
@@ -68,8 +72,8 @@ def _get_token_from_google_colab() -> Optional[str]:
             return _GOOGLE_COLAB_SECRET
 
         try:
-            from google.colab import userdata
-            from google.colab.errors import Error as ColabError
+            from google.colab import userdata  # type: ignore
+            from google.colab.errors import Error as ColabError  # type: ignore
         except ImportError:
             return None
 
@@ -119,6 +123,85 @@ def _get_token_from_file() -> Optional[str]:
         return _clean_token(Path(constants.HF_TOKEN_PATH).read_text())
     except FileNotFoundError:
         return None
+
+
+def get_stored_tokens() -> Dict[str, str]:
+    """
+    Returns the parsed INI file containing the access tokens.
+    The file is located at `HF_STORED_TOKENS_PATH`, defaulting to `~/.cache/huggingface/stored_tokens`.
+    If the file does not exist, an empty dictionary is returned.
+
+    Returns: `Dict[str, str]`
+        Key is the token name and value is the token.
+    """
+    tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
+    if not tokens_path.exists():
+        stored_tokens = {}
+    config = configparser.ConfigParser()
+    try:
+        config.read(tokens_path)
+        stored_tokens = {token_name: config.get(token_name, "hf_token") for token_name in config.sections()}
+    except configparser.Error as e:
+        logger.error(f"Error parsing stored tokens file: {e}")
+        stored_tokens = {}
+    return stored_tokens
+
+
+def _save_stored_tokens(stored_tokens: Dict[str, str]) -> None:
+    """
+    Saves the given configuration to the stored tokens file.
+
+    Args:
+        stored_tokens (`Dict[str, str]`):
+            The stored tokens to save. Key is the token name and value is the token.
+    """
+    stored_tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
+
+    # Write the stored tokens into an INI file
+    config = configparser.ConfigParser()
+    for token_name in sorted(stored_tokens.keys()):
+        config.add_section(token_name)
+        config.set(token_name, "hf_token", stored_tokens[token_name])
+
+    stored_tokens_path.parent.mkdir(parents=True, exist_ok=True)
+    with stored_tokens_path.open("w") as config_file:
+        config.write(config_file)
+
+
+def _get_token_by_name(token_name: str) -> Optional[str]:
+    """
+    Get the token by name.
+
+    Args:
+        token_name (`str`):
+            The name of the token to get.
+
+    Returns:
+        `str` or `None`: The token, `None` if it doesn't exist.
+
+    """
+    stored_tokens = get_stored_tokens()
+    if token_name not in stored_tokens:
+        return None
+    return _clean_token(stored_tokens[token_name])
+
+
+def _save_token(token: str, token_name: str) -> None:
+    """
+    Save the given token.
+
+    If the stored tokens file does not exist, it will be created.
+    Args:
+        token (`str`):
+            The token to save.
+        token_name (`str`):
+            The name of the token.
+    """
+    tokens_path = Path(constants.HF_STORED_TOKENS_PATH)
+    stored_tokens = get_stored_tokens()
+    stored_tokens[token_name] = token
+    _save_stored_tokens(stored_tokens)
+    print(f"The token `{token_name}` has been saved to {tokens_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:

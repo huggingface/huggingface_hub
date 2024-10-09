@@ -9,18 +9,18 @@ from typing import Any, Literal, Optional, Union
 from .base import BaseInferenceType
 
 
-ImageToTextEarlyStoppingEnum = Literal["never"]
+TextToSpeechEarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
-class ImageToTextGenerationParameters(BaseInferenceType):
+class TextToSpeechGenerationParameters(BaseInferenceType):
     """Parametrization of the text generation process
     Ad-hoc parametrization of the text generation process
     """
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
-    early_stopping: Optional[Union[bool, "ImageToTextEarlyStoppingEnum"]] = None
+    early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None
     """Controls the stopping condition for beam-based methods."""
     epsilon_cutoff: Optional[float] = None
     """If set to float strictly between 0 and 1, only tokens with a conditional probability
@@ -40,11 +40,11 @@ class ImageToTextGenerationParameters(BaseInferenceType):
     max_length: Optional[int] = None
     """The maximum length (in tokens) of the generated text, including the input."""
     max_new_tokens: Optional[int] = None
-    """The maximum number of tokens to generate. Takes precedence over max_length."""
+    """The maximum number of tokens to generate. Takes precedence over maxLength."""
     min_length: Optional[int] = None
     """The minimum length (in tokens) of the generated text, including the input."""
     min_new_tokens: Optional[int] = None
-    """The minimum number of tokens to generate. Takes precedence over min_length."""
+    """The minimum number of tokens to generate. Takes precedence over maxLength."""
     num_beam_groups: Optional[int] = None
     """Number of groups to divide num_beams into in order to ensure diversity among different
     groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -75,31 +75,33 @@ class ImageToTextGenerationParameters(BaseInferenceType):
 
 
 @dataclass
-class ImageToTextParameters(BaseInferenceType):
+class TextToSpeechParameters(BaseInferenceType):
     """Additional inference parameters
-    Additional inference parameters for Image To Text
+    Additional inference parameters for Text To Speech
     """
 
-    generate: Optional[ImageToTextGenerationParameters] = None
+    generate: Optional[TextToSpeechGenerationParameters] = None
     """Parametrization of the text generation process"""
-    max_new_tokens: Optional[int] = None
-    """The amount of maximum tokens to generate."""
 
 
 @dataclass
-class ImageToTextInput(BaseInferenceType):
-    """Inputs for Image To Text inference"""
+class TextToSpeechInput(BaseInferenceType):
+    """Inputs for Text To Speech inference"""
 
-    inputs: Any
-    """The input image data"""
-    parameters: Optional[ImageToTextParameters] = None
+    inputs: str
+    """The input text data"""
+    parameters: Optional[TextToSpeechParameters] = None
     """Additional inference parameters"""
 
 
 @dataclass
-class ImageToTextOutput(BaseInferenceType):
-    """Outputs of inference for the Image To Text task"""
+class TextToSpeechOutput(BaseInferenceType):
+    """Outputs for Text to Speech inference
+    Outputs of inference for the Text To Audio task
+    """
 
-    generated_text: Any
-    image_to_text_output_generated_text: Optional[str] = None
-    """The generated text."""
+    audio: Any
+    """The generated audio waveform."""
+    sampling_rate: Any
+    text_to_speech_output_sampling_rate: Optional[float] = None
+    """The sampling rate of the generated audio waveform."""

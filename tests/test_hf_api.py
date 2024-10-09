@@ -20,7 +20,6 @@ import time
 import types
 import unittest
 import uuid
-import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
@@ -46,6 +45,7 @@ from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
     EntryNotFoundError,
+    GatedRepoError,
     HfHubHTTPError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -65,6 +65,7 @@ from huggingface_hub.hf_api import (
     RepoUrl,
     SpaceInfo,
     SpaceRuntime,
+    User,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
@@ -81,18 +82,9 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     logging,
 )
-from huggingface_hub.utils.endpoint_helpers import (
-    _is_emission_within_threshold,
-)
+from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
-from .testing_constants import (
-    ENDPOINT_STAGING,
-    FULL_NAME,
-    OTHER_TOKEN,
-    OTHER_USER,
-    TOKEN,
-    USER,
-)
+from .testing_constants import ENDPOINT_STAGING, FULL_NAME, OTHER_TOKEN, OTHER_USER, TOKEN, USER
 from .testing_utils import (
     DUMMY_DATASET_ID,
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -100,6 +92,7 @@ from .testing_utils import (
     DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
     ENDPOINT_PRODUCTION,
     SAMPLE_DATASET_IDENTIFIER,
+    expect_deprecation,
     repo_name,
     require_git_lfs,
     rmtree_with_retry,
@@ -129,18 +122,6 @@ class HfApiCommonTest(unittest.TestCase):
         """Share the valid token in all tests below."""
         cls._token = TOKEN
         cls._api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-
-def test_repo_id_no_warning():
-    # tests that passing repo_id as positional arg doesn't raise any warnings
-    # for {create, delete}_repo and update_repo_visibility
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    with warnings.catch_warnings(record=True) as record:
-        repo_id = api.create_repo(repo_name()).repo_id
-        api.update_repo_visibility(repo_id, private=True)
-        api.delete_repo(repo_id)
-    assert not len(record)
 
 
 class HfApiRepoFileExistsTest(HfApiCommonTest):
@@ -217,6 +198,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
     def test_delete_repo_missing_ok(self) -> None:
         self._api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name()).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True)
@@ -225,6 +207,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_model_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_MODEL).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_MODEL)
@@ -233,6 +216,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_MODEL)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_dataset_repo(self):
         repo_id = self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_DATASET).repo_id
         res = self._api.update_repo_visibility(repo_id=repo_id, private=True, repo_type=constants.REPO_TYPE_DATASET)
@@ -241,6 +225,7 @@ class HfApiEndpointsTest(HfApiCommonTest):
         assert not res["private"]
         self._api.delete_repo(repo_id=repo_id, repo_type=constants.REPO_TYPE_DATASET)
 
+    @expect_deprecation("update_repo_visibility")
     def test_create_update_and_delete_space_repo(self):
         with pytest.raises(ValueError, match=r"No space_sdk provided.*"):
             self._api.create_repo(repo_id=repo_name(), repo_type=constants.REPO_TYPE_SPACE, space_sdk=None)
@@ -287,6 +272,31 @@ class HfApiEndpointsTest(HfApiCommonTest):
 
         with pytest.raises(ValueError, match=r"Invalid repo_id*"):
             self._api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
+
+    @use_tmp_repo(repo_type="model")
+    def test_update_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+
+        for gated_value in ["auto", "manual", False]:
+            for private_value in [True, False]:  # Test both private and public settings
+                self._api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
+                info = self._api.model_info(repo_id)
+                assert info.gated == gated_value
+                assert info.private == private_value  # Verify the private setting
+
+    @use_tmp_repo(repo_type="dataset")
+    def test_update_dataset_repo_settings(self, repo_url: RepoUrl):
+        repo_id = repo_url.repo_id
+        repo_type = repo_url.repo_type
+
+        for gated_value in ["auto", "manual", False]:
+            for private_value in [True, False]:
+                self._api.update_repo_settings(
+                    repo_id=repo_id, repo_type=repo_type, gated=gated_value, private=private_value
+                )
+                info = self._api.dataset_info(repo_id)
+                assert info.gated == gated_value
+                assert info.private == private_value
 
 
 class CommitApiTest(HfApiCommonTest):
@@ -1744,11 +1754,11 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert all(tag in model.tags for tag in ["bert", "jax"])
 
     def test_list_models_with_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=True, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
 
     def test_list_models_without_config(self):
-        for model in self._api.list_models(filter="adapter-transformers", fetch_config=False, limit=20):
+        for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=False, limit=20):
             self.assertIsNone(model.config)
 
     def test_list_models_expand_author(self):
@@ -2972,21 +2982,14 @@ class ActivityApiTest(unittest.TestCase):
         likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
         self.assertEqual(likes.user, OTHER_USER)
 
+    @with_production_testing
     def test_list_repo_likers(self) -> None:
-        # Create a repo + like
-        repo_id = self.api.create_repo(repo_name(), token=TOKEN).repo_id
-        self.api.like(repo_id, token=TOKEN)
-
-        # Use list_repo_likers to get the list of users who liked this repo
-        likers = self.api.list_repo_likers(repo_id, token=TOKEN)
-
-        # Check if the test user is in the list of likers
-        liker_usernames = [user.username for user in likers]
-        self.assertGreater(len(likers), 0)
-        self.assertIn(USER, liker_usernames)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
+        # a repo with > 5000 likes
+        all_likers = list(
+            HfApi().list_repo_likers(repo_id="open-llm-leaderboard/open_llm_leaderboard", repo_type="space")
+        )
+        self.assertIsInstance(all_likers[0], User)
+        self.assertGreater(len(all_likers), 5000)
 
     @with_production_testing
     def test_list_likes_on_production(self) -> None:
@@ -3271,7 +3274,6 @@ class TestDownloadHfApiAlias(unittest.TestCase):
             etag_timeout=10,
             resume_download=None,
             local_files_only=False,
-            legacy_cache_layout=False,
             headers=None,
         )
 
@@ -4088,6 +4090,8 @@ class UserApiTest(unittest.TestCase):
         assert overview.num_upvotes > 10
         assert len(overview.orgs) > 0
         assert any(org.name == "huggingface" for org in overview.orgs)
+        assert overview.num_following > 300
+        assert overview.num_followers > 1000
 
     def test_organization_members(self) -> None:
         members = self.api.list_organization_members("huggingface")
@@ -4217,7 +4221,7 @@ class TestExpandPropertyType(HfApiCommonTest):
             if should_be_added:
                 msg += f"\nNew arg(s) to support: {', '.join(should_be_added)}"
             msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
-            msg += "\nThanks you in advance!"
+            msg += "\nThank you in advance!"
             raise ValueError(msg)
 
 
@@ -4247,3 +4251,27 @@ class TestLargeUpload(HfApiCommonTest):
             for j in range(N_FILES_PER_FOLDER):
                 assert f"subfolder_{i}/file_lfs_{i}_{j}.bin" in uploaded_files
                 assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
+
+
+class TestHfApiAuthCheck(HfApiCommonTest):
+    @use_tmp_repo(repo_type="dataset")
+    def test_auth_check_success(self, repo_url: RepoUrl) -> None:
+        self._api.auth_check(repo_id=repo_url.repo_id, repo_type=repo_url.repo_type)
+
+    def test_auth_check_repo_missing(self) -> None:
+        with self.assertRaises(RepositoryNotFoundError):
+            self._api.auth_check(repo_id="username/missing_repo_id")
+
+    def test_auth_check_gated_repo(self) -> None:
+        repo_id = self._api.create_repo(repo_name()).repo_id
+
+        response = get_session().put(
+            f"{self._api.endpoint}/api/models/{repo_id}/settings",
+            json={"gated": "auto"},
+            headers=self._api._build_hf_headers(token=TOKEN),
+        )
+
+        hf_raise_for_status(response)
+
+        with self.assertRaises(GatedRepoError):
+            self._api.auth_check(repo_id=repo_id, token=OTHER_TOKEN)
