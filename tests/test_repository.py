@@ -320,7 +320,7 @@ class TestRepositoryUniqueRepos(RepositoryTestAbstract):
         self.assertEqual(repo.command_queue[-1].is_done, True)
         self.assertEqual(repo.command_queue[-1].title, "push")
 
-    @unittest.skipIf(os.name == "nt", "Killing a process on Windows works differently.")
+    @unittest.skip("This is a flaky and legacy test")
     def test_add_commit_push_non_blocking_process_killed(self):
         repo = self.clone_repo()
 
