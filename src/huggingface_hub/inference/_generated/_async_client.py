@@ -3116,6 +3116,10 @@ class AsyncInferenceClient:
 
         # If model is already a URL, ignore `task` and return directly
         if model is not None and (model.startswith("http://") or model.startswith("https://")):
+            # special case for sentence-similarity with TEI endpoints for which we need to add the `/similarity` suffix.
+            # see: https://huggingface.github.io/text-embeddings-inference/openapi.json.
+            if task == "sentence-similarity":
+                model += "/similarity"
             return model
 
         # # If no model but task is set => fetch the recommended one for this task
