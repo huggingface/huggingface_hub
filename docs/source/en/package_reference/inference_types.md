@@ -23,8 +23,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.AudioClassificationOutputElement
 
-[[autodoc]] huggingface_hub.AudioClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.AudioClassificationParameters
 
 
@@ -38,8 +36,6 @@ This part of the lib is still under development and will be improved in future r
 
 
 ## automatic_speech_recognition
-
-[[autodoc]] huggingface_hub.AutomaticSpeechRecognitionEarlyStoppingEnum
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionGenerationParameters
 
@@ -155,8 +151,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ImageClassificationOutputElement
 
-[[autodoc]] huggingface_hub.ImageClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.ImageClassificationParameters
 
 
@@ -184,8 +178,6 @@ This part of the lib is still under development and will be improved in future r
 
 
 ## image_to_text
-
-[[autodoc]] huggingface_hub.ImageToTextEarlyStoppingEnum
 
 [[autodoc]] huggingface_hub.ImageToTextGenerationParameters
 
@@ -265,8 +257,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.TextClassificationOutputElement
 
-[[autodoc]] huggingface_hub.TextClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.TextClassificationParameters
 
 
@@ -299,8 +289,6 @@ This part of the lib is still under development and will be improved in future r
 
 ## text_to_audio
 
-[[autodoc]] huggingface_hub.TextToAudioEarlyStoppingEnum
-
 [[autodoc]] huggingface_hub.TextToAudioGenerationParameters
 
 [[autodoc]] huggingface_hub.TextToAudioInput
@@ -324,8 +312,6 @@ This part of the lib is still under development and will be improved in future r
 
 
 ## text_to_speech
-
-[[autodoc]] huggingface_hub.TextToSpeechEarlyStoppingEnum
 
 [[autodoc]] huggingface_hub.TextToSpeechGenerationParameters
 
@@ -362,8 +348,6 @@ This part of the lib is still under development and will be improved in future r
 [[autodoc]] huggingface_hub.VideoClassificationInput
 
 [[autodoc]] huggingface_hub.VideoClassificationOutputElement
-
-[[autodoc]] huggingface_hub.VideoClassificationOutputTransform
 
 [[autodoc]] huggingface_hub.VideoClassificationParameters
 

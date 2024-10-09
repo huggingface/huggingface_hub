@@ -22,8 +22,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.AudioClassificationOutputElement
 
-[[autodoc]] huggingface_hub.AudioClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.AudioClassificationParameters
 
 
@@ -36,9 +34,7 @@ rendered properly in your Markdown viewer.
 
 
 
-## automatic_speech_recognition[[huggingface_hub.AutomaticSpeechRecognitionEarlyStoppingEnum]]
-
-[[autodoc]] huggingface_hub.AutomaticSpeechRecognitionEarlyStoppingEnum
+## automatic_speech_recognition[[huggingface_hub.AutomaticSpeechRecognitionGenerationParameters]]
 
 [[autodoc]] huggingface_hub.AutomaticSpeechRecognitionGenerationParameters
 
@@ -154,8 +150,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ImageClassificationOutputElement
 
-[[autodoc]] huggingface_hub.ImageClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.ImageClassificationParameters
 
 
@@ -182,9 +176,7 @@ rendered properly in your Markdown viewer.
 
 
 
-## image_to_text[[huggingface_hub.ImageToTextEarlyStoppingEnum]]
-
-[[autodoc]] huggingface_hub.ImageToTextEarlyStoppingEnum
+## image_to_text[[huggingface_hub.ImageToTextGenerationParameters]]
 
 [[autodoc]] huggingface_hub.ImageToTextGenerationParameters
 
@@ -264,8 +256,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.TextClassificationOutputElement
 
-[[autodoc]] huggingface_hub.TextClassificationOutputTransform
-
 [[autodoc]] huggingface_hub.TextClassificationParameters
 
 
@@ -296,9 +286,7 @@ rendered properly in your Markdown viewer.
 
 
 
-## text_to_audio[[huggingface_hub.TextToAudioEarlyStoppingEnum]]
-
-[[autodoc]] huggingface_hub.TextToAudioEarlyStoppingEnum
+## text_to_audio[[huggingface_hub.TextToAudioGenerationParameters]]
 
 [[autodoc]] huggingface_hub.TextToAudioGenerationParameters
 
@@ -322,9 +310,7 @@ rendered properly in your Markdown viewer.
 
 
 
-## text_to_speech[[huggingface_hub.TextToSpeechEarlyStoppingEnum]]
-
-[[autodoc]] huggingface_hub.TextToSpeechEarlyStoppingEnum
+## text_to_speech[[huggingface_hub.TextToSpeechGenerationParameters]]
 
 [[autodoc]] huggingface_hub.TextToSpeechGenerationParameters
 
@@ -361,8 +347,6 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.VideoClassificationInput
 
 [[autodoc]] huggingface_hub.VideoClassificationOutputElement
-
-[[autodoc]] huggingface_hub.VideoClassificationOutputTransform
 
 [[autodoc]] huggingface_hub.VideoClassificationParameters
 

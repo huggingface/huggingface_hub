@@ -219,12 +219,16 @@ def _make_optional_fields_default_to_none(content: str):
 
 def _list_dataclasses(content: str) -> List[str]:
     """List all dataclasses defined in the module."""
-    # dirty hack to make sure we include the type aliases (only for shared classes) in the __init__.py file
+    return INHERITED_DATACLASS_REGEX.findall(content)
+
+
+def _list_shared_aliases(content: str) -> List[str]:
+    """List all shared class aliases defined in the module."""
     all_aliases = TYPE_ALIAS_REGEX.findall(content)
     shared_class_pattern = r"(\w+(?:" + "|".join(re.escape(cls) for cls in SHARED_CLASSES) + r"))$"
     shared_class_regex = re.compile(shared_class_pattern)
-    shared_aliases = [alias_class for alias_class, _ in all_aliases if shared_class_regex.search(alias_class)]
-    return INHERITED_DATACLASS_REGEX.findall(content) + shared_aliases
+    aliases = [alias_class for alias_class, _ in all_aliases if shared_class_regex.search(alias_class)]
+    return aliases
 
 
 def fix_inference_classes(content: str, module_name: str) -> str:
@@ -279,6 +283,7 @@ def check_inference_types(update: bool) -> NoReturn:
     This script is used in the `make style` and `make quality` checks.
     """
     dataclasses = {}
+    aliases = {}
     for file in INFERENCE_TYPES_FOLDER_PATH.glob("*.py"):
         if file.name in IGNORE_FILES:
             continue
@@ -287,21 +292,20 @@ def check_inference_types(update: bool) -> NoReturn:
 
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         formatted_content = format_source_code(fixed_content)
-
         dataclasses[file.stem] = _list_dataclasses(formatted_content)
-
+        aliases[file.stem] = _list_shared_aliases(formatted_content)
         check_and_update_file_content(file, formatted_content, update)
 
-    init_py_content = create_init_py(dataclasses)
+    all_classes = {module: dataclasses[module] + aliases[module] for module in dataclasses.keys()}
+    init_py_content = create_init_py(all_classes)
     init_py_content = format_source_code(init_py_content)
     init_py_file = INFERENCE_TYPES_FOLDER_PATH / "__init__.py"
     check_and_update_file_content(init_py_file, init_py_content, update)
 
     main_init_py_content = MAIN_INIT_PY_FILE.read_text()
-    updated_main_init_py_content = add_dataclasses_to_main_init(main_init_py_content, dataclasses)
+    updated_main_init_py_content = add_dataclasses_to_main_init(main_init_py_content, all_classes)
     updated_main_init_py_content = format_source_code(updated_main_init_py_content)
     check_and_update_file_content(MAIN_INIT_PY_FILE, updated_main_init_py_content, update)
-
     reference_package_content_en = generate_reference_package(dataclasses, "en")
     check_and_update_file_content(REFERENCE_PACKAGE_EN_PATH, reference_package_content_en, update)
 
