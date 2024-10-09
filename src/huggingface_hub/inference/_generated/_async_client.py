@@ -50,6 +50,7 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.inference._generated.types import (
     AudioClassificationOutputElement,
+    AudioClassificationOutputTransform,
     AudioToAudioOutputElement,
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
@@ -355,8 +356,8 @@ class AsyncInferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-        function_to_apply: Optional[Literal["sigmoid", "softmax", "none"]] = None,
         top_k: Optional[int] = None,
+        function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
     ) -> List[AudioClassificationOutputElement]:
         """
         Perform audio classification on the provided audio content.
@@ -369,10 +370,11 @@ class AsyncInferenceClient:
                 The model to use for audio classification. Can be a model ID hosted on the Hugging Face Hub
                 or a URL to a deployed Inference Endpoint. If not provided, the default recommended model for
                 audio classification will be used.
-            function_to_apply (`Literal["sigmoid", "softmax", "none"]`, *optional*):
-                The function to apply to the output scores.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
+            function_to_apply (`"AudioClassificationOutputTransform"`, *optional*):
+                The function to apply to the output.
+
         Returns:
             `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
 

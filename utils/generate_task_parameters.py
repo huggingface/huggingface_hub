@@ -213,8 +213,9 @@ class AddParameters(cst.CSTTransformer):
 
     def _update_docstring_content(self, docstring: str) -> str:
         docstring_lines = docstring.split("\n")
-        args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
 
+        # Step 1: find the right insertion index
+        args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
         # If there is no "Args:" section, insert it after the first section that is not empty and not a sub-section
         if args_index is None:
             insertion_index = next(
@@ -229,30 +230,28 @@ class AddParameters(cst.CSTTransformer):
             args_index = insertion_index
             insertion_index += 1
         else:
-            # Find the end of the existing "Args:" section
-            insertion_index = args_index + 1
-            while insertion_index < len(docstring_lines):
-                line = docstring_lines[insertion_index]
-                if line.strip() == "":
-                    # Check if the next non-empty line starts a new section
-                    next_non_empty = next(
-                        (
-                            docstring_lines[i]
-                            for i in range(insertion_index + 1, len(docstring_lines))
-                            if docstring_lines[i].strip() != ""
-                        ),
-                        None,
-                    )
-                    # Dirty hack to stop at the next section
-                    if next_non_empty and next_non_empty.strip().lower() in (
-                        "returns:",
-                        "raises:",
-                        "examples:",
-                        "example:",
-                    ):
-                        break
-                insertion_index += 1
+            # Find the next section (in this order: Returns, Raises, Example(s))
+            next_section_index = next(
+                (
+                    i
+                    for i, line in enumerate(docstring_lines)
+                    if line.strip().lower() in ("returns:", "raises:", "example:", "examples:")
+                ),
+                None,
+            )
+            if next_section_index is not None:
+                # If there's a blank line before "Returns:", insert before that blank line
+                if next_section_index > 0 and docstring_lines[next_section_index - 1].strip() == "":
+                    insertion_index = next_section_index - 1
+                else:
+                    # If there's no blank line, insert at the "Returns:" line and add a blank line after insertion
+                    insertion_index = next_section_index
+                    docstring_lines.insert(insertion_index, "")
+            else:
+                # If there's no next section, insert at the end
+                insertion_index = len(docstring_lines)
 
+        # Step 2: format the parameter docstring
         # Calculate the base indentation
         base_indentation = docstring_lines[args_index][
             : len(docstring_lines[args_index]) - len(docstring_lines[args_index].lstrip())
@@ -288,7 +287,7 @@ class AddParameters(cst.CSTTransformer):
 
             param_docs.append(param_doc)
 
-        # Insert the new parameter docs into the docstring
+        # Step 3: insert the new parameter docs into the docstring
         docstring_lines[insertion_index:insertion_index] = param_docs
         return "\n".join(docstring_lines)
 
