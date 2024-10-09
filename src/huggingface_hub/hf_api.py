@@ -9786,13 +9786,18 @@ class HfApi:
         """
         if date is None and query is None:
             raise ValueError("Provide one of `date` or `query`.")
-        path = f"{self.endpoint}/api/daily_papers"
+        path = f"{self.endpoint}/api/papers/search"
         params = {}
         if date:
             params["date"] = date
         if query:
             params["q"] = query
-        r = get_session().get(path, params=params)
+        r = get_session().get(
+            path,
+            params=params,
+          
+  headers=self._build_hf_headers(token=token),
+        )
         hf_raise_for_status(r)
         for paper in r.json():
             yield PaperInfo(**paper)

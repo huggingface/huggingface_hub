@@ -4106,22 +4106,21 @@ class UserApiTest(unittest.TestCase):
         assert len(list(following)) > 500
 
 
-class DailyPaperApiTest(unittest.TestCase):
+class PaperApiTest(unittest.TestCase):
+    @classmethod
     @with_production_testing
-    def test_papers_by_date(self) -> None:
-        papers = HfApi().list_papers(date="2024-09-18")
-        assert len(list(papers)) > 1
+    def setUpClass(cls) -> None:
+        cls.api = HfApi()
+        return super().setUpClass()
 
-    @with_production_testing
     def test_papers_by_query(self) -> None:
-        papers = HfApi().list_papers(query="attention")
-        assert len(list(papers)) > 0
+        papers = list(self.api.list_papers(query="llama"))
+        assert len(papers) > 0
+        assert "The Llama 3 Herd of Models" in [paper.title for paper in papers]
 
-    @with_production_testing
-    def test_get_paper_by_id(self) -> None:
-        paper_id = "1706.03762"
-        paper = HfApi().paper_info(paper_id)
-        assert paper.title == "Attention Is All You Need"
+    def test_get_paper_by_id_success(self) -> None:
+        paper = self.api.paper_info("2407.21783")
+        assert paper.title == "The Llama 3 Herd of Models"
 
 
 class WebhookApiTest(HfApiCommonTest):
