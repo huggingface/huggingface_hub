@@ -14,10 +14,16 @@
 # limitations under the License.
 """Contains helpers used by the scripts in `./utils`."""
 
+import subprocess
+import tempfile
 from pathlib import Path
+
+from ruff.__main__ import find_ruff_bin
 
 
 def check_and_update_file_content(file: Path, expected_content: str, update: bool):
+    # Ensure the expected content ends with a newline to satisfy end-of-file-fixer hook
+    expected_content = expected_content.rstrip("\n") + "\n"
     content = file.read_text() if file.exists() else None
     if content != expected_content:
         if update:
@@ -26,3 +32,19 @@ def check_and_update_file_content(file: Path, expected_content: str, update: boo
         else:
             print(f"❌ Expected content mismatch in {file}.")
             exit(1)
+
+
+def format_source_code(code: str) -> str:
+    """Format the generated source code using Ruff."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filepath = Path(tmpdir) / "tmp.py"
+        filepath.write_text(code)
+        ruff_bin = find_ruff_bin()
+        if not ruff_bin:
+            raise FileNotFoundError("Ruff executable not found.")
+        try:
+            subprocess.run([ruff_bin, "check", str(filepath), "--fix", "--quiet"], check=True)
+            subprocess.run([ruff_bin, "format", str(filepath), "--quiet"], check=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Error running Ruff: {e}")
+        return filepath.read_text()

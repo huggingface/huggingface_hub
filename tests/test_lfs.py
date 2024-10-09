@@ -3,8 +3,9 @@ import unittest
 from hashlib import sha256
 from io import BytesIO
 
-from huggingface_hub.lfs import SliceFileObj, UploadInfo
+from huggingface_hub.lfs import UploadInfo
 from huggingface_hub.utils import SoftTemporaryDirectory
+from huggingface_hub.utils._lfs import SliceFileObj
 
 
 class TestUploadInfo(unittest.TestCase):

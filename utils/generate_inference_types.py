@@ -15,14 +15,11 @@
 """Contains a tool to generate `src/huggingface_hub/inference/_generated/types`."""
 
 import argparse
-import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Literal, NoReturn
 
-from helpers import check_and_update_file_content
-from ruff.__main__ import find_ruff_bin
+from helpers import check_and_update_file_content, format_source_code
 
 
 huggingface_hub_folder_path = Path(__file__).parents[1] / "src" / "huggingface_hub"
@@ -56,6 +53,16 @@ INHERITED_DATACLASS_REGEX = re.compile(
     re.VERBOSE | re.MULTILINE,
 )
 
+TYPE_ALIAS_REGEX = re.compile(
+    r"""
+    ^(?!\s) # to make sure the line does not start with whitespace (top-level)
+    (\w+)
+    \s*=\s*
+    (.+)
+    $
+    """,
+    re.VERBOSE | re.MULTILINE,
+)
 OPTIONAL_FIELD_REGEX = re.compile(r": Optional\[(.+)\]$", re.MULTILINE)
 
 
@@ -78,6 +85,7 @@ MAIN_INIT_PY_REGEX = re.compile(
     re.MULTILINE | re.VERBOSE | re.DOTALL,
 )
 
+
 # List of classes that are shared across multiple modules
 # This is used to fix the naming of the classes (to make them unique by task)
 SHARED_CLASSES = [
@@ -86,6 +94,7 @@ SHARED_CLASSES = [
     "ClassificationOutput",
     "GenerationParameters",
     "TargetSize",
+    "EarlyStoppingEnum",
 ]
 
 REFERENCE_PACKAGE_EN_CONTENT = """
@@ -130,6 +139,27 @@ rendered properly in your Markdown viewer.
 """
 
 
+def _replace_class_name(content: str, cls: str, new_cls: str) -> str:
+    """
+    Replace the class name `cls` with the new class name `new_cls` in the content.
+    """
+    pattern = rf"""
+        (?<![\w'"])
+        (['"]?)
+        {cls}
+        (['"]?)
+        (?![\w'"])
+    """
+
+    def replacement(m):
+        quote_start = m.group(1) or ""
+        quote_end = m.group(2) or ""
+        return f"{quote_start}{new_cls}{quote_end}"
+
+    content = re.sub(pattern, replacement, content, flags=re.VERBOSE)
+    return content
+
+
 def _inherit_from_base(content: str) -> str:
     content = content.replace(
         "\nfrom dataclasses import", "\nfrom .base import BaseInferenceType\nfrom dataclasses import"
@@ -144,8 +174,9 @@ def _delete_empty_lines(content: str) -> str:
 
 def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
     for cls in SHARED_CLASSES:
-        cls_definition = f"\nclass {cls}"
-
+        # No need to fix the naming of a shared class if it's not used in the module
+        if cls not in content:
+            continue
         # Update class definition
         # Very hacky way to build "AudioClassificationOutputElement" instead of "ClassificationOutput"
         new_cls = "".join(part.capitalize() for part in module_name.split("_"))
@@ -157,18 +188,8 @@ def _fix_naming_for_shared_classes(content: str, module_name: str) -> str:
         if new_cls.endswith("ClassificationOutput"):
             # to get "AudioClassificationOutputElement"
             new_cls += "Element"
-        new_cls_definition = "\nclass " + new_cls
-        content = content.replace(cls_definition, new_cls_definition)
+        content = _replace_class_name(content, cls, new_cls)
 
-        # Update regular class usage
-        regular_cls = f": {cls}\n"
-        new_regular_cls = f": {new_cls}\n"
-        content = content.replace(regular_cls, new_regular_cls)
-
-        # Update optional class usage
-        optional_cls = f"Optional[{cls}]"
-        new_optional_cls = f"Optional[{new_cls}]"
-        content = content.replace(optional_cls, new_optional_cls)
     return content
 
 
@@ -201,6 +222,15 @@ def _list_dataclasses(content: str) -> List[str]:
     return INHERITED_DATACLASS_REGEX.findall(content)
 
 
+def _list_shared_aliases(content: str) -> List[str]:
+    """List all shared class aliases defined in the module."""
+    all_aliases = TYPE_ALIAS_REGEX.findall(content)
+    shared_class_pattern = r"(\w+(?:" + "|".join(re.escape(cls) for cls in SHARED_CLASSES) + r"))$"
+    shared_class_regex = re.compile(shared_class_pattern)
+    aliases = [alias_class for alias_class, _ in all_aliases if shared_class_regex.search(alias_class)]
+    return aliases
+
+
 def fix_inference_classes(content: str, module_name: str) -> str:
     content = _inherit_from_base(content)
     content = _delete_empty_lines(content)
@@ -227,17 +257,6 @@ def add_dataclasses_to_main_init(content: str, dataclasses: Dict[str, List[str]]
     return MAIN_INIT_PY_REGEX.sub(f'"inference._generated.types": [{dataclasses_str}]', content)
 
 
-def format_source_code(code: str) -> str:
-    """Apply formatter on the generated source code."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = Path(tmpdir) / "tmp.py"
-        filepath.write_text(code)
-        ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "check", str(filepath), "--fix", "--quiet"])
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
-        return filepath.read_text()
-
-
 def generate_reference_package(dataclasses: Dict[str, List[str]], language: Literal["en", "ko"]) -> str:
     """Generate the reference package content."""
 
@@ -259,11 +278,12 @@ def generate_reference_package(dataclasses: Dict[str, List[str]], language: Lite
 
 
 def check_inference_types(update: bool) -> NoReturn:
-    """Check AsyncInferenceClient is correctly defined and consistent with InferenceClient.
+    """Check and update inference types.
 
     This script is used in the `make style` and `make quality` checks.
     """
     dataclasses = {}
+    aliases = {}
     for file in INFERENCE_TYPES_FOLDER_PATH.glob("*.py"):
         if file.name in IGNORE_FILES:
             continue
@@ -272,21 +292,20 @@ def check_inference_types(update: bool) -> NoReturn:
 
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         formatted_content = format_source_code(fixed_content)
-
         dataclasses[file.stem] = _list_dataclasses(formatted_content)
-
+        aliases[file.stem] = _list_shared_aliases(formatted_content)
         check_and_update_file_content(file, formatted_content, update)
 
-    init_py_content = create_init_py(dataclasses)
+    all_classes = {module: dataclasses[module] + aliases[module] for module in dataclasses.keys()}
+    init_py_content = create_init_py(all_classes)
     init_py_content = format_source_code(init_py_content)
     init_py_file = INFERENCE_TYPES_FOLDER_PATH / "__init__.py"
     check_and_update_file_content(init_py_file, init_py_content, update)
 
     main_init_py_content = MAIN_INIT_PY_FILE.read_text()
-    updated_main_init_py_content = add_dataclasses_to_main_init(main_init_py_content, dataclasses)
+    updated_main_init_py_content = add_dataclasses_to_main_init(main_init_py_content, all_classes)
     updated_main_init_py_content = format_source_code(updated_main_init_py_content)
     check_and_update_file_content(MAIN_INIT_PY_FILE, updated_main_init_py_content, update)
-
     reference_package_content_en = generate_reference_package(dataclasses, "en")
     check_and_update_file_content(REFERENCE_PACKAGE_EN_PATH, reference_package_content_en, update)
 

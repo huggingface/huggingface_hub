@@ -1,9 +1,7 @@
 import contextlib
 import copy
 import errno
-import fnmatch
 import inspect
-import json
 import os
 import re
 import shutil
@@ -22,11 +20,7 @@ from . import (
     __version__,  # noqa: F401 # for backward compatibility
     constants,
 )
-from ._local_folder import (
-    get_local_download_paths,
-    read_download_metadata,
-    write_download_metadata,
-)
+from ._local_folder import get_local_download_paths, read_download_metadata, write_download_metadata
 from .constants import (
     HUGGINGFACE_CO_URL_TEMPLATE,  # noqa: F401 # for backward compatibility
     HUGGINGFACE_HUB_CACHE,  # noqa: F401 # for backward compatibility
@@ -65,10 +59,8 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
-from .utils.insecure_hashlib import sha256
 from .utils.sha import sha_fileobj
 
 
@@ -260,85 +252,6 @@ def hf_hub_url(
     if endpoint is not None and url.startswith(constants.ENDPOINT):
         url = endpoint + url[len(constants.ENDPOINT) :]
     return url
-
-
-@_deprecate_method(version="0.26", message="Use `hf_hub_download` to benefit from the new cache layout.")
-def url_to_filename(url: str, etag: Optional[str] = None) -> str:
-    """Generate a local filename from a url.
-
-    Convert `url` into a hashed filename in a reproducible way. If `etag` is
-    specified, append its hash to the url's, delimited by a period. If the url
-    ends with .h5 (Keras HDF5 weights) adds '.h5' to the name so that TF 2.0 can
-    identify it as a HDF5 file (see
-    https://github.com/tensorflow/tensorflow/blob/00fad90125b18b80fe054de1055770cfb8fe4ba3/tensorflow/python/keras/engine/network.py#L1380)
-
-    Args:
-        url (`str`):
-            The address to the file.
-        etag (`str`, *optional*):
-            The ETag of the file.
-
-    Returns:
-        The generated filename.
-    """
-    url_bytes = url.encode("utf-8")
-    filename = sha256(url_bytes).hexdigest()
-
-    if etag:
-        etag_bytes = etag.encode("utf-8")
-        filename += "." + sha256(etag_bytes).hexdigest()
-
-    if url.endswith(".h5"):
-        filename += ".h5"
-
-    return filename
-
-
-@_deprecate_method(version="0.26", message="Use `hf_hub_url` instead.")
-def filename_to_url(
-    filename,
-    cache_dir: Optional[str] = None,
-    legacy_cache_layout: bool = False,
-) -> Tuple[str, str]:
-    """
-    Return the url and etag (which may be `None`) stored for `filename`. Raise
-    `EnvironmentError` if `filename` or its stored metadata do not exist.
-
-    Args:
-        filename (`str`):
-            The name of the file
-        cache_dir (`str`, *optional*):
-            The cache directory to use instead of the default one.
-        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
-            If `True`, uses the legacy file cache layout i.e. just call `hf_hub_url`
-            then `cached_download`. This is deprecated as the new cache layout is
-            more powerful.
-    """
-    if not legacy_cache_layout:
-        warnings.warn(
-            "`filename_to_url` uses the legacy way cache file layout",
-            FutureWarning,
-        )
-
-    if cache_dir is None:
-        cache_dir = constants.HF_HUB_CACHE
-    if isinstance(cache_dir, Path):
-        cache_dir = str(cache_dir)
-
-    cache_path = os.path.join(cache_dir, filename)
-    if not os.path.exists(cache_path):
-        raise EnvironmentError(f"file {cache_path} not found")
-
-    meta_path = cache_path + ".json"
-    if not os.path.exists(meta_path):
-        raise EnvironmentError(f"file {meta_path} not found")
-
-    with open(meta_path, encoding="utf-8") as meta_file:
-        metadata = json.load(meta_file)
-    url = metadata["url"]
-    etag = metadata["etag"]
-
-    return url, etag
 
 
 def _request_wrapper(
@@ -574,249 +487,6 @@ def http_get(
         )
 
 
-@validate_hf_hub_args
-@_deprecate_method(version="0.26", message="Use `hf_hub_download` instead.")
-def cached_download(
-    url: str,
-    *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    cache_dir: Union[str, Path, None] = None,
-    user_agent: Union[Dict, str, None] = None,
-    force_download: bool = False,
-    force_filename: Optional[str] = None,
-    proxies: Optional[Dict] = None,
-    etag_timeout: float = constants.DEFAULT_ETAG_TIMEOUT,
-    resume_download: Optional[bool] = None,
-    token: Union[bool, str, None] = None,
-    local_files_only: bool = False,
-    legacy_cache_layout: bool = False,
-) -> str:
-    """
-    Download from a given URL and cache it if it's not already present in the
-    local cache.
-
-    Given a URL, this function looks for the corresponding file in the local
-    cache. If it's not there, download it. Then return the path to the cached
-    file.
-
-    Will raise errors tailored to the Hugging Face Hub.
-
-    Args:
-        url (`str`):
-            The path to the file to be downloaded.
-        library_name (`str`, *optional*):
-            The name of the library to which the object corresponds.
-        library_version (`str`, *optional*):
-            The version of the library.
-        cache_dir (`str`, `Path`, *optional*):
-            Path to the folder where cached files are stored.
-        user_agent (`dict`, `str`, *optional*):
-            The user-agent info in the form of a dictionary or a string.
-        force_download (`bool`, *optional*, defaults to `False`):
-            Whether the file should be downloaded even if it already exists in
-            the local cache.
-        force_filename (`str`, *optional*):
-            Use this name instead of a generated file name.
-        proxies (`dict`, *optional*):
-            Dictionary mapping protocol to the URL of the proxy passed to
-            `requests.request`.
-        etag_timeout (`float`, *optional* defaults to `10`):
-            When fetching ETag, how many seconds to wait for the server to send
-            data before giving up which is passed to `requests.request`.
-        token (`bool`, `str`, *optional*):
-            A token to be used for the download.
-                - If `True`, the token is read from the HuggingFace config
-                  folder.
-                - If a string, it's used as the authentication token.
-        local_files_only (`bool`, *optional*, defaults to `False`):
-            If `True`, avoid downloading the file and return the path to the
-            local cached file if it exists.
-        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
-            Set this parameter to `True` to mention that you'd like to continue
-            the old cache layout. Putting this to `True` manually will not raise
-            any warning when using `cached_download`. We recommend using
-            `hf_hub_download` to take advantage of the new cache.
-
-    Returns:
-        Local path (string) of file or if networking is off, last version of
-        file cached on disk.
-
-    <Tip>
-
-    Raises the following errors:
-
-        - [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
-          if `token=True` and the token cannot be found.
-        - [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
-          if ETag cannot be determined.
-        - [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-          if some parameter value is invalid
-        - [`~utils.RepositoryNotFoundError`]
-          If the repository to download from cannot be found. This may be because it doesn't exist,
-          or because it is set to `private` and you do not have access.
-        - [`~utils.RevisionNotFoundError`]
-          If the revision to download from cannot be found.
-        - [`~utils.EntryNotFoundError`]
-          If the file to download cannot be found.
-        - [`~utils.LocalEntryNotFoundError`]
-          If network is disabled or unavailable and file is not found in cache.
-
-    </Tip>
-    """
-    if constants.HF_HUB_ETAG_TIMEOUT != constants.DEFAULT_ETAG_TIMEOUT:
-        # Respect environment variable above user value
-        etag_timeout = constants.HF_HUB_ETAG_TIMEOUT
-
-    if not legacy_cache_layout:
-        warnings.warn(
-            "'cached_download' is the legacy way to download files from the HF hub, please consider upgrading to"
-            " 'hf_hub_download'",
-            FutureWarning,
-        )
-    if resume_download is not None:
-        warnings.warn(
-            "`resume_download` is deprecated and will be removed in version 1.0.0. "
-            "Downloads always resume when possible. "
-            "If you want to force a new download, use `force_download=True`.",
-            FutureWarning,
-        )
-
-    if cache_dir is None:
-        cache_dir = constants.HF_HUB_CACHE
-    if isinstance(cache_dir, Path):
-        cache_dir = str(cache_dir)
-
-    os.makedirs(cache_dir, exist_ok=True)
-
-    headers = build_hf_headers(
-        token=token,
-        library_name=library_name,
-        library_version=library_version,
-        user_agent=user_agent,
-    )
-
-    url_to_download = url
-    etag = None
-    expected_size = None
-    if not local_files_only:
-        try:
-            # Temporary header: we want the full (decompressed) content size returned to be able to check the
-            # downloaded file size
-            headers["Accept-Encoding"] = "identity"
-            r = _request_wrapper(
-                method="HEAD",
-                url=url,
-                headers=headers,
-                allow_redirects=False,
-                follow_relative_redirects=True,
-                proxies=proxies,
-                timeout=etag_timeout,
-            )
-            headers.pop("Accept-Encoding", None)
-            hf_raise_for_status(r)
-            etag = r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or r.headers.get("ETag")
-            # We favor a custom header indicating the etag of the linked resource, and
-            # we fallback to the regular etag header.
-            # If we don't have any of those, raise an error.
-            if etag is None:
-                raise FileMetadataError(
-                    "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
-                )
-            # We get the expected size of the file, to check the download went well.
-            expected_size = _int_or_none(r.headers.get("Content-Length"))
-            # In case of a redirect, save an extra redirect on the request.get call,
-            # and ensure we download the exact atomic version even if it changed
-            # between the HEAD and the GET (unlikely, but hey).
-            # Useful for lfs blobs that are stored on a CDN.
-            if 300 <= r.status_code <= 399:
-                url_to_download = r.headers["Location"]
-                headers.pop("authorization", None)
-                expected_size = None  # redirected -> can't know the expected size
-        except (requests.exceptions.SSLError, requests.exceptions.ProxyError):
-            # Actually raise for those subclasses of ConnectionError
-            raise
-        except (
-            requests.exceptions.ConnectionError,
-            requests.exceptions.Timeout,
-            OfflineModeIsEnabled,
-        ):
-            # Otherwise, our Internet connection is down.
-            # etag is None
-            pass
-
-    filename = force_filename if force_filename is not None else url_to_filename(url, etag)
-
-    # get cache path to put the file
-    cache_path = os.path.join(cache_dir, filename)
-
-    # etag is None == we don't have a connection or we passed local_files_only.
-    # try to get the last downloaded one
-    if etag is None:
-        if os.path.exists(cache_path) and not force_download:
-            return cache_path
-        else:
-            matching_files = [
-                file
-                for file in fnmatch.filter(os.listdir(cache_dir), filename.split(".")[0] + ".*")
-                if not file.endswith(".json") and not file.endswith(".lock")
-            ]
-            if len(matching_files) > 0 and not force_download and force_filename is None:
-                return os.path.join(cache_dir, matching_files[-1])
-            else:
-                # If files cannot be found and local_files_only=True,
-                # the models might've been found if local_files_only=False
-                # Notify the user about that
-                if local_files_only:
-                    raise LocalEntryNotFoundError(
-                        "Cannot find the requested files in the cached path and"
-                        " outgoing traffic has been disabled. To enable model look-ups"
-                        " and downloads online, set 'local_files_only' to False."
-                    )
-                else:
-                    raise LocalEntryNotFoundError(
-                        "Connection error, and we cannot find the requested files in"
-                        " the cached path. Please try again or make sure your Internet"
-                        " connection is on."
-                    )
-
-    # From now on, etag is not None.
-    if os.path.exists(cache_path) and not force_download:
-        return cache_path
-
-    # Prevent parallel downloads of the same file with a lock.
-    lock_path = cache_path + ".lock"
-
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it is an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
-        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
-
-    if os.name == "nt" and len(os.path.abspath(cache_path)) > 255:
-        cache_path = "\\\\?\\" + os.path.abspath(cache_path)
-
-    with WeakFileLock(lock_path):
-        _download_to_tmp_and_move(
-            incomplete_path=Path(cache_path + ".incomplete"),
-            destination_path=Path(cache_path),
-            url_to_download=url_to_download,
-            proxies=proxies,
-            headers=headers,
-            expected_size=expected_size,
-            filename=filename,
-            force_download=force_download,
-        )
-
-        if force_filename is None:
-            logger.info("creating metadata file for %s", cache_path)
-            meta = {"url": url, "etag": etag}
-            meta_path = cache_path + ".json"
-            with open(meta_path, "w") as meta_file:
-                json.dump(meta, meta_file)
-
-    return cache_path
-
-
 def _normalize_etag(etag: Optional[str]) -> Optional[str]:
     """Normalize ETag HTTP header, so it can be used to create nice filepaths.
 
@@ -990,14 +660,6 @@ def _check_disk_space(expected_size: int, target_dir: Union[str, Path]) -> None:
             pass
 
 
-@_deprecate_arguments(
-    version="0.26.0",
-    deprecated_args=["legacy_cache_layout"],
-    custom_message=(
-        "Legacy cache layout has been deprecated since August 2022 and will soon be removed. "
-        "See https://huggingface.co/docs/huggingface_hub/guides/manage-cache for more details."
-    ),
-)
 @validate_hf_hub_args
 def hf_hub_download(
     repo_id: str,
@@ -1018,8 +680,6 @@ def hf_hub_download(
     local_files_only: bool = False,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
-    # Deprecated args
-    legacy_cache_layout: bool = False,
     resume_download: Optional[bool] = None,
     force_filename: Optional[str] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
@@ -1101,10 +761,6 @@ def hf_hub_download(
             local cached file if it exists.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
-        legacy_cache_layout (`bool`, *optional*, defaults to `False`):
-            If `True`, uses the legacy file cache layout i.e. just call [`hf_hub_url`]
-            then `cached_download`. This is deprecated as the new cache layout is
-            more powerful.
 
     Returns:
         `str`: Local path of file or if networking is off, last version of file cached on disk.
@@ -1137,38 +793,12 @@ def hf_hub_download(
             "which keeps the filenames as they are on the Hub, is now in place.",
             FutureWarning,
         )
-        legacy_cache_layout = True
     if resume_download is not None:
         warnings.warn(
             "`resume_download` is deprecated and will be removed in version 1.0.0. "
             "Downloads always resume when possible. "
             "If you want to force a new download, use `force_download=True`.",
             FutureWarning,
-        )
-
-    if legacy_cache_layout:
-        url = hf_hub_url(
-            repo_id,
-            filename,
-            subfolder=subfolder,
-            repo_type=repo_type,
-            revision=revision,
-            endpoint=endpoint,
-        )
-
-        return cached_download(
-            url,
-            library_name=library_name,
-            library_version=library_version,
-            cache_dir=cache_dir,
-            user_agent=user_agent,
-            force_download=force_download,
-            force_filename=force_filename,
-            proxies=proxies,
-            etag_timeout=etag_timeout,
-            token=token,
-            local_files_only=local_files_only,
-            legacy_cache_layout=legacy_cache_layout,
         )
 
     if cache_dir is None:
@@ -1388,7 +1018,8 @@ def _hf_hub_download_to_cache_dir(
             filename=filename,
             force_download=force_download,
         )
-        _create_symlink(blob_path, pointer_path, new_blob=True)
+        if not os.path.exists(pointer_path):
+            _create_symlink(blob_path, pointer_path, new_blob=True)
 
     return pointer_path
 
@@ -1751,8 +1382,8 @@ def _get_metadata_or_catch_error(
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
                     if commit_hash is not None:
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
-                        no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
                         try:
+                            no_exist_file_path.parent.mkdir(parents=True, exist_ok=True)
                             no_exist_file_path.touch()
                         except OSError as e:
                             logger.error(

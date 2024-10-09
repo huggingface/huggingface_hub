@@ -11,7 +11,7 @@ from .base import BaseInferenceType
 
 @dataclass
 class ImageToImageTargetSize(BaseInferenceType):
-    """The size in pixel of the output image"""
+    """The size in pixel of the output image."""
 
     height: int
     width: int
@@ -34,15 +34,17 @@ class ImageToImageParameters(BaseInferenceType):
     a higher quality image at the expense of slower inference.
     """
     target_size: Optional[ImageToImageTargetSize] = None
-    """The size in pixel of the output image"""
+    """The size in pixel of the output image."""
 
 
 @dataclass
 class ImageToImageInput(BaseInferenceType):
     """Inputs for Image To Image inference"""
 
-    inputs: Any
-    """The input image data"""
+    inputs: str
+    """The input image data as a base64-encoded string. If no `parameters` are provided, you can
+    also provide the image data as a raw bytes payload.
+    """
     parameters: Optional[ImageToImageParameters] = None
     """Additional inference parameters"""
 
@@ -52,4 +54,4 @@ class ImageToImageOutput(BaseInferenceType):
     """Outputs of inference for the Image To Image task"""
 
     image: Any
-    """The output image"""
+    """The output image returned as raw bytes in the payload."""

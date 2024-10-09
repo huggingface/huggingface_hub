@@ -6,10 +6,12 @@
 from .audio_classification import (
     AudioClassificationInput,
     AudioClassificationOutputElement,
+    AudioClassificationOutputTransform,
     AudioClassificationParameters,
 )
 from .audio_to_audio import AudioToAudioInput, AudioToAudioOutputElement
 from .automatic_speech_recognition import (
+    AutomaticSpeechRecognitionEarlyStoppingEnum,
     AutomaticSpeechRecognitionGenerationParameters,
     AutomaticSpeechRecognitionInput,
     AutomaticSpeechRecognitionOutput,
@@ -24,8 +26,8 @@ from .chat_completion import (
     ChatCompletionInputGrammarType,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
-    ChatCompletionInputTool,
-    ChatCompletionInputToolTypeClass,
+    ChatCompletionInputStreamOptions,
+    ChatCompletionInputToolType,
     ChatCompletionInputURL,
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
@@ -44,6 +46,8 @@ from .chat_completion import (
     ChatCompletionStreamOutputLogprob,
     ChatCompletionStreamOutputLogprobs,
     ChatCompletionStreamOutputTopLogprob,
+    ChatCompletionStreamOutputUsage,
+    ToolElement,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
@@ -57,11 +61,18 @@ from .fill_mask import FillMaskInput, FillMaskOutputElement, FillMaskParameters
 from .image_classification import (
     ImageClassificationInput,
     ImageClassificationOutputElement,
+    ImageClassificationOutputTransform,
     ImageClassificationParameters,
 )
 from .image_segmentation import ImageSegmentationInput, ImageSegmentationOutputElement, ImageSegmentationParameters
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, ImageToImageTargetSize
-from .image_to_text import ImageToTextGenerationParameters, ImageToTextInput, ImageToTextOutput, ImageToTextParameters
+from .image_to_text import (
+    ImageToTextEarlyStoppingEnum,
+    ImageToTextGenerationParameters,
+    ImageToTextInput,
+    ImageToTextOutput,
+    ImageToTextParameters,
+)
 from .object_detection import (
     ObjectDetectionBoundingBox,
     ObjectDetectionInput,
@@ -75,14 +86,19 @@ from .question_answering import (
     QuestionAnsweringParameters,
 )
 from .sentence_similarity import SentenceSimilarityInput, SentenceSimilarityInputData
-from .summarization import SummarizationGenerationParameters, SummarizationInput, SummarizationOutput
+from .summarization import SummarizationInput, SummarizationOutput, SummarizationParameters
 from .table_question_answering import (
     TableQuestionAnsweringInput,
     TableQuestionAnsweringInputData,
     TableQuestionAnsweringOutputElement,
 )
 from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
-from .text_classification import TextClassificationInput, TextClassificationOutputElement, TextClassificationParameters
+from .text_classification import (
+    TextClassificationInput,
+    TextClassificationOutputElement,
+    TextClassificationOutputTransform,
+    TextClassificationParameters,
+)
 from .text_generation import (
     TextGenerationInput,
     TextGenerationInputGenerateParameters,
@@ -96,17 +112,31 @@ from .text_generation import (
     TextGenerationStreamOutputStreamDetails,
     TextGenerationStreamOutputToken,
 )
-from .text_to_audio import TextToAudioGenerationParameters, TextToAudioInput, TextToAudioOutput, TextToAudioParameters
+from .text_to_audio import (
+    TextToAudioEarlyStoppingEnum,
+    TextToAudioGenerationParameters,
+    TextToAudioInput,
+    TextToAudioOutput,
+    TextToAudioParameters,
+)
 from .text_to_image import TextToImageInput, TextToImageOutput, TextToImageParameters, TextToImageTargetSize
+from .text_to_speech import (
+    TextToSpeechEarlyStoppingEnum,
+    TextToSpeechGenerationParameters,
+    TextToSpeechInput,
+    TextToSpeechOutput,
+    TextToSpeechParameters,
+)
 from .token_classification import (
     TokenClassificationInput,
     TokenClassificationOutputElement,
     TokenClassificationParameters,
 )
-from .translation import TranslationGenerationParameters, TranslationInput, TranslationOutput
+from .translation import TranslationInput, TranslationOutput, TranslationParameters
 from .video_classification import (
     VideoClassificationInput,
     VideoClassificationOutputElement,
+    VideoClassificationOutputTransform,
     VideoClassificationParameters,
 )
 from .visual_question_answering import (

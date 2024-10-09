@@ -4,12 +4,12 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from .base import BaseInferenceType
 
 
-EarlyStoppingEnum = Literal["never"]
+AutomaticSpeechRecognitionEarlyStoppingEnum = Literal["never"]
 
 
 @dataclass
@@ -20,7 +20,7 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
-    early_stopping: Optional[Union[bool, "EarlyStoppingEnum"]] = None
+    early_stopping: Optional[Union[bool, "AutomaticSpeechRecognitionEarlyStoppingEnum"]] = None
     """Controls the stopping condition for beam-based methods."""
     epsilon_cutoff: Optional[float] = None
     """If set to float strictly between 0 and 1, only tokens with a conditional probability
@@ -40,11 +40,11 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
     max_length: Optional[int] = None
     """The maximum length (in tokens) of the generated text, including the input."""
     max_new_tokens: Optional[int] = None
-    """The maximum number of tokens to generate. Takes precedence over maxLength."""
+    """The maximum number of tokens to generate. Takes precedence over max_length."""
     min_length: Optional[int] = None
     """The minimum length (in tokens) of the generated text, including the input."""
     min_new_tokens: Optional[int] = None
-    """The minimum number of tokens to generate. Takes precedence over maxLength."""
+    """The minimum number of tokens to generate. Takes precedence over min_length."""
     num_beam_groups: Optional[int] = None
     """Number of groups to divide num_beams into in order to ensure diversity among different
     groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -90,8 +90,10 @@ class AutomaticSpeechRecognitionParameters(BaseInferenceType):
 class AutomaticSpeechRecognitionInput(BaseInferenceType):
     """Inputs for Automatic Speech Recognition inference"""
 
-    inputs: Any
-    """The input audio data"""
+    inputs: str
+    """The input audio data as a base64-encoded string. If no `parameters` are provided, you can
+    also provide the audio data as a raw bytes payload.
+    """
     parameters: Optional[AutomaticSpeechRecognitionParameters] = None
     """Additional inference parameters"""
 

@@ -136,6 +136,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils import tqdm as hf_tqdm
+from .utils._deprecation import _deprecate_method
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
@@ -154,6 +155,7 @@ ExpandModelProperty_T = Literal[
     "downloads",
     "downloadsAllTime",
     "gated",
+    "gguf",
     "inference",
     "lastModified",
     "library_name",
@@ -218,7 +220,11 @@ _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
     "\nNote: Creating a commit assumes that the repo already exists on the"
     " Huggingface Hub. Please use `create_repo` if it's not the case."
 )
-
+_AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
+    "\nNote: The repository either does not exist or you do not have access rights."
+    " Please check the repository ID and your access permissions."
+    " If this is a private repository, ensure that your token is correct."
+)
 logger = logging.get_logger(__name__)
 
 
@@ -352,7 +358,7 @@ class TransformersInfo(dict):
 
 @dataclass
 class SafeTensorsInfo(dict):
-    parameters: List[Dict[str, int]]
+    parameters: Dict[str, int]
     total: int
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
@@ -728,6 +734,8 @@ class ModelInfo:
         gated (`Literal["auto", "manual", False]`, *optional*):
             Is the repo gated.
             If so, whether there is manual or automatic approval.
+        gguf (`Dict`, *optional*):
+            GGUF information of the model.
         inference (`Literal["cold", "frozen", "warm"]`, *optional*):
             Status of the model on the inference API.
             Warm models are available for immediate use. Cold models will be loaded on first inference call.
@@ -773,6 +781,7 @@ class ModelInfo:
     downloads: Optional[int]
     downloads_all_time: Optional[int]
     gated: Optional[Literal["auto", "manual", False]]
+    gguf: Optional[Dict]
     inference: Optional[Literal["warm", "cold", "frozen"]]
     likes: Optional[int]
     library_name: Optional[str]
@@ -804,6 +813,7 @@ class ModelInfo:
         self.downloads_all_time = kwargs.pop("downloadsAllTime", None)
         self.likes = kwargs.pop("likes", None)
         self.library_name = kwargs.pop("library_name", None)
+        self.gguf = kwargs.pop("gguf", None)
         self.inference = kwargs.pop("inference", None)
         self.tags = kwargs.pop("tags", None)
         self.pipeline_tag = kwargs.pop("pipeline_tag", None)
@@ -1398,6 +1408,10 @@ class User:
             Number of upvotes received by the user.
         num_likes (`int`, *optional*):
             Number of likes given by the user.
+        num_following (`int`, *optional*):
+            Number of users this user is following.
+        num_followers (`int`, *optional*):
+            Number of users following this user.
         orgs (list of [`Organization`]):
             List of organizations the user is part of.
     """
@@ -1416,6 +1430,8 @@ class User:
     num_papers: Optional[int] = None
     num_upvotes: Optional[int] = None
     num_likes: Optional[int] = None
+    num_following: Optional[int] = None
+    num_followers: Optional[int] = None
     orgs: List[Organization] = field(default_factory=list)
 
     def __init__(self, **kwargs) -> None:
@@ -1432,6 +1448,8 @@ class User:
         self.num_papers = kwargs.pop("numPapers", None)
         self.num_upvotes = kwargs.pop("numUpvotes", None)
         self.num_likes = kwargs.pop("numLikes", None)
+        self.num_following = kwargs.pop("numFollowing", None)
+        self.num_followers = kwargs.pop("numFollowers", None)
         self.user_type = kwargs.pop("type", None)
         self.orgs = [Organization(**org) for org in kwargs.pop("orgs", [])]
 
@@ -1711,7 +1729,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full`, `cardData` or `fetch_config` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             full (`bool`, *optional*):
                 Whether to fetch all model data, including the `last_modified`,
                 the `sha`, the files and the `tags`. This is set to `True` by
@@ -2342,7 +2360,7 @@ class HfApi:
         *,
         repo_type: Optional[str] = None,
         token: Union[bool, str, None] = None,
-    ) -> List[User]:
+    ) -> Iterable[User]:
         """
         List all users who liked a given repo on the hugging Face Hub.
 
@@ -2364,29 +2382,15 @@ class HfApi:
                 `None`.
 
         Returns:
-            `List[User]`: a list of [`User`] objects.
+            `Iterable[User]`: an iterable of [`huggingface_hub.hf_api.User`] objects.
         """
 
         # Construct the API endpoint
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
-        headers = self._build_hf_headers(token=token)
-
-        # Make the request
-        response = get_session().get(path, headers=headers)
-        hf_raise_for_status(response)
-
-        # Parse the results into User objects
-        likers_data = response.json()
-        return [
-            User(
-                username=user_data["user"],
-                fullname=user_data["fullname"],
-                avatar_url=user_data["avatarUrl"],
-            )
-            for user_data in likers_data
-        ]
+        for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
+            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
 
     @validate_hf_hub_args
     def model_info(
@@ -2423,7 +2427,7 @@ class HfApi:
             expand (`List[ExpandModelProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `securityStatus` or `files_metadata` are passed.
-                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
+                Possible values are `"author"`, `"baseModels"`, `"cardData"`, `"childrenModelCount"`, `"config"`, `"createdAt"`, `"disabled"`, `"downloads"`, `"downloadsAllTime"`, `"gated"`, `"gguf"`, `"inference"`, `"lastModified"`, `"library_name"`, `"likes"`, `"mask_token"`, `"model-index"`, `"pipeline_tag"`, `"private"`, `"safetensors"`, `"sha"`, `"siblings"`, `"spaces"`, `"tags"`, `"transformersInfo"`, `"trendingScore"` and `"widgetData"`.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3522,6 +3526,7 @@ class HfApi:
             if not missing_ok:
                 raise
 
+    @_deprecate_method(version="0.29", message="Please use `update_repo_settings` instead.")
     @validate_hf_hub_args
     def update_repo_visibility(
         self,
@@ -3532,6 +3537,8 @@ class HfApi:
         repo_type: Optional[str] = None,
     ) -> Dict[str, bool]:
         """Update the visibility setting of a repository.
+
+        Deprecated. Use `update_repo_settings` instead.
 
         Args:
             repo_id (`str`, *optional*):
@@ -3573,6 +3580,83 @@ class HfApi:
         )
         hf_raise_for_status(r)
         return r.json()
+
+    @validate_hf_hub_args
+    def update_repo_settings(
+        self,
+        repo_id: str,
+        *,
+        gated: Optional[Literal["auto", "manual", False]] = None,
+        private: Optional[bool] = None,
+        token: Union[str, bool, None] = None,
+        repo_type: Optional[str] = None,
+    ) -> None:
+        """
+        Update the settings of a repository, including gated access and visibility.
+
+        To give more control over how repos are used, the Hub allows repo authors to enable
+        access requests for their repos, and also to set the visibility of the repo to private.
+
+        Args:
+            repo_id (`str`):
+                A namespace (user or an organization) and a repo name separated by a /.
+            gated (`Literal["auto", "manual", False]`, *optional*):
+                The gated status for the repository. If set to `None` (default), the `gated` setting of the repository won't be updated.
+                * "auto": The repository is gated, and access requests are automatically approved or denied based on predefined criteria.
+                * "manual": The repository is gated, and access requests require manual approval.
+                * False : The repository is not gated, and anyone can access it.
+            private (`bool`, *optional*):
+                Whether the model repo should be private.
+            token (`Union[str, bool, None]`, *optional*):
+                A valid user access token (string). Defaults to the locally saved token,
+                which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass False.
+            repo_type (`str`, *optional*):
+                The type of the repository to update settings from (`"model"`, `"dataset"` or `"space"`).
+                Defaults to `"model"`.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If gated is not one of "auto", "manual", or False.
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If repo_type is not one of the values in constants.REPO_TYPES.
+            [`~utils.HfHubHTTPError`]:
+                If the request to the Hugging Face Hub API fails.
+            [`~utils.RepositoryNotFoundError`]
+                If the repository to download from cannot be found. This may be because it doesn't exist,
+                or because it is set to `private` and you do not have access.
+        """
+
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL  # default repo type
+
+        # Check if both gated and private are None
+        if gated is None and private is None:
+            raise ValueError("At least one of 'gated' or 'private' must be provided.")
+
+        # Build headers
+        headers = self._build_hf_headers(token=token)
+
+        # Prepare the JSON payload for the PUT request
+        payload: Dict = {}
+
+        if gated is not None:
+            if gated not in ["auto", "manual", False]:
+                raise ValueError(f"Invalid gated status, must be one of 'auto', 'manual', or False. Got '{gated}'.")
+            payload["gated"] = gated
+
+        if private is not None:
+            payload["private"] = private
+
+        r = get_session().put(
+            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
+            headers=headers,
+            json=payload,
+        )
+        hf_raise_for_status(r)
 
     def move_repo(
         self,
@@ -3961,6 +4045,9 @@ class HfApi:
 
     @experimental
     @validate_hf_hub_args
+    @_deprecate_method(
+        version="0.27", message="This is an experimental feature. Please use `upload_large_folder` instead."
+    )
     def create_commits_on_pr(
         self,
         *,
@@ -4799,8 +4886,10 @@ class HfApi:
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
             multi_commits (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
             multi_commits_verbose (`bool`):
+                Deprecated. For large uploads, use `upload_large_folder` instead.
                 If True and `multi_commits` is used, more information will be displayed to the user.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
@@ -5293,7 +5382,7 @@ class HfApi:
 
         Order of priority:
             1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
-            2. Commit if at least 25 files are ready to commit.
+            2. Commit if at least 150 files are ready to commit.
             3. Get upload mode if at least 10 files have been hashed.
             4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
             5. Hash file if at least 1 file and no worker is hashing.
@@ -5301,7 +5390,8 @@ class HfApi:
             7. Pre-upload LFS file if at least 1 file (exception: if hf_transfer is enabled, only 1 worker can preupload LFS at a time).
             8. Hash file if at least 1 file to hash.
             9. Get upload mode if at least 1 file to get upload mode.
-            10. Commit if at least 1 file to commit.
+            10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
+            11. Commit if at least 1 file to commit and all other queues are empty.
 
         Special rules:
             - If `hf_transfer` is enabled, only 1 LFS uploader at a time. Otherwise the CPU would be bloated by `hf_transfer`.
@@ -5381,7 +5471,6 @@ class HfApi:
         local_files_only: bool = False,
         # Deprecated args
         resume_download: Optional[bool] = None,
-        legacy_cache_layout: bool = False,
         force_filename: Optional[str] = None,
         local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
     ) -> str:
@@ -5502,7 +5591,6 @@ class HfApi:
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
-            legacy_cache_layout=legacy_cache_layout,
         )
 
     @validate_hf_hub_args
@@ -8909,7 +8997,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/models/{repo_id}/user-access-request/grant",
+            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -9414,14 +9502,24 @@ class HfApi:
                 repo_type=repo_type,
                 token=token,
             )
+        if len(filtered_repo_objects) > 30:
+            logger.info(
+                "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
+                "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
+                "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
+                "check out https://huggingface.co/docs/huggingface_hub/main/en/guides/upload#upload-a-large-folder."
+            )
 
-        return [
+        logger.info(f"Start hashing {len(filtered_repo_objects)} files.")
+        operations = [
             CommitOperationAdd(
                 path_or_fileobj=relpath_to_abspath[relpath],  # absolute path on disk
                 path_in_repo=prefix + relpath,  # "absolute" path in repo
             )
             for relpath in filtered_repo_objects
         ]
+        logger.info(f"Finished hashing {len(filtered_repo_objects)} files.")
+        return operations
 
     def _validate_yaml(self, content: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None):
         """
@@ -9575,6 +9673,70 @@ class HfApi:
         ):
             yield User(**followed_user)
 
+    def auth_check(
+        self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+    ) -> None:
+        """
+        Check if the provided user token has access to a specific repository on the Hugging Face Hub.
+
+        This method verifies whether the user, authenticated via the provided token, has access to the specified
+        repository. If the repository is not found or if the user lacks the required permissions to access it,
+        the method raises an appropriate exception.
+
+        Args:
+            repo_id (`str`):
+                The repository to check for access. Format should be `"user/repo_name"`.
+                Example: `"user/my-cool-model"`.
+
+            repo_type (`str`, *optional*):
+                The type of the repository. Should be one of `"model"`, `"dataset"`, or `"space"`.
+                If not specified, the default is `"model"`.
+
+            token `(Union[bool, str, None]`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+                Raised if the repository does not exist, is private, or the user does not have access. This can
+                occur if the `repo_id` or `repo_type` is incorrect or if the repository is private but the user
+                is not authenticated.
+
+            [`~utils.GatedRepoError`]:
+                Raised if the repository exists but is gated and the user is not authorized to access it.
+
+        Example:
+            Check if the user has access to a repository:
+
+            ```python
+            >>> from huggingface_hub import auth_check
+            >>> from huggingface_hub.utils import GatedRepoError, RepositoryNotFoundError
+
+            try:
+                auth_check("user/my-cool-model")
+            except GatedRepoError:
+                # Handle gated repository error
+                print("You do not have permission to access this gated repository.")
+            except RepositoryNotFoundError:
+                # Handle repository not found error
+                print("The repository was not found or you do not have access.")
+            ```
+
+            In this example:
+            - If the user has access, the method completes successfully.
+            - If the repository is gated or does not exist, appropriate exceptions are raised, allowing the user
+            to handle them accordingly.
+        """
+        headers = self._build_hf_headers(token=token)
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        if repo_type not in constants.REPO_TYPES:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
+        r = get_session().get(path, headers=headers)
+        hf_raise_for_status(r)
+
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
@@ -9594,6 +9756,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
 api = HfApi()
 
 whoami = api.whoami
+auth_check = api.auth_check
 get_token_permission = api.get_token_permission
 
 list_models = api.list_models
@@ -9614,7 +9777,6 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
-
 list_metrics = api.list_metrics
 
 get_model_tags = api.get_model_tags
@@ -9624,6 +9786,7 @@ create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_visibility = api.update_repo_visibility
+update_repo_settings = api.update_repo_settings
 super_squash_history = api.super_squash_history
 move_repo = api.move_repo
 upload_file = api.upload_file
