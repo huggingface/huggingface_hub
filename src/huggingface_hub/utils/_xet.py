@@ -122,6 +122,7 @@ def fetch_xet_metadata_from_repo_info(
 
 @validate_hf_hub_args
 def _fetch_xet_metadata_with_url(
+    *,
     url: str,
     headers: Dict[str, str],
 ) -> XetMetadata:
