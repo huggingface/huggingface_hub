@@ -40,10 +40,10 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .utils import (
-    HfXetMetadata,
     OfflineModeIsEnabled,
     SoftTemporaryDirectory,
     WeakFileLock,
+    XetMetadata,
     build_hf_headers,
     get_fastai_version,  # noqa: F401 # for backward compatibility
     get_fastcore_version,  # noqa: F401 # for backward compatibility
@@ -168,7 +168,7 @@ class HfFileMetadata:
         size (`size`):
             Size of the file. In case of an LFS file, contains the size of the actual
             LFS file, not the pointer.
-        xet (`HfXetMetadata`, *optional*):
+        xet (`XetMetadata`, *optional*):
             Xet metadata for the file.
     """
 
@@ -176,7 +176,7 @@ class HfFileMetadata:
     etag: Optional[str]
     location: str
     size: Optional[int]
-    xet: Optional[HfXetMetadata]
+    xet: Optional[XetMetadata]
 
 
 @validate_hf_hub_args
@@ -1726,7 +1726,7 @@ def _get_metadata_or_catch_error(
     Tuple[None, None, None, None, None, Exception],
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, None)`
-    Tuple[str, str, str, int, Optional[HfXetMetadata], None],
+    Tuple[str, str, str, int, Optional[XetMetadata], None],
 ]:
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1755,7 +1755,7 @@ def _get_metadata_or_catch_error(
     commit_hash: Optional[str] = None
     expected_size: Optional[int] = None
     head_error_call: Optional[Exception] = None
-    xet: Optional[HfXetMetadata] = None
+    xet: Optional[XetMetadata] = None
 
     # Try to get metadata from the server.
     # Do not raise yet if the file is not found or not accessible.
@@ -1892,7 +1892,7 @@ def _download_to_tmp_and_move(
     filename: str,
     force_download: bool,
     etag: Optional[str],
-    xet: Optional[HfXetMetadata],
+    xet: Optional[XetMetadata],
 ) -> None:
     """Download content from a URL to a destination path.
 

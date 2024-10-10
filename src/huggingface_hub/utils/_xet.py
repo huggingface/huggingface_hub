@@ -9,14 +9,14 @@ from . import get_session, validate_hf_hub_args
 
 
 @dataclass(frozen=True)
-class HfXetMetadata:
+class XetMetadata:
     endpoint: str
     access_token: str
     expiration_unix_epoch: int
     refresh_route: Optional[str] = None
 
 
-def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]]) -> Optional[HfXetMetadata]:
+def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]]) -> Optional[XetMetadata]:
     """
     Extract XET metadata from the HTTP headers or return None if not found.
 
@@ -37,7 +37,7 @@ def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]
     except (ValueError, TypeError):
         return None
 
-    return HfXetMetadata(
+    return XetMetadata(
         endpoint=xet_endpoint,
         access_token=access_token,
         expiration_unix_epoch=expiration_unix_epoch,
@@ -52,22 +52,22 @@ class XetTokenType(str, Enum):
 
 @validate_hf_hub_args
 def refresh_xet_metadata(
-    xet: HfXetMetadata,
+    xet: XetMetadata,
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
-) -> HfXetMetadata:
+) -> XetMetadata:
     """
     Utilizes the information in the parsed metadata to request the Hub xet access token.
 
     Args:
-        xet: (`HfXetMetadata`):
+        xet: (`XetMetadata`):
             The xet metadata provided by the Hub API.
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
         endpoint (`str`, `optional`):
             The endpoint to use for the request. Defaults to the Hub endpoint.
     Returns:
-        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+        `XetMetadata`: The metadata needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.
@@ -89,7 +89,7 @@ def fetch_xet_token_from_repo_info(
     headers: Dict[str, str],
     revision: Optional[str] = None,
     endpoint: Optional[str] = None,
-) -> HfXetMetadata:
+) -> XetMetadata:
     """
     Uses the repo info to request a xet access token from Hub.
 
@@ -108,7 +108,7 @@ def fetch_xet_token_from_repo_info(
         endpoint (`str`, `optional`):
             The endpoint to use for the request. Defaults to the Hub endpoint.
     Returns:
-        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+        `XetMetadata`: The metadata needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.
@@ -124,7 +124,7 @@ def fetch_xet_token_from_repo_info(
 def _fetch_xet_token_with_url(
     url: str,
     headers: Dict[str, str],
-) -> HfXetMetadata:
+) -> XetMetadata:
     """
     Requests the xet access token from the supplied URL.
 
@@ -134,7 +134,7 @@ def _fetch_xet_token_with_url(
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
     Returns:
-        `HfXetMetadata`: The metadata needed to make the request to the xet storage service.
+        `XetMetadata`: The metadata needed to make the request to the xet storage service.
     Raises:
         [`~utils.HfHubHTTPError`]
             If the Hub API returned an error.

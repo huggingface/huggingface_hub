@@ -118,7 +118,7 @@ from ._validators import (
     validate_repo_id,
 )
 from ._xet import (
-    HfXetMetadata,
+    XetMetadata,
     XetTokenType,
     fetch_xet_token_from_repo_info,
     refresh_xet_metadata,
