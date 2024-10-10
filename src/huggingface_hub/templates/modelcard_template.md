@@ -4,7 +4,7 @@
 {{ card_data }}
 ---
 
-# Model Card for {{ model_id | default("Model ID", true) }}
+# Model Card for {{ cooling-tower-corrosion-prediction | default("Model ID", true) }}
 
 <!-- Provide a quick summary of what the model is/does. -->
 
