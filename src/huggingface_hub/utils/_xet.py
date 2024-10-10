@@ -20,6 +20,7 @@ class XetMetadata:
     expiration_unix_epoch: int
     refresh_route: Optional[str] = None
 
+
 def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]]) -> Optional[XetMetadata]:
     """
     Extract XET metadata from the HTTP headers or return None if not found.
@@ -122,7 +123,6 @@ def fetch_xet_metadata_from_repo_info(
 
 @validate_hf_hub_args
 def _fetch_xet_metadata_with_url(
-    *,
     url: str,
     headers: Dict[str, str],
 ) -> XetMetadata:
