@@ -52,7 +52,7 @@ def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]
 @validate_hf_hub_args
 def refresh_xet_metadata(
     *,
-    xet: XetMetadata,
+    xet_metadata: XetMetadata,
     headers: Dict[str, str],
     endpoint: Optional[str] = None,
 ) -> XetMetadata:
@@ -60,7 +60,7 @@ def refresh_xet_metadata(
     Utilizes the information in the parsed metadata to request the Hub xet access token.
 
     Args:
-        xet: (`XetMetadata`):
+        xet_metadata: (`XetMetadata`):
             The xet metadata provided by the Hub API.
         headers (`Dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
@@ -75,9 +75,9 @@ def refresh_xet_metadata(
             If the Hub API response is improperly formatted.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
-    if xet.refresh_route is None:
+    if xet_metadata.refresh_route is None:
         raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
-    url = f"{endpoint}{xet.refresh_route}"
+    url = f"{endpoint}{xet_metadata.refresh_route}"
     return _fetch_xet_metadata_with_url(url, headers)
 
 

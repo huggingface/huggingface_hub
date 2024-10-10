@@ -499,7 +499,7 @@ def _upload_xet_files(
             "package is not available in your environment. Try pip install hf_xet."
         )
 
-    xet_meta = fetch_xet_metadata_from_repo_info(
+    xet_metadata = fetch_xet_metadata_from_repo_info(
         token_type=XetTokenType.WRITE,
         repo_id=repo_id,
         repo_type=repo_type,
@@ -507,16 +507,16 @@ def _upload_xet_files(
         headers=headers,
         endpoint=endpoint,
     )
-    if xet_meta is None:
+    if xet_metadata is None:
         raise ValueError(
             f"You are unauthorized to upload to xet storage for {repo_type}/{repo_id}. "
             f"Please check that you have configured your access token with write access to the repo."
         )
-    xet_endpoint = xet_meta.endpoint
-    access_token_info = (xet_meta.access_token, xet_meta.expiration_unix_epoch)
+    xet_endpoint = xet_metadata.endpoint
+    access_token_info = (xet_metadata.access_token, xet_metadata.expiration_unix_epoch)
 
     def token_refresher() -> Tuple[str, int]:
-        xet_metadata = fetch_xet_metadata_from_repo_info(
+        new_xet_metadata = fetch_xet_metadata_from_repo_info(
             token_type=XetTokenType.WRITE,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -524,9 +524,9 @@ def _upload_xet_files(
             headers=headers,
             endpoint=endpoint,
         )
-        if xet_metadata is None:
+        if new_xet_metadata is None:
             raise ValueError("Failed to refresh xet token")
-        return xet_metadata.access_token, xet_metadata.expiration_unix_epoch
+        return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
 
     for chunk in chunk_iterable(additions, chunk_size=256):
         _chunk = [op for op in chunk]
