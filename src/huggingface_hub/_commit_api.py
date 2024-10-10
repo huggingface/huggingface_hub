@@ -23,7 +23,7 @@ from .utils import (
     FORBIDDEN_FOLDERS,
     XetTokenType,
     chunk_iterable,
-    fetch_xet_token_from_repo_info,
+    fetch_xet_metadata_from_repo_info,
     get_session,
     hf_raise_for_status,
     logging,
@@ -499,12 +499,12 @@ def _upload_xet_files(
             "package is not available in your environment. Try pip install hf_xet."
         )
 
-    xet_meta = fetch_xet_token_from_repo_info(
+    xet_meta = fetch_xet_metadata_from_repo_info(
         token_type=XetTokenType.WRITE,
-        repo_type=repo_type,
         repo_id=repo_id,
-        headers=headers,
+        repo_type=repo_type,
         revision=revision,
+        headers=headers,
         endpoint=endpoint,
     )
     if xet_meta is None:
@@ -516,12 +516,12 @@ def _upload_xet_files(
     access_token_info = (xet_meta.access_token, xet_meta.expiration_unix_epoch)
 
     def token_refresher() -> Tuple[str, int]:
-        xet_metadata = fetch_xet_token_from_repo_info(
+        xet_metadata = fetch_xet_metadata_from_repo_info(
             token_type=XetTokenType.WRITE,
-            repo_type=repo_type,
             repo_id=repo_id,
-            headers=headers,
+            repo_type=repo_type,
             revision=revision,
+            headers=headers,
             endpoint=endpoint,
         )
         if xet_metadata is None:
