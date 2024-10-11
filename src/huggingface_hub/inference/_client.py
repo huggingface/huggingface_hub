@@ -2924,6 +2924,10 @@ class InferenceClient:
         inputs: Union[str, Dict[str, Any], ContentT],
         parameters: Optional[Dict[str, Any]] = None,
     ) -> _InferenceInputs:
+        """
+        Prepare payload for an API request, handling various input types and parameters.
+        """
+
         def is_raw_content(inputs: Union[str, ContentT]) -> bool:
             return isinstance(inputs, (bytes, Path)) or (
                 isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
