@@ -3000,20 +3000,20 @@ class AsyncInferenceClient:
         Prepare payload for an API request, handling various input types and parameters.
         """
 
-        def is_raw_content(inputs: Union[str, ContentT]) -> bool:
+        def is_raw_content(inputs: Union[str, Dict[str, Any], ContentT]) -> bool:
             return isinstance(inputs, (bytes, Path)) or (
                 isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
             )
 
-        json = None
-        raw_data = None
+        json: Dict[str, Any] | None = None
+        raw_data: ContentT | None = None
         if parameters is None:
             parameters = {}
         parameters = {k: v for k, v in parameters.items() if v is not None}
         has_parameters = bool(parameters)
         # Send inputs as raw content when no parameters are provided
         if not has_parameters and is_raw_content(inputs):
-            raw_data = inputs
+            raw_data = inputs  # type: ignore
             return _InferenceInputs(json, raw_data)
         json = {}
         # If inputs is a dict, update the json payload with its content
