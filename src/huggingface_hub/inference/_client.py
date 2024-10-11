@@ -37,6 +37,8 @@ import logging
 import re
 import time
 import warnings
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional, Union, overload
 
 from requests import HTTPError
@@ -107,6 +109,12 @@ logger = logging.getLogger(__name__)
 
 
 MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
+
+
+@dataclass
+class _InferenceInputs:
+    json: Optional[Dict[str, Any]] = None
+    raw_data: Optional[ContentT] = None
 
 
 class InferenceClient:
@@ -364,18 +372,8 @@ class InferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, send audio as raw data
-            data = audio
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # Or some parameters are provided -> send audio as base64 encoded string
-            data = None
-            payload = {"inputs": _b64_encode(audio)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, data=data, model=model, task="audio-classification")
+        payload = self._prepare_payload(audio, parameters=parameters)
+        response = self.post(json=payload.json, data=payload.raw_data, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     def audio_to_audio(
@@ -988,7 +986,7 @@ class InferenceClient:
         [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16, words=None)]
         ```
         """
-        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         parameters = {
             "doc_stride": doc_stride,
             "handle_impossible_answer": handle_impossible_answer,
@@ -999,10 +997,8 @@ class InferenceClient:
             "top_k": top_k,
             "word_boxes": word_boxes,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="document-question-answering")
+        payload = self._prepare_payload(inputs, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     def feature_extraction(
@@ -1060,17 +1056,14 @@ class InferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        payload: Dict = {"inputs": text}
         parameters = {
             "normalize": normalize,
             "prompt_name": prompt_name,
             "truncate": truncate,
             "truncation_direction": truncation_direction,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="feature-extraction")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
@@ -1119,12 +1112,9 @@ class InferenceClient:
         ]
         ```
         """
-        payload: Dict = {"inputs": text}
         parameters = {"targets": targets, "top_k": top_k}
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="fill-mask")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
     def image_classification(
@@ -1166,19 +1156,8 @@ class InferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-
-        if all(parameter is None for parameter in parameters.values()):
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-
-        else:
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-
-        response = self.post(json=payload, data=data, model=model, task="image-classification")
+        payload = self._prepare_payload(image, parameters=parameters)
+        response = self.post(json=payload.json, data=payload.raw_data, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     def image_segmentation(
@@ -1237,18 +1216,8 @@ class InferenceClient:
             "subtask": subtask,
             "threshold": threshold,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, data=data, model=model, task="image-segmentation")
+        payload = self._prepare_payload(image, parameters=parameters)
+        response = self.post(json=payload.json, data=payload.raw_data, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1323,19 +1292,8 @@ class InferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # Either only an image to send => send as raw bytes
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-
-        response = self.post(json=payload, data=data, model=model, task="image-to-image")
+        payload = self._prepare_payload(image, parameters=parameters)
+        response = self.post(json=payload.json, data=payload.raw_data, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
     def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
@@ -1493,25 +1451,15 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
-        >>> client.object_detection("people.jpg"):
+        >>> client.object_detection("people.jpg")
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         parameters = {
             "threshold": threshold,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, data=data, model=model, task="object-detection")
+        payload = self._prepare_payload(image, parameters=parameters)
+        response = self.post(json=payload.json, data=payload.raw_data, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     def question_answering(
@@ -1587,12 +1535,10 @@ class InferenceClient:
             "max_seq_len": max_seq_len,
             "top_k": top_k,
         }
-        payload: Dict[str, Any] = {"question": question, "context": context}
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
+        inputs: Dict[str, Any] = {"question": question, "context": context}
+        payload = self._prepare_payload(inputs, parameters=parameters)
         response = self.post(
-            json=payload,
+            json=payload.json,
             model=model,
             task="question-answering",
         )
@@ -1700,19 +1646,14 @@ class InferenceClient:
         SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        if parameters is not None:
-            payload["parameters"] = parameters
-        else:
+        if parameters is None:
             parameters = {
                 "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
                 "generate_parameters": generate_parameters,
                 "truncation": truncation,
             }
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="summarization")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
     def table_question_answering(
@@ -1757,15 +1698,13 @@ class InferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
-        payload: Dict[str, Any] = {
+        inputs = {
             "query": query,
             "table": table,
         }
-
-        if parameters is not None:
-            payload["parameters"] = parameters
+        payload = self._prepare_payload(inputs, parameters=parameters)
         response = self.post(
-            json=payload,
+            json=payload.json,
             model=model,
             task="table-question-answering",
         )
@@ -1899,15 +1838,12 @@ class InferenceClient:
         ]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "function_to_apply": function_to_apply,
             "top_k": top_k,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="text-classification")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="text-classification")
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
@@ -2481,7 +2417,7 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
-        payload = {"inputs": prompt}
+
         parameters = {
             "negative_prompt": negative_prompt,
             "height": height,
@@ -2493,10 +2429,8 @@ class InferenceClient:
             "seed": seed,
             **kwargs,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value  # type: ignore
-        response = self.post(json=payload, model=model, task="text-to-image")
+        payload = self._prepare_payload(prompt, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
     def text_to_speech(
@@ -2599,7 +2533,6 @@ class InferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "do_sample": do_sample,
             "early_stopping": early_stopping,
@@ -2618,10 +2551,8 @@ class InferenceClient:
             "typical_p": typical_p,
             "use_cache": use_cache,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="text-to-speech")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="text-to-speech")
         return response
 
     def token_classification(
@@ -2683,17 +2614,15 @@ class InferenceClient:
         ]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
+
         parameters = {
             "aggregation_strategy": aggregation_strategy,
             "ignore_labels": ignore_labels,
             "stride": stride,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
+        payload = self._prepare_payload(text, parameters=parameters)
         response = self.post(
-            json=payload,
+            json=payload.json,
             model=model,
             task="token-classification",
         )
@@ -2769,7 +2698,6 @@ class InferenceClient:
 
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "src_lang": src_lang,
             "tgt_lang": tgt_lang,
@@ -2777,10 +2705,8 @@ class InferenceClient:
             "truncation": truncation,
             "generate_parameters": generate_parameters,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = self.post(json=payload, model=model, task="translation")
+        payload = self._prepare_payload(text, parameters=parameters)
+        response = self.post(json=payload.json, model=model, task="translation")
         return TranslationOutput.parse_obj_as_list(response)[0]
 
     def visual_question_answering(
@@ -2924,12 +2850,9 @@ class InferenceClient:
         parameters = {"candidate_labels": labels, "multi_label": multi_label}
         if hypothesis_template is not None:
             parameters["hypothesis_template"] = hypothesis_template
-
+        payload = self._prepare_payload(text, parameters=parameters)
         response = self.post(
-            json={
-                "inputs": text,
-                "parameters": parameters,
-            },
+            json=payload.json,
             task="zero-shot-classification",
             model=model,
         )
@@ -2986,17 +2909,66 @@ class InferenceClient:
         if len(labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
 
-        payload = {
-            "inputs": {"image": _b64_encode(image), "candidateLabels": ",".join(labels)},
-        }
-        if hypothesis_template is not None:
-            payload.setdefault("parameters", {})["hypothesis_template"] = hypothesis_template
+        inputs = {"image": _b64_encode(image), "candidateLabels": ",".join(labels)}
+        parameters = {"hypothesis_template": hypothesis_template} if hypothesis_template is not None else None
+        payload = self._prepare_payload(inputs, parameters=parameters)
         response = self.post(
-            json=payload,
+            json=payload.json,
             model=model,
             task="zero-shot-image-classification",
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
+
+    @staticmethod
+    def _prepare_payload(
+        inputs: Union[str, Dict[str, Any], ContentT],
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> _InferenceInputs:
+        """
+        Prepare payload for an API request, handling various input types and parameters.
+
+        Args:
+            inputs (`Union[str, Dict[str, Any], ContentT]`):
+                The input data, which can be a string, dictionary, or raw content (e.g., image or audio bytes).
+            parameters (`Optional[Dict[str, Any]]`):
+                Optional inference parameters.
+
+        Returns:
+            `_InferenceInputs`:
+                An instance of `_InferenceInputs` containing:
+                - The JSON payload (dict) if parameters are provided or inputs is not raw content, else None.
+                - The raw content (ContentT) if inputs is raw content and no parameters are provided, else None.
+        """
+
+        def is_raw_content(inputs: Union[str, ContentT]) -> bool:
+            return isinstance(inputs, (bytes, Path)) or (
+                isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
+            )
+
+        json = None
+        raw_data = None
+        if parameters is None:
+            parameters = {}
+        parameters = {k: v for k, v in parameters.items() if v is not None}
+        has_parameters = bool(parameters)
+        if not has_parameters and is_raw_content(inputs):
+            # Send inputs as raw content when no parameters are provided
+            raw_data = inputs
+            return _InferenceInputs(json, raw_data)
+
+        json = {}
+        if isinstance(inputs, dict):
+            json.update(inputs)
+        elif isinstance(inputs, (bytes, Path)):
+            json["inputs"] = _b64_encode(inputs)
+        elif isinstance(inputs, str):
+            json["inputs"] = inputs
+        else:
+            raise TypeError(f"Unsupported type for inputs: {type(inputs)}")
+
+        if has_parameters:
+            json["parameters"] = parameters
+        return _InferenceInputs(json, raw_data)
 
     def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
         model = model or self.model or self.base_url

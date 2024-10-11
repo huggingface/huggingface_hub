@@ -1080,3 +1080,62 @@ def test_resolve_chat_completion_url(
     client = InferenceClient(model=client_model, base_url=client_base_url)
     url = client._resolve_chat_completion_url(model)
     assert url == expected_url
+
+
+@pytest.mark.parametrize(
+    "inputs, parameters, expected_payload, expected_data",
+    [
+        # Case 1: inputs is a simple string without parameters
+        ("simple text", None, {"inputs": "simple text"}, None),
+        # Case 2: inputs is a simple string with parameters
+        ("simple text", {"param1": "value1"}, {"inputs": "simple text", "parameters": {"param1": "value1"}}, None),
+        # Case 3: inputs is a dict without parameters
+        ({"input_key": "input_value"}, None, {"input_key": "input_value"}, None),
+        # Case 4: inputs is a dict with parameters
+        (
+            {"input_key": "input_value"},
+            {"param1": "value1"},
+            {"input_key": "input_value", "parameters": {"param1": "value1"}},
+            None,
+        ),
+        # Case 5: inputs is bytes without parameters
+        (b"binary data", None, None, b"binary data"),
+        # Case 6: inputs is bytes with parameters
+        (
+            b"binary data",
+            {"param1": "value1"},
+            {"inputs": "encoded_data", "parameters": {"param1": "value1"}},
+            None,
+        ),
+        # Case 7: inputs is a Path object without parameters
+        (Path("test_file.txt"), None, None, Path("test_file.txt")),
+        # Case 8: inputs is a Path object with parameters
+        (
+            Path("test_file.txt"),
+            {"param1": "value1"},
+            {"inputs": "encoded_data", "parameters": {"param1": "value1"}},
+            None,
+        ),
+        # Case 9: inputs is a URL string without parameters
+        ("http://example.com", None, None, "http://example.com"),
+        # Case 10: inputs is a URL string with parameters
+        (
+            "http://example.com",
+            {"param1": "value1"},
+            {"inputs": "http://example.com", "parameters": {"param1": "value1"}},
+            None,
+        ),
+        # Case 11: parameters contain None values
+        (
+            "simple text",
+            {"param1": None, "param2": "value2"},
+            {"inputs": "simple text", "parameters": {"param2": "value2"}},
+            None,
+        ),
+    ],
+)
+def test_prepare_payload(inputs, parameters, expected_payload, expected_data):
+    with patch("huggingface_hub.inference._client._b64_encode", return_value="encoded_data"):
+        payload = InferenceClient._prepare_payload(inputs, parameters)
+    assert payload.json == expected_payload
+    assert payload.raw_data == expected_data
