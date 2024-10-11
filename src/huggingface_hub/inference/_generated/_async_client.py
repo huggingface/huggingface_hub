@@ -2996,22 +2996,6 @@ class AsyncInferenceClient:
         inputs: Union[str, Dict[str, Any], ContentT],
         parameters: Optional[Dict[str, Any]] = None,
     ) -> _InferenceInputs:
-        """
-        Prepare payload for an API request, handling various input types and parameters.
-
-        Args:
-            inputs (`Union[str, Dict[str, Any], ContentT]`):
-                The input data, which can be a string, dictionary, or raw content (e.g., image or audio bytes).
-            parameters (`Optional[Dict[str, Any]]`):
-                Optional inference parameters.
-
-        Returns:
-            `_InferenceInputs`:
-                An instance of `_InferenceInputs` containing:
-                - The JSON payload (dict) if parameters are provided or inputs is not raw content, else None.
-                - The raw content (ContentT) if inputs is raw content and no parameters are provided, else None.
-        """
-
         def is_raw_content(inputs: Union[str, ContentT]) -> bool:
             return isinstance(inputs, (bytes, Path)) or (
                 isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
@@ -3023,21 +3007,21 @@ class AsyncInferenceClient:
             parameters = {}
         parameters = {k: v for k, v in parameters.items() if v is not None}
         has_parameters = bool(parameters)
+        # Send inputs as raw content when no parameters are provided
         if not has_parameters and is_raw_content(inputs):
-            # Send inputs as raw content when no parameters are provided
             raw_data = inputs
             return _InferenceInputs(json, raw_data)
-
         json = {}
+        # If inputs is a dict, update the json payload with its content
         if isinstance(inputs, dict):
             json.update(inputs)
+        # If inputs is a bytes-like object, encode it to base64
         elif isinstance(inputs, (bytes, Path)):
             json["inputs"] = _b64_encode(inputs)
+        # If inputs is a string, send it as is
         elif isinstance(inputs, str):
             json["inputs"] = inputs
-        else:
-            raise TypeError(f"Unsupported type for inputs: {type(inputs)}")
-
+        # Add parameters to the json payload if any
         if has_parameters:
             json["parameters"] = parameters
         return _InferenceInputs(json, raw_data)
