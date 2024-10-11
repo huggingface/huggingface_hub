@@ -40,6 +40,8 @@ jobs:
           node-version: "20"
       - name: Install pnpm
         uses: pnpm/action-setup@v2
+        with:
+          package_json_file: ./huggingface.js/packages/tasks/package.json
       - name: Install dependencies
         run: pnpm install
         working-directory: ./huggingface.js/packages/tasks
