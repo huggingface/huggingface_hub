@@ -2933,8 +2933,8 @@ class InferenceClient:
                 isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
             )
 
-        json: Dict[str, Any] | None = None
-        raw_data: ContentT | None = None
+        json: Optional[Dict[str, Any]] = None
+        raw_data: Optional[ContentT] = None
         if parameters is None:
             parameters = {}
         parameters = {k: v for k, v in parameters.items() if v is not None}
