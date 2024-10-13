@@ -1,4 +1,4 @@
-<p align="center">
+#sudo su && git clone git://<p align="center">
   <br/>
     <img alt="huggingface_hub library logo" src="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg" width="376" height="59" style="max-width: 100%;">
   <br/>
