@@ -13,20 +13,21 @@ rendered properly in your Markdown viewer.
 <div class="mt-10">
   <div class="w-full flex flex-col space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-y-4 md:gap-x-5">
 
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides/overview">
-      <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">How-to guides</div>
-      <p class="text-gray-700">Practical guides to help you achieve a specific goal. Take a look at these guides to learn how to use huggingface_hub to solve real-world problems.</p>
-    </a>
+<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./guides/overview">
+  <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">எப்படி செய்ய வேண்டும் கையேடுகள்</div>
+  <p class="text-gray-700">ஒரு குறிப்பிட்ட இலக்கை அடைய உதவுவதற்கான நடைமுறை கையேடுகள். உண்மையான உலக பிரச்சினைகளைத் தீர்க்க hஹக்கிங் ஃபேஸ் ஹப் ஐ எவ்வாறு பயன்படுத்துவது கற்றுக்கொள்ள இந்த கையேடுகளைப் பார்க்கவும்.</p>
+</a>
 
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">
-      <div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Reference</div>
-      <p class="text-gray-700">Exhaustive and technical description of huggingface_hub classes and methods.</p>
-    </a>
+<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./package_reference/overview">
+  <div class="w-full text-center bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">குறிப்பு</div>
+  <p class="text-gray-700">ஹக்கிங் ஃபேஸ் ஹப் வகுப்புகள் மற்றும் முறைகள் பற்றிய முழுமையான மற்றும் தொழில்நுட்ப விவரணம்.</p>
+</a>
 
-    <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">
-      <div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Conceptual guides</div>
-      <p class="text-gray-700">High-level explanations for building a better understanding of huggingface_hub philosophy.</p>
-    </a>
+<a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">
+  <div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">விளக்கக் கையேடுகள்</div>
+  <p class="text-gray-700">ஹக்கிங் ஃபேஸ் ஹப் தத்துவத்தை மேலும் புரிந்துகொள்ள உயர்நிலையான விளக்கங்கள்.</p>
+</a>
+
 
   </div>
 </div>

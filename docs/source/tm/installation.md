@@ -22,7 +22,7 @@ python -m venv .env
 source .env/bin/activate
 ```
 
-Windows-இல் மெய்நிகர் சூழலை செயல்படுத்த:
+விண்டோஸ்-இல் மெய்நிகர் சூழலை செயல்படுத்த:
 
 ```bash
 .env/Scripts/activate
@@ -43,11 +43,11 @@ pip install --upgrade huggingface_hub
 நீங்கள் விருப்பத் தேவைப்படும் சார்புகளை `pip` மூலம் நிறுவலாம்:
 
 ```bash
-# Install dependencies for tensorflow-specific features
-# /!\ Warning: this is not equivalent to `pip install tensorflow`
+# டென்சர்‌ஃபிளோவுக்கான குறிப்பிட்ட அம்சங்களுக்கு சார்ந்த பொறுப்பு நிறுவவும்
+# /!\ எச்சரிக்கை: இது `pip install tensorflow` க்கு சமமாகக் கருதப்படாது
 pip install 'huggingface_hub[tensorflow]'
 
-# Install dependencies for both torch-specific and CLI-specific features.
+# டார்ச்-குறிப்பிட்ட மற்றும் CLI-குறிப்பிட்ட அம்சங்களுக்கு தேவையான பொறுப்புகளை நிறுவவும்.
 pip install 'huggingface_hub[cli,torch]'
 ```
 `huggingface_hub`-இல் உள்ள விருப்பத் தேவைப்படும் சார்புகளின் பட்டியல்:
@@ -80,10 +80,10 @@ pip install git+https://github.com/huggingface/huggingface_hub@my-feature-branch
 மூலத்திலிருந்து நிறுவுதல் [எடிடேபிள் இன்ஸ்டால்](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs) அமைப்பதற்கு அனுமதிக்கிறது. இது, `huggingface_hub`-க்கு பங்களிக்க திட்டமிட்டு, கோடில் மாற்றங்களை சோதிக்க விரும்பும் போது மேலும் முற்றிலும் மேம்பட்ட நிறுவல் ஆகும். உங்கள் இயந்திரத்தில் `huggingface_hub`-இன் ஒரு உள்ளூர் நகலை கிளோன் செய்ய வேண்டும்.
 
 ```bash
-# First, clone repo locally
+# முதலில், கிடுகிடுக்கும் தொகுப்பை உள்ளூர் முறையில் கிளோன் செய்யவும்.
 git clone https://github.com/huggingface/huggingface_hub.git
 
-# Then, install with -e flag
+# அதன் பிறகு, -e கொள்கையைப் பயன்படுத்தி நிறுவவும்.
 cd huggingface_hub
 pip install -e .
 ```
