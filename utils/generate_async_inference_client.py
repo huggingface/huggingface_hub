@@ -15,13 +15,11 @@
 """Contains a tool to generate `src/huggingface_hub/inference/_generated/_async_client.py`."""
 
 import argparse
-import os
 import re
-import tempfile
 from pathlib import Path
 from typing import NoReturn
 
-from ruff.__main__ import find_ruff_bin
+from helpers import format_source_code
 
 
 ASYNC_CLIENT_FILE_PATH = (
@@ -75,17 +73,6 @@ def generate_async_client_code(code: str) -> str:
     code = _adapt_proxy_client(code)
 
     return code
-
-
-def format_source_code(code: str) -> str:
-    """Apply formatter on a generated source code."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = Path(tmpdir) / "async_client.py"
-        filepath.write_text(code)
-        ruff_bin = find_ruff_bin()
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "check", str(filepath), "--fix", "--quiet"])
-        os.spawnv(os.P_WAIT, ruff_bin, ["ruff", "format", str(filepath), "--quiet"])
-        return filepath.read_text()
 
 
 def check_async_client(update: bool) -> NoReturn:

@@ -95,6 +95,7 @@ extras["typing"] = [
 extras["quality"] = [
     "ruff>=0.5.0",
     "mypy==1.5.1",
+    "libcst==1.4.0",
 ]
 
 extras["all"] = extras["testing"] + extras["quality"] + extras["typing"]

@@ -1457,6 +1457,70 @@ class User:
         self.__dict__.update(**kwargs)
 
 
+@dataclass
+class PaperInfo:
+    """
+    Contains information about a paper on the Hub.
+
+    Attributes:
+        id (`str`):
+            arXiv paper ID.
+        authors (`List[str]`, **optional**):
+            Names of paper authors
+        published_at (`datetime`, **optional**):
+            Date paper published.
+        title (`str`, **optional**):
+            Title of the paper.
+        summary (`str`, **optional**):
+            Summary of the paper.
+        upvotes (`int`, **optional**):
+            Number of upvotes for the paper on the Hub.
+        discussion_id (`str`, **optional**):
+            Discussion ID for the paper on the Hub.
+        source (`str`, **optional**):
+            Source of the paper.
+        comments (`int`, **optional**):
+            Number of comments for the paper on the Hub.
+        submitted_at (`datetime`, **optional**):
+            Date paper appeared in daily papers on the Hub.
+        submitted_by (`User`, **optional**):
+            Information about who submitted the daily paper.
+    """
+
+    id: str
+    authors: Optional[List[str]]
+    published_at: Optional[datetime]
+    title: Optional[str]
+    summary: Optional[str]
+    upvotes: Optional[int]
+    discussion_id: Optional[str]
+    source: Optional[str]
+    comments: Optional[int]
+    submitted_at: Optional[datetime]
+    submitted_by: Optional[User]
+
+    def __init__(self, **kwargs) -> None:
+        paper = kwargs.pop("paper", {})
+        self.id = kwargs.pop("id", None) or paper.pop("id", None)
+        authors = paper.pop("authors", None) or kwargs.pop("authors", None)
+        self.authors = [author.pop("name", None) for author in authors] if authors else None
+        published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
+        self.published_at = parse_datetime(published_at) if published_at else None
+        self.title = kwargs.pop("title", None)
+        self.source = kwargs.pop("source", None)
+        self.summary = paper.pop("summary", None) or kwargs.pop("summary", None)
+        self.upvotes = paper.pop("upvotes", None) or kwargs.pop("upvotes", None)
+        self.discussion_id = paper.pop("discussionId", None) or kwargs.pop("discussionId", None)
+        self.comments = kwargs.pop("numComments", 0)
+        submitted_at = kwargs.pop("publishedAt", None) or kwargs.pop("submittedOnDailyAt", None)
+        self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
+        submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
+        self.submitted_by = User(**submitted_by) if submitted_by else None
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
 def future_compatible(fn: CallableT) -> CallableT:
     """Wrap a method of `HfApi` to handle `run_as_future=True`.
 
@@ -9673,6 +9737,72 @@ class HfApi:
         ):
             yield User(**followed_user)
 
+    def list_papers(
+        self,
+        *,
+        query: Optional[str] = None,
+        token: Union[bool, str, None] = None,
+    ) -> Iterable[PaperInfo]:
+        """
+        List daily papers on the Hugging Face Hub given a search query.
+
+        Args:
+            query (`str`, *optional*):
+                A search query string to find papers.
+                If provided, returns papers that match the query.
+            token (Union[bool, str, None], *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[PaperInfo]`: an iterable of [`huggingface_hub.hf_api.PaperInfo`] objects.
+
+        Example:
+
+        ```python
+        >>> from huggingface_hub import HfApi
+
+        >>> api = HfApi()
+
+        # List all papers with "attention" in their title
+        >>> api.list_papers(query="attention")
+        ```
+        """
+        path = f"{self.endpoint}/api/papers/search"
+        params = {}
+        if query:
+            params["q"] = query
+        r = get_session().get(
+            path,
+            params=params,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        for paper in r.json():
+            yield PaperInfo(**paper)
+
+    def paper_info(self, id: str) -> PaperInfo:
+        """
+        Get information for a paper on the Hub.
+
+        Args:
+            id (`str`, **optional**):
+                ArXiv id of the paper.
+
+        Returns:
+            `PaperInfo`: A `PaperInfo` object.
+
+        Raises:
+            [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
+                HTTP 404 If the paper does not exist on the Hub.
+        """
+        path = f"{self.endpoint}/api/papers/{id}"
+        r = get_session().get(path)
+        hf_raise_for_status(r)
+        return PaperInfo(**r.json())
+
     def auth_check(
         self, repo_id: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
     ) -> None:
@@ -9767,6 +9897,9 @@ dataset_info = api.dataset_info
 
 list_spaces = api.list_spaces
 space_info = api.space_info
+
+list_papers = api.list_papers
+paper_info = api.paper_info
 
 repo_exists = api.repo_exists
 revision_exists = api.revision_exists
