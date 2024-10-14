@@ -1102,7 +1102,10 @@ def test_resolve_chat_completion_url(
             "simple text",
             {"param1": "value1"},
             False,
-            {"inputs": "simple text", "parameters": {"param1": "value1"}},
+            {
+                "inputs": "simple text",
+                "parameters": {"param1": "value1"},
+            },
             None,
         ),
         # Case 3: inputs is a dict without parameters
@@ -1110,15 +1113,18 @@ def test_resolve_chat_completion_url(
             {"input_key": "input_value"},
             None,
             False,
-            {"input_key": "input_value"},
+            {"inputs": {"input_key": "input_value"}},
             None,
         ),
         # Case 4: inputs is a dict with parameters
         (
-            {"input_key": "input_value"},
+            {"input_key": "input_value", "input_key2": "input_value2"},
             {"param1": "value1"},
             False,
-            {"input_key": "input_value", "parameters": {"param1": "value1"}},
+            {
+                "inputs": {"input_key": "input_value", "input_key2": "input_value2"},
+                "parameters": {"param1": "value1"},
+            },
             None,
         ),
         # Case 5: inputs is bytes without parameters
@@ -1134,7 +1140,10 @@ def test_resolve_chat_completion_url(
             b"binary data",
             {"param1": "value1"},
             True,
-            {"inputs": "encoded_data", "parameters": {"param1": "value1"}},
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
             None,
         ),
         # Case 7: inputs is a Path object without parameters
@@ -1150,7 +1159,10 @@ def test_resolve_chat_completion_url(
             Path("test_file.txt"),
             {"param1": "value1"},
             True,
-            {"inputs": "encoded_data", "parameters": {"param1": "value1"}},
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
             None,
         ),
         # Case 9: inputs is a URL string without parameters
@@ -1166,7 +1178,10 @@ def test_resolve_chat_completion_url(
             "http://example.com",
             {"param1": "value1"},
             True,
-            {"inputs": "encoded_data", "parameters": {"param1": "value1"}},
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
             None,
         ),
         # Case 11: parameters contain None values
@@ -1174,7 +1189,10 @@ def test_resolve_chat_completion_url(
             "simple text",
             {"param1": None, "param2": "value2"},
             False,
-            {"inputs": "simple text", "parameters": {"param2": "value2"}},
+            {
+                "inputs": "simple text",
+                "parameters": {"param2": "value2"},
+            },
             None,
         ),
     ],
