@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to authenticate and interact with your huggingface.co repos.
+"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories.
 
 Usage:
     # login and save token locally.
@@ -25,6 +25,13 @@ Usage:
 
     # logout from a specific token, if no token-name is provided, all tokens will be deleted from your machine.
     huggingface-cli logout --token-name=your_token_name
+
+    # find out which huggingface.co account you are logged in as
+    huggingface-cli whoami
+
+    # create a new dataset repo on the Hub
+    huggingface-cli repo create mydataset --type=dataset
+
 """
 
 import subprocess
