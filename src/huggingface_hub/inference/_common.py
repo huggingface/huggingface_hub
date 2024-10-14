@@ -265,15 +265,8 @@ def _prepare_payload(
     expect_binary: bool = False,
 ) -> Dict[str, Any]:
     """
-    Prepare payload for an API request, handling various input types and parameters.
-
-    Args:
-        inputs (`Union[str, Dict[str, Any], ContentT]`):
-            The input data. Can be a string, a dictionary, a binary object or a local path or URL.
-        parameters (`Dict[str, Any]`):
-            The inference parameters.
-        expect_binary (`bool`, defaults to `False`):
-            If `True`, the inputs must be a binary object or a local path or a URL.
+    Used in `InferenceClient` and `AsyncInferenceClient` to prepare the payload for an API request, handling various input types and parameters.
+    `expect_binary` is set to `True` when the inputs are a binary object or a local path or URL. This is the case for image and audio inputs.
     """
     if parameters is None:
         parameters = {}
