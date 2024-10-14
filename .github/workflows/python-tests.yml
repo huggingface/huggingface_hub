@@ -38,8 +38,8 @@ jobs:
             test_name: "fastai"
           - python-version: "3.8"
             test_name: "tensorflow"
-          - python-version: "3.11"
-            test_name: "tensorflow" # Tensorflow not supported on 3.12 -> test it on 3.11
+          - python-version: "3.12"
+            test_name: "tensorflow"
 
     steps:
       - uses: actions/checkout@v2
