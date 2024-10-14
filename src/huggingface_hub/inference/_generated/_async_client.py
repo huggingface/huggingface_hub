@@ -24,8 +24,6 @@ import logging
 import re
 import time
 import warnings
-from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
 
 from requests.structures import CaseInsensitiveDict
@@ -47,6 +45,7 @@ from huggingface_hub.inference._common import (
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _open_as_binary,
+    _prepare_payload,
     _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
@@ -98,12 +97,6 @@ logger = logging.getLogger(__name__)
 
 
 MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
-
-
-@dataclass
-class _InferenceInputs:
-    json: Optional[Dict[str, Any]] = None
-    raw_data: Optional[ContentT] = None
 
 
 class AsyncInferenceClient:
@@ -406,8 +399,8 @@ class AsyncInferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        payload = self._prepare_payload(audio, parameters=parameters)
-        response = await self.post(json=payload.json, data=payload.raw_data, model=model, task="audio-classification")
+        payload = _prepare_payload(audio, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     async def audio_to_audio(
@@ -1040,8 +1033,8 @@ class AsyncInferenceClient:
             "top_k": top_k,
             "word_boxes": word_boxes,
         }
-        payload = self._prepare_payload(inputs, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="document-question-answering")
+        payload = _prepare_payload(inputs, parameters=parameters)
+        response = await self.post(**payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     async def feature_extraction(
@@ -1106,8 +1099,8 @@ class AsyncInferenceClient:
             "truncate": truncate,
             "truncation_direction": truncation_direction,
         }
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="feature-extraction")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
@@ -1158,8 +1151,8 @@ class AsyncInferenceClient:
         ```
         """
         parameters = {"targets": targets, "top_k": top_k}
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="fill-mask")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
     async def image_classification(
@@ -1202,8 +1195,8 @@ class AsyncInferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        payload = self._prepare_payload(image, parameters=parameters)
-        response = await self.post(json=payload.json, data=payload.raw_data, model=model, task="image-classification")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     async def image_segmentation(
@@ -1263,8 +1256,8 @@ class AsyncInferenceClient:
             "subtask": subtask,
             "threshold": threshold,
         }
-        payload = self._prepare_payload(image, parameters=parameters)
-        response = await self.post(json=payload.json, data=payload.raw_data, model=model, task="image-segmentation")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1340,8 +1333,8 @@ class AsyncInferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        payload = self._prepare_payload(image, parameters=parameters)
-        response = await self.post(json=payload.json, data=payload.raw_data, model=model, task="image-to-image")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
@@ -1514,8 +1507,8 @@ class AsyncInferenceClient:
         parameters = {
             "threshold": threshold,
         }
-        payload = self._prepare_payload(image, parameters=parameters)
-        response = await self.post(json=payload.json, data=payload.raw_data, model=model, task="object-detection")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     async def question_answering(
@@ -1593,9 +1586,9 @@ class AsyncInferenceClient:
             "top_k": top_k,
         }
         inputs: Dict[str, Any] = {"question": question, "context": context}
-        payload = self._prepare_payload(inputs, parameters=parameters)
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload.json,
+            **payload,
             model=model,
             task="question-answering",
         )
@@ -1711,8 +1704,8 @@ class AsyncInferenceClient:
                 "generate_parameters": generate_parameters,
                 "truncation": truncation,
             }
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="summarization")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
     async def table_question_answering(
@@ -1762,9 +1755,9 @@ class AsyncInferenceClient:
             "query": query,
             "table": table,
         }
-        payload = self._prepare_payload(inputs, parameters=parameters)
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload.json,
+            **payload,
             model=model,
             task="table-question-answering",
         )
@@ -1813,7 +1806,11 @@ class AsyncInferenceClient:
         ["5", "5", "5"]
         ```
         """
-        response = await self.post(json={"table": table}, model=model, task="tabular-classification")
+        response = await self.post(
+            json={"table": table},
+            model=model,
+            task="tabular-classification",
+        )
         return _bytes_to_list(response)
 
     async def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
@@ -1905,8 +1902,12 @@ class AsyncInferenceClient:
             "function_to_apply": function_to_apply,
             "top_k": top_k,
         }
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="text-classification")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(
+            **payload,
+            model=model,
+            task="text-classification",
+        )
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
@@ -2494,8 +2495,8 @@ class AsyncInferenceClient:
             "seed": seed,
             **kwargs,
         }
-        payload = self._prepare_payload(prompt, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="text-to-image")
+        payload = _prepare_payload(prompt, parameters=parameters)
+        response = await self.post(**payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
     async def text_to_speech(
@@ -2617,8 +2618,8 @@ class AsyncInferenceClient:
             "typical_p": typical_p,
             "use_cache": use_cache,
         }
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="text-to-speech")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="text-to-speech")
         return response
 
     async def token_classification(
@@ -2687,9 +2688,9 @@ class AsyncInferenceClient:
             "ignore_labels": ignore_labels,
             "stride": stride,
         }
-        payload = self._prepare_payload(text, parameters=parameters)
+        payload = _prepare_payload(text, parameters=parameters)
         response = await self.post(
-            json=payload.json,
+            **payload,
             model=model,
             task="token-classification",
         )
@@ -2773,8 +2774,8 @@ class AsyncInferenceClient:
             "truncation": truncation,
             "generate_parameters": generate_parameters,
         }
-        payload = self._prepare_payload(text, parameters=parameters)
-        response = await self.post(json=payload.json, model=model, task="translation")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="translation")
         return TranslationOutput.parse_obj_as_list(response)[0]
 
     async def visual_question_answering(
@@ -2921,9 +2922,9 @@ class AsyncInferenceClient:
         parameters = {"candidate_labels": labels, "multi_label": multi_label}
         if hypothesis_template is not None:
             parameters["hypothesis_template"] = hypothesis_template
-        payload = self._prepare_payload(text, parameters=parameters)
+        payload = _prepare_payload(text, parameters=parameters)
         response = await self.post(
-            json=payload.json,
+            **payload,
             task="zero-shot-classification",
             model=model,
         )
@@ -2983,52 +2984,13 @@ class AsyncInferenceClient:
 
         inputs = {"image": _b64_encode(image), "candidateLabels": ",".join(labels)}
         parameters = {"hypothesis_template": hypothesis_template} if hypothesis_template is not None else None
-        payload = self._prepare_payload(inputs, parameters=parameters)
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload.json,
+            **payload,
             model=model,
             task="zero-shot-image-classification",
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
-
-    @staticmethod
-    def _prepare_payload(
-        inputs: Union[str, Dict[str, Any], ContentT],
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> _InferenceInputs:
-        """
-        Prepare payload for an API request, handling various input types and parameters.
-        """
-
-        def is_raw_content(inputs: Union[str, Dict[str, Any], ContentT]) -> bool:
-            return isinstance(inputs, (bytes, Path)) or (
-                isinstance(inputs, str) and inputs.startswith(("http://", "https://"))
-            )
-
-        json: Optional[Dict[str, Any]] = None
-        raw_data: Optional[ContentT] = None
-        if parameters is None:
-            parameters = {}
-        parameters = {k: v for k, v in parameters.items() if v is not None}
-        has_parameters = bool(parameters)
-        # Send inputs as raw content when no parameters are provided
-        if not has_parameters and is_raw_content(inputs):
-            raw_data = inputs  # type: ignore
-            return _InferenceInputs(json, raw_data)
-        json = {}
-        # If inputs is a dict, update the json payload with its content
-        if isinstance(inputs, dict):
-            json.update(inputs)
-        # If inputs is a bytes-like object, encode it to base64
-        elif isinstance(inputs, (bytes, Path)):
-            json["inputs"] = _b64_encode(inputs)
-        # If inputs is a string, send it as is
-        elif isinstance(inputs, str):
-            json["inputs"] = inputs
-        # Add parameters to the json payload if any
-        if has_parameters:
-            json["parameters"] = parameters
-        return _InferenceInputs(json, raw_data)
 
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
         aiohttp = _import_aiohttp()
