@@ -256,6 +256,57 @@ def _bytes_to_image(content: bytes) -> "Image":
     return Image.open(io.BytesIO(content))
 
 
+## PAYLOAD UTILS
+
+
+def _prepare_payload(
+    inputs: Union[str, Dict[str, Any], ContentT],
+    parameters: Optional[Dict[str, Any]],
+    expect_binary: bool = False,
+) -> Dict[str, Any]:
+    """
+    Prepare payload for an API request, handling various input types and parameters.
+
+    Args:
+        inputs (`Union[str, Dict[str, Any], ContentT]`):
+            The input data. Can be a string, a dictionary, a binary object or a local path or URL.
+        parameters (`Dict[str, Any]`):
+            The inference parameters.
+        expect_binary (`bool`, defaults to `False`):
+            If `True`, the inputs must be a binary object or a local path or a URL.
+    """
+    if parameters is None:
+        parameters = {}
+    parameters = {k: v for k, v in parameters.items() if v is not None}
+    has_parameters = len(parameters) > 0
+
+    is_binary = isinstance(inputs, (bytes, Path))
+    # If expect_binary is True, inputs must be a binary object or a local path or a URL.
+    if expect_binary and not is_binary and not isinstance(inputs, str):
+        raise ValueError("Expected binary inputs or a local path or a URL.")
+    # Send inputs as raw content when no parameters are provided
+    if expect_binary and not has_parameters:
+        return {"data": inputs}
+    # If expect_binary is False, inputs must not be a binary object.
+    if not expect_binary and is_binary:
+        raise ValueError("Unexpected binary inputs.")
+
+    json: Dict[str, Any] = {}
+    # If inputs is a dict, update the json payload with its content
+    if isinstance(inputs, dict):
+        json.update(inputs)
+    # If inputs is a bytes-like object, encode it to base64
+    elif isinstance(inputs, (bytes, Path)) or (isinstance(inputs, str) and inputs.startswith(("http://", "https://"))):
+        json["inputs"] = _b64_encode(inputs)
+    # If inputs is a string, send it as is
+    elif isinstance(inputs, str):
+        json["inputs"] = inputs
+    # Add parameters to the json payload if any
+    if has_parameters:
+        json["parameters"] = parameters
+    return {"json": json}
+
+
 ## STREAMING UTILS
 
 
@@ -435,43 +486,3 @@ def _parse_text_generation_error(error: Optional[str], error_type: Optional[str]
     if error_type == "validation":
         return ValidationError(error)  # type: ignore
     return UnknownError(error)  # type: ignore
-
-
-def _prepare_payload(
-    inputs: Union[str, Dict[str, Any], ContentT],
-    parameters: Optional[Dict[str, Any]],
-    expect_binary: bool = False,
-) -> Dict[str, Any]:
-    """
-    Prepare payload for an API request, handling various input types and parameters.
-    """
-    if parameters is None:
-        parameters = {}
-    parameters = {k: v for k, v in parameters.items() if v is not None}
-    has_parameters = len(parameters) > 0
-
-    is_binary = isinstance(inputs, (bytes, Path))
-    # If expect_binary is True, inputs must be a binary object or a local path or a URL.
-    if expect_binary and not is_binary and not isinstance(inputs, str):
-        raise ValueError("Expected binary inputs or a local path or a URL.")
-    # Send inputs as raw content when no parameters are provided
-    if expect_binary and not has_parameters:
-        return {"data": inputs}
-    # If expect_binary is False, inputs must not be a binary object.
-    if not expect_binary and is_binary:
-        raise ValueError("Unexpected binary inputs.")
-
-    json: Dict[str, Any] = {}
-    # If inputs is a dict, update the json payload with its content
-    if isinstance(inputs, dict):
-        json.update(inputs)
-    # If inputs is a bytes-like object, encode it to base64
-    elif isinstance(inputs, (bytes, Path)) or (isinstance(inputs, str) and inputs.startswith(("http://", "https://"))):
-        json["inputs"] = _b64_encode(inputs)
-    # If inputs is a string, send it as is
-    elif isinstance(inputs, str):
-        json["inputs"] = inputs
-    # Add parameters to the json payload if any
-    if has_parameters:
-        json["parameters"] = parameters
-    return {"json": json}
