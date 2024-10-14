@@ -201,7 +201,7 @@ def _save_token(token: str, token_name: str) -> None:
     stored_tokens = get_stored_tokens()
     stored_tokens[token_name] = token
     _save_stored_tokens(stored_tokens)
-    print(f"The token `{token_name}` has been saved to {tokens_path}")
+    logger.info(f"The token `{token_name}` has been saved to {tokens_path}")
 
 
 def _clean_token(token: Optional[str]) -> Optional[str]:

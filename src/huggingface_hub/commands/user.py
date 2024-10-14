@@ -11,6 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Contains command to authenticate and interact with your huggingface.co repos.
+
+Usage:
+    # login and save token locally.
+    huggingface-cli login --token=hf_*** --add-to-git-credential
+
+    # switch between tokens
+    huggingface-cli auth switch
+
+    # list all tokens
+    huggingface-cli auth list
+
+    # logout from a specific token, if no token-name is provided, all tokens will be deleted from your machine.
+    huggingface-cli logout --token-name=your_token_name
+"""
+
 import subprocess
 from argparse import _SubParsersAction
 from typing import Optional
@@ -126,6 +142,7 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         login(
             token=self.args.token,
             add_to_git_credential=self.args.add_to_git_credential,
@@ -134,11 +151,13 @@ class LoginCommand(BaseUserCommand):
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         logout(token_name=self.args.token_name)
 
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         token_name = self.args.token_name
         if token_name is None:
             token_name = self._select_token_name()
@@ -189,6 +208,7 @@ class AuthSwitchCommand(BaseUserCommand):
 
 class AuthListCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         auth_list()
 
 
