@@ -81,7 +81,7 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            Python 3.8, torch_1.11)
+            "Python 3.8, torch_1.11")
               uv pip install "huggingface_hub[torch] @ ."
               uv pip install torch~=1.11
               ;;
@@ -132,7 +132,7 @@ jobs:
               eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
-            torch_1.11 | torch_latest)
+            "Python 3.8, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
