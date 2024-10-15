@@ -4,6 +4,9 @@ import jedi
 
 
 class TestHuggingfaceHubInit(unittest.TestCase):
+    @unittest.skip(
+        reason="`jedi.Completion.get_signatures()` returns different results whether run with python 3.12 or earlier"
+    )
     def test_autocomplete_on_root_imports(self) -> None:
         """Test autocomplete with `huggingface_hub` works with Jedi.
 
