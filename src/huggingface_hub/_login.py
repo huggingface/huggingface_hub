@@ -221,7 +221,7 @@ def auth_list() -> None:
         print(f"{is_current} {{:<{max_offset}}}| {{:<15}}".format(token_name, masked_token))
 
     if _get_token_from_environment():
-        logger.info(
+        logger.warning(
             "\nNote: Environment variable `HF_TOKEN` is set and is the current active token independently from the stored tokens listed above."
         )
     elif current_token_name is None:
