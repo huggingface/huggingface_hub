@@ -2848,9 +2848,11 @@ class InferenceClient:
         ```
         """
 
-        parameters = {"candidate_labels": labels, "multi_label": multi_label}
-        if hypothesis_template is not None:
-            parameters["hypothesis_template"] = hypothesis_template
+        parameters = {
+            "candidate_labels": labels,
+            "multi_label": multi_label,
+            "hypothesis_template": hypothesis_template,
+        }
         payload = _prepare_payload(text, parameters=parameters)
         response = self.post(
             **payload,
@@ -2911,7 +2913,7 @@ class InferenceClient:
             raise ValueError("You must specify at least 2 classes to compare.")
 
         inputs = {"image": _b64_encode(image), "candidateLabels": ",".join(labels)}
-        parameters = {"hypothesis_template": hypothesis_template} if hypothesis_template is not None else None
+        parameters = {"hypothesis_template": hypothesis_template}
         payload = _prepare_payload(inputs, parameters=parameters)
         response = self.post(
             **payload,
