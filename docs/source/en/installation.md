@@ -104,7 +104,7 @@ pip install -e .
 
 These commands will link the folder you cloned the repository to and your Python library paths.
 Python will now look inside the folder you cloned to in addition to the normal library paths.
-For example, if your Python packages are typically installed in `./.venv/lib/python3.12/site-packages/`,
+For example, if your Python packages are typically installed in `./.venv/lib/python3.13/site-packages/`,
 Python will also search the folder you cloned `./huggingface_hub/`.
 
 ## Install with conda

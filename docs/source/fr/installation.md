@@ -104,7 +104,7 @@ pip install -e .
 
 Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt en
 plus des chemins de librairie classiques. Par exemple, si vos packages Python sont installés dans
-`./.venv/lib/python3.12/site-packages/`, Python regardera aussi dans le dossier que vous avez
+`./.venv/lib/python3.13/site-packages/`, Python regardera aussi dans le dossier que vous avez
 cloné `./huggingface_hub/`.
 
 ## Installation avec conda

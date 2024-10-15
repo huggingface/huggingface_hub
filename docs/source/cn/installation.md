@@ -97,7 +97,7 @@ cd huggingface_hub
 pip install -e .
 ```
 
-这些命令将你克隆存储库的文件夹与你的 Python 库路径链接起来。Python 现在将除了正常的库路径之外，还会在你克隆到的文件夹中查找。例如，如果你的 Python 包通常安装在`./.venv/lib/python3.12/site-packages/`中，Python 还会搜索你克隆的文件夹`./huggingface_hub/`
+这些命令将你克隆存储库的文件夹与你的 Python 库路径链接起来。Python 现在将除了正常的库路径之外，还会在你克隆到的文件夹中查找。例如，如果你的 Python 包通常安装在`./.venv/lib/python3.13/site-packages/`中，Python 还会搜索你克隆的文件夹`./huggingface_hub/`
 
 ## 通过 conda 安装
 
