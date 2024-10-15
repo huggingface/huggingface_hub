@@ -49,7 +49,11 @@ from huggingface_hub import (
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._client import _open_as_binary
-from huggingface_hub.inference._common import _stream_chat_completion_response, _stream_text_generation_response
+from huggingface_hub.inference._common import (
+    _prepare_payload,
+    _stream_chat_completion_response,
+    _stream_text_generation_response,
+)
 from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -1080,3 +1084,142 @@ def test_resolve_chat_completion_url(
     client = InferenceClient(model=client_model, base_url=client_base_url)
     url = client._resolve_chat_completion_url(model)
     assert url == expected_url
+
+
+@pytest.mark.parametrize(
+    "inputs, parameters, expect_binary, expected_json, expected_data",
+    [
+        # Case 1: inputs is a simple string without parameters
+        (
+            "simple text",
+            None,
+            False,
+            {"inputs": "simple text"},
+            None,
+        ),
+        # Case 2: inputs is a simple string with parameters
+        (
+            "simple text",
+            {"param1": "value1"},
+            False,
+            {
+                "inputs": "simple text",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 3: inputs is a dict without parameters
+        (
+            {"input_key": "input_value"},
+            None,
+            False,
+            {"inputs": {"input_key": "input_value"}},
+            None,
+        ),
+        # Case 4: inputs is a dict with parameters
+        (
+            {"input_key": "input_value", "input_key2": "input_value2"},
+            {"param1": "value1"},
+            False,
+            {
+                "inputs": {"input_key": "input_value", "input_key2": "input_value2"},
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 5: inputs is bytes without parameters
+        (
+            b"binary data",
+            None,
+            True,
+            None,
+            b"binary data",
+        ),
+        # Case 6: inputs is bytes with parameters
+        (
+            b"binary data",
+            {"param1": "value1"},
+            True,
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 7: inputs is a Path object without parameters
+        (
+            Path("test_file.txt"),
+            None,
+            True,
+            None,
+            Path("test_file.txt"),
+        ),
+        # Case 8: inputs is a Path object with parameters
+        (
+            Path("test_file.txt"),
+            {"param1": "value1"},
+            True,
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 9: inputs is a URL string without parameters
+        (
+            "http://example.com",
+            None,
+            True,
+            None,
+            "http://example.com",
+        ),
+        # Case 10: inputs is a URL string without parameters but expect_binary is False
+        (
+            "http://example.com",
+            None,
+            False,
+            {
+                "inputs": "http://example.com",
+            },
+            None,
+        ),
+        # Case 11: inputs is a URL string with parameters
+        (
+            "http://example.com",
+            {"param1": "value1"},
+            True,
+            {
+                "inputs": "encoded_data",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 12: inputs is a URL string with parameters but expect_binary is False
+        (
+            "http://example.com",
+            {"param1": "value1"},
+            False,
+            {
+                "inputs": "http://example.com",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 13: parameters contain None values
+        (
+            "simple text",
+            {"param1": None, "param2": "value2"},
+            False,
+            {
+                "inputs": "simple text",
+                "parameters": {"param2": "value2"},
+            },
+            None,
+        ),
+    ],
+)
+def test_prepare_payload(inputs, parameters, expect_binary, expected_json, expected_data):
+    with patch("huggingface_hub.inference._common._b64_encode", return_value="encoded_data"):
+        payload = _prepare_payload(inputs, parameters, expect_binary=expect_binary)
+    assert payload.get("json") == expected_json
+    assert payload.get("data") == expected_data
