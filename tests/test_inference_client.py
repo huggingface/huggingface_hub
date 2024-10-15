@@ -1173,7 +1173,17 @@ def test_resolve_chat_completion_url(
             None,
             "http://example.com",
         ),
-        # Case 10: inputs is a URL string with parameters
+        # Case 10: inputs is a URL string without parameters but expect_binary is False
+        (
+            "http://example.com",
+            None,
+            False,
+            {
+                "inputs": "http://example.com",
+            },
+            None,
+        ),
+        # Case 11: inputs is a URL string with parameters
         (
             "http://example.com",
             {"param1": "value1"},
@@ -1184,7 +1194,18 @@ def test_resolve_chat_completion_url(
             },
             None,
         ),
-        # Case 11: parameters contain None values
+        # Case 12: inputs is a URL string with parameters but expect_binary is False
+        (
+            "http://example.com",
+            {"param1": "value1"},
+            False,
+            {
+                "inputs": "http://example.com",
+                "parameters": {"param1": "value1"},
+            },
+            None,
+        ),
+        # Case 13: parameters contain None values
         (
             "simple text",
             {"param1": None, "param2": "value2"},

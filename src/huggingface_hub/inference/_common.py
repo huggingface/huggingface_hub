@@ -286,10 +286,10 @@ def _prepare_payload(
 
     json: Dict[str, Any] = {}
     # If inputs is a bytes-like object, encode it to base64
-    if isinstance(inputs, (bytes, Path)) or (isinstance(inputs, str) and inputs.startswith(("http://", "https://"))):
-        json["inputs"] = _b64_encode(inputs)
-    # If inputs is a string or a dict, send it as is
-    elif isinstance(inputs, (dict, str)):
+    if expect_binary:
+        json["inputs"] = _b64_encode(inputs)  # type: ignore
+    # Otherwise (string, dict, list) send it as is
+    else:
         json["inputs"] = inputs
     # Add parameters to the json payload if any
     if has_parameters:
