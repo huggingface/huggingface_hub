@@ -29,7 +29,6 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
-    "minijinja>=1.0",  # for chat-completion if not TGI-served
 ]
 
 extras["torch"] = [
