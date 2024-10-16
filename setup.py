@@ -74,7 +74,7 @@ extras["testing"] = (
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "gradio",  # to test webhooks
+        "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]

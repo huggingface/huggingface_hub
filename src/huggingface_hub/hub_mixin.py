@@ -17,6 +17,8 @@ from typing import (
     Union,
 )
 
+import packaging.version
+
 from . import constants
 from .errors import EntryNotFoundError, HfHubHTTPError
 from .file_download import hf_hub_download
@@ -41,7 +43,6 @@ if is_torch_available():
     import torch  # type: ignore
 
 if is_safetensors_available():
-    import packaging.version
     import safetensors
     from safetensors.torch import load_model as load_model_as_safetensor
     from safetensors.torch import save_model as save_model_as_safetensor
