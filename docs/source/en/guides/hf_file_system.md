@@ -17,7 +17,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # List all ".csv" files in a repo
->>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
+>>> fs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # Read a remote file
