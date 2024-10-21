@@ -336,7 +336,7 @@ class BlobLfsInfo(dict):
 
 @dataclass
 class BlobSecurityInfo(dict):
-    safe: bool  # for backward compatibility
+    safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
     status: str
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
