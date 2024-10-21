@@ -3073,7 +3073,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
-        tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}/{encoded_path_in_repo}"
+        tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
         for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
             yield (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
 
