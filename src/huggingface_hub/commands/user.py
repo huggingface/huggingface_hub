@@ -36,7 +36,7 @@ Usage:
 
 import subprocess
 from argparse import _SubParsersAction
-from typing import Optional, List
+from typing import List, Optional
 
 from requests.exceptions import HTTPError
 
