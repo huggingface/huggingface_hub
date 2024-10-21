@@ -1,21 +1,9 @@
 import inspect
 import json
 import os
-import warnings
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import packaging.version
 
@@ -221,8 +209,6 @@ class ModelHubMixin:
             # Value is a tuple (encoder, decoder).
             # Example: {MyCustomType: (lambda x: x.value, lambda data: MyCustomType(data))}
         ] = None,
-        # Deprecated arguments
-        languages: Optional[List[str]] = None,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -247,13 +233,6 @@ class ModelHubMixin:
             info.docs_url = cls._hub_mixin_info.docs_url
             info.repo_url = cls._hub_mixin_info.repo_url
         cls._hub_mixin_info = info
-
-        if languages is not None:
-            warnings.warn(
-                "The `languages` argument is deprecated. Use `language` instead. This will be removed in `huggingface_hub>=0.27.0`.",
-                DeprecationWarning,
-            )
-            language = languages
 
         # Update MixinInfo with metadata
         if model_card_template is not None and model_card_template != DEFAULT_MODEL_CARD:
