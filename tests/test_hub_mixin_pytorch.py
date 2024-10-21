@@ -60,7 +60,7 @@ if is_torch_available():
         nn.Module,
         PyTorchModelHubMixin,
         model_card_template=DUMMY_MODEL_CARD_TEMPLATE,
-        languages=["en", "zh"],
+        language=["en", "zh"],
         library_name="my-dummy-lib",
         license="apache-2.0",
         tags=["tag1", "tag2"],
