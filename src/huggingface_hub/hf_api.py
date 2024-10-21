@@ -4606,6 +4606,12 @@ class HfApi:
 
         </Tip>
 
+        <Tip>
+
+        When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
+
+        </Tip>
+
         Example:
 
         ```python
