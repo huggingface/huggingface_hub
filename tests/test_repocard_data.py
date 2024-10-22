@@ -237,6 +237,19 @@ class ModelCardDataTest(unittest.TestCase):
         data = ModelCardData(tags=["tag2", "tag1", "tag2", "tag3"])
         assert data.tags == ["tag2", "tag1", "tag3"]
 
+    def test_remove_top_level_none_values(self):
+        as_obj = ModelCardData(tags=["tag1", None], foo={"bar": 3, "baz": None}, pipeline_tag=None)
+        as_dict = as_obj.to_dict()
+
+        assert as_obj.tags == ["tag1", None]
+        assert as_dict["tags"] == ["tag1", None]  # none value inside list should be kept
+
+        assert as_obj.foo == {"bar": 3, "baz": None}
+        assert as_dict["foo"] == {"bar": 3, "baz": None}  # none value inside dict should be kept
+
+        assert as_obj.pipeline_tag is None
+        assert "pipeline_tag" not in as_dict  # top level none value should be removed
+
 
 class DatasetCardDataTest(unittest.TestCase):
     def test_train_eval_index_keys_updated(self):

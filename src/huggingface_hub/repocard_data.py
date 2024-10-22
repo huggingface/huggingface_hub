@@ -185,7 +185,7 @@ class CardData:
 
         data_dict = copy.deepcopy(self.__dict__)
         self._to_dict(data_dict)
-        return _remove_none(data_dict)
+        return {key: value for key, value in data_dict.items() if value is not None}
 
     def _to_dict(self, data_dict):
         """Use this method in child classes to alter the dict representation of the data. Alter the dict in-place.

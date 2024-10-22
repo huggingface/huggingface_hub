@@ -31,8 +31,6 @@ models = hf_api.list_models()
 
 [[autodoc]] HfApi
 
-[[autodoc]] plan_multi_commits
-
 ## API Dataclasses
 
 ### AccessRequest
