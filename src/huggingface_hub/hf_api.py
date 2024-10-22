@@ -336,7 +336,8 @@ class BlobLfsInfo(dict):
 
 @dataclass
 class BlobSecurityInfo(dict):
-    safe: bool
+    safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
+    status: str
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
@@ -656,10 +657,14 @@ class RepoFile:
                 oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
-        security = kwargs.pop("security", None)
+        security = kwargs.pop("securityFileStatus", None)
         if security is not None:
+            safe = security["status"] == "safe"
             security = BlobSecurityInfo(
-                safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
+                safe=safe,
+                status=security["status"],
+                av_scan=security["avScan"],
+                pickle_import_scan=security["pickleImportScan"],
             )
         self.security = security
 
