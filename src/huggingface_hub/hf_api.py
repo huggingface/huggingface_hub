@@ -1661,9 +1661,27 @@ class HfApi:
             ) from e
         return r.json()
 
-    def get_token_permission(self, token: Union[bool, str, None] = None) -> Literal["read", "write", None]:
+    @_deprecate_method(
+        version="1.0",
+        message=(
+            "Permissions are more complex than when `get_token_permission` was first introduced. "
+            "OAuth and fine-grain tokens allows for more detailed permissions. "
+            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
+        ),
+    )
+    def get_token_permission(
+        self, token: Union[bool, str, None] = None
+    ) -> Literal["read", "write", "fineGrained", None]:
         """
         Check if a given `token` is valid and return its permissions.
+
+        <Tip warning={true}>
+
+        This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
+        `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
+        If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
+
+        </Tip>
 
         For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
@@ -1675,12 +1693,12 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
-            token passed or token is invalid.
+            `Literal["read", "write", "fineGrained", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed, if token is invalid or if role is not returned by the server. This typically happens when the token is an OAuth token.
         """
         try:
             return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HTTPError):
+        except (LocalTokenNotFoundError, HTTPError, KeyError):
             return None
 
     def get_model_tags(self) -> Dict:

@@ -298,6 +298,17 @@ class HfApiEndpointsTest(HfApiCommonTest):
                 assert info.gated == gated_value
                 assert info.private == private_value
 
+    @expect_deprecation("get_token_permission")
+    def test_get_token_permission_on_oauth_token(self):
+        whoami = {
+            "type": "user",
+            "auth": {"type": "oauth", "expiresAt": "2024-10-24T19:43:43.000Z"},
+            # ...
+            # other values are ignored as we only need to check the "auth" value
+        }
+        with patch.object(self._api, "whoami", return_value=whoami):
+            assert self._api.get_token_permission() is None
+
 
 class CommitApiTest(HfApiCommonTest):
     def setUp(self) -> None:
