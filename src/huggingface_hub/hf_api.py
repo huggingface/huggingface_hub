@@ -9165,7 +9165,7 @@ class HfApi:
         # It's better to fail early than to fail after all the files have been hashed.
         if "README.md" in filtered_repo_objects:
             self._validate_yaml(
-                content=relpath_to_abspath["README.md"].read_text(),
+                content=relpath_to_abspath["README.md"].read_text(encoding="utf8"),
                 repo_type=repo_type,
                 token=token,
             )
