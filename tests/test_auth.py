@@ -88,22 +88,6 @@ class TestLogin:
         assert _get_token_by_name("test_token") == TOKEN
         assert _get_token_from_file() == TOKEN
 
-    @patch(
-        "huggingface_hub.hf_api.whoami",
-        return_value={
-            "auth": {
-                "accessToken": {
-                    "displayName": "test_token",
-                    "role": "read",
-                    "createdAt": "2024-01-01T00:00:00.000Z",
-                }
-            }
-        },
-    )
-    def test_login_errors(self, mock_whoami):
-        with pytest.raises(ValueError, match=r"Token is valid but is 'read-only' and a 'write' token is required.*"):
-            _login(TOKEN, add_to_git_credential=False, write_permission=True)
-
 
 class TestLogout:
     def test_logout_deletes_files(self):

@@ -46,19 +46,6 @@ class TestAuthHeadersUtil(unittest.TestCase):
     def test_use_auth_token_none_has_cached_token(self, mock_get_token: Mock) -> None:
         self.assertEqual(build_hf_headers(), FAKE_TOKEN_HEADER)
 
-    def test_write_action_org_token(self) -> None:
-        with self.assertRaises(ValueError):
-            build_hf_headers(use_auth_token=FAKE_TOKEN_ORG, is_write_action=True)
-
-    @patch("huggingface_hub.utils._headers.get_token", return_value=None)
-    def test_write_action_none_token(self, mock_get_token: Mock) -> None:
-        with self.assertRaises(ValueError):
-            build_hf_headers(is_write_action=True)
-
-    def test_write_action_use_auth_token_false(self) -> None:
-        with self.assertRaises(ValueError):
-            build_hf_headers(use_auth_token=False, is_write_action=True)
-
     @patch("huggingface_hub.utils._headers.get_token", return_value=FAKE_TOKEN)
     def test_implicit_use_disabled(self, mock_get_token: Mock) -> None:
         with patch(  # not as decorator to avoid friction with @handle_injection

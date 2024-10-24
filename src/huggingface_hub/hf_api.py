@@ -9082,7 +9082,6 @@ class HfApi:
     def _build_hf_headers(
         self,
         token: Union[bool, str, None] = None,
-        is_write_action: bool = False,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
@@ -9096,7 +9095,6 @@ class HfApi:
             token = self.token
         return build_hf_headers(
             token=token,
-            is_write_action=is_write_action,
             library_name=library_name or self.library_name,
             library_version=library_version or self.library_version,
             user_agent=user_agent or self.user_agent,
