@@ -42,7 +42,7 @@ jobs:
       - run: .venv/bin/python utils/check_static_imports.py
       - run: .venv/bin/python utils/generate_async_inference_client.py
       - run: .venv/bin/python utils/generate_inference_types.py
-      - run: .venv/bin/python utils/generate_task_parameters.py
+      - run: .venv/bin/python utils/check_missing_task_params.py
 
       # Run type checking at least on huggingface_hub root file to check all modules
       # that can be lazy-loaded actually exist.
