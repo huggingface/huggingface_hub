@@ -2407,6 +2407,11 @@ class AsyncInferenceClient:
 
         return TextGenerationOutput.parse_obj_as_instance(data) if details else data["generated_text"]
 
+    @_deprecate_arguments(
+        version="0.30",
+        deprecated_args=["width", "height"],
+        custom_message="The `width`, `height` parameters are deprecated and will be removed in version 0.30.",
+    )
     async def text_to_image(
         self,
         prompt: str,

@@ -1,18 +1,3 @@
-# coding=utf-8
-# Copyright 2024-present, the HuggingFace Inc. team.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """
 Utility script to check and update the InferenceClient task methods arguments and docstrings
 based on the tasks input parameters.
@@ -20,16 +5,8 @@ based on the tasks input parameters.
 What this script does:
 - [x] detect missing parameters in method signature
 - [x] add missing parameters to methods signature
-- [ ] detect outdated parameters in method signature
-- [ ] update outdated parameters in method signature
-
 - [x] detect missing parameters in method docstrings
 - [x] add missing parameters to methods docstrings
-- [ ] detect outdated parameters in method docstrings
-- [ ] update outdated parameters in method docstrings
-
-- [ ] detect when parameter not used in method implementation
-- [ ] update method implementation when parameter not used
 Related resources:
 - https://github.com/huggingface/huggingface_hub/issues/2063
 - https://github.com/huggingface/huggingface_hub/issues/2557
@@ -64,6 +41,7 @@ DEFAULT_MODULE = "huggingface_hub.inference._generated.types"
 # Temporary solution to skip tasks where there is no Parameters dataclass or the schema needs to be updated
 TASKS_TO_SKIP = [
     "chat_completion",
+    "text_generation",
     "depth_estimation",
     "audio_to_audio",
     "feature_extraction",
@@ -82,7 +60,7 @@ PARAMETERS_DATACLASS_REGEX = re.compile(
     re.VERBOSE | re.MULTILINE,
 )
 
-#### NODE VISITORS
+#### NODE VISITORS (READING THE CODE)
 
 
 class DataclassFieldCollector(cst.CSTVisitor):
@@ -160,7 +138,7 @@ class ArgumentsCollector(cst.CSTVisitor):
             )
 
 
-#### TREE TRANSFORMERS
+#### TREE TRANSFORMERS (UPDATING THE CODE)
 
 
 class AddParameters(cst.CSTTransformer):
@@ -345,6 +323,16 @@ def check_missing_parameters(
     return missing_params
 
 
+def update_missing_parameters(
+    module: cst.Module,
+    method_name: str,
+    missing_params: Dict[str, Dict[str, str]],
+) -> cst.Module:
+    """Update the method signature by adding missing parameters."""
+    transformer = AddParameters(method_name, missing_params)
+    return module.visit(transformer)
+
+
 def get_imports_to_add(
     parameters: Dict[str, Dict[str, str]],
     parameters_module: cst.Module,
@@ -450,13 +438,12 @@ def _parse_module_from_file(filepath: Path) -> Optional[cst.Module]:
     return None
 
 
-def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
+def _check_parameters(
+    method_params: Dict[str, str],
+    update: bool,
+) -> NoReturn:
     """
     Check if task methods have missing parameters and update the InferenceClient source code if needed.
-
-    Args:
-        method_params (Dict[str, str]): Dictionary mapping method names to their parameters dataclass names.
-        update (bool): Whether to update the InferenceClient source code if missing parameters are found.
     """
     merged_imports = defaultdict(set)
     logs = []
@@ -465,26 +452,29 @@ def _check_parameters(method_params: Dict[str, str], update: bool) -> NoReturn:
     inference_client_module = _parse_module_from_file(inference_client_filename)
     modified_module = inference_client_module
     has_changes = False
+
     for method_name, parameter_type_name in method_params.items():
         parameters_filename = INFERENCE_TYPES_PATH / f"{method_name}.py"
-
-        # Read and parse the parameters module
         parameters_module = _parse_module_from_file(parameters_filename)
 
-        # Check if the method has missing parameters
+        # Check for missing parameters
         missing_params = check_missing_parameters(modified_module, parameters_module, method_name, parameter_type_name)
+
         if not missing_params:
             continue
+
         if update:
-            ## Get missing imports to add
-            needed_imports = get_imports_to_add(missing_params, parameters_module, modified_module)
-            for module, imports_to_add in needed_imports.items():
-                merged_imports[module].update(imports_to_add)
-            # Update method parameters and docstring
-            modified_module = modified_module.visit(AddParameters(method_name, missing_params))
+            if missing_params:
+                # Handle missing parameters (existing code)
+                needed_imports = get_imports_to_add(missing_params, parameters_module, modified_module)
+                for module, imports_to_add in needed_imports.items():
+                    merged_imports[module].update(imports_to_add)
+                modified_module = update_missing_parameters(modified_module, method_name, missing_params)
+
             has_changes = True
         else:
-            logs.append(f"❌ Missing parameters found in `{method_name}`.")
+            if missing_params:
+                logs.append(f"❌ Missing parameters found in `{method_name}`.")
 
     if has_changes:
         if merged_imports:
