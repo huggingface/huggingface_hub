@@ -22,7 +22,6 @@ What this script does:
 - [x] update outdated parameters in method signature
 - [ ] detect outdated parameters in method docstrings
 - [ ] update outdated parameters in method docstrings
-
 - [ ] detect when parameter not used in method implementation
 - [ ] update method implementation when parameter not used
 Related resources:
