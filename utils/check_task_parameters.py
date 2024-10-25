@@ -159,7 +159,7 @@ class ModulesCollector(cst.CSTVisitor):
                 self.type_to_module[alias.name.value] = module_name
 
 
-class MethodParameterCollector(cst.CSTVisitor):
+class MethodArgumentsCollector(cst.CSTVisitor):
     """Collects parameter types and docstrings from a method."""
 
     def __init__(self, method_name: str):
@@ -528,7 +528,7 @@ def _check_parameters(
     parameters_module.visit(params_collector)
     dataclass_params = params_collector.parameters
     # Get existing parameters from the method
-    method_collector = MethodParameterCollector(method_name)
+    method_collector = MethodArgumentsCollector(method_name)
     inference_client_module.visit(method_collector)
     existing_params = method_collector.parameters
 
