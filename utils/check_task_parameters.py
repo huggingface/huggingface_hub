@@ -159,20 +159,64 @@ class ModulesCollector(cst.CSTVisitor):
                 self.type_to_module[alias.name.value] = module_name
 
 
-class ArgumentsCollector(cst.CSTVisitor):
-    """Collects existing argument names from a method."""
+class MethodParameterCollector(cst.CSTVisitor):
+    """Collects parameter types and docstrings from a method."""
 
     def __init__(self, method_name: str):
         self.method_name = method_name
-        self.existing_args: Set[str] = set()
+        self.parameters: Dict[str, Dict[str, str]] = {}
 
     def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
-        if node.name.value == self.method_name:
-            self.existing_args.update(
-                param.name.value
-                for param in node.params.params + node.params.kwonly_params
-                if param.name.value != "self"
-            )
+        if node.name.value != self.method_name:
+            return
+        # Extract docstring
+        docstring = self._extract_docstring(node)
+        param_docs = self._parse_docstring_params(docstring)
+        # Collect parameters
+        for param in node.params.params + node.params.kwonly_params:
+            if param.name.value == "self" or param.name.value in CORE_PARAMETERS:
+                continue
+            param_type = cst.Module([]).code_for_node(param.annotation.annotation) if param.annotation else "Any"
+            self.parameters[param.name.value] = {"type": param_type, "docstring": param_docs.get(param.name.value, "")}
+
+    def _extract_docstring(self, node: cst.FunctionDef) -> str:
+        """Extract docstring from function node."""
+        if (
+            isinstance(node.body.body[0], cst.SimpleStatementLine)
+            and isinstance(node.body.body[0].body[0], cst.Expr)
+            and isinstance(node.body.body[0].body[0].value, cst.SimpleString)
+        ):
+            return node.body.body[0].body[0].value.evaluated_value
+        return ""
+
+    def _parse_docstring_params(self, docstring: str) -> Dict[str, str]:
+        """Parse parameter descriptions from docstring."""
+        param_docs = {}
+        lines = docstring.split("\n")
+
+        # Find Args section
+        args_idx = next((i for i, line in enumerate(lines) if line.strip().lower() == "args:"), None)
+        if args_idx is None:
+            return param_docs
+        # Parse parameter descriptions
+        current_param = None
+        current_desc = []
+        for line in lines[args_idx + 1 :]:
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.lower() in ("returns:", "raises:", "example:", "examples:"):
+                break
+
+            if stripped_line.endswith(":"):  # Parameter line
+                if current_param:
+                    param_docs[current_param] = " ".join(current_desc)
+                current_desc = []
+                # Extract only the parameter name before the first space or parenthesis
+                current_param = re.split(r"\s|\(", stripped_line[:-1], 1)[0].strip()
+            else:  # Description line
+                current_desc.append(stripped_line)
+        if current_param:  # Save last parameter
+            param_docs[current_param] = " ".join(current_desc)
+        return param_docs
 
 
 #### TREE TRANSFORMERS (UPDATING THE CODE)
@@ -229,13 +273,10 @@ class UpdateParameters(cst.CSTTransformer):
         # Only proceed if the current function is the target method
         if original_node.name.value != self.method_name:
             return updated_node
-
         self.found_method = True  # Set the flag as the method is found
-
         # Update the parameters and docstring of the method
         new_params = self._update_parameters(updated_node.params)
         updated_body = self._update_docstring(updated_node.body)
-
         # Return the updated function definition
         return updated_node.with_changes(params=new_params, body=updated_body)
 
@@ -243,10 +284,8 @@ class UpdateParameters(cst.CSTTransformer):
         """Update parameter types and add new parameters."""
         new_params = list(params.params)  # Copy regular parameters (e.g., 'self')
         new_kwonly_params = []
-
         # Collect existing parameter names to avoid duplicates
         existing_params = {p.name.value for p in params.params + params.kwonly_params}
-
         # Update existing keyword-only parameters
         for param in params.kwonly_params:
             param_name = param.name.value
@@ -259,7 +298,6 @@ class UpdateParameters(cst.CSTTransformer):
             else:
                 # Keep the parameter as is if no update is needed
                 new_kwonly_params.append(param)
-
         # Add new parameters that are not already present
         for param_name, param_info in self.param_updates.items():
             if param_name not in existing_params:
@@ -271,7 +309,6 @@ class UpdateParameters(cst.CSTTransformer):
                     default=cst.Name("None"),
                 )
                 new_kwonly_params.append(new_param)
-
         # Return the updated parameters object with new and updated parameters
         return params.with_changes(params=new_params, kwonly_params=new_kwonly_params)
 
@@ -288,16 +325,13 @@ class UpdateParameters(cst.CSTTransformer):
 
         docstring_expr = body.body[0].body[0]
         docstring = docstring_expr.value.evaluated_value  # Get the docstring content
-
         # Update the docstring content with new and updated parameters
         updated_docstring = self._update_docstring_content(docstring)
         new_docstring = cst.SimpleString(f'"""{updated_docstring}"""')
-
         # Replace the old docstring with the updated one
         new_body = [body.body[0].with_changes(body=[docstring_expr.with_changes(value=new_docstring)])] + list(
             body.body[1:]
         )
-
         # Return the updated function body
         return body.with_changes(body=new_body)
 
@@ -305,11 +339,11 @@ class UpdateParameters(cst.CSTTransformer):
         """Update parameter descriptions in the docstring content."""
         # Split parameters into new and updated ones based on their status
         new_params = {name: info for name, info in self.param_updates.items() if info["status"] == "new"}
-        update_params = {name: info for name, info in self.param_updates.items() if info["status"] == "update"}
-
+        update_params = {
+            name: info for name, info in self.param_updates.items() if info["status"] in ("update_type", "update_doc")
+        }
         # Split the docstring into lines for processing
         docstring_lines = docstring.split("\n")
-
         # Find or create the "Args:" section and compute indentation levels
         args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
         if args_index is None:
@@ -327,17 +361,14 @@ class UpdateParameters(cst.CSTTransformer):
         base_indent = docstring_lines[args_index][: -len(docstring_lines[args_index].lstrip())]
         param_indent = base_indent + "    "  # Indentation for parameter lines
         desc_indent = param_indent + "    "  # Indentation for description lines
-
         # Update existing parameters in the docstring
         if update_params:
             docstring_lines = self._process_existing_params(
                 docstring_lines, update_params, args_index, param_indent, desc_indent
             )
-
         # Add new parameters to the docstring
         if new_params:
             docstring_lines = self._add_new_params(docstring_lines, new_params, args_index, param_indent, desc_indent)
-
         # Join the docstring lines back into a single string
         return "\n".join(docstring_lines)
 
@@ -352,14 +383,11 @@ class UpdateParameters(cst.CSTTransformer):
         # Extract and format the parameter type
         param_type = param_info["type"].replace("Optional[", "").rstrip("]")
         optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
-
+        # Create the parameter line with type and optionality
+        param_line = f"{param_indent}{param_name} (`{param_type}`, {optional_str}):"
         # Get and clean up the parameter description
         param_desc = (param_info.get("docstring") or "").strip()
         param_desc = " ".join(param_desc.split())
-
-        # Create the parameter line with type and optionality
-        param_line = f"{param_indent}{param_name} (`{param_type}`, {optional_str}):"
-
         if param_desc:
             # Wrap the description text to maintain line width and indentation
             wrapped_desc = textwrap.fill(
@@ -439,21 +467,17 @@ class UpdateParameters(cst.CSTTransformer):
         # Find the insertion point after existing parameters
         insertion_index = args_index + 1
         empty_line_index = None
-
         while insertion_index < len(docstring_lines):
             line = docstring_lines[insertion_index]
             stripped_line = line.strip()
-
             # Track empty line at the end of Args section
             if not stripped_line:
                 if empty_line_index is None:  # Remember first empty line
                     empty_line_index = insertion_index
                 insertion_index += 1
                 continue
-
             if stripped_line.lower() in ("returns:", "raises:", "example:", "examples:"):
                 break
-
             empty_line_index = None  # Reset if we find more content
             if stripped_line.endswith(":") and not line.startswith(desc_indent.strip()):
                 insertion_index += 1
@@ -463,109 +487,20 @@ class UpdateParameters(cst.CSTTransformer):
         # If we found an empty line at the end of the Args section, insert before it
         if empty_line_index is not None:
             insertion_index = empty_line_index
-
         # Prepare the new parameter documentation lines
         param_docs = []
         for param_name, param_info in new_params.items():
             param_doc_lines = self._format_param_docstring(param_name, param_info, param_indent, desc_indent)
             param_docs.extend(param_doc_lines)
-
         # Insert the new parameters into the docstring
         docstring_lines[insertion_index:insertion_index] = param_docs
         return docstring_lines
 
 
-class MethodParameterCollector(cst.CSTVisitor):
-    """Collects parameter types and docstrings from a method."""
-
-    def __init__(self, method_name: str):
-        self.method_name = method_name
-        self.parameters: Dict[str, Dict[str, str]] = {}
-
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
-        if node.name.value != self.method_name:
-            return
-
-        # Extract docstring
-        docstring = self._extract_docstring(node)
-        param_docs = self._parse_docstring_params(docstring)
-
-        # Collect parameters
-        for param in node.params.params + node.params.kwonly_params:
-            if param.name.value == "self" or param.name.value in CORE_PARAMETERS:
-                continue
-
-            param_type = cst.Module([]).code_for_node(param.annotation.annotation) if param.annotation else "Any"
-
-            self.parameters[param.name.value] = {"type": param_type, "docstring": param_docs.get(param.name.value, "")}
-
-    def _extract_docstring(self, node: cst.FunctionDef) -> str:
-        """Extract docstring from function node."""
-        if (
-            isinstance(node.body.body[0], cst.SimpleStatementLine)
-            and isinstance(node.body.body[0].body[0], cst.Expr)
-            and isinstance(node.body.body[0].body[0].value, cst.SimpleString)
-        ):
-            return node.body.body[0].body[0].value.evaluated_value
-        return ""
-
-    def _parse_docstring_params(self, docstring: str) -> Dict[str, str]:
-        """Parse parameter descriptions from docstring."""
-        param_docs = {}
-        lines = docstring.split("\n")
-
-        # Find Args section
-        args_idx = next((i for i, line in enumerate(lines) if line.strip().lower() == "args:"), None)
-        if args_idx is None:
-            return param_docs
-
-        # Parse parameter descriptions
-        current_param = None
-        current_desc = []
-
-        for line in lines[args_idx + 1 :]:
-            stripped_line = line.strip()
-            if not stripped_line or stripped_line.lower() in ("returns:", "raises:", "example:", "examples:"):
-                break
-
-            if stripped_line.endswith(":"):  # Parameter line
-                if current_param:
-                    param_docs[current_param] = " ".join(current_desc)
-                current_desc = []
-                # Extract only the parameter name before the first space or parenthesis
-                current_param = re.split(r"\s|\(", stripped_line[:-1], 1)[0].strip()
-            else:  # Description line
-                current_desc.append(stripped_line)
-
-        if current_param:  # Save last parameter
-            param_docs[current_param] = " ".join(current_desc)
-
-        return param_docs
-
-
 #### UTILS
-def update_parameters(
-    module: cst.Module,
-    method_name: str,
-    param_updates: Dict[str, Dict[str, str]],
-) -> cst.Module:
-    """
-    Update method parameters, types and docstrings.
-
-    Args:
-        module: The module to update
-        method_name: Name of the method to update
-        param_updates: Dictionary of parameter updates with their type and docstring
-            Format: {param_name: {"type": str, "docstring": str, "status": "new"|"update"}}
-
-    Returns:
-        Updated module
-    """
-    transformer = UpdateParameters(method_name, param_updates)
-    return module.visit(transformer)
 
 
-def check_missing_parameters(
+def _check_parameters(
     inference_client_module: cst.Module,
     parameters_module: cst.Module,
     method_name: str,
@@ -585,21 +520,19 @@ def check_missing_parameters(
         {param_name: {
             "type": str,              # Type annotation
             "docstring": str,         # Parameter documentation
-            "status": "new"|"update"  # Whether parameter is new or needs update
+            "status": "new"|"update_type"|"update_doc"  # Whether parameter is new or needs update
         }}
     """
     # Get parameters from the dataclass
     params_collector = DataclassFieldCollector(parameter_type_name)
     parameters_module.visit(params_collector)
     dataclass_params = params_collector.parameters
-
     # Get existing parameters from the method
     method_collector = MethodParameterCollector(method_name)
     inference_client_module.visit(method_collector)
     existing_params = method_collector.parameters
 
     updates = {}
-
     # Check for new and updated parameters
     for param_name, param_info in dataclass_params.items():
         if param_name not in existing_params:
@@ -610,13 +543,35 @@ def check_missing_parameters(
             current = existing_params[param_name]
             normalized_current_doc = _normalize_docstring(current["docstring"])
             normalized_new_doc = _normalize_docstring(param_info["docstring"])
-            if current["type"] != param_info["type"] or normalized_current_doc != normalized_new_doc:
-                updates[param_name] = {**param_info, "status": "update"}
-
+            if current["type"] != param_info["type"]:
+                updates[param_name] = {**param_info, "status": "update_type"}
+            if normalized_current_doc != normalized_new_doc:
+                updates[param_name] = {**param_info, "status": "update_doc"}
     return updates
 
 
-def get_imports_to_add(
+def _update_parameters(
+    module: cst.Module,
+    method_name: str,
+    param_updates: Dict[str, Dict[str, str]],
+) -> cst.Module:
+    """
+    Update method parameters, types and docstrings.
+
+    Args:
+        module: The module to update
+        method_name: Name of the method to update
+        param_updates: Dictionary of parameter updates with their type and docstring
+            Format: {param_name: {"type": str, "docstring": str, "status": "new"|"update_type"|"update_doc"}}
+
+    Returns:
+        Updated module
+    """
+    transformer = UpdateParameters(method_name, param_updates)
+    return module.visit(transformer)
+
+
+def _get_imports_to_add(
     parameters: Dict[str, Dict[str, str]],
     parameters_module: cst.Module,
     inference_client_module: cst.Module,
@@ -638,17 +593,15 @@ def get_imports_to_add(
     types_to_import = set()
     for param_info in parameters.values():
         types_to_import.update(_collect_type_hints_from_annotation(param_info["type"]))
-
     # Gather existing imports in the inference client module
     context = CodemodContext()
     gather_visitor = GatherImportsVisitor(context)
     inference_client_module.visit(gather_visitor)
-
     # Map types to their defining modules in the parameters module
     module_collector = ModulesCollector()
     parameters_module.visit(module_collector)
-
     # Determine which imports are needed
+
     needed_imports = {}
     for type_name in types_to_import:
         types_to_modules = module_collector.type_to_module
@@ -727,7 +680,7 @@ def _parse_module_from_file(filepath: Path) -> Optional[cst.Module]:
     return None
 
 
-def _check_parameters(
+def _check_and_update_parameters(
     method_params: Dict[str, str],
     update: bool,
 ) -> NoReturn:
@@ -747,7 +700,7 @@ def _check_parameters(
         parameters_module = _parse_module_from_file(parameters_filename)
 
         # Check for missing parameters
-        updates = check_missing_parameters(
+        updates = _check_parameters(
             modified_module,
             parameters_module,
             method_name,
@@ -759,17 +712,26 @@ def _check_parameters(
 
         if update:
             ## Get missing imports to add
-            needed_imports = get_imports_to_add(updates, parameters_module, modified_module)
+            needed_imports = _get_imports_to_add(updates, parameters_module, modified_module)
             for module, imports_to_add in needed_imports.items():
                 merged_imports[module].update(imports_to_add)
-            modified_module = update_parameters(modified_module, method_name, updates)
+            modified_module = _update_parameters(modified_module, method_name, updates)
             has_changes = True
         else:
-            logs.append(
-                f"❌ Updates needed in `{method_name}`:\n"
-                f"   New parameters: {[p for p,i in updates.items() if i['status']=='new']}\n"
-                f"   Updated parameters: {[p for p,i in updates.items() if i['status']=='update']}"
-            )
+            logs.append(f"\n🔧 Updates needed in method `{method_name}`:")
+            new_params = [p for p, i in updates.items() if i["status"] == "new"]
+            updated_params = {
+                p: "type" if i["status"] == "update_type" else "docstring"
+                for p, i in updates.items()
+                if i["status"] in ("update_type", "update_doc")
+            }
+            if new_params:
+                for param in sorted(new_params):
+                    logs.append(f"   • {param} (missing)")
+
+            if updated_params:
+                for param, update_type in sorted(updated_params.items()):
+                    logs.append(f"   • {param} (outdated {update_type})")
 
     if has_changes:
         if merged_imports:
@@ -819,7 +781,7 @@ def update_inference_client(update: bool):
         parameter_type_name = _get_parameter_type_name(method_name)
         if parameter_type_name is not None:
             method_params[method_name] = parameter_type_name
-    _check_parameters(method_params, update=update)
+    _check_and_update_parameters(method_params, update=update)
 
 
 if __name__ == "__main__":
