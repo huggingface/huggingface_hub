@@ -62,11 +62,14 @@ from huggingface_hub.inference._generated.types import (
     DocumentQuestionAnsweringOutputElement,
     FillMaskOutputElement,
     ImageClassificationOutputElement,
+    ImageClassificationOutputTransform,
     ImageSegmentationOutputElement,
+    ImageSegmentationSubtask,
     ImageToTextOutput,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     SummarizationOutput,
+    SummarizationTruncationStrategy,
     TableQuestionAnsweringOutputElement,
     TextClassificationOutputElement,
     TextClassificationOutputTransform,
@@ -75,9 +78,11 @@ from huggingface_hub.inference._generated.types import (
     TextGenerationStreamOutput,
     TextToImageTargetSize,
     TextToSpeechEarlyStoppingEnum,
+    TokenClassificationAggregationStrategy,
     TokenClassificationOutputElement,
     ToolElement,
     TranslationOutput,
+    TranslationTruncationStrategy,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
@@ -981,27 +986,31 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint. If not provided, the default recommended document question answering model will be used.
                 Defaults to None.
             doc_stride (`int`, *optional*):
-                If the words in the document are too long to fit with the question for the model, it will
+                If the words in the document are too long to fit with the question for the model, it will be split in
+                several chunks with some overlap. This argument controls the size of that overlap.
                 be split in several chunks with some overlap. This argument controls the size of that
                 overlap.
             handle_impossible_answer (`bool`, *optional*):
-                Whether to accept impossible as an answer.
+                Whether to accept impossible as an answer
             lang (`str`, *optional*):
-                Language to use while running OCR.
+                Language to use while running OCR. Defaults to english.
             max_answer_len (`int`, *optional*):
-                The maximum length of predicted answers (e.g., only answers with a shorter length are
+                The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
                 considered).
             max_question_len (`int`, *optional*):
                 The maximum length of the question after tokenization. It will be truncated if needed.
             max_seq_len (`int`, *optional*):
-                The maximum length of the total sentence (context + question) in tokens of each chunk
+                The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
+                model. The context will be split in several chunks (using doc_stride as overlap) if needed.
                 passed to the model. The context will be split in several chunks (using doc_stride as
                 overlap) if needed.
             top_k (`int`, *optional*):
-                The number of answers to return (will be chosen by order of likelihood). Can return less
+                The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
+                answers if there are not enough options available within the context.
                 than top_k answers if there are not enough options available within the context.
-            word_boxes (`List[Union[List[float], str]]`, *optional*):
-                A list of words and bounding boxes (normalized 0->1000). If provided, the inference will
+            word_boxes (`List[Union[List[float], str`, *optional*):
+                A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
+                step and use the provided bounding boxes instead.
                 skip the OCR step and use the provided bounding boxes instead.
         Returns:
             `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
@@ -1121,8 +1130,10 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for the fill mask task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended fill mask model will be used.
-            targets (`List[str]`, *optional*):
-                When passed, the model will limit the scores to the passed targets instead of looking up
+            targets (`List[str`, *optional*):
+                When passed, the model will limit the scores to the passed targets instead of looking up in the whole
+                vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
+                resulting token will be used (with a warning, and that might be slower).
                 in the whole vocabulary. If the provided targets are not in the model vocab, they will be
                 tokenized and the first resulting token will be used (with a warning, and that might be
                 slower).
@@ -1160,7 +1171,7 @@ class AsyncInferenceClient:
         image: ContentT,
         *,
         model: Optional[str] = None,
-        function_to_apply: Optional[Literal["sigmoid", "softmax", "none"]] = None,
+        function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
         top_k: Optional[int] = None,
     ) -> List[ImageClassificationOutputElement]:
         """
@@ -1172,8 +1183,8 @@ class AsyncInferenceClient:
             model (`str`, *optional*):
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
-            function_to_apply (`Literal["sigmoid", "softmax", "none"]`, *optional*):
-                The function to apply to the output scores.
+            function_to_apply (`"ImageClassificationOutputTransform"`, *optional*):
+                The function to apply to the output.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
@@ -1206,7 +1217,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         mask_threshold: Optional[float] = None,
         overlap_mask_area_threshold: Optional[float] = None,
-        subtask: Optional[Literal["instance", "panoptic", "semantic"]] = None,
+        subtask: Optional["ImageSegmentationSubtask"] = None,
         threshold: Optional[float] = None,
     ) -> List[ImageSegmentationOutputElement]:
         """
@@ -1228,7 +1239,7 @@ class AsyncInferenceClient:
                 Threshold to use when turning the predicted masks into binary values.
             overlap_mask_area_threshold (`float`, *optional*):
                 Mask overlap threshold to eliminate small, disconnected segments.
-            subtask (`Literal["instance", "panoptic", "semantic"]`, *optional*):
+            subtask (`"ImageSegmentationSubtask"`, *optional*):
                 Segmentation task to be performed, depending on model capabilities.
             threshold (`float`, *optional*):
                 Probability threshold to filter out predicted masks.
@@ -1537,24 +1548,28 @@ class AsyncInferenceClient:
                 The model to use for the question answering task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint.
             align_to_words (`bool`, *optional*):
-                Attempts to align the answer to real words. Improves quality on space separated
+                Attempts to align the answer to real words. Improves quality on space separated languages. Might hurt
+                on non-space-separated languages (like Japanese or Chinese)
                 languages. Might hurt on non-space-separated languages (like Japanese or Chinese).
             doc_stride (`int`, *optional*):
-                If the context is too long to fit with the question for the model, it will be split in
+                If the context is too long to fit with the question for the model, it will be split in several chunks
+                with some overlap. This argument controls the size of that overlap.
                 several chunks with some overlap. This argument controls the size of that overlap.
             handle_impossible_answer (`bool`, *optional*):
                 Whether to accept impossible as an answer.
             max_answer_len (`int`, *optional*):
-                The maximum length of predicted answers (e.g., only answers with a shorter length are
+                The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
                 considered).
             max_question_len (`int`, *optional*):
                 The maximum length of the question after tokenization. It will be truncated if needed.
             max_seq_len (`int`, *optional*):
-                The maximum length of the total sentence (context + question) in tokens of each chunk
+                The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
+                model. The context will be split in several chunks (using docStride as overlap) if needed.
                 passed to the model. The context will be split in several chunks (using docStride as
                 overlap) if needed.
             top_k (`int`, *optional*):
-                The number of answers to return (will be chosen by order of likelihood). Note that we
+                The number of answers to return (will be chosen by order of likelihood). Note that we return less than
+                topk answers if there are not enough options available within the context.
                 return less than topk answers if there are not enough options available within the
                 context.
         Returns:
@@ -1660,7 +1675,7 @@ class AsyncInferenceClient:
         model: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
         generate_parameters: Optional[Dict[str, Any]] = None,
-        truncation: Optional[Literal["do_not_truncate", "longest_first", "only_first", "only_second"]] = None,
+        truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
         Generate a summary of a given text using a specified model.
@@ -1678,7 +1693,7 @@ class AsyncInferenceClient:
                 Whether to clean up the potential extra spaces in the text output.
             generate_parameters (`Dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
-            truncation (`Literal["do_not_truncate", "longest_first", "only_first", "only_second"]`, *optional*):
+            truncation (`"SummarizationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
         Returns:
             [`SummarizationOutput`]: The generated summary text.
@@ -2411,10 +2426,10 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        negative_prompt: Optional[str] = None,
+        negative_prompt: Optional[List[str]] = None,
         height: Optional[float] = None,
         width: Optional[float] = None,
-        num_inference_steps: Optional[float] = None,
+        num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
         scheduler: Optional[str] = None,
@@ -2434,8 +2449,8 @@ class AsyncInferenceClient:
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
-            negative_prompt (`str`, *optional*):
-                An optional negative prompt for the image generation.
+            negative_prompt (`List[str`, *optional*):
+                One or several prompt to guide what NOT to include in image generation.
             height (`float`, *optional*):
                 The height in pixels of the image to generate.
             width (`float`, *optional*):
@@ -2443,8 +2458,10 @@ class AsyncInferenceClient:
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
+                expense of slower inference.
             guidance_scale (`float`, *optional*):
-                Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
+                A higher guidance scale value encourages the model to generate images closely linked to the text
+                prompt, but values too high may cause saturation and other artifacts.
                 usually at the expense of lower image quality.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
@@ -2536,15 +2553,28 @@ class AsyncInferenceClient:
             early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"`, *optional*):
                 Controls the stopping condition for beam-based methods.
             epsilon_cutoff (`float`, *optional*):
-                If set to float strictly between 0 and 1, only tokens with a conditional probability
+                If set to float strictly between 0 and 1, only tokens with a conditional probability greater than
+                epsilon_cutoff will be sampled. In the paper, suggested values range from 3e-4 to 9e-4, depending on
+                the size of the model. See [Truncation Sampling as Language Model
+                Desmoothing](https://hf.co/papers/2210.15191) for more details.
                 greater than epsilon_cutoff will be sampled. In the paper, suggested values range from
                 3e-4 to 9e-4, depending on the size of the model. See [Truncation Sampling as Language
                 Model Desmoothing](https://hf.co/papers/2210.15191) for more details.
             eta_cutoff (`float`, *optional*):
-                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to
+                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
+                between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
+                * exp(-entropy(softmax(next_token_logits))). The latter term is intuitively the expected next token
+                probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
+                depending on the size of the model. See [Truncation Sampling as Language Model
+                Desmoothing](https://hf.co/papers/2210.15191) for more details.
                 float strictly between 0 and 1, a token is only considered if it is greater than either
-                eta_cutoff or sqrt(eta_cutoff) * exp(-entropy(softmax(next_token_logits))). The latter
-                term is intuitively the expected next token probability, scaled by sqrt(eta_cutoff). In
+            eta_cutoff (`float`, *optional*):
+                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
+                between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
+                * exp(-entropy(softmax(next_token_logits))). The latter term is intuitively the expected next token
+                probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
+                depending on the size of the model. See [Truncation Sampling as Language Model
+                Desmoothing](https://hf.co/papers/2210.15191) for more details.
                 the paper, suggested values range from 3e-4 to 2e-3, depending on the size of the model.
                 See [Truncation Sampling as Language Model Desmoothing](https://hf.co/papers/2210.15191)
                 for more details.
@@ -2557,22 +2587,28 @@ class AsyncInferenceClient:
             min_new_tokens (`int`, *optional*):
                 The minimum number of tokens to generate. Takes precedence over maxLength.
             num_beam_groups (`int`, *optional*):
-                Number of groups to divide num_beams into in order to ensure diversity among different
+                Number of groups to divide num_beams into in order to ensure diversity among different groups of beams.
+                See [this paper](https://hf.co/papers/1610.02424) for more details.
                 groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
             num_beams (`int`, *optional*):
                 Number of beams to use for beam search.
             penalty_alpha (`float`, *optional*):
-                The value balances the model confidence and the degeneration penalty in contrastive
+                The value balances the model confidence and the degeneration penalty in contrastive search decoding.
                 search decoding.
             temperature (`float`, *optional*):
                 The value used to modulate the next token probabilities.
             top_k (`int`, *optional*):
                 The number of highest probability vocabulary tokens to keep for top-k-filtering.
             top_p (`float`, *optional*):
-                If set to float < 1, only the smallest set of most probable tokens with probabilities
+                If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to
+                top_p or higher are kept for generation.
                 that add up to top_p or higher are kept for generation.
             typical_p (`float`, *optional*):
                 Local typicality measures how similar the conditional probability of predicting a target token next is
+                to the expected conditional probability of predicting a random token next, given the partial text
+                already generated. If set to float < 1, the smallest set of the most locally typical tokens with
+                probabilities that add up to typical_p or higher are kept for generation. See [this
+                paper](https://hf.co/papers/2202.00666) for more details.
                 to the expected conditional probability of predicting a random token next, given the partial text
                 already generated. If set to float < 1, the smallest set of the most locally typical tokens with
                 probabilities that add up to typical_p or higher are kept for generation. See [this
@@ -2627,7 +2663,7 @@ class AsyncInferenceClient:
         text: str,
         *,
         model: Optional[str] = None,
-        aggregation_strategy: Optional[Literal["none", "simple", "first", "average", "max"]] = None,
+        aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
         ignore_labels: Optional[List[str]] = None,
         stride: Optional[int] = None,
     ) -> List[TokenClassificationOutputElement]:
@@ -2642,10 +2678,10 @@ class AsyncInferenceClient:
                 The model to use for the token classification task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended token classification model will be used.
                 Defaults to None.
-            aggregation_strategy (`Literal["none", "simple", "first", "average", "max"]`, *optional*):
-                The strategy used to fuse tokens based on model predictions.
-            ignore_labels (`List[str]`, *optional*):
-                A list of labels to ignore.
+            aggregation_strategy (`"TokenClassificationAggregationStrategy"`, *optional*):
+                The strategy used to fuse tokens based on model predictions
+            ignore_labels (`List[str`, *optional*):
+                A list of labels to ignore
             stride (`int`, *optional*):
                 The number of overlapping tokens between chunks when splitting the input text.
 
@@ -2704,7 +2740,7 @@ class AsyncInferenceClient:
         src_lang: Optional[str] = None,
         tgt_lang: Optional[str] = None,
         clean_up_tokenization_spaces: Optional[bool] = None,
-        truncation: Optional[Literal["do_not_truncate", "longest_first", "only_first", "only_second"]] = None,
+        truncation: Optional["TranslationTruncationStrategy"] = None,
         generate_parameters: Optional[Dict[str, Any]] = None,
     ) -> TranslationOutput:
         """
@@ -2728,7 +2764,7 @@ class AsyncInferenceClient:
                 Target language to translate to. Required for models that can translate to multiple languages.
             clean_up_tokenization_spaces (`bool`, *optional*):
                 Whether to clean up the potential extra spaces in the text output.
-            truncation (`Literal["do_not_truncate", "longest_first", "only_first", "only_second"]`, *optional*):
+            truncation (`"TranslationTruncationStrategy"`, *optional*):
                 The truncation strategy to use.
             generate_parameters (`Dict[str, Any]`, *optional*):
                 Additional parametrization of the text generation algorithm.
@@ -2752,13 +2788,13 @@ class AsyncInferenceClient:
         >>> await client.translation("My name is Wolfgang and I live in Berlin")
         'Mein Name ist Wolfgang und ich lebe in Berlin.'
         >>> await client.translation("My name is Wolfgang and I live in Berlin", model="Helsinki-NLP/opus-mt-en-fr")
-        TranslationOutput(translation_text='Je m\'appelle Wolfgang et je vis à Berlin.')
+        TranslationOutput(translation_text='Je m'appelle Wolfgang et je vis à Berlin.')
         ```
 
         Specifying languages:
         ```py
         >>> client.translation("My name is Sarah Jessica Parker but you can call me Jessica", model="facebook/mbart-large-50-many-to-many-mmt", src_lang="en_XX", tgt_lang="fr_XX")
-        "Mon nom est Sarah Jessica Parker mais vous pouvez m\'appeler Jessica"
+        "Mon nom est Sarah Jessica Parker mais vous pouvez m'appeler Jessica"
         ```
         """
         # Throw error if only one of `src_lang` and `tgt_lang` was given
@@ -2799,7 +2835,8 @@ class AsyncInferenceClient:
                 a deployed Inference Endpoint. If not provided, the default recommended visual question answering model will be used.
                 Defaults to None.
             top_k (`int`, *optional*):
-                The number of answers to return (will be chosen by order of likelihood). Note that we
+                The number of answers to return (will be chosen by order of likelihood). Note that we return less than
+                topk answers if there are not enough options available within the context.
                 return less than topk answers if there are not enough options available within the
                 context.
         Returns:
@@ -2837,7 +2874,7 @@ class AsyncInferenceClient:
         text: str,
         labels: List[str],
         *,
-        multi_label: bool = False,
+        multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
     ) -> List[ZeroShotClassificationOutputElement]:
@@ -2849,11 +2886,14 @@ class AsyncInferenceClient:
                 The input text to classify.
             labels (`List[str]`):
                 List of strings. Each string is the verbalization of a possible label for the input text.
-            multi_label (`bool`):
-                Boolean. If True, the probability for each label is evaluated independently and multiple labels can have a probability close to 1 simultaneously or all probabilities can be close to 0.
+            multi_label (`bool`, *optional*):
+                Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
+                the label likelihoods for each sequence is 1. If true, the labels are considered independent and
+                probabilities are normalized for each candidate.
                 If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
             hypothesis_template (`str`, *optional*):
-                A template sentence string with curly brackets to which the label strings are added. The label strings are added at the position of the curly brackets "{}".
+                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
+                the placeholder with the candidate labels.
                 Zero-shot classifiers are based on NLI models, which evaluate if a hypothesis is entailed in another text or not.
                 For example, with hypothesis_template="This text is about {}." and labels=["economics", "politics"], the system internally creates the two hypotheses "This text is about economics." and "This text is about politics.".
                 The model then evaluates for both hypotheses if they are entailed in the provided `text` or not.
@@ -2956,7 +2996,8 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with `labels` to attempt the text classification by replacing the
+                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
+                the placeholder with the candidate labels.
                 placeholder with the candidate labels.
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
