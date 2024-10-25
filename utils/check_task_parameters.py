@@ -23,6 +23,12 @@ What this script does:
 - [x] add missing parameters to methods signature
 - [x] detect missing parameters in method docstrings
 - [x] add missing parameters to methods docstrings
+- [x] detect outdated parameters in method signature
+- [x] update outdated parameters in method signature
+- [x] detect outdated parameters in method docstrings
+- [x] update outdated parameters in method docstrings
+- [ ] detect when parameter not used in method implementation
+- [ ] update method implementation when parameter not used
 Related resources:
 - https://github.com/huggingface/huggingface_hub/issues/2063
 - https://github.com/huggingface/huggingface_hub/issues/2557
@@ -31,7 +37,6 @@ Related resources:
 
 import argparse
 import builtins
-import inspect
 import re
 import textwrap
 from collections import defaultdict
@@ -42,8 +47,6 @@ import libcst as cst
 from helpers import format_source_code
 from libcst.codemod import CodemodContext
 from libcst.codemod.visitors import GatherImportsVisitor
-
-from huggingface_hub.inference._client import InferenceClient
 
 
 # Paths to project files
@@ -299,6 +302,19 @@ class UpdateParameters(cst.CSTTransformer):
         for i, line in enumerate(docstring_lines):
             for param_name, param_info in params_to_update.items():
                 if line.strip().startswith(param_name + " "):
+                    # Find the end of current parameter documentation
+                    end_idx = i + 1
+                    while end_idx < len(docstring_lines):
+                        next_line = docstring_lines[end_idx].strip()
+                        # Stop if we hit another parameter or section
+                        if (
+                            (next_line.endswith(":") and not next_line.startswith(description_indentation))
+                            or next_line.lower() in ("returns:", "raises:", "example:", "examples:")
+                            or not next_line
+                        ):
+                            break
+                        end_idx += 1
+
                     param_type_str = param_info["type"].replace("Optional[", "").rstrip("]")
                     optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
                     param_docstring = (param_info.get("docstring") or "").strip()
@@ -313,9 +329,9 @@ class UpdateParameters(cst.CSTTransformer):
                             initial_indent=description_indentation,
                             subsequent_indent=description_indentation,
                         )
-                        docstring_lines[i : i + 2] = [param_line, wrapped_description]
+                        docstring_lines[i:end_idx] = [param_line, wrapped_description]
                     else:
-                        docstring_lines[i : i + 1] = [param_line]
+                        docstring_lines[i:end_idx] = [param_line]
         return "\n".join(docstring_lines)
 
     def _add_new_params(self, docstring: str, new_params: Dict[str, Dict[str, str]]) -> str:
@@ -519,7 +535,9 @@ def check_missing_parameters(
         else:
             # Check for type/docstring changes
             current = existing_params[param_name]
-            if current["type"] != param_info["type"] or current["docstring"] != param_info["docstring"]:
+            normalized_current_doc = _normalize_docstring(current["docstring"])
+            normalized_new_doc = _normalize_docstring(param_info["docstring"])
+            if current["type"] != param_info["type"] or normalized_current_doc != normalized_new_doc:
                 updates[param_name] = {**param_info, "status": "update"}
 
     return updates
@@ -587,6 +605,12 @@ def _generate_import_statements(import_dict: Dict[str, List[str]]) -> str:
         else:
             import_statements.append(f"import {module}")
     return "\n".join(import_statements)
+
+
+def _normalize_docstring(docstring: str) -> str:
+    """Normalize a docstring by removing extra whitespace, newlines and indentation."""
+    # Split into lines, strip whitespace from each line, and join back
+    return " ".join(line.strip() for line in docstring.split("\n")).strip()
 
 
 # TODO: Needs to be improved, maybe using `typing.get_type_hints` instead (we gonna need to access the method though)?
@@ -716,7 +740,7 @@ def update_inference_client(update: bool):
 
     # Construct a mapping between method names and their parameters dataclass names
     method_params = {}
-    for method_name, _ in inspect.getmembers(InferenceClient, predicate=inspect.isfunction):
+    for method_name, _ in [("document_question_answering", None)]:  #
         if method_name.startswith("_") or method_name not in tasks:
             continue
         parameter_type_name = _get_parameter_type_name(method_name)

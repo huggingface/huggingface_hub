@@ -946,30 +946,23 @@ class InferenceClient:
             doc_stride (`int`, *optional*):
                 If the words in the document are too long to fit with the question for the model, it will be split in
                 several chunks with some overlap. This argument controls the size of that overlap.
-                be split in several chunks with some overlap. This argument controls the size of that
-                overlap.
             handle_impossible_answer (`bool`, *optional*):
                 Whether to accept impossible as an answer
             lang (`str`, *optional*):
                 Language to use while running OCR. Defaults to english.
             max_answer_len (`int`, *optional*):
                 The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
-                considered).
             max_question_len (`int`, *optional*):
                 The maximum length of the question after tokenization. It will be truncated if needed.
             max_seq_len (`int`, *optional*):
                 The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
                 model. The context will be split in several chunks (using doc_stride as overlap) if needed.
-                passed to the model. The context will be split in several chunks (using doc_stride as
-                overlap) if needed.
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Can return less than top_k
                 answers if there are not enough options available within the context.
-                than top_k answers if there are not enough options available within the context.
             word_boxes (`List[Union[List[float], str`, *optional*):
                 A list of words and bounding boxes (normalized 0->1000). If provided, the inference will skip the OCR
                 step and use the provided bounding boxes instead.
-                skip the OCR step and use the provided bounding boxes instead.
         Returns:
             `List[DocumentQuestionAnsweringOutputElement]`: a list of [`DocumentQuestionAnsweringOutputElement`] items containing the predicted label, associated probability, word ids, and page number.
 
