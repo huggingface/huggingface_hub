@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 A collection is a group of related items on the Hub (models, datasets, Spaces, papers) that are organized together on the same page. Collections are useful for creating your own portfolio, bookmarking content in categories, or presenting a curated list of items you want to share. Check out this [guide](https://huggingface.co/docs/hub/collections) to understand in more detail what collections are and how they look on the Hub.
 
-You can directly manage collections in the browser, but in this guide, we will focus on how to manage it programmatically.
+You can directly manage collections in the browser, but in this guide, we will focus on how to manage them programmatically.
 
 ## Fetch a collection
 
@@ -115,7 +115,7 @@ Now that we know how to get a [`Collection`], let's create our own! Use [`create
 ... )
 ```
 
-It will return a [`Collection`] object with the high-level metadata (title, description, owner, etc.) and an empty list of items. You will now be able to refer to this collection using it's `slug`.
+It will return a [`Collection`] object with the high-level metadata (title, description, owner, etc.) and an empty list of items. You will now be able to refer to this collection using its `slug`.
 
 ```py
 >>> collection.slug
