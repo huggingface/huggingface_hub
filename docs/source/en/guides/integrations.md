@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -39,7 +39,7 @@ Implementation can differ between libraries, but the workflow is often similar.
 
 ### from_pretrained
 
-This is how a `from_pretrained` method usually look like:
+This is how a `from_pretrained` method usually looks like:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
@@ -390,7 +390,7 @@ class VoiceCraft(nn.Module):
       ...
 ```
 
-One solution can be to update the `__init__` signature to `def __init__(self, pattern: str, hidden_size: int)` and update all snippets that instantiates your class. This is a perfectly valid way to fix it but it might break downstream applications using your library.
+One solution can be to update the `__init__` signature to `def __init__(self, pattern: str, hidden_size: int)` and update all snippets that instantiate your class. This is a perfectly valid way to fix it but it might break downstream applications using your library.
 
 Another solution is to provide a simple encoder/decoder to convert `argparse.Namespace` to a dictionary.
 
