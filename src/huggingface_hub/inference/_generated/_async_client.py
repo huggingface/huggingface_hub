@@ -1127,9 +1127,6 @@ class AsyncInferenceClient:
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole
                 vocabulary. If the provided targets are not in the model vocab, they will be tokenized and the first
                 resulting token will be used (with a warning, and that might be slower).
-                in the whole vocabulary. If the provided targets are not in the model vocab, they will be
-                tokenized and the first resulting token will be used (with a warning, and that might be
-                slower).
             top_k (`int`, *optional*):
                 When passed, overrides the number of predictions to return.
         Returns:
@@ -1543,28 +1540,22 @@ class AsyncInferenceClient:
             align_to_words (`bool`, *optional*):
                 Attempts to align the answer to real words. Improves quality on space separated languages. Might hurt
                 on non-space-separated languages (like Japanese or Chinese)
-                languages. Might hurt on non-space-separated languages (like Japanese or Chinese).
             doc_stride (`int`, *optional*):
                 If the context is too long to fit with the question for the model, it will be split in several chunks
                 with some overlap. This argument controls the size of that overlap.
-                several chunks with some overlap. This argument controls the size of that overlap.
             handle_impossible_answer (`bool`, *optional*):
                 Whether to accept impossible as an answer.
             max_answer_len (`int`, *optional*):
                 The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
-                considered).
             max_question_len (`int`, *optional*):
                 The maximum length of the question after tokenization. It will be truncated if needed.
             max_seq_len (`int`, *optional*):
                 The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
                 model. The context will be split in several chunks (using docStride as overlap) if needed.
-                passed to the model. The context will be split in several chunks (using docStride as
-                overlap) if needed.
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
-                return less than topk answers if there are not enough options available within the
-                context.
+
         Returns:
             Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
                 When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
@@ -2451,11 +2442,9 @@ class AsyncInferenceClient:
             num_inference_steps (`int`, *optional*):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
-                expense of slower inference.
             guidance_scale (`float`, *optional*):
                 A higher guidance scale value encourages the model to generate images closely linked to the text
                 prompt, but values too high may cause saturation and other artifacts.
-                usually at the expense of lower image quality.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended text-to-image model will be used.
@@ -2550,9 +2539,6 @@ class AsyncInferenceClient:
                 epsilon_cutoff will be sampled. In the paper, suggested values range from 3e-4 to 9e-4, depending on
                 the size of the model. See [Truncation Sampling as Language Model
                 Desmoothing](https://hf.co/papers/2210.15191) for more details.
-                greater than epsilon_cutoff will be sampled. In the paper, suggested values range from
-                3e-4 to 9e-4, depending on the size of the model. See [Truncation Sampling as Language
-                Model Desmoothing](https://hf.co/papers/2210.15191) for more details.
             eta_cutoff (`float`, *optional*):
                 Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
                 between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
@@ -2568,9 +2554,6 @@ class AsyncInferenceClient:
                 probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
                 depending on the size of the model. See [Truncation Sampling as Language Model
                 Desmoothing](https://hf.co/papers/2210.15191) for more details.
-                the paper, suggested values range from 3e-4 to 2e-3, depending on the size of the model.
-                See [Truncation Sampling as Language Model Desmoothing](https://hf.co/papers/2210.15191)
-                for more details.
             max_length (`int`, *optional*):
                 The maximum length (in tokens) of the generated text, including the input.
             max_new_tokens (`int`, *optional*):
@@ -2582,12 +2565,10 @@ class AsyncInferenceClient:
             num_beam_groups (`int`, *optional*):
                 Number of groups to divide num_beams into in order to ensure diversity among different groups of beams.
                 See [this paper](https://hf.co/papers/1610.02424) for more details.
-                groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
             num_beams (`int`, *optional*):
                 Number of beams to use for beam search.
             penalty_alpha (`float`, *optional*):
                 The value balances the model confidence and the degeneration penalty in contrastive search decoding.
-                search decoding.
             temperature (`float`, *optional*):
                 The value used to modulate the next token probabilities.
             top_k (`int`, *optional*):
@@ -2595,13 +2576,8 @@ class AsyncInferenceClient:
             top_p (`float`, *optional*):
                 If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to
                 top_p or higher are kept for generation.
-                that add up to top_p or higher are kept for generation.
             typical_p (`float`, *optional*):
                 Local typicality measures how similar the conditional probability of predicting a target token next is
-                to the expected conditional probability of predicting a random token next, given the partial text
-                already generated. If set to float < 1, the smallest set of the most locally typical tokens with
-                probabilities that add up to typical_p or higher are kept for generation. See [this
-                paper](https://hf.co/papers/2202.00666) for more details.
                 to the expected conditional probability of predicting a random token next, given the partial text
                 already generated. If set to float < 1, the smallest set of the most locally typical tokens with
                 probabilities that add up to typical_p or higher are kept for generation. See [this
@@ -2830,8 +2806,6 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
-                return less than topk answers if there are not enough options available within the
-                context.
         Returns:
             `List[VisualQuestionAnsweringOutputElement]`: a list of [`VisualQuestionAnsweringOutputElement`] items containing the predicted label and associated probability.
 
@@ -2883,13 +2857,9 @@ class AsyncInferenceClient:
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
                 probabilities are normalized for each candidate.
-                If False, the labels are considered mutually exclusive and the probability over all labels always sums to 1. Defaults to False.
             hypothesis_template (`str`, *optional*):
                 The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
                 the placeholder with the candidate labels.
-                Zero-shot classifiers are based on NLI models, which evaluate if a hypothesis is entailed in another text or not.
-                For example, with hypothesis_template="This text is about {}." and labels=["economics", "politics"], the system internally creates the two hypotheses "This text is about economics." and "This text is about politics.".
-                The model then evaluates for both hypotheses if they are entailed in the provided `text` or not.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot classification model will be used.
@@ -2991,7 +2961,6 @@ class AsyncInferenceClient:
             hypothesis_template (`str`, *optional*):
                 The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
                 the placeholder with the candidate labels.
-                placeholder with the candidate labels.
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 

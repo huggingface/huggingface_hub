@@ -813,9 +813,7 @@ def update_inference_client(update: bool):
 
     # Construct a mapping between method names and their parameters dataclass names
     method_params = {}
-    for method_name, _ in [
-        ("question_answering", None)
-    ]:  # inspect.getmembers(InferenceClient, predicate=inspect.isfunction)
+    for method_name, _ in inspect.getmembers(InferenceClient, predicate=inspect.isfunction):
         if method_name.startswith("_") or method_name not in tasks:
             continue
         parameter_type_name = _get_parameter_type_name(method_name)
