@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -101,13 +101,13 @@ on the Hub. Its structure is the same as the `snapshots` folder with 1 subfolder
 
 Unlike the `snapshots` folder, files are simple empty files (no symlinks). In this example,
 the file `"config_that_does_not_exist.json"` does not exist on the Hub for the revision `"aaaaaa"`.
-As it only stores empty files, this folder is neglectable is term of disk usage.
+As it only stores empty files, this folder is neglectable in term of disk usage.
 
 So now you might wonder, why is this information even relevant?
 In some cases, a framework tries to load optional files for a model. Saving the non-existence
 of optional files makes it faster to load a model as it saves 1 HTTP call per possible optional file.
 This is for example the case in `transformers` where each tokenizer can support additional files.
-The first time you load the tokenizer on your machine, it will cache which optional files exists (and
+The first time you load the tokenizer on your machine, it will cache which optional files exist (and
 which doesn't) to make the loading time faster for the next initializations.
 
 To test if a file is cached locally (without making any HTTP request), you can use the [`try_to_load_from_cache`]

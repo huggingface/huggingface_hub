@@ -53,7 +53,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -179,7 +178,6 @@ class LocalUploadFileMetadata:
             self.timestamp = new_timestamp
 
 
-@lru_cache(maxsize=128)  # ensure singleton
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
     """Compute paths to the files related to a download process.
 
@@ -220,7 +218,6 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     return LocalDownloadFilePaths(file_path=file_path, lock_path=lock_path, metadata_path=metadata_path)
 
 
-@lru_cache(maxsize=128)  # ensure singleton
 def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePaths:
     """Compute paths to the files related to an upload process.
 
@@ -404,7 +401,6 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
             f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
 
 
-@lru_cache()
 def _huggingface_dir(local_dir: Path) -> Path:
     """Return the path to the `.cache/huggingface` directory in a local directory."""
     # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times

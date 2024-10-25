@@ -1,10 +1,10 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
 # Interact with the Hub through the Filesystem API
 
-In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds of top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
+In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds on top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
 
 ## Usage
 
