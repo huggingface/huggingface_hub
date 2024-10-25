@@ -37,6 +37,7 @@ Related resources:
 
 import argparse
 import builtins
+import inspect
 import re
 import textwrap
 from collections import defaultdict
@@ -47,6 +48,8 @@ import libcst as cst
 from helpers import format_source_code
 from libcst.codemod import CodemodContext
 from libcst.codemod.visitors import GatherImportsVisitor
+
+from huggingface_hub import InferenceClient
 
 
 # Paths to project files
@@ -121,7 +124,10 @@ class DataclassFieldCollector(cst.CSTVisitor):
                             }
 
     @staticmethod
-    def _extract_docstring(body_statements: List[cst.CSTNode], field_index: int) -> str:
+    def _extract_docstring(
+        body_statements: List[cst.CSTNode],
+        field_index: int,
+    ) -> str:
         """Extract the docstring following a field definition."""
         if field_index + 1 < len(body_statements):
             # Check if the next statement is a simple statement (like a string)
@@ -179,7 +185,11 @@ class AddImports(cst.CSTTransformer):
         self.imports_to_add = imports_to_add
         self.added = False
 
-    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
+    def leave_Module(
+        self,
+        original_node: cst.Module,
+        updated_node: cst.Module,
+    ) -> cst.Module:
         """Insert the import statements into the module."""
         # If imports were already added, don't add them again
         if self.added:
@@ -209,39 +219,51 @@ class UpdateParameters(cst.CSTTransformer):
     def __init__(self, method_name: str, param_updates: Dict[str, Dict[str, str]]):
         self.method_name = method_name
         self.param_updates = param_updates
-        self.found_method = False
+        self.found_method = False  # Flag to check if the method is found
 
-    def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.FunctionDef:
+    def leave_FunctionDef(
+        self,
+        original_node: cst.FunctionDef,
+        updated_node: cst.FunctionDef,
+    ) -> cst.FunctionDef:
+        # Only proceed if the current function is the target method
         if original_node.name.value != self.method_name:
             return updated_node
 
-        self.found_method = True
+        self.found_method = True  # Set the flag as the method is found
+
+        # Update the parameters and docstring of the method
         new_params = self._update_parameters(updated_node.params)
         updated_body = self._update_docstring(updated_node.body)
+
+        # Return the updated function definition
         return updated_node.with_changes(params=new_params, body=updated_body)
 
     def _update_parameters(self, params: cst.Parameters) -> cst.Parameters:
         """Update parameter types and add new parameters."""
-        new_params = list(params.params)  # Regular params (usually just 'self')
+        new_params = list(params.params)  # Copy regular parameters (e.g., 'self')
         new_kwonly_params = []
 
-        # Track existing parameters to add new ones at the end
+        # Collect existing parameter names to avoid duplicates
         existing_params = {p.name.value for p in params.params + params.kwonly_params}
-        # First update existing parameters
+
+        # Update existing keyword-only parameters
         for param in params.kwonly_params:
             param_name = param.name.value
             if param_name in self.param_updates:
-                # Update type annotation
+                # Update the type annotation for the parameter
                 new_annotation = cst.Annotation(
                     annotation=cst.parse_expression(self.param_updates[param_name]["type"])
                 )
                 new_kwonly_params.append(param.with_changes(annotation=new_annotation))
             else:
+                # Keep the parameter as is if no update is needed
                 new_kwonly_params.append(param)
 
-        # Then add new parameters
+        # Add new parameters that are not already present
         for param_name, param_info in self.param_updates.items():
             if param_name not in existing_params:
+                # Create a new parameter with the provided type and a default value of None
                 annotation = cst.Annotation(annotation=cst.parse_expression(param_info["type"]))
                 new_param = cst.Param(
                     name=cst.Name(param_name),
@@ -250,97 +272,48 @@ class UpdateParameters(cst.CSTTransformer):
                 )
                 new_kwonly_params.append(new_param)
 
+        # Return the updated parameters object with new and updated parameters
         return params.with_changes(params=new_params, kwonly_params=new_kwonly_params)
 
     def _update_docstring(self, body: cst.IndentedBlock) -> cst.IndentedBlock:
-        """Update parameter descriptions in docstring."""
-        if not isinstance(body.body[0], cst.SimpleStatementLine) or not isinstance(body.body[0].body[0], cst.Expr):
+        """Update parameter descriptions in the docstring."""
+        # Check if the first statement is a docstring
+        if not (
+            isinstance(body.body[0], cst.SimpleStatementLine)
+            and isinstance(body.body[0].body[0], cst.Expr)
+            and isinstance(body.body[0].body[0].value, cst.SimpleString)
+        ):
+            # Return the body unchanged if no docstring is found
             return body
 
         docstring_expr = body.body[0].body[0]
-        if not isinstance(docstring_expr.value, cst.SimpleString):
-            return body
+        docstring = docstring_expr.value.evaluated_value  # Get the docstring content
 
-        docstring = docstring_expr.value.evaluated_value
+        # Update the docstring content with new and updated parameters
         updated_docstring = self._update_docstring_content(docstring)
         new_docstring = cst.SimpleString(f'"""{updated_docstring}"""')
 
+        # Replace the old docstring with the updated one
         new_body = [body.body[0].with_changes(body=[docstring_expr.with_changes(value=new_docstring)])] + list(
             body.body[1:]
         )
 
+        # Return the updated function body
         return body.with_changes(body=new_body)
 
     def _update_docstring_content(self, docstring: str) -> str:
-        """Update parameter descriptions in docstring content."""
-        # Split parameters based on their status
+        """Update parameter descriptions in the docstring content."""
+        # Split parameters into new and updated ones based on their status
         new_params = {name: info for name, info in self.param_updates.items() if info["status"] == "new"}
         update_params = {name: info for name, info in self.param_updates.items() if info["status"] == "update"}
 
-        # First handle updates to existing parameters
-        if update_params:
-            docstring = self._update_existing_params(docstring, update_params)
-
-        # Then add new parameters
-        if new_params:
-            docstring = self._add_new_params(docstring, new_params)
-
-        return docstring
-
-    def _update_existing_params(self, docstring: str, params_to_update: Dict[str, Dict[str, str]]) -> str:
-        """Update existing parameters while preserving their position."""
-        docstring_lines = docstring.split("\n")
-        args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
-        if not args_index:
-            return docstring
-        base_indentation = docstring_lines[args_index][
-            : len(docstring_lines[args_index]) - len(docstring_lines[args_index].lstrip())
-        ]
-        param_indentation = base_indentation + "    "
-        description_indentation = param_indentation + "    "
-        # Find each parameter and update its type/docstring
-        for i, line in enumerate(docstring_lines):
-            for param_name, param_info in params_to_update.items():
-                if line.strip().startswith(param_name + " "):
-                    # Find the end of current parameter documentation
-                    end_idx = i + 1
-                    while end_idx < len(docstring_lines):
-                        next_line = docstring_lines[end_idx].strip()
-                        # Stop if we hit another parameter or section
-                        if (
-                            (next_line.endswith(":") and not next_line.startswith(description_indentation))
-                            or next_line.lower() in ("returns:", "raises:", "example:", "examples:")
-                            or not next_line
-                        ):
-                            break
-                        end_idx += 1
-
-                    param_type_str = param_info["type"].replace("Optional[", "").rstrip("]")
-                    optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
-                    param_docstring = (param_info.get("docstring") or "").strip()
-                    # Clean up the docstring to remove extra spaces
-                    param_docstring = " ".join(param_docstring.split())
-                    # Create the new parameter documentation
-                    param_line = f"{param_indentation}{param_name} (`{param_type_str}`, {optional_str}):"
-                    if param_docstring:
-                        wrapped_description = textwrap.fill(
-                            param_docstring,
-                            width=119,
-                            initial_indent=description_indentation,
-                            subsequent_indent=description_indentation,
-                        )
-                        docstring_lines[i:end_idx] = [param_line, wrapped_description]
-                    else:
-                        docstring_lines[i:end_idx] = [param_line]
-        return "\n".join(docstring_lines)
-
-    def _add_new_params(self, docstring: str, new_params: Dict[str, Dict[str, str]]) -> str:
-        """Add new parameters"""
+        # Split the docstring into lines for processing
         docstring_lines = docstring.split("\n")
 
-        # Step 1: find the right insertion index
+        # Find or create the "Args:" section and compute indentation levels
         args_index = next((i for i, line in enumerate(docstring_lines) if line.strip().lower() == "args:"), None)
         if args_index is None:
+            # If 'Args:' section is not found, insert it before 'Returns:' or at the end
             insertion_index = next(
                 (
                     i
@@ -350,56 +323,156 @@ class UpdateParameters(cst.CSTTransformer):
                 len(docstring_lines),
             )
             docstring_lines.insert(insertion_index, "Args:")
-            args_index = insertion_index
-            insertion_index += 1
-        else:
-            next_section_index = next(
-                (
-                    i
-                    for i, line in enumerate(docstring_lines)
-                    if line.strip().lower() in ("returns:", "raises:", "example:", "examples:")
-                ),
-                None,
+            args_index = insertion_index  # Update the args_index with the new section
+        base_indent = docstring_lines[args_index][: -len(docstring_lines[args_index].lstrip())]
+        param_indent = base_indent + "    "  # Indentation for parameter lines
+        desc_indent = param_indent + "    "  # Indentation for description lines
+
+        # Update existing parameters in the docstring
+        if update_params:
+            docstring_lines = self._process_existing_params(
+                docstring_lines, update_params, args_index, param_indent, desc_indent
             )
-            if next_section_index is not None:
-                if next_section_index > 0 and docstring_lines[next_section_index - 1].strip() == "":
-                    insertion_index = next_section_index - 1
-                else:
-                    insertion_index = next_section_index
-                    docstring_lines.insert(insertion_index, "")
+
+        # Add new parameters to the docstring
+        if new_params:
+            docstring_lines = self._add_new_params(docstring_lines, new_params, args_index, param_indent, desc_indent)
+
+        # Join the docstring lines back into a single string
+        return "\n".join(docstring_lines)
+
+    def _format_param_docstring(
+        self,
+        param_name: str,
+        param_info: Dict[str, str],
+        param_indent: str,
+        desc_indent: str,
+    ) -> List[str]:
+        """Format the docstring lines for a single parameter."""
+        # Extract and format the parameter type
+        param_type = param_info["type"].replace("Optional[", "").rstrip("]")
+        optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
+
+        # Get and clean up the parameter description
+        param_desc = (param_info.get("docstring") or "").strip()
+        param_desc = " ".join(param_desc.split())
+
+        # Create the parameter line with type and optionality
+        param_line = f"{param_indent}{param_name} (`{param_type}`, {optional_str}):"
+
+        if param_desc:
+            # Wrap the description text to maintain line width and indentation
+            wrapped_desc = textwrap.fill(
+                param_desc,
+                width=119,
+                initial_indent=desc_indent,
+                subsequent_indent=desc_indent,
+            )
+            return [param_line, wrapped_desc]
+        else:
+            # Return only the parameter line if there's no description
+            return [param_line]
+
+    def _process_existing_params(
+        self,
+        docstring_lines: List[str],
+        params_to_update: Dict[str, Dict[str, str]],
+        args_index: int,
+        param_indent: str,
+        desc_indent: str,
+    ) -> List[str]:
+        """Update existing parameters in the docstring."""
+        i = args_index + 1  # Start after the 'Args:' section
+        while i < len(docstring_lines):
+            line = docstring_lines[i]
+            stripped_line = line.strip()
+            if not stripped_line:
+                # Skip empty lines
+                i += 1
+                continue
+            if stripped_line.lower() in ("returns:", "raises:", "example:", "examples:"):
+                # Stop processing if another section starts
+                break
+            if stripped_line.endswith(":"):
+                # Check if the line is a parameter line
+                param_line = stripped_line
+                param_name = param_line.strip().split()[0]  # Extract parameter name
+                if param_name in params_to_update:
+                    # Get the updated parameter info
+                    param_info = params_to_update[param_name]
+                    # Format the new parameter docstring
+                    param_doc_lines = self._format_param_docstring(param_name, param_info, param_indent, desc_indent)
+                    # Find the end of the current parameter's description
+                    start_idx = i
+                    end_idx = i + 1
+                    while end_idx < len(docstring_lines):
+                        next_line = docstring_lines[end_idx]
+                        # Next parameter or section starts or another section starts or empty line
+                        if (
+                            (next_line.strip().endswith(":") and not next_line.startswith(desc_indent))
+                            or next_line.lower() in ("returns:", "raises:", "example:", "examples:")
+                            or not next_line
+                        ):
+                            break
+                        end_idx += 1
+                    # Insert new param docs and preserve the rest of the docstring
+                    docstring_lines = (
+                        docstring_lines[:start_idx]  # Keep everything before
+                        + param_doc_lines  # Insert new parameter docs
+                        + docstring_lines[end_idx:]  # Keep everything after
+                    )
+                    i = start_idx + len(param_doc_lines)  # Update index to after inserted lines
+                i += 1
             else:
-                insertion_index = len(docstring_lines)
+                i += 1  # Move to the next line if not a parameter line
+        return docstring_lines
 
-        # Step 2: format the parameter docstring
-        base_indentation = docstring_lines[args_index][
-            : len(docstring_lines[args_index]) - len(docstring_lines[args_index].lstrip())
-        ]
-        param_indentation = base_indentation + "    "
-        description_indentation = param_indentation + "    "
+    def _add_new_params(
+        self,
+        docstring_lines: List[str],
+        new_params: Dict[str, Dict[str, str]],
+        args_index: int,
+        param_indent: str,
+        desc_indent: str,
+    ) -> List[str]:
+        """Add new parameters to the docstring."""
+        # Find the insertion point after existing parameters
+        insertion_index = args_index + 1
+        empty_line_index = None
 
+        while insertion_index < len(docstring_lines):
+            line = docstring_lines[insertion_index]
+            stripped_line = line.strip()
+
+            # Track empty line at the end of Args section
+            if not stripped_line:
+                if empty_line_index is None:  # Remember first empty line
+                    empty_line_index = insertion_index
+                insertion_index += 1
+                continue
+
+            if stripped_line.lower() in ("returns:", "raises:", "example:", "examples:"):
+                break
+
+            empty_line_index = None  # Reset if we find more content
+            if stripped_line.endswith(":") and not line.startswith(desc_indent.strip()):
+                insertion_index += 1
+            else:
+                insertion_index += 1
+
+        # If we found an empty line at the end of the Args section, insert before it
+        if empty_line_index is not None:
+            insertion_index = empty_line_index
+
+        # Prepare the new parameter documentation lines
         param_docs = []
         for param_name, param_info in new_params.items():
-            param_type_str = param_info["type"].replace("Optional[", "").rstrip("]")
-            optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
-            param_docstring = (param_info.get("docstring") or "").strip()
-            param_docstring = " ".join(param_docstring.split())
+            param_doc_lines = self._format_param_docstring(param_name, param_info, param_indent, desc_indent)
+            param_docs.extend(param_doc_lines)
 
-            param_line = f"{param_indentation}{param_name} (`{param_type_str}`, {optional_str}):"
-
-            if param_docstring:
-                wrapped_description = textwrap.fill(
-                    param_docstring,
-                    width=119,
-                    initial_indent=description_indentation,
-                    subsequent_indent=description_indentation,
-                )
-                param_docs.extend([param_line, wrapped_description])
-            else:
-                param_docs.append(param_line)
-
-        # Step 3: insert the new parameter docs
+        # Insert the new parameters into the docstring
         docstring_lines[insertion_index:insertion_index] = param_docs
-        return "\n".join(docstring_lines)
+        return docstring_lines
 
 
 class MethodParameterCollector(cst.CSTVisitor):
@@ -740,7 +813,9 @@ def update_inference_client(update: bool):
 
     # Construct a mapping between method names and their parameters dataclass names
     method_params = {}
-    for method_name, _ in [("document_question_answering", None)]:  #
+    for method_name, _ in [
+        ("question_answering", None)
+    ]:  # inspect.getmembers(InferenceClient, predicate=inspect.isfunction)
         if method_name.startswith("_") or method_name not in tasks:
             continue
         parameter_type_name = _get_parameter_type_name(method_name)

@@ -1487,28 +1487,22 @@ class InferenceClient:
             align_to_words (`bool`, *optional*):
                 Attempts to align the answer to real words. Improves quality on space separated languages. Might hurt
                 on non-space-separated languages (like Japanese or Chinese)
-                languages. Might hurt on non-space-separated languages (like Japanese or Chinese).
             doc_stride (`int`, *optional*):
                 If the context is too long to fit with the question for the model, it will be split in several chunks
                 with some overlap. This argument controls the size of that overlap.
-                several chunks with some overlap. This argument controls the size of that overlap.
             handle_impossible_answer (`bool`, *optional*):
                 Whether to accept impossible as an answer.
             max_answer_len (`int`, *optional*):
                 The maximum length of predicted answers (e.g., only answers with a shorter length are considered).
-                considered).
             max_question_len (`int`, *optional*):
                 The maximum length of the question after tokenization. It will be truncated if needed.
             max_seq_len (`int`, *optional*):
                 The maximum length of the total sentence (context + question) in tokens of each chunk passed to the
                 model. The context will be split in several chunks (using docStride as overlap) if needed.
-                passed to the model. The context will be split in several chunks (using docStride as
-                overlap) if needed.
             top_k (`int`, *optional*):
                 The number of answers to return (will be chosen by order of likelihood). Note that we return less than
                 topk answers if there are not enough options available within the context.
-                return less than topk answers if there are not enough options available within the
-                context.
+
         Returns:
             Union[`QuestionAnsweringOutputElement`, List[`QuestionAnsweringOutputElement`]]:
                 When top_k is 1 or not provided, it returns a single `QuestionAnsweringOutputElement`.
