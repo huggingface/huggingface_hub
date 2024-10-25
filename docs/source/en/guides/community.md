@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -80,7 +80,7 @@ with more detailed information about the Discussion or Pull Request. Information
 and renames of the Discussion via [`DiscussionWithDetails.events`].
 
 In case of a Pull Request, you can retrieve the raw git diff with [`DiscussionWithDetails.diff`]. All the commits of the
-Pull Request are listed in [`DiscussionWithDetails.events`].
+Pull Requests are listed in [`DiscussionWithDetails.events`].
 
 
 ## Create and edit a Discussion or Pull Request programmatically

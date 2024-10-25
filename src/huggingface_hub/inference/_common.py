@@ -81,7 +81,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelStatus:
     """
-    This Dataclass represents the the model status in the Hugging Face Inference API.
+    This Dataclass represents the model status in the Hugging Face Inference API.
 
     Args:
         loaded (`bool`):
@@ -213,7 +213,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
 
 def _b64_encode(content: ContentT) -> str:
-    """Encode a raw file (image, audio) into base64. Can be byes, an opened file, a path or a URL."""
+    """Encode a raw file (image, audio) into base64. Can be bytes, an opened file, a path or a URL."""
     with _open_as_binary(content) as data:
         data_as_bytes = data if isinstance(data, bytes) else data.read()
         return base64.b64encode(data_as_bytes).decode()
