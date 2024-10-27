@@ -90,7 +90,7 @@ cd huggingface_hub
 pip install -e .
 ```
 
-Diese Befehle verknüpfen den Ordner, in den Sie das Repository geklont haben, mit Ihren Python-Bibliothekspfaden. Python wird nun zusätzlich zu den normalen Bibliothekspfaden im geklonten Ordner suchen. Wenn Ihre Python-Pakete normalerweise in `./.venv/lib/python3.12/site-packages/` installiert sind, wird Python auch den geklonten Ordner `./huggingface_hub/` durchsuchen.
+Diese Befehle verknüpfen den Ordner, in den Sie das Repository geklont haben, mit Ihren Python-Bibliothekspfaden. Python wird nun zusätzlich zu den normalen Bibliothekspfaden im geklonten Ordner suchen. Wenn Ihre Python-Pakete normalerweise in `./.venv/lib/python3.13/site-packages/` installiert sind, wird Python auch den geklonten Ordner `./huggingface_hub/` durchsuchen.
 
 ## Installieren mit conda
 

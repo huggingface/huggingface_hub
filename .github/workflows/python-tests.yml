@@ -21,15 +21,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.12"]
+        python-version: ["3.8", "3.13"]
         test_name:
           [
             "Repository only",
             "Everything else",
-            "torch_latest",
+            
           ]
         include:
-          - python-version: "3.12" # LFS not ran on 3.8
+          - python-version: "3.13" # LFS not ran on 3.8
             test_name: "lfs"
           - python-version: "3.8"
             test_name: "fastai"
@@ -41,6 +41,8 @@ jobs:
             test_name: "tensorflow"
           - python-version: "3.8" # test torch~=1.11 on python 3.8 only.
             test_name: "Python 3.8, torch_1.11"
+          - python-version: "3.12" # test torch latest on python 3.12 only.
+            test_name: "torch_latest"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}

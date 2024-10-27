@@ -94,7 +94,7 @@ pip install -e .
 
 이렇게 클론한 레포지토리 폴더와 Python 경로를 연결합니다.
 이제 Python은 일반적인 라이브러리 경로 외에도 복제된 폴더 내부를 찾습니다.
-예를 들어 파이썬 패키지가 일반적으로 `./.venv/lib/python3.12/site-packages/`에 설치되어 있다면, Python은 복제된 폴더 `./huggingface_hub/`도 검색하게 됩니다.
+예를 들어 파이썬 패키지가 일반적으로 `./.venv/lib/python3.13/site-packages/`에 설치되어 있다면, Python은 복제된 폴더 `./huggingface_hub/`도 검색하게 됩니다.
 
 ## conda로 설치하기 [[install-with-conda]]
 
