@@ -102,7 +102,7 @@ def check_async_client(update: bool) -> NoReturn:
         else:
             print(
                 "❌ Expected content mismatch in `./src/huggingface_hub/inference/_generated/_async_client.py`.\n   It"
-                " is most likely that you modified some InferenceClient code and did not update the the"
+                " is most likely that you modified some InferenceClient code and did not update the"
                 " AsyncInferenceClient one.\n   Please run `make style` or `python"
                 " utils/generate_async_inference_client.py --update`."
             )

@@ -178,7 +178,9 @@ class InferenceClient:
 
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token if token is not None else api_key
-        self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
+        self.headers: CaseInsensitiveDict[str] = CaseInsensitiveDict(
+            build_hf_headers(token=self.token)  # 'authorization' + 'user-agent'
+        )
         if headers is not None:
             self.headers.update(headers)
         self.cookies = cookies
