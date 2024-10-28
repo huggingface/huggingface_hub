@@ -760,6 +760,8 @@ class ModelInfo:
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
+        security_repo_status (`Dict`, *optional*):
+            Model's security scan status.
     """
 
     id: str
@@ -788,6 +790,7 @@ class ModelInfo:
     siblings: Optional[List[RepoSibling]]
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
+    security_repo_status: Optional[Dict]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -853,7 +856,7 @@ class ModelInfo:
             if safetensors
             else None
         )
-
+        self.security_repo_status = kwargs.pop("securityRepoStatus", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -2493,7 +2496,7 @@ class HfApi:
                 Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
-                repository as well.
+                repository as well. The security status will be returned in the `security_repo_status` field.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
