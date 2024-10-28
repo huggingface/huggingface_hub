@@ -20,7 +20,6 @@ import time
 import types
 import unittest
 import uuid
-import warnings
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import fields
@@ -1834,9 +1833,8 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
     def test_model_info_with_security(self):
-        warnings.warn(
-            "this test might fail, `security_repo_status` object structure is currently not stable on server side."
-        )
+        # Note: this test might break in the future if `security_repo_status` object structure gets updated server-side
+        # (not yet fully stable)
         model = self._api.model_info(
             repo_id=DUMMY_MODEL_ID,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
