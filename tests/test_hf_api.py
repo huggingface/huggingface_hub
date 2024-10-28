@@ -1832,21 +1832,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
-    # TODO; un-skip this test once it's fixed.
-    @unittest.skip(
-        "Security status is currently unreliable on the server endpoint, so this"
-        " test occasionally fails. Issue is tracked in"
-        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
-        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
-        " this test once it's fixed."
-    )
     def test_model_info_with_security(self):
+        # Note: this test might break in the future if `security_repo_status` object structure gets updated server-side
+        # (not yet fully stable)
         model = self._api.model_info(
             repo_id=DUMMY_MODEL_ID,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertEqual(model.securityStatus, {"containsInfected": False})
+        self.assertIsNotNone(model.security_repo_status)
+        self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
 
     def test_model_info_with_file_metadata(self):
         model = self._api.model_info(
