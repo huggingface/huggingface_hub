@@ -1,4 +1,3 @@
-import inspect
 import os
 import re
 import tempfile
@@ -138,7 +137,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
     def resolve_path(self, path: str, revision: Optional[str] = None) -> HfFileSystemResolvedPath:
-        """Resolve a Hugging Face file system path into its components.
+        """
+        Resolve a Hugging Face file system path into its components.
 
         Args:
             path (`str`):
@@ -235,6 +235,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Clear the cache for a given path.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.invalidate_cache).
+
         Args:
             path (`str`, *optional*):
                 Path to clear from cache. If not provided, clear the entire cache.
@@ -296,6 +298,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Delete files from a repository.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.rm).
+
         <Tip warning={true}>
 
             Note: When possible, use `HfApi.delete_file()` for better performance.
@@ -338,6 +342,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         List the contents of a directory.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.ls).
 
         <Tip warning={true}>
 
@@ -483,6 +488,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Return all files below the given path.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.walk).
+
         Args:
             path (`str`):
                 Root path to list files from.
@@ -498,6 +505,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def glob(self, path: str, **kwargs) -> List[str]:
         """
         Find files by glob-matching.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.glob).
 
         Args:
             path (`str`):
@@ -523,6 +532,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
         """
         List all files below path.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.find).
 
         Args:
             path (`str`):
@@ -633,6 +644,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Get the last modified time of a file.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.modified).
+
         Args:
             path (`str`):
                 Path to the file.
@@ -647,6 +660,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Get information about a file or directory.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.info).
 
         <Tip warning={true}>
 
@@ -746,6 +760,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Check if a file exists.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.exists).
+
         <Tip warning={true}>
 
             Note: When possible, use `HfApi.file_exists()` for better performance.
@@ -772,6 +788,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         """
         Check if a path is a directory.
 
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.isdir).
+
         Args:
             path (`str`):
                 Path to check.
@@ -787,6 +805,8 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def isfile(self, path):
         """
         Check if a path is a file.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.isfile).
 
         Args:
             path (`str`):
@@ -1118,20 +1138,3 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
-
-
-# Add docstrings to the methods of HfFileSystem from fsspec.AbstractFileSystem
-for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunction):
-    parent = getattr(fsspec.AbstractFileSystem, name, None)
-    if parent is not None and parent.__doc__ is not None:
-        parent_doc = parent.__doc__
-        parent_doc = parent_doc.replace("Parameters\n        ----------\n", "Args:\n")
-        parent_doc = parent_doc.replace("Returns\n        -------\n", "Return:\n")
-        function.__doc__ = (
-            (
-                "\n_Docstring taken from "
-                f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})._"
-            )
-            + "\n\n"
-            + parent_doc
-        )
