@@ -1549,6 +1549,36 @@ def future_compatible(fn: CallableT) -> CallableT:
 
 
 class HfApi:
+    """
+    Create a HF client to interact with the Hub via HTTP.
+
+    The client is initialized with some high-level settings used in all requests
+    made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
+    client is preferred but not mandatory as all of its public methods are exposed
+    directly at the root of `huggingface_hub`.
+
+    Args:
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        token (Union[bool, str, None], optional):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
+        library_name (`str`, *optional*):
+            The name of the library that is making the HTTP request. Will be added to
+            the user-agent header. Example: `"transformers"`.
+        library_version (`str`, *optional*):
+            The version of the library that is making the HTTP request. Will be added
+            to the user-agent header. Example: `"4.24.0"`.
+        user_agent (`str`, `dict`, *optional*):
+            The user agent info in the form of a dictionary or a single string. It will
+            be completed with information about the installed packages.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
+            Headers passed here are taking precedence over the default headers.
+    """
+
     def __init__(
         self,
         endpoint: Optional[str] = None,
@@ -1558,32 +1588,6 @@ class HfApi:
         user_agent: Union[Dict, str, None] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Create a HF client to interact with the Hub via HTTP.
-
-        The client is initialized with some high-level settings used in all requests
-        made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
-        client is preferred but not mandatory as all of its public methods are exposed
-        directly at the root of `huggingface_hub`.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            library_name (`str`, *optional*):
-                The name of the library that is making the HTTP request. Will be added to
-                the user-agent header. Example: `"transformers"`.
-            library_version (`str`, *optional*):
-                The version of the library that is making the HTTP request. Will be added
-                to the user-agent header. Example: `"4.24.0"`.
-            user_agent (`str`, `dict`, *optional*):
-                The user agent info in the form of a dictionary or a single string. It will
-                be completed with information about the installed packages.
-            headers (`dict`, *optional*):
-                Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
-                Headers passed here are taking precedence over the default headers.
-        """
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
         self.library_name = library_name
