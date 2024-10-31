@@ -863,18 +863,18 @@ class InferenceClient:
         ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
         ...     },
         ... ]
-        >>> class OutputFormat(BaseModel):
+        >>> class ActivitySummary(BaseModel):
         ...     location: str
         ...     activity: str
         ...     animals_seen: conint(ge=1, le=5)
         ...     animals: list[str]
         >>> response = client.chat_completion(
         ...     messages=messages,
-        ...     response_format=OutputFormat,
+        ...     response_format=ActivitySummary,
         ...     max_tokens=500,
         )
         >>> response.choices[0].message.parsed
-        OutputFormat(location='park', activity='bike ride', animals_seen=3, animals=['puppy', 'cat', 'raccoon'])
+        ActivitySummary(location='park', activity='bike ride', animals_seen=3, animals=['puppy', 'cat', 'raccoon'])
         ```
         """
         if issubclass(response_format, BaseModel):
