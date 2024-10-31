@@ -199,6 +199,7 @@ class ChatCompletionOutputMessage(BaseInferenceType):
     content: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
     parsed: Optional[BaseModel] = None
+    refusal: Optional[str] = None
 
 
 @dataclass

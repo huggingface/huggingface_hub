@@ -40,7 +40,21 @@ else:
             )
 
         @classmethod
+        def schema(cls, *args, **kwargs) -> dict[str, Any]:
+            raise ImportError(
+                "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
+                " should be installed separately. Please run `pip install --upgrade pydantic` and retry."
+            )
+
+        @classmethod
         def model_validate_json(cls, json_data: str | bytes | bytearray, *args, **kwargs) -> "BaseModel":
+            raise ImportError(
+                "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
+                " should be installed separately. Please run `pip install --upgrade pydantic` and retry."
+            )
+
+        @classmethod
+        def parse_raw(cls, json_data: str | bytes | bytearray, *args, **kwargs) -> "BaseModel":
             raise ImportError(
                 "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
                 " should be installed separately. Please run `pip install --upgrade pydantic` and retry."

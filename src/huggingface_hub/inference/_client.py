@@ -878,13 +878,15 @@ class InferenceClient:
         ```
         """
         if issubclass(response_format, BaseModel):
-            base_model = response_format
+            response_model = response_format
             response_format = ChatCompletionInputGrammarType(
                 type="json",
-                value=base_model.model_json_schema(),
+                value=response_model.model_json_schema()
+                if hasattr(response_model, "model_json_schema")
+                else response_model.schema(),
             )
         else:
-            base_model = None
+            response_model = None
 
         model_url = self._resolve_chat_completion_url(model)
 
@@ -922,13 +924,18 @@ class InferenceClient:
             return _stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         chat_completion_output = ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-        if base_model:
+        if response_model:
             for choice in chat_completion_output.choices:
                 if choice.message.content:
                     try:
-                        choice.message.parsed = base_model.model_validate_json(choice.message.content)
+                        # pydantic v2 uses model_validate_json
+                        choice.message.parsed = (
+                            response_model.model_validate_json(choice.message.content)
+                            if hasattr(response_model, "model_validate_json")
+                            else response_model.parse_raw(choice.message.content)
+                        )
                     except ValueError:
-                        pass
+                        choice.message.refusal = f"Failed to generate the response as a {response_model.__name__}"
         return chat_completion_output
 
     def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
