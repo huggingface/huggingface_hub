@@ -479,11 +479,11 @@ def test_save_torch_state_dict_not_main_process(
     torch_state_dict: Dict[str, "torch.Tensor"],
 ) -> None:
     """
-    Test that files are not deleted when is_main_process=False.
-    When is_main_process=True, files should be deleted,
+    Test that previous files in the directory are not deleted when is_main_process=False.
+    When is_main_process=True, previous files should be deleted,
     this is already tested in `test_save_torch_state_dict_delete_existing_files`.
     """
-    # Create some .safetensors files
+    # Create some .safetensors files before saving a new state dict.
     (tmp_path / "model.safetensors").touch()
     (tmp_path / "model-00001-of-00002.safetensors").touch()
     (tmp_path / "model-00002-of-00002.safetensors").touch()
@@ -491,7 +491,7 @@ def test_save_torch_state_dict_not_main_process(
     # Save with is_main_process=False
     save_torch_state_dict(torch_state_dict, tmp_path, is_main_process=False)
 
-    # Files should still exist (not deleted)
+    # Previous files should still exist (not deleted)
     assert (tmp_path / "model.safetensors").is_file()
     assert (tmp_path / "model-00001-of-00002.safetensors").is_file()
     assert (tmp_path / "model-00002-of-00002.safetensors").is_file()
