@@ -61,7 +61,7 @@ class HfFileSystem(fsspec.AbstractFileSystem):
 
     <Tip warning={true}>
 
-        `HfFileSystem` provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+        [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
         Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
         layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
 

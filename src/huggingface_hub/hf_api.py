@@ -1550,7 +1550,7 @@ def future_compatible(fn: CallableT) -> CallableT:
 
 class HfApi:
     """
-    Create a HF client to interact with the Hub via HTTP.
+    Client to interact with the Hugging Face Hub via HTTP.
 
     The client is initialized with some high-level settings used in all requests
     made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
