@@ -879,6 +879,7 @@ class InferenceClient:
         """
         if isinstance(response_format, type) and issubclass(response_format, BaseModel):
             response_model = response_format
+            # pydantic v2 uses model_json_schema
             response_format = ChatCompletionInputGrammarType(
                 type="json",
                 value=response_model.model_json_schema()
