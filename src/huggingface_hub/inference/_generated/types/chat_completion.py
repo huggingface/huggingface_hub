@@ -6,6 +6,8 @@
 from dataclasses import dataclass
 from typing import Any, List, Literal, Optional, Union
 
+from huggingface_hub._webhooks_payload import BaseModel
+
 from .base import BaseInferenceType
 
 
@@ -196,6 +198,7 @@ class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
     content: Optional[str] = None
     tool_calls: Optional[List[ChatCompletionOutputToolCall]] = None
+    parsed: Optional[BaseModel] = None
 
 
 @dataclass
