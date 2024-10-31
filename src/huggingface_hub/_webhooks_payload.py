@@ -14,7 +14,7 @@
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
 
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Union
 
 from .utils import is_pydantic_available
 
@@ -47,14 +47,14 @@ else:
             )
 
         @classmethod
-        def model_validate_json(cls, json_data: str | bytes | bytearray, *args, **kwargs) -> "BaseModel":
+        def model_validate_json(cls, json_data: Union[str, bytes, bytearray], *args, **kwargs) -> "BaseModel":
             raise ImportError(
                 "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
                 " should be installed separately. Please run `pip install --upgrade pydantic` and retry."
             )
 
         @classmethod
-        def parse_raw(cls, json_data: str | bytes | bytearray, *args, **kwargs) -> "BaseModel":
+        def parse_raw(cls, json_data: Union[str, bytes, bytearray], *args, **kwargs) -> "BaseModel":
             raise ImportError(
                 "You must have `pydantic` installed to use `WebhookPayload`. This is an optional dependency that"
                 " should be installed separately. Please run `pip install --upgrade pydantic` and retry."

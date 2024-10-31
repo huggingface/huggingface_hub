@@ -932,7 +932,7 @@ class AsyncInferenceClient:
         ActivitySummary(location='park', activity='bike ride', animals_seen=3, animals=['puppy', 'cat', 'raccoon'])
         ```
         """
-        if issubclass(response_format, BaseModel):
+        if isinstance(response_format, type) and issubclass(response_format, BaseModel):
             response_model = response_format
             response_format = ChatCompletionInputGrammarType(
                 type="json",
