@@ -19,6 +19,7 @@ class XetMetadata:
     access_token: str
     expiration_unix_epoch: int
     refresh_route: Optional[str] = None
+    file_hash: Optional[str] = None
 
 
 def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]]) -> Optional[XetMetadata]:
@@ -30,6 +31,7 @@ def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]
            HTTP headers to extract the XET metadata from.
     """
     xet_endpoint = headers.get(constants.HUGGINGFACE_HEADER_X_XET_ENDPOINT)
+    file_hash = headers.get(constants.HUGGINGFACE_HEADER_X_XET_HASH)
     access_token = headers.get(constants.HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN)
     expiration = headers.get(constants.HUGGINGFACE_HEADER_X_XET_EXPIRATION)
     refresh_route = headers.get(constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE)
@@ -47,6 +49,7 @@ def xet_metadata_or_none(headers: Union[Dict[str, str], CaseInsensitiveDict[str]
         access_token=access_token,
         expiration_unix_epoch=expiration_unix_epoch,
         refresh_route=refresh_route,
+        file_hash=file_hash,
     )
 
 

@@ -490,9 +490,12 @@ def _upload_xet_files(
         [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
             If the LFS batch endpoint returned an HTTP error.
     """
+    if len(additions) == 0:
+        return
+
     # TODO: use HF_HUB_ENABLE_HF_XET env variable
     try:
-        from hf_xet import PyPointerFile, upload_files
+        from hf_xet import upload_files
     except ImportError:
         raise ValueError(
             "Optimized upload using hf_xet is enabled for this repo but the hf_xet "
@@ -530,14 +533,8 @@ def _upload_xet_files(
 
     for chunk in chunk_iterable(additions, chunk_size=256):
         _chunk = [op for op in chunk]
-        chunk_map: Dict[str, CommitOperationAdd] = {str(op.path_or_fileobj): op for op in _chunk}
         paths = [str(op.path_or_fileobj) for op in _chunk]
-        pointer_files: List[PyPointerFile] = upload_files(paths, xet_endpoint, access_token_info, token_refresher)
-        for pf in pointer_files:
-            path = pf.path
-            op = chunk_map[path]
-            op.upload_info.size = pf.filesize
-            op.upload_info.sha256 = bytes.fromhex(pf.hash)
+        upload_files(paths, xet_endpoint, access_token_info, token_refresher)
     return
 
 

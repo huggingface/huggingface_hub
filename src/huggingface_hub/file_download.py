@@ -1935,7 +1935,7 @@ def _download_to_tmp_and_move(
             _check_disk_space(expected_size, incomplete_path.parent)
             _check_disk_space(expected_size, destination_path.parent)
 
-        if xet_metadata is not None and etag is not None:
+        if xet_metadata is not None and xet_metadata.file_hash is not None:
             try:
                 from hf_xet import PyPointerFile, download_files
             except ImportError:
@@ -1950,7 +1950,11 @@ def _download_to_tmp_and_move(
                     raise ValueError("Failed to refresh token using xet metadata.")
                 return new_xet_metadata.access_token, new_xet_metadata.expiration_unix_epoch
 
-            py_file = [PyPointerFile(path=str(incomplete_path.absolute()), hash=etag, filesize=expected_size)]
+            py_file = [
+                PyPointerFile(
+                    path=str(incomplete_path.absolute()), hash=xet_metadata.file_hash, filesize=expected_size
+                )
+            ]
             download_files(
                 py_file,
                 endpoint=xet_metadata.endpoint,

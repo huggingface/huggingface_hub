@@ -76,8 +76,8 @@ HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 HUGGINGFACE_HEADER_X_XET_ENDPOINT = "X-Xet-Cas-Url"
 HUGGINGFACE_HEADER_X_XET_ACCESS_TOKEN = "X-Xet-Access-Token"
 HUGGINGFACE_HEADER_X_XET_EXPIRATION = "X-Xet-Token-Expiration"
-# TODO: xetpoc - change the actual header value to X-Xet-Refresh-Route once we've updated the Hub code
-HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE = "X-Xet-Refresh-Token"
+HUGGINGFACE_HEADER_X_XET_HASH = "X-Xet-Hash"
+HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE = "X-Xet-Refresh-Route"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 

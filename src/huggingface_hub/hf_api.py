@@ -14,6 +14,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import importlib.util
 import inspect
 import json
 import re
@@ -4432,11 +4433,6 @@ class HfApi:
         # Filter out regular files
         new_lfs_additions = [addition for addition in new_additions if addition._upload_mode == "lfs"]
 
-        # TODO: xetpoc - add logging for xet files like lfs below
-        new_xet_additions = [
-            addition for addition in new_additions if addition._upload_mode == "xet" and not addition._should_ignore
-        ]
-
         # Filter out files listed in .gitignore
         new_lfs_additions_to_upload = []
         for addition in new_lfs_additions:
@@ -4450,32 +4446,36 @@ class HfApi:
                 "(ignored by gitignore file)."
             )
 
-        # Upload new XET files
-        _upload_xet_files(
-            additions=new_xet_additions,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=self.endpoint,
-            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
-            # should still be able to create PRs even if they don't have write permission on the target branch of the
-            # PR (i.e. `revision`).
-            revision=revision if not create_pr else None,
-        )
+        # Check if the hf_xet library is installed
+        hf_xet_spec = importlib.util.find_spec("hf_xet")
+        if hf_xet_spec is None:
+            # Upload files as LFS files
+            _upload_lfs_files(
+                additions=new_lfs_additions_to_upload,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                endpoint=self.endpoint,
+                num_threads=num_threads,
+                # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+                # should still be able to create PRs even if they don't have write permission on the target branch of the
+                # PR (i.e. `revision`).
+                revision=revision if not create_pr else None,
+            )
+        else:
+            # Upload files as XET files.
+            _upload_xet_files(
+                additions=new_lfs_additions_to_upload,
+                repo_type=repo_type,
+                repo_id=repo_id,
+                headers=headers,
+                endpoint=self.endpoint,
+                # If `create_pr`, we don't want to check user permission on the revision as users with read permission
+                # should still be able to create PRs even if they don't have write permission on the target branch of the
+                # PR (i.e. `revision`).
+                revision=revision if not create_pr else None,
+            )
 
-        # Upload new LFS files
-        _upload_lfs_files(
-            additions=new_lfs_additions_to_upload,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            endpoint=self.endpoint,
-            num_threads=num_threads,
-            # If `create_pr`, we don't want to check user permission on the revision as users with read permission
-            # should still be able to create PRs even if they don't have write permission on the target branch of the
-            # PR (i.e. `revision`).
-            revision=revision if not create_pr else None,
-        )
         for addition in new_lfs_additions_to_upload:
             addition._is_uploaded = True
             if free_memory:
