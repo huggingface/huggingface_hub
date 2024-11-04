@@ -586,3 +586,20 @@ def test_access_repositories_lists(not_supported_path):
         fs.ls(not_supported_path)
     with pytest.raises(NotImplementedError):
         fs.open(not_supported_path)
+
+
+def test_exists_after_repo_deletion():
+    """Test that exists() correctly reflects repository deletion."""
+    # Initialize with staging endpoint and skip cache
+    hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+    api = hffs._api
+
+    # Create a new repo
+    temp_repo_id = repo_name()
+    repo_url = api.create_repo(temp_repo_id)
+    repo_id = repo_url.repo_id
+    assert hffs.exists(repo_id, refresh=True)
+    # Delete the repo
+    api.delete_repo(repo_id=repo_id, repo_type="model")
+    # Verify that the repo no longer exists.
+    assert not hffs.exists(repo_id, refresh=True)
