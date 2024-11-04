@@ -620,7 +620,7 @@ class AsyncInferenceClient:
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
                 probabilities of each output token returned in the content of message.
             max_tokens (`int`, *optional*):
-                Maximum number of tokens allowed in the response. Defaults to 20.
+                Maximum number of tokens allowed in the response. Defaults to 100.
             n (`int`, *optional*):
                 UNUSED.
             presence_penalty (`float`, *optional*):
@@ -2138,7 +2138,7 @@ class AsyncInferenceClient:
             grammar ([`TextGenerationInputGrammarType`], *optional*):
                 Grammar constraints. Can be either a JSONSchema or a regex.
             max_new_tokens (`int`, *optional*):
-                Maximum number of generated tokens
+                Maximum number of generated tokens. Defaults to 100.
             repetition_penalty (`float`, *optional*):
                 The parameter for repetition penalty. 1.0 means no penalty. See [this
                 paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
