@@ -1764,6 +1764,30 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert isinstance(model, ModelInfo)
         assert all(tag in model.tags for tag in ["bert", "jax"])
 
+    def test_list_models_sort_trending_score(self):
+        models = list(self._api.list_models(sort="trending_score", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.trending_score is not None for model in models)
+
+    def test_list_models_sort_created_at(self):
+        models = list(self._api.list_models(sort="created_at", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.created_at is not None for model in models)
+
+    def test_list_models_sort_downloads(self):
+        models = list(self._api.list_models(sort="downloads", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.downloads is not None for model in models)
+
+    def test_list_models_sort_likes(self):
+        models = list(self._api.list_models(sort="likes", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.likes is not None for model in models)
+
     def test_list_models_with_config(self):
         for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
