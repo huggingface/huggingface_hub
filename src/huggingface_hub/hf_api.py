@@ -1798,8 +1798,8 @@ class HfApi:
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values
-                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1911,7 +1911,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2010,8 +2018,8 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible
-                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2121,7 +2129,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2193,8 +2209,8 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting Spaces. Possible
-                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2230,7 +2246,15 @@ class HfApi:
         if search is not None:
             params["search"] = search
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
