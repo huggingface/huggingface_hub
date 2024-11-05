@@ -9217,7 +9217,8 @@ class HfApi:
                 token=token,
             )
         if len(filtered_repo_objects) > 30:
-            logger.info(
+            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
+            log(
                 "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
                 "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
                 "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
