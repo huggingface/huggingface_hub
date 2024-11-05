@@ -390,9 +390,8 @@ def http_get(
 
     consistency_error_message = (
         f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry"
-        " with `force_download=True`.\nIf the issue persists, please let us know by opening an issue "
-        "on https://github.com/huggingface/huggingface_hub."
+        f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
+        " Please retry with `force_download=True`."
     )
 
     # Stream file to buffer

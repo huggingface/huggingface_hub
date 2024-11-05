@@ -760,6 +760,8 @@ class ModelInfo:
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
+        security_repo_status (`Dict`, *optional*):
+            Model's security scan status.
     """
 
     id: str
@@ -788,6 +790,7 @@ class ModelInfo:
     siblings: Optional[List[RepoSibling]]
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
+    security_repo_status: Optional[Dict]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -853,7 +856,7 @@ class ModelInfo:
             if safetensors
             else None
         )
-
+        self.security_repo_status = kwargs.pop("securityRepoStatus", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1546,6 +1549,36 @@ def future_compatible(fn: CallableT) -> CallableT:
 
 
 class HfApi:
+    """
+    Client to interact with the Hugging Face Hub via HTTP.
+
+    The client is initialized with some high-level settings used in all requests
+    made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
+    client is preferred but not mandatory as all of its public methods are exposed
+    directly at the root of `huggingface_hub`.
+
+    Args:
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        token (Union[bool, str, None], optional):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
+        library_name (`str`, *optional*):
+            The name of the library that is making the HTTP request. Will be added to
+            the user-agent header. Example: `"transformers"`.
+        library_version (`str`, *optional*):
+            The version of the library that is making the HTTP request. Will be added
+            to the user-agent header. Example: `"4.24.0"`.
+        user_agent (`str`, `dict`, *optional*):
+            The user agent info in the form of a dictionary or a single string. It will
+            be completed with information about the installed packages.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
+            Headers passed here are taking precedence over the default headers.
+    """
+
     def __init__(
         self,
         endpoint: Optional[str] = None,
@@ -1555,32 +1588,6 @@ class HfApi:
         user_agent: Union[Dict, str, None] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Create a HF client to interact with the Hub via HTTP.
-
-        The client is initialized with some high-level settings used in all requests
-        made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
-        client is preferred but not mandatory as all of its public methods are exposed
-        directly at the root of `huggingface_hub`.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            library_name (`str`, *optional*):
-                The name of the library that is making the HTTP request. Will be added to
-                the user-agent header. Example: `"transformers"`.
-            library_version (`str`, *optional*):
-                The version of the library that is making the HTTP request. Will be added
-                to the user-agent header. Example: `"4.24.0"`.
-            user_agent (`str`, `dict`, *optional*):
-                The user agent info in the form of a dictionary or a single string. It will
-                be completed with information about the installed packages.
-            headers (`dict`, *optional*):
-                Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
-                Headers passed here are taking precedence over the default headers.
-        """
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
         self.library_name = library_name
@@ -1791,8 +1798,8 @@ class HfApi:
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values
-                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1904,7 +1911,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2003,8 +2018,8 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible
-                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2114,7 +2129,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2186,8 +2209,8 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting Spaces. Possible
-                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2223,7 +2246,15 @@ class HfApi:
         if search is not None:
             params["search"] = search
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2493,7 +2524,7 @@ class HfApi:
                 Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
-                repository as well.
+                repository as well. The security status will be returned in the `security_repo_status` field.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
@@ -9186,7 +9217,8 @@ class HfApi:
                 token=token,
             )
         if len(filtered_repo_objects) > 30:
-            logger.info(
+            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
+            log(
                 "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
                 "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
                 "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "

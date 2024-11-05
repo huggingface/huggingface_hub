@@ -1764,6 +1764,30 @@ class HfApiPublicProductionTest(unittest.TestCase):
         assert isinstance(model, ModelInfo)
         assert all(tag in model.tags for tag in ["bert", "jax"])
 
+    def test_list_models_sort_trending_score(self):
+        models = list(self._api.list_models(sort="trending_score", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.trending_score is not None for model in models)
+
+    def test_list_models_sort_created_at(self):
+        models = list(self._api.list_models(sort="created_at", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.created_at is not None for model in models)
+
+    def test_list_models_sort_downloads(self):
+        models = list(self._api.list_models(sort="downloads", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.downloads is not None for model in models)
+
+    def test_list_models_sort_likes(self):
+        models = list(self._api.list_models(sort="likes", limit=10))
+        assert len(models) == 10
+        assert isinstance(models[0], ModelInfo)
+        assert all(model.likes is not None for model in models)
+
     def test_list_models_with_config(self):
         for model in self._api.list_models(filter=("adapter-transformers", "bert"), fetch_config=True, limit=20):
             self.assertIsNotNone(model.config)
@@ -1832,21 +1856,16 @@ class HfApiPublicProductionTest(unittest.TestCase):
         self.assertIsInstance(model, ModelInfo)
         self.assertEqual(model.sha, DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT)
 
-    # TODO; un-skip this test once it's fixed.
-    @unittest.skip(
-        "Security status is currently unreliable on the server endpoint, so this"
-        " test occasionally fails. Issue is tracked in"
-        " https://github.com/huggingface/huggingface_hub/issues/1002 and"
-        " https://github.com/huggingface/moon-landing/issues/3695. TODO: un-skip"
-        " this test once it's fixed."
-    )
     def test_model_info_with_security(self):
+        # Note: this test might break in the future if `security_repo_status` object structure gets updated server-side
+        # (not yet fully stable)
         model = self._api.model_info(
             repo_id=DUMMY_MODEL_ID,
             revision=DUMMY_MODEL_ID_REVISION_ONE_SPECIFIC_COMMIT,
             securityStatus=True,
         )
-        self.assertEqual(model.securityStatus, {"containsInfected": False})
+        self.assertIsNotNone(model.security_repo_status)
+        self.assertEqual(model.security_repo_status, {"scansDone": True, "filesWithIssues": []})
 
     def test_model_info_with_file_metadata(self):
         model = self._api.model_info(
