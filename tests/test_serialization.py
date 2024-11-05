@@ -264,6 +264,7 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
+        is_main_process=True,
     )
     safe_state_dict_mock.assert_called_once_with(
         state_dict=model_mock.state_dict.return_value,
@@ -273,6 +274,7 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
+        is_main_process=True,
     )
 
 
@@ -472,3 +474,27 @@ def test_save_torch_state_dict_delete_existing_files(
     assert (tmp_path / "pytorch_model-00001-of-00003.bin").is_file()
     assert (tmp_path / "pytorch_model-00002-of-00003.bin").is_file()
     assert (tmp_path / "pytorch_model-00003-of-00003.bin").is_file()
+
+
+def test_save_torch_state_dict_not_main_process(
+    tmp_path: Path,
+    torch_state_dict: Dict[str, "torch.Tensor"],
+) -> None:
+    """
+    Test that previous files in the directory are not deleted when is_main_process=False.
+    When is_main_process=True, previous files should be deleted,
+    this is already tested in `test_save_torch_state_dict_delete_existing_files`.
+    """
+    # Create some .safetensors files before saving a new state dict.
+    (tmp_path / "model.safetensors").touch()
+    (tmp_path / "model-00001-of-00002.safetensors").touch()
+    (tmp_path / "model-00002-of-00002.safetensors").touch()
+    (tmp_path / "model.safetensors.index.json").touch()
+    # Save with is_main_process=False
+    save_torch_state_dict(torch_state_dict, tmp_path, is_main_process=False)
+
+    # Previous files should still exist (not deleted)
+    assert (tmp_path / "model.safetensors").is_file()
+    assert (tmp_path / "model-00001-of-00002.safetensors").is_file()
+    assert (tmp_path / "model-00002-of-00002.safetensors").is_file()
+    assert (tmp_path / "model.safetensors.index.json").is_file()
