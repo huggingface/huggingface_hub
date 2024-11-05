@@ -91,7 +91,7 @@ def save_torch_model(
             in a future version.
         is_main_process (`bool`, *optional*):
             Whether the process calling this is the main process or not. Useful when in distributed training like
-            TPUs and need to call this function on all processes. In this case, set `is_main_process=True` only on
+            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
             the main process to avoid race conditions. Defaults to True.
 
     Example:
@@ -180,7 +180,7 @@ def save_torch_state_dict(
             in a future version.
         is_main_process (`bool`, *optional*):
             Whether the process calling this is the main process or not. Useful when in distributed training like
-            TPUs and need to call this function on all processes. In this case, set `is_main_process=True` only on
+            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
             the main process to avoid race conditions. Defaults to True.
     Example:
 
