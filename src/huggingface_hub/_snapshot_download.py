@@ -254,8 +254,17 @@ def snapshot_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
+    ref_path = os.path.join(storage_folder, "refs", revision)
+    # If the file exists, read the commit hash from it
+    write_commit_hash = True
+    if os.path.exists(ref_path):
+        with open(ref_path) as f:
+            existing_commit_hash = f.read()
+        if existing_commit_hash == commit_hash:
+            write_commit_hash = False
+
+    # Write the commit hash to the ref file if it doesn't exist or is different
+    if revision != commit_hash and write_commit_hash:
         os.makedirs(os.path.dirname(ref_path), exist_ok=True)
         with open(ref_path, "w") as f:
             f.write(commit_hash)
