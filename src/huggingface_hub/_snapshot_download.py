@@ -258,16 +258,22 @@ def snapshot_download(
     # If the file exists, read the commit hash from it
     write_commit_hash = True
     if os.path.exists(ref_path):
-        with open(ref_path) as f:
-            existing_commit_hash = f.read()
-        if existing_commit_hash == commit_hash:
-            write_commit_hash = False
+        try:
+            with open(ref_path) as f:
+                existing_commit_hash = f.read()
+            if existing_commit_hash == commit_hash:
+                write_commit_hash = False
+        except Exception as e:
+            logger.warning(f"Error reading commit hash from {ref_path}: {e}")
 
-    # Write the commit hash to the ref file if it doesn't exist or is different
-    if revision != commit_hash and write_commit_hash:
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+    try:
+        # Write the commit hash to the ref file if it doesn't exist or is different
+        if revision != commit_hash and write_commit_hash:
+            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+            with open(ref_path, "w") as f:
+                f.write(commit_hash)
+    except Exception as e:
+        logger.warning(f"Error writing commit hash to {ref_path}: {e}")
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
