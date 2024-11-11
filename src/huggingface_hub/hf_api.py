@@ -8266,7 +8266,7 @@ class HfApi:
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_object_id (`str`):
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
-                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
+                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
                 If `True`, do not raise an error if item doesn't exists.
             token (Union[bool, str, None], optional):
