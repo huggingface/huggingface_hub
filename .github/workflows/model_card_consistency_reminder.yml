@@ -19,7 +19,7 @@ jobs:
 
             Some content is duplicated among the following files. Please make sure that everything stays consistent.
               - [src/.../repocard.py](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/repocard.py)
-              - [src/.../datasetcard_template.md](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)
+              - [src/.../datasetcard_template.md](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/datasetcard_template.md)
               - [src/.../modelcard_template.md](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/templates/modelcard_template.md)
               - [modelcard.md](https://github.com/huggingface/hub-docs/blob/main/modelcard.md) (`hub-docs` repo)
               - [docs/hub/model-cards.md](https://github.com/huggingface/hub-docs/blob/main/docs/hub/model-cards.md) (`hub-docs` repo)
