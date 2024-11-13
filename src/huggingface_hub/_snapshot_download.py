@@ -254,26 +254,14 @@ def snapshot_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref.
-    ref_path = os.path.join(storage_folder, "refs", revision)
-    # If the file exists, read the commit hash from it
-    write_commit_hash = True
-    if os.path.exists(ref_path):
+    if revision != commit_hash:
+        ref_path = os.path.join(storage_folder, "refs", revision)
         try:
-            with open(ref_path) as f:
-                existing_commit_hash = f.read()
-            if existing_commit_hash == commit_hash:
-                write_commit_hash = False
-        except Exception as e:
-            logger.warning(f"Error reading commit hash from {ref_path}: {e}")
-
-    try:
-        # Write the commit hash to the ref file if it doesn't exist or is different
-        if revision != commit_hash and write_commit_hash:
             os.makedirs(os.path.dirname(ref_path), exist_ok=True)
             with open(ref_path, "w") as f:
                 f.write(commit_hash)
-    except Exception as e:
-        logger.warning(f"Error writing commit hash to {ref_path}: {e}")
+    except OSError as e:
+        logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
