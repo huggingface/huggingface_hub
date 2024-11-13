@@ -742,7 +742,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
 
         for ref_path in refs_path.glob("**/*"):
             # glob("**/*") iterates over all files and directories -> skip directories
-            if ref_path.is_dir():
+            if ref_path.is_dir() or ref_path.name in FILES_TO_IGNORE:
                 continue
 
             ref_name = str(ref_path.relative_to(refs_path))
