@@ -256,9 +256,12 @@ def snapshot_download(
     # In that case store a ref.
     if revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
-        os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-        with open(ref_path, "w") as f:
-            f.write(commit_hash)
+        try:
+            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
+            with open(ref_path, "w") as f:
+                f.write(commit_hash)
+        except OSError as e:
+            logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
 
     # we pass the commit_hash to hf_hub_download
     # so no network call happens if we already
