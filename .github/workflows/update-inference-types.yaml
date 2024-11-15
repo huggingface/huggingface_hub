@@ -2,9 +2,8 @@ name: Update Inference Types
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - add-workflow-update-inference-types
+  schedule:
+    - cron: "0 3 * * *" # Every day at 3am
 
 concurrency:
   group: update-inference-types
