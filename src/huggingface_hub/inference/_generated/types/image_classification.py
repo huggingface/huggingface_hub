@@ -19,7 +19,6 @@ class ImageClassificationParameters(BaseInferenceType):
     """
 
     function_to_apply: Optional["ImageClassificationOutputTransform"] = None
-    """The function to apply to the output."""
     top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
