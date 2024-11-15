@@ -51,7 +51,7 @@ jobs:
         working-directory: ./huggingface.js/packages/tasks-gen
 
       # Copy Python types to huggingface_hub
-      - run: cp -r ./huggingface.js/packages/tasks-gen/.python_generated/* ./huggingface_hub/src/huggingface_hub/inference/_generated/types
+      - run: cp -r ./huggingface.js/packages/tasks/.python_generated/* ./huggingface_hub/src/huggingface_hub/inference/_generated/types
 
       # Post-process
       - run: make inference_update
@@ -81,7 +81,7 @@ jobs:
             pnpm run inference-codegen  # from @huggingface/tasks-gen
 
             # Copy to this repository
-            cp -r ./huggingface.js/packages/tasks-gen/.python_generated/* ./huggingface_hub/src/huggingface_hub/inference/_generated/types
+            cp -r ./huggingface.js/packages/tasks/.python_generated/* ./huggingface_hub/src/huggingface_hub/inference/_generated/types
 
             # Clean things
             make inference_update
