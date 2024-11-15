@@ -10,10 +10,6 @@ concurrency:
   group: update-inference-types
   cancel-in-progress: true
 
-permissions:
-  contents: write # Allow modifications on repo (to create a branch)
-  pull-requests: write # Allow PR creation
-
 jobs:
   pull_request:
     runs-on: ubuntu-latest
