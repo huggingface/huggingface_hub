@@ -74,14 +74,17 @@ def test_local_download_paths(tmp_path: Path):
     assert paths.incomplete_path("etag123").parent.is_dir()
 
 
-def test_local_download_paths_are_cached(tmp_path: Path):
-    """Test local download paths are cached."""
-    # No need for an exact singleton here.
-    # We just want to avoid recreating the dataclass on consecutive calls (happens often
-    # in the process).
+def test_local_download_paths_are_recreated_each_time(tmp_path: Path):
     paths1 = get_local_download_paths(tmp_path, "path/in/repo.txt")
+    assert paths1.file_path.parent.is_dir()
+    assert paths1.metadata_path.parent.is_dir()
+
+    paths1.file_path.parent.rmdir()
+    paths1.metadata_path.parent.rmdir()
+
     paths2 = get_local_download_paths(tmp_path, "path/in/repo.txt")
-    assert paths1 is paths2
+    assert paths2.file_path.parent.is_dir()
+    assert paths2.metadata_path.parent.is_dir()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
@@ -198,14 +201,17 @@ def test_local_upload_paths(tmp_path: Path):
     assert paths.lock_path.parent.is_dir()
 
 
-def test_local_upload_paths_are_cached(tmp_path: Path):
-    """Test local upload paths are cached."""
-    # No need for an exact singleton here.
-    # We just want to avoid recreating the dataclass on consecutive calls (happens often
-    # in the process).
-    paths1 = get_local_download_paths(tmp_path, "path/in/repo.txt")
-    paths2 = get_local_download_paths(tmp_path, "path/in/repo.txt")
-    assert paths1 is paths2
+def test_local_upload_paths_are_recreated_each_time(tmp_path: Path):
+    paths1 = get_local_upload_paths(tmp_path, "path/in/repo.txt")
+    assert paths1.file_path.parent.is_dir()
+    assert paths1.metadata_path.parent.is_dir()
+
+    paths1.file_path.parent.rmdir()
+    paths1.metadata_path.parent.rmdir()
+
+    paths2 = get_local_upload_paths(tmp_path, "path/in/repo.txt")
+    assert paths2.file_path.parent.is_dir()
+    assert paths2.metadata_path.parent.is_dir()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")

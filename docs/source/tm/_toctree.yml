@@ -1,0 +1,6 @@
+- title: "Get started"
+  sections:
+   - local: index
+     title: குறியீட்டு
+   - local: installation
+     title: நிறுவல்

@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -234,41 +234,8 @@ Future(...)
 ### Upload a folder by chunks
 
 [`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
-hundreds of GB), it can still be challenging. If you have a folder with a lot of files, you might want to upload
-it in several commits. If you experience an error or a connection issue during the upload, you would not have to resume
-the process from the beginning.
+hundreds of GB), we recommend using [`upload_large_folder`], which splits the upload into multiple commits. See the [Upload a large folder](#upload-a-large-folder) section for more details.
 
-To upload a folder in multiple commits, just pass `multi_commits=True` as argument. Under the hood, `huggingface_hub`
-will list the files to upload/delete and split them in several commits. The "strategy" (i.e. how to split the commits)
-is based on the number and size of the files to upload. A PR is open on the Hub to push all the commits. Once the PR is
-ready, the commits are squashed into a single commit. If the process is interrupted before completing, you can rerun
-your script to resume the upload. The created PR will be automatically detected and the upload will resume from where
-it stopped. It is recommended to pass `multi_commits_verbose=True` to get a better understanding of the upload and its
-progress.
-
-The example below will upload the checkpoints folder to a dataset in multiple commits. A PR will be created on the Hub
-and merged automatically once the upload is complete. If you prefer the PR to stay open and review it manually, you can
-pass `create_pr=True`.
-
-```py
->>> upload_folder(
-...     folder_path="local/checkpoints",
-...     repo_id="username/my-dataset",
-...     repo_type="dataset",
-...     multi_commits=True,
-...     multi_commits_verbose=True,
-... )
-```
-
-If you want a better control on the upload strategy (i.e. the commits that are created), you can have a look at the
-low-level [`plan_multi_commits`] and [`create_commits_on_pr`] methods.
-
-<Tip warning={true}>
-
-`multi_commits` is still an experimental feature. Its API and behavior is subject to change in the future without prior
-notice.
-
-</Tip>
 
 ### Scheduled uploads
 

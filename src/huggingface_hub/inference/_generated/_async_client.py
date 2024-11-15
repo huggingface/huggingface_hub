@@ -45,6 +45,7 @@ from huggingface_hub.inference._common import (
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _open_as_binary,
+    _prepare_payload,
     _set_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
@@ -169,7 +170,9 @@ class AsyncInferenceClient:
 
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token if token is not None else api_key
-        self.headers = CaseInsensitiveDict(build_hf_headers(token=self.token))  # 'authorization' + 'user-agent'
+        self.headers: CaseInsensitiveDict[str] = CaseInsensitiveDict(
+            build_hf_headers(token=self.token)  # 'authorization' + 'user-agent'
+        )
         if headers is not None:
             self.headers.update(headers)
         self.cookies = cookies
@@ -398,18 +401,8 @@ class AsyncInferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, send audio as raw data
-            data = audio
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # Or some parameters are provided -> send audio as base64 encoded string
-            data = None
-            payload = {"inputs": _b64_encode(audio)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, data=data, model=model, task="audio-classification")
+        payload = _prepare_payload(audio, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
     async def audio_to_audio(
@@ -627,7 +620,7 @@ class AsyncInferenceClient:
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
                 probabilities of each output token returned in the content of message.
             max_tokens (`int`, *optional*):
-                Maximum number of tokens allowed in the response. Defaults to 20.
+                Maximum number of tokens allowed in the response. Defaults to 100.
             n (`int`, *optional*):
                 UNUSED.
             presence_penalty (`float`, *optional*):
@@ -1031,7 +1024,7 @@ class AsyncInferenceClient:
         [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16, words=None)]
         ```
         """
-        payload: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         parameters = {
             "doc_stride": doc_stride,
             "handle_impossible_answer": handle_impossible_answer,
@@ -1042,10 +1035,8 @@ class AsyncInferenceClient:
             "top_k": top_k,
             "word_boxes": word_boxes,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="document-question-answering")
+        payload = _prepare_payload(inputs, parameters=parameters)
+        response = await self.post(**payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
     async def feature_extraction(
@@ -1104,17 +1095,14 @@ class AsyncInferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
-        payload: Dict = {"inputs": text}
         parameters = {
             "normalize": normalize,
             "prompt_name": prompt_name,
             "truncate": truncate,
             "truncation_direction": truncation_direction,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="feature-extraction")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
 
@@ -1164,12 +1152,9 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        payload: Dict = {"inputs": text}
         parameters = {"targets": targets, "top_k": top_k}
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="fill-mask")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
     async def image_classification(
@@ -1212,19 +1197,8 @@ class AsyncInferenceClient:
         ```
         """
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
-
-        if all(parameter is None for parameter in parameters.values()):
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-
-        else:
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-
-        response = await self.post(json=payload, data=data, model=model, task="image-classification")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
     async def image_segmentation(
@@ -1284,18 +1258,8 @@ class AsyncInferenceClient:
             "subtask": subtask,
             "threshold": threshold,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, data=data, model=model, task="image-segmentation")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
@@ -1371,19 +1335,8 @@ class AsyncInferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # Either only an image to send => send as raw bytes
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-
-        response = await self.post(json=payload, data=data, model=model, task="image-to-image")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
     async def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
@@ -1549,25 +1502,15 @@ class AsyncInferenceClient:
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
-        >>> await client.object_detection("people.jpg"):
+        >>> await client.object_detection("people.jpg")
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
         parameters = {
             "threshold": threshold,
         }
-        if all(parameter is None for parameter in parameters.values()):
-            # if no parameters are provided, the image can be raw bytes, an image file, or URL to an online image
-            data = image
-            payload: Optional[Dict[str, Any]] = None
-        else:
-            # if parameters are provided, the image needs to be a base64-encoded string
-            data = None
-            payload = {"inputs": _b64_encode(image)}
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, data=data, model=model, task="object-detection")
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
+        response = await self.post(**payload, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
     async def question_answering(
@@ -1644,12 +1587,10 @@ class AsyncInferenceClient:
             "max_seq_len": max_seq_len,
             "top_k": top_k,
         }
-        payload: Dict[str, Any] = {"question": question, "context": context}
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
+        inputs: Dict[str, Any] = {"question": question, "context": context}
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload,
+            **payload,
             model=model,
             task="question-answering",
         )
@@ -1759,19 +1700,14 @@ class AsyncInferenceClient:
         SummarizationOutput(generated_text="The Eiffel tower is one of the most famous landmarks in the world....")
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
-        if parameters is not None:
-            payload["parameters"] = parameters
-        else:
+        if parameters is None:
             parameters = {
                 "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
                 "generate_parameters": generate_parameters,
                 "truncation": truncation,
             }
-            for key, value in parameters.items():
-                if value is not None:
-                    payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="summarization")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
     async def table_question_answering(
@@ -1817,15 +1753,13 @@ class AsyncInferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
-        payload: Dict[str, Any] = {
+        inputs = {
             "query": query,
             "table": table,
         }
-
-        if parameters is not None:
-            payload["parameters"] = parameters
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload,
+            **payload,
             model=model,
             task="table-question-answering",
         )
@@ -1874,7 +1808,11 @@ class AsyncInferenceClient:
         ["5", "5", "5"]
         ```
         """
-        response = await self.post(json={"table": table}, model=model, task="tabular-classification")
+        response = await self.post(
+            json={"table": table},
+            model=model,
+            task="tabular-classification",
+        )
         return _bytes_to_list(response)
 
     async def tabular_regression(self, table: Dict[str, Any], *, model: Optional[str] = None) -> List[float]:
@@ -1962,15 +1900,16 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "function_to_apply": function_to_apply,
             "top_k": top_k,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="text-classification")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(
+            **payload,
+            model=model,
+            task="text-classification",
+        )
         return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
 
     @overload
@@ -2199,7 +2138,7 @@ class AsyncInferenceClient:
             grammar ([`TextGenerationInputGrammarType`], *optional*):
                 Grammar constraints. Can be either a JSONSchema or a regex.
             max_new_tokens (`int`, *optional*):
-                Maximum number of generated tokens
+                Maximum number of generated tokens. Defaults to 100.
             repetition_penalty (`float`, *optional*):
                 The parameter for repetition penalty. 1.0 means no penalty. See [this
                 paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
@@ -2546,7 +2485,7 @@ class AsyncInferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
-        payload = {"inputs": prompt}
+
         parameters = {
             "negative_prompt": negative_prompt,
             "height": height,
@@ -2558,10 +2497,8 @@ class AsyncInferenceClient:
             "seed": seed,
             **kwargs,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value  # type: ignore
-        response = await self.post(json=payload, model=model, task="text-to-image")
+        payload = _prepare_payload(prompt, parameters=parameters)
+        response = await self.post(**payload, model=model, task="text-to-image")
         return _bytes_to_image(response)
 
     async def text_to_speech(
@@ -2665,7 +2602,6 @@ class AsyncInferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "do_sample": do_sample,
             "early_stopping": early_stopping,
@@ -2684,10 +2620,8 @@ class AsyncInferenceClient:
             "typical_p": typical_p,
             "use_cache": use_cache,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="text-to-speech")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="text-to-speech")
         return response
 
     async def token_classification(
@@ -2750,17 +2684,15 @@ class AsyncInferenceClient:
         ]
         ```
         """
-        payload: Dict[str, Any] = {"inputs": text}
+
         parameters = {
             "aggregation_strategy": aggregation_strategy,
             "ignore_labels": ignore_labels,
             "stride": stride,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
+        payload = _prepare_payload(text, parameters=parameters)
         response = await self.post(
-            json=payload,
+            **payload,
             model=model,
             task="token-classification",
         )
@@ -2837,7 +2769,6 @@ class AsyncInferenceClient:
 
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
-        payload: Dict[str, Any] = {"inputs": text}
         parameters = {
             "src_lang": src_lang,
             "tgt_lang": tgt_lang,
@@ -2845,10 +2776,8 @@ class AsyncInferenceClient:
             "truncation": truncation,
             "generate_parameters": generate_parameters,
         }
-        for key, value in parameters.items():
-            if value is not None:
-                payload.setdefault("parameters", {})[key] = value
-        response = await self.post(json=payload, model=model, task="translation")
+        payload = _prepare_payload(text, parameters=parameters)
+        response = await self.post(**payload, model=model, task="translation")
         return TranslationOutput.parse_obj_as_list(response)[0]
 
     async def visual_question_answering(
@@ -2992,15 +2921,14 @@ class AsyncInferenceClient:
         ```
         """
 
-        parameters = {"candidate_labels": labels, "multi_label": multi_label}
-        if hypothesis_template is not None:
-            parameters["hypothesis_template"] = hypothesis_template
-
+        parameters = {
+            "candidate_labels": labels,
+            "multi_label": multi_label,
+            "hypothesis_template": hypothesis_template,
+        }
+        payload = _prepare_payload(text, parameters=parameters)
         response = await self.post(
-            json={
-                "inputs": text,
-                "parameters": parameters,
-            },
+            **payload,
             task="zero-shot-classification",
             model=model,
         )
@@ -3058,13 +2986,11 @@ class AsyncInferenceClient:
         if len(labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
 
-        payload = {
-            "inputs": {"image": _b64_encode(image), "candidateLabels": ",".join(labels)},
-        }
-        if hypothesis_template is not None:
-            payload.setdefault("parameters", {})["hypothesis_template"] = hypothesis_template
+        inputs = {"image": _b64_encode(image), "candidateLabels": ",".join(labels)}
+        parameters = {"hypothesis_template": hypothesis_template}
+        payload = _prepare_payload(inputs, parameters=parameters)
         response = await self.post(
-            json=payload,
+            **payload,
             model=model,
             task="zero-shot-image-classification",
         )

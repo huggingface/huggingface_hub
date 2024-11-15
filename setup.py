@@ -29,7 +29,6 @@ extras["cli"] = [
 
 extras["inference"] = [
     "aiohttp",  # for AsyncInferenceClient
-    "minijinja>=1.0",  # for chat-completion if not TGI-served
 ]
 
 extras["torch"] = [
@@ -74,7 +73,7 @@ extras["testing"] = (
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "gradio",  # to test webhooks
+        "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
         "numpy",  # for embeddings
         "fastapi",  # To build the documentation
     ]
@@ -134,6 +133,8 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

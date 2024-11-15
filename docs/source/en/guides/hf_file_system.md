@@ -1,10 +1,18 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
 # Interact with the Hub through the Filesystem API
 
-In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds of top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
+In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSystem`], a pythonic [fsspec-compatible](https://filesystem-spec.readthedocs.io/en/latest/) file interface to the Hugging Face Hub. The [`HfFileSystem`] builds on top of the [`HfApi`] and offers typical filesystem style operations like `cp`, `mv`, `ls`, `du`, `glob`, `get_file`, and `put_file`.
+
+<Tip warning={true}>
+
+  [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+  Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
+  layer. For better performance and reliability, it's recommended to use [`HfApi`] methods when possible.
+
+</Tip>
 
 ## Usage
 
@@ -17,7 +25,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # List all ".csv" files in a repo
->>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
+>>> fs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # Read a remote file

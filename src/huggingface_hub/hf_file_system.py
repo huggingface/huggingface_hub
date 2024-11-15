@@ -1,4 +1,3 @@
-import inspect
 import os
 import re
 import tempfile
@@ -7,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, NoReturn, Optional, Tuple, Union
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -20,11 +19,7 @@ from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from .errors import EntryNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from .file_download import hf_hub_url, http_get
 from .hf_api import HfApi, LastCommitInfo, RepoFile
-from .utils import (
-    HFValidationError,
-    hf_raise_for_status,
-    http_backoff,
-)
+from .utils import HFValidationError, hf_raise_for_status, http_backoff
 
 
 # Regex used to match special revisions with "/" in them (see #1710)
@@ -64,13 +59,22 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 
+    <Tip warning={true}>
+
+        [`HfFileSystem`] provides fsspec compatibility, which is useful for libraries that require it (e.g., reading
+        Hugging Face datasets directly with `pandas`). However, it introduces additional overhead due to this compatibility
+        layer. For better performance and reliability, it's recommended to use `HfApi` methods when possible.
+
+    </Tip>
+
     Args:
         token (`str` or `bool`, *optional*):
             A valid user access token (string). Defaults to the locally saved
             token, which is the recommended method for authentication (see
             https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
             To disable authentication, pass `False`.
-
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
     Usage:
 
     ```python
@@ -133,6 +137,25 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
     def resolve_path(self, path: str, revision: Optional[str] = None) -> HfFileSystemResolvedPath:
+        """
+        Resolve a Hugging Face file system path into its components.
+
+        Args:
+            path (`str`):
+                Path to resolve.
+            revision (`str`, *optional*):
+                The revision of the repo to resolve. Defaults to the revision specified in the path.
+
+        Returns:
+            [`HfFileSystemResolvedPath`]: Resolved path information containing `repo_type`, `repo_id`, `revision` and `path_in_repo`.
+
+        Raises:
+            `ValueError`:
+                If path contains conflicting revision information.
+            `NotImplementedError`:
+                If trying to list repositories.
+        """
+
         def _align_revision_in_path_with_revision(
             revision_in_path: Optional[str], revision: Optional[str]
         ) -> Optional[str]:
@@ -209,14 +232,32 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return HfFileSystemResolvedPath(repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path)
 
     def invalidate_cache(self, path: Optional[str] = None) -> None:
+        """
+        Clear the cache for a given path.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.invalidate_cache).
+
+        Args:
+            path (`str`, *optional*):
+                Path to clear from cache. If not provided, clear the entire cache.
+
+        """
         if not path:
             self.dircache.clear()
             self._repo_and_revision_exists_cache.clear()
         else:
-            path = self.resolve_path(path).unresolve()
+            resolved_path = self.resolve_path(path)
+            path = resolved_path.unresolve()
             while path:
                 self.dircache.pop(path, None)
                 path = self._parent(path)
+
+            # Only clear repo cache if path is to repo root
+            if not resolved_path.path_in_repo:
+                self._repo_and_revision_exists_cache.pop((resolved_path.repo_type, resolved_path.repo_id, None), None)
+                self._repo_and_revision_exists_cache.pop(
+                    (resolved_path.repo_type, resolved_path.repo_id, resolved_path.revision), None
+                )
 
     def _open(
         self,
@@ -254,6 +295,28 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision: Optional[str] = None,
         **kwargs,
     ) -> None:
+        """
+        Delete files from a repository.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.rm).
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.delete_file()` for better performance.
+
+        </Tip>
+
+        Args:
+            path (`str`):
+                Path to delete.
+            recursive (`bool`, *optional*):
+                If True, delete directory and all its contents. Defaults to False.
+            maxdepth (`int`, *optional*):
+                Maximum number of subdirectories to visit when deleting recursively.
+            revision (`str`, *optional*):
+                The git revision to delete from.
+
+        """
         resolved_path = self.resolve_path(path, revision=revision)
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
         paths_in_repo = [self.resolve_path(path).path_in_repo for path in paths if not self.isdir(path)]
@@ -276,7 +339,32 @@ class HfFileSystem(fsspec.AbstractFileSystem):
     def ls(
         self, path: str, detail: bool = True, refresh: bool = False, revision: Optional[str] = None, **kwargs
     ) -> List[Union[str, Dict[str, Any]]]:
-        """List the contents of a directory."""
+        """
+        List the contents of a directory.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.ls).
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.list_repo_tree()` for better performance.
+
+        </Tip>
+
+        Args:
+            path (`str`):
+                Path to the directory.
+            detail (`bool`, *optional*):
+                If True, returns a list of dictionaries containing file information. If False,
+                returns a list of file paths. Defaults to True.
+            refresh (`bool`, *optional*):
+                If True, bypass the cache and fetch the latest data. Defaults to False.
+            revision (`str`, *optional*):
+                The git revision to list from.
+
+        Returns:
+            `List[Union[str, Dict[str, Any]]]`: List of file paths (if detail=False) or list of file information
+            dictionaries (if detail=True).
+        """
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         kwargs = {"expand_info": detail, **kwargs}
@@ -396,13 +484,37 @@ class HfFileSystem(fsspec.AbstractFileSystem):
                 out.append(cache_path_info)
         return out
 
-    def walk(self, path, *args, **kwargs):
+    def walk(self, path: str, *args, **kwargs) -> Iterator[Tuple[str, List[str], List[str]]]:
+        """
+        Return all files below the given path.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.walk).
+
+        Args:
+            path (`str`):
+                Root path to list files from.
+
+        Returns:
+            `Iterator[Tuple[str, List[str], List[str]]]`: An iterator of (path, list of directory names, list of file names) tuples.
+        """
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
-    def glob(self, path, **kwargs):
+    def glob(self, path: str, **kwargs) -> List[str]:
+        """
+        Find files by glob-matching.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.glob).
+
+        Args:
+            path (`str`):
+                Path pattern to match.
+
+        Returns:
+            `List[str]`: List of paths matching the pattern.
+        """
         # Set expand_info=False by default to get a x10 speed boost
         kwargs = {"expand_info": kwargs.get("detail", False), **kwargs}
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
@@ -418,6 +530,28 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         revision: Optional[str] = None,
         **kwargs,
     ) -> Union[List[str], Dict[str, Dict[str, Any]]]:
+        """
+        List all files below path.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.find).
+
+        Args:
+            path (`str`):
+                Root path to list files from.
+            maxdepth (`int`, *optional*):
+                Maximum depth to descend into subdirectories.
+            withdirs (`bool`, *optional*):
+                Include directory paths in the output. Defaults to False.
+            detail (`bool`, *optional*):
+                If True, returns a dict mapping paths to file information. Defaults to False.
+            refresh (`bool`, *optional*):
+                If True, bypass the cache and fetch the latest data. Defaults to False.
+            revision (`str`, *optional*):
+                The git revision to list from.
+
+        Returns:
+            `Union[List[str], Dict[str, Dict[str, Any]]]`: List of paths or dict of file information.
+        """
         if maxdepth:
             return super().find(
                 path, maxdepth=maxdepth, withdirs=withdirs, detail=detail, refresh=refresh, revision=revision, **kwargs
@@ -448,6 +582,24 @@ class HfFileSystem(fsspec.AbstractFileSystem):
             return {name: out[name] for name in names}
 
     def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
+        """
+        Copy a file within or between repositories.
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.upload_file()` for better performance.
+
+        </Tip>
+
+        Args:
+            path1 (`str`):
+                Source path to copy from.
+            path2 (`str`):
+                Destination path to copy to.
+            revision (`str`, *optional*):
+                The git revision to copy from.
+
+        """
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
 
@@ -489,10 +641,45 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         self.invalidate_cache(path=resolved_path2.unresolve())
 
     def modified(self, path: str, **kwargs) -> datetime:
+        """
+        Get the last modified time of a file.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.modified).
+
+        Args:
+            path (`str`):
+                Path to the file.
+
+        Returns:
+            `datetime`: Last commit date of the file.
+        """
         info = self.info(path, **kwargs)
         return info["last_commit"]["date"]
 
     def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        """
+        Get information about a file or directory.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.info).
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.get_paths_info()` or `HfApi.repo_info()`  for better performance.
+
+        </Tip>
+
+        Args:
+            path (`str`):
+                Path to get info for.
+            refresh (`bool`, *optional*):
+                If True, bypass the cache and fetch the latest data. Defaults to False.
+            revision (`str`, *optional*):
+                The git revision to get info from.
+
+        Returns:
+            `Dict[str, Any]`: Dictionary containing file information (type, size, commit info, etc.).
+
+        """
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         expand_info = kwargs.get(
@@ -570,30 +757,80 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return out
 
     def exists(self, path, **kwargs):
-        """Is there a file at the given path"""
+        """
+        Check if a file exists.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.exists).
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.file_exists()` for better performance.
+
+        </Tip>
+
+        Args:
+            path (`str`):
+                Path to check.
+
+        Returns:
+            `bool`: True if file exists, False otherwise.
+        """
         try:
+            if kwargs.get("refresh", False):
+                self.invalidate_cache(path)
+
             self.info(path, **{**kwargs, "expand_info": False})
             return True
         except:  # noqa: E722
-            # any exception allowed bar FileNotFoundError?
             return False
 
     def isdir(self, path):
-        """Is this entry directory-like?"""
+        """
+        Check if a path is a directory.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.isdir).
+
+        Args:
+            path (`str`):
+                Path to check.
+
+        Returns:
+            `bool`: True if path is a directory, False otherwise.
+        """
         try:
             return self.info(path, expand_info=False)["type"] == "directory"
         except OSError:
             return False
 
     def isfile(self, path):
-        """Is this entry file-like?"""
+        """
+        Check if a path is a file.
+
+        For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.isfile).
+
+        Args:
+            path (`str`):
+                Path to check.
+
+        Returns:
+            `bool`: True if path is a file, False otherwise.
+        """
         try:
             return self.info(path, expand_info=False)["type"] == "file"
         except:  # noqa: E722
             return False
 
     def url(self, path: str) -> str:
-        """Get the HTTP URL of the given path"""
+        """
+        Get the HTTP URL of the given path.
+
+        Args:
+            path (`str`):
+                Path to get URL for.
+
+        Returns:
+            `str`: HTTP URL to access the file or directory on the Hub.
+        """
         resolved_path = self.resolve_path(path)
         url = hf_hub_url(
             resolved_path.repo_id,
@@ -607,7 +844,26 @@ class HfFileSystem(fsspec.AbstractFileSystem):
         return url
 
     def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
-        """Copy single remote file to local."""
+        """
+        Copy single remote file to local.
+
+        <Tip warning={true}>
+
+            Note: When possible, use `HfApi.hf_hub_download()` for better performance.
+
+        </Tip>
+
+        Args:
+            rpath (`str`):
+                Remote path to download from.
+            lpath (`str`):
+                Local path to download to.
+            callback (`Callback`, *optional*):
+                Optional callback to track download progress. Defaults to no callback.
+            outfile (`IO`, *optional*):
+                Optional file-like object to write to. If provided, `lpath` is ignored.
+
+        """
         revision = kwargs.get("revision")
         unhandled_kwargs = set(kwargs.keys()) - {"revision"}
         if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
@@ -882,20 +1138,3 @@ def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
 
 def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: str):
     return fs.open(path, mode=mode, block_size=block_size, cache_type=cache_type)
-
-
-# Add docstrings to the methods of HfFileSystem from fsspec.AbstractFileSystem
-for name, function in inspect.getmembers(HfFileSystem, predicate=inspect.isfunction):
-    parent = getattr(fsspec.AbstractFileSystem, name, None)
-    if parent is not None and parent.__doc__ is not None:
-        parent_doc = parent.__doc__
-        parent_doc = parent_doc.replace("Parameters\n        ----------\n", "Args:\n")
-        parent_doc = parent_doc.replace("Returns\n        -------\n", "Return:\n")
-        function.__doc__ = (
-            (
-                "\n_Docstring taken from "
-                f"[fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.{name})._"
-            )
-            + "\n\n"
-            + parent_doc
-        )

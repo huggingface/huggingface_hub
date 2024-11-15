@@ -21,26 +21,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.8", "3.13"]
         test_name:
           [
             "Repository only",
             "Everything else",
-            "torch_1.11",
-            "torch_latest",
+            
           ]
         include:
-          - python-version: "3.11" # LFS not ran on 3.8
+          - python-version: "3.13" # LFS not ran on 3.8
             test_name: "lfs"
           - python-version: "3.8"
-            test_name: "fastai"  # fastai not supported on 3.11 -> test it on 3.10
-          - python-version: "3.10"
+            test_name: "fastai"
+          - python-version: "3.10" # fastai not supported on 3.12 and 3.11 -> test it on 3.10
             test_name: "fastai"
           - python-version: "3.8"
-            test_name: "tensorflow" # Tensorflow not supported on 3.11 -> test it on 3.10
-          - python-version: "3.10"
             test_name: "tensorflow"
-
+          - python-version: "3.10" # tensorflow not supported on 3.12 -> test it on 3.10
+            test_name: "tensorflow"
+          - python-version: "3.8" # test torch~=1.11 on python 3.8 only.
+            test_name: "Python 3.8, torch_1.11"
+          - python-version: "3.12" # test torch latest on python 3.12 only.
+            test_name: "torch_latest"
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -81,7 +83,7 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            torch_1.11)
+            "Python 3.8, torch_1.11")
               uv pip install "huggingface_hub[torch] @ ."
               uv pip install torch~=1.11
               ;;
@@ -132,7 +134,7 @@ jobs:
               eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
-            torch_1.11 | torch_latest)
+            "Python 3.8, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
             ;;

@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -104,7 +104,7 @@ pip install -e .
 
 These commands will link the folder you cloned the repository to and your Python library paths.
 Python will now look inside the folder you cloned to in addition to the normal library paths.
-For example, if your Python packages are typically installed in `./.venv/lib/python3.11/site-packages/`,
+For example, if your Python packages are typically installed in `./.venv/lib/python3.13/site-packages/`,
 Python will also search the folder you cloned `./huggingface_hub/`.
 
 ## Install with conda
@@ -145,7 +145,7 @@ encounter any undocumented problem by opening [an issue on Github](https://githu
 
 - `huggingface_hub`'s cache system relies on symlinks to efficiently cache files downloaded
 from the Hub. On Windows, you must activate developer mode or run your script as admin to
-enable symlinks. If they are not activated, the cache-system still works but in an non-optimized
+enable symlinks. If they are not activated, the cache-system still works but in a non-optimized
 manner. Please read [the cache limitations](./guides/manage-cache#limitations) section for more details.
 - Filepaths on the Hub can have special characters (e.g. `"path/to?/my/file"`). Windows is
 more restrictive on [special characters](https://learn.microsoft.com/en-us/windows/win32/intl/character-sets-used-in-file-names)

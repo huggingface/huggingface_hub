@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -77,7 +77,7 @@ ChatCompletionOutput(
 )
 ```
 
-In this example, we specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). You can find a list of compatible models [on this page](https://huggingface.co/models?other=conversational&sort=likes). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be access with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In this example, we specified which model we want to use (`"meta-llama/Meta-Llama-3-8B-Instruct"`). You can find a list of compatible models [on this page](https://huggingface.co/models?other=conversational&sort=likes). We then gave a list of messages to complete (here, a single question) and passed an additional parameter to API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 <Tip warning={true}>
@@ -176,7 +176,7 @@ for chunk in output:
     print(chunk.choices[0].delta.content)
 ```
 
-And that's it! The only required changes are to replace `from openai import OpenAI` by `from huggingface_hub import InferenceClient` and `client = OpenAI(...)` by `client = InferenceClient(...)`. You can chose any LLM model from the Hugging Face Hub by passing its model id as `model` parameter. [Here is a list](https://huggingface.co/models?pipeline_tag=text-generation&other=conversational,text-generation-inference&sort=trending) of supported models. For authentication, you should pass a valid [User Access Token](https://huggingface.co/settings/tokens) as `api_key` or authenticate using `huggingface_hub` (see the [authentication guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)).
+And that's it! The only required changes are to replace `from openai import OpenAI` by `from huggingface_hub import InferenceClient` and `client = OpenAI(...)` by `client = InferenceClient(...)`. You can choose any LLM model from the Hugging Face Hub by passing its model id as `model` parameter. [Here is a list](https://huggingface.co/models?pipeline_tag=text-generation&other=conversational,text-generation-inference&sort=trending) of supported models. For authentication, you should pass a valid [User Access Token](https://huggingface.co/settings/tokens) as `api_key` or authenticate using `huggingface_hub` (see the [authentication guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)).
 
 All input parameters and output format are strictly the same. In particular, you can pass `stream=True` to receive tokens as they are generated. You can also use the [`AsyncInferenceClient`] to run inference using `asyncio`:
 
@@ -201,7 +201,7 @@ asyncio.run(main())
 ```
 
 You might wonder why using [`InferenceClient`] instead of OpenAI's client? There are a few reasons for that:
-1. [`InferenceClient`] is configured for Hugging Face services. You don't need to provide a `base_url` to run models on the serverless Inference API. You also don't need to provide a `token` or `api_key` if you machine is already correctly logged in.
+1. [`InferenceClient`] is configured for Hugging Face services. You don't need to provide a `base_url` to run models on the serverless Inference API. You also don't need to provide a `token` or `api_key` if your machine is already correctly logged in.
 2. [`InferenceClient`] is tailored for both Text-Generation-Inference (TGI) and `transformers` frameworks, meaning you are assured it will always be on-par with the latest updates.
 3. [`InferenceClient`] is integrated with our Inference Endpoints service, making it easier to launch an Inference Endpoint, check its status and run inference on it. Check out the [Inference Endpoints](./inference_endpoints.md) guide for more details.
 
@@ -285,7 +285,7 @@ After installation all async API endpoints are available via [`AsyncInferenceCli
 strictly the same as the sync-only version.
 
 ```py
-# Code must be run in a asyncio concurrent context.
+# Code must be run in an asyncio concurrent context.
 # $ python -m asyncio
 >>> from huggingface_hub import AsyncInferenceClient
 >>> client = AsyncInferenceClient()

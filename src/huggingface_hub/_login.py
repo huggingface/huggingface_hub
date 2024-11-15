@@ -15,8 +15,6 @@
 
 import os
 import subprocess
-import warnings
-from functools import partial
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
@@ -43,6 +41,7 @@ from .utils._auth import (
     _save_token,
     get_stored_tokens,
 )
+from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
 
 
 logger = logging.get_logger(__name__)
@@ -56,8 +55,15 @@ _HF_LOGO_ASCII = """
 """
 
 
+@_deprecate_arguments(
+    version="1.0",
+    deprecated_args="write_permission",
+    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
+)
+@_deprecate_positional_args(version="1.0")
 def login(
     token: Optional[str] = None,
+    *,
     add_to_git_credential: bool = False,
     new_session: bool = True,
     write_permission: bool = False,
@@ -98,8 +104,8 @@ def login(
             to the end user.
         new_session (`bool`, defaults to `True`):
             If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.
+        write_permission (`bool`):
+            Ignored and deprecated argument.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
@@ -111,17 +117,17 @@ def login(
     """
     if token is not None:
         if not add_to_git_credential:
-            print(
+            logger.info(
                 "The token has not been saved to the git credentials helper. Pass "
                 "`add_to_git_credential=True` in this function directly or "
                 "`--add-to-git-credential` if using via `huggingface-cli` if "
                 "you want to set the git credential as well."
             )
-        _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
+        _login(token, add_to_git_credential=add_to_git_credential)
     elif is_notebook():
-        notebook_login(new_session=new_session, write_permission=write_permission)
+        notebook_login(new_session=new_session)
     else:
-        interpreter_login(new_session=new_session, write_permission=write_permission)
+        interpreter_login(new_session=new_session)
 
 
 def logout(token_name: Optional[str] = None) -> None:
@@ -137,7 +143,7 @@ def logout(token_name: Optional[str] = None) -> None:
             If the access token name is not found.
     """
     if get_token() is None and not get_stored_tokens():  # No active token and no saved access tokens
-        print("Not logged in!")
+        logger.warning("Not logged in!")
         return
     if not token_name:
         # Delete all saved access tokens and token
@@ -146,10 +152,10 @@ def logout(token_name: Optional[str] = None) -> None:
                 Path(file_path).unlink()
             except FileNotFoundError:
                 pass
-        print("Successfully logged out from all access tokens.")
+        logger.info("Successfully logged out from all access tokens.")
     else:
         _logout_from_token(token_name)
-        print(f"Successfully logged out from access token: {token_name}.")
+        logger.info(f"Successfully logged out from access token: {token_name}.")
 
     unset_git_credential()
 
@@ -187,10 +193,10 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
         raise ValueError(f"Access token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
     # Write token to HF_TOKEN_PATH
     _set_active_token(token_name, add_to_git_credential)
-    print(f"The current active token is: {token_name}")
+    logger.info(f"The current active token is: {token_name}")
     token_from_environment = _get_token_from_environment()
     if token_from_environment is not None and token_from_environment != token:
-        warnings.warn(
+        logger.warning(
             "The environment variable `HF_TOKEN` is set and will override the access token you've just switched to."
         )
 
@@ -200,7 +206,7 @@ def auth_list() -> None:
     tokens = get_stored_tokens()
 
     if not tokens:
-        print("No access tokens found.")
+        logger.info("No access tokens found.")
         return
     # Find current token
     current_token = get_token()
@@ -222,11 +228,11 @@ def auth_list() -> None:
         print(f"{is_current} {{:<{max_offset}}}| {{:<15}}".format(token_name, masked_token))
 
     if _get_token_from_environment():
-        print(
+        logger.warning(
             "\nNote: Environment variable `HF_TOKEN` is set and is the current active token independently from the stored tokens listed above."
         )
     elif current_token_name is None:
-        print(
+        logger.warning(
             "\nNote: No active token is set and no environment variable `HF_TOKEN` is found. Use `huggingface-cli login` to log in."
         )
 
@@ -236,7 +242,13 @@ def auth_list() -> None:
 ###
 
 
-def interpreter_login(new_session: bool = True, write_permission: bool = False) -> None:
+@_deprecate_arguments(
+    version="1.0",
+    deprecated_args="write_permission",
+    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
+)
+@_deprecate_positional_args(version="1.0")
+def interpreter_login(*, new_session: bool = True, write_permission: bool = False) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
@@ -249,36 +261,33 @@ def interpreter_login(new_session: bool = True, write_permission: bool = False) 
     Args:
         new_session (`bool`, defaults to `True`):
             If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.
-
+        write_permission (`bool`):
+            Ignored and deprecated argument.
     """
-    if not new_session and _current_token_okay(write_permission=write_permission):
-        print("User is already logged in.")
+    if not new_session and get_token() is not None:
+        logger.info("User is already logged in.")
         return
 
     from .commands.delete_cache import _ask_for_confirmation_no_tui
 
     print(_HF_LOGO_ASCII)
     if get_token() is not None:
-        print(
+        logger.info(
             "    A token is already saved on your machine. Run `huggingface-cli"
             " whoami` to get more information or `huggingface-cli logout` if you want"
             " to log out."
         )
-        print("    Setting a new token will erase the existing one.")
+        logger.info("    Setting a new token will erase the existing one.")
 
-    print("    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .")
+    logger.info(
+        "    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens ."
+    )
     if os.name == "nt":
-        print("Token can be pasted using 'Right-Click'.")
+        logger.info("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
     add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
 
-    _login(
-        token=token,
-        add_to_git_credential=add_to_git_credential,
-        write_permission=write_permission,
-    )
+    _login(token=token, add_to_git_credential=add_to_git_credential)
 
 
 ###
@@ -305,7 +314,13 @@ NOTEBOOK_LOGIN_TOKEN_HTML_END = """
 notebooks. </center>"""
 
 
-def notebook_login(new_session: bool = True, write_permission: bool = False) -> None:
+@_deprecate_arguments(
+    version="1.0",
+    deprecated_args="write_permission",
+    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
+)
+@_deprecate_positional_args(version="1.0")
+def notebook_login(*, new_session: bool = True, write_permission: bool = False) -> None:
     """
     Displays a widget to log in to the HF website and store the token.
 
@@ -318,8 +333,8 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
     Args:
         new_session (`bool`, defaults to `True`):
             If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.
+        write_permission (`bool`):
+            Ignored and deprecated argument.
     """
     try:
         import ipywidgets.widgets as widgets  # type: ignore
@@ -329,8 +344,8 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
             "The `notebook_login` function can only be used in a notebook (Jupyter or"
             " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
         )
-    if not new_session and _current_token_okay(write_permission=write_permission):
-        print("User is already logged in.")
+    if not new_session and get_token() is not None:
+        logger.info("User is already logged in.")
         return
 
     box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
@@ -352,14 +367,8 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
     display(login_token_widget)
 
     # On click events
-    def login_token_event(t, write_permission: bool = False):
-        """
-        Event handler for the login button.
-
-        Args:
-            write_permission (`bool`, defaults to `False`):
-                If `True`, requires a token with write permission.
-        """
+    def login_token_event(t):
+        """Event handler for the login button."""
         token = token_widget.value
         add_to_git_credential = git_checkbox_widget.value
         # Erase token and clear value to make sure it's not saved in the notebook.
@@ -368,14 +377,14 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
         login_token_widget.children = [widgets.Label("Connecting...")]
         try:
             with capture_output() as captured:
-                _login(token, add_to_git_credential=add_to_git_credential, write_permission=write_permission)
+                _login(token, add_to_git_credential=add_to_git_credential)
             message = captured.getvalue()
         except Exception as error:
             message = str(error)
         # Print result (success message or error)
         login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
 
-    token_finish_button.on_click(partial(login_token_event, write_permission=write_permission))
+    token_finish_button.on_click(login_token_event)
 
 
 ###
@@ -386,7 +395,6 @@ def notebook_login(new_session: bool = True, write_permission: bool = False) -> 
 def _login(
     token: str,
     add_to_git_credential: bool,
-    write_permission: bool = False,
 ) -> None:
     from .hf_api import whoami  # avoid circular import
 
@@ -395,25 +403,20 @@ def _login(
 
     token_info = whoami(token)
     permission = token_info["auth"]["accessToken"]["role"]
-    if write_permission and permission != "write":
-        raise ValueError(
-            "Token is valid but is 'read-only' and a 'write' token is required.\nPlease provide a new token with"
-            " correct permission."
-        )
-    print(f"Token is valid (permission: {permission}).")
+    logger.info(f"Token is valid (permission: {permission}).")
 
     token_name = token_info["auth"]["accessToken"]["displayName"]
     # Store token locally
     _save_token(token=token, token_name=token_name)
     # Set active token
     _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential)
-    print("Login successful.")
+    logger.info("Login successful.")
     if _get_token_from_environment():
-        print(
+        logger.warning(
             "Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured."
         )
     else:
-        print(f"The current active token is: `{token_name}`")
+        logger.info(f"The current active token is: `{token_name}`")
 
 
 def _logout_from_token(token_name: str) -> None:
@@ -435,7 +438,7 @@ def _logout_from_token(token_name: str) -> None:
     _save_stored_tokens(stored_tokens)
 
     if token == _get_token_from_file():
-        warnings.warn(f"Active token '{token_name}' has been deleted.")
+        logger.warning(f"Active token '{token_name}' has been deleted.")
         Path(constants.HF_TOKEN_PATH).unlink(missing_ok=True)
 
 
@@ -455,35 +458,17 @@ def _set_active_token(
     if add_to_git_credential:
         if _is_git_credential_helper_configured():
             set_git_credential(token)
-            print(
+            logger.info(
                 "Your token has been saved in your configured git credential helpers"
                 + f" ({','.join(list_credential_helpers())})."
             )
         else:
-            print("Token has not been saved to git credential helper.")
+            logger.warning("Token has not been saved to git credential helper.")
     # Write token to HF_TOKEN_PATH
     path = Path(constants.HF_TOKEN_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(token)
-    print(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
-
-
-def _current_token_okay(write_permission: bool = False):
-    """Check if the current token is valid.
-
-    Args:
-        write_permission (`bool`, defaults to `False`):
-            If `True`, requires a token with write permission.
-
-    Returns:
-        `bool`: `True` if the current token is valid, `False` otherwise.
-    """
-    from .hf_api import get_token_permission  # avoid circular import
-
-    permission = get_token_permission()
-    if permission is None or (write_permission and permission != "write"):
-        return False
-    return True
+    logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
 
 def _is_git_credential_helper_configured() -> bool:

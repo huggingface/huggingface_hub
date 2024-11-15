@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -90,7 +90,7 @@ cd huggingface_hub
 pip install -e .
 ```
 
-Diese Befehle verknüpfen den Ordner, in den Sie das Repository geklont haben, mit Ihren Python-Bibliothekspfaden. Python wird nun zusätzlich zu den normalen Bibliothekspfaden im geklonten Ordner suchen. Wenn Ihre Python-Pakete normalerweise in `./.venv/lib/python3.11/site-packages/` installiert sind, wird Python auch den geklonten Ordner `./huggingface_hub/` durchsuchen.
+Diese Befehle verknüpfen den Ordner, in den Sie das Repository geklont haben, mit Ihren Python-Bibliothekspfaden. Python wird nun zusätzlich zu den normalen Bibliothekspfaden im geklonten Ordner suchen. Wenn Ihre Python-Pakete normalerweise in `./.venv/lib/python3.13/site-packages/` installiert sind, wird Python auch den geklonten Ordner `./huggingface_hub/` durchsuchen.
 
 ## Installieren mit conda
 

@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -103,7 +103,7 @@ pip install -e .
 
 ये कमांड उस फ़ोल्डर को लिंक करेंगे जिसे आपने रिपॉजिटरी में क्लोन किया है और आपके पायथन लाइब्रेरी पथ।
 पाइथॉन अब सामान्य लाइब्रेरी पथों के अलावा आपके द्वारा क्लोन किए गए फ़ोल्डर के अंदर भी देखेगा।
-उदाहरण के लिए, यदि आपके पायथन पैकेज आमतौर पर `./.venv/lib/python3.11/site-packages/` में स्थापित हैं,
+उदाहरण के लिए, यदि आपके पायथन पैकेज आमतौर पर `./.venv/lib/python3.13/site-packages/` में स्थापित हैं,
 पायथन आपके द्वारा क्लोन किए गए फ़ोल्डर `./huggingface_hub/` को भी खोजेगा।
 
 ## कोंडा के साथ स्थापित करें

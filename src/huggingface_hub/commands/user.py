@@ -11,9 +11,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Contains commands to authenticate to the Hugging Face Hub and interact with your repositories.
+
+Usage:
+    # login and save token locally.
+    huggingface-cli login --token=hf_*** --add-to-git-credential
+
+    # switch between tokens
+    huggingface-cli auth switch
+
+    # list all tokens
+    huggingface-cli auth list
+
+    # logout from a specific token, if no token-name is provided, all tokens will be deleted from your machine.
+    huggingface-cli logout --token-name=your_token_name
+
+    # find out which huggingface.co account you are logged in as
+    huggingface-cli whoami
+
+    # create a new dataset repo on the Hub
+    huggingface-cli repo create mydataset --type=dataset
+
+"""
+
 import subprocess
 from argparse import _SubParsersAction
-from typing import Optional
+from typing import List, Optional
 
 from requests.exceptions import HTTPError
 
@@ -126,6 +149,7 @@ class BaseUserCommand:
 
 class LoginCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         login(
             token=self.args.token,
             add_to_git_credential=self.args.add_to_git_credential,
@@ -134,11 +158,13 @@ class LoginCommand(BaseUserCommand):
 
 class LogoutCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         logout(token_name=self.args.token_name)
 
 
 class AuthSwitchCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         token_name = self.args.token_name
         if token_name is None:
             token_name = self._select_token_name()
@@ -174,7 +200,7 @@ class AuthSwitchCommand(BaseUserCommand):
             except ValueError:
                 print("Invalid input. Please enter a number or 'q' to quit.")
 
-    def _select_token_name_tui(self, token_names: list[str]) -> Optional[str]:
+    def _select_token_name_tui(self, token_names: List[str]) -> Optional[str]:
         choices = [Choice(token_name, name=token_name) for token_name in token_names]
         try:
             return inquirer.select(
@@ -189,6 +215,7 @@ class AuthSwitchCommand(BaseUserCommand):
 
 class AuthListCommand(BaseUserCommand):
     def run(self):
+        logging.set_verbosity_info()
         auth_list()
 
 

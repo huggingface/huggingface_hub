@@ -1,4 +1,4 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--⚠️ Note that this file is in Markdown but contains specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
 -->
 
@@ -59,7 +59,7 @@ pip install 'huggingface_hub[cli,torch]'
 Voici une liste des dépendances optionnelles dans `huggingface_hub`:
 - `cli` fournit une interface d'invite de commande plus pratique pour `huggingface_hub`.
 - `fastai`, `torch` et `tensorflow` sont des dépendances pour utiliser des fonctionnalités spécifiques à un framework.
-- `dev` permet de contribuer à la librairie. Cette dépendance inclut `testing` (pour lancer des tests), `typing` (pour lancer le vérifieur de type) et `quality` (pour lancer des linters). 
+- `dev` permet de contribuer à la librairie. Cette dépendance inclut `testing` (pour lancer des tests), `typing` (pour lancer le vérifieur de type) et `quality` (pour lancer des linters).
 
 
 
@@ -104,7 +104,7 @@ pip install -e .
 
 Python regardera maintenant à l'intérieur du dossier dans lequel vous avez cloné le dépôt en
 plus des chemins de librairie classiques. Par exemple, si vos packages Python sont installés dans
-`./.venv/lib/python3.11/site-packages/`, Python regardera aussi dans le dossier que vous avez
+`./.venv/lib/python3.13/site-packages/`, Python regardera aussi dans le dossier que vous avez
 cloné `./huggingface_hub/`.
 
 ## Installation avec conda

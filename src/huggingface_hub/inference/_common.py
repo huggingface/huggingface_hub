@@ -58,10 +58,7 @@ from ..utils import (
     is_numpy_available,
     is_pillow_available,
 )
-from ._generated.types import (
-    ChatCompletionStreamOutput,
-    TextGenerationStreamOutput,
-)
+from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
 if TYPE_CHECKING:
@@ -84,7 +81,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelStatus:
     """
-    This Dataclass represents the the model status in the Hugging Face Inference API.
+    This Dataclass represents the model status in the Hugging Face Inference API.
 
     Args:
         loaded (`bool`):
@@ -216,7 +213,7 @@ def _open_as_binary(content: Optional[ContentT]) -> Generator[Optional[BinaryT],
 
 
 def _b64_encode(content: ContentT) -> str:
-    """Encode a raw file (image, audio) into base64. Can be byes, an opened file, a path or a URL."""
+    """Encode a raw file (image, audio) into base64. Can be bytes, an opened file, a path or a URL."""
     with _open_as_binary(content) as data:
         data_as_bytes = data if isinstance(data, bytes) else data.read()
         return base64.b64encode(data_as_bytes).decode()
@@ -257,6 +254,47 @@ def _bytes_to_image(content: bytes) -> "Image":
     """
     Image = _import_pil_image()
     return Image.open(io.BytesIO(content))
+
+
+## PAYLOAD UTILS
+
+
+def _prepare_payload(
+    inputs: Union[str, Dict[str, Any], ContentT],
+    parameters: Optional[Dict[str, Any]],
+    expect_binary: bool = False,
+) -> Dict[str, Any]:
+    """
+    Used in `InferenceClient` and `AsyncInferenceClient` to prepare the payload for an API request, handling various input types and parameters.
+    `expect_binary` is set to `True` when the inputs are a binary object or a local path or URL. This is the case for image and audio inputs.
+    """
+    if parameters is None:
+        parameters = {}
+    parameters = {k: v for k, v in parameters.items() if v is not None}
+    has_parameters = len(parameters) > 0
+
+    is_binary = isinstance(inputs, (bytes, Path))
+    # If expect_binary is True, inputs must be a binary object or a local path or a URL.
+    if expect_binary and not is_binary and not isinstance(inputs, str):
+        raise ValueError(f"Expected binary inputs or a local path or a URL. Got {inputs}")  # type: ignore
+    # Send inputs as raw content when no parameters are provided
+    if expect_binary and not has_parameters:
+        return {"data": inputs}
+    # If expect_binary is False, inputs must not be a binary object.
+    if not expect_binary and is_binary:
+        raise ValueError(f"Unexpected binary inputs. Got {inputs}")  # type: ignore
+
+    json: Dict[str, Any] = {}
+    # If inputs is a bytes-like object, encode it to base64
+    if expect_binary:
+        json["inputs"] = _b64_encode(inputs)  # type: ignore
+    # Otherwise (string, dict, list) send it as is
+    else:
+        json["inputs"] = inputs
+    # Add parameters to the json payload if any
+    if has_parameters:
+        json["parameters"] = parameters
+    return {"json": json}
 
 
 ## STREAMING UTILS

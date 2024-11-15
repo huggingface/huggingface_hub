@@ -390,9 +390,8 @@ def http_get(
 
     consistency_error_message = (
         f"Consistency check failed: file should be of size {expected_size} but has size"
-        f" {{actual_size}} ({displayed_filename}).\nWe are sorry for the inconvenience. Please retry"
-        " with `force_download=True`.\nIf the issue persists, please let us know by opening an issue "
-        "on https://github.com/huggingface/huggingface_hub."
+        f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
+        " Please retry with `force_download=True`."
     )
 
     # Stream file to buffer
@@ -821,7 +820,7 @@ def hf_hub_download(
     if repo_type not in constants.REPO_TYPES:
         raise ValueError(f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES)}")
 
-    headers = build_hf_headers(
+    hf_headers = build_hf_headers(
         token=token,
         library_name=library_name,
         library_version=library_version,
@@ -850,7 +849,7 @@ def hf_hub_download(
             # HTTP info
             endpoint=endpoint,
             etag_timeout=etag_timeout,
-            headers=headers,
+            headers=hf_headers,
             proxies=proxies,
             token=token,
             # Additional options
@@ -870,7 +869,7 @@ def hf_hub_download(
             # HTTP info
             endpoint=endpoint,
             etag_timeout=etag_timeout,
-            headers=headers,
+            headers=hf_headers,
             proxies=proxies,
             token=token,
             # Additional options
@@ -1283,20 +1282,20 @@ def get_hf_file_metadata(
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
         commit_hash.
     """
-    headers = build_hf_headers(
+    hf_headers = build_hf_headers(
         token=token,
         library_name=library_name,
         library_version=library_version,
         user_agent=user_agent,
         headers=headers,
     )
-    headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
+    hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
     r = _request_wrapper(
         method="HEAD",
         url=url,
-        headers=headers,
+        headers=hf_headers,
         allow_redirects=False,
         follow_relative_redirects=True,
         proxies=proxies,

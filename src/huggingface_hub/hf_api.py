@@ -61,19 +61,6 @@ from ._commit_api import (
     _warn_on_overwriting_operations,
 )
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointType
-from ._multi_commits import (
-    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE,
-    MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
-    MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
-    MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
-    MultiCommitException,
-    MultiCommitStep,
-    MultiCommitStrategy,
-    multi_commit_create_pull_request,
-    multi_commit_generate_comment,
-    multi_commit_parse_pr_description,
-    plan_multi_commits,
-)
 from ._space_api import SpaceHardware, SpaceRuntime, SpaceStorage, SpaceVariable
 from ._upload_large_folder import upload_large_folder_internal
 from .community import (
@@ -125,7 +112,6 @@ from .utils import (
     SafetensorsRepoMetadata,
     TensorInfo,
     build_hf_headers,
-    experimental,
     filter_repo_objects,
     fix_hf_endpoint_in_url,
     get_session,
@@ -336,7 +322,8 @@ class BlobLfsInfo(dict):
 
 @dataclass
 class BlobSecurityInfo(dict):
-    safe: bool
+    safe: bool  # duplicate information with "status" field, keeping it for backward compatibility
+    status: str
     av_scan: Optional[Dict]
     pickle_import_scan: Optional[Dict]
 
@@ -656,10 +643,14 @@ class RepoFile:
                 oid=last_commit["id"], title=last_commit["title"], date=parse_datetime(last_commit["date"])
             )
         self.last_commit = last_commit
-        security = kwargs.pop("security", None)
+        security = kwargs.pop("securityFileStatus", None)
         if security is not None:
+            safe = security["status"] == "safe"
             security = BlobSecurityInfo(
-                safe=security["safe"], av_scan=security["avScan"], pickle_import_scan=security["pickleImportScan"]
+                safe=safe,
+                status=security["status"],
+                av_scan=security["avScan"],
+                pickle_import_scan=security["pickleImportScan"],
             )
         self.security = security
 
@@ -769,6 +760,8 @@ class ModelInfo:
             List of spaces using the model.
         safetensors (`SafeTensorsInfo`, *optional*):
             Model's safetensors information.
+        security_repo_status (`Dict`, *optional*):
+            Model's security scan status.
     """
 
     id: str
@@ -797,6 +790,7 @@ class ModelInfo:
     siblings: Optional[List[RepoSibling]]
     spaces: Optional[List[str]]
     safetensors: Optional[SafeTensorsInfo]
+    security_repo_status: Optional[Dict]
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -862,7 +856,7 @@ class ModelInfo:
             if safetensors
             else None
         )
-
+        self.security_repo_status = kwargs.pop("securityRepoStatus", None)
         # backwards compatibility
         self.lastModified = self.last_modified
         self.cardData = self.card_data
@@ -1555,6 +1549,36 @@ def future_compatible(fn: CallableT) -> CallableT:
 
 
 class HfApi:
+    """
+    Client to interact with the Hugging Face Hub via HTTP.
+
+    The client is initialized with some high-level settings used in all requests
+    made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
+    client is preferred but not mandatory as all of its public methods are exposed
+    directly at the root of `huggingface_hub`.
+
+    Args:
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
+        token (Union[bool, str, None], optional):
+            A valid user access token (string). Defaults to the locally saved
+            token, which is the recommended method for authentication (see
+            https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+            To disable authentication, pass `False`.
+        library_name (`str`, *optional*):
+            The name of the library that is making the HTTP request. Will be added to
+            the user-agent header. Example: `"transformers"`.
+        library_version (`str`, *optional*):
+            The version of the library that is making the HTTP request. Will be added
+            to the user-agent header. Example: `"4.24.0"`.
+        user_agent (`str`, `dict`, *optional*):
+            The user agent info in the form of a dictionary or a single string. It will
+            be completed with information about the installed packages.
+        headers (`dict`, *optional*):
+            Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
+            Headers passed here are taking precedence over the default headers.
+    """
+
     def __init__(
         self,
         endpoint: Optional[str] = None,
@@ -1564,32 +1588,6 @@ class HfApi:
         user_agent: Union[Dict, str, None] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Create a HF client to interact with the Hub via HTTP.
-
-        The client is initialized with some high-level settings used in all requests
-        made to the Hub (HF endpoint, authentication, user agents...). Using the `HfApi`
-        client is preferred but not mandatory as all of its public methods are exposed
-        directly at the root of `huggingface_hub`.
-
-        Args:
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            library_name (`str`, *optional*):
-                The name of the library that is making the HTTP request. Will be added to
-                the user-agent header. Example: `"transformers"`.
-            library_version (`str`, *optional*):
-                The version of the library that is making the HTTP request. Will be added
-                to the user-agent header. Example: `"4.24.0"`.
-            user_agent (`str`, `dict`, *optional*):
-                The user agent info in the form of a dictionary or a single string. It will
-                be completed with information about the installed packages.
-            headers (`dict`, *optional*):
-                Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
-                Headers passed here are taking precedence over the default headers.
-        """
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
         self.library_name = library_name
@@ -1670,9 +1668,27 @@ class HfApi:
             ) from e
         return r.json()
 
-    def get_token_permission(self, token: Union[bool, str, None] = None) -> Literal["read", "write", None]:
+    @_deprecate_method(
+        version="1.0",
+        message=(
+            "Permissions are more complex than when `get_token_permission` was first introduced. "
+            "OAuth and fine-grain tokens allows for more detailed permissions. "
+            "If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key."
+        ),
+    )
+    def get_token_permission(
+        self, token: Union[bool, str, None] = None
+    ) -> Literal["read", "write", "fineGrained", None]:
         """
         Check if a given `token` is valid and return its permissions.
+
+        <Tip warning={true}>
+
+        This method is deprecated and will be removed in version 1.0. Permissions are more complex than when
+        `get_token_permission` was first introduced. OAuth and fine-grain tokens allows for more detailed permissions.
+        If you need to know the permissions associated with a token, please use `whoami` and check the `'auth'` key.
+
+        </Tip>
 
         For more details about tokens, please refer to https://huggingface.co/docs/hub/security-tokens#what-are-user-access-tokens.
 
@@ -1684,12 +1700,12 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Literal["read", "write", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
-            token passed or token is invalid.
+            `Literal["read", "write", "fineGrained", None]`: Permission granted by the token ("read" or "write"). Returns `None` if no
+            token passed, if token is invalid or if role is not returned by the server. This typically happens when the token is an OAuth token.
         """
         try:
             return self.whoami(token=token)["auth"]["accessToken"]["role"]
-        except (LocalTokenNotFoundError, HTTPError):
+        except (LocalTokenNotFoundError, HTTPError, KeyError):
             return None
 
     def get_model_tags(self) -> Dict:
@@ -1782,8 +1798,8 @@ class HfApi:
                 A tuple of two ints or floats representing a minimum and maximum
                 carbon footprint to filter the resulting models with in grams.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting models. Possible values
-                are the properties of the [`huggingface_hub.hf_api.ModelInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -1895,7 +1911,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -1994,8 +2018,8 @@ class HfApi:
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting datasets. Possible
-                values are the properties of the [`huggingface_hub.hf_api.DatasetInfo`] class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at", "downloads" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2105,7 +2129,15 @@ class HfApi:
         if len(search_list) > 0:
             params["search"] = search_list
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2177,8 +2209,8 @@ class HfApi:
             linked (`bool`, *optional*):
                 Whether to return Spaces that make use of either a model or a dataset.
             sort (`Literal["last_modified"]` or `str`, *optional*):
-                The key with which to sort the resulting Spaces. Possible
-                values are the properties of the [`huggingface_hub.hf_api.SpaceInfo`]` class.
+                The key with which to sort the resulting models. Possible values are "last_modified", "trending_score",
+                "created_at" and "likes".
             direction (`Literal[-1]` or `int`, *optional*):
                 Direction in which to sort. The value `-1` sorts by descending
                 order while all other values sort by ascending order.
@@ -2214,7 +2246,15 @@ class HfApi:
         if search is not None:
             params["search"] = search
         if sort is not None:
-            params["sort"] = "lastModified" if sort == "last_modified" else sort
+            params["sort"] = (
+                "lastModified"
+                if sort == "last_modified"
+                else "trendingScore"
+                if sort == "trending_score"
+                else "createdAt"
+                if sort == "created_at"
+                else sort
+            )
         if direction is not None:
             params["direction"] = direction
         if limit is not None:
@@ -2484,7 +2524,7 @@ class HfApi:
                 Whether to set a timeout for the request to the Hub.
             securityStatus (`bool`, *optional*):
                 Whether to retrieve the security status from the model
-                repository as well.
+                repository as well. The security status will be returned in the `security_repo_status` field.
             files_metadata (`bool`, *optional*):
                 Whether or not to retrieve metadata for files in the repository
                 (size, LFS metadata, etc). Defaults to `False`.
@@ -4107,312 +4147,6 @@ class HfApi:
             pr_url=commit_data["pullRequestUrl"] if create_pr else None,
         )
 
-    @experimental
-    @validate_hf_hub_args
-    @_deprecate_method(
-        version="0.27", message="This is an experimental feature. Please use `upload_large_folder` instead."
-    )
-    def create_commits_on_pr(
-        self,
-        *,
-        repo_id: str,
-        addition_commits: List[List[CommitOperationAdd]],
-        deletion_commits: List[List[CommitOperationDelete]],
-        commit_message: str,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        merge_pr: bool = True,
-        num_threads: int = 5,  # TODO: use to multithread uploads
-        verbose: bool = False,
-    ) -> str:
-        """Push changes to the Hub in multiple commits.
-
-        Commits are pushed to a draft PR branch. If the upload fails or gets interrupted, it can be resumed. Progress
-        is tracked in the PR description. At the end of the process, the PR is set as open and the title is updated to
-        match the initial commit message. If `merge_pr=True` is passed, the PR is merged automatically.
-
-        All deletion commits are pushed first, followed by the addition commits. The order of the commits is not
-        guaranteed as we might implement parallel commits in the future. Be sure that your are not updating several
-        times the same file.
-
-        <Tip warning={true}>
-
-        `create_commits_on_pr` is experimental.  Its API and behavior is subject to change in the future without prior notice.
-
-        </Tip>
-
-        <Tip warning={true}>
-
-        `create_commits_on_pr` assumes that the repo already exists on the Hub. If you get a Client error 404, please
-        make sure you are authenticated and that `repo_id` and `repo_type` are set correctly. If repo does not exist,
-        create it first using [`~hf_api.create_repo`].
-
-        </Tip>
-
-        Args:
-            repo_id (`str`):
-                The repository in which the commits will be pushed. Example: `"username/my-cool-model"`.
-
-            addition_commits (`List` of `List` of [`~hf_api.CommitOperationAdd`]):
-                A list containing lists of [`~hf_api.CommitOperationAdd`]. Each sublist will result in a commit on the
-                PR.
-
-            deletion_commits
-                A list containing lists of [`~hf_api.CommitOperationDelete`]. Each sublist will result in a commit on
-                the PR. Deletion commits are pushed before addition commits.
-
-            commit_message (`str`):
-                The summary (first line) of the commit that will be created. Will also be the title of the PR.
-
-            commit_description (`str`, *optional*):
-                The description of the commit that will be created. The description will be added to the PR.
-
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
-                a model. Default is `None`.
-
-            merge_pr (`bool`):
-                If set to `True`, the Pull Request is merged at the end of the process. Defaults to `True`.
-
-            num_threads (`int`, *optional*):
-                Number of concurrent threads for uploading files. Defaults to 5.
-
-            verbose (`bool`):
-                If set to `True`, process will run on verbose mode i.e. print information about the ongoing tasks.
-                Defaults to `False`.
-
-        Returns:
-            `str`: URL to the created PR.
-
-        Example:
-        ```python
-        >>> from huggingface_hub import HfApi, plan_multi_commits
-        >>> addition_commits, deletion_commits = plan_multi_commits(
-        ...     operations=[
-        ...          CommitOperationAdd(...),
-        ...          CommitOperationAdd(...),
-        ...          CommitOperationDelete(...),
-        ...          CommitOperationDelete(...),
-        ...          CommitOperationAdd(...),
-        ...     ],
-        ... )
-        >>> HfApi().create_commits_on_pr(
-        ...     repo_id="my-cool-model",
-        ...     addition_commits=addition_commits,
-        ...     deletion_commits=deletion_commits,
-        ...     (...)
-        ...     verbose=True,
-        ... )
-        ```
-
-        Raises:
-            [`MultiCommitException`]:
-                If an unexpected issue occur in the process: empty commits, unexpected commits in a PR, unexpected PR
-                description, etc.
-        """
-        logger = logging.get_logger(__name__ + ".create_commits_on_pr")
-        if verbose:
-            logger.setLevel("INFO")
-
-        # 1. Get strategy ID
-        logger.info(
-            f"Will create {len(deletion_commits)} deletion commit(s) and {len(addition_commits)} addition commit(s),"
-            f" totalling {sum(len(ops) for ops in addition_commits+deletion_commits)} atomic operations."
-        )
-        strategy = MultiCommitStrategy(
-            addition_commits=[MultiCommitStep(operations=operations) for operations in addition_commits],  # type: ignore
-            deletion_commits=[MultiCommitStep(operations=operations) for operations in deletion_commits],  # type: ignore
-        )
-        logger.info(f"Multi-commits strategy with ID {strategy.id}.")
-
-        # 2. Get or create a PR with this strategy ID
-        for discussion in self.get_repo_discussions(repo_id=repo_id, repo_type=repo_type, token=token):
-            # search for a draft PR with strategy ID
-            if discussion.is_pull_request and discussion.status == "draft" and strategy.id in discussion.title:
-                pr = self.get_discussion_details(
-                    repo_id=repo_id, discussion_num=discussion.num, repo_type=repo_type, token=token
-                )
-                logger.info(f"PR already exists: {pr.url}. Will resume process where it stopped.")
-                break
-        else:
-            # did not find a PR matching the strategy ID
-            pr = multi_commit_create_pull_request(
-                self,
-                repo_id=repo_id,
-                commit_message=commit_message,
-                commit_description=commit_description,
-                strategy=strategy,
-                token=token,
-                repo_type=repo_type,
-            )
-            logger.info(f"New PR created: {pr.url}")
-
-        # 3. Parse PR description to check consistency with strategy (e.g. same commits are scheduled)
-        for event in pr.events:
-            if isinstance(event, DiscussionComment):
-                pr_comment = event
-                break
-        else:
-            raise MultiCommitException(f"PR #{pr.num} must have at least 1 comment")
-
-        description_commits = multi_commit_parse_pr_description(pr_comment.content)
-        if len(description_commits) != len(strategy.all_steps):
-            raise MultiCommitException(
-                f"Corrupted multi-commit PR #{pr.num}: got {len(description_commits)} steps in"
-                f" description but {len(strategy.all_steps)} in strategy."
-            )
-        for step_id in strategy.all_steps:
-            if step_id not in description_commits:
-                raise MultiCommitException(
-                    f"Corrupted multi-commit PR #{pr.num}: expected step {step_id} but didn't find"
-                    f" it (have {', '.join(description_commits)})."
-                )
-
-        # 4. Retrieve commit history (and check consistency)
-        commits_on_main_branch = {
-            commit.commit_id
-            for commit in self.list_repo_commits(
-                repo_id=repo_id, repo_type=repo_type, token=token, revision=constants.DEFAULT_REVISION
-            )
-        }
-        pr_commits = [
-            commit
-            for commit in self.list_repo_commits(
-                repo_id=repo_id, repo_type=repo_type, token=token, revision=pr.git_reference
-            )
-            if commit.commit_id not in commits_on_main_branch
-        ]
-        if len(pr_commits) > 0:
-            logger.info(f"Found {len(pr_commits)} existing commits on the PR.")
-
-        # At this point `pr_commits` is a list of commits pushed to the PR. We expect all of these commits (if any) to have
-        # a step_id as title. We raise exception if an unexpected commit has been pushed.
-        if len(pr_commits) > len(strategy.all_steps):
-            raise MultiCommitException(
-                f"Corrupted multi-commit PR #{pr.num}: scheduled {len(strategy.all_steps)} steps but"
-                f" {len(pr_commits)} commits have already been pushed to the PR."
-            )
-
-        # Check which steps are already completed
-        remaining_additions = {step.id: step for step in strategy.addition_commits}
-        remaining_deletions = {step.id: step for step in strategy.deletion_commits}
-        for commit in pr_commits:
-            if commit.title in remaining_additions:
-                step = remaining_additions.pop(commit.title)
-                step.completed = True
-            elif commit.title in remaining_deletions:
-                step = remaining_deletions.pop(commit.title)
-                step.completed = True
-
-        if len(remaining_deletions) > 0 and len(remaining_additions) < len(strategy.addition_commits):
-            raise MultiCommitException(
-                f"Corrupted multi-commit PR #{pr.num}: some addition commits have already been pushed to the PR but"
-                " deletion commits are not all completed yet."
-            )
-        nb_remaining = len(remaining_deletions) + len(remaining_additions)
-        if len(pr_commits) > 0:
-            logger.info(
-                f"{nb_remaining} commits remaining ({len(remaining_deletions)} deletion commits and"
-                f" {len(remaining_additions)} addition commits)"
-            )
-
-        # 5. Push remaining commits to the PR + update description
-        # TODO: multi-thread this
-        for step in list(remaining_deletions.values()) + list(remaining_additions.values()):
-            # Push new commit
-            self.create_commit(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                token=token,
-                commit_message=step.id,
-                revision=pr.git_reference,
-                num_threads=num_threads,
-                operations=step.operations,
-                create_pr=False,
-            )
-            step.completed = True
-            nb_remaining -= 1
-            logger.info(f"  step {step.id} completed (still {nb_remaining} to go).")
-
-            # Update PR description
-            self.edit_discussion_comment(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                token=token,
-                discussion_num=pr.num,
-                comment_id=pr_comment.id,
-                new_content=multi_commit_generate_comment(
-                    commit_message=commit_message, commit_description=commit_description, strategy=strategy
-                ),
-            )
-        logger.info("All commits have been pushed.")
-
-        # 6. Update PR (and merge)
-        self.rename_discussion(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            token=token,
-            discussion_num=pr.num,
-            new_title=commit_message,
-        )
-        self.change_discussion_status(
-            repo_id=repo_id,
-            repo_type=repo_type,
-            token=token,
-            discussion_num=pr.num,
-            new_status="open",
-            comment=MULTI_COMMIT_PR_COMPLETION_COMMENT_TEMPLATE,
-        )
-        logger.info("PR is now open for reviews.")
-
-        if merge_pr:  # User don't want a PR => merge it
-            try:
-                self.merge_pull_request(
-                    repo_id=repo_id,
-                    repo_type=repo_type,
-                    token=token,
-                    discussion_num=pr.num,
-                    comment=MULTI_COMMIT_PR_CLOSING_COMMENT_TEMPLATE,
-                )
-                logger.info("PR has been automatically merged (`merge_pr=True` was passed).")
-            except BadRequestError as error:
-                if error.server_message is not None and "no associated changes" in error.server_message:
-                    # PR cannot be merged as no changes are associated. We close the PR without merging with a comment to
-                    # explain.
-                    self.change_discussion_status(
-                        repo_id=repo_id,
-                        repo_type=repo_type,
-                        token=token,
-                        discussion_num=pr.num,
-                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_NO_CHANGES_TEMPLATE,
-                        new_status="closed",
-                    )
-                    logger.warning("Couldn't merge the PR: no associated changes.")
-                else:
-                    # PR cannot be merged for another reason (conflicting files for example). We comment the PR to explain
-                    # and re-raise the exception.
-                    self.comment_discussion(
-                        repo_id=repo_id,
-                        repo_type=repo_type,
-                        token=token,
-                        discussion_num=pr.num,
-                        comment=MULTI_COMMIT_PR_CLOSE_COMMENT_FAILURE_BAD_REQUEST_TEMPLATE.format(
-                            error_message=error.server_message
-                        ),
-                    )
-                    raise MultiCommitException(
-                        f"Couldn't merge Pull Request in multi-commit: {error.server_message}"
-                    ) from error
-
-        return pr.url
-
     def preupload_lfs_files(
         self,
         repo_id: str,
@@ -4786,8 +4520,6 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: Literal[False] = ...,
-        multi_commits_verbose: bool = False,
         run_as_future: Literal[False] = ...,
     ) -> CommitInfo: ...
 
@@ -4808,56 +4540,8 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: Literal[True] = ...,
-        multi_commits_verbose: bool = False,
-        run_as_future: Literal[False] = ...,
-    ) -> str:  # Only the PR url in multi-commits mode
-        ...
-
-    @overload
-    def upload_folder(  # type: ignore
-        self,
-        *,
-        repo_id: str,
-        folder_path: Union[str, Path],
-        path_in_repo: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: Literal[False] = ...,
-        multi_commits_verbose: bool = False,
         run_as_future: Literal[True] = ...,
     ) -> Future[CommitInfo]: ...
-
-    @overload
-    def upload_folder(
-        self,
-        *,
-        repo_id: str,
-        folder_path: Union[str, Path],
-        path_in_repo: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        token: Union[str, bool, None] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: Literal[True] = ...,
-        multi_commits_verbose: bool = False,
-        run_as_future: Literal[True] = ...,
-    ) -> Future[str]:  # Only the PR url in multi-commits mode
-        ...
 
     @validate_hf_hub_args
     @future_compatible
@@ -4877,10 +4561,8 @@ class HfApi:
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         delete_patterns: Optional[Union[List[str], str]] = None,
-        multi_commits: bool = False,
-        multi_commits_verbose: bool = False,
         run_as_future: bool = False,
-    ) -> Union[CommitInfo, str, Future[CommitInfo], Future[str]]:
+    ) -> Union[CommitInfo, Future[CommitInfo]]:
         """
         Upload a local folder to the given repo. The upload is done through a HTTP requests, and doesn't require git or
         git-lfs to be installed.
@@ -4933,8 +4615,7 @@ class HfApi:
                 Whether or not to create a Pull Request with that commit. Defaults to `False`. If `revision` is not
                 set, PR is opened against the `"main"` branch. If `revision` is set and is a branch, PR is opened
                 against this branch. If `revision` is set and is not a branch name (example: a commit oid), an
-                `RevisionNotFoundError` is returned by the server. If both `multi_commits` and `create_pr` are True,
-                the PR created in the multi-commit process is kept opened.
+                `RevisionNotFoundError` is returned by the server.
             parent_commit (`str`, *optional*):
                 The OID / SHA of the parent commit, as a hexadecimal string. Shorthands (7 first characters) are also supported.
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
@@ -4949,12 +4630,6 @@ class HfApi:
                 If provided, remote files matching any of the patterns will be deleted from the repo while committing
                 new files. This is useful if you don't know which files have already been uploaded.
                 Note: to avoid discrepancies the `.gitattributes` file is not deleted even if it matches the pattern.
-            multi_commits (`bool`):
-                Deprecated. For large uploads, use `upload_large_folder` instead.
-                If True, changes are pushed to a PR using a multi-commit process. Defaults to `False`.
-            multi_commits_verbose (`bool`):
-                Deprecated. For large uploads, use `upload_large_folder` instead.
-                If True and `multi_commits` is used, more information will be displayed to the user.
             run_as_future (`bool`, *optional*):
                 Whether or not to run this method in the background. Background jobs are run sequentially without
                 blocking the main thread. Passing `run_as_future=True` will return a [Future](https://docs.python.org/3/library/concurrent.futures.html#future-objects)
@@ -4965,9 +4640,6 @@ class HfApi:
                 Instance of [`CommitInfo`] containing information about the newly created commit (commit hash, commit
                 url, pr url, commit message,...). If `run_as_future=True` is passed, returns a Future object which will
                 contain the result when executed.
-            [`str`] or `Future`:
-                If `multi_commits=True`, returns the url of the PR created to push the changes. If `run_as_future=True`
-                is passed, returns a Future object which will contain the result when executed.
 
         <Tip>
 
@@ -4988,9 +4660,9 @@ class HfApi:
 
         </Tip>
 
-        <Tip warning={true}>
+        <Tip>
 
-        `multi_commits` is experimental. Its API and behavior is subject to change in the future without prior notice.
+        When dealing with a large folder (thousands of files or hundreds of GB), we recommend using [`~hf_api.upload_large_folder`] instead.
 
         </Tip>
 
@@ -5036,10 +4708,6 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
-        if multi_commits:
-            if revision is not None and revision != constants.DEFAULT_REVISION:
-                raise ValueError("Cannot use `multi_commit` to commit changes other than the main branch.")
-
         # By default, upload folder to the root directory in repo.
         if path_in_repo is None:
             path_in_repo = ""
@@ -5077,22 +4745,6 @@ class HfApi:
         commit_operations = delete_operations + add_operations
 
         commit_message = commit_message or "Upload folder using huggingface_hub"
-        if multi_commits:
-            addition_commits, deletion_commits = plan_multi_commits(operations=commit_operations)
-            pr_url = self.create_commits_on_pr(
-                repo_id=repo_id,
-                repo_type=repo_type,
-                addition_commits=addition_commits,
-                deletion_commits=deletion_commits,
-                commit_message=commit_message,
-                commit_description=commit_description,
-                token=token,
-                merge_pr=not create_pr,
-                verbose=multi_commits_verbose,
-            )
-            # Defining a CommitInfo object is not really relevant in this case
-            # Let's return early with pr_url only (as string).
-            return pr_url
 
         commit_info = self.create_commit(
             repo_type=repo_type,
@@ -8614,7 +8266,7 @@ class HfApi:
                 Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
             item_object_id (`str`):
                 ID of the item in the collection. This is not the id of the item on the Hub (repo_id or paper id).
-                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0]._id`.
+                It must be retrieved from a [`CollectionItem`] object. Example: `collection.items[0].item_object_id`.
             missing_ok (`bool`, *optional*):
                 If `True`, do not raise an error if item doesn't exists.
             token (Union[bool, str, None], optional):
@@ -9461,7 +9113,6 @@ class HfApi:
     def _build_hf_headers(
         self,
         token: Union[bool, str, None] = None,
-        is_write_action: bool = False,
         library_name: Optional[str] = None,
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
@@ -9475,7 +9126,6 @@ class HfApi:
             token = self.token
         return build_hf_headers(
             token=token,
-            is_write_action=is_write_action,
             library_name=library_name or self.library_name,
             library_version=library_version or self.library_version,
             user_agent=user_agent or self.user_agent,
@@ -9562,12 +9212,13 @@ class HfApi:
         # It's better to fail early than to fail after all the files have been hashed.
         if "README.md" in filtered_repo_objects:
             self._validate_yaml(
-                content=relpath_to_abspath["README.md"].read_text(),
+                content=relpath_to_abspath["README.md"].read_text(encoding="utf8"),
                 repo_type=repo_type,
                 token=token,
             )
         if len(filtered_repo_objects) > 30:
-            logger.info(
+            log = logger.warning if len(filtered_repo_objects) > 200 else logger.info
+            log(
                 "It seems you are trying to upload a large folder at once. This might take some time and then fail if "
                 "the folder is too large. For such cases, it is recommended to upload in smaller batches or to use "
                 "`HfApi().upload_large_folder(...)`/`huggingface-cli upload-large-folder` instead. For more details, "
@@ -9927,7 +9578,6 @@ upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
 delete_files = api.delete_files
-create_commits_on_pr = api.create_commits_on_pr
 upload_large_folder = api.upload_large_folder
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
