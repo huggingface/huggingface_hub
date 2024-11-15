@@ -72,10 +72,9 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           path: ./huggingface_hub
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN_INFERENCE_SYNC_BOT }}
           commit-message: Update inference types (automated commit)
-          author: ${{ github.actor }} <${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com>
-          branch: update-inferene-types-automated-pr
+          branch: update-inference-types-automated-pr
           delete-branch: true
           title: "[Bot] Update inference types"
           body: |
