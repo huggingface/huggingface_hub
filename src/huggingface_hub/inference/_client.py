@@ -2913,10 +2913,11 @@ class InferenceClient:
         # Raise ValueError if input is less than 2 labels
         if len(labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
-
-        inputs = {"image": _b64_encode(image), "candidateLabels": ",".join(labels)}
-        parameters = {"hypothesis_template": hypothesis_template}
-        payload = _prepare_payload(inputs, parameters=parameters)
+        parameters = {
+            "candidate_labels": labels,
+            "hypothesis_template": hypothesis_template,
+        }
+        payload = _prepare_payload(image, parameters=parameters)
         response = self.post(
             **payload,
             model=model,
