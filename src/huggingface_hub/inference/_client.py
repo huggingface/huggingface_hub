@@ -2917,7 +2917,7 @@ class InferenceClient:
             "candidate_labels": labels,
             "hypothesis_template": hypothesis_template,
         }
-        payload = _prepare_payload(image, parameters=parameters)
+        payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
         response = self.post(
             **payload,
             model=model,
