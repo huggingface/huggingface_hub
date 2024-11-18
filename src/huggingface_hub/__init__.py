@@ -292,8 +292,10 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
+        "ChatCompletionInputGrammarTypeType",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
+        "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
         "ChatCompletionInputToolType",
         "ChatCompletionInputURL",
@@ -322,6 +324,7 @@ _SUBMOD_ATTRS = {
         "DocumentQuestionAnsweringOutputElement",
         "DocumentQuestionAnsweringParameters",
         "FeatureExtractionInput",
+        "FeatureExtractionInputTruncationDirection",
         "FillMaskInput",
         "FillMaskOutputElement",
         "FillMaskParameters",
@@ -332,6 +335,7 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationInput",
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
+        "ImageSegmentationSubtask",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -354,12 +358,14 @@ _SUBMOD_ATTRS = {
         "SummarizationInput",
         "SummarizationOutput",
         "SummarizationParameters",
+        "SummarizationTruncationStrategy",
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
+        "Text2TextGenerationTruncationStrategy",
         "TextClassificationInput",
         "TextClassificationOutputElement",
         "TextClassificationOutputTransform",
@@ -370,6 +376,7 @@ _SUBMOD_ATTRS = {
         "TextGenerationOutput",
         "TextGenerationOutputBestOfSequence",
         "TextGenerationOutputDetails",
+        "TextGenerationOutputFinishReason",
         "TextGenerationOutputPrefillToken",
         "TextGenerationOutputToken",
         "TextGenerationStreamOutput",
@@ -389,6 +396,7 @@ _SUBMOD_ATTRS = {
         "TextToSpeechInput",
         "TextToSpeechOutput",
         "TextToSpeechParameters",
+        "TokenClassificationAggregationStrategy",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
@@ -396,6 +404,8 @@ _SUBMOD_ATTRS = {
         "TranslationInput",
         "TranslationOutput",
         "TranslationParameters",
+        "TranslationTruncationStrategy",
+        "TypeEnum",
         "VideoClassificationInput",
         "VideoClassificationOutputElement",
         "VideoClassificationOutputTransform",
@@ -812,8 +822,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
+        ChatCompletionInputGrammarTypeType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
+        ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
         ChatCompletionInputToolType,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
@@ -842,6 +854,7 @@ if TYPE_CHECKING:  # pragma: no cover
         DocumentQuestionAnsweringOutputElement,  # noqa: F401
         DocumentQuestionAnsweringParameters,  # noqa: F401
         FeatureExtractionInput,  # noqa: F401
+        FeatureExtractionInputTruncationDirection,  # noqa: F401
         FillMaskInput,  # noqa: F401
         FillMaskOutputElement,  # noqa: F401
         FillMaskParameters,  # noqa: F401
@@ -852,6 +865,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationInput,  # noqa: F401
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
+        ImageSegmentationSubtask,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
@@ -874,12 +888,14 @@ if TYPE_CHECKING:  # pragma: no cover
         SummarizationInput,  # noqa: F401
         SummarizationOutput,  # noqa: F401
         SummarizationParameters,  # noqa: F401
+        SummarizationTruncationStrategy,  # noqa: F401
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
+        Text2TextGenerationTruncationStrategy,  # noqa: F401
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationOutputTransform,  # noqa: F401
@@ -890,6 +906,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputBestOfSequence,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
+        TextGenerationOutputFinishReason,  # noqa: F401
         TextGenerationOutputPrefillToken,  # noqa: F401
         TextGenerationOutputToken,  # noqa: F401
         TextGenerationStreamOutput,  # noqa: F401
@@ -909,6 +926,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
         TextToSpeechParameters,  # noqa: F401
+        TokenClassificationAggregationStrategy,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
@@ -916,6 +934,8 @@ if TYPE_CHECKING:  # pragma: no cover
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         TranslationParameters,  # noqa: F401
+        TranslationTruncationStrategy,  # noqa: F401
+        TypeEnum,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
         VideoClassificationOutputElement,  # noqa: F401
         VideoClassificationOutputTransform,  # noqa: F401

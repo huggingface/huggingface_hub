@@ -23,11 +23,11 @@ style:
 
 inference_check:
 	python utils/generate_inference_types.py
-	python utils/generate_task_parameters.py
+	python utils/check_task_parameters.py
 
 inference_update:
 	python utils/generate_inference_types.py --update
-	python utils/generate_task_parameters.py --update
+	python utils/check_task_parameters.py --update
 
 
 repocard:

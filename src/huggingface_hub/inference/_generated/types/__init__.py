@@ -24,8 +24,10 @@ from .chat_completion import (
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
+    ChatCompletionInputGrammarTypeType,
     ChatCompletionInputMessage,
     ChatCompletionInputMessageChunk,
+    ChatCompletionInputMessageChunkType,
     ChatCompletionInputStreamOptions,
     ChatCompletionInputToolType,
     ChatCompletionInputURL,
@@ -56,7 +58,7 @@ from .document_question_answering import (
     DocumentQuestionAnsweringOutputElement,
     DocumentQuestionAnsweringParameters,
 )
-from .feature_extraction import FeatureExtractionInput
+from .feature_extraction import FeatureExtractionInput, FeatureExtractionInputTruncationDirection
 from .fill_mask import FillMaskInput, FillMaskOutputElement, FillMaskParameters
 from .image_classification import (
     ImageClassificationInput,
@@ -64,7 +66,12 @@ from .image_classification import (
     ImageClassificationOutputTransform,
     ImageClassificationParameters,
 )
-from .image_segmentation import ImageSegmentationInput, ImageSegmentationOutputElement, ImageSegmentationParameters
+from .image_segmentation import (
+    ImageSegmentationInput,
+    ImageSegmentationOutputElement,
+    ImageSegmentationParameters,
+    ImageSegmentationSubtask,
+)
 from .image_to_image import ImageToImageInput, ImageToImageOutput, ImageToImageParameters, ImageToImageTargetSize
 from .image_to_text import (
     ImageToTextEarlyStoppingEnum,
@@ -86,13 +93,23 @@ from .question_answering import (
     QuestionAnsweringParameters,
 )
 from .sentence_similarity import SentenceSimilarityInput, SentenceSimilarityInputData
-from .summarization import SummarizationInput, SummarizationOutput, SummarizationParameters
+from .summarization import (
+    SummarizationInput,
+    SummarizationOutput,
+    SummarizationParameters,
+    SummarizationTruncationStrategy,
+)
 from .table_question_answering import (
     TableQuestionAnsweringInput,
     TableQuestionAnsweringInputData,
     TableQuestionAnsweringOutputElement,
 )
-from .text2text_generation import Text2TextGenerationInput, Text2TextGenerationOutput, Text2TextGenerationParameters
+from .text2text_generation import (
+    Text2TextGenerationInput,
+    Text2TextGenerationOutput,
+    Text2TextGenerationParameters,
+    Text2TextGenerationTruncationStrategy,
+)
 from .text_classification import (
     TextClassificationInput,
     TextClassificationOutputElement,
@@ -106,11 +123,13 @@ from .text_generation import (
     TextGenerationOutput,
     TextGenerationOutputBestOfSequence,
     TextGenerationOutputDetails,
+    TextGenerationOutputFinishReason,
     TextGenerationOutputPrefillToken,
     TextGenerationOutputToken,
     TextGenerationStreamOutput,
     TextGenerationStreamOutputStreamDetails,
     TextGenerationStreamOutputToken,
+    TypeEnum,
 )
 from .text_to_audio import (
     TextToAudioEarlyStoppingEnum,
@@ -128,11 +147,12 @@ from .text_to_speech import (
     TextToSpeechParameters,
 )
 from .token_classification import (
+    TokenClassificationAggregationStrategy,
     TokenClassificationInput,
     TokenClassificationOutputElement,
     TokenClassificationParameters,
 )
-from .translation import TranslationInput, TranslationOutput, TranslationParameters
+from .translation import TranslationInput, TranslationOutput, TranslationParameters, TranslationTruncationStrategy
 from .video_classification import (
     VideoClassificationInput,
     VideoClassificationOutputElement,

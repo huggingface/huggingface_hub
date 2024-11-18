@@ -222,13 +222,9 @@ def _list_dataclasses(content: str) -> List[str]:
     return INHERITED_DATACLASS_REGEX.findall(content)
 
 
-def _list_shared_aliases(content: str) -> List[str]:
-    """List all shared class aliases defined in the module."""
-    all_aliases = TYPE_ALIAS_REGEX.findall(content)
-    shared_class_pattern = r"(\w+(?:" + "|".join(re.escape(cls) for cls in SHARED_CLASSES) + r"))$"
-    shared_class_regex = re.compile(shared_class_pattern)
-    aliases = [alias_class for alias_class, _ in all_aliases if shared_class_regex.search(alias_class)]
-    return aliases
+def _list_type_aliases(content: str) -> List[str]:
+    """List all type aliases defined in the module."""
+    return [alias_class for alias_class, _ in TYPE_ALIAS_REGEX.findall(content)]
 
 
 def fix_inference_classes(content: str, module_name: str) -> str:
@@ -293,7 +289,7 @@ def check_inference_types(update: bool) -> NoReturn:
         fixed_content = fix_inference_classes(content, module_name=file.stem)
         formatted_content = format_source_code(fixed_content)
         dataclasses[file.stem] = _list_dataclasses(formatted_content)
-        aliases[file.stem] = _list_shared_aliases(formatted_content)
+        aliases[file.stem] = _list_type_aliases(formatted_content)
         check_and_update_file_content(file, formatted_content, update)
 
     all_classes = {module: dataclasses[module] + aliases[module] for module in dataclasses.keys()}
