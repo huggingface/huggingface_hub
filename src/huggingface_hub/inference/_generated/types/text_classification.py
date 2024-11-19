@@ -14,18 +14,13 @@ TextClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 @dataclass
 class TextClassificationParameters(BaseInferenceType):
-    """
-    Additional inference parameters for Text Classification.
+    """Additional inference parameters
+    Additional inference parameters for Text Classification
     """
 
     function_to_apply: Optional["TextClassificationOutputTransform"] = None
-    """
-    The function to apply to the output.
-    """
     top_k: Optional[int] = None
-    """
-    When specified, limits the output to the top K most probable classes.
-    """
+    """When specified, limits the output to the top K most probable classes."""
 
 
 @dataclass

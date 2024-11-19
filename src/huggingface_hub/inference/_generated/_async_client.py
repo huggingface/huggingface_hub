@@ -381,7 +381,6 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
             function_to_apply (`"AudioClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
 
         Returns:
             `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -1176,7 +1175,6 @@ class AsyncInferenceClient:
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
             function_to_apply (`"ImageClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
@@ -1876,7 +1874,6 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
             function_to_apply (`"TextClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
 
         Returns:
             `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
@@ -2559,11 +2556,11 @@ class AsyncInferenceClient:
             max_length (`int`, *optional*):
                 The maximum length (in tokens) of the generated text, including the input.
             max_new_tokens (`int`, *optional*):
-                The maximum number of tokens to generate. Takes precedence over maxLength.
+                The maximum number of tokens to generate. Takes precedence over max_length.
             min_length (`int`, *optional*):
                 The minimum length (in tokens) of the generated text, including the input.
             min_new_tokens (`int`, *optional*):
-                The minimum number of tokens to generate. Takes precedence over maxLength.
+                The minimum number of tokens to generate. Takes precedence over min_length.
             num_beam_groups (`int`, *optional*):
                 Number of groups to divide num_beams into in order to ensure diversity among different groups of beams.
                 See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -2846,6 +2843,7 @@ class AsyncInferenceClient:
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
+        candidate_labels: List[str] = None,
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -2860,11 +2858,13 @@ class AsyncInferenceClient:
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
                 probabilities are normalized for each candidate.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
-                the placeholder with the candidate labels.
+                The sentence used in conjunction with `candidate_labels` to attempt the text classification by
+                replacing the placeholder with the candidate labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot classification model will be used.
+            candidate_labels (`List[str`, ):
+                The set of possible class labels to classify the text into.
 
         Returns:
             `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -2948,6 +2948,7 @@ class AsyncInferenceClient:
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
+        candidate_labels: List[str] = None,
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -2961,8 +2962,10 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
-                the placeholder with the candidate labels.
+                The sentence used in conjunction with `candidate_labels` to attempt the image classification by
+                replacing the placeholder with the candidate labels.
+            candidate_labels (`List[str`, ):
+                The candidate labels for this image
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
