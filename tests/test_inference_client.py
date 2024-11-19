@@ -56,7 +56,7 @@ from huggingface_hub.inference._common import (
 )
 from huggingface_hub.utils import build_hf_headers
 
-from .testing_utils import with_production_testing
+from .testing_utils import expect_deprecation, with_production_testing
 
 
 # Avoid call to hf.co/api/models in VCRed tests
@@ -636,6 +636,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             VisualQuestionAnsweringOutputElement(label=None, score=0.01777094043791294, answer="man"),
         ]
 
+    @expect_deprecation("zero_shot_classification")
     def test_zero_shot_classification_single_label(self) -> None:
         output = self.client.zero_shot_classification(
             "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
@@ -654,6 +655,7 @@ class InferenceClientVCRTest(InferenceClientTest):
             ],
         )
 
+    @expect_deprecation("zero_shot_classification")
     def test_zero_shot_classification_multi_label(self) -> None:
         output = self.client.zero_shot_classification(
             "A new model offers an explanation for how the Galilean satellites formed around the solar system's"
