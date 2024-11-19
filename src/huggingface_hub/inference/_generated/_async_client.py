@@ -2863,7 +2863,7 @@ class AsyncInferenceClient:
                 The input text to classify.
             candidate_labels (`List[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`List[str]`):
+            labels (`List[str]`, *optional*):
                 (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
@@ -2983,7 +2983,7 @@ class AsyncInferenceClient:
                 The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
             candidate_labels (`List[str]`):
                 The candidate labels for this image
-            labels (`List[str]`):
+            labels (`List[str]`, *optional*):
                 (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
