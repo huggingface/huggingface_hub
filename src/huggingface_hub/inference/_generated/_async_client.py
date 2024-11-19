@@ -2841,11 +2841,12 @@ class AsyncInferenceClient:
     @_deprecate_arguments(
         version="0.30.0",
         deprecated_args=["labels"],
-        custom_message="Use `candidate_labels` instead.",
+        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
     )
     async def zero_shot_classification(
         self,
         text: str,
+        # temporarily keeping it optional for backward compatibility.
         candidate_labels: List[str] = None,  # type: ignore
         *,
         multi_label: Optional[bool] = False,
@@ -2939,7 +2940,8 @@ class AsyncInferenceClient:
                     "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
                 )
             candidate_labels = labels
-
+        elif candidate_labels is None:
+            raise ValueError("Must specify `candidate_labels`")
         parameters = {
             "candidate_labels": candidate_labels,
             "multi_label": multi_label,
@@ -2960,17 +2962,18 @@ class AsyncInferenceClient:
     @_deprecate_arguments(
         version="0.30.0",
         deprecated_args=["labels"],
-        custom_message="Use `candidate_labels` instead.",
+        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
     )
     async def zero_shot_image_classification(
         self,
         image: ContentT,
-        candidate_labels: List[str] = None,  # type: ignore
+        # temporarily keeping it optional for backward compatibility.
+        candidate_labels: Optional[List[str]] = None,
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: List[str] = None,  # type: ignore
+        labels: Optional[List[str]] = None,  # type: ignore
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -3018,6 +3021,8 @@ class AsyncInferenceClient:
                     "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
                 )
             candidate_labels = labels
+        elif candidate_labels is None:
+            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
