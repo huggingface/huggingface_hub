@@ -2966,12 +2966,12 @@ class AsyncInferenceClient:
         self,
         image: ContentT,
         # temporarily keeping it optional for backward compatibility.
-        candidate_labels: Optional[List[str]] = None,
+        candidate_labels: List[str] = None,  # type: ignore
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: Optional[List[str]] = None,  # type: ignore
+        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -2987,8 +2987,8 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
-                the placeholder with the candidate labels.
+                The sentence used in conjunction with `candidate_labels` to attempt the image classification by
+                replacing the placeholder with the candidate labels.
 
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
