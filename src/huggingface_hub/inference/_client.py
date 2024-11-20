@@ -979,7 +979,7 @@ class InferenceClient:
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient()
         >>> client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
-        [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16, words=None)]
+        [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16)]
         ```
         """
         inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
