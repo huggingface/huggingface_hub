@@ -118,9 +118,15 @@ class DataclassFieldCollector(cst.CSTVisitor):
                             param_name = stmt.target.value
                             param_type = cst.Module([]).code_for_node(stmt.annotation.annotation)
                             docstring = self._extract_docstring(body_statements, index)
+                            # Check if there's a default value
+                            has_default = stmt.value is not None
+                            default_value = cst.Module([]).code_for_node(stmt.value) if has_default else None
+
                             self.parameters[param_name] = {
                                 "type": param_type,
                                 "docstring": docstring,
+                                "has_default": has_default,
+                                "default_value": default_value,
                             }
 
     @staticmethod
@@ -306,7 +312,7 @@ class UpdateParameters(cst.CSTTransformer):
                 new_param = cst.Param(
                     name=cst.Name(param_name),
                     annotation=annotation,
-                    default=cst.Name("None"),
+                    default=param_info["default_value"],
                 )
                 new_kwonly_params.append(new_param)
         # Return the updated parameters object with new and updated parameters
@@ -381,10 +387,16 @@ class UpdateParameters(cst.CSTTransformer):
     ) -> List[str]:
         """Format the docstring lines for a single parameter."""
         # Extract and format the parameter type
-        param_type = param_info["type"].replace("Optional[", "").rstrip("]")
-        optional_str = "*optional*" if "Optional[" in param_info["type"] else ""
+        param_type = param_info["type"]
+        if param_type.startswith("Optional["):
+            param_type = param_type[len("Optional[") : -1]  # Remove Optional[ and closing ]
+            optional_str = ", *optional*"
+        else:
+            optional_str = ""
+
         # Create the parameter line with type and optionality
-        param_line = f"{param_indent}{param_name} (`{param_type}`, {optional_str}):"
+        param_line = f"{param_indent}{param_name} (`{param_type}`{optional_str}):"
+
         # Get and clean up the parameter description
         param_desc = (param_info.get("docstring") or "").strip()
         param_desc = " ".join(param_desc.split())
