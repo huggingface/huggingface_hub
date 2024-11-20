@@ -2769,14 +2769,22 @@ class InferenceClient:
         response = self.post(json=payload, model=model, task="visual-question-answering")
         return VisualQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
+    @_deprecate_arguments(
+        version="0.30.0",
+        deprecated_args=["labels"],
+        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
+    )
     def zero_shot_classification(
         self,
         text: str,
-        labels: List[str],
+        # temporarily keeping it optional for backward compatibility.
+        candidate_labels: List[str] = None,  # type: ignore
         *,
         multi_label: Optional[bool] = False,
         hypothesis_template: Optional[str] = None,
         model: Optional[str] = None,
+        # deprecated argument
+        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -2784,8 +2792,10 @@ class InferenceClient:
         Args:
             text (`str`):
                 The input text to classify.
-            labels (`List[str]`):
-                List of strings. Each string is the verbalization of a possible label for the input text.
+            candidate_labels (`List[str]`):
+                The set of possible class labels to classify the text into.
+            labels (`List[str]`, *optional*):
+                (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
@@ -2852,9 +2862,17 @@ class InferenceClient:
         ]
         ```
         """
-
+        # handle deprecation
+        if labels is not None:
+            if candidate_labels is not None:
+                raise ValueError(
+                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
+                )
+            candidate_labels = labels
+        elif candidate_labels is None:
+            raise ValueError("Must specify `candidate_labels`")
         parameters = {
-            "candidate_labels": labels,
+            "candidate_labels": candidate_labels,
             "multi_label": multi_label,
             "hypothesis_template": hypothesis_template,
         }
@@ -2870,13 +2888,21 @@ class InferenceClient:
             for label, score in zip(output["labels"], output["scores"])
         ]
 
+    @_deprecate_arguments(
+        version="0.30.0",
+        deprecated_args=["labels"],
+        custom_message="`labels`has been renamed to `candidate_labels` and will be removed in huggingface_hub>=0.30.0.",
+    )
     def zero_shot_image_classification(
         self,
         image: ContentT,
-        labels: List[str],
+        # temporarily keeping it optional for backward compatibility.
+        candidate_labels: Optional[List[str]] = None,
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
+        # deprecated argument
+        labels: Optional[List[str]] = None,  # type: ignore
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -2884,14 +2910,17 @@ class InferenceClient:
         Args:
             image (`Union[str, Path, bytes, BinaryIO]`):
                 The input image to caption. It can be raw bytes, an image file, or a URL to an online image.
-            labels (`List[str]`):
-                List of string possible labels. There must be at least 2 labels.
+            candidate_labels (`List[str]`):
+                The candidate labels for this image
+            labels (`List[str]`, *optional*):
+                (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
             hypothesis_template (`str`, *optional*):
                 The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
                 the placeholder with the candidate labels.
+
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.
 
@@ -2913,11 +2942,20 @@ class InferenceClient:
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
         """
+        # handle deprecation
+        if labels is not None:
+            if candidate_labels is not None:
+                raise ValueError(
+                    "Cannot specify both `labels` and `candidate_labels`. Use `candidate_labels` instead."
+                )
+            candidate_labels = labels
+        elif candidate_labels is None:
+            raise ValueError("Must specify `candidate_labels`")
         # Raise ValueError if input is less than 2 labels
-        if len(labels) < 2:
+        if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
         parameters = {
-            "candidate_labels": labels,
+            "candidate_labels": candidate_labels,
             "hypothesis_template": hypothesis_template,
         }
         payload = _prepare_payload(image, parameters=parameters, expect_binary=True)
