@@ -415,17 +415,15 @@ _SUBMOD_ATTRS = {
         "VisualQuestionAnsweringOutputElement",
         "VisualQuestionAnsweringParameters",
         "ZeroShotClassificationInput",
-        "ZeroShotClassificationInputData",
         "ZeroShotClassificationOutputElement",
         "ZeroShotClassificationParameters",
         "ZeroShotImageClassificationInput",
-        "ZeroShotImageClassificationInputData",
         "ZeroShotImageClassificationOutputElement",
         "ZeroShotImageClassificationParameters",
         "ZeroShotObjectDetectionBoundingBox",
         "ZeroShotObjectDetectionInput",
-        "ZeroShotObjectDetectionInputData",
         "ZeroShotObjectDetectionOutputElement",
+        "ZeroShotObjectDetectionParameters",
     ],
     "inference_api": [
         "InferenceApi",
@@ -945,17 +943,15 @@ if TYPE_CHECKING:  # pragma: no cover
         VisualQuestionAnsweringOutputElement,  # noqa: F401
         VisualQuestionAnsweringParameters,  # noqa: F401
         ZeroShotClassificationInput,  # noqa: F401
-        ZeroShotClassificationInputData,  # noqa: F401
         ZeroShotClassificationOutputElement,  # noqa: F401
         ZeroShotClassificationParameters,  # noqa: F401
         ZeroShotImageClassificationInput,  # noqa: F401
-        ZeroShotImageClassificationInputData,  # noqa: F401
         ZeroShotImageClassificationOutputElement,  # noqa: F401
         ZeroShotImageClassificationParameters,  # noqa: F401
         ZeroShotObjectDetectionBoundingBox,  # noqa: F401
         ZeroShotObjectDetectionInput,  # noqa: F401
-        ZeroShotObjectDetectionInputData,  # noqa: F401
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
+        ZeroShotObjectDetectionParameters,  # noqa: F401
     )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (
