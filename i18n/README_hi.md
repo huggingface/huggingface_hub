@@ -1,8 +1,12 @@
 <p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg">
+    <img alt="huggingface_hub library logo" src="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg" width="352" height="59" style="max-width: 100%;">
+  </picture>
   <br/>
-    <img alt="huggingface_hub library logo" src="https://huggingface.co/datasets/huggingface/documentation-images/raw/main/huggingface_hub.svg" width="376" height="59" style="max-width: 100%;">
   <br/>
-</p>
+</p> 
 
 <p align="center">
     <i>Huggingface Hub के लिए आधिकारिक पायथन क्लाइंट।</i>
