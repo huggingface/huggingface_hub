@@ -81,5 +81,3 @@ class DocumentQuestionAnsweringOutputElement(BaseInferenceType):
     """The start word index of the answer (in the OCR’d version of the input or provided word
     boxes).
     """
-    words: List[int]
-    """The index of each word/box pair that is in the answer"""

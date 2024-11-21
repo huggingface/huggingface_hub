@@ -369,8 +369,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationInput
 
-[[autodoc]] huggingface_hub.ZeroShotClassificationInputData
-
 [[autodoc]] huggingface_hub.ZeroShotClassificationOutputElement
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationParameters
@@ -380,8 +378,6 @@ This part of the lib is still under development and will be improved in future r
 ## zero_shot_image_classification
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationInput
-
-[[autodoc]] huggingface_hub.ZeroShotImageClassificationInputData
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationOutputElement
 
@@ -395,6 +391,6 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInput
 
-[[autodoc]] huggingface_hub.ZeroShotObjectDetectionInputData
-
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionOutputElement
+
+[[autodoc]] huggingface_hub.ZeroShotObjectDetectionParameters

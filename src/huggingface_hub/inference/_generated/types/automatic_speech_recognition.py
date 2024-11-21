@@ -80,7 +80,7 @@ class AutomaticSpeechRecognitionParameters(BaseInferenceType):
     Additional inference parameters for Automatic Speech Recognition
     """
 
-    generate: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
+    generation_parameters: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
     """Parametrization of the text generation process"""
     return_timestamps: Optional[bool] = None
     """Whether to output corresponding timestamps with the generated text"""

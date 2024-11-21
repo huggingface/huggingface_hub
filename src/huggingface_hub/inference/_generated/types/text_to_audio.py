@@ -40,11 +40,11 @@ class TextToAudioGenerationParameters(BaseInferenceType):
     max_length: Optional[int] = None
     """The maximum length (in tokens) of the generated text, including the input."""
     max_new_tokens: Optional[int] = None
-    """The maximum number of tokens to generate. Takes precedence over maxLength."""
+    """The maximum number of tokens to generate. Takes precedence over max_length."""
     min_length: Optional[int] = None
     """The minimum length (in tokens) of the generated text, including the input."""
     min_new_tokens: Optional[int] = None
-    """The minimum number of tokens to generate. Takes precedence over maxLength."""
+    """The minimum number of tokens to generate. Takes precedence over min_length."""
     num_beam_groups: Optional[int] = None
     """Number of groups to divide num_beams into in order to ensure diversity among different
     groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -80,7 +80,7 @@ class TextToAudioParameters(BaseInferenceType):
     Additional inference parameters for Text To Audio
     """
 
-    generate: Optional[TextToAudioGenerationParameters] = None
+    generation_parameters: Optional[TextToAudioGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 
