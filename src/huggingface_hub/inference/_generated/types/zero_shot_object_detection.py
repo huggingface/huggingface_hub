@@ -24,11 +24,7 @@ class ZeroShotObjectDetectionInput(BaseInferenceType):
     inputs: str
     """The input image data as a base64-encoded string."""
     parameters: ZeroShotObjectDetectionParameters
-<<<<<<< HEAD
-    """Additional inference parameters"""
-=======
     """Additional inference parameters for Zero Shot Object Detection"""
->>>>>>> 33840bea5991137603af9cfc6e142af5770a2ed7
 
 
 @dataclass
