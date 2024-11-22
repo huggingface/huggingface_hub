@@ -11,9 +11,7 @@ from .base import BaseInferenceType
 
 @dataclass
 class FillMaskParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Fill Mask
-    """
+    """Additional inference parameters for Fill Mask"""
 
     targets: Optional[List[str]] = None
     """When passed, the model will limit the scores to the passed targets instead of looking up
@@ -32,7 +30,7 @@ class FillMaskInput(BaseInferenceType):
     inputs: str
     """The text with masked tokens"""
     parameters: Optional[FillMaskParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Fill Mask"""
 
 
 @dataclass

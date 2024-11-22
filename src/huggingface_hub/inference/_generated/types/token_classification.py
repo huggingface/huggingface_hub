@@ -14,9 +14,7 @@ TokenClassificationAggregationStrategy = Literal["none", "simple", "first", "ave
 
 @dataclass
 class TokenClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Token Classification
-    """
+    """Additional inference parameters for Token Classification"""
 
     aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None
     """The strategy used to fuse tokens based on model predictions"""
@@ -33,7 +31,7 @@ class TokenClassificationInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[TokenClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Token Classification"""
 
 
 @dataclass

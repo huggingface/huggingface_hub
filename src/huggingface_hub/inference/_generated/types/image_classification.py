@@ -14,9 +14,7 @@ ImageClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 @dataclass
 class ImageClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image Classification
-    """
+    """Additional inference parameters for Image Classification"""
 
     function_to_apply: Optional["ImageClassificationOutputTransform"] = None
     """The function to apply to the model outputs in order to retrieve the scores."""
@@ -33,7 +31,7 @@ class ImageClassificationInput(BaseInferenceType):
     also provide the image data as a raw bytes payload.
     """
     parameters: Optional[ImageClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image Classification"""
 
 
 @dataclass

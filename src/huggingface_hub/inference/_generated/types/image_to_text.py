@@ -14,9 +14,7 @@ ImageToTextEarlyStoppingEnum = Literal["never"]
 
 @dataclass
 class ImageToTextGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -76,9 +74,7 @@ class ImageToTextGenerationParameters(BaseInferenceType):
 
 @dataclass
 class ImageToTextParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image To Text
-    """
+    """Additional inference parameters for Image To Text"""
 
     generation_parameters: Optional[ImageToTextGenerationParameters] = None
     """Parametrization of the text generation process"""
@@ -93,7 +89,7 @@ class ImageToTextInput(BaseInferenceType):
     inputs: Any
     """The input image data"""
     parameters: Optional[ImageToTextParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image To Text"""
 
 
 @dataclass

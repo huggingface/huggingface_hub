@@ -14,9 +14,7 @@ AudioClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 @dataclass
 class AudioClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Audio Classification
-    """
+    """Additional inference parameters for Audio Classification"""
 
     function_to_apply: Optional["AudioClassificationOutputTransform"] = None
     """The function to apply to the model outputs in order to retrieve the scores."""
@@ -33,7 +31,7 @@ class AudioClassificationInput(BaseInferenceType):
     also provide the audio data as a raw bytes payload.
     """
     parameters: Optional[AudioClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Audio Classification"""
 
 
 @dataclass

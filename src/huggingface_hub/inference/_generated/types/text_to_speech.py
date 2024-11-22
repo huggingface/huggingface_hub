@@ -14,9 +14,7 @@ TextToSpeechEarlyStoppingEnum = Literal["never"]
 
 @dataclass
 class TextToSpeechGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -76,9 +74,7 @@ class TextToSpeechGenerationParameters(BaseInferenceType):
 
 @dataclass
 class TextToSpeechParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Speech
-    """
+    """Additional inference parameters for Text To Speech"""
 
     generation_parameters: Optional[TextToSpeechGenerationParameters] = None
     """Parametrization of the text generation process"""
@@ -91,7 +87,7 @@ class TextToSpeechInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[TextToSpeechParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Speech"""
 
 
 @dataclass

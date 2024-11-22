@@ -14,9 +14,7 @@ VideoClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 @dataclass
 class VideoClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Video Classification
-    """
+    """Additional inference parameters for Video Classification"""
 
     frame_sampling_rate: Optional[int] = None
     """The sampling rate used to select frames from the video."""
@@ -35,7 +33,7 @@ class VideoClassificationInput(BaseInferenceType):
     inputs: Any
     """The input video data"""
     parameters: Optional[VideoClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Video Classification"""
 
 
 @dataclass

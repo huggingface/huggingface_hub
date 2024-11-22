@@ -14,9 +14,7 @@ TextClassificationOutputTransform = Literal["sigmoid", "softmax", "none"]
 
 @dataclass
 class TextClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text Classification
-    """
+    """Additional inference parameters for Text Classification"""
 
     function_to_apply: Optional["TextClassificationOutputTransform"] = None
     """The function to apply to the model outputs in order to retrieve the scores."""
@@ -31,7 +29,7 @@ class TextClassificationInput(BaseInferenceType):
     inputs: str
     """The text to classify"""
     parameters: Optional[TextClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text Classification"""
 
 
 @dataclass

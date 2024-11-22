@@ -21,9 +21,7 @@ class VisualQuestionAnsweringInputData(BaseInferenceType):
 
 @dataclass
 class VisualQuestionAnsweringParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Visual Question Answering
-    """
+    """Additional inference parameters for Visual Question Answering"""
 
     top_k: Optional[int] = None
     """The number of answers to return (will be chosen by order of likelihood). Note that we
@@ -39,7 +37,7 @@ class VisualQuestionAnsweringInput(BaseInferenceType):
     inputs: VisualQuestionAnsweringInputData
     """One (image, question) pair to answer"""
     parameters: Optional[VisualQuestionAnsweringParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Visual Question Answering"""
 
 
 @dataclass

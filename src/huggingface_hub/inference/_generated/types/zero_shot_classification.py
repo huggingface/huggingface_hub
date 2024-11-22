@@ -11,9 +11,13 @@ from .base import BaseInferenceType
 
 @dataclass
 class ZeroShotClassificationParameters(BaseInferenceType):
+<<<<<<< HEAD
     """Additional inference parameters
     Additional inference parameters for Zero Shot Classification
     """
+=======
+    """Additional inference parameters for Zero Shot Classification"""
+>>>>>>> 33840bea5991137603af9cfc6e142af5770a2ed7
 
     candidate_labels: List[str]
     """The set of possible class labels to classify the text into."""
@@ -35,7 +39,7 @@ class ZeroShotClassificationInput(BaseInferenceType):
     inputs: str
     """The text to classify"""
     parameters: ZeroShotClassificationParameters
-    """Additional inference parameters"""
+    """Additional inference parameters for Zero Shot Classification"""
 
 
 @dataclass

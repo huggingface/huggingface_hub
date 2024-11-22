@@ -14,9 +14,7 @@ AutomaticSpeechRecognitionEarlyStoppingEnum = Literal["never"]
 
 @dataclass
 class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -76,9 +74,7 @@ class AutomaticSpeechRecognitionGenerationParameters(BaseInferenceType):
 
 @dataclass
 class AutomaticSpeechRecognitionParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Automatic Speech Recognition
-    """
+    """Additional inference parameters for Automatic Speech Recognition"""
 
     generation_parameters: Optional[AutomaticSpeechRecognitionGenerationParameters] = None
     """Parametrization of the text generation process"""
@@ -95,7 +91,7 @@ class AutomaticSpeechRecognitionInput(BaseInferenceType):
     also provide the audio data as a raw bytes payload.
     """
     parameters: Optional[AutomaticSpeechRecognitionParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Automatic Speech Recognition"""
 
 
 @dataclass

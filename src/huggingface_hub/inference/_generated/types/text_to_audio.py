@@ -14,9 +14,7 @@ TextToAudioEarlyStoppingEnum = Literal["never"]
 
 @dataclass
 class TextToAudioGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -76,9 +74,7 @@ class TextToAudioGenerationParameters(BaseInferenceType):
 
 @dataclass
 class TextToAudioParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Audio
-    """
+    """Additional inference parameters for Text To Audio"""
 
     generation_parameters: Optional[TextToAudioGenerationParameters] = None
     """Parametrization of the text generation process"""
@@ -91,7 +87,7 @@ class TextToAudioInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[TextToAudioParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Audio"""
 
 
 @dataclass
