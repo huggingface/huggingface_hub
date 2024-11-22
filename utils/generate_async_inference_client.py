@@ -226,7 +226,7 @@ ASYNC_POST_CODE = """
                         logger.info(f"Waiting for model to be loaded on the server: {error}")
                         if "X-wait-for-model" not in headers and url.startswith(INFERENCE_ENDPOINT):
                             headers["X-wait-for-model"] = "1"
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                         if timeout is not None:
                             timeout = max(self.timeout - (time.time() - t0), 1)  # type: ignore
                         continue
