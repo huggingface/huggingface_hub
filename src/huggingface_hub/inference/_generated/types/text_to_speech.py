@@ -14,9 +14,7 @@ TextToSpeechEarlyStoppingEnum = Literal["never"]
 
 @dataclass
 class TextToSpeechGenerationParameters(BaseInferenceType):
-    """Parametrization of the text generation process
-    Ad-hoc parametrization of the text generation process
-    """
+    """Parametrization of the text generation process"""
 
     do_sample: Optional[bool] = None
     """Whether to use sampling instead of greedy decoding when generating new tokens."""
@@ -40,11 +38,11 @@ class TextToSpeechGenerationParameters(BaseInferenceType):
     max_length: Optional[int] = None
     """The maximum length (in tokens) of the generated text, including the input."""
     max_new_tokens: Optional[int] = None
-    """The maximum number of tokens to generate. Takes precedence over maxLength."""
+    """The maximum number of tokens to generate. Takes precedence over max_length."""
     min_length: Optional[int] = None
     """The minimum length (in tokens) of the generated text, including the input."""
     min_new_tokens: Optional[int] = None
-    """The minimum number of tokens to generate. Takes precedence over maxLength."""
+    """The minimum number of tokens to generate. Takes precedence over min_length."""
     num_beam_groups: Optional[int] = None
     """Number of groups to divide num_beams into in order to ensure diversity among different
     groups of beams. See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -76,11 +74,9 @@ class TextToSpeechGenerationParameters(BaseInferenceType):
 
 @dataclass
 class TextToSpeechParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Speech
-    """
+    """Additional inference parameters for Text To Speech"""
 
-    generate: Optional[TextToSpeechGenerationParameters] = None
+    generation_parameters: Optional[TextToSpeechGenerationParameters] = None
     """Parametrization of the text generation process"""
 
 
@@ -91,7 +87,7 @@ class TextToSpeechInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[TextToSpeechParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Speech"""
 
 
 @dataclass

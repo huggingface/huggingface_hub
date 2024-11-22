@@ -14,9 +14,7 @@ ImageSegmentationSubtask = Literal["instance", "panoptic", "semantic"]
 
 @dataclass
 class ImageSegmentationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image Segmentation
-    """
+    """Additional inference parameters for Image Segmentation"""
 
     mask_threshold: Optional[float] = None
     """Threshold to use when turning the predicted masks into binary values."""
@@ -37,7 +35,7 @@ class ImageSegmentationInput(BaseInferenceType):
     also provide the image data as a raw bytes payload.
     """
     parameters: Optional[ImageSegmentationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image Segmentation"""
 
 
 @dataclass

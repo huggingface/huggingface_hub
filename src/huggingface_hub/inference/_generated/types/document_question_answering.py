@@ -21,9 +21,7 @@ class DocumentQuestionAnsweringInputData(BaseInferenceType):
 
 @dataclass
 class DocumentQuestionAnsweringParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Document Question Answering
-    """
+    """Additional inference parameters for Document Question Answering"""
 
     doc_stride: Optional[int] = None
     """If the words in the document are too long to fit with the question for the model, it will
@@ -62,7 +60,7 @@ class DocumentQuestionAnsweringInput(BaseInferenceType):
     inputs: DocumentQuestionAnsweringInputData
     """One (document, question) pair to answer"""
     parameters: Optional[DocumentQuestionAnsweringParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Document Question Answering"""
 
 
 @dataclass
@@ -81,5 +79,3 @@ class DocumentQuestionAnsweringOutputElement(BaseInferenceType):
     """The start word index of the answer (in the OCR’d version of the input or provided word
     boxes).
     """
-    words: List[int]
-    """The index of each word/box pair that is in the answer"""

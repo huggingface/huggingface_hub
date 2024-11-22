@@ -26,7 +26,7 @@ class TableQuestionAnsweringInput(BaseInferenceType):
     inputs: TableQuestionAnsweringInputData
     """One (table, question) pair to answer"""
     parameters: Optional[Dict[str, Any]] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Table Question Answering"""
 
 
 @dataclass

@@ -19,9 +19,7 @@ class ImageToImageTargetSize(BaseInferenceType):
 
 @dataclass
 class ImageToImageParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Image To Image
-    """
+    """Additional inference parameters for Image To Image"""
 
     guidance_scale: Optional[float] = None
     """For diffusion models. A higher guidance scale value encourages the model to generate
@@ -46,7 +44,7 @@ class ImageToImageInput(BaseInferenceType):
     also provide the image data as a raw bytes payload.
     """
     parameters: Optional[ImageToImageParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Image To Image"""
 
 
 @dataclass

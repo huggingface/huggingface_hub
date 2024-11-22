@@ -4,7 +4,7 @@
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
 from dataclasses import dataclass
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
 from .base import BaseInferenceType
 
@@ -14,9 +14,7 @@ TokenClassificationAggregationStrategy = Literal["none", "simple", "first", "ave
 
 @dataclass
 class TokenClassificationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Token Classification
-    """
+    """Additional inference parameters for Token Classification"""
 
     aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None
     """The strategy used to fuse tokens based on model predictions"""
@@ -33,21 +31,22 @@ class TokenClassificationInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[TokenClassificationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Token Classification"""
 
 
 @dataclass
 class TokenClassificationOutputElement(BaseInferenceType):
     """Outputs of inference for the Token Classification task"""
 
-    label: Any
+    end: int
+    """The character position in the input where this group ends."""
     score: float
     """The associated score / probability"""
-    end: Optional[int] = None
-    """The character position in the input where this group ends."""
-    entity_group: Optional[str] = None
-    """The predicted label for that group of tokens"""
-    start: Optional[int] = None
+    start: int
     """The character position in the input where this group begins."""
-    word: Optional[str] = None
+    word: str
     """The corresponding text"""
+    entity: Optional[str] = None
+    """The predicted label for a single token"""
+    entity_group: Optional[str] = None
+    """The predicted label for a group of one or more tokens"""
