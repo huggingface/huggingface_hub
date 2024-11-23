@@ -30,8 +30,9 @@ class CommitScheduler:
     """
     Scheduler to upload a local folder to the Hub at regular intervals (e.g. push to hub every 5 minutes).
 
-    The scheduler is started when instantiated and run indefinitely. At the end of your script, a last commit is
-    triggered. Checkout the [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#scheduled-uploads)
+    The recommended way to use the scheduler is to use it as a context manager. This ensures that the scheduler is
+    properly stopped and the last commit is triggered when the script ends. The scheduler can also be stopped manually
+    with the `stop` method. Checkout the [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#scheduled-uploads)
     to learn more about how to use it.
 
     Args:
@@ -77,6 +78,22 @@ class CommitScheduler:
     # Some time later (...)
     >>> with csv_path.open("a") as f:
     ...     f.write("second line")
+    ```
+
+    Example using a context manager:
+    ```py
+    >>> from pathlib import Path
+    >>> from huggingface_hub import CommitScheduler
+
+    >>> with CommitScheduler(repo_id="test_scheduler", repo_type="dataset", folder_path="watched_folder", every=10) as scheduler:
+    ...     csv_path = Path("watched_folder/data.csv")
+    ...     with csv_path.open("a") as f:
+    ...         f.write("first line")
+    ...     (...)
+    ...     with csv_path.open("a") as f:
+    ...         f.write("second line")
+
+    # Scheduler is now stopped and last commit have been triggered
     ```
     """
 
@@ -143,6 +160,15 @@ class CommitScheduler:
         A stopped scheduler cannot be restarted. Mostly for tests purposes.
         """
         self.__stopped = True
+
+    def __enter__(self) -> "CommitScheduler":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        # Upload last changes before exiting
+        self.trigger().result()
+        self.stop()
+        return
 
     def _run_scheduler(self) -> None:
         """Dumb thread waiting between each scheduled push to Hub."""
