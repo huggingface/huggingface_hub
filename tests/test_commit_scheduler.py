@@ -160,6 +160,23 @@ class TestCommitScheduler(unittest.TestCase):
         self.assertEqual(len(commits), 1)
         self.assertEqual(commits[0].title, "Super-squash branch 'main' using huggingface_hub")
 
+    def test_context_manager(self) -> None:
+        watched_folder = self.cache_dir / "watched_folder"
+        watched_folder.mkdir(exist_ok=True, parents=True)
+        file_path = watched_folder / "file.txt"
+
+        with CommitScheduler(
+            folder_path=watched_folder,
+            repo_id=self.repo_name,
+            every=5,  # every 5min
+            hf_api=self.api,
+        ) as scheduler:
+            with file_path.open("w") as f:
+                f.write("first line\n")
+
+        assert "file.txt" in self.api.list_repo_files(scheduler.repo_id)
+        assert scheduler._CommitScheduler__stopped  # means the scheduler has been stopped when exiting the context
+
 
 @pytest.mark.usefixtures("fx_cache_dir")
 class TestPartialFileIO(unittest.TestCase):
