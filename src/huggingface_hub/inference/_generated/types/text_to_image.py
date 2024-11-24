@@ -19,9 +19,7 @@ class TextToImageTargetSize(BaseInferenceType):
 
 @dataclass
 class TextToImageParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text To Image
-    """
+    """Additional inference parameters for Text To Image"""
 
     guidance_scale: Optional[float] = None
     """A higher guidance scale value encourages the model to generate images closely linked to
@@ -48,7 +46,7 @@ class TextToImageInput(BaseInferenceType):
     inputs: str
     """The input text data (sometimes called "prompt")"""
     parameters: Optional[TextToImageParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text To Image"""
 
 
 @dataclass

@@ -14,9 +14,7 @@ TranslationTruncationStrategy = Literal["do_not_truncate", "longest_first", "onl
 
 @dataclass
 class TranslationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Translation
-    """
+    """Additional inference parameters for Translation"""
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
@@ -41,7 +39,7 @@ class TranslationInput(BaseInferenceType):
     inputs: str
     """The text to translate."""
     parameters: Optional[TranslationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Translation"""
 
 
 @dataclass

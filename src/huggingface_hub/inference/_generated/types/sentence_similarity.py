@@ -25,4 +25,4 @@ class SentenceSimilarityInput(BaseInferenceType):
 
     inputs: SentenceSimilarityInputData
     parameters: Optional[Dict[str, Any]] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Sentence Similarity"""
