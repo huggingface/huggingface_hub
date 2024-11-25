@@ -75,8 +75,8 @@ class HFSummaryWriter(SummaryWriter):
         repo_revision (`str`, *optional*):
             The revision of the repo to which the logs will be pushed. Defaults to "main".
         repo_private (`bool`, *optional*):
-            Whether to create a private repo or not. Defaults to False. This argument is ignored if the repo already
-            exists.
+            Whether to create a private repo or not. If `None` (default), will default to been public except if
+            the organization's default is private. This argument is ignored if the repo already exists.
         path_in_repo (`str`, *optional*):
             The path to the folder in the repo where the logs will be pushed. Defaults to "tensorboard/".
         repo_allow_patterns (`List[str]` or `str`, *optional*):
@@ -137,7 +137,7 @@ class HFSummaryWriter(SummaryWriter):
         squash_history: bool = False,
         repo_type: Optional[str] = None,
         repo_revision: Optional[str] = None,
-        repo_private: bool = False,
+        repo_private: Optional[bool] = None,
         path_in_repo: Optional[str] = "tensorboard",
         repo_allow_patterns: Optional[Union[List[str], str]] = "*.tfevents.*",
         repo_ignore_patterns: Optional[Union[List[str], str]] = None,

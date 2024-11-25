@@ -620,7 +620,7 @@ class ModelHubMixin:
         *,
         config: Optional[Union[dict, "DataclassInstance"]] = None,
         commit_message: str = "Push model using huggingface_hub.",
-        private: bool = False,
+        private: Optional[bool] = None,
         token: Optional[str] = None,
         branch: Optional[str] = None,
         create_pr: Optional[bool] = None,
@@ -643,8 +643,9 @@ class ModelHubMixin:
                 Model configuration specified as a key/value dictionary or a dataclass instance.
             commit_message (`str`, *optional*):
                 Message to commit while pushing.
-            private (`bool`, *optional*, defaults to `False`):
+            private (`bool`, *optional*):
                 Whether the repository created should be private.
+                If `None` (default), will default to been public except if the organization's default is private.
             token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `huggingface-cli login`.
