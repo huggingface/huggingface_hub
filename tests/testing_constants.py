@@ -11,9 +11,9 @@ OTHER_USER = "DVUser"
 OTHER_TOKEN = "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"
 
 # Used to test enterprise features, typically creating private repos by default
-ENTERPRISE_USER = "DVEnterpriseUser"
-ENTERPRISE_ORG = "DVEnterpriseOrg"
-ENTERPRISE_TOKEN = "hf_enterprise_user_token"
+ENTERPRISE_USER = "EnterpriseAdmin"
+ENTERPRISE_ORG = "EnterpriseOrgPrivate"
+ENTERPRISE_TOKEN = "hf_enterprise_admin_token"
 
 ENDPOINT_PRODUCTION = "https://huggingface.co"
 ENDPOINT_STAGING = "https://hub-ci.huggingface.co"
