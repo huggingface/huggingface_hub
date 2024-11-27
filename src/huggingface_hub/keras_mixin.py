@@ -301,7 +301,7 @@ def push_to_hub_keras(
     *,
     config: Optional[dict] = None,
     commit_message: str = "Push Keras model using huggingface_hub.",
-    private: bool = False,
+    private: Optional[bool] = None,
     api_endpoint: Optional[str] = None,
     token: Optional[str] = None,
     branch: Optional[str] = None,
@@ -330,8 +330,9 @@ def push_to_hub_keras(
                 ID of the repository to push to (example: `"username/my-model"`).
         commit_message (`str`, *optional*, defaults to "Add Keras model"):
             Message to commit while pushing.
-        private (`bool`, *optional*, defaults to `False`):
+        private (`bool`, *optional*):
             Whether the repository created should be private.
+            If `None` (default), the repo will be public unless the organization's default is private.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
         token (`str`, *optional*):

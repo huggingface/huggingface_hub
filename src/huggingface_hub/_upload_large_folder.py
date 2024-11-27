@@ -52,7 +52,7 @@ def upload_large_folder_internal(
     *,
     repo_type: str,  # Repo type is required!
     revision: Optional[str] = None,
-    private: bool = False,
+    private: Optional[bool] = None,
     allow_patterns: Optional[Union[List[str], str]] = None,
     ignore_patterns: Optional[Union[List[str], str]] = None,
     num_workers: Optional[int] = None,
