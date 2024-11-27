@@ -50,8 +50,7 @@ class CommitScheduler:
         revision (`str`, *optional*):
             The revision of the repo to commit to. Defaults to `main`.
         private (`bool`, *optional*):
-            Whether to make the repo private. If `None` (default), will default to been public except if
-            the organization's default is private. This value is ignored if the repo already exist.
+            Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         token (`str`, *optional*):
             The token to use to commit to the repo. Defaults to the token saved on the machine.
         allow_patterns (`List[str]` or `str`, *optional*):

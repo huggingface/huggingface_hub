@@ -3462,8 +3462,7 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             private (`bool`, *optional*):
-                Whether the model repo should be private. If `None` (default), will default to been public except if
-                the organization's default is private.
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -5049,7 +5048,7 @@ class HfApi:
                 The branch to commit to. If not provided, the `main` branch will be used.
             private (`bool`, `optional`):
                 Whether the repository should be private.
-                If `None` (default), will default to been public except if the organization's default is private.
+                If `None` (default), the repo will be public unless the organization's default is private.
             allow_patterns (`List[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`List[str]` or `str`, *optional*):

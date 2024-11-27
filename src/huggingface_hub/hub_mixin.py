@@ -645,7 +645,7 @@ class ModelHubMixin:
                 Message to commit while pushing.
             private (`bool`, *optional*):
                 Whether the repository created should be private.
-                If `None` (default), will default to been public except if the organization's default is private.
+                If `None` (default), the repo will be public unless the organization's default is private.
             token (`str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `huggingface-cli login`.

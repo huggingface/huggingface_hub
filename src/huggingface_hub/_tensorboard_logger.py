@@ -75,8 +75,7 @@ class HFSummaryWriter(SummaryWriter):
         repo_revision (`str`, *optional*):
             The revision of the repo to which the logs will be pushed. Defaults to "main".
         repo_private (`bool`, *optional*):
-            Whether to create a private repo or not. If `None` (default), will default to been public except if
-            the organization's default is private. This argument is ignored if the repo already exists.
+            Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         path_in_repo (`str`, *optional*):
             The path to the folder in the repo where the logs will be pushed. Defaults to "tensorboard/".
         repo_allow_patterns (`List[str]` or `str`, *optional*):

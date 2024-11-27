@@ -332,7 +332,7 @@ def push_to_hub_keras(
             Message to commit while pushing.
         private (`bool`, *optional*):
             Whether the repository created should be private.
-            If `None` (default), will default to been public except if the organization's default is private.
+            If `None` (default), the repo will be public unless the organization's default is private.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
         token (`str`, *optional*):
