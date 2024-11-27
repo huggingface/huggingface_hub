@@ -3411,7 +3411,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "hardware": "t4-medium",
@@ -3432,7 +3431,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "hardware": "t4-medium",
@@ -3453,7 +3451,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "storageTier": "large",
@@ -3480,7 +3477,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "secrets": [
