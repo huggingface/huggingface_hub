@@ -53,6 +53,9 @@ def parse_datetime(date_string: str) -> datetime:
         if len(date_string) == 30:
             # Means timezoned-timestamp with nanoseconds precision. We need to truncate the last 3 digits.
             date_string = date_string[:-4] + "Z"
+        if len(date_string) == 20:
+            # Means timezoned-timestamp without milliseconds precision. We need to add ".000Z" to the end.
+            date_string = date_string[:-1] + ".000Z"
         dt = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%fZ")
         return dt.replace(tzinfo=timezone.utc)  # Set explicit timezone
     except ValueError as e:
