@@ -29,7 +29,9 @@ from .chat_completion import (
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,
     ChatCompletionInputStreamOptions,
-    ChatCompletionInputToolType,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolChoiceClass,
+    ChatCompletionInputToolChoiceEnum,
     ChatCompletionInputURL,
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
@@ -49,7 +51,6 @@ from .chat_completion import (
     ChatCompletionStreamOutputLogprobs,
     ChatCompletionStreamOutputTopLogprob,
     ChatCompletionStreamOutputUsage,
-    ToolElement,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (

@@ -64,7 +64,9 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputStreamOptions
 
-[[autodoc]] huggingface_hub.ChatCompletionInputToolType
+[[autodoc]] huggingface_hub.ChatCompletionInputTool
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolChoiceClass
 
 [[autodoc]] huggingface_hub.ChatCompletionInputURL
 
@@ -103,8 +105,6 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputUsage
-
-[[autodoc]] huggingface_hub.ToolElement
 
 
 
