@@ -3439,7 +3439,7 @@ class HfApi:
         repo_id: str,
         *,
         token: Union[str, bool, None] = None,
-        private: bool = False,
+        private: Optional[bool] = None,
         repo_type: Optional[str] = None,
         exist_ok: bool = False,
         resource_group_id: Optional[str] = None,
@@ -3461,8 +3461,8 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            private (`bool`, *optional*, defaults to `False`):
-                Whether the model repo should be private.
+            private (`bool`, *optional*):
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or
                 space, `None` or `"model"` if uploading to a model. Default is
@@ -3503,7 +3503,9 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError("Invalid repo type")
 
-        json: Dict[str, Any] = {"name": name, "organization": organization, "private": private}
+        json: Dict[str, Any] = {"name": name, "organization": organization}
+        if private is not None:
+            json["private"] = private
         if repo_type is not None:
             json["type"] = repo_type
         if repo_type == "space":
@@ -5017,7 +5019,7 @@ class HfApi:
         *,
         repo_type: str,  # Repo type is required!
         revision: Optional[str] = None,
-        private: bool = False,
+        private: Optional[bool] = None,
         allow_patterns: Optional[Union[List[str], str]] = None,
         ignore_patterns: Optional[Union[List[str], str]] = None,
         num_workers: Optional[int] = None,
@@ -5045,7 +5047,8 @@ class HfApi:
             revision (`str`, `optional`):
                 The branch to commit to. If not provided, the `main` branch will be used.
             private (`bool`, `optional`):
-                Whether the repository should be private. Defaults to False.
+                Whether the repository should be private.
+                If `None` (default), the repo will be public unless the organization's default is private.
             allow_patterns (`List[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are uploaded.
             ignore_patterns (`List[str]` or `str`, *optional*):
