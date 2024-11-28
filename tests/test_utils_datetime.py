@@ -20,6 +20,12 @@ class TestDatetimeUtils(unittest.TestCase):
             datetime(2022, 8, 19, 7, 19, 38, 123456, tzinfo=timezone.utc),
         )
 
+        # Test without milliseconds (should add .000)
+        self.assertEqual(
+            parse_datetime("2024-11-16T00:27:02Z"),
+            datetime(2024, 11, 16, 0, 27, 2, 0, tzinfo=timezone.utc),
+        )
+
         with pytest.raises(ValueError, match=r".*Cannot parse '2022-08-19T07:19:38' as a datetime.*"):
             parse_datetime("2022-08-19T07:19:38")
 
