@@ -84,7 +84,16 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils.endpoint_helpers import _is_emission_within_threshold
 
-from .testing_constants import ENDPOINT_STAGING, FULL_NAME, OTHER_TOKEN, OTHER_USER, TOKEN, USER
+from .testing_constants import (
+    ENDPOINT_STAGING,
+    ENTERPRISE_ORG,
+    ENTERPRISE_TOKEN,
+    FULL_NAME,
+    OTHER_TOKEN,
+    OTHER_USER,
+    TOKEN,
+    USER,
+)
 from .testing_utils import (
     DUMMY_DATASET_ID,
     DUMMY_DATASET_ID_REVISION_ONE_SPECIFIC_COMMIT,
@@ -454,6 +463,15 @@ class CommitApiTest(HfApiCommonTest):
 
         # Clean up
         self._api.delete_repo(repo_id=repo_id, token=OTHER_TOKEN)
+
+    def test_create_repo_private_by_default(self):
+        """Enterprise Hub allows creating private repos by default. Let's test that."""
+        repo_id = f"{ENTERPRISE_ORG}/{repo_name()}"
+        self._api.create_repo(repo_id, token=ENTERPRISE_TOKEN)
+        info = self._api.model_info(repo_id, token=ENTERPRISE_TOKEN, expand="private")
+        assert info.private
+
+        self._api.delete_repo(repo_id, token=ENTERPRISE_TOKEN)
 
     @use_tmp_repo()
     def test_upload_file_create_pr(self, repo_url: RepoUrl) -> None:
@@ -3393,7 +3411,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "hardware": "t4-medium",
@@ -3414,7 +3431,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "hardware": "t4-medium",
@@ -3435,7 +3451,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "storageTier": "large",
@@ -3462,7 +3477,6 @@ class TestSpaceAPIMocked(unittest.TestCase):
             json={
                 "name": self.repo_id,
                 "organization": None,
-                "private": False,
                 "type": "space",
                 "sdk": "gradio",
                 "secrets": [

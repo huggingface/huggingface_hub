@@ -297,7 +297,9 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputMessageChunk",
         "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
-        "ChatCompletionInputToolType",
+        "ChatCompletionInputTool",
+        "ChatCompletionInputToolChoiceClass",
+        "ChatCompletionInputToolChoiceEnum",
         "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
@@ -400,7 +402,6 @@ _SUBMOD_ATTRS = {
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
-        "ToolElement",
         "TranslationInput",
         "TranslationOutput",
         "TranslationParameters",
@@ -825,7 +826,9 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputMessageChunk,  # noqa: F401
         ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
-        ChatCompletionInputToolType,  # noqa: F401
+        ChatCompletionInputTool,  # noqa: F401
+        ChatCompletionInputToolChoiceClass,  # noqa: F401
+        ChatCompletionInputToolChoiceEnum,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
@@ -928,7 +931,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
-        ToolElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         TranslationParameters,  # noqa: F401

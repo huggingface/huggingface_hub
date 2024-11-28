@@ -57,11 +57,9 @@ def mock_stored_tokens():
         "token2": "hf_5678",
         "active_token": "hf_9012",
     }
-    with (
-        patch("huggingface_hub._login.get_stored_tokens", return_value=stored_tokens),
-        patch("huggingface_hub.utils._auth.get_stored_tokens", return_value=stored_tokens),
-    ):
-        yield stored_tokens
+    with patch("huggingface_hub._login.get_stored_tokens", return_value=stored_tokens):
+        with patch("huggingface_hub.utils._auth.get_stored_tokens", return_value=stored_tokens):
+            yield stored_tokens
 
 
 def assert_in_logs(caplog: LogCaptureFixture, expected_output):
@@ -90,11 +88,9 @@ def test_login_command_with_git(mock_whoami_api_call, caplog: LogCaptureFixture)
     args = type("Args", (), {"token": MOCK_TOKEN, "add_to_git_credential": True})()
     cmd = LoginCommand(args)
 
-    with (
-        patch("huggingface_hub._login._is_git_credential_helper_configured", return_value=True),
-        patch("huggingface_hub.utils.set_git_credential"),
-    ):
-        cmd.run()
+    with patch("huggingface_hub._login._is_git_credential_helper_configured", return_value=True):
+        with patch("huggingface_hub.utils.set_git_credential"):
+            cmd.run()
 
     assert_in_logs(caplog, "Login successful")
     assert_in_logs(caplog, "Your token has been saved in your configured git credential helpers")

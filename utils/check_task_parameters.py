@@ -71,7 +71,6 @@ TASKS_TO_SKIP = [
     "table_question_answering",
     "automatic_speech_recognition",
     "image_to_text",
-    "image_to_image",
 ]
 
 PARAMETERS_DATACLASS_REGEX = re.compile(
@@ -312,7 +311,7 @@ class UpdateParameters(cst.CSTTransformer):
                 new_param = cst.Param(
                     name=cst.Name(param_name),
                     annotation=annotation,
-                    default=param_info["default_value"],
+                    default=cst.Name(param_info["default_value"]),
                 )
                 new_kwonly_params.append(new_param)
         # Return the updated parameters object with new and updated parameters
