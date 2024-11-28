@@ -70,7 +70,9 @@ from huggingface_hub.inference._generated.types import (
     AutomaticSpeechRecognitionOutput,
     ChatCompletionInputGrammarType,
     ChatCompletionInputStreamOptions,
-    ChatCompletionInputToolType,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolChoiceClass,
+    ChatCompletionInputToolChoiceEnum,
     ChatCompletionOutput,
     ChatCompletionStreamOutput,
     DocumentQuestionAnsweringOutputElement,
@@ -79,6 +81,7 @@ from huggingface_hub.inference._generated.types import (
     ImageClassificationOutputTransform,
     ImageSegmentationOutputElement,
     ImageSegmentationSubtask,
+    ImageToImageTargetSize,
     ImageToTextOutput,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
@@ -94,7 +97,6 @@ from huggingface_hub.inference._generated.types import (
     TextToSpeechEarlyStoppingEnum,
     TokenClassificationAggregationStrategy,
     TokenClassificationOutputElement,
-    ToolElement,
     TranslationOutput,
     TranslationTruncationStrategy,
     VisualQuestionAnsweringOutputElement,
@@ -473,9 +475,9 @@ class InferenceClient:
         stop: Optional[List[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ToolElement]] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> ChatCompletionOutput: ...
@@ -498,9 +500,9 @@ class InferenceClient:
         stop: Optional[List[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ToolElement]] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
@@ -523,9 +525,9 @@ class InferenceClient:
         stop: Optional[List[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ToolElement]] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
@@ -548,9 +550,9 @@ class InferenceClient:
         stop: Optional[List[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
         temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None,
+        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
         tool_prompt: Optional[str] = None,
-        tools: Optional[List[ToolElement]] = None,
+        tools: Optional[List[ChatCompletionInputTool]] = None,
         top_logprobs: Optional[int] = None,
         top_p: Optional[float] = None,
     ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
@@ -616,11 +618,11 @@ class InferenceClient:
             top_p (`float`, *optional*):
                 Fraction of the most likely next words to sample from.
                 Must be between 0 and 1. Defaults to 1.0.
-            tool_choice ([`ChatCompletionInputToolType`] or `str`, *optional*):
+            tool_choice ([`ChatCompletionInputToolChoiceClass`] or [`ChatCompletionInputToolChoiceEnum`], *optional*):
                 The tool to use for the completion. Defaults to "auto".
             tool_prompt (`str`, *optional*):
                 A prompt to be appended before the tools.
-            tools (List of [`ToolElement`], *optional*):
+            tools (List of [`ChatCompletionInputTool`], *optional*):
                 A list of tools the model may call. Currently, only functions are supported as a tool. Use this to
                 provide a list of functions the model may generate JSON inputs for.
 
@@ -1224,12 +1226,11 @@ class InferenceClient:
         image: ContentT,
         prompt: Optional[str] = None,
         *,
-        negative_prompt: Optional[str] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
+        negative_prompt: Optional[List[str]] = None,
         num_inference_steps: Optional[int] = None,
         guidance_scale: Optional[float] = None,
         model: Optional[str] = None,
+        target_size: Optional[ImageToImageTargetSize] = None,
         **kwargs,
     ) -> "Image":
         """
@@ -1246,21 +1247,19 @@ class InferenceClient:
                 The input image for translation. It can be raw bytes, an image file, or a URL to an online image.
             prompt (`str`, *optional*):
                 The text prompt to guide the image generation.
-            negative_prompt (`str`, *optional*):
-                A negative prompt to guide the translation process.
-            height (`int`, *optional*):
-                The height in pixels of the generated image.
-            width (`int`, *optional*):
-                The width in pixels of the generated image.
+            negative_prompt (`List[str]`, *optional*):
+                One or several prompt to guide what NOT to include in image generation.
             num_inference_steps (`int`, *optional*):
-                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
-                expense of slower inference.
+                For diffusion models. The number of denoising steps. More denoising steps usually lead to a higher
+                quality image at the expense of slower inference.
             guidance_scale (`float`, *optional*):
-                Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
-                usually at the expense of lower image quality.
+                For diffusion models. A higher guidance scale value encourages the model to generate images closely
+                linked to the text prompt at the expense of lower image quality.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. Defaults to None.
+            target_size (`ImageToImageTargetSize`, *optional*):
+                The size in pixel of the output image.
 
         Returns:
             `Image`: The translated image.
@@ -1282,8 +1281,7 @@ class InferenceClient:
         parameters = {
             "prompt": prompt,
             "negative_prompt": negative_prompt,
-            "height": height,
-            "width": width,
+            "target_size": target_size,
             "num_inference_steps": num_inference_steps,
             "guidance_scale": guidance_scale,
             **kwargs,
@@ -2469,21 +2467,13 @@ class InferenceClient:
                 Defaults to None.
             do_sample (`bool`, *optional*):
                 Whether to use sampling instead of greedy decoding when generating new tokens.
-            early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"`, *optional*):
+            early_stopping (`Union[bool, "TextToSpeechEarlyStoppingEnum"]`, *optional*):
                 Controls the stopping condition for beam-based methods.
             epsilon_cutoff (`float`, *optional*):
                 If set to float strictly between 0 and 1, only tokens with a conditional probability greater than
                 epsilon_cutoff will be sampled. In the paper, suggested values range from 3e-4 to 9e-4, depending on
                 the size of the model. See [Truncation Sampling as Language Model
                 Desmoothing](https://hf.co/papers/2210.15191) for more details.
-            eta_cutoff (`float`, *optional*):
-                Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
-                between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
-                * exp(-entropy(softmax(next_token_logits))). The latter term is intuitively the expected next token
-                probability, scaled by sqrt(eta_cutoff). In the paper, suggested values range from 3e-4 to 2e-3,
-                depending on the size of the model. See [Truncation Sampling as Language Model
-                Desmoothing](https://hf.co/papers/2210.15191) for more details.
-                float strictly between 0 and 1, a token is only considered if it is greater than either
             eta_cutoff (`float`, *optional*):
                 Eta sampling is a hybrid of locally typical sampling and epsilon sampling. If set to float strictly
                 between 0 and 1, a token is only considered if it is greater than either eta_cutoff or sqrt(eta_cutoff)
