@@ -11,9 +11,7 @@ from .base import BaseInferenceType
 
 @dataclass
 class ObjectDetectionParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Object Detection
-    """
+    """Additional inference parameters for Object Detection"""
 
     threshold: Optional[float] = None
     """The probability necessary to make a prediction."""
@@ -28,7 +26,7 @@ class ObjectDetectionInput(BaseInferenceType):
     also provide the image data as a raw bytes payload.
     """
     parameters: Optional[ObjectDetectionParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Object Detection"""
 
 
 @dataclass

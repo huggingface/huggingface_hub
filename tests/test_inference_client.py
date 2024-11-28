@@ -390,7 +390,10 @@ class InferenceClientVCRTest(InferenceClientTest):
             output,
             [
                 DocumentQuestionAnsweringOutputElement(
-                    answer="$1,000,000,000", end=None, score=None, start=None, words=None
+                    answer="$1,000,000,000",
+                    end=None,
+                    score=None,
+                    start=None,
                 )
             ],
         )
@@ -619,21 +622,21 @@ class InferenceClientVCRTest(InferenceClientTest):
         output = self.client.token_classification("My name is Sarah Jessica Parker but you can call me Jessica")
         assert output == [
             TokenClassificationOutputElement(
-                label=None, score=0.9991335868835449, end=31, entity_group="PER", start=11, word="Sarah Jessica Parker"
+                score=0.9991335868835449, end=31, entity_group="PER", start=11, word="Sarah Jessica Parker"
             ),
             TokenClassificationOutputElement(
-                label=None, score=0.9979913234710693, end=59, entity_group="PER", start=52, word="Jessica"
+                score=0.9979913234710693, end=59, entity_group="PER", start=52, word="Jessica"
             ),
         ]
 
     def test_visual_question_answering(self) -> None:
         output = self.client.visual_question_answering(self.image_file, "Who's in the picture?")
         assert output == [
-            VisualQuestionAnsweringOutputElement(label=None, score=0.9386941194534302, answer="woman"),
-            VisualQuestionAnsweringOutputElement(label=None, score=0.34311845898628235, answer="girl"),
-            VisualQuestionAnsweringOutputElement(label=None, score=0.08407749235630035, answer="lady"),
-            VisualQuestionAnsweringOutputElement(label=None, score=0.0507517009973526, answer="female"),
-            VisualQuestionAnsweringOutputElement(label=None, score=0.01777094043791294, answer="man"),
+            VisualQuestionAnsweringOutputElement(score=0.9386941194534302, answer="woman"),
+            VisualQuestionAnsweringOutputElement(score=0.34311845898628235, answer="girl"),
+            VisualQuestionAnsweringOutputElement(score=0.08407749235630035, answer="lady"),
+            VisualQuestionAnsweringOutputElement(score=0.0507517009973526, answer="female"),
+            VisualQuestionAnsweringOutputElement(score=0.01777094043791294, answer="man"),
         ]
 
     @expect_deprecation("zero_shot_classification")

@@ -383,7 +383,7 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
             function_to_apply (`"AudioClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
+                The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
             `List[AudioClassificationOutputElement]`: List of [`AudioClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -1025,7 +1025,7 @@ class AsyncInferenceClient:
         >>> from huggingface_hub import AsyncInferenceClient
         >>> client = AsyncInferenceClient()
         >>> await client.document_question_answering(image="https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png", question="What is the invoice number?")
-        [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16, words=None)]
+        [DocumentQuestionAnsweringOutputElement(answer='us-001', end=16, score=0.9999666213989258, start=16)]
         ```
         """
         inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
@@ -1178,7 +1178,7 @@ class AsyncInferenceClient:
                 The model to use for image classification. Can be a model ID hosted on the Hugging Face Hub or a URL to a
                 deployed Inference Endpoint. If not provided, the default recommended model for image classification will be used.
             function_to_apply (`"ImageClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
+                The function to apply to the model outputs in order to retrieve the scores.
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
         Returns:
@@ -1874,7 +1874,7 @@ class AsyncInferenceClient:
             top_k (`int`, *optional*):
                 When specified, limits the output to the top K most probable classes.
             function_to_apply (`"TextClassificationOutputTransform"`, *optional*):
-                The function to apply to the output.
+                The function to apply to the model outputs in order to retrieve the scores.
 
         Returns:
             `List[TextClassificationOutputElement]`: a list of [`TextClassificationOutputElement`] items containing the predicted label and associated probability.
@@ -2549,11 +2549,11 @@ class AsyncInferenceClient:
             max_length (`int`, *optional*):
                 The maximum length (in tokens) of the generated text, including the input.
             max_new_tokens (`int`, *optional*):
-                The maximum number of tokens to generate. Takes precedence over maxLength.
+                The maximum number of tokens to generate. Takes precedence over max_length.
             min_length (`int`, *optional*):
                 The minimum length (in tokens) of the generated text, including the input.
             min_new_tokens (`int`, *optional*):
-                The minimum number of tokens to generate. Takes precedence over maxLength.
+                The minimum number of tokens to generate. Takes precedence over min_length.
             num_beam_groups (`int`, *optional*):
                 Number of groups to divide num_beams into in order to ensure diversity among different groups of beams.
                 See [this paper](https://hf.co/papers/1610.02424) for more details.
@@ -2860,11 +2860,12 @@ class AsyncInferenceClient:
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
                 probabilities are normalized for each candidate.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
-                the placeholder with the candidate labels.
+                The sentence used in conjunction with `candidate_labels` to attempt the text classification by
+                replacing the placeholder with the candidate labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot classification model will be used.
+
 
         Returns:
             `List[ZeroShotClassificationOutputElement]`: List of [`ZeroShotClassificationOutputElement`] items containing the predicted labels and their confidence.
@@ -2958,12 +2959,12 @@ class AsyncInferenceClient:
         self,
         image: ContentT,
         # temporarily keeping it optional for backward compatibility.
-        candidate_labels: Optional[List[str]] = None,
+        candidate_labels: List[str] = None,  # type: ignore
         *,
         model: Optional[str] = None,
         hypothesis_template: Optional[str] = None,
         # deprecated argument
-        labels: Optional[List[str]] = None,  # type: ignore
+        labels: List[str] = None,  # type: ignore
     ) -> List[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -2979,8 +2980,8 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
             hypothesis_template (`str`, *optional*):
-                The sentence used in conjunction with candidateLabels to attempt the text classification by replacing
-                the placeholder with the candidate labels.
+                The sentence used in conjunction with `candidate_labels` to attempt the image classification by
+                replacing the placeholder with the candidate labels.
 
         Returns:
             `List[ZeroShotImageClassificationOutputElement]`: List of [`ZeroShotImageClassificationOutputElement`] items containing the predicted labels and their confidence.

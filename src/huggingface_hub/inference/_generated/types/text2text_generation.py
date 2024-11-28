@@ -14,9 +14,7 @@ Text2TextGenerationTruncationStrategy = Literal["do_not_truncate", "longest_firs
 
 @dataclass
 class Text2TextGenerationParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Text2text Generation
-    """
+    """Additional inference parameters for Text2text Generation"""
 
     clean_up_tokenization_spaces: Optional[bool] = None
     """Whether to clean up the potential extra spaces in the text output."""
@@ -33,7 +31,7 @@ class Text2TextGenerationInput(BaseInferenceType):
     inputs: str
     """The input text data"""
     parameters: Optional[Text2TextGenerationParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Text2text Generation"""
 
 
 @dataclass
