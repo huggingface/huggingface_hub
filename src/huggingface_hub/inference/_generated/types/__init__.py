@@ -29,7 +29,9 @@ from .chat_completion import (
     ChatCompletionInputMessageChunk,
     ChatCompletionInputMessageChunkType,
     ChatCompletionInputStreamOptions,
-    ChatCompletionInputToolType,
+    ChatCompletionInputTool,
+    ChatCompletionInputToolChoiceClass,
+    ChatCompletionInputToolChoiceEnum,
     ChatCompletionInputURL,
     ChatCompletionOutput,
     ChatCompletionOutputComplete,
@@ -49,7 +51,6 @@ from .chat_completion import (
     ChatCompletionStreamOutputLogprobs,
     ChatCompletionStreamOutputTopLogprob,
     ChatCompletionStreamOutputUsage,
-    ToolElement,
 )
 from .depth_estimation import DepthEstimationInput, DepthEstimationOutput
 from .document_question_answering import (
@@ -167,19 +168,17 @@ from .visual_question_answering import (
 )
 from .zero_shot_classification import (
     ZeroShotClassificationInput,
-    ZeroShotClassificationInputData,
     ZeroShotClassificationOutputElement,
     ZeroShotClassificationParameters,
 )
 from .zero_shot_image_classification import (
     ZeroShotImageClassificationInput,
-    ZeroShotImageClassificationInputData,
     ZeroShotImageClassificationOutputElement,
     ZeroShotImageClassificationParameters,
 )
 from .zero_shot_object_detection import (
     ZeroShotObjectDetectionBoundingBox,
     ZeroShotObjectDetectionInput,
-    ZeroShotObjectDetectionInputData,
     ZeroShotObjectDetectionOutputElement,
+    ZeroShotObjectDetectionParameters,
 )

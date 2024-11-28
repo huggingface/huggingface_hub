@@ -60,8 +60,11 @@ class ChatCompletionInputFunctionName(BaseInferenceType):
 
 
 @dataclass
-class ChatCompletionInputToolType(BaseInferenceType):
-    function: Optional[ChatCompletionInputFunctionName] = None
+class ChatCompletionInputToolChoiceClass(BaseInferenceType):
+    function: ChatCompletionInputFunctionName
+
+
+ChatCompletionInputToolChoiceEnum = Literal["auto", "none", "required"]
 
 
 @dataclass
@@ -72,7 +75,7 @@ class ChatCompletionInputFunctionDefinition(BaseInferenceType):
 
 
 @dataclass
-class ToolElement(BaseInferenceType):
+class ChatCompletionInputTool(BaseInferenceType):
     function: ChatCompletionInputFunctionDefinition
     type: str
 
@@ -138,10 +141,10 @@ class ChatCompletionInput(BaseInferenceType):
     lower values like 0.2 will make it more focused and deterministic.
     We generally recommend altering this or `top_p` but not both.
     """
-    tool_choice: Optional[Union[ChatCompletionInputToolType, str]] = None
+    tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None
     tool_prompt: Optional[str] = None
     """A prompt to be appended before the tools"""
-    tools: Optional[List[ToolElement]] = None
+    tools: Optional[List[ChatCompletionInputTool]] = None
     """A list of tools the model may call. Currently, only functions are supported as a tool.
     Use this to provide a list of
     functions the model may generate JSON inputs for.

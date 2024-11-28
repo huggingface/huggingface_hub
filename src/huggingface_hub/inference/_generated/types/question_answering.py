@@ -21,9 +21,7 @@ class QuestionAnsweringInputData(BaseInferenceType):
 
 @dataclass
 class QuestionAnsweringParameters(BaseInferenceType):
-    """Additional inference parameters
-    Additional inference parameters for Question Answering
-    """
+    """Additional inference parameters for Question Answering"""
 
     align_to_words: Optional[bool] = None
     """Attempts to align the answer to real words. Improves quality on space separated
@@ -60,7 +58,7 @@ class QuestionAnsweringInput(BaseInferenceType):
     inputs: QuestionAnsweringInputData
     """One (context, question) pair to answer"""
     parameters: Optional[QuestionAnsweringParameters] = None
-    """Additional inference parameters"""
+    """Additional inference parameters for Question Answering"""
 
 
 @dataclass

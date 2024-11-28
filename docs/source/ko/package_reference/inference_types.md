@@ -64,7 +64,9 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInputStreamOptions
 
-[[autodoc]] huggingface_hub.ChatCompletionInputToolType
+[[autodoc]] huggingface_hub.ChatCompletionInputTool
+
+[[autodoc]] huggingface_hub.ChatCompletionInputToolChoiceClass
 
 [[autodoc]] huggingface_hub.ChatCompletionInputURL
 
@@ -103,8 +105,6 @@ rendered properly in your Markdown viewer.
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputTopLogprob
 
 [[autodoc]] huggingface_hub.ChatCompletionStreamOutputUsage
-
-[[autodoc]] huggingface_hub.ToolElement
 
 
 
@@ -368,8 +368,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationInput
 
-[[autodoc]] huggingface_hub.ZeroShotClassificationInputData
-
 [[autodoc]] huggingface_hub.ZeroShotClassificationOutputElement
 
 [[autodoc]] huggingface_hub.ZeroShotClassificationParameters
@@ -379,8 +377,6 @@ rendered properly in your Markdown viewer.
 ## zero_shot_image_classification[[huggingface_hub.ZeroShotImageClassificationInput]]
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationInput
-
-[[autodoc]] huggingface_hub.ZeroShotImageClassificationInputData
 
 [[autodoc]] huggingface_hub.ZeroShotImageClassificationOutputElement
 
@@ -394,6 +390,6 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionInput
 
-[[autodoc]] huggingface_hub.ZeroShotObjectDetectionInputData
-
 [[autodoc]] huggingface_hub.ZeroShotObjectDetectionOutputElement
+
+[[autodoc]] huggingface_hub.ZeroShotObjectDetectionParameters
