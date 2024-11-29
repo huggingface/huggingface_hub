@@ -126,6 +126,35 @@ class OAuthInfo:
 
 @experimental
 def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
+    """
+    Add OAuth endpoints to a FastAPI app to enable OAuth login with Hugging Face.
+
+    How to use:
+    - Call this method on your FastAPI app to add the OAuth endpoints.
+    - Inside your route handlers, call `parse_huggingface_oauth(request)` to retrieve the OAuth info.
+    - If user is logged in, an [`OAuthInfo`] object is returned with the user's info. If not, `None` is returned.
+    - In your app, make sure to add links to `/oauth/huggingface/login` and `/oauth/huggingface/logout` for the user to log in and out.
+
+    Example:
+    ```py
+    from huggingface_hub import attach_huggingface_oauth, parse_huggingface_oauth
+
+    # Create a FastAPI app
+    app = FastAPI()
+
+    # Add OAuth endpoints to the FastAPI app
+    attach_huggingface_oauth(app)
+
+    # Add a route that greets the user if they are logged in
+    @app.get("/")
+    def greet_json(request: Request):
+        # Retrieve the OAuth info from the request
+        oauth_info = parse_huggingface_oauth(request)  # e.g. OAuthInfo dataclass
+        if oauth_info is None:
+            return {"msg": "Not logged in!"}
+        return {"msg": f"Hello, {oauth_info.user_info.preferred_username}!"}
+    ```
+    """
     # TODO: handle generic case (handling OAuth in a non-Space environment with custom dev values) (low priority)
 
     # Add SessionMiddleware to the FastAPI app to store the OAuth info in the session.
@@ -170,6 +199,8 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
     Missing fields are set to `None` without a warning.
 
     Return `None`, if the user is not logged in (no info in session cookie).
+
+    See [`attach_huggingface_oauth`] for an example on how to use this method.
     """
     if "oauth_info" not in request.session:
         logger.debug("No OAuth info in session.")
