@@ -164,7 +164,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
     # If the app is running in a Space, OAuth is enabled normally.
     # Otherwise, we mock the endpoints to make the user log in with a fake user profile - without any calls to hf.co.
     route_prefix = route_prefix.strip("/")
-    if os.getenv("SYSTEM") == "spaces":
+    if os.getenv("SPACE_ID") is not None:
         logger.info("OAuth is enabled in the Space. Adding OAuth routes.")
         _add_oauth_routes(app, route_prefix=route_prefix)
     else:
