@@ -8,6 +8,7 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+from . import constants
 from .hf_api import whoami
 from .utils import experimental, get_token
 
@@ -16,16 +17,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import fastapi
-
-# If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
-# In this case, we redirect the user to the non-iframe view.
-OAUTH_MAX_REDIRECTS = 2
-
-# OAuth-related environment variables injected by the Space
-OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID")
-OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
-OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
-OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
 
 
 @dataclass
@@ -148,7 +139,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
             "Cannot initialize OAuth to due a missing library. Please run `pip install huggingface_hub[oauth]` or add "
             "`huggingface_hub[oauth]` to your requirements.txt file in order to install the required dependencies."
         ) from e
-    session_secret = (OAUTH_CLIENT_SECRET or "") + "-v1"
+    session_secret = (constants.OAUTH_CLIENT_SECRET or "") + "-v1"
     app.add_middleware(
         SessionMiddleware,
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
@@ -183,7 +174,6 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
     if "oauth_info" not in request.session:
         logger.debug("No OAuth info in session.")
         return None
-    print(request.session["oauth_info"])
 
     logger.debug("Parsing OAuth info from session.")
     oauth_data = request.session["oauth_info"]
@@ -250,23 +240,23 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
         "OAuth is required but '{}' environment variable is not set. Make sure you've enabled OAuth in your Space by"
         " setting `hf_oauth: true` in the Space metadata."
     )
-    if OAUTH_CLIENT_ID is None:
+    if constants.OAUTH_CLIENT_ID is None:
         raise ValueError(msg.format("OAUTH_CLIENT_ID"))
-    if OAUTH_CLIENT_SECRET is None:
+    if constants.OAUTH_CLIENT_SECRET is None:
         raise ValueError(msg.format("OAUTH_CLIENT_SECRET"))
-    if OAUTH_SCOPES is None:
+    if constants.OAUTH_SCOPES is None:
         raise ValueError(msg.format("OAUTH_SCOPES"))
-    if OPENID_PROVIDER_URL is None:
+    if constants.OPENID_PROVIDER_URL is None:
         raise ValueError(msg.format("OPENID_PROVIDER_URL"))
 
     # Register OAuth server
     oauth = OAuth()
     oauth.register(
         name="huggingface",
-        client_id=OAUTH_CLIENT_ID,
-        client_secret=OAUTH_CLIENT_SECRET,
-        client_kwargs={"scope": OAUTH_SCOPES},
-        server_metadata_url=OPENID_PROVIDER_URL + "/.well-known/openid-configuration",
+        client_id=constants.OAUTH_CLIENT_ID,
+        client_secret=constants.OAUTH_CLIENT_SECRET,
+        client_kwargs={"scope": constants.OAUTH_SCOPES},
+        server_metadata_url=constants.OPENID_PROVIDER_URL + "/.well-known/openid-configuration",
     )
 
     login_uri, callback_uri, logout_uri = _get_oauth_uris(route_prefix)
@@ -298,7 +288,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             # If the user is redirected more than 3 times, it is very likely that the cookie is not working properly.
             # (e.g. browser is blocking third-party cookies in iframe). In this case, redirect the user in the
             # non-iframe view.
-            if nb_redirects > OAUTH_MAX_REDIRECTS:
+            if nb_redirects > constants.OAUTH_MAX_REDIRECTS:
                 host = os.environ.get("SPACE_HOST")
                 if host is None:  # cannot happen in a Space
                     raise RuntimeError(
@@ -432,8 +422,10 @@ def _get_mocked_oauth_info() -> Dict:
     }
 
 
-def _get_oauth_uris(route_prefix: str) -> Tuple[str, str, str]:
+def _get_oauth_uris(route_prefix: str = "/") -> Tuple[str, str, str]:
     route_prefix = route_prefix.strip("/")
+    if route_prefix:
+        route_prefix = f"/{route_prefix}"
     return (
         f"{route_prefix}/oauth/huggingface/login",
         f"{route_prefix}/oauth/huggingface/callback",
