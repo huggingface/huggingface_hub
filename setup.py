@@ -34,6 +34,7 @@ extras["inference"] = [
 extras["oauth"] = [
     "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
     "fastapi",
+    "httpx",  # required for authlib but not included in its dependencies
     "itsdangerous",  # required for starlette SessionMiddleware
 ]
 

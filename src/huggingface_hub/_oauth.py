@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import fastapi
-    from fastapi.responses import RedirectResponse
 
 # If OAuth didn't work after 2 redirects, there's likely a third-party cookie issue in the Space iframe view.
 # In this case, we redirect the user to the non-iframe view.
@@ -187,9 +186,10 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
     print(request.session["oauth_info"])
 
     logger.debug("Parsing OAuth info from session.")
-    data = request.session["oauth_info"]
+    oauth_data = request.session["oauth_info"]
+    user_data = oauth_data.get("userinfo", {})
+    orgs_data = user_data.get("orgs", [])
 
-    orgs_data = data.get("orgs", [])
     orgs = (
         [
             OAuthOrgInfo(
@@ -209,30 +209,33 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
         else None
     )
 
+    user_info = OAuthUserInfo(
+        sub=user_data.get("sub"),
+        name=user_data.get("name"),
+        preferred_username=user_data.get("preferred_username"),
+        email_verified=user_data.get("email_verified"),
+        email=user_data.get("email"),
+        picture=user_data.get("picture"),
+        profile=user_data.get("profile"),
+        website=user_data.get("website"),
+        is_pro=user_data.get("isPro"),
+        can_pay=user_data.get("canPay"),
+        orgs=orgs,
+    )
+
     return OAuthInfo(
-        access_token=data.get("access_token"),
-        access_token_expires_at=datetime.datetime.fromtimestamp(data.get("expires_at")),
-        user_info=OAuthUserInfo(
-            sub=data.get("sub"),
-            name=data.get("name"),
-            preferred_username=data.get("preferred_username"),
-            email_verified=data.get("email_verified"),
-            email=data.get("email"),
-            picture=data.get("picture"),
-            profile=data.get("profile"),
-            website=data.get("website"),
-            is_pro=data.get("isPro"),
-            can_pay=data.get("canPay"),
-            orgs=orgs,
-        ),
-        state=data.get("state"),
-        scope=data.get("scope"),
+        access_token=oauth_data.get("access_token"),
+        access_token_expires_at=datetime.datetime.fromtimestamp(oauth_data.get("expires_at")),
+        user_info=user_info,
+        state=oauth_data.get("state"),
+        scope=oauth_data.get("scope"),
     )
 
 
 def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
     """Add OAuth routes to the FastAPI app (login, callback handler and logout)."""
     try:
+        import fastapi
         from authlib.integrations.base_client.errors import MismatchingStateError
         from authlib.integrations.starlette_client import OAuth
         from fastapi.responses import RedirectResponse
@@ -270,13 +273,13 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
 
     # Register OAuth endpoints
     @app.get(login_uri)
-    async def oauth_login(request: "fastapi.Request"):
+    async def oauth_login(request: fastapi.Request) -> RedirectResponse:
         """Endpoint that redirects to HF OAuth page."""
         redirect_uri = _generate_redirect_uri(request)
         return await oauth.huggingface.authorize_redirect(request, redirect_uri)  # type: ignore
 
     @app.get(callback_uri)
-    async def oauth_redirect_callback(request: "fastapi.Request") -> "RedirectResponse":
+    async def oauth_redirect_callback(request: fastapi.Request) -> RedirectResponse:
         """Endpoint that handles the OAuth callback."""
         try:
             oauth_info = await oauth.huggingface.authorize_access_token(request)  # type: ignore
@@ -313,7 +316,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
         return RedirectResponse(_get_redirect_target(request))
 
     @app.get(logout_uri)
-    async def oauth_logout(request: "fastapi.Request") -> "RedirectResponse":
+    async def oauth_logout(request: fastapi.Request) -> RedirectResponse:
         """Endpoint that logs out the user (e.g. delete info from cookie session)."""
         logger.debug("Logged out with OAuth. Removing user info from session.")
         request.session.pop("oauth_info", None)
@@ -327,6 +330,7 @@ def _add_mocked_oauth_routes(app: "fastapi.FastAPI", route_prefix: str = "/") ->
     is added to the session.
     """
     try:
+        import fastapi
         from fastapi.responses import RedirectResponse
         from starlette.datastructures import URL
     except ImportError as e:
@@ -345,20 +349,20 @@ def _add_mocked_oauth_routes(app: "fastapi.FastAPI", route_prefix: str = "/") ->
 
     # Define OAuth routes
     @app.get(login_uri)
-    async def oauth_login(request: "fastapi.Request"):  # noqa: ARG001
+    async def oauth_login(request: fastapi.Request) -> RedirectResponse:
         """Fake endpoint that redirects to HF OAuth page."""
         # Define target (where to redirect after login)
         redirect_uri = _generate_redirect_uri(request)
         return RedirectResponse(callback_uri + "?" + urllib.parse.urlencode({"_target_url": redirect_uri}))
 
     @app.get(callback_uri)
-    async def oauth_redirect_callback(request: "fastapi.Request") -> "RedirectResponse":
+    async def oauth_redirect_callback(request: fastapi.Request) -> RedirectResponse:
         """Endpoint that handles the OAuth callback."""
         request.session["oauth_info"] = mocked_oauth_info
         return RedirectResponse(_get_redirect_target(request))
 
     @app.get(logout_uri)
-    async def oauth_logout(request: "fastapi.Request") -> "RedirectResponse":
+    async def oauth_logout(request: fastapi.Request) -> RedirectResponse:
         """Endpoint that logs out the user (e.g. delete cookie session)."""
         request.session.pop("oauth_info", None)
         logout_url = URL("/").include_query_params(**request.query_params)
@@ -406,12 +410,13 @@ def _get_mocked_oauth_info() -> Dict:
     return {
         "access_token": token,
         "token_type": "bearer",
-        "expires_in": 3600,
-        "id_token": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expires_in": 8 * 60 * 60,  # 8 hours
+        "id_token": "FOOBAR",
         "scope": "openid profile",
+        "refresh_token": "hf_oauth__refresh_token",
         "expires_at": int(time.time()) + 8 * 60 * 60,  # 8 hours
         "userinfo": {
-            "sub": "11111111111111111111111",
+            "sub": "0123456789",
             "name": user["fullname"],
             "preferred_username": user["name"],
             "profile": f"https://huggingface.co/{user['name']}",
