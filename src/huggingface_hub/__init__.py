@@ -70,6 +70,13 @@ _SUBMOD_ATTRS = {
         "logout",
         "notebook_login",
     ],
+    "_oauth": [
+        "OAuthInfo",
+        "OAuthOrgInfo",
+        "OAuthUserInfo",
+        "attach_huggingface_oauth",
+        "parse_huggingface_oauth",
+    ],
     "_snapshot_download": [
         "snapshot_download",
     ],
@@ -605,6 +612,13 @@ if TYPE_CHECKING:  # pragma: no cover
         login,  # noqa: F401
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
+    )
+    from ._oauth import (
+        OAuthInfo,  # noqa: F401
+        OAuthOrgInfo,  # noqa: F401
+        OAuthUserInfo,  # noqa: F401
+        attach_huggingface_oauth,  # noqa: F401
+        parse_huggingface_oauth,  # noqa: F401
     )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
