@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` provides helpers to save and load ML model weights in a standardized way. This part of the library is still under development and will be improved in future releases. The goal is to harmonize how weights are saved and loaded across the Hub, both to remove code duplication across libraries and to establish consistent conventions.
 
-## Save torch models
+## Saving
 
 ### Save torch model
 
@@ -36,7 +36,7 @@ This is the underlying factory from which each framework-specific helper is deri
 
 [[autodoc]] huggingface_hub.split_state_dict_into_shards_factory
 
-## Load torch models
+## Loading
 
 The loading helpers support both single-file and sharded checkpoints in either safetensors or pickle format. [`load_torch_model`] takes a `nn.Module` and a checkpoint path (either a single file or a directory) as input and load the weights into the model.
 
