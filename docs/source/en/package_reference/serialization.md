@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` provides helpers to save and load ML model weights in a standardized way. This part of the library is still under development and will be improved in future releases. The goal is to harmonize how weights are saved and loaded across the Hub, both to remove code duplication across libraries and to establish consistent conventions.
 
-## Save and load torch models
+## Save torch models
 
 ### Save torch model
 
