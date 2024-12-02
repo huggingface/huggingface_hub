@@ -83,7 +83,6 @@ def dummy_model():
 
             def __init__(self):
                 super().__init__()
-                # Register parameters with float tensors (not integers)
                 self.register_parameter("layer_1", torch.nn.Parameter(torch.tensor([4.0])))
                 self.register_parameter("layer_2", torch.nn.Parameter(torch.tensor([10.0])))
                 self.register_parameter("layer_3", torch.nn.Parameter(torch.tensor([30.0])))
@@ -556,7 +555,6 @@ def test_load_sharded_state_dict(
     """Test saving and loading a sharded state dict."""
     import torch
 
-    # Save with small shard size to force sharding
     save_torch_state_dict(
         torch_state_dict,
         save_directory=tmp_path,
@@ -643,7 +641,7 @@ def test_load_sharded_model_strict_mode(tmp_path, torch_state_dict, dummy_model,
     save_torch_state_dict(
         modified_dict,
         save_directory=tmp_path,
-        max_shard_size=30,  # Small size to force sharding
+        max_shard_size=30,
     )
 
     if strict:
