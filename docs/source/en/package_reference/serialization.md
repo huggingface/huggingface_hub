@@ -38,7 +38,7 @@ This is the underlying factory from which each framework-specific helper is deri
 
 ## Load torch models
 
-The loading helpers support both single-file and sharded checkpoints in either safetensors or PyTorch format. [`load_torch_model`] takes a `nn.Module` and a checkpoint path (either a single file or a directory) as input and returns the loaded model.
+The loading helpers support both single-file and sharded checkpoints in either safetensors or pickle format. [`load_torch_model`] takes a `nn.Module` and a checkpoint path (either a single file or a directory) as input and load the weights into the model.
 
 [[autodoc]] huggingface_hub.load_torch_model
 
