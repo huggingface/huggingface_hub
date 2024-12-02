@@ -391,28 +391,53 @@ def load_torch_model(
         ValueError: If the checkpoint path is invalid or if the checkpoint format cannot be determined.
         FileNotFoundError: If the checkpoint file or directory does not exist.
         ImportError: If required dependencies are not installed.
+
+    Example:
+    ```python
+    >>> from huggingface_hub import load_torch_model
+    >>> model = ... # A PyTorch model
+    >>> load_torch_model(model, "path/to/checkpoint")
+    ```
     """
     checkpoint_path = Path(checkpoint_path)
 
-    # If path is a directory, treat as sharded checkpoint
-    if checkpoint_path.is_dir():
-        return load_sharded_checkpoint(
-            model=model,
-            save_directory=checkpoint_path,
-            strict=strict,
-            safe=safe,
-            weights_only=weights_only,
-        )
-
-    # If path is a file, load state dict into the model
-    elif checkpoint_path.is_file():
+    if checkpoint_path.is_file():
         state_dict = load_state_dict_from_file(
             checkpoint_file=checkpoint_path,
             map_location=map_location,
             weights_only=weights_only,
         )
-        # the following returns a `torch.nn.modules.module._IncompatibleKeys` namedtuple.
         return model.load_state_dict(state_dict, strict=strict)
+
+    elif checkpoint_path.is_dir():
+        # Check for index file which indicates sharded checkpoint
+        filename_pattern = (
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN if safe else constants.PYTORCH_WEIGHTS_FILE_PATTERN
+        )
+        index_file = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
+        if index_file.is_file():
+            return load_sharded_checkpoint(
+                model=model,
+                save_directory=checkpoint_path,
+                strict=strict,
+                safe=safe,
+                weights_only=weights_only,
+            )
+
+        # Look for single model file (safetensors or pytorch)
+        model_files = list(checkpoint_path.glob("*.safetensors" if safe else "*.bin"))
+        if len(model_files) == 1:
+            state_dict = load_state_dict_from_file(
+                checkpoint_file=model_files[0],
+                map_location=map_location,
+                weights_only=weights_only,
+            )
+            return model.load_state_dict(state_dict, strict=strict)
+
+        raise ValueError(
+            f"Directory '{checkpoint_path}' does not contain a valid checkpoint. "
+            "Expected either a sharded checkpoint with an index file, or a single model file."
+        )
 
     else:
         raise ValueError(f"Invalid checkpoint path: {checkpoint_path}")
@@ -545,9 +570,6 @@ def load_state_dict_from_file(
     # Load a safetensors checkpoint
     >>> state_dict = load_state_dict_from_file("path/to/model.safetensors")
     >>> model.load_state_dict(state_dict)
-
-    # Load with memory mapping (PyTorch >= 2.1.0)
-    >>> state_dict = load_state_dict_from_file("model.bin", use_mmap=True)
     ```
     """
     checkpoint_path = Path(checkpoint_file)
@@ -606,7 +628,11 @@ def load_state_dict_from_file(
 
 
 @contextmanager
-def _load_shard_into_memory(shard_path: str, load_fn: Callable, kwargs: Optional[Dict[str, Any]] = None):
+def _load_shard_into_memory(
+    shard_path: str,
+    load_fn: Callable,
+    kwargs: Optional[Dict[str, Any]] = None,
+):
     """
     Context manager to handle loading and cleanup of model shards.
 

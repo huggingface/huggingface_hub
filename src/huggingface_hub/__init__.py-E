@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "0.27.0.dev0"
+__version__ = "0.26.2"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -69,6 +69,10 @@ _SUBMOD_ATTRS = {
         "login",
         "logout",
         "notebook_login",
+    ],
+    "_multi_commits": [
+        "MultiCommitException",
+        "plan_multi_commits",
     ],
     "_snapshot_download": [
         "snapshot_download",
@@ -163,6 +167,7 @@ _SUBMOD_ATTRS = {
         "create_branch",
         "create_collection",
         "create_commit",
+        "create_commits_on_pr",
         "create_discussion",
         "create_inference_endpoint",
         "create_pull_request",
@@ -292,14 +297,10 @@ _SUBMOD_ATTRS = {
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
-        "ChatCompletionInputGrammarTypeType",
         "ChatCompletionInputMessage",
         "ChatCompletionInputMessageChunk",
-        "ChatCompletionInputMessageChunkType",
         "ChatCompletionInputStreamOptions",
-        "ChatCompletionInputTool",
-        "ChatCompletionInputToolChoiceClass",
-        "ChatCompletionInputToolChoiceEnum",
+        "ChatCompletionInputToolType",
         "ChatCompletionInputURL",
         "ChatCompletionOutput",
         "ChatCompletionOutputComplete",
@@ -326,7 +327,6 @@ _SUBMOD_ATTRS = {
         "DocumentQuestionAnsweringOutputElement",
         "DocumentQuestionAnsweringParameters",
         "FeatureExtractionInput",
-        "FeatureExtractionInputTruncationDirection",
         "FillMaskInput",
         "FillMaskOutputElement",
         "FillMaskParameters",
@@ -337,7 +337,6 @@ _SUBMOD_ATTRS = {
         "ImageSegmentationInput",
         "ImageSegmentationOutputElement",
         "ImageSegmentationParameters",
-        "ImageSegmentationSubtask",
         "ImageToImageInput",
         "ImageToImageOutput",
         "ImageToImageParameters",
@@ -360,14 +359,12 @@ _SUBMOD_ATTRS = {
         "SummarizationInput",
         "SummarizationOutput",
         "SummarizationParameters",
-        "SummarizationTruncationStrategy",
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
-        "Text2TextGenerationTruncationStrategy",
         "TextClassificationInput",
         "TextClassificationOutputElement",
         "TextClassificationOutputTransform",
@@ -378,7 +375,6 @@ _SUBMOD_ATTRS = {
         "TextGenerationOutput",
         "TextGenerationOutputBestOfSequence",
         "TextGenerationOutputDetails",
-        "TextGenerationOutputFinishReason",
         "TextGenerationOutputPrefillToken",
         "TextGenerationOutputToken",
         "TextGenerationStreamOutput",
@@ -398,15 +394,13 @@ _SUBMOD_ATTRS = {
         "TextToSpeechInput",
         "TextToSpeechOutput",
         "TextToSpeechParameters",
-        "TokenClassificationAggregationStrategy",
         "TokenClassificationInput",
         "TokenClassificationOutputElement",
         "TokenClassificationParameters",
+        "ToolElement",
         "TranslationInput",
         "TranslationOutput",
         "TranslationParameters",
-        "TranslationTruncationStrategy",
-        "TypeEnum",
         "VideoClassificationInput",
         "VideoClassificationOutputElement",
         "VideoClassificationOutputTransform",
@@ -416,15 +410,17 @@ _SUBMOD_ATTRS = {
         "VisualQuestionAnsweringOutputElement",
         "VisualQuestionAnsweringParameters",
         "ZeroShotClassificationInput",
+        "ZeroShotClassificationInputData",
         "ZeroShotClassificationOutputElement",
         "ZeroShotClassificationParameters",
         "ZeroShotImageClassificationInput",
+        "ZeroShotImageClassificationInputData",
         "ZeroShotImageClassificationOutputElement",
         "ZeroShotImageClassificationParameters",
         "ZeroShotObjectDetectionBoundingBox",
         "ZeroShotObjectDetectionInput",
+        "ZeroShotObjectDetectionInputData",
         "ZeroShotObjectDetectionOutputElement",
-        "ZeroShotObjectDetectionParameters",
     ],
     "inference_api": [
         "InferenceApi",
@@ -465,9 +461,6 @@ _SUBMOD_ATTRS = {
         "split_state_dict_into_shards_factory",
         "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
-        "load_torch_model",
-        "load_sharded_checkpoint",
-        "load_state_dict_from_file",
     ],
     "utils": [
         "CacheNotFound",
@@ -608,6 +601,10 @@ if TYPE_CHECKING:  # pragma: no cover
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
     )
+    from ._multi_commits import (
+        MultiCommitException,  # noqa: F401
+        plan_multi_commits,  # noqa: F401
+    )
     from ._snapshot_download import snapshot_download  # noqa: F401
     from ._space_api import (
         SpaceHardware,  # noqa: F401
@@ -697,6 +694,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_branch,  # noqa: F401
         create_collection,  # noqa: F401
         create_commit,  # noqa: F401
+        create_commits_on_pr,  # noqa: F401
         create_discussion,  # noqa: F401
         create_inference_endpoint,  # noqa: F401
         create_pull_request,  # noqa: F401
@@ -824,14 +822,10 @@ if TYPE_CHECKING:  # pragma: no cover
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
-        ChatCompletionInputGrammarTypeType,  # noqa: F401
         ChatCompletionInputMessage,  # noqa: F401
         ChatCompletionInputMessageChunk,  # noqa: F401
-        ChatCompletionInputMessageChunkType,  # noqa: F401
         ChatCompletionInputStreamOptions,  # noqa: F401
-        ChatCompletionInputTool,  # noqa: F401
-        ChatCompletionInputToolChoiceClass,  # noqa: F401
-        ChatCompletionInputToolChoiceEnum,  # noqa: F401
+        ChatCompletionInputToolType,  # noqa: F401
         ChatCompletionInputURL,  # noqa: F401
         ChatCompletionOutput,  # noqa: F401
         ChatCompletionOutputComplete,  # noqa: F401
@@ -858,7 +852,6 @@ if TYPE_CHECKING:  # pragma: no cover
         DocumentQuestionAnsweringOutputElement,  # noqa: F401
         DocumentQuestionAnsweringParameters,  # noqa: F401
         FeatureExtractionInput,  # noqa: F401
-        FeatureExtractionInputTruncationDirection,  # noqa: F401
         FillMaskInput,  # noqa: F401
         FillMaskOutputElement,  # noqa: F401
         FillMaskParameters,  # noqa: F401
@@ -869,7 +862,6 @@ if TYPE_CHECKING:  # pragma: no cover
         ImageSegmentationInput,  # noqa: F401
         ImageSegmentationOutputElement,  # noqa: F401
         ImageSegmentationParameters,  # noqa: F401
-        ImageSegmentationSubtask,  # noqa: F401
         ImageToImageInput,  # noqa: F401
         ImageToImageOutput,  # noqa: F401
         ImageToImageParameters,  # noqa: F401
@@ -892,14 +884,12 @@ if TYPE_CHECKING:  # pragma: no cover
         SummarizationInput,  # noqa: F401
         SummarizationOutput,  # noqa: F401
         SummarizationParameters,  # noqa: F401
-        SummarizationTruncationStrategy,  # noqa: F401
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
-        Text2TextGenerationTruncationStrategy,  # noqa: F401
         TextClassificationInput,  # noqa: F401
         TextClassificationOutputElement,  # noqa: F401
         TextClassificationOutputTransform,  # noqa: F401
@@ -910,7 +900,6 @@ if TYPE_CHECKING:  # pragma: no cover
         TextGenerationOutput,  # noqa: F401
         TextGenerationOutputBestOfSequence,  # noqa: F401
         TextGenerationOutputDetails,  # noqa: F401
-        TextGenerationOutputFinishReason,  # noqa: F401
         TextGenerationOutputPrefillToken,  # noqa: F401
         TextGenerationOutputToken,  # noqa: F401
         TextGenerationStreamOutput,  # noqa: F401
@@ -930,15 +919,13 @@ if TYPE_CHECKING:  # pragma: no cover
         TextToSpeechInput,  # noqa: F401
         TextToSpeechOutput,  # noqa: F401
         TextToSpeechParameters,  # noqa: F401
-        TokenClassificationAggregationStrategy,  # noqa: F401
         TokenClassificationInput,  # noqa: F401
         TokenClassificationOutputElement,  # noqa: F401
         TokenClassificationParameters,  # noqa: F401
+        ToolElement,  # noqa: F401
         TranslationInput,  # noqa: F401
         TranslationOutput,  # noqa: F401
         TranslationParameters,  # noqa: F401
-        TranslationTruncationStrategy,  # noqa: F401
-        TypeEnum,  # noqa: F401
         VideoClassificationInput,  # noqa: F401
         VideoClassificationOutputElement,  # noqa: F401
         VideoClassificationOutputTransform,  # noqa: F401
@@ -948,15 +935,17 @@ if TYPE_CHECKING:  # pragma: no cover
         VisualQuestionAnsweringOutputElement,  # noqa: F401
         VisualQuestionAnsweringParameters,  # noqa: F401
         ZeroShotClassificationInput,  # noqa: F401
+        ZeroShotClassificationInputData,  # noqa: F401
         ZeroShotClassificationOutputElement,  # noqa: F401
         ZeroShotClassificationParameters,  # noqa: F401
         ZeroShotImageClassificationInput,  # noqa: F401
+        ZeroShotImageClassificationInputData,  # noqa: F401
         ZeroShotImageClassificationOutputElement,  # noqa: F401
         ZeroShotImageClassificationParameters,  # noqa: F401
         ZeroShotObjectDetectionBoundingBox,  # noqa: F401
         ZeroShotObjectDetectionInput,  # noqa: F401
+        ZeroShotObjectDetectionInputData,  # noqa: F401
         ZeroShotObjectDetectionOutputElement,  # noqa: F401
-        ZeroShotObjectDetectionParameters,  # noqa: F401
     )
     from .inference_api import InferenceApi  # noqa: F401
     from .keras_mixin import (

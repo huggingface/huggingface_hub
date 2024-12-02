@@ -526,7 +526,7 @@ def test_save_torch_state_dict_not_main_process(
 
 
 @requires("torch")
-def test_save_load_state_dict(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]):
+def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]):
     """Test saving and loading a state dict with both safetensors and pickle formats."""
     import torch  # type: ignore[import]
 
@@ -573,6 +573,28 @@ def test_load_sharded_state_dict(
     assert not result.unexpected_keys
 
     # Verify tensor values
+    loaded_state_dict = dummy_model.state_dict()
+    for key in torch_state_dict:
+        assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
+
+
+@requires("torch")
+def test_load_from_directory_not_sharded(
+    tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"], dummy_model: "torch.nn.Module"
+):
+    import torch
+
+    save_torch_state_dict(torch_state_dict, save_directory=tmp_path)
+
+    # Verify no sharding occurred
+    index_file = tmp_path / "model.safetensors.index.json"
+    assert not index_file.exists()
+
+    result = load_torch_model(dummy_model, tmp_path)
+
+    assert not result.missing_keys
+    assert not result.unexpected_keys
+
     loaded_state_dict = dummy_model.state_dict()
     for key in torch_state_dict:
         assert torch.equal(loaded_state_dict[key], torch_state_dict[key])

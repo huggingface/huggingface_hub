@@ -4,9 +4,11 @@ rendered properly in your Markdown viewer.
 
 # Serialization
 
-`huggingface_hub` contains helpers to help ML libraries serialize models weights in a standardized way. This part of the lib is still under development and will be improved in future releases. The goal is to harmonize how weights are serialized on the Hub, both to remove code duplication across libraries and to foster conventions on the Hub.
+`huggingface_hub` provides helpers to save and load ML model weights in a standardized way. This part of the library is still under development and will be improved in future releases. The goal is to harmonize how weights are saved and loaded across the Hub, both to remove code duplication across libraries and to establish consistent conventions.
 
-## Save torch state dict
+## Save and load torch models
+
+### Save torch model
 
 The main helper of the `serialization` module takes a torch `nn.Module` as input and saves it to disk. It handles the logic to save shared tensors (see [safetensors explanation](https://huggingface.co/docs/safetensors/torch_shared_tensors)) as well as logic to split the state dictionary into shards, using [`split_torch_state_dict_into_shards`] under the hood. At the moment, only `torch` framework is supported.
 
@@ -16,7 +18,7 @@ If you want to save a state dictionary (e.g. a mapping between layer names and r
 
 [[autodoc]] huggingface_hub.save_torch_state_dict
 
-## Split state dict into shards
+### Split state dict into shards
 
 The `serialization` module also contains low-level helpers to split a state dictionary into several shards, while creating a proper index in the process. These helpers are available for `torch` and `tensorflow` tensors and are designed to be easily extended to any other ML frameworks.
 
@@ -33,6 +35,17 @@ The `serialization` module also contains low-level helpers to split a state dict
 This is the underlying factory from which each framework-specific helper is derived. In practice, you are not expected to use this factory directly except if you need to adapt it to a framework that is not yet supported. If that is the case, please let us know by [opening a new issue](https://github.com/huggingface/huggingface_hub/issues/new) on the `huggingface_hub` repo.
 
 [[autodoc]] huggingface_hub.split_state_dict_into_shards_factory
+
+## Load torch models
+
+The loading helpers support both single-file and sharded checkpoints in either safetensors or PyTorch format. [`load_torch_model`] takes a `nn.Module` and a checkpoint path (either a single file or a directory) as input and returns the loaded model.
+
+[[autodoc]] huggingface_hub.load_torch_model
+
+[[autodoc]] huggingface_hub.load_sharded_checkpoint
+
+[[autodoc]] huggingface_hub.load_state_dict_from_file
+
 
 ## Helpers
 
