@@ -23,6 +23,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
 
+from packaging import version
+
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
 
@@ -600,7 +602,7 @@ def load_state_dict_from_file(
             ) from e
 
         # Check format of the archive
-        with safe_open(checkpoint_file, framework="pt") as f:
+        with safe_open(checkpoint_file, framework="pt") as f:  # type: ignore[attr-defined]
             metadata = f.metadata()
         if metadata.get("format") != "pt":
             raise OSError(
@@ -609,18 +611,19 @@ def load_state_dict_from_file(
             )
         return load_file(checkpoint_file)
     try:
+        import torch
         from torch import load
     except ImportError as e:
         raise ImportError(
             "Please install `safetensors` to load safetensors checkpoint. "
             "You can install it with `pip install safetensors`."
         ) from e
-
+    additional_kwargs = {"mmap": mmap} if version.parse(torch.__version__) >= version.parse("2.1.0") else {}
     return load(
         checkpoint_file,
         map_location=map_location,
         weights_only=weights_only,
-        mmap=mmap,
+        **additional_kwargs,
     )
 
 
@@ -644,7 +647,7 @@ def _load_shard_into_memory(
         The loaded state dict for this shard
     """
     try:
-        state_dict = load_fn(shard_path, **kwargs)
+        state_dict = load_fn(shard_path, **kwargs)  # type: ignore[arg-type]
         yield state_dict
     finally:
         # Explicitly delete the state dict
