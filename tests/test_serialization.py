@@ -11,6 +11,9 @@ from huggingface_hub import constants
 from huggingface_hub.serialization import (
     get_tf_storage_size,
     get_torch_storage_size,
+    load_sharded_checkpoint,
+    load_state_dict,
+    load_torch_model,
     save_torch_model,
     save_torch_state_dict,
     split_state_dict_into_shards_factory,
@@ -36,7 +39,7 @@ def _dummy_get_storage_size(item):
 # util functions for checking the version for pytorch
 def is_wrapper_tensor_subclass_available():
     try:
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # noqa: F401
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import] # noqa: F401
 
         return True
     except ImportError:
@@ -57,7 +60,7 @@ def dummy_state_dict() -> Dict[str, List[int]]:
 @pytest.fixture
 def torch_state_dict() -> Dict[str, "torch.Tensor"]:
     try:
-        import torch
+        import torch  # type: ignore[import]
 
         return {
             "layer_1": torch.tensor([4]),
@@ -71,10 +74,32 @@ def torch_state_dict() -> Dict[str, "torch.Tensor"]:
 
 
 @pytest.fixture
+def dummy_model():
+    try:
+        import torch  # type: ignore[import]
+
+        class DummyModel(torch.nn.Module):
+            """Simple model for testing that matches the state dict `torch_state_dict` fixture."""
+
+            def __init__(self):
+                super().__init__()
+                # Register parameters with float tensors (not integers)
+                self.register_parameter("layer_1", torch.nn.Parameter(torch.tensor([4.0])))
+                self.register_parameter("layer_2", torch.nn.Parameter(torch.tensor([10.0])))
+                self.register_parameter("layer_3", torch.nn.Parameter(torch.tensor([30.0])))
+                self.register_parameter("layer_4", torch.nn.Parameter(torch.tensor([2.0])))
+                self.register_parameter("layer_5", torch.nn.Parameter(torch.tensor([2.0])))
+
+        return DummyModel()
+    except ImportError:
+        pytest.skip("torch is not available")
+
+
+@pytest.fixture
 def torch_state_dict_tensor_subclass() -> Dict[str, "torch.Tensor"]:
     try:
-        import torch
-        from torch.testing._internal.two_tensor import TwoTensor
+        import torch  # type: ignore[import]
+        from torch.testing._internal.two_tensor import TwoTensor  # type: ignore[import]
 
         t = torch.tensor([4])
         return {
@@ -92,7 +117,7 @@ def torch_state_dict_tensor_subclass() -> Dict[str, "torch.Tensor"]:
 @pytest.fixture
 def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
     try:
-        import torch
+        import torch  # type: ignore[import]
 
         shared_layer = torch.tensor([4])
 
@@ -109,8 +134,8 @@ def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
 @pytest.fixture
 def torch_state_dict_shared_layers_tensor_subclass() -> Dict[str, "torch.Tensor"]:
     try:
-        import torch
-        from torch.testing._internal.two_tensor import TwoTensor
+        import torch  # type: ignore[import]
+        from torch.testing._internal.two_tensor import TwoTensor  # type: ignore[import]
 
         t = torch.tensor([4])
         tensor_subclass_tensor = TwoTensor(t, t)
@@ -212,7 +237,7 @@ def test_tensor_same_storage():
 
 @requires("tensorflow")
 def test_get_tf_storage_size():
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore[import]
 
     assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
     assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
@@ -220,7 +245,7 @@ def test_get_tf_storage_size():
 
 @requires("torch")
 def test_get_torch_storage_size():
-    import torch
+    import torch  # type: ignore[import]
 
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)) == 5 * 8
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
@@ -229,8 +254,8 @@ def test_get_torch_storage_size():
 @requires("torch")
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
-    import torch
-    from torch.testing._internal.two_tensor import TwoTensor
+    import torch  # type: ignore[import]
+    from torch.testing._internal.two_tensor import TwoTensor  # type: ignore[import]
 
     t = torch.tensor([1, 2, 3, 4, 5], dtype=torch.float64)
     assert get_torch_storage_size(TwoTensor(t, t)) == 5 * 8 * 2
@@ -498,3 +523,118 @@ def test_save_torch_state_dict_not_main_process(
     assert (tmp_path / "model-00001-of-00002.safetensors").is_file()
     assert (tmp_path / "model-00002-of-00002.safetensors").is_file()
     assert (tmp_path / "model.safetensors.index.json").is_file()
+
+
+@requires("torch")
+def test_save_load_state_dict(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]):
+    """Test saving and loading a state dict with both safetensors and pickle formats."""
+    import torch  # type: ignore[import]
+
+    # Test safetensors format (default)
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    loaded_dict = load_state_dict(tmp_path / "model.safetensors")
+    assert isinstance(loaded_dict, dict)
+    assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
+    for key in torch_state_dict:
+        assert torch.equal(loaded_dict[key], torch_state_dict[key])
+
+    # Test PyTorch pickle format
+    save_torch_state_dict(torch_state_dict, tmp_path, safe_serialization=False)
+    loaded_dict = load_state_dict(tmp_path / "pytorch_model.bin")
+    assert isinstance(loaded_dict, dict)
+    assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
+    for key in torch_state_dict:
+        assert torch.equal(loaded_dict[key], torch_state_dict[key])
+
+
+@requires("torch")
+def test_load_sharded_state_dict(
+    tmp_path: Path,
+    torch_state_dict: Dict[str, "torch.Tensor"],
+    dummy_model: "torch.nn.Module",
+):
+    """Test saving and loading a sharded state dict."""
+    import torch
+
+    # Save with small shard size to force sharding
+    save_torch_state_dict(
+        torch_state_dict,
+        save_directory=tmp_path,
+        max_shard_size=30,  # Small size to force sharding
+    )
+
+    # Verify sharding occurred
+    index_file = tmp_path / "model.safetensors.index.json"
+    assert index_file.exists()
+
+    # Load and verify content
+    result = load_sharded_checkpoint(dummy_model, tmp_path)
+    assert not result.missing_keys
+    assert not result.unexpected_keys
+
+    # Verify tensor values
+    loaded_state_dict = dummy_model.state_dict()
+    for key in torch_state_dict:
+        assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
+
+
+@pytest.mark.parametrize("safe_serialization", [True, False])
+def test_load_state_dict_missing_file(safe_serialization):
+    """Test proper error handling when file is missing."""
+    with pytest.raises(FileNotFoundError, match="No checkpoint file found"):
+        load_state_dict(
+            "nonexistent.safetensors" if safe_serialization else "nonexistent.bin",
+            weights_only=False,
+        )
+
+
+def test_load_state_dict_empty_file(tmp_path):
+    """Test proper error handling for empty files."""
+    empty_file = tmp_path / "empty.safetensors"
+    empty_file.touch()
+    with pytest.raises(OSError, match="exists but is empty"):
+        load_state_dict(empty_file)
+
+
+def test_load_state_dict_from_sharded_missing_index(tmp_path):
+    """Test proper error handling when index file is missing."""
+    with pytest.raises(ValueError, match="Can't find checkpoint index file"):
+        load_sharded_checkpoint(Mock(), tmp_path)
+
+
+@pytest.mark.parametrize(
+    "strict",
+    [
+        True,
+        False,
+    ],
+)
+def test_load_sharded_model_strict_mode(tmp_path, torch_state_dict, dummy_model, strict):
+    """Test loading model with strict mode behavior for both sharded and non-sharded checkpoints."""
+
+    import torch
+
+    # Add an extra key to the state dict
+    modified_dict = {**torch_state_dict, "extra_key": torch.tensor([1.0])}
+
+    # Save checkpoint
+    save_torch_state_dict(
+        modified_dict,
+        save_directory=tmp_path,
+        max_shard_size=30,  # Small size to force sharding
+    )
+
+    if strict:
+        with pytest.raises(RuntimeError, match=".*Unexpected key.*"):
+            result = load_torch_model(
+                model=dummy_model,
+                checkpoint_path=tmp_path,
+                strict=strict,
+            )
+    else:
+        result = load_torch_model(
+            model=dummy_model,
+            checkpoint_path=tmp_path,
+            strict=strict,
+        )
+        assert "extra_key" in result.unexpected_keys
