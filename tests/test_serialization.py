@@ -12,7 +12,7 @@ from huggingface_hub.serialization import (
     get_tf_storage_size,
     get_torch_storage_size,
     load_sharded_checkpoint,
-    load_state_dict,
+    load_state_dict_from_file,
     load_torch_model,
     save_torch_model,
     save_torch_state_dict,
@@ -532,7 +532,7 @@ def test_save_load_state_dict(tmp_path: Path, torch_state_dict: Dict[str, "torch
 
     # Test safetensors format (default)
     save_torch_state_dict(torch_state_dict, tmp_path)
-    loaded_dict = load_state_dict(tmp_path / "model.safetensors")
+    loaded_dict = load_state_dict_from_file(tmp_path / "model.safetensors")
     assert isinstance(loaded_dict, dict)
     assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
     for key in torch_state_dict:
@@ -540,7 +540,7 @@ def test_save_load_state_dict(tmp_path: Path, torch_state_dict: Dict[str, "torch
 
     # Test PyTorch pickle format
     save_torch_state_dict(torch_state_dict, tmp_path, safe_serialization=False)
-    loaded_dict = load_state_dict(tmp_path / "pytorch_model.bin")
+    loaded_dict = load_state_dict_from_file(tmp_path / "pytorch_model.bin")
     assert isinstance(loaded_dict, dict)
     assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
     for key in torch_state_dict:
@@ -582,7 +582,7 @@ def test_load_sharded_state_dict(
 def test_load_state_dict_missing_file(safe_serialization):
     """Test proper error handling when file is missing."""
     with pytest.raises(FileNotFoundError, match="No checkpoint file found"):
-        load_state_dict(
+        load_state_dict_from_file(
             "nonexistent.safetensors" if safe_serialization else "nonexistent.bin",
             weights_only=False,
         )
@@ -593,7 +593,7 @@ def test_load_state_dict_empty_file(tmp_path):
     empty_file = tmp_path / "empty.safetensors"
     empty_file.touch()
     with pytest.raises(OSError, match="exists but is empty"):
-        load_state_dict(empty_file)
+        load_state_dict_from_file(empty_file)
 
 
 def test_load_state_dict_from_sharded_missing_index(tmp_path):

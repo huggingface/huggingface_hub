@@ -383,9 +383,9 @@ def load_torch_model(
             A string or torch.device specifying how to remap storage locations.
 
     Returns:
-        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields
-            - `missing_keys` is a list of str containing the missing keys
-            - `unexpected_keys` is a list of str containing the unexpected keys
+        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields.
+            - `missing_keys` is a list of str containing the missing keys, i.e. keys that are in the model but not in the checkpoint.
+            - `unexpected_keys` is a list of str containing the unexpected keys, i.e. keys that are in the checkpoint but not in the model.
 
     Raises:
         ValueError: If the checkpoint path is invalid or if the checkpoint format cannot be determined.
@@ -404,14 +404,15 @@ def load_torch_model(
             weights_only=weights_only,
         )
 
-    # If path is a file, load state dict and apply to model
+    # If path is a file, load state dict into the model
     elif checkpoint_path.is_file():
-        state_dict = load_state_dict(
+        state_dict = load_state_dict_from_file(
             checkpoint_file=checkpoint_path,
             map_location=map_location,
             weights_only=weights_only,
         )
-        return model.load_state_dict(state_dict, strict=strict)  # this returns NamedTuple
+        # the following returns a `torch.nn.modules.module._IncompatibleKeys` namedtuple.
+        return model.load_state_dict(state_dict, strict=strict)
 
     else:
         raise ValueError(f"Invalid checkpoint path: {checkpoint_path}")
@@ -430,22 +431,24 @@ def load_sharded_checkpoint(
     [`torch.nn.Module.load_state_dict`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html?highlight=load_state_dict#torch.nn.Module.load_state_dict)
     but for a sharded checkpoint.
 
-    This load is performed efficiently: each checkpoint shard is loaded one by one in RAM and deleted after being
-    loaded in the model.
+    Each shard is loaded one by one in RAM and deleted after being loaded into the model.
 
     Args:
-        model (`torch.nn.Module`): The model in which to load the checkpoint.
-        save_directory (`str` or `os.PathLike`): A path to a folder containing the sharded checkpoint.
-        strict (`bool`, *optional`, defaults to `False`):
+        model (`torch.nn.Module`):
+            The model in which to load the checkpoint.
+        save_directory (`str` or `os.PathLike`):
+            A path to a folder containing the sharded checkpoint.
+        strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
-        safe (`bool`, *optional*, defaults to `False`)
+        safe (`bool`, *optional*, defaults to `False`):
             If both safetensors and PyTorch save files are present in checkpoint and `safe_deserialization` is True, the
             safetensors files will be loaded. Otherwise, PyTorch files are always loaded when possible.
         weights_only (`bool`, *optional*, defaults to `False`):
             If True, only loads the model weights without optimizer states and other metadata.
             Only supported in PyTorch >= 1.13.
+
     Returns:
-        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields
+        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields,
             - `missing_keys` is a list of str containing the missing keys
             - `unexpected_keys` is a list of str containing the unexpected keys
     """
@@ -475,17 +478,17 @@ def load_sharded_checkpoint(
     # Get unique shard files (multiple parameters can be in same shard)
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
-        # Load shard into memory using a context manager
+        # Load shard into memory
         shard_path = os.path.join(save_directory, shard_file)
         with _load_shard_into_memory(
             shard_path,
-            load_fn=load_state_dict,
+            load_fn=load_state_dict_from_file,
             kwargs={"weights_only": weights_only},
         ) as state_dict:
             # Update model with parameters from this shard
             model.load_state_dict(state_dict, strict=strict)
 
-    # 5. Return compatibility info (like torch.nn.Module.load_state_dict)
+    # 5. Return compatibility info
     loaded_keys = set(index["weight_map"].keys())
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
@@ -493,7 +496,7 @@ def load_sharded_checkpoint(
     )
 
 
-def load_state_dict(
+def load_state_dict_from_file(
     checkpoint_file: Union[str, os.PathLike],
     map_location: Optional[Union[str, "torch.device"]] = None,
     weights_only: bool = False,
@@ -533,18 +536,18 @@ def load_state_dict(
 
     Example:
     ```python
-    >>> from huggingface_hub import load_state_dict
+    >>> from huggingface_hub import load_state_dict_from_file
 
     # Load a PyTorch checkpoint
-    >>> state_dict = load_state_dict("path/to/model.bin", map_location="cpu")
+    >>> state_dict = load_state_dict_from_file("path/to/model.bin", map_location="cpu")
     >>> model.load_state_dict(state_dict)
 
     # Load a safetensors checkpoint
-    >>> state_dict = load_state_dict("path/to/model.safetensors")
+    >>> state_dict = load_state_dict_from_file("path/to/model.safetensors")
     >>> model.load_state_dict(state_dict)
 
     # Load with memory mapping (PyTorch >= 2.1.0)
-    >>> state_dict = load_state_dict("model.bin", use_mmap=True)
+    >>> state_dict = load_state_dict_from_file("model.bin", use_mmap=True)
     ```
     """
     checkpoint_path = Path(checkpoint_file)
@@ -950,31 +953,15 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
 
 
 class _IncompatibleKeys(namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"])):
+    """
+    This is used to report missing and unexpected keys in the state dict.
+    Taken from https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py#L52.
+
+    """
+
     def __repr__(self) -> str:
         if not self.missing_keys and not self.unexpected_keys:
             return "<All keys matched successfully>"
         return super().__repr__()
 
     __str__ = __repr__
-
-
-def _addindent(s_: str, numSpaces: int) -> str:
-    """
-    Indent each line of the given string by the specified number of spaces.
-
-    Args:
-        s_ (str): The string to indent.
-        numSpaces (int): The number of spaces to add to the beginning of each line.
-
-    Returns:
-        str: The indented string.
-    """
-    s = s_.split("\n")
-    # Don't do anything for single-line strings
-    if len(s) == 1:
-        return s_
-    first = s.pop(0)
-    s = [(numSpaces * " ") + line for line in s]
-    s = "\n".join(s)
-    s = first + "\n" + s
-    return s
