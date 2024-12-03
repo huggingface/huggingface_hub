@@ -351,6 +351,7 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
+        "Padding",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -364,6 +365,7 @@ _SUBMOD_ATTRS = {
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
+        "TableQuestionAnsweringParameters",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
@@ -880,6 +882,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
+        Padding,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -893,6 +896,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
+        TableQuestionAnsweringParameters,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401

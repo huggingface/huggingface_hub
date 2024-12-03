@@ -101,9 +101,11 @@ from .summarization import (
     SummarizationTruncationStrategy,
 )
 from .table_question_answering import (
+    Padding,
     TableQuestionAnsweringInput,
     TableQuestionAnsweringInputData,
     TableQuestionAnsweringOutputElement,
+    TableQuestionAnsweringParameters,
 )
 from .text2text_generation import (
     Text2TextGenerationInput,
