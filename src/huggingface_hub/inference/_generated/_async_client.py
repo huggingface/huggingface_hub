@@ -70,6 +70,7 @@ from huggingface_hub.inference._generated.types import (
     ImageToImageTargetSize,
     ImageToTextOutput,
     ObjectDetectionOutputElement,
+    Padding,
     QuestionAnsweringOutputElement,
     SummarizationOutput,
     SummarizationTruncationStrategy,
@@ -1713,7 +1714,9 @@ class AsyncInferenceClient:
         query: str,
         *,
         model: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
+        padding: Optional["Padding"] = None,
+        sequential: Optional[bool] = None,
+        truncation: Optional[bool] = None,
     ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
@@ -1727,8 +1730,14 @@ class AsyncInferenceClient:
             model (`str`):
                 The model to use for the table-question-answering task. Can be a model ID hosted on the Hugging Face
                 Hub or a URL to a deployed Inference Endpoint.
-            parameters (`Dict[str, Any]`, *optional*):
-                Additional inference parameters. Defaults to None.
+            padding (`"Padding"`, *optional*):
+                Activates and controls padding.
+            sequential (`bool`, *optional*):
+                Whether to do inference sequentially or as a batch. Batching is faster, but models like SQA require the
+                inference to be done sequentially to extract relations within sequences, given their conversational
+                nature.
+            truncation (`bool`, *optional*):
+                Activates and controls truncation.
 
         Returns:
             [`TableQuestionAnsweringOutputElement`]: a table question answering output containing the answer, coordinates, cells and the aggregator used.
@@ -1750,6 +1759,11 @@ class AsyncInferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
+        parameters = {
+            "padding": padding,
+            "sequential": sequential,
+            "truncation": truncation,
+        }
         inputs = {
             "query": query,
             "table": table,
