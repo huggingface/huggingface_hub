@@ -238,6 +238,8 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.TableQuestionAnsweringOutputElement
 
+[[autodoc]] huggingface_hub.TableQuestionAnsweringParameters
+
 
 
 ## text2text_generation[[huggingface_hub.Text2TextGenerationInput]]
