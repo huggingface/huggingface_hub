@@ -20,18 +20,58 @@ The parser currently does very little validation. For more details about the fil
 
 ### How to write a DDUF file?
 
-Here is how to export a folder containing different parts of a diffusion model:
+Here is how to export a folder containing different parts of a diffusion model using [`export_folder_as_dduf`]:
 
 ```python
 # Export a folder as a DDUF file
 >>> from huggingface_hub import export_folder_as_dduf
->>> export_folder_as_dduf("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+>>> export_folder_as_dduf("FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
 ```
 
-If your model is loaded in memory, you can directly serialize it to a GGUF file without saving to disk first.
+For more flexibility, to can use [`export_entries_as_dduf`] and pass a list of files to include in the final DDUF file:
 
 ```python
+# Export specific files from the local disk.
+>>> from huggingface_hub import export_entries_as_dduf
+>>> export_entries_as_dduf(
+...     "stable-diffusion-v1-4-FP16.dduf",
+...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
+...         ("model_index.json", "path/to/model_index.json"),
+...         ("vae/config.json", "path/to/vae/config.json"),
+...         ("vae/diffusion_pytorch_model.fp16.safetensors", "path/to/vae/diffusion_pytorch_model.fp16.safetensors"),
+...         ("text_encoder/config.json", "path/to/text_encoder/config.json"),
+...         ("text_encoder/model.fp16.safetensors", "path/to/text_encoder/model.fp16.safetensors"),
+...         # ... add more entries here
+...     ]
+... )
 ```
+
+The `entries` parameter also support passing an iterable of paths or bytes. This can prove useful if you have a loaded model and want to serialize it directly in a DDUF file instead of having to serialize each component to disk first and then as a DDUF file. Here is an example on how a `StableDiffusionPipeline` can be serialized as DDUF:
+
+
+```python
+# Export state_dicts one by one from a loaded pipeline 
+>>> from diffusers import DiffusionPipeline
+>>> from typing import Generator, Tuple
+>>> import safetensors.torch
+>>> from huggingface_hub import export_entries_as_dduf
+>>> pipe = DiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
+... # ... do some work with the pipeline
+
+>>> def as_entries(pipe: DiffusionPipeline) -> Generator[Tuple[str, bytes], None, None]:
+...     # Build an generator that yields the entries to add to the DDUF file.
+...     # The first element of the tuple is the filename in the DDUF archive (must use UNIX separator!). The second element is the content of the file.
+...     # Entries will be evaluated lazily when the DDUF file is created (only 1 entry is loaded in memory at a time)
+...     yield "vae/config.json", pipe.vae.to_json_string().encode()
+...     yield "vae/diffusion_pytorch_model.safetensors", safetensors.torch.save(pipe.vae.state_dict())
+...     yield "text_encoder/config.json", pipe.text_encoder.config.to_json_string().encode()
+...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
+...     # ... add more entries here
+
+>>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", as_entries=as_entries(pipe))
+```
+
+**Note:** in practice, `diffusers` provides a method to directly serialize a pipeline in a DDUF file. The snippet above is only meant as an example.
 
 ### How to read a DDUF file?
 
@@ -58,7 +98,7 @@ DDUFEntry(filename='model_index.json', offset=66, length=587)
 
 ### Helpers
 
-[[autodoc]] huggingface_hub.export_as_dduf
+[[autodoc]] huggingface_hub.export_entries_as_dduf
 
 [[autodoc]] huggingface_hub.export_folder_as_dduf
 

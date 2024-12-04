@@ -470,7 +470,7 @@ _SUBMOD_ATTRS = {
     ],
     "serialization._dduf": [
         "DDUFEntry",
-        "export_as_dduf",
+        "export_entries_as_dduf",
         "export_folder_as_dduf",
         "read_dduf_file",
     ],
@@ -1003,7 +1003,7 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .serialization._dduf import (
         DDUFEntry,  # noqa: F401
-        export_as_dduf,  # noqa: F401
+        export_entries_as_dduf,  # noqa: F401
         export_folder_as_dduf,  # noqa: F401
         read_dduf_file,  # noqa: F401
     )

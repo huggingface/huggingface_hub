@@ -137,8 +137,13 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
     return entries
 
 
-def export_as_dduf(dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]) -> None:
+def export_entries_as_dduf(
+    dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]
+) -> None:
     """Write a DDUF file from an iterable of entries.
+
+    This is a lower-level helper than [`export_folder_as_dduf`] that allows more flexibility when serializing data.
+    In particular, you don't need to save the data on disk before exporting it in the DDUF file.
 
     Args:
         dduf_path (`str` or `Path`):
@@ -150,12 +155,53 @@ def export_as_dduf(dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Uni
 
     Raises:
         - [`DDUFExportError`]: If entry type is not supported (must be str, Path or bytes).
+
+    Example:
+        ```python
+        # Export specific files from the local disk.
+        >>> from huggingface_hub import export_entries_as_dduf
+        >>> export_entries_as_dduf(
+        ...     "stable-diffusion-v1-4-FP16.dduf",
+        ...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
+        ...         ("model_index.json", "path/to/model_index.json"),
+        ...         ("vae/config.json", "path/to/vae/config.json"),
+        ...         ("vae/diffusion_pytorch_model.fp16.safetensors", "path/to/vae/diffusion_pytorch_model.fp16.safetensors"),
+        ...         ("text_encoder/config.json", "path/to/text_encoder/config.json"),
+        ...         ("text_encoder/model.fp16.safetensors", "path/to/text_encoder/model.fp16.safetensors"),
+        ...         # ... add more entries here
+        ...     ]
+        ... )
+        ```
+
+        ```python
+        # Export state_dicts one by one from a loaded pipeline
+        >>> from diffusers import DiffusionPipeline
+        >>> from typing import Generator, Tuple
+        >>> import safetensors.torch
+        >>> from huggingface_hub import export_entries_as_dduf
+        >>> pipe = DiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4")
+        ... # ... do some work with the pipeline
+
+        >>> def as_entries(pipe: DiffusionPipeline) -> Generator[Tuple[str, bytes], None, None]:
+        ...     # Build an generator that yields the entries to add to the DDUF file.
+        ...     # The first element of the tuple is the filename in the DDUF archive (must use UNIX separator!). The second element is the content of the file.
+        ...     # Entries will be evaluated lazily when the DDUF file is created (only 1 entry is loaded in memory at a time)
+        ...     yield "vae/config.json", pipe.vae.to_json_string().encode()
+        ...     yield "vae/diffusion_pytorch_model.safetensors", safetensors.torch.save(pipe.vae.state_dict())
+        ...     yield "text_encoder/config.json", pipe.text_encoder.config.to_json_string().encode()
+        ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
+        ...     # ... add more entries here
+
+        >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", as_entries=as_entries(pipe))
+        ```
     """
     logger.info("Exporting DDUF file '%s'", dduf_path)
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
             if "." + filename.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
                 raise DDUFExportError(f"File type not allowed: {filename}")
+            if "\\" in filename:
+                raise DDUFExportError(f"Filenames must use UNIX separators: {filename}")
             logger.debug("Adding file %s to DDUF file", filename)
             _dump_content_in_archive(archive, filename, content)
 
@@ -166,7 +212,7 @@ def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, P
     """
     Export a folder as a DDUF file.
 
-    AUses [`export_as_dduf`] under the hood.
+    AUses [`export_entries_as_dduf`] under the hood.
 
     Args:
         dduf_path (`str` or `Path`):
@@ -195,7 +241,7 @@ def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, P
                 continue
             yield path_in_archive.as_posix(), path
 
-    export_as_dduf(dduf_path, _iterate_over_folder())
+    export_entries_as_dduf(dduf_path, _iterate_over_folder())
 
 
 def add_entry_to_dduf(dduf_path: Union[str, Path], filename: str, content: Union[str, Path, bytes]) -> None:
