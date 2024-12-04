@@ -18,6 +18,13 @@ The parser currently does very little validation. For more details about the fil
 
 </Tip>
 
+### How to write a DDUF file?
+
+```python
+>>> from huggingface_hub import write_dduf_file
+>>> write_dduf_file("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+```
+
 ### How to read a DDUF file?
 
 ```python
@@ -39,13 +46,6 @@ DDUFEntry(filename='model_index.json', offset=66, length=587)
 # Load VAE weights using safetensors
 >>> with dduf_entries["vae/diffusion_pytorch_model.safetensors"].as_mmap() as mm:
 ...     state_dict = safetensors.torch.load(mm)
-```
-
-### How to write a DDUF file?
-
-```python
->>> from huggingface_hub import write_dduf_file
->>> write_dduf_file("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
 ```
 
 ### Helpers
