@@ -84,19 +84,22 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
     """
     entries = {}
     dduf_path = Path(dduf_path)
+    logger.info("Reading DDUF file %s", dduf_path)
     with zipfile.ZipFile(str(dduf_path), "r") as zf:
         for info in zf.infolist():
+            logger.debug("Reading entry %s", info.filename)
             if info.compress_type != zipfile.ZIP_STORED:
                 raise DDUFCorruptedFileError("Data must not be compressed in GGUF file.")
 
             # Use private attribute to get data range for this file.
             # Let's reconsider later if it's too problematic (worse case, we can build our own metadata parser).
             # Note: simply doing `info.header_offset + len(info.FileHeader())` doesn't work because of the ZIP64 extension.
-            offset = info._end_offset - info.compress_size
+            offset = info._end_offset - info.compress_size  # type: ignore[attr-defined]
 
             entries[info.filename] = DDUFEntry(
                 filename=info.filename, offset=offset, length=info.file_size, dduf_path=dduf_path
             )
+    logger.info("Done reading DDUF file %s. Found %d entries", dduf_path, len(entries))
     return entries
 
 
@@ -129,5 +132,7 @@ def write_dduf_file(dduf_path: Union[str, Path], diffuser_path: Union[str, Path]
             logger.debug("Adding file %s", path)
             with archive.open(str(path.relative_to(diffuser_path)), "w", force_zip64=True) as f:
                 with path.open("rb") as src:
-                    shutil.copyfileobj(src, f, 1024 * 8)
+                    # taken from zipfile source code
+                    # TODO: optimize this for large files
+                    shutil.copyfileobj(src, f, 1024 * 8)  # type: ignore[misc]
     logger.info("Done writing DDUF file %s", dduf_path)
