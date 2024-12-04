@@ -89,7 +89,7 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
         for info in zf.infolist():
             logger.debug("Reading entry %s", info.filename)
             if info.compress_type != zipfile.ZIP_STORED:
-                raise DDUFCorruptedFileError("Data must not be compressed in GGUF file.")
+                raise DDUFCorruptedFileError("Data must not be compressed in DDUF file.")
 
             # Use private attribute to get data range for this file.
             # Let's reconsider later if it's too problematic (worse case, we can build our own metadata parser).
