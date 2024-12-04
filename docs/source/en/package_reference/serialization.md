@@ -6,6 +6,58 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` contains helpers to help ML libraries serialize models weights in a standardized way. This part of the lib is still under development and will be improved in future releases. The goal is to harmonize how weights are serialized on the Hub, both to remove code duplication across libraries and to foster conventions on the Hub.
 
+## DDUF file format
+
+DDUF is a file format designed for diffusers models. It allows saving all the information to run a model in a single file. This work is inspired by the GGUF format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
+
+<Tip warning={true}>
+
+This is a very early version of the parser. The API and implementation can evolve in the near future.
+
+The parser currently does very little validation. For more details about the file format, check out https://github.com/huggingface/huggingface.js/tree/main/packages/dduf.
+
+</Tip>
+
+### How to read a DDUF file?
+
+```python
+>>> import json
+>>> import safetensors.load
+>>> from huggingface_hub import read_dduf_file
+
+# Read DDUF metadata
+>>> dduf_entries = read_dduf_file("FLUX.1-dev.dduf")
+
+# Returns a mapping filename <> DDUFEntry
+>>> dduf_entries["model_index.json"]
+DDUFEntry(filename='model_index.json', offset=66, length=587)
+
+# Load model index as JSON
+>>> json.loads(dduf_entries["model_index.json"].read_text())
+{'_class_name': 'FluxPipeline', '_diffusers_version': '0.32.0.dev0', '_name_or_path': 'black-forest-labs/FLUX.1-dev', 'scheduler': ['diffusers', 'FlowMatchEulerDiscreteScheduler'], 'text_encoder': ['transformers', 'CLIPTextModel'], 'text_encoder_2': ['transformers', 'T5EncoderModel'], 'tokenizer': ['transformers', 'CLIPTokenizer'], 'tokenizer_2': ['transformers', 'T5TokenizerFast'], 'transformer': ['diffusers', 'FluxTransformer2DModel'], 'vae': ['diffusers', 'AutoencoderKL']}
+
+# Load VAE weights using safetensors
+>>> with dduf_entries["vae/diffusion_pytorch_model.safetensors"].as_mmap() as mm:
+...     state_dict = safetensors.torch.load(mm)
+```
+
+### How to write a DDUF file?
+
+```python
+>>> from huggingface_hub import write_dduf_file
+>>> write_dduf_file("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+```
+
+### Helpers
+
+[[autodoc]] huggingface_hub.write_dduf_file
+
+[[autodoc]] huggingface_hub.read_dduf_file
+
+[[autodoc]] huggingface_hub.DDUFEntry
+
+[[autodoc]] huggingface_hub.errors.DDUFCorruptedFileError
+
 ## Save torch state dict
 
 The main helper of the `serialization` module takes a torch `nn.Module` as input and saves it to disk. It handles the logic to save shared tensors (see [safetensors explanation](https://huggingface.co/docs/safetensors/torch_shared_tensors)) as well as logic to split the state dictionary into shards, using [`split_torch_state_dict_into_shards`] under the hood. At the moment, only `torch` framework is supported.
