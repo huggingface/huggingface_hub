@@ -10,6 +10,8 @@
   sections:
     - local: guides/repository
       title: 储存库
+    - local: guides/search
+      title: 搜索
 - title: "concepts"
   sections:
     - local: concepts/git_vs_http
