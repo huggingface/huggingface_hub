@@ -127,10 +127,14 @@ def write_dduf_file(dduf_path: Union[str, Path], diffuser_path: Union[str, Path]
                 logger.debug("Skipping directory %s", path)
                 continue
             if path.suffix not in DDUF_ALLOWED_ENTRIES:
-                logger.debug("Skipping file %s", path)
+                logger.debug("Skipping file %s (file type not allowed)", path)
+                continue
+            path_in_archive = path.relative_to(diffuser_path)
+            if len(path_in_archive.parts) > 3:
+                logger.debug("Skipping file %s (nested directories not allowed)", path)
                 continue
             logger.debug("Adding file %s", path)
-            with archive.open(str(path.relative_to(diffuser_path)), "w", force_zip64=True) as f:
+            with archive.open(str(path_in_archive), "w", force_zip64=True) as f:
                 with path.open("rb") as src:
                     # taken from zipfile source code
                     # TODO: optimize this for large files
