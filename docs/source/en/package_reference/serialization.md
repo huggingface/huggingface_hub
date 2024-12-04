@@ -20,9 +20,17 @@ The parser currently does very little validation. For more details about the fil
 
 ### How to write a DDUF file?
 
+Here is how to export a folder containing different parts of a diffusion model:
+
 ```python
->>> from huggingface_hub import write_dduf_file
->>> write_dduf_file("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+# Export a folder as a DDUF file
+>>> from huggingface_hub import export_folder_as_dduf
+>>> export_folder_as_dduf("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+```
+
+If your model is loaded in memory, you can directly serialize it to a GGUF file without saving to disk first.
+
+```python
 ```
 
 ### How to read a DDUF file?
@@ -50,13 +58,21 @@ DDUFEntry(filename='model_index.json', offset=66, length=587)
 
 ### Helpers
 
-[[autodoc]] huggingface_hub.write_dduf_file
+[[autodoc]] huggingface_hub.export_as_dduf
+
+[[autodoc]] huggingface_hub.export_folder_as_dduf
 
 [[autodoc]] huggingface_hub.read_dduf_file
 
 [[autodoc]] huggingface_hub.DDUFEntry
 
+### Errors
+
+[[autodoc]] huggingface_hub.errors.DDUFError
+
 [[autodoc]] huggingface_hub.errors.DDUFCorruptedFileError
+
+[[autodoc]] huggingface_hub.errors.DDUFExportError
 
 ## Save torch state dict
 

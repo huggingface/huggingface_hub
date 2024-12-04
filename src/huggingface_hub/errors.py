@@ -313,5 +313,13 @@ class BadRequestError(HfHubHTTPError, ValueError):
 # DDUF file format ERROR
 
 
-class DDUFCorruptedFileError(Exception):
-    pass
+class DDUFError(Exception):
+    """Base exception for errors related to the DDUF format."""
+
+
+class DDUFCorruptedFileError(DDUFError):
+    """Exception thrown when the DDUF file is corrupted."""
+
+
+class DDUFExportError(DDUFError):
+    """Base exception for errors during DDUF export."""

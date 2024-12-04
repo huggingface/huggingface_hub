@@ -470,8 +470,9 @@ _SUBMOD_ATTRS = {
     ],
     "serialization._dduf": [
         "DDUFEntry",
+        "export_as_dduf",
+        "export_folder_as_dduf",
         "read_dduf_file",
-        "write_dduf_file",
     ],
     "utils": [
         "CacheNotFound",
@@ -1002,8 +1003,9 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .serialization._dduf import (
         DDUFEntry,  # noqa: F401
+        export_as_dduf,  # noqa: F401
+        export_folder_as_dduf,  # noqa: F401
         read_dduf_file,  # noqa: F401
-        write_dduf_file,  # noqa: F401
     )
     from .utils import (
         CachedFileInfo,  # noqa: F401
