@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 from unittest.mock import Mock, patch
 
+import jedi
 import pytest
 
 from huggingface_hub import HfApi, hf_hub_download
@@ -452,3 +453,24 @@ class HubMixinTest(unittest.TestCase):
         model = DummyModelInherited()
         assert model._hub_mixin_info.repo_url == "https://hf.co/my-repo"
         assert model._hub_mixin_info.model_card_data.library_name == "my-cool-library"
+
+    def test_autocomplete_works_as_expected(self):
+        """Regression test for #2694.
+
+        Ensure that autocomplete works as expected when inheriting from `ModelHubMixin`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2694.
+        """
+        source = """
+from huggingface_hub import ModelHubMixin
+
+class Dummy(ModelHubMixin):
+    def dummy_example_for_test(self, x: str) -> str:
+        return x
+
+a = Dummy()
+a.dum""".strip()
+        script = jedi.Script(source, path="example.py")
+        source_lines = source.split("\n")
+        completions = script.complete(len(source_lines), len(source_lines[-1]))
+        assert any(completion.name == "dummy_example_for_test" for completion in completions)
