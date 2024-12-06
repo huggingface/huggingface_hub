@@ -403,7 +403,7 @@ def http_get(
             total=total,
             initial=resume_size,
             desc=displayed_filename,
-            disable=is_tqdm_disabled(logger),
+            disable=is_tqdm_disabled(logger.getEffectiveLevel()),
             name="huggingface_hub.http_get",
         )
         if _tqdm_bar is None

@@ -198,8 +198,8 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
     return not progress_bar_states.get("_global", True)
 
 
-def is_tqdm_disabled(logger: logging.Logger) -> Optional[bool]:
-    if logger.getEffectiveLevel() == logging.NOTSET:
+def is_tqdm_disabled(log_level: int) -> Optional[bool]:
+    if log_level == logging.NOTSET:
         return True
     if "TQDM_POSITION" in os.environ:
         return False
