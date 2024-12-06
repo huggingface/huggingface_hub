@@ -201,7 +201,7 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
 def is_tqdm_disabled(log_level: int) -> Optional[bool]:
     if log_level == logging.NOTSET:
         return True
-    if "TQDM_POSITION" in os.environ:
+    if os.getenv("TQDM_POSITION") == "-1":
         return False
     return None
     # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
