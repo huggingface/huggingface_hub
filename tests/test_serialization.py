@@ -264,6 +264,8 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
+        is_main_process=True,
+        shared_tensors_to_discard=None,
     )
     safe_state_dict_mock.assert_called_once_with(
         state_dict=model_mock.state_dict.return_value,
@@ -273,6 +275,8 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
+        is_main_process=True,
+        shared_tensors_to_discard=None,
     )
 
 
@@ -412,6 +416,55 @@ def test_save_torch_state_dict_shared_layers_sharded(
     for filename in index["weight_map"].values():
         state_dict = load_file(tmp_path / filename)
         assert "shared_2" not in state_dict
+
+
+def test_save_torch_state_dict_discard_selected_sharded(
+    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+) -> None:
+    from safetensors.torch import load_file
+
+    save_torch_state_dict(
+        torch_state_dict_shared_layers,
+        tmp_path,
+        max_shard_size=2,
+        safe_serialization=True,
+        shared_tensors_to_discard=["shared_1"],
+    )
+    index_file = tmp_path / "model.safetensors.index.json"
+    index = json.loads(index_file.read_text())
+
+    assert index["metadata"]["shared_1"] == "shared_2"
+
+    for filename in index["weight_map"].values():
+        state_dict = load_file(tmp_path / filename)
+        assert "shared_1" not in state_dict
+
+
+def test_save_torch_state_dict_discard_selected_not_sharded(
+    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+) -> None:
+    from safetensors.torch import load_file
+
+    save_torch_state_dict(
+        torch_state_dict_shared_layers,
+        tmp_path,
+        safe_serialization=True,
+        shared_tensors_to_discard=["shared_1"],
+    )
+    safetensors_file = tmp_path / "model.safetensors"
+    assert safetensors_file.is_file()
+
+    # Check shared layer not duplicated in file
+    state_dict = load_file(safetensors_file)
+    assert "shared_1" not in state_dict
+    assert "shared_2" in state_dict
+
+    # Check shared layer info in metadata
+    file_bytes = safetensors_file.read_bytes()
+    metadata_str = file_bytes[
+        8 : struct.unpack("<Q", file_bytes[:8])[0] + 8
+    ].decode()  # TODO: next time add helper for this
+    assert json.loads(metadata_str)["__metadata__"]["shared_1"] == "shared_2"
 
 
 def test_split_torch_state_dict_into_shards(

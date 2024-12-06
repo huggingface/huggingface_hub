@@ -41,6 +41,8 @@ def save_torch_model(
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
     metadata: Optional[Dict[str, str]] = None,
     safe_serialization: bool = True,
+    is_main_process: bool = True,
+    shared_tensors_to_discard: Optional[List[str]] = None,
 ):
     """
     Saves a given torch model to disk, handling sharding and shared tensors issues.
@@ -61,6 +63,12 @@ def save_torch_model(
 
     If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
     size greater than `max_shard_size`.
+
+    </Tip>
+
+    <Tip warning={true}>
+
+    If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
 
     </Tip>
 
@@ -88,6 +96,13 @@ def save_torch_model(
             Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
             Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
             in a future version.
+        is_main_process (`bool`, *optional*):
+            Whether the process calling this is the main process or not. Useful when in distributed training like
+            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
+            the main process to avoid race conditions. Defaults to True.
+        shared_tensors_to_discard (`List[str]`, *optional*):
+            List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
+            detected, it will drop the first name alphabetically.
 
     Example:
 
@@ -112,6 +127,8 @@ def save_torch_model(
         metadata=metadata,
         safe_serialization=safe_serialization,
         save_directory=save_directory,
+        is_main_process=is_main_process,
+        shared_tensors_to_discard=shared_tensors_to_discard,
     )
 
 
@@ -124,6 +141,8 @@ def save_torch_state_dict(
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
     metadata: Optional[Dict[str, str]] = None,
     safe_serialization: bool = True,
+    is_main_process: bool = True,
+    shared_tensors_to_discard: Optional[List[str]] = None,
 ) -> None:
     """
     Save a model state dictionary to the disk, handling sharding and shared tensors issues.
@@ -144,6 +163,12 @@ def save_torch_state_dict(
 
     If one of the model's tensor is bigger than `max_shard_size`, it will end up in its own shard which will have a
     size greater than `max_shard_size`.
+
+    </Tip>
+
+    <Tip warning={true}>
+
+    If your model is a `transformers.PreTrainedModel`, you should pass `model._tied_weights_keys` as `shared_tensors_to_discard` to properly handle shared tensors saving. This ensures the correct duplicate tensors are discarded during saving.
 
     </Tip>
 
@@ -171,6 +196,13 @@ def save_torch_state_dict(
             Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
             Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
             in a future version.
+        is_main_process (`bool`, *optional*):
+            Whether the process calling this is the main process or not. Useful when in distributed training like
+            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
+            the main process to avoid race conditions. Defaults to True.
+        shared_tensors_to_discard (`List[str]`, *optional*):
+            List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
+            detected, it will drop the first name alphabetically.
 
     Example:
 
@@ -192,7 +224,8 @@ def save_torch_state_dict(
             else constants.PYTORCH_WEIGHTS_FILE_PATTERN
         )
 
-    # Imports correct library
+    if metadata is None:
+        metadata = {}
     if safe_serialization:
         try:
             from safetensors.torch import save_file as save_file_fn
@@ -201,7 +234,13 @@ def save_torch_state_dict(
                 "Please install `safetensors` to use safe serialization. "
                 "You can install it with `pip install safetensors`."
             ) from e
-
+        # Clean state dict for safetensors
+        state_dict = _clean_state_dict_for_safetensors(
+            state_dict,
+            metadata,
+            force_contiguous=force_contiguous,
+            shared_tensors_to_discard=shared_tensors_to_discard,
+        )
     else:
         from torch import save as save_file_fn  # type: ignore[assignment]
 
@@ -210,13 +249,6 @@ def save_torch_state_dict(
             "pickled models from untrusted sources. If you intend to share your model, we strongly recommend "
             "using safe serialization by installing `safetensors` with `pip install safetensors`."
         )
-
-    # Clean state dict for safetensors
-    if metadata is None:
-        metadata = {}
-    if safe_serialization:
-        state_dict = _clean_state_dict_for_safetensors(state_dict, metadata, force_contiguous=force_contiguous)
-
     # Split dict
     state_dict_split = split_torch_state_dict_into_shards(
         state_dict, filename_pattern=filename_pattern, max_shard_size=max_shard_size
@@ -459,7 +491,10 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
 
 
 def _clean_state_dict_for_safetensors(
-    state_dict: Dict[str, "torch.Tensor"], metadata: Dict[str, str], force_contiguous: bool = True
+    state_dict: Dict[str, "torch.Tensor"],
+    metadata: Dict[str, str],
+    force_contiguous: bool = True,
+    shared_tensors_to_discard: Optional[List[str]] = None,
 ):
     """Remove shared tensors from state_dict and update metadata accordingly (for reloading).
 
@@ -467,7 +502,7 @@ def _clean_state_dict_for_safetensors(
 
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L155.
     """
-    to_removes = _remove_duplicate_names(state_dict)
+    to_removes = _remove_duplicate_names(state_dict, discard_names=shared_tensors_to_discard)
     for kept_name, to_remove_group in to_removes.items():
         for to_remove in to_remove_group:
             if metadata is None:
