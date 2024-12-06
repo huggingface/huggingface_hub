@@ -39,6 +39,7 @@ from .utils import (
 )
 from .utils._lfs import SliceFileObj
 from .utils.sha import sha256, sha_fileobj
+from .utils.tqdm import is_tqdm_disabled
 
 
 if TYPE_CHECKING:
@@ -430,17 +431,13 @@ def _upload_parts_hf_transfer(
     if len(desc) > 40:
         desc = f"(…){desc[-40:]}"
 
-    # set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-    # see https://github.com/huggingface/huggingface_hub/pull/2000
-    disable = True if (logger.getEffectiveLevel() == logging.NOTSET) else None
-
     with tqdm(
         unit="B",
         unit_scale=True,
         total=total,
         initial=0,
         desc=desc,
-        disable=disable,
+        disable=is_tqdm_disabled(logger.getEffectiveLevel()),
         name="huggingface_hub.lfs_upload",
     ) as progress:
         try:
