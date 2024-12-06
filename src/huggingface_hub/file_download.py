@@ -62,6 +62,7 @@ from .utils import (
 from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility
 from .utils._typing import HTTP_METHOD_T
 from .utils.sha import sha_fileobj
+from .utils.tqdm import is_tqdm_disabled
 
 
 logger = logging.get_logger(__name__)
@@ -402,9 +403,7 @@ def http_get(
             total=total,
             initial=resume_size,
             desc=displayed_filename,
-            disable=True if (logger.getEffectiveLevel() == logging.NOTSET) else None,
-            # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-            # see https://github.com/huggingface/huggingface_hub/pull/2000
+            disable=is_tqdm_disabled(logger),
             name="huggingface_hub.http_get",
         )
         if _tqdm_bar is None

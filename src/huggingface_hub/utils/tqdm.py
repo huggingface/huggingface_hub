@@ -81,6 +81,8 @@ Group-based control:
 """
 
 import io
+import logging
+import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -194,6 +196,16 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
         name = ".".join(name.split(".")[:-1])
 
     return not progress_bar_states.get("_global", True)
+
+
+def is_tqdm_disabled(logger: logging.Logger) -> Optional[bool]:
+    if logger.getEffectiveLevel() == logging.NOTSET:
+        return True
+    if "TQDM_POSITION" in os.environ:
+        return False
+    return None
+    # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
+    # see https://github.com/huggingface/huggingface_hub/pull/2000
 
 
 class tqdm(old_tqdm):
