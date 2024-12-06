@@ -264,7 +264,6 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
-        is_main_process=True,
         shared_tensors_to_discard=None,
     )
     safe_state_dict_mock.assert_called_once_with(
@@ -275,7 +274,6 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
         max_shard_size="3GB",
         metadata={"foo": "bar"},
         safe_serialization=True,
-        is_main_process=True,
         shared_tensors_to_discard=None,
     )
 

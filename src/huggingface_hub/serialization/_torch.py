@@ -41,7 +41,6 @@ def save_torch_model(
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
     metadata: Optional[Dict[str, str]] = None,
     safe_serialization: bool = True,
-    is_main_process: bool = True,
     shared_tensors_to_discard: Optional[List[str]] = None,
 ):
     """
@@ -96,10 +95,6 @@ def save_torch_model(
             Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
             Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
             in a future version.
-        is_main_process (`bool`, *optional*):
-            Whether the process calling this is the main process or not. Useful when in distributed training like
-            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
-            the main process to avoid race conditions. Defaults to True.
         shared_tensors_to_discard (`List[str]`, *optional*):
             List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
             detected, it will drop the first name alphabetically.
@@ -127,7 +122,6 @@ def save_torch_model(
         metadata=metadata,
         safe_serialization=safe_serialization,
         save_directory=save_directory,
-        is_main_process=is_main_process,
         shared_tensors_to_discard=shared_tensors_to_discard,
     )
 
@@ -141,7 +135,6 @@ def save_torch_state_dict(
     max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
     metadata: Optional[Dict[str, str]] = None,
     safe_serialization: bool = True,
-    is_main_process: bool = True,
     shared_tensors_to_discard: Optional[List[str]] = None,
 ) -> None:
     """
@@ -196,10 +189,6 @@ def save_torch_state_dict(
             Whether to save as safetensors, which is the default behavior. If `False`, the shards are saved as pickle.
             Safe serialization is recommended for security reasons. Saving as pickle is deprecated and will be removed
             in a future version.
-        is_main_process (`bool`, *optional*):
-            Whether the process calling this is the main process or not. Useful when in distributed training like
-            TPUs and need to call this function from all processes. In this case, set `is_main_process=True` only on
-            the main process to avoid race conditions. Defaults to True.
         shared_tensors_to_discard (`List[str]`, *optional*):
             List of tensor names to drop when saving shared tensors. If not provided and shared tensors are
             detected, it will drop the first name alphabetically.
