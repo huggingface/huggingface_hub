@@ -199,13 +199,16 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
 
 
 def is_tqdm_disabled(log_level: int) -> Optional[bool]:
+    """
+    Determine if tqdm progress bars should be disabled based on logging level and environment settings.
+
+    see https://github.com/huggingface/huggingface_hub/pull/2000 and https://github.com/huggingface/huggingface_hub/pull/2698.
+    """
     if log_level == logging.NOTSET:
         return True
     if os.getenv("TQDM_POSITION") == "-1":
         return False
     return None
-    # ^ set `disable=None` rather than `disable=False` by default to disable progress bar when no TTY attached
-    # see https://github.com/huggingface/huggingface_hub/pull/2000
 
 
 class tqdm(old_tqdm):
