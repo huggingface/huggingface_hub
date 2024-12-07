@@ -17,10 +17,13 @@ import importlib
 import json
 import os
 import re
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Set, Tuple, Union
+
+from packaging import version
 
 from .. import constants, logging
 from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_factory
@@ -29,7 +32,9 @@ from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_
 logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
-    import torch
+    import torch  # type: ignore[import]
+
+# SAVING
 
 
 def save_torch_model(
@@ -371,6 +376,336 @@ def split_torch_state_dict_into_shards(
     )
 
 
+# LOADING
+
+
+def load_torch_model(
+    model: "torch.nn.Module",
+    checkpoint_path: Union[str, os.PathLike],
+    *,
+    strict: bool = False,
+    safe: bool = True,
+    weights_only: bool = False,
+    map_location: Optional[Union[str, "torch.device"]] = None,
+) -> NamedTuple:
+    """
+    Load a checkpoint into a model, handling both sharded and non-sharded checkpoints.
+
+    Args:
+        model (`torch.nn.Module`):
+            The model in which to load the checkpoint.
+        checkpoint_path (`str` or `os.PathLike`):
+            Path to either the checkpoint file or directory containing the checkpoint(s).
+        strict (`bool`, *optional*, defaults to `False`):
+            Whether to strictly enforce that the keys in the model state dict match the keys in the checkpoint.
+        safe (`bool`, *optional*, defaults to `True`):
+            If both safetensors and PyTorch save files are present in checkpoint and `safe` is True, the
+            safetensors files will be loaded. Otherwise, PyTorch files are always loaded when possible.
+        weights_only (`bool`, *optional*, defaults to `False`):
+            If True, only loads the model weights without optimizer states and other metadata.
+            Only supported in PyTorch >= 1.13.
+        map_location (`str` or `torch.device`, *optional*):
+            A `torch.device` object, string or a dict specifying how to remap storage locations. It
+            indicates the location where all tensors should be loaded.
+
+    Returns:
+        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields.
+            - `missing_keys` is a list of str containing the missing keys, i.e. keys that are in the model but not in the checkpoint.
+            - `unexpected_keys` is a list of str containing the unexpected keys, i.e. keys that are in the checkpoint but not in the model.
+
+    Raises:
+        ValueError: If the checkpoint path is invalid or if the checkpoint format cannot be determined.
+        FileNotFoundError: If the checkpoint file or directory does not exist.
+        ImportError: If required dependencies are not installed.
+
+    Example:
+    ```python
+    >>> from huggingface_hub import load_torch_model
+    >>> model = ... # A PyTorch model
+    >>> load_torch_model(model, "path/to/checkpoint")
+    ```
+    """
+    checkpoint_path = Path(checkpoint_path)
+
+    if checkpoint_path.is_file():
+        state_dict = load_state_dict_from_file(
+            checkpoint_file=checkpoint_path,
+            map_location=map_location,
+            weights_only=weights_only,
+        )
+        return model.load_state_dict(state_dict, strict=strict)
+
+    elif checkpoint_path.is_dir():
+        # Check for index file which indicates sharded checkpoint
+        filename_pattern = (
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN if safe else constants.PYTORCH_WEIGHTS_FILE_PATTERN
+        )
+        index_file = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
+        if index_file.is_file():
+            return load_sharded_checkpoint(
+                model=model,
+                save_directory=checkpoint_path,
+                strict=strict,
+                safe=safe,
+                weights_only=weights_only,
+            )
+
+        # Look for single model file
+        model_files = list(checkpoint_path.glob("*.safetensors" if safe else "*.bin"))
+        if len(model_files) == 1:
+            state_dict = load_state_dict_from_file(
+                checkpoint_file=model_files[0],
+                map_location=map_location,
+                weights_only=weights_only,
+            )
+            return model.load_state_dict(state_dict, strict=strict)
+
+        raise ValueError(
+            f"Directory '{checkpoint_path}' does not contain a valid checkpoint. "
+            "Expected either a sharded checkpoint with an index file, or a single model file."
+        )
+
+    else:
+        raise ValueError(f"Invalid checkpoint path: {checkpoint_path}")
+
+
+def load_sharded_checkpoint(
+    model: "torch.nn.Module",
+    save_directory: Union[str, os.PathLike],
+    *,
+    strict: bool = False,
+    safe: bool = True,
+    weights_only: bool = False,
+) -> NamedTuple:
+    """
+    Loads a sharded checkpoint into a model. This is the same as
+    [`torch.nn.Module.load_state_dict`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html?highlight=load_state_dict#torch.nn.Module.load_state_dict)
+    but for a sharded checkpoint. Each shard is loaded one by one and deleted after being loaded into the model.
+
+    Args:
+        model (`torch.nn.Module`):
+            The model in which to load the checkpoint.
+        save_directory (`str` or `os.PathLike`):
+            A path to a folder containing the sharded checkpoint.
+        strict (`bool`, *optional*, defaults to `False`):
+            Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
+        safe (`bool`, *optional*, defaults to `True`):
+            If both safetensors and PyTorch save files are present in checkpoint and `safe` is True, the
+            safetensors files will be loaded. Otherwise, PyTorch files are always loaded when possible.
+        weights_only (`bool`, *optional*, defaults to `False`):
+            If True, only loads the model weights without optimizer states and other metadata.
+            Only supported in PyTorch >= 1.13.
+
+    Returns:
+        `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields,
+            - `missing_keys` is a list of str containing the missing keys
+            - `unexpected_keys` is a list of str containing the unexpected keys
+    """
+    save_directory = Path(save_directory)
+    # Check if directory exists
+    if not save_directory.is_dir():
+        raise FileNotFoundError(f"No checkpoint directory found at '{save_directory}'")
+
+    # 1. get filename pattern based on serialization type
+    filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN if safe else constants.PYTORCH_WEIGHTS_FILE_PATTERN
+
+    # 2. Load and validate index file
+    # The index file contains mapping of parameter names to shard files
+    index_path = filename_pattern.format(suffix="") + ".index.json"
+    index_file = os.path.join(save_directory, index_path)
+    if not os.path.isfile(index_file):
+        raise ValueError(f"Can't find checkpoint index file '{index_path}' in {save_directory}.")
+    with open(index_file, "r", encoding="utf-8") as f:
+        index = json.load(f)
+
+    # 3. Validate keys if in strict mode
+    # This is done before loading any shards to fail fast
+    if strict:
+        _validate_keys_for_strict_loading(model, index["weight_map"].keys())
+
+    # 4. Load each shard using `load_state_dict`
+    # Get unique shard files (multiple parameters can be in same shard)
+    shard_files = list(set(index["weight_map"].values()))
+    for shard_file in shard_files:
+        # Load shard into memory
+        shard_path = os.path.join(save_directory, shard_file)
+        with _load_shard_into_memory(
+            shard_path,
+            load_fn=load_state_dict_from_file,
+            kwargs={"weights_only": weights_only},
+        ) as state_dict:
+            # Update model with parameters from this shard
+            model.load_state_dict(state_dict, strict=strict)
+
+    # 5. Return compatibility info
+    loaded_keys = set(index["weight_map"].keys())
+    model_keys = set(model.state_dict().keys())
+    return _IncompatibleKeys(
+        missing_keys=list(model_keys - loaded_keys), unexpected_keys=list(loaded_keys - model_keys)
+    )
+
+
+def load_state_dict_from_file(
+    checkpoint_file: Union[str, os.PathLike],
+    map_location: Optional[Union[str, "torch.device"]] = None,
+    weights_only: bool = False,
+    mmap: bool = False,
+) -> Union[Dict[str, "torch.Tensor"], Any]:
+    """
+    Loads a checkpoint file, handling both safetensors and pickle checkpoint formats.
+
+    Args:
+        checkpoint_file (`str` or `os.PathLike`):
+            Path to the checkpoint file to load. Can be either a safetensors or pickle (`.bin`) checkpoint.
+        map_location (`str` or `torch.device`, *optional*):
+            A `torch.device` object, string or a dict specifying how to remap storage locations. It
+            indicates the location where all tensors should be loaded.
+        weights_only (`bool`, *optional*, defaults to `False`):
+            If True, only loads the model weights without optimizer states and other metadata.
+            Only supported in PyTorch >= 1.13.
+        mmap (`bool`, *optional*, defaults to `False`):
+            Whether to use memory-mapped file loading. Memory mapping can improve loading performance
+            for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints.
+
+    Returns:
+        `Union[Dict[str, "torch.Tensor"], Any]`: The loaded checkpoint.
+            - For safetensors files: always returns a dictionary mapping parameter names to tensors.
+            - For pickle files: returns any Python object that was pickled (commonly a state dict, but could be
+              an entire model, optimizer state, or any other Python object).
+
+    Raises:
+        [`FileNotFoundError`](https://docs.python.org/3/library/exceptions.html#FileNotFoundError)
+            If the checkpoint file does not exist.
+        [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+            If safetensors or torch is not installed when trying to load a .safetensors file or a PyTorch checkpoint respectively.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
+            If the checkpoint file format is invalid or if git-lfs files are not properly downloaded.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the checkpoint file path is empty or invalid.
+
+    Example:
+    ```python
+    >>> from huggingface_hub import load_state_dict_from_file
+
+    # Load a PyTorch checkpoint
+    >>> state_dict = load_state_dict_from_file("path/to/model.bin", map_location="cpu")
+    >>> model.load_state_dict(state_dict)
+
+    # Load a safetensors checkpoint
+    >>> state_dict = load_state_dict_from_file("path/to/model.safetensors")
+    >>> model.load_state_dict(state_dict)
+    ```
+    """
+    checkpoint_path = Path(checkpoint_file)
+
+    # Check if file exists and is a regular file (not a directory)
+    if not checkpoint_path.is_file():
+        raise FileNotFoundError(
+            f"No checkpoint file found at '{checkpoint_path}'. Please verify the path is correct and "
+            "the file has been properly downloaded."
+        )
+
+    # Check if file is empty (0 bytes)
+    if checkpoint_path.stat().st_size == 0:
+        raise OSError(
+            f"Checkpoint file at '{checkpoint_path}' exists but is empty. This might indicate a failed "
+            "download or a Git LFS file that hasn't been properly downloaded. If using Git LFS, please "
+            "ensure you have run 'git lfs pull' to download the actual model weights."
+        )
+    # Load safetensors checkpoint
+    if checkpoint_path.suffix == ".safetensors":
+        try:
+            from safetensors import safe_open
+            from safetensors.torch import load_file
+        except ImportError as e:
+            raise ImportError(
+                "Please install `safetensors` to load safetensors checkpoint. "
+                "You can install it with `pip install safetensors`."
+            ) from e
+
+        # Check format of the archive
+        with safe_open(checkpoint_file, framework="pt") as f:  # type: ignore[attr-defined]
+            metadata = f.metadata()
+        if metadata.get("format") != "pt":
+            raise OSError(
+                f"The safetensors archive passed at {checkpoint_file} does not contain the valid metadata. Make sure "
+                "you save your model with the `save_torch_model` method."
+            )
+        return load_file(checkpoint_file)
+    try:
+        import torch
+        from torch import load
+    except ImportError as e:
+        raise ImportError(
+            "Please install `safetensors` to load safetensors checkpoint. "
+            "You can install it with `pip install safetensors`."
+        ) from e
+    additional_kwargs = {"mmap": mmap} if version.parse(torch.__version__) >= version.parse("2.1.0") else {}
+    return load(
+        checkpoint_file,
+        map_location=map_location,
+        weights_only=weights_only,
+        **additional_kwargs,
+    )
+
+
+# HELPERS
+
+
+@contextmanager
+def _load_shard_into_memory(
+    shard_path: str,
+    load_fn: Callable,
+    kwargs: Optional[Dict[str, Any]] = None,
+):
+    """
+    Context manager to handle loading and cleanup of model shards.
+
+    Args:
+        shard_path: Path to the shard file
+        load_fn: Function to load the shard (either torch.load or safetensors.load)
+
+    Yields:
+        The loaded state dict for this shard
+    """
+    try:
+        state_dict = load_fn(shard_path, **kwargs)  # type: ignore[arg-type]
+        yield state_dict
+    finally:
+        # Explicitly delete the state dict
+        del state_dict
+
+
+def _validate_keys_for_strict_loading(
+    model: "torch.nn.Module",
+    loaded_keys: Iterable[str],
+) -> None:
+    """
+    Validate that model keys match loaded keys when strict loading is enabled.
+
+    Args:
+        model: The PyTorch model being loaded
+        loaded_keys: The keys present in the checkpoint
+
+    Raises:
+        RuntimeError: If there are missing or unexpected keys in strict mode
+    """
+    loaded_keys_set = set(loaded_keys)
+    model_keys = set(model.state_dict().keys())
+    missing_keys = model_keys - loaded_keys_set  # Keys in model but not in checkpoint
+    unexpected_keys = loaded_keys_set - model_keys  # Keys in checkpoint but not in model
+
+    if missing_keys or unexpected_keys:
+        error_message = f"Error(s) in loading state_dict for {model.__class__.__name__}"
+        if missing_keys:
+            str_missing_keys = ",".join([f'"{k}"' for k in sorted(missing_keys)])
+            error_message += f"\nMissing key(s): {str_missing_keys}."
+        if unexpected_keys:
+            str_unexpected_keys = ",".join([f'"{k}"' for k in sorted(unexpected_keys)])
+            error_message += f"\nUnexpected key(s): {str_unexpected_keys}."
+        raise RuntimeError(error_message)
+
+
 def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """Returns a unique id for plain tensor
     or a (potentially nested) Tuple of unique id for the flattened Tensor
@@ -379,7 +714,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
 
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
@@ -394,7 +729,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
         # use some other unique id to distinguish.
         # this is a XLA tensor, it must be created using torch_xla's
         # device. So the following import is safe:
-        import torch_xla
+        import torch_xla  # type: ignore[import]
 
         unique_id = torch_xla._XLAC._xla_get_tensor_id(tensor)
     else:
@@ -426,7 +761,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
@@ -458,7 +793,7 @@ def is_torch_tpu_available(check_device=True):
         if check_device:
             # We need to check if `xla_device` can be found, will raise a RuntimeError if not
             try:
-                import torch_xla.core.xla_model as xm
+                import torch_xla.core.xla_model as xm  # type: ignore[import]
 
                 _ = xm.xla_device()
                 return True
@@ -474,7 +809,7 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
 
         if is_traceable_wrapper_subclass(tensor):
             return _get_unique_id(tensor)  # type: ignore
@@ -563,7 +898,7 @@ def _find_shared_tensors(state_dict: Dict[str, "torch.Tensor"]) -> List[Set[str]
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L69.
     """
-    import torch
+    import torch  # type: ignore[import]
 
     tensors_dict = defaultdict(set)
     for k, v in state_dict.items():
@@ -581,7 +916,7 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
@@ -649,7 +984,7 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344
     """
-    import torch
+    import torch  # type: ignore[import]
 
     # torch.float8 formats require 2.1; we do not support these dtypes on earlier versions
     _float8_e4m3fn = getattr(torch, "float8_e4m3fn", None)
@@ -669,3 +1004,18 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
         _float8_e5m2: 1,
     }
     return _SIZE[dtype]
+
+
+class _IncompatibleKeys(namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"])):
+    """
+    This is used to report missing and unexpected keys in the state dict.
+    Taken from https://github.com/pytorch/pytorch/blob/main/torch/nn/modules/module.py#L52.
+
+    """
+
+    def __repr__(self) -> str:
+        if not self.missing_keys and not self.unexpected_keys:
+            return "<All keys matched successfully>"
+        return super().__repr__()
+
+    __str__ = __repr__
