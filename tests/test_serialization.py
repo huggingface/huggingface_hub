@@ -11,7 +11,6 @@ from huggingface_hub import constants
 from huggingface_hub.serialization import (
     get_tf_storage_size,
     get_torch_storage_size,
-    load_sharded_checkpoint,
     load_state_dict_from_file,
     load_torch_model,
     save_torch_model,
@@ -20,6 +19,7 @@ from huggingface_hub.serialization import (
     split_torch_state_dict_into_shards,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
+from huggingface_hub.serialization._torch import _load_sharded_checkpoint
 
 from .testing_utils import requires
 
@@ -60,7 +60,7 @@ def dummy_state_dict() -> Dict[str, List[int]]:
 @pytest.fixture
 def torch_state_dict() -> Dict[str, "torch.Tensor"]:
     try:
-        import torch  # type: ignore[import]
+        import torch
 
         return {
             "layer_1": torch.tensor([4]),
@@ -76,7 +76,7 @@ def torch_state_dict() -> Dict[str, "torch.Tensor"]:
 @pytest.fixture
 def dummy_model():
     try:
-        import torch  # type: ignore[import]
+        import torch
 
         class DummyModel(torch.nn.Module):
             """Simple model for testing that matches the state dict `torch_state_dict` fixture."""
@@ -566,7 +566,7 @@ def test_load_sharded_state_dict(
     assert index_file.exists()
 
     # Load and verify content
-    result = load_sharded_checkpoint(dummy_model, tmp_path)
+    result = _load_sharded_checkpoint(dummy_model, tmp_path)
     assert not result.missing_keys
     assert not result.unexpected_keys
 
@@ -608,18 +608,16 @@ def test_load_state_dict_missing_file(safe_serialization):
         )
 
 
-def test_load_state_dict_empty_file(tmp_path):
-    """Test proper error handling for empty files."""
-    empty_file = tmp_path / "empty.safetensors"
-    empty_file.touch()
-    with pytest.raises(OSError, match="exists but is empty"):
-        load_state_dict_from_file(empty_file)
+def test_load_torch_model_directory_does_not_exist():
+    """Test proper error handling when directory does not contain a valid checkpoint."""
+    with pytest.raises(ValueError, match="Checkpoint path does_not_exist does not exist"):
+        load_torch_model(Mock(), "does_not_exist")
 
 
-def test_load_state_dict_from_sharded_missing_index(tmp_path):
-    """Test proper error handling when index file is missing."""
-    with pytest.raises(ValueError, match="Can't find checkpoint index file"):
-        load_sharded_checkpoint(Mock(), tmp_path)
+def test_load_torch_model_directory_does_not_contain_checkpoint(tmp_path):
+    """Test proper error handling when directory does not contain a valid checkpoint."""
+    with pytest.raises(ValueError, match=f"Directory '{tmp_path}' does not contain a valid checkpoint."):
+        load_torch_model(Mock(), tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -658,3 +656,94 @@ def test_load_sharded_model_strict_mode(tmp_path, torch_state_dict, dummy_model,
             strict=strict,
         )
         assert "extra_key" in result.unexpected_keys
+
+
+def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dummy_model):
+    """Test loading a model with a custom filename pattern."""
+    import torch
+
+    save_torch_state_dict(
+        torch_state_dict,
+        save_directory=tmp_path,
+        filename_pattern="model.variant{suffix}.safetensors",
+    )
+    result = load_torch_model(
+        dummy_model,
+        tmp_path,
+        filename_pattern="model.variant{suffix}.safetensors",
+    )
+    assert not result.missing_keys
+    assert not result.unexpected_keys
+    loaded_state_dict = dummy_model.state_dict()
+    for key in torch_state_dict:
+        assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
+
+
+@pytest.mark.parametrize(
+    "filename_pattern, safe, files_exist, expected_filename_pattern",
+    [
+        (
+            None,
+            True,
+            ["model.safetensors.index.json"],
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
+        ),  # safetensors exists and safe=True -> load safetensors
+        (
+            None,
+            False,
+            ["pytorch_model.bin.index.json"],
+            constants.PYTORCH_WEIGHTS_FILE_PATTERN,
+        ),  # only picle file exists and safe=False -> load pickle files
+        (
+            None,
+            False,
+            ["model.safetensors.index.json", "pytorch_model.bin.index.json"],
+            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
+        ),  # both exist and safe=False -> load safetensors
+        (
+            "model.variant{suffix}.safetensors",
+            False,
+            ["model.variant.safetensors.index.json", "pytorch_model.bin.index.json"],
+            "model.variant{suffix}.safetensors",
+        ),  # both exist and safe=False -> load safetensors
+        # `filename_pattern` takes precedence over `safe` parameter
+        (
+            "model.variant{suffix}.bin",
+            False,
+            ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
+            "model.variant{suffix}.bin",
+        ),  # custom filename pattern and safe=False -> load custom file index
+        (
+            "model.variant{suffix}.bin",
+            True,
+            ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
+            "model.variant{suffix}.bin",
+        ),  # custom filename pattern and safe=False -> load custom file index
+    ],
+)
+def test_load_torch_model_index_selection(
+    tmp_path: Path,
+    filename_pattern,
+    safe,
+    files_exist,
+    expected_filename_pattern,
+    mocker,
+):
+    """Test the logic for selecting between safetensors and pytorch index files."""
+    import torch
+
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer_1 = torch.nn.Parameter(torch.tensor([0.0]))
+
+    model = SimpleModel()
+    # Create specified index files
+    for filename in files_exist:
+        (tmp_path / filename).touch()
+
+    # Mock _load_sharded_checkpoint to capture the safe parameter
+    mock_load = mocker.patch("huggingface_hub.serialization._torch._load_sharded_checkpoint")
+    load_torch_model(model, tmp_path, safe=safe, filename_pattern=filename_pattern)
+    mock_load.assert_called_once()
+    assert mock_load.call_args.kwargs["filename_pattern"] == expected_filename_pattern

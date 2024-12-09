@@ -32,7 +32,7 @@ from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_
 logger = logging.get_logger(__file__)
 
 if TYPE_CHECKING:
-    import torch  # type: ignore[import]
+    import torch
 
 # SAVING
 
@@ -365,6 +365,7 @@ def load_torch_model(
     safe: bool = True,
     weights_only: bool = False,
     map_location: Optional[Union[str, "torch.device"]] = None,
+    filename_pattern: Optional[str] = None,
 ) -> NamedTuple:
     """
     Load a checkpoint into a model, handling both sharded and non-sharded checkpoints.
@@ -377,24 +378,31 @@ def load_torch_model(
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the checkpoint.
         safe (`bool`, *optional*, defaults to `True`):
-            If both safetensors and PyTorch save files are present in checkpoint and `safe` is True, the
-            safetensors files will be loaded. Otherwise, PyTorch files are always loaded when possible.
+            If `safe` is True, the safetensors files will be loaded. If `safe` is False, the function
+            will first attempt to load safetensors files if they are available, otherwise it will fall back to loading
+            pickle files. `filename_pattern` parameter takes precedence over `safe` parameter.
         weights_only (`bool`, *optional*, defaults to `False`):
             If True, only loads the model weights without optimizer states and other metadata.
             Only supported in PyTorch >= 1.13.
         map_location (`str` or `torch.device`, *optional*):
             A `torch.device` object, string or a dict specifying how to remap storage locations. It
             indicates the location where all tensors should be loaded.
-
+        filename_pattern (`str`, *optional*):
+            The pattern to look for the index file. Pattern must be a string that
+            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
+            Defaults to `"model{suffix}.safetensors"`.
     Returns:
         `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields.
             - `missing_keys` is a list of str containing the missing keys, i.e. keys that are in the model but not in the checkpoint.
             - `unexpected_keys` is a list of str containing the unexpected keys, i.e. keys that are in the checkpoint but not in the model.
 
     Raises:
-        ValueError: If the checkpoint path is invalid or if the checkpoint format cannot be determined.
-        FileNotFoundError: If the checkpoint file or directory does not exist.
-        ImportError: If required dependencies are not installed.
+        [`FileNotFoundError`](https://docs.python.org/3/library/exceptions.html#FileNotFoundError)
+            If the checkpoint file or directory does not exist.
+        [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
+            If safetensors or torch is not installed when trying to load a .safetensors file or a PyTorch checkpoint respectively.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+           If the checkpoint path is invalid or if the checkpoint format cannot be determined.
 
     Example:
     ```python
@@ -405,6 +413,9 @@ def load_torch_model(
     """
     checkpoint_path = Path(checkpoint_path)
 
+    if not checkpoint_path.exists():
+        raise ValueError(f"Checkpoint path {checkpoint_path} does not exist")
+    # 1. Check if checkpoint is a single file
     if checkpoint_path.is_file():
         state_dict = load_state_dict_from_file(
             checkpoint_file=checkpoint_path,
@@ -413,52 +424,53 @@ def load_torch_model(
         )
         return model.load_state_dict(state_dict, strict=strict)
 
-    elif checkpoint_path.is_dir():
-        # Check for index file which indicates sharded checkpoint
-        filename_pattern = (
-            constants.SAFETENSORS_WEIGHTS_FILE_PATTERN if safe else constants.PYTORCH_WEIGHTS_FILE_PATTERN
-        )
-        index_file = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
-        if index_file.is_file():
-            return load_sharded_checkpoint(
-                model=model,
-                save_directory=checkpoint_path,
-                strict=strict,
-                safe=safe,
-                weights_only=weights_only,
-            )
+    # 2. If not, checkpoint_path is a directory
+    if filename_pattern is None:
+        filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN
+        index_path = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
+        # Only fallback to pickle format if safetensors index is not found and safe is False.
+        if not index_path.is_file() and not safe:
+            filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
 
-        # Look for single model file
-        model_files = list(checkpoint_path.glob("*.safetensors" if safe else "*.bin"))
-        if len(model_files) == 1:
-            state_dict = load_state_dict_from_file(
-                checkpoint_file=model_files[0],
-                map_location=map_location,
-                weights_only=weights_only,
-            )
-            return model.load_state_dict(state_dict, strict=strict)
+    index_path = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
 
-        raise ValueError(
-            f"Directory '{checkpoint_path}' does not contain a valid checkpoint. "
-            "Expected either a sharded checkpoint with an index file, or a single model file."
+    if index_path.is_file():
+        return _load_sharded_checkpoint(
+            model=model,
+            save_directory=checkpoint_path,
+            strict=strict,
+            weights_only=weights_only,
+            filename_pattern=filename_pattern,
         )
 
-    else:
-        raise ValueError(f"Invalid checkpoint path: {checkpoint_path}")
+    # Look for single model file
+    model_files = list(checkpoint_path.glob("*.safetensors" if safe else "*.bin"))
+    if len(model_files) == 1:
+        state_dict = load_state_dict_from_file(
+            checkpoint_file=model_files[0],
+            map_location=map_location,
+            weights_only=weights_only,
+        )
+        return model.load_state_dict(state_dict, strict=strict)
+
+    raise ValueError(
+        f"Directory '{checkpoint_path}' does not contain a valid checkpoint. "
+        "Expected either a sharded checkpoint with an index file, or a single model file."
+    )
 
 
-def load_sharded_checkpoint(
+def _load_sharded_checkpoint(
     model: "torch.nn.Module",
-    save_directory: Union[str, os.PathLike],
+    save_directory: os.PathLike,
     *,
     strict: bool = False,
-    safe: bool = True,
     weights_only: bool = False,
+    filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
 ) -> NamedTuple:
     """
     Loads a sharded checkpoint into a model. This is the same as
     [`torch.nn.Module.load_state_dict`](https://pytorch.org/docs/stable/generated/torch.nn.Module.html?highlight=load_state_dict#torch.nn.Module.load_state_dict)
-    but for a sharded checkpoint. Each shard is loaded one by one and deleted after being loaded into the model.
+    but for a sharded checkpoint. Each shard is loaded one by one and removed from memory after being loaded into the model.
 
     Args:
         model (`torch.nn.Module`):
@@ -467,41 +479,33 @@ def load_sharded_checkpoint(
             A path to a folder containing the sharded checkpoint.
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
-        safe (`bool`, *optional*, defaults to `True`):
-            If both safetensors and PyTorch save files are present in checkpoint and `safe` is True, the
-            safetensors files will be loaded. Otherwise, PyTorch files are always loaded when possible.
         weights_only (`bool`, *optional*, defaults to `False`):
             If True, only loads the model weights without optimizer states and other metadata.
             Only supported in PyTorch >= 1.13.
+        filename_pattern (`str`, *optional*, defaults to `"model{suffix}.safetensors"`):
+            The pattern to look for the index file. Pattern must be a string that
+            can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
+            Defaults to `"model{suffix}.safetensors"`.
 
     Returns:
         `NamedTuple`: A named tuple with `missing_keys` and `unexpected_keys` fields,
             - `missing_keys` is a list of str containing the missing keys
             - `unexpected_keys` is a list of str containing the unexpected keys
     """
-    save_directory = Path(save_directory)
-    # Check if directory exists
-    if not save_directory.is_dir():
-        raise FileNotFoundError(f"No checkpoint directory found at '{save_directory}'")
 
-    # 1. get filename pattern based on serialization type
-    filename_pattern = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN if safe else constants.PYTORCH_WEIGHTS_FILE_PATTERN
-
-    # 2. Load and validate index file
+    # 1. Load and validate index file
     # The index file contains mapping of parameter names to shard files
     index_path = filename_pattern.format(suffix="") + ".index.json"
     index_file = os.path.join(save_directory, index_path)
-    if not os.path.isfile(index_file):
-        raise ValueError(f"Can't find checkpoint index file '{index_path}' in {save_directory}.")
     with open(index_file, "r", encoding="utf-8") as f:
         index = json.load(f)
 
-    # 3. Validate keys if in strict mode
+    # 2. Validate keys if in strict mode
     # This is done before loading any shards to fail fast
     if strict:
         _validate_keys_for_strict_loading(model, index["weight_map"].keys())
 
-    # 4. Load each shard using `load_state_dict`
+    # 3. Load each shard using `load_state_dict`
     # Get unique shard files (multiple parameters can be in same shard)
     shard_files = list(set(index["weight_map"].values()))
     for shard_file in shard_files:
@@ -515,7 +519,7 @@ def load_sharded_checkpoint(
             # Update model with parameters from this shard
             model.load_state_dict(state_dict, strict=strict)
 
-    # 5. Return compatibility info
+    # 4. Return compatibility info
     loaded_keys = set(index["weight_map"].keys())
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
@@ -583,13 +587,6 @@ def load_state_dict_from_file(
             "the file has been properly downloaded."
         )
 
-    # Check if file is empty (0 bytes)
-    if checkpoint_path.stat().st_size == 0:
-        raise OSError(
-            f"Checkpoint file at '{checkpoint_path}' exists but is empty. This might indicate a failed "
-            "download or a Git LFS file that hasn't been properly downloaded. If using Git LFS, please "
-            "ensure you have run 'git lfs pull' to download the actual model weights."
-        )
     # Load safetensors checkpoint
     if checkpoint_path.suffix == ".safetensors":
         try:
@@ -650,7 +647,7 @@ def _load_shard_into_memory(
         state_dict = load_fn(shard_path, **kwargs)  # type: ignore[arg-type]
         yield state_dict
     finally:
-        # Explicitly delete the state dict
+        # Explicitly remove the state dict from memory
         del state_dict
 
 
@@ -739,7 +736,7 @@ def get_torch_storage_size(tensor: "torch.Tensor") -> int:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
@@ -787,7 +784,7 @@ def storage_ptr(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
             return _get_unique_id(tensor)  # type: ignore
@@ -873,7 +870,7 @@ def _find_shared_tensors(state_dict: Dict[str, "torch.Tensor"]) -> List[Set[str]
     """
     Taken from https://github.com/huggingface/safetensors/blob/079781fd0dc455ba0fe851e2b4507c33d0c0d407/bindings/python/py_src/safetensors/torch.py#L69.
     """
-    import torch  # type: ignore[import]
+    import torch
 
     tensors_dict = defaultdict(set)
     for k, v in state_dict.items():
@@ -891,7 +888,7 @@ def _is_complete(tensor: "torch.Tensor") -> bool:
     """
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
@@ -959,7 +956,7 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
     """
     Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344
     """
-    import torch  # type: ignore[import]
+    import torch
 
     # torch.float8 formats require 2.1; we do not support these dtypes on earlier versions
     _float8_e4m3fn = getattr(torch, "float8_e4m3fn", None)
