@@ -55,6 +55,12 @@ _SUBMOD_ATTRS = {
     "_commit_scheduler": [
         "CommitScheduler",
     ],
+    "_file_explorer": [
+        "DDUFFileExplorer",
+        "DiskFileExplorer",
+        "FileExplorer",
+        "get_file_explorer",
+    ],
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
@@ -598,6 +604,12 @@ if os.environ.get("EAGER_IMPORT", ""):
 # ```
 if TYPE_CHECKING:  # pragma: no cover
     from ._commit_scheduler import CommitScheduler  # noqa: F401
+    from ._file_explorer import (
+        DDUFFileExplorer,  # noqa: F401
+        DiskFileExplorer,  # noqa: F401
+        FileExplorer,  # noqa: F401
+        get_file_explorer,  # noqa: F401
+    )
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401

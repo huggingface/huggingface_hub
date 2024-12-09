@@ -1,5 +1,6 @@
 import logging
 import mmap
+import os
 import shutil
 import zipfile
 from contextlib import contextmanager
@@ -77,7 +78,7 @@ class DDUFEntry:
             return f.read(self.length).decode(encoding=encoding)
 
 
-def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
+def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
     """
     Read a DDUF file and return a dictionary of entries.
 
