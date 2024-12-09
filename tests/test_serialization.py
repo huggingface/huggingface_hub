@@ -660,6 +660,7 @@ def test_load_sharded_model_strict_mode(tmp_path, torch_state_dict, dummy_model,
 
 def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dummy_model):
     """Test loading a model with a custom filename pattern."""
+
     import torch
 
     save_torch_state_dict(
@@ -721,6 +722,7 @@ def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dumm
         ),  # custom filename pattern and safe=False -> load custom file index
     ],
 )
+@requires("torch")
 def test_load_torch_model_index_selection(
     tmp_path: Path,
     filename_pattern,

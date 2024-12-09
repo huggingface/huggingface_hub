@@ -689,7 +689,7 @@ def _get_unique_id(tensor: "torch.Tensor") -> Union[int, Tuple[Any, ...]]:
 
     try:
         # for torch 2.1 and above we can also handle tensor subclasses
-        from torch.utils._python_dispatch import is_traceable_wrapper_subclass  # type: ignore[import]
+        from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
         if is_traceable_wrapper_subclass(tensor):
             attrs, _ = tensor.__tensor_flatten__()  # type: ignore[attr-defined]
