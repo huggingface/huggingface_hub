@@ -460,7 +460,6 @@ _SUBMOD_ATTRS = {
         "get_tf_storage_size",
         "get_torch_storage_id",
         "get_torch_storage_size",
-        "load_sharded_checkpoint",
         "load_state_dict_from_file",
         "load_torch_model",
         "save_torch_model",
@@ -988,7 +987,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_tf_storage_size,  # noqa: F401
         get_torch_storage_id,  # noqa: F401
         get_torch_storage_size,  # noqa: F401
-        load_sharded_checkpoint,  # noqa: F401
         load_state_dict_from_file,  # noqa: F401
         load_torch_model,  # noqa: F401
         save_torch_model,  # noqa: F401
