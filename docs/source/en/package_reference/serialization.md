@@ -45,10 +45,6 @@ The loading helpers support both single-file and sharded checkpoints in either s
 
 [[autodoc]] huggingface_hub.load_torch_model
 
-### load_sharded_checkpoint
-
-[[autodoc]] huggingface_hub.load_sharded_checkpoint
-
 ### load_state_dict_from_file
 
 [[autodoc]] huggingface_hub.load_state_dict_from_file
