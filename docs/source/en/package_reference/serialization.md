@@ -68,7 +68,7 @@ The `entries` parameter also support passing an iterable of paths or bytes. This
 ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
 ...     # ... add more entries here
 
->>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", as_entries=as_entries(pipe))
+>>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
 ```
 
 **Note:** in practice, `diffusers` provides a method to directly serialize a pipeline in a DDUF file. The snippet above is only meant as an example.

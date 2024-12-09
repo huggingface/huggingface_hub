@@ -192,7 +192,7 @@ def export_entries_as_dduf(
         ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
         ...     # ... add more entries here
 
-        >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", as_entries=as_entries(pipe))
+        >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
         ```
     """
     logger.info("Exporting DDUF file '%s'", dduf_path)
