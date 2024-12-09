@@ -138,7 +138,7 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
 
 
 def export_entries_as_dduf(
-    dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]
+    dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]], append: bool = False
 ) -> None:
     """Write a DDUF file from an iterable of entries.
 
@@ -196,7 +196,8 @@ def export_entries_as_dduf(
         ```
     """
     logger.info("Exporting DDUF file '%s'", dduf_path)
-    with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
+    mode = "a" if append else "w"
+    with zipfile.ZipFile(str(dduf_path), mode, zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
             if "." + filename.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
                 raise DDUFExportError(f"File type not allowed: {filename}")
@@ -208,7 +209,9 @@ def export_entries_as_dduf(
     logger.info("Done writing DDUF file %s", dduf_path)
 
 
-def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, Path]) -> None:
+def export_folder_as_dduf(
+    dduf_path: Union[str, Path], folder_path: Union[str, Path], append=False, retain_base_folder=False
+) -> None:
     """
     Export a folder as a DDUF file.
 
@@ -235,13 +238,16 @@ def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, P
             if path.suffix not in DDUF_ALLOWED_ENTRIES:
                 logger.debug("Skipping file %s (file type not allowed)", path)
                 continue
-            path_in_archive = path.relative_to(folder_path)
+            if retain_base_folder:
+                path_in_archive = path.relative_to(folder_path.parent)
+            else:
+                path_in_archive = path.relative_to(folder_path)
             if len(path_in_archive.parts) > 3:
                 logger.debug("Skipping file %s (nested directories not allowed)", path)
                 continue
             yield path_in_archive.as_posix(), path
 
-    export_entries_as_dduf(dduf_path, _iterate_over_folder())
+    export_entries_as_dduf(dduf_path, _iterate_over_folder(), append=append)
 
 
 def add_entry_to_dduf(dduf_path: Union[str, Path], filename: str, content: Union[str, Path, bytes]) -> None:
