@@ -12,6 +12,10 @@
       title: 储存库
     - local: guides/search
       title: 搜索
+    - local: guides/collections
+      title: 集合
+    - local: guides/community
+      title: 社区
 - title: "concepts"
   sections:
     - local: concepts/git_vs_http
