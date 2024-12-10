@@ -16,8 +16,11 @@
       title: 集合
     - local: guides/community
       title: 社区
+<<<<<<< HEAD
     - local: guides/overview
       title: 概览
+=======
+>>>>>>> e2bc48121fed4acab8814c81728a619a7c838f78
 - title: "concepts"
   sections:
     - local: concepts/git_vs_http
