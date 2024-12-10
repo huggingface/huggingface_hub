@@ -365,6 +365,7 @@ def load_torch_model(
     safe: bool = True,
     weights_only: bool = False,
     map_location: Optional[Union[str, "torch.device"]] = None,
+    mmap: bool = False,
     filename_pattern: Optional[str] = None,
 ) -> NamedTuple:
     """
@@ -387,6 +388,9 @@ def load_torch_model(
         map_location (`str` or `torch.device`, *optional*):
             A `torch.device` object, string or a dict specifying how to remap storage locations. It
             indicates the location where all tensors should be loaded.
+        mmap (`bool`, *optional*, defaults to `False`):
+            Whether to use memory-mapped file loading. Memory mapping can improve loading performance
+            for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints.
         filename_pattern (`str`, *optional*):
             The pattern to look for the index file. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
@@ -450,6 +454,7 @@ def load_torch_model(
             checkpoint_file=model_files[0],
             map_location=map_location,
             weights_only=weights_only,
+            mmap=mmap,
         )
         return model.load_state_dict(state_dict, strict=strict)
 
@@ -615,11 +620,18 @@ def load_state_dict_from_file(
             "Please install `safetensors` to load safetensors checkpoint. "
             "You can install it with `pip install safetensors`."
         ) from e
-    additional_kwargs = {"mmap": mmap} if version.parse(torch.__version__) >= version.parse("2.1.0") else {}
+    # Add additional kwargs, mmap is only supported in torch >= 2.1.0
+    additional_kwargs = {}
+    if version.parse(torch.__version__) >= version.parse("2.1.0"):
+        additional_kwargs["mmap"] = mmap
+
+    # weights_only is only supported in torch >= 1.13.0
+    if version.parse(torch.__version__) >= version.parse("1.13.0"):
+        additional_kwargs["weights_only"] = weights_only
+
     return load(
         checkpoint_file,
         map_location=map_location,
-        weights_only=weights_only,
         **additional_kwargs,
     )
 
