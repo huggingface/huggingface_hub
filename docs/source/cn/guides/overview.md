@@ -41,7 +41,7 @@
       <div class="w-full text-center bg-gradient-to-br from-indigo-400 to-indigo-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">
         搜索
       </div><p class="text-gray-700">
-        如何高效地搜索超过 200k+ 个公共模型、数据集和空间？
+        如何高效地搜索超过 200k+ 个公共模型、数据集和Space？
       </p>
     </a>
 
