@@ -3,11 +3,11 @@
 
 # 集合（Collections）
 
-集合（collection）是 Hub 上将一组相关项目（模型、数据集、Spaces、论文）组织在同一页面上的一种方式。利用集合，你可以创建自己的作品集、为特定类别的内容添加书签，或呈现你想要分享的精选条目。要了解更多关于集合的概念和在 Hub 上的呈现方式，请查看这篇 [指南](https://huggingface.co/docs/hub/collections) 
+集合（collection）是 Hub 上将一组相关项目（模型、数据集、Spaces、论文）组织在同一页面上的一种方式。利用集合，你可以创建自己的作品集、为特定类别的内容添加书签，或呈现你想要分享的精选条目。要了解更多关于集合的概念及其在 Hub 上的呈现方式，请查看这篇 [指南](https://huggingface.co/docs/hub/collections) 
 
-你可以直接在浏览器中管理集合，但本指南将侧重于如何以编程方式进行管理。
+你可以直接在浏览器中管理集合，但本指南将重点介绍如何以编程方式进行管理。
 
-## 获取一个集合
+## 获取集合
 
 使用 [`get_collection`] 来获取你的集合或任意公共集合。 你需要提供集合的 *slug* 才能检索到该集合。 slug 是基于集合标题和唯一 ID 的标识符。你可以在集合页面的 URL 中找到它。
 
@@ -45,12 +45,12 @@ CollectionItem(
 
 [`get_collection`] 返回的 [`Collection`] 对象包含以下信息:
 - 高级元数据: `slug`, `owner`, `title`, `description`等。
-- 一个 [`CollectionItem`] 对象列表; 每个项目代表一个模型、数据集、Space 或论文。
+- 一个 [`CollectionItem`] 对象列表; 每个条目代表一个模型、数据集、Space 或论文。
 
 所有集合条目（items）都保证具有：
-- 唯一的 `item_object_id`: 这是集合项在数据库中的唯一 ID
+- 唯一的 `item_object_id`: 这是集合条目在数据库中的唯一 ID
 - 一个 `item_id`: Hub 上底层条目的 ID（模型、数据集、Space、论文）；此 ID 不一定是唯一的，仅当 `item_id` 与 `item_type` 成对出现时才唯一
-- 一个 `item_type`: 如model, dataset, Space, paper
+- 一个 `item_type`: 如`model`, `dataset`, `Space`, `paper`
 - 该条目在集合中的 `position`, 可通过后续操作 (参加下文的 [`update_collection_item`])来重新排序集合条目
 
 此外，`note` 可选地附加在条目上。这对为某个条目添加额外信息（评论、博客文章链接等）很有帮助。如果条目没有备注，`note` 的值为 `None`。
@@ -101,7 +101,7 @@ Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 
 详情请查看 [`list_collections`] 的参考文档。
 
-## 创建一个新集合
+## 创建新集合
 
 现在我们已经知道如何获取一个 [`Collection`], 让我们自己创建一个吧！ 使用 [`create_collection`]，传入一个标题和描述即可。 若要在组织（organization）名下创建集合，可以通过 `namespace="my-cool-org"` 参数指定。同样，你也可以通过传入 `private=True` 创建私有集合。
 
@@ -129,7 +129,7 @@ Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 
 ## 管理集合中的条目
 
-现在我们有了一个 [`Collection`]，接下来要添加条目并进行组织。
+现在我们有了一个 [`Collection`]，接下来要添加条目并进行管理。
 
 ### 添加条目
 

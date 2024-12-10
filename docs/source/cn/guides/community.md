@@ -83,7 +83,7 @@ DiscussionWithDetails(
 [`HfApi`] 类还提供了创建和编辑讨论及拉取请求（Pull Request）的方法。
 您需要一个 [访问令牌](https://huggingface.co/docs/hub/security-tokens) 来创建和编辑讨论或拉取请求（Pull Request）。
 
-建议更改仓库最简单的方法是使用 [`create_commit`] API：只需将 `create_pr` 参数设置为 `True` 。此参数也适用于其他封装了 [`create_commit`] 的方法：
+在 Hub 上对 repo 提出修改建议的最简单方法是使用 [`create_commit`] API：只需将 `create_pr` 参数设置为 `True` 。此参数也适用于其他封装了 [`create_commit`] 的方法：
 
     * [`upload_file`]
     * [`upload_folder`]
@@ -121,7 +121,7 @@ DiscussionWithDetails(...)
 DiscussionWithDetails(..., is_pull_request=True)
 ```
 
-您可以完全使用 [`HfApi`] 类来管理拉取请求和讨论。例如：
+您可以使用 [`HfApi`] 类来方便地管理拉取请求和讨论。例如：
 
     * [`comment_discussion`] 添加评论
     * [`edit_discussion_comment`] 编辑评论
