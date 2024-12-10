@@ -59,7 +59,6 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
-    MetricInfo,
     ModelInfo,
     RepoSibling,
     RepoUrl,
@@ -1739,9 +1738,6 @@ class HfApiPublicStagingTest(unittest.TestCase):
     def test_staging_list_models(self):
         self._api.list_models()
 
-    def test_staging_list_metrics(self):
-        self._api.list_metrics()
-
 
 class HfApiPublicProductionTest(unittest.TestCase):
     @with_production_testing
@@ -2191,12 +2187,6 @@ class HfApiPublicProductionTest(unittest.TestCase):
         # `expand` cannot be used with other files_metadata
         with self.assertRaises(ValueError):
             self._api.space_info("HuggingFaceH4/zephyr-chat", expand=["author"], files_metadata=True)
-
-    def test_list_metrics(self):
-        metrics = self._api.list_metrics()
-        self.assertGreater(len(metrics), 10)
-        self.assertIsInstance(metrics[0], MetricInfo)
-        assert any(metric.description for metric in metrics)
 
     def test_filter_models_by_author(self):
         models = list(self._api.list_models(author="muellerzr"))
