@@ -1,5 +1,6 @@
 import logging
 import mmap
+import os
 import shutil
 import zipfile
 from contextlib import contextmanager
@@ -61,7 +62,7 @@ class DDUFEntry:
             with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
                 yield mm[self.offset : self.offset + self.length]
 
-    def read_text(self, encoding="utf-8") -> str:
+    def read_text(self, encoding: str = "utf-8") -> str:
         """Read the file as text.
 
         Useful for '.txt' and '.json' entries.
@@ -77,14 +78,14 @@ class DDUFEntry:
             return f.read(self.length).decode(encoding=encoding)
 
 
-def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
+def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
     """
     Read a DDUF file and return a dictionary of entries.
 
     Only the metadata is read, the data is not loaded in memory.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to read.
 
     Returns:
@@ -135,7 +136,7 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
 
 
 def export_entries_as_dduf(
-    dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]
+    dduf_path: Union[str, os.PathLike], entries: Iterable[Tuple[str, Union[str, Path, bytes]]]
 ) -> None:
     """Write a DDUF file from an iterable of entries.
 
@@ -143,7 +144,7 @@ def export_entries_as_dduf(
     In particular, you don't need to save the data on disk before exporting it in the DDUF file.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
         entries (`Iterable[Tuple[str, Union[str, Path, bytes]]]`):
             An iterable of entries to write in the DDUF file. Each entry is a tuple with the filename and the content.
@@ -205,16 +206,16 @@ def export_entries_as_dduf(
     logger.info("Done writing DDUF file %s", dduf_path)
 
 
-def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, Path]) -> None:
+def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union[str, os.PathLike]) -> None:
     """
     Export a folder as a DDUF file.
 
     AUses [`export_entries_as_dduf`] under the hood.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
-        folder_path (`str` or `Path`):
+        folder_path (`str` or `os.PathLike`):
             The path to the folder containing the diffusion model.
 
     Example:
@@ -241,12 +242,14 @@ def export_folder_as_dduf(dduf_path: Union[str, Path], folder_path: Union[str, P
     export_entries_as_dduf(dduf_path, _iterate_over_folder())
 
 
-def add_entry_to_dduf(dduf_path: Union[str, Path], filename: str, content: Union[str, Path, bytes]) -> None:
+def add_entry_to_dduf(
+    dduf_path: Union[str, os.PathLike], filename: str, content: Union[str, os.PathLike, bytes]
+) -> None:
     """
     Add an entry to an existing DDUF file.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
         filename (`str`):
             The path to the file in the DDUF archive.
@@ -274,7 +277,7 @@ def add_entry_to_dduf(dduf_path: Union[str, Path], filename: str, content: Union
         _dump_content_in_archive(archive, filename, content)
 
 
-def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, Path, bytes]) -> None:
+def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, os.PathLike, bytes]) -> None:
     with archive.open(filename, "w", force_zip64=True) as archive_fh:
         if isinstance(content, (str, Path)):
             content_path = Path(content)
