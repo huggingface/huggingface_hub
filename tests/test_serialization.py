@@ -667,7 +667,7 @@ def test_load_torch_model_directory_does_not_exist():
 
 def test_load_torch_model_directory_does_not_contain_checkpoint(tmp_path):
     """Test proper error handling when directory does not contain a valid checkpoint."""
-    with pytest.raises(ValueError, match=f"Directory '{tmp_path}' does not contain a valid checkpoint."):
+    with pytest.raises(ValueError, match=r"Directory .* does not contain a valid checkpoint."):
         load_torch_model(Mock(), tmp_path)
 
 
