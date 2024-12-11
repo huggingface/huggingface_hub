@@ -1113,33 +1113,6 @@ class SpaceInfo:
 
 
 @dataclass
-class MetricInfo:
-    """
-    Contains information about a metric on the Hub.
-
-    Attributes:
-        id (`str`):
-            ID of the metric. E.g. `"accuracy"`.
-        space_id (`str`):
-            ID of the space associated with the metric. E.g. `"Accuracy"`.
-        description (`str`):
-            Description of the metric.
-    """
-
-    id: str
-    space_id: str
-    description: Optional[str]
-
-    def __init__(self, **kwargs):
-        self.id = kwargs.pop("id")
-        self.space_id = kwargs.pop("spaceId")
-        self.description = kwargs.pop("description", None)
-        # backwards compatibility
-        self.spaceId = self.space_id
-        self.__dict__.update(**kwargs)
-
-
-@dataclass
 class CollectionItem:
     """
     Contains information about an item of a Collection (model, dataset, Space or paper).
@@ -2156,19 +2129,6 @@ class HfApi:
             if "siblings" not in item:
                 item["siblings"] = None
             yield DatasetInfo(**item)
-
-    def list_metrics(self) -> List[MetricInfo]:
-        """
-        Get the public list of all the metrics on huggingface.co
-
-        Returns:
-            `List[MetricInfo]`: a list of [`MetricInfo`] objects which.
-        """
-        path = f"{self.endpoint}/api/metrics"
-        r = get_session().get(path)
-        hf_raise_for_status(r)
-        d = r.json()
-        return [MetricInfo(**x) for x in d]
 
     @validate_hf_hub_args
     def list_spaces(
@@ -9564,7 +9524,6 @@ list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
 list_repo_tree = api.list_repo_tree
 get_paths_info = api.get_paths_info
-list_metrics = api.list_metrics
 
 get_model_tags = api.get_model_tags
 get_dataset_tags = api.get_dataset_tags
