@@ -97,7 +97,7 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
     Example:
         ```python
         >>> import json
-        >>> import safetensors.load
+        >>> import safetensors.torch
         >>> from huggingface_hub import read_dduf_file
 
         # Read DDUF metadata
@@ -235,14 +235,14 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
     Example:
         ```python
         >>> from huggingface_hub import export_folder_as_dduf
-        >>> export_folder_as_dduf("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+        >>> export_folder_as_dduf("FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
         ```
     """
     folder_path = Path(folder_path)
 
     def _iterate_over_folder() -> Iterable[Tuple[str, Path]]:
         for path in Path(folder_path).glob("**/*"):
-            if path.is_dir():
+            if not path.is_file():
                 continue
             if path.suffix not in DDUF_ALLOWED_ENTRIES:
                 logger.debug("Skipping file %s (file type not allowed)", path)
