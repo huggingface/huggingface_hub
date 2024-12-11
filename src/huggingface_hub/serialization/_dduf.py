@@ -258,6 +258,8 @@ def add_entry_to_dduf(
     """
     Add an entry to an existing DDUF file.
 
+    Note: this method is not tested, not documented and not publicly exposed. Used for internal tests + future development.
+
     Args:
         dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
