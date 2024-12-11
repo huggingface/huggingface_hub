@@ -114,6 +114,8 @@ DDUFEntry(filename='model_index.json', offset=66, length=587)
 
 [[autodoc]] huggingface_hub.errors.DDUFExportError
 
+[[autodoc]] huggingface_hub.errors.DDUFInvalidEntryNameError
+
 ## Save torch state dict
 
 The main helper of the `serialization` module takes a torch `nn.Module` as input and saves it to disk. It handles the logic to save shared tensors (see [safetensors explanation](https://huggingface.co/docs/safetensors/torch_shared_tensors)) as well as logic to split the state dictionary into shards, using [`split_torch_state_dict_into_shards`] under the hood. At the moment, only `torch` framework is supported.

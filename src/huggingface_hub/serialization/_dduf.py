@@ -199,8 +199,13 @@ def export_entries_as_dduf(
         ```
     """
     logger.info("Exporting DDUF file '%s'", dduf_path)
+    filenames = set()
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
+            if filename in filenames:
+                raise DDUFExportError(f"Can't add duplicate entry: {filename}")
+            filenames.add(filename)
+
             try:
                 filename = _validate_dduf_entry_name(filename)
             except DDUFInvalidEntryNameError as e:
@@ -239,7 +244,7 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
                 logger.debug("Skipping file %s (file type not allowed)", path)
                 continue
             path_in_archive = path.relative_to(folder_path)
-            if len(path_in_archive.parts) > 3:
+            if len(path_in_archive.parts) >= 3:
                 logger.debug("Skipping file %s (nested directories not allowed)", path)
                 continue
             yield path_in_archive.as_posix(), path
