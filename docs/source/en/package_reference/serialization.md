@@ -8,7 +8,7 @@ rendered properly in your Markdown viewer.
 
 ## DDUF file format
 
-DDUF is a file format designed for diffusers models. It allows saving all the information to run a model in a single file. This work is inspired by the GGUF format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
+DDUF is a file format designed for diffusion models. It allows saving all the information to run a model in a single file. This work is inspired by the GGUF format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
 
 <Tip warning={true}>
 
@@ -28,7 +28,7 @@ Here is how to export a folder containing different parts of a diffusion model u
 >>> export_folder_as_dduf("FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
 ```
 
-For more flexibility, to can use [`export_entries_as_dduf`] and pass a list of files to include in the final DDUF file:
+For more flexibility, you can use [`export_entries_as_dduf`] and pass a list of files to include in the final DDUF file:
 
 ```python
 # Export specific files from the local disk.
@@ -46,7 +46,7 @@ For more flexibility, to can use [`export_entries_as_dduf`] and pass a list of f
 ... )
 ```
 
-The `entries` parameter also support passing an iterable of paths or bytes. This can prove useful if you have a loaded model and want to serialize it directly in a DDUF file instead of having to serialize each component to disk first and then as a DDUF file. Here is an example on how a `StableDiffusionPipeline` can be serialized as DDUF:
+The `entries` parameter also supports passing an iterable of paths or bytes. This can prove useful if you have a loaded model and want to serialize it directly into a DDUF file instead of having to serialize each component to disk first and then as a DDUF file. Here is an example of how a `StableDiffusionPipeline` can be serialized as DDUF:
 
 
 ```python
