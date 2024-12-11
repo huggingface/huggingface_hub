@@ -1,18 +1,19 @@
+import json
+import zipfile
 from pathlib import Path
+from typing import Iterable, Tuple, Union
 
 import pytest
 from pytest_mock import MockerFixture
-from typing import Iterable, Tuple, Union
-import json
-from huggingface_hub.errors import DDUFInvalidEntryNameError, DDUFExportError
+
+from huggingface_hub.errors import DDUFExportError, DDUFInvalidEntryNameError
 from huggingface_hub.serialization._dduf import (
     DDUFEntry,
     _validate_dduf_entry_name,
     export_entries_as_dduf,
-    read_dduf_file,
     export_folder_as_dduf,
+    read_dduf_file,
 )
-import zipfile
 
 
 class TestDDUFEntry:
@@ -96,6 +97,7 @@ class TestExportFolder:
             ("encoder/model.safetensors", dummy_folder / "encoder/model.safetensors"),
         ]
 
+
 class TestExportEntries:
     @pytest.fixture
     def dummy_entries(self, tmp_path: Path) -> Iterable[Tuple[str, Union[str, Path, bytes]]]:
@@ -103,16 +105,16 @@ class TestExportEntries:
         (tmp_path / "does_have_to_be_same_name.safetensors").write_bytes(b"this is safetensors content")
 
         return [
-            ("config.json", str(tmp_path / "config.json")), # string path
-            ("model.safetensors", tmp_path / "does_have_to_be_same_name.safetensors"), # pathlib path
-            ("hello.txt", b"hello world"), # raw bytes
+            ("config.json", str(tmp_path / "config.json")),  # string path
+            ("model.safetensors", tmp_path / "does_have_to_be_same_name.safetensors"),  # pathlib path
+            ("hello.txt", b"hello world"),  # raw bytes
         ]
-    
+
     def test_export_entries(self, tmp_path: Path, dummy_entries: Iterable[Tuple[str, Union[str, Path, bytes]]]):
         export_entries_as_dduf(tmp_path / "dummy.dduf", dummy_entries)
 
         with zipfile.ZipFile(tmp_path / "dummy.dduf", "r") as archive:
-            assert archive.compression == zipfile.ZIP_STORED # uncompressed!
+            assert archive.compression == zipfile.ZIP_STORED  # uncompressed!
             assert archive.namelist() == ["config.json", "model.safetensors", "hello.txt"]
             assert archive.read("config.json") == b'{"foo": "bar"}'
             assert archive.read("model.safetensors") == b"this is safetensors content"
@@ -125,7 +127,10 @@ class TestExportEntries:
 
     def test_export_entries_no_duplicate(self, tmp_path: Path):
         with pytest.raises(DDUFExportError, match="Can't add duplicate entry"):
-            export_entries_as_dduf(tmp_path / "dummy.dduf", [("config.json", b"content1"), ("config.json", b"content2")])
+            export_entries_as_dduf(
+                tmp_path / "dummy.dduf", [("config.json", b"content1"), ("config.json", b"content2")]
+            )
+
 
 class TestReadDDUFFile:
     @pytest.fixture
@@ -135,19 +140,31 @@ class TestReadDDUFFile:
             archive.writestr("model.safetensors", b"this is safetensors content")
             archive.writestr("hello.txt", b"hello world")
         return tmp_path / "dummy.dduf"
-    
+
     def test_read_dduf_file(self, dummy_dduf_file: Path):
         entries = read_dduf_file(dummy_dduf_file)
         assert len(entries) == 3
+        config_entry = entries["config.json"]
+        model_entry = entries["model.safetensors"]
+        hello_entry = entries["hello.txt"]
 
-        assert entries["config.json"].filename == "config.json"
-        assert entries["config.json"].dduf_path == dummy_dduf_file
-        assert entries["config.json"].read_text() == '{"foo": "bar"}'
+        assert config_entry.filename == "config.json"
+        assert config_entry.dduf_path == dummy_dduf_file
+        assert config_entry.read_text() == '{"foo": "bar"}'
+        with dummy_dduf_file.open("rb") as f:
+            f.seek(config_entry.offset)
+            assert f.read(config_entry.length) == b'{"foo": "bar"}'
 
-        assert entries["model.safetensors"].filename == "model.safetensors"
-        assert entries["model.safetensors"].dduf_path == dummy_dduf_file
-        assert entries["model.safetensors"].read_text() == "this is safetensors content"
+        assert model_entry.filename == "model.safetensors"
+        assert model_entry.dduf_path == dummy_dduf_file
+        assert model_entry.read_text() == "this is safetensors content"
+        with dummy_dduf_file.open("rb") as f:
+            f.seek(model_entry.offset)
+            assert f.read(model_entry.length) == b"this is safetensors content"
 
-        assert entries["hello.txt"].filename == "hello.txt"
-        assert entries["hello.txt"].dduf_path == dummy_dduf_file
-        assert entries["hello.txt"].read_text() == "hello world"
+        assert hello_entry.filename == "hello.txt"
+        assert hello_entry.dduf_path == dummy_dduf_file
+        assert hello_entry.read_text() == "hello world"
+        with dummy_dduf_file.open("rb") as f:
+            f.seek(hello_entry.offset)
+            assert f.read(hello_entry.length) == b"hello world"
