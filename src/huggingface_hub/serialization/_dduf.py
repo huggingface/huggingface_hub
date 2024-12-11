@@ -118,10 +118,10 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
     """
     entries = {}
     dduf_path = Path(dduf_path)
-    logger.info("Reading DDUF file %s", dduf_path)
+    logger.info(f"Reading DDUF file {dduf_path}")
     with zipfile.ZipFile(str(dduf_path), "r") as zf:
         for info in zf.infolist():
-            logger.debug("Reading entry %s", info.filename)
+            logger.debug(f"Reading entry {info.filename}")
             if info.compress_type != zipfile.ZIP_STORED:
                 raise DDUFCorruptedFileError("Data must not be compressed in DDUF file.")
 
@@ -137,7 +137,7 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
             )
     if "model_index.json" not in entries:
         raise DDUFCorruptedFileError("Missing required 'model_index.json' entry in DDUF file.")
-    logger.info("Done reading DDUF file %s. Found %d entries", dduf_path, len(entries))
+    logger.info(f"Done reading DDUF file {dduf_path}. Found {len(entries)} entries")
     return entries
 
 
@@ -199,7 +199,7 @@ def export_entries_as_dduf(
         >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
         ```
     """
-    logger.info("Exporting DDUF file '%s'", dduf_path)
+    logger.info(f"Exporting DDUF file '{dduf_path}'")
     filenames = set()
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
@@ -211,13 +211,13 @@ def export_entries_as_dduf(
                 filename = _validate_dduf_entry_name(filename)
             except DDUFInvalidEntryNameError as e:
                 raise DDUFExportError(f"Invalid entry name: {filename}") from e
-            logger.debug("Adding file %s to DDUF file", filename)
+            logger.debug(f"Adding entry '{filename}' to DDUF file")
             _dump_content_in_archive(archive, filename, content)
 
     if "model_index.json" not in filenames:
         raise DDUFExportError("Missing required 'model_index.json' entry in DDUF file.")
 
-    logger.info("Done writing DDUF file %s", dduf_path)
+    logger.info(f"Done writing DDUF file {dduf_path}")
 
 
 def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union[str, os.PathLike]) -> None:
@@ -245,11 +245,11 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
             if path.is_dir():
                 continue
             if path.suffix not in DDUF_ALLOWED_ENTRIES:
-                logger.debug("Skipping file %s (file type not allowed)", path)
+                logger.debug(f"Skipping file '{path}' (file type not allowed)")
                 continue
             path_in_archive = path.relative_to(folder_path)
             if len(path_in_archive.parts) >= 3:
-                logger.debug("Skipping file %s (nested directories not allowed)", path)
+                logger.debug(f"Skipping file '{path}' (nested directories not allowed)")
                 continue
             yield path_in_archive.as_posix(), path
 
@@ -294,7 +294,7 @@ def add_entry_to_dduf(
 
     # Reopen the zip in append mode and add the new file
     with zipfile.ZipFile(dduf_path, "a", zipfile.ZIP_STORED) as archive:
-        logger.debug("Adding file %s to DDUF file", filename)
+        logger.debug(f"Adding file '{filename}' to DDUF file")
         _dump_content_in_archive(archive, filename, content)
 
 
