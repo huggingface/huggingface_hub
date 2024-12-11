@@ -125,6 +125,8 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
             logger.debug("Reading entry %s", info.filename)
             if info.compress_type != zipfile.ZIP_STORED:
                 raise DDUFCorruptedFileError("Data must not be compressed in DDUF file.")
+            if info.filename.count("/") > 1:
+                raise DDUFCorruptedFileError(f"DDUF only supports 1 level of directory. Got {info.filename}.")
 
             offset = _get_data_offset(zf, info)
 
@@ -196,10 +198,7 @@ def export_entries_as_dduf(
     logger.info("Exporting DDUF file '%s'", dduf_path)
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
-            if "." + filename.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
-                raise DDUFExportError(f"File type not allowed: {filename}")
-            if "\\" in filename:
-                raise DDUFExportError(f"Filenames must use UNIX separators: {filename}")
+            filename = _validate_dduf_entry_name(filename)
             logger.debug("Adding file %s to DDUF file", filename)
             _dump_content_in_archive(archive, filename, content)
 
@@ -260,6 +259,8 @@ def add_entry_to_dduf(
         - [`DDUFExportError`]: If the entry already exists in the DDUF file.
     """
     dduf_path = str(dduf_path)
+    filename = _validate_dduf_entry_name(filename)
+
     # Ensure the zip file exists
     try:
         with zipfile.ZipFile(dduf_path, "r") as zf:
@@ -287,6 +288,17 @@ def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: U
             archive_fh.write(content)
         else:
             raise DDUFExportError(f"Invalid content type for {filename}. Must be str, Path or bytes.")
+
+
+def _validate_dduf_entry_name(entry_name: str) -> str:
+    if "." + entry_name.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
+        raise DDUFExportError(f"File type not allowed: {entry_name}")
+    if "\\" in entry_name:
+        raise DDUFExportError(f"Entry names must use UNIX separators ('/'). Got {entry_name}.")
+    entry_name = entry_name.strip("/")
+    if entry_name.count("/") > 1:
+        raise DDUFExportError(f"DDUF only supports 1 level of directory. Got {entry_name}.")
+    return entry_name
 
 
 def _get_data_offset(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> int:
