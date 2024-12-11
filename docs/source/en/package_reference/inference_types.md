@@ -239,6 +239,8 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.TableQuestionAnsweringOutputElement
 
+[[autodoc]] huggingface_hub.TableQuestionAnsweringParameters
+
 
 
 ## text2text_generation

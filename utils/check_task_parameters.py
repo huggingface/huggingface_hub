@@ -68,7 +68,6 @@ TASKS_TO_SKIP = [
     "audio_to_audio",
     "feature_extraction",
     "sentence_similarity",
-    "table_question_answering",
     "automatic_speech_recognition",
     "image_to_text",
 ]

@@ -208,7 +208,6 @@ _SUBMOD_ATTRS = {
         "list_datasets",
         "list_inference_endpoints",
         "list_liked_repos",
-        "list_metrics",
         "list_models",
         "list_organization_members",
         "list_papers",
@@ -351,6 +350,7 @@ _SUBMOD_ATTRS = {
         "ObjectDetectionInput",
         "ObjectDetectionOutputElement",
         "ObjectDetectionParameters",
+        "Padding",
         "QuestionAnsweringInput",
         "QuestionAnsweringInputData",
         "QuestionAnsweringOutputElement",
@@ -364,6 +364,7 @@ _SUBMOD_ATTRS = {
         "TableQuestionAnsweringInput",
         "TableQuestionAnsweringInputData",
         "TableQuestionAnsweringOutputElement",
+        "TableQuestionAnsweringParameters",
         "Text2TextGenerationInput",
         "Text2TextGenerationOutput",
         "Text2TextGenerationParameters",
@@ -741,7 +742,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_datasets,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
-        list_metrics,  # noqa: F401
         list_models,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
@@ -882,6 +882,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ObjectDetectionInput,  # noqa: F401
         ObjectDetectionOutputElement,  # noqa: F401
         ObjectDetectionParameters,  # noqa: F401
+        Padding,  # noqa: F401
         QuestionAnsweringInput,  # noqa: F401
         QuestionAnsweringInputData,  # noqa: F401
         QuestionAnsweringOutputElement,  # noqa: F401
@@ -895,6 +896,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TableQuestionAnsweringInput,  # noqa: F401
         TableQuestionAnsweringInputData,  # noqa: F401
         TableQuestionAnsweringOutputElement,  # noqa: F401
+        TableQuestionAnsweringParameters,  # noqa: F401
         Text2TextGenerationInput,  # noqa: F401
         Text2TextGenerationOutput,  # noqa: F401
         Text2TextGenerationParameters,  # noqa: F401
