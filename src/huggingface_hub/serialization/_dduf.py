@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Generator, Iterable, Tuple, Union
 
-from ..errors import DDUFCorruptedFileError, DDUFExportError
+from ..errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNameError
 
 
 logger = logging.getLogger(__name__)
@@ -125,8 +125,11 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
             logger.debug("Reading entry %s", info.filename)
             if info.compress_type != zipfile.ZIP_STORED:
                 raise DDUFCorruptedFileError("Data must not be compressed in DDUF file.")
-            if info.filename.count("/") > 1:
-                raise DDUFCorruptedFileError(f"DDUF only supports 1 level of directory. Got {info.filename}.")
+
+            try:
+                _validate_dduf_entry_name(info.filename)
+            except DDUFInvalidEntryNameError as e:
+                raise DDUFCorruptedFileError(f"Invalid entry name in DDUF file: {info.filename}") from e
 
             offset = _get_data_offset(zf, info)
 
@@ -198,7 +201,10 @@ def export_entries_as_dduf(
     logger.info("Exporting DDUF file '%s'", dduf_path)
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
-            filename = _validate_dduf_entry_name(filename)
+            try:
+                filename = _validate_dduf_entry_name(filename)
+            except DDUFInvalidEntryNameError as e:
+                raise DDUFExportError(f"Invalid entry name: {filename}") from e
             logger.debug("Adding file %s to DDUF file", filename)
             _dump_content_in_archive(archive, filename, content)
 
@@ -259,7 +265,10 @@ def add_entry_to_dduf(
         - [`DDUFExportError`]: If the entry already exists in the DDUF file.
     """
     dduf_path = str(dduf_path)
-    filename = _validate_dduf_entry_name(filename)
+    try:
+        filename = _validate_dduf_entry_name(filename)
+    except DDUFInvalidEntryNameError as e:
+        raise DDUFExportError(f"Invalid entry name: {filename}") from e
 
     # Ensure the zip file exists
     try:
@@ -292,12 +301,12 @@ def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: U
 
 def _validate_dduf_entry_name(entry_name: str) -> str:
     if "." + entry_name.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
-        raise DDUFExportError(f"File type not allowed: {entry_name}")
+        raise DDUFInvalidEntryNameError(f"File type not allowed: {entry_name}")
     if "\\" in entry_name:
-        raise DDUFExportError(f"Entry names must use UNIX separators ('/'). Got {entry_name}.")
+        raise DDUFInvalidEntryNameError(f"Entry names must use UNIX separators ('/'). Got {entry_name}.")
     entry_name = entry_name.strip("/")
     if entry_name.count("/") > 1:
-        raise DDUFExportError(f"DDUF only supports 1 level of directory. Got {entry_name}.")
+        raise DDUFInvalidEntryNameError(f"DDUF only supports 1 level of directory. Got {entry_name}.")
     return entry_name
 
 
