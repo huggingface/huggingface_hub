@@ -14,7 +14,6 @@ from ..errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNa
 logger = logging.getLogger(__name__)
 
 DDUF_ALLOWED_ENTRIES = {
-    ".gguf",
     ".json",
     ".model",
     ".safetensors",
@@ -136,6 +135,8 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
             entries[info.filename] = DDUFEntry(
                 filename=info.filename, offset=offset, length=info.file_size, dduf_path=dduf_path
             )
+    if "model_index.json" not in entries:
+        raise DDUFCorruptedFileError("Missing required 'model_index.json' entry in DDUF file.")
     logger.info("Done reading DDUF file %s. Found %d entries", dduf_path, len(entries))
     return entries
 
@@ -212,6 +213,9 @@ def export_entries_as_dduf(
                 raise DDUFExportError(f"Invalid entry name: {filename}") from e
             logger.debug("Adding file %s to DDUF file", filename)
             _dump_content_in_archive(archive, filename, content)
+
+    if "model_index.json" not in filenames:
+        raise DDUFExportError("Missing required 'model_index.json' entry in DDUF file.")
 
     logger.info("Done writing DDUF file %s", dduf_path)
 
