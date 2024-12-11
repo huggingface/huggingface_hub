@@ -208,7 +208,6 @@ _SUBMOD_ATTRS = {
         "list_datasets",
         "list_inference_endpoints",
         "list_liked_repos",
-        "list_metrics",
         "list_models",
         "list_organization_members",
         "list_papers",
@@ -741,7 +740,6 @@ if TYPE_CHECKING:  # pragma: no cover
         list_datasets,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_liked_repos,  # noqa: F401
-        list_metrics,  # noqa: F401
         list_models,  # noqa: F401
         list_organization_members,  # noqa: F401
         list_papers,  # noqa: F401
