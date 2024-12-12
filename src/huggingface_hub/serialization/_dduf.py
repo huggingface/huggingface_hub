@@ -256,48 +256,6 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
     export_entries_as_dduf(dduf_path, _iterate_over_folder())
 
 
-def add_entry_to_dduf(
-    dduf_path: Union[str, os.PathLike], filename: str, content: Union[str, os.PathLike, bytes]
-) -> None:
-    """
-    Add an entry to an existing DDUF file.
-
-    Note: this method is not tested, not documented and not publicly exposed. Used for internal tests + future development.
-
-    Args:
-        dduf_path (`str` or `os.PathLike`):
-            The path to the DDUF file to write.
-        filename (`str`):
-            The path to the file in the DDUF archive.
-        content (`str`, `Path` or `bytes`):
-            The content of the file to add to the DDUF archive.
-
-    Raises:
-        - [`DDUFExportError`]: If the entry already exists in the DDUF file.
-    """
-    dduf_path = str(dduf_path)
-    try:
-        filename = _validate_dduf_entry_name(filename)
-    except DDUFInvalidEntryNameError as e:
-        raise DDUFExportError(f"Invalid entry name: {filename}") from e
-
-    # Ensure the zip file exists
-    try:
-        with zipfile.ZipFile(dduf_path, "r") as zf:
-            # Check if the file already exists in the zip
-            if filename in zf.namelist():
-                raise DDUFExportError(f"Entry '{filename}' already exists in DDUF file.")
-    except FileNotFoundError:
-        # If the zip doesn't exist, create it
-        with zipfile.ZipFile(dduf_path, "w") as _:
-            pass
-
-    # Reopen the zip in append mode and add the new file
-    with zipfile.ZipFile(dduf_path, "a", zipfile.ZIP_STORED) as archive:
-        logger.debug(f"Adding file '{filename}' to DDUF file")
-        _dump_content_in_archive(archive, filename, content)
-
-
 def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, os.PathLike, bytes]) -> None:
     with archive.open(filename, "w", force_zip64=True) as archive_fh:
         if isinstance(content, (str, Path)):
