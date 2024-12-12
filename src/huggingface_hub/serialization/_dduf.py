@@ -222,12 +222,12 @@ def export_entries_as_dduf(
             if filename in filenames:
                 raise DDUFExportError(f"Can't add duplicate entry: {filename}")
             filenames.add(filename)
-
-            if filename == "model_index.json":
-                try:
-                    index = json.loads(_load_content(content).decode())
-                except json.JSONDecodeError as e:
-                    raise DDUFExportError("Failed to parse 'model_index.json'.") from e
+            if not append: 
+                if filename == "model_index.json":
+                    try:
+                        index = json.loads(_load_content(content).decode())
+                    except json.JSONDecodeError as e:
+                        raise DDUFExportError("Failed to parse 'model_index.json'.") from e
 
             try:
                 filename = _validate_dduf_entry_name(filename)
@@ -236,11 +236,10 @@ def export_entries_as_dduf(
             logger.debug(f"Adding entry '{filename}' to DDUF file")
             _dump_content_in_archive(archive, filename, content)
 
-    # Consistency checks on the DDUF file
-    if index is None:
-        raise DDUFExportError("Missing required 'model_index.json' entry in DDUF file.")
-    if not append: 
-        # don't perform validation when we are in append mode
+    if not append:
+        # Consistency checks on the DDUF file
+        if index is None:
+            raise DDUFExportError("Missing required 'model_index.json' entry in DDUF file.")
         try:
             _validate_dduf_structure(index, filenames)
         except DDUFCorruptedFileError as e:
