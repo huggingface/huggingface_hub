@@ -571,10 +571,12 @@ def load_state_dict_from_file(
             indicates the location where all tensors should be loaded.
         weights_only (`bool`, *optional*, defaults to `False`):
             If True, only loads the model weights without optimizer states and other metadata.
-            Only supported in PyTorch >= 1.13.
+            Only supported for pickle (`.bin`) checkpoints with PyTorch >= 1.13. Has no effect when
+            loading safetensors files.
         mmap (`bool`, *optional*, defaults to `False`):
             Whether to use memory-mapped file loading. Memory mapping can improve loading performance
-            for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints.
+            for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints. Has no effect when
+            loading safetensors files, as the `safetensors` library uses memory mapping by default.
 
     Returns:
         `Union[Dict[str, "torch.Tensor"], Any]`: The loaded checkpoint.
@@ -633,14 +635,19 @@ def load_state_dict_from_file(
                 f"The safetensors archive passed at {checkpoint_file} does not contain the valid metadata. Make sure "
                 "you save your model with the `save_torch_model` method."
             )
-        return load_file(checkpoint_file)
+        device = str(map_location.type) if map_location is not None and hasattr(map_location, "type") else map_location
+        # meta device is not supported with safetensors, falling back to CPU
+        if device == "meta":
+            logger.warning("Meta device is not supported with safetensors. Falling back to CPU device.")
+            device = "cpu"
+        return load_file(checkpoint_file, device=device)  # type: ignore[arg-type]
+    # Otherwise, load from pickle
     try:
         import torch
         from torch import load
     except ImportError as e:
         raise ImportError(
-            "Please install `safetensors` to load safetensors checkpoint. "
-            "You can install it with `pip install safetensors`."
+            "Please install `torch` to load torch tensors. " "You can install it with `pip install torch`."
         ) from e
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}
