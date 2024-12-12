@@ -274,7 +274,7 @@ class ModelHubMixin:
         }
         cls._hub_mixin_inject_config = "config" in inspect.signature(cls._from_pretrained).parameters
 
-    def __new__(cls, *args, **kwargs) -> "ModelHubMixin":
+    def __new__(cls: Type[T], *args, **kwargs) -> T:
         """Create a new instance of the class and handle config.
 
         3 cases:

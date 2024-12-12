@@ -1,23 +1,32 @@
+import json
 import logging
 import mmap
+import os
 import shutil
 import zipfile
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Generator, Iterable, Tuple, Union
+from typing import Any, Dict, Generator, Iterable, Tuple, Union
 
-from ..errors import DDUFCorruptedFileError, DDUFExportError
+from ..errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNameError
 
 
 logger = logging.getLogger(__name__)
 
 DDUF_ALLOWED_ENTRIES = {
-    ".gguf",
+    # Allowed file extensions in a DDUF file
     ".json",
     ".model",
     ".safetensors",
     ".txt",
+}
+
+DDUF_FOLDER_REQUIRED_ENTRIES = {
+    # Each folder must contain at least one of these entries
+    "config.json",
+    "tokenizer_config.json",
+    "image_processor.json",
 }
 
 
@@ -61,7 +70,7 @@ class DDUFEntry:
             with mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
                 yield mm[self.offset : self.offset + self.length]
 
-    def read_text(self, encoding="utf-8") -> str:
+    def read_text(self, encoding: str = "utf-8") -> str:
         """Read the file as text.
 
         Useful for '.txt' and '.json' entries.
@@ -77,14 +86,14 @@ class DDUFEntry:
             return f.read(self.length).decode(encoding=encoding)
 
 
-def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
+def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> Dict[str, DDUFEntry]:
     """
     Read a DDUF file and return a dictionary of entries.
 
     Only the metadata is read, the data is not loaded in memory.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to read.
 
     Returns:
@@ -97,7 +106,7 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
     Example:
         ```python
         >>> import json
-        >>> import safetensors.load
+        >>> import safetensors.torch
         >>> from huggingface_hub import read_dduf_file
 
         # Read DDUF metadata
@@ -118,24 +127,36 @@ def read_dduf_file(dduf_path: Union[Path, str]) -> Dict[str, DDUFEntry]:
     """
     entries = {}
     dduf_path = Path(dduf_path)
-    logger.info("Reading DDUF file %s", dduf_path)
+    logger.info(f"Reading DDUF file {dduf_path}")
     with zipfile.ZipFile(str(dduf_path), "r") as zf:
         for info in zf.infolist():
-            logger.debug("Reading entry %s", info.filename)
+            logger.debug(f"Reading entry {info.filename}")
             if info.compress_type != zipfile.ZIP_STORED:
                 raise DDUFCorruptedFileError("Data must not be compressed in DDUF file.")
+
+            try:
+                _validate_dduf_entry_name(info.filename)
+            except DDUFInvalidEntryNameError as e:
+                raise DDUFCorruptedFileError(f"Invalid entry name in DDUF file: {info.filename}") from e
 
             offset = _get_data_offset(zf, info)
 
             entries[info.filename] = DDUFEntry(
                 filename=info.filename, offset=offset, length=info.file_size, dduf_path=dduf_path
             )
-    logger.info("Done reading DDUF file %s. Found %d entries", dduf_path, len(entries))
+
+    # Consistency checks on the DDUF file
+    if "model_index.json" not in entries:
+        raise DDUFCorruptedFileError("Missing required 'model_index.json' entry in DDUF file.")
+    index = json.loads(entries["model_index.json"].read_text())
+    _validate_dduf_structure(index, entries.keys())
+
+    logger.info(f"Done reading DDUF file {dduf_path}. Found {len(entries)} entries")
     return entries
 
 
 def export_entries_as_dduf(
-    dduf_path: Union[str, Path], entries: Iterable[Tuple[str, Union[str, Path, bytes]]], append: bool = False
+    dduf_path: Union[str, os.PathLike], entries: Iterable[Tuple[str, Union[str, Path, bytes]]], append: bool = False
 ) -> None:
     """Write a DDUF file from an iterable of entries.
 
@@ -143,7 +164,7 @@ def export_entries_as_dduf(
     In particular, you don't need to save the data on disk before exporting it in the DDUF file.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
         entries (`Iterable[Tuple[str, Union[str, Path, bytes]]]`):
             An iterable of entries to write in the DDUF file. Each entry is a tuple with the filename and the content.
@@ -151,14 +172,14 @@ def export_entries_as_dduf(
             The content can be a string or a pathlib.Path representing a path to a file on the local disk or directly the content as bytes.
 
     Raises:
-        - [`DDUFExportError`]: If entry type is not supported (must be str, Path or bytes).
+        - [`DDUFExportError`]: If anything goes wrong during the export (e.g. invalid entry name, missing 'model_index.json', etc.).
 
     Example:
         ```python
         # Export specific files from the local disk.
         >>> from huggingface_hub import export_entries_as_dduf
         >>> export_entries_as_dduf(
-        ...     "stable-diffusion-v1-4-FP16.dduf",
+        ...     dduf_path="stable-diffusion-v1-4-FP16.dduf",
         ...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
         ...         ("model_index.json", "path/to/model_index.json"),
         ...         ("vae/config.json", "path/to/vae/config.json"),
@@ -189,25 +210,47 @@ def export_entries_as_dduf(
         ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
         ...     # ... add more entries here
 
-        >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
+        >>> export_entries_as_dduf(dduf_path="stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
         ```
     """
-    logger.info("Exporting DDUF file '%s'", dduf_path)
+    logger.info(f"Exporting DDUF file '{dduf_path}'")
     mode = "a" if append else "w"
+    filenames = set()
+    index = None
     with zipfile.ZipFile(str(dduf_path), mode, zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
-            if "." + filename.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
-                raise DDUFExportError(f"File type not allowed: {filename}")
-            if "\\" in filename:
-                raise DDUFExportError(f"Filenames must use UNIX separators: {filename}")
-            logger.debug("Adding file %s to DDUF file", filename)
+            if filename in filenames:
+                raise DDUFExportError(f"Can't add duplicate entry: {filename}")
+            filenames.add(filename)
+
+            if filename == "model_index.json":
+                try:
+                    index = json.loads(_load_content(content).decode())
+                except json.JSONDecodeError as e:
+                    raise DDUFExportError("Failed to parse 'model_index.json'.") from e
+
+            try:
+                filename = _validate_dduf_entry_name(filename)
+            except DDUFInvalidEntryNameError as e:
+                raise DDUFExportError(f"Invalid entry name: {filename}") from e
+            logger.debug(f"Adding entry '{filename}' to DDUF file")
             _dump_content_in_archive(archive, filename, content)
 
-    logger.info("Done writing DDUF file %s", dduf_path)
+    # Consistency checks on the DDUF file
+    if index is None:
+        raise DDUFExportError("Missing required 'model_index.json' entry in DDUF file.")
+    if not append: 
+        # don't perform validation when we are in append mode
+        try:
+            _validate_dduf_structure(index, filenames)
+        except DDUFCorruptedFileError as e:
+            raise DDUFExportError("Invalid DDUF file structure.") from e
+
+    logger.info(f"Done writing DDUF file {dduf_path}")
 
 
 def export_folder_as_dduf(
-    dduf_path: Union[str, Path], folder_path: Union[str, Path], append=False, retain_base_folder=False
+    dduf_path: Union[str, os.PathLike], folder_path: Union[str, os.PathLike], append=False, retain_base_folder=False
 ) -> None:
     """
     Export a folder as a DDUF file.
@@ -215,25 +258,25 @@ def export_folder_as_dduf(
     AUses [`export_entries_as_dduf`] under the hood.
 
     Args:
-        dduf_path (`str` or `Path`):
+        dduf_path (`str` or `os.PathLike`):
             The path to the DDUF file to write.
-        folder_path (`str` or `Path`):
+        folder_path (`str` or `os.PathLike`):
             The path to the folder containing the diffusion model.
 
     Example:
         ```python
         >>> from huggingface_hub import export_folder_as_dduf
-        >>> export_folder_as_dduf("FLUX.1-dev.dduf", diffuser_path="path/to/FLUX.1-dev")
+        >>> export_folder_as_dduf(dduf_path="FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
         ```
     """
     folder_path = Path(folder_path)
 
     def _iterate_over_folder() -> Iterable[Tuple[str, Path]]:
         for path in Path(folder_path).glob("**/*"):
-            if path.is_dir():
+            if not path.is_file():
                 continue
             if path.suffix not in DDUF_ALLOWED_ENTRIES:
-                logger.debug("Skipping file %s (file type not allowed)", path)
+                logger.debug(f"Skipping file '{path}' (file type not allowed)")
                 continue
             if retain_base_folder:
                 path_in_archive = path.relative_to(folder_path.parent)
@@ -247,40 +290,7 @@ def export_folder_as_dduf(
     export_entries_as_dduf(dduf_path, _iterate_over_folder(), append=append)
 
 
-def add_entry_to_dduf(dduf_path: Union[str, Path], filename: str, content: Union[str, Path, bytes]) -> None:
-    """
-    Add an entry to an existing DDUF file.
-
-    Args:
-        dduf_path (`str` or `Path`):
-            The path to the DDUF file to write.
-        filename (`str`):
-            The path to the file in the DDUF archive.
-        content (`str`, `Path` or `bytes`):
-            The content of the file to add to the DDUF archive.
-
-    Raises:
-        - [`DDUFExportError`]: If the entry already exists in the DDUF file.
-    """
-    dduf_path = str(dduf_path)
-    # Ensure the zip file exists
-    try:
-        with zipfile.ZipFile(dduf_path, "r") as zf:
-            # Check if the file already exists in the zip
-            if filename in zf.namelist():
-                raise DDUFExportError(f"Entry '{filename}' already exists in DDUF file.")
-    except FileNotFoundError:
-        # If the zip doesn't exist, create it
-        with zipfile.ZipFile(dduf_path, "w") as _:
-            pass
-
-    # Reopen the zip in append mode and add the new file
-    with zipfile.ZipFile(dduf_path, "a", zipfile.ZIP_STORED) as archive:
-        logger.debug("Adding file %s to DDUF file", filename)
-        _dump_content_in_archive(archive, filename, content)
-
-
-def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, Path, bytes]) -> None:
+def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, os.PathLike, bytes]) -> None:
     with archive.open(filename, "w", force_zip64=True) as archive_fh:
         if isinstance(content, (str, Path)):
             content_path = Path(content)
@@ -290,6 +300,61 @@ def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: U
             archive_fh.write(content)
         else:
             raise DDUFExportError(f"Invalid content type for {filename}. Must be str, Path or bytes.")
+
+
+def _load_content(content: Union[str, Path, bytes]) -> bytes:
+    """Load the content of an entry as bytes.
+
+    Used only for small checks (not to dump content into archive).
+    """
+    if isinstance(content, (str, Path)):
+        return Path(content).read_bytes()
+    elif isinstance(content, bytes):
+        return content
+    else:
+        raise DDUFExportError(f"Invalid content type. Must be str, Path or bytes. Got {type(content)}.")
+
+
+def _validate_dduf_entry_name(entry_name: str) -> str:
+    if "." + entry_name.split(".")[-1] not in DDUF_ALLOWED_ENTRIES:
+        raise DDUFInvalidEntryNameError(f"File type not allowed: {entry_name}")
+    if "\\" in entry_name:
+        raise DDUFInvalidEntryNameError(f"Entry names must use UNIX separators ('/'). Got {entry_name}.")
+    entry_name = entry_name.strip("/")
+    if entry_name.count("/") > 1:
+        raise DDUFInvalidEntryNameError(f"DDUF only supports 1 level of directory. Got {entry_name}.")
+    return entry_name
+
+
+def _validate_dduf_structure(index: Any, entry_names: Iterable[str]) -> None:
+    """
+    Consistency checks on the DDUF file structure.
+
+    Rules:
+    - The 'model_index.json' entry is required and must contain a dictionary.
+    - Each folder name must correspond to an entry in 'model_index.json'.
+    - Each folder must contain at least a config file ('config.json', 'tokenizer_config.json', 'image_processor.json').
+
+    Args:
+        index (Any):
+            The content of the 'model_index.json' entry.
+        entry_names (Iterable[str]):
+            The list of entry names in the DDUF file.
+
+    Raises:
+        - [`DDUFCorruptedFileError`]: If the DDUF file is corrupted (i.e. doesn't follow the DDUF format).
+    """
+    if not isinstance(index, dict):
+        raise DDUFCorruptedFileError(f"Invalid 'model_index.json' content. Must be a dictionary. Got {type(index)}.")
+
+    dduf_folders = {entry.split("/")[0] for entry in entry_names if "/" in entry}
+    for folder in dduf_folders:
+        if folder not in index:
+            raise DDUFCorruptedFileError(f"Missing required entry '{folder}' in 'model_index.json'.")
+        if not any(f"{folder}/{required_entry}" in entry_names for required_entry in DDUF_FOLDER_REQUIRED_ENTRIES):
+            raise DDUFCorruptedFileError(
+                f"Missing required file in folder '{folder}'. Must contains at least one of {DDUF_FOLDER_REQUIRED_ENTRIES}."
+            )
 
 
 def _get_data_offset(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> int:

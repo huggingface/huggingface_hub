@@ -81,6 +81,8 @@ Group-based control:
 """
 
 import io
+import logging
+import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -194,6 +196,19 @@ def are_progress_bars_disabled(name: Optional[str] = None) -> bool:
         name = ".".join(name.split(".")[:-1])
 
     return not progress_bar_states.get("_global", True)
+
+
+def is_tqdm_disabled(log_level: int) -> Optional[bool]:
+    """
+    Determine if tqdm progress bars should be disabled based on logging level and environment settings.
+
+    see https://github.com/huggingface/huggingface_hub/pull/2000 and https://github.com/huggingface/huggingface_hub/pull/2698.
+    """
+    if log_level == logging.NOTSET:
+        return True
+    if os.getenv("TQDM_POSITION") == "-1":
+        return False
+    return None
 
 
 class tqdm(old_tqdm):

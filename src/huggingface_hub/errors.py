@@ -323,3 +323,7 @@ class DDUFCorruptedFileError(DDUFError):
 
 class DDUFExportError(DDUFError):
     """Base exception for errors during DDUF export."""
+
+
+class DDUFInvalidEntryNameError(DDUFExportError):
+    """Exception thrown when the entry name is invalid."""

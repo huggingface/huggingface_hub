@@ -98,7 +98,7 @@ huggingface-cli whoami
 huggingface-cli repo create
 ```
 
-With the `HfApi` class there are methods to query models, datasets, and metrics by specific tags (e.g. if you want to list models compatible with your library):
+With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):
 - **Models**:
   - `list_models()`
   - `model_info()`

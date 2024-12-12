@@ -8,7 +8,7 @@ rendered properly in your Markdown viewer.
 
 ## DDUF file format
 
-DDUF is a file format designed for diffusers models. It allows saving all the information to run a model in a single file. This work is inspired by the GGUF format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
+DDUF is a file format designed for diffusion models. It allows saving all the information to run a model in a single file. This work is inspired by the [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md) format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
 
 <Tip warning={true}>
 
@@ -28,13 +28,13 @@ Here is how to export a folder containing different parts of a diffusion model u
 >>> export_folder_as_dduf("FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
 ```
 
-For more flexibility, to can use [`export_entries_as_dduf`] and pass a list of files to include in the final DDUF file:
+For more flexibility, you can use [`export_entries_as_dduf`] and pass a list of files to include in the final DDUF file:
 
 ```python
 # Export specific files from the local disk.
 >>> from huggingface_hub import export_entries_as_dduf
 >>> export_entries_as_dduf(
-...     "stable-diffusion-v1-4-FP16.dduf",
+...     dduf_path="stable-diffusion-v1-4-FP16.dduf",
 ...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
 ...         ("model_index.json", "path/to/model_index.json"),
 ...         ("vae/config.json", "path/to/vae/config.json"),
@@ -46,7 +46,7 @@ For more flexibility, to can use [`export_entries_as_dduf`] and pass a list of f
 ... )
 ```
 
-The `entries` parameter also support passing an iterable of paths or bytes. This can prove useful if you have a loaded model and want to serialize it directly in a DDUF file instead of having to serialize each component to disk first and then as a DDUF file. Here is an example on how a `StableDiffusionPipeline` can be serialized as DDUF:
+The `entries` parameter also supports passing an iterable of paths or bytes. This can prove useful if you have a loaded model and want to serialize it directly into a DDUF file instead of having to serialize each component to disk first and then as a DDUF file. Here is an example of how a `StableDiffusionPipeline` can be serialized as DDUF:
 
 
 ```python
@@ -59,7 +59,7 @@ The `entries` parameter also support passing an iterable of paths or bytes. This
 ... # ... do some work with the pipeline
 
 >>> def as_entries(pipe: DiffusionPipeline) -> Generator[Tuple[str, bytes], None, None]:
-...     # Build an generator that yields the entries to add to the DDUF file.
+...     # Build a generator that yields the entries to add to the DDUF file.
 ...     # The first element of the tuple is the filename in the DDUF archive (must use UNIX separator!). The second element is the content of the file.
 ...     # Entries will be evaluated lazily when the DDUF file is created (only 1 entry is loaded in memory at a time)
 ...     yield "vae/config.json", pipe.vae.to_json_string().encode()
@@ -68,7 +68,7 @@ The `entries` parameter also support passing an iterable of paths or bytes. This
 ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
 ...     # ... add more entries here
 
->>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
+>>> export_entries_as_dduf(dduf_path="stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
 ```
 
 **Note:** in practice, `diffusers` provides a method to directly serialize a pipeline in a DDUF file. The snippet above is only meant as an example.
@@ -113,6 +113,8 @@ DDUFEntry(filename='model_index.json', offset=66, length=587)
 [[autodoc]] huggingface_hub.errors.DDUFCorruptedFileError
 
 [[autodoc]] huggingface_hub.errors.DDUFExportError
+
+[[autodoc]] huggingface_hub.errors.DDUFInvalidEntryNameError
 
 ## Save torch state dict
 
