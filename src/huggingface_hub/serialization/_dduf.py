@@ -179,7 +179,7 @@ def export_entries_as_dduf(
         # Export specific files from the local disk.
         >>> from huggingface_hub import export_entries_as_dduf
         >>> export_entries_as_dduf(
-        ...     "stable-diffusion-v1-4-FP16.dduf",
+        ...     dduf_path="stable-diffusion-v1-4-FP16.dduf",
         ...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
         ...         ("model_index.json", "path/to/model_index.json"),
         ...         ("vae/config.json", "path/to/vae/config.json"),
@@ -210,7 +210,7 @@ def export_entries_as_dduf(
         ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
         ...     # ... add more entries here
 
-        >>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
+        >>> export_entries_as_dduf(dduf_path="stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
         ```
     """
     logger.info(f"Exporting DDUF file '{dduf_path}'")
@@ -261,7 +261,7 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
     Example:
         ```python
         >>> from huggingface_hub import export_folder_as_dduf
-        >>> export_folder_as_dduf("FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
+        >>> export_folder_as_dduf(dduf_path="FLUX.1-dev.dduf", folder_path="path/to/FLUX.1-dev")
         ```
     """
     folder_path = Path(folder_path)
