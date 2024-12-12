@@ -8,7 +8,7 @@ rendered properly in your Markdown viewer.
 
 ## DDUF file format
 
-DDUF is a file format designed for diffusion models. It allows saving all the information to run a model in a single file. This work is inspired by the GGUF format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
+DDUF is a file format designed for diffusion models. It allows saving all the information to run a model in a single file. This work is inspired by the [GGUF](https://github.com/ggerganov/ggml/blob/master/docs/gguf.md) format. `huggingface_hub` provides helpers to save and load DDUF files, ensuring the file format is respected.
 
 <Tip warning={true}>
 
