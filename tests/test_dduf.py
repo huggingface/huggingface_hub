@@ -9,7 +9,9 @@ from pytest_mock import MockerFixture
 from huggingface_hub.errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNameError
 from huggingface_hub.serialization._dduf import (
     DDUFEntry,
+    _load_content,
     _validate_dduf_entry_name,
+    _validate_dduf_structure,
     export_entries_as_dduf,
     export_folder_as_dduf,
     read_dduf_file,
@@ -62,6 +64,50 @@ class TestUtils:
         with pytest.raises(DDUFInvalidEntryNameError):
             _validate_dduf_entry_name("foo/bar/dummy.json")  # not more
 
+    def test_load_content(self, tmp_path: Path):
+        content = b"hello world"
+        path = tmp_path / "hello.txt"
+        path.write_bytes(content)
+
+        assert _load_content(content) == content  # from bytes
+        assert _load_content(path) == content  # from Path
+        assert _load_content(str(path)) == content  # from str
+
+    def test_validate_dduf_structure_valid(self):
+        _validate_dduf_structure(
+            {  # model_index.json content
+                "_some_key": "some_value",
+                "encoder": {
+                    "config.json": {},
+                    "model.safetensors": {},
+                },
+            },
+            {  # entries in DDUF archive
+                "model_index.json",
+                "something.txt",
+                "encoder/config.json",
+                "encoder/model.safetensors",
+            },
+        )
+
+    def test_validate_dduf_structure_not_a_dict(self):
+        with pytest.raises(DDUFCorruptedFileError, match="Must be a dictionary."):
+            _validate_dduf_structure(["not a dict"], {})  # content from 'model_index.json'
+
+    def test_validate_dduf_structure_missing_folder(self):
+        with pytest.raises(DDUFCorruptedFileError, match="Missing required entry 'encoder' in 'model_index.json'."):
+            _validate_dduf_structure({}, {"encoder/config.json", "encoder/model.safetensors"})
+
+    def test_validate_dduf_structure_missing_config_file(self):
+        with pytest.raises(DDUFCorruptedFileError, match="Missing required file in folder 'encoder'."):
+            _validate_dduf_structure(
+                {"encoder": {}},
+                {
+                    "encoder/not_a_config.json",  # expecting a config.json / tokenizer_config.json / image_processor.json
+                    "encoder/model.safetensors",
+                },
+            )
+
 
 class TestExportFolder:
     @pytest.fixture
@@ -110,8 +156,12 @@ class TestExportEntries:
             ("hello.txt", b"hello world"),  # raw bytes
         ]
 
-    def test_export_entries(self, tmp_path: Path, dummy_entries: Iterable[Tuple[str, Union[str, Path, bytes]]]):
+    def test_export_entries(
+        self, tmp_path: Path, dummy_entries: Iterable[Tuple[str, Union[str, Path, bytes]]], mocker: MockerFixture
+    ):
+        mock = mocker.patch("huggingface_hub.serialization._dduf._validate_dduf_structure")
         export_entries_as_dduf(tmp_path / "dummy.dduf", dummy_entries)
+        mock.assert_called_once_with({"foo": "bar"}, {"model_index.json", "model.safetensors", "hello.txt"})
 
         with zipfile.ZipFile(tmp_path / "dummy.dduf", "r") as archive:
             assert archive.compression == zipfile.ZIP_STORED  # uncompressed!
@@ -128,7 +178,11 @@ class TestExportEntries:
     def test_export_entries_no_duplicate(self, tmp_path: Path):
         with pytest.raises(DDUFExportError, match="Can't add duplicate entry"):
             export_entries_as_dduf(
-                tmp_path / "dummy.dduf", [("model_index.json", b"content1"), ("model_index.json", b"content2")]
+                tmp_path / "dummy.dduf",
+                [
+                    ("model_index.json", b'{"key": "content1"}'),
+                    ("model_index.json", b'{"key": "content2"}'),
+                ],
             )
 
     def test_export_entries_model_index_required(self, tmp_path: Path):
@@ -145,12 +199,16 @@ class TestReadDDUFFile:
             archive.writestr("hello.txt", b"hello world")
         return tmp_path / "dummy.dduf"
 
-    def test_read_dduf_file(self, dummy_dduf_file: Path):
+    def test_read_dduf_file(self, dummy_dduf_file: Path, mocker: MockerFixture):
+        mock = mocker.patch("huggingface_hub.serialization._dduf._validate_dduf_structure")
+
         entries = read_dduf_file(dummy_dduf_file)
         assert len(entries) == 3
         index_entry = entries["model_index.json"]
         model_entry = entries["model.safetensors"]
         hello_entry = entries["hello.txt"]
+
+        mock.assert_called_once_with({"foo": "bar"}, {"model_index.json", "model.safetensors", "hello.txt"})
 
         assert index_entry.filename == "model_index.json"
         assert index_entry.dduf_path == dummy_dduf_file
