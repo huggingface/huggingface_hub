@@ -27,6 +27,7 @@ DDUF_FOLDER_REQUIRED_ENTRIES = {
     "config.json",
     "tokenizer_config.json",
     "image_processor.json",
+    "scheduler_config.json"
 }
 
 
