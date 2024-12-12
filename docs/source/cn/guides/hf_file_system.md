@@ -45,7 +45,7 @@
 
 ## 集成
 
-[`HfFileSystem`] 可以与任何集成了 `fsspec` 的库一起使用，前提是 URL 遵循以下方案：
+[`HfFileSystem`] 可以与任何集成了 `fsspec` 的库一起使用，前提是 URL 遵循以下格式：
 
 ```
 hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
