@@ -34,7 +34,7 @@ For more flexibility, you can use [`export_entries_as_dduf`] and pass a list of 
 # Export specific files from the local disk.
 >>> from huggingface_hub import export_entries_as_dduf
 >>> export_entries_as_dduf(
-...     "stable-diffusion-v1-4-FP16.dduf",
+...     dduf_path="stable-diffusion-v1-4-FP16.dduf",
 ...     entries=[ # List entries to add to the DDUF file (here, only FP16 weights)
 ...         ("model_index.json", "path/to/model_index.json"),
 ...         ("vae/config.json", "path/to/vae/config.json"),
@@ -68,7 +68,7 @@ The `entries` parameter also supports passing an iterable of paths or bytes. Thi
 ...     yield "text_encoder/model.safetensors", safetensors.torch.save(pipe.text_encoder.state_dict())
 ...     # ... add more entries here
 
->>> export_entries_as_dduf("stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
+>>> export_entries_as_dduf(dduf_path="stable-diffusion-v1-4.dduf", entries=as_entries(pipe))
 ```
 
 **Note:** in practice, `diffusers` provides a method to directly serialize a pipeline in a DDUF file. The snippet above is only meant as an example.
