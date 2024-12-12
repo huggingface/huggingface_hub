@@ -77,7 +77,7 @@ The `entries` parameter also supports passing an iterable of paths or bytes. Thi
 
 ```python
 >>> import json
->>> import safetensors.load
+>>> import safetensors.torch
 >>> from huggingface_hub import read_dduf_file
 
 # Read DDUF metadata
