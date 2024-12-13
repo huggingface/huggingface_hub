@@ -103,7 +103,7 @@ class TestUtils:
             _validate_dduf_structure(
                 {"encoder": {}},
                 {
-                    "encoder/not_a_config.json",  # expecting a config.json / tokenizer_config.json / image_processor.json / scheduler_config.json
+                    "encoder/not_a_config.json",  # expecting a config.json / tokenizer_config.json / preprocessor_config.json / scheduler_config.json
                     "encoder/model.safetensors",
                 },
             )

@@ -26,7 +26,7 @@ DDUF_FOLDER_REQUIRED_ENTRIES = {
     # Each folder must contain at least one of these entries
     "config.json",
     "tokenizer_config.json",
-    "image_processor.json",
+    "preprocessor_config.json",
     "scheduler_config.json",
 }
 
@@ -326,7 +326,7 @@ def _validate_dduf_structure(index: Any, entry_names: Iterable[str]) -> None:
     Rules:
     - The 'model_index.json' entry is required and must contain a dictionary.
     - Each folder name must correspond to an entry in 'model_index.json'.
-    - Each folder must contain at least a config file ('config.json', 'tokenizer_config.json', 'image_processor.json', 'scheduler_config.json').
+    - Each folder must contain at least a config file ('config.json', 'tokenizer_config.json', 'preprocessor_config.json', 'scheduler_config.json').
 
     Args:
         index (Any):
