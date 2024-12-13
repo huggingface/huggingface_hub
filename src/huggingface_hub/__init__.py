@@ -469,6 +469,12 @@ _SUBMOD_ATTRS = {
         "split_tf_state_dict_into_shards",
         "split_torch_state_dict_into_shards",
     ],
+    "serialization._dduf": [
+        "DDUFEntry",
+        "export_entries_as_dduf",
+        "export_folder_as_dduf",
+        "read_dduf_file",
+    ],
     "utils": [
         "CacheNotFound",
         "CachedFileInfo",
@@ -996,6 +1002,12 @@ if TYPE_CHECKING:  # pragma: no cover
         split_state_dict_into_shards_factory,  # noqa: F401
         split_tf_state_dict_into_shards,  # noqa: F401
         split_torch_state_dict_into_shards,  # noqa: F401
+    )
+    from .serialization._dduf import (
+        DDUFEntry,  # noqa: F401
+        export_entries_as_dduf,  # noqa: F401
+        export_folder_as_dduf,  # noqa: F401
+        read_dduf_file,  # noqa: F401
     )
     from .utils import (
         CachedFileInfo,  # noqa: F401
