@@ -80,6 +80,9 @@ class ImageToTextParameters(BaseInferenceType):
     """Parametrization of the text generation process"""
     max_new_tokens: Optional[int] = None
     """The amount of maximum tokens to generate."""
+    # Will be deprecated in the future
+    generate_kwargs: Optional[ImageToTextGenerationParameters] = None
+    """(Deprecated) Parametrization of the text generation process"""
 
 
 @dataclass
