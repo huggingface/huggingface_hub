@@ -2919,7 +2919,7 @@ class HfApi:
             repo_id (`str`):
                 A namespace (user or an organization) and a repo name separated by a `/`.
             revision (`str`, *optional*):
-                The revision of the model repository from which to get the information.
+                The revision of the repository from which to get the information.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if uploading to a dataset or space, `None` or `"model"` if uploading to
                 a model. Default is `None`.
@@ -3610,7 +3610,7 @@ class HfApi:
             repo_id (`str`, *optional*):
                 A namespace (user or an organization) and a repo name separated by a `/`.
             private (`bool`, *optional*, defaults to `False`):
-                Whether the model repo should be private.
+                Whether the repository should be private.
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -3672,7 +3672,7 @@ class HfApi:
                 * "manual": The repository is gated, and access requests require manual approval.
                 * False : The repository is not gated, and anyone can access it.
             private (`bool`, *optional*):
-                Whether the model repo should be private.
+                Whether the repository should be private.
             token (`Union[str, bool, None]`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token,
                 which is the recommended method for authentication (see
@@ -5194,7 +5194,7 @@ class HfApi:
             filename (`str`):
                 The name of the file in the repo.
             subfolder (`str`, *optional*):
-                An optional value corresponding to a folder inside the model repo.
+                An optional value corresponding to a folder inside the repository.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if downloading from a dataset or space,
                 `None` or `"model"` if downloading from a model. Default is `None`.
