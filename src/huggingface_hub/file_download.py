@@ -11,7 +11,7 @@ import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Literal, NoReturn, Optional, Tuple, Union, Type
 from urllib.parse import quote, urlparse
 
 import requests
@@ -314,6 +314,7 @@ def http_get(
     displayed_filename: Optional[str] = None,
     _nb_retries: int = 5,
     _tqdm_bar: Optional[tqdm] = None,
+    tqdm_class: Optional[Type[tqdm]] = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -397,14 +398,27 @@ def http_get(
 
     # Stream file to buffer
     progress_cm: tqdm = (
-        tqdm(  # type: ignore[assignment]
-            unit="B",
-            unit_scale=True,
-            total=total,
-            initial=resume_size,
-            desc=displayed_filename,
-            disable=is_tqdm_disabled(logger.getEffectiveLevel()),
-            name="huggingface_hub.http_get",
+        (
+            tqdm(  # type: ignore[assignment]
+                unit="B",
+                unit_scale=True,
+                total=total,
+                initial=resume_size,
+                desc=displayed_filename,
+                disable=is_tqdm_disabled(logger.getEffectiveLevel()),
+                name="huggingface_hub.http_get",
+            )
+            if tqdm_class is None
+            else
+            tqdm_class(  # type: ignore[assignment]
+                unit="B",
+                unit_scale=True,
+                total=total,
+                initial=resume_size,
+                desc=displayed_filename,
+                disable=is_tqdm_disabled(logger.getEffectiveLevel()),
+                name="huggingface_hub.http_get",
+            )
         )
         if _tqdm_bar is None
         else contextlib.nullcontext(_tqdm_bar)
@@ -475,6 +489,7 @@ def http_get(
                 expected_size=expected_size,
                 _nb_retries=_nb_retries - 1,
                 _tqdm_bar=_tqdm_bar,
+                tqdm_class=tqdm_class,
             )
 
     if expected_size is not None and expected_size != temp_file.tell():
@@ -681,6 +696,7 @@ def hf_hub_download(
     resume_download: Optional[bool] = None,
     force_filename: Optional[str] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
+    tqdm_class: Optional[Type[tqdm]] = None,
 ) -> str:
     """Download a given file if it's not already present in the local cache.
 
@@ -855,6 +871,7 @@ def hf_hub_download(
             cache_dir=cache_dir,
             force_download=force_download,
             local_files_only=local_files_only,
+            tqdm_class=tqdm_class,
         )
     else:
         return _hf_hub_download_to_cache_dir(
@@ -874,6 +891,7 @@ def hf_hub_download(
             # Additional options
             local_files_only=local_files_only,
             force_download=force_download,
+            tqdm_class=tqdm_class,
         )
 
 
@@ -895,6 +913,7 @@ def _hf_hub_download_to_cache_dir(
     # Additional options
     local_files_only: bool,
     force_download: bool,
+    tqdm_class: Optional[Type[tqdm]],
 ) -> str:
     """Download a given file to a cache folder, if not already present.
 
@@ -1015,6 +1034,7 @@ def _hf_hub_download_to_cache_dir(
             expected_size=expected_size,
             filename=filename,
             force_download=force_download,
+            tqdm_class=tqdm_class,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1041,6 +1061,7 @@ def _hf_hub_download_to_local_dir(
     cache_dir: str,
     force_download: bool,
     local_files_only: bool,
+    tqdm_class: Optional[Type[tqdm]],
 ) -> str:
     """Download a given file to a local folder, if not already present.
 
@@ -1142,6 +1163,7 @@ def _hf_hub_download_to_local_dir(
             expected_size=expected_size,
             filename=filename,
             force_download=force_download,
+            tqdm_class=tqdm_class,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1498,6 +1520,7 @@ def _download_to_tmp_and_move(
     expected_size: Optional[int],
     filename: str,
     force_download: bool,
+    tqdm_class: Optional[Type[tqdm]],
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1547,6 +1570,7 @@ def _download_to_tmp_and_move(
             resume_size=resume_size,
             headers=headers,
             expected_size=expected_size,
+            tqdm_class=tqdm_class,
         )
 
     logger.info(f"Download complete. Moving file to {destination_path}")

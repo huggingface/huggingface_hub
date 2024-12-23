@@ -37,6 +37,7 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[Type[base_tqdm]] = None,
+    inner_tqdm_class: Optional[Type[base_tqdm]] = None,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
     # Deprecated args
@@ -285,6 +286,7 @@ def snapshot_download(
             force_download=force_download,
             token=token,
             headers=headers,
+            tqdm_class=inner_tqdm_class,
         )
 
     if constants.HF_HUB_ENABLE_HF_TRANSFER:
