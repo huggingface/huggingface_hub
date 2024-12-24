@@ -151,6 +151,7 @@ def snapshot_download(
                 user_agent=user_agent,
                 endpoint=endpoint,
                 headers=headers,
+                proxies=proxies,
             )
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token)
         except (requests.exceptions.SSLError, requests.exceptions.ProxyError):

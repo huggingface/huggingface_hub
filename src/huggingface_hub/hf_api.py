@@ -1550,6 +1550,8 @@ class HfApi:
         headers (`dict`, *optional*):
             Additional headers to be sent with each request. Example: `{"X-My-Header": "value"}`.
             Headers passed here are taking precedence over the default headers.
+        proxies (`dict`, *optional*):
+            Dictionary mapping protocol to the URL of the proxy passed to requests.request.
     """
 
     def __init__(
@@ -1560,6 +1562,7 @@ class HfApi:
         library_version: Optional[str] = None,
         user_agent: Union[Dict, str, None] = None,
         headers: Optional[Dict[str, str]] = None,
+        proxies: Optional[Dict[str, str]] = None,
     ) -> None:
         self.endpoint = endpoint if endpoint is not None else constants.ENDPOINT
         self.token = token
@@ -1567,6 +1570,7 @@ class HfApi:
         self.library_version = library_version
         self.user_agent = user_agent
         self.headers = headers
+        self.proxies = proxies
         self._thread_pool: Optional[ThreadPoolExecutor] = None
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
@@ -2529,7 +2533,7 @@ class HfApi:
             params["blobs"] = True
         if expand:
             params["expand"] = expand
-        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params, proxies=self.proxies)
         hf_raise_for_status(r)
         data = r.json()
         return ModelInfo(**data)
@@ -2602,7 +2606,7 @@ class HfApi:
         if expand:
             params["expand"] = expand
 
-        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params, proxies=self.proxies)
         hf_raise_for_status(r)
         data = r.json()
         return DatasetInfo(**data)
@@ -2675,7 +2679,7 @@ class HfApi:
         if expand:
             params["expand"] = expand
 
-        r = get_session().get(path, headers=headers, timeout=timeout, params=params)
+        r = get_session().get(path, headers=headers, timeout=timeout, params=params, proxies=self.proxies)
         hf_raise_for_status(r)
         data = r.json()
         return SpaceInfo(**data)
@@ -3128,6 +3132,7 @@ class HfApi:
             f"{self.endpoint}/api/{repo_type}s/{repo_id}/refs",
             headers=self._build_hf_headers(token=token),
             params={"include_prs": 1} if include_pull_requests else {},
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         data = response.json()
@@ -3299,6 +3304,7 @@ class HfApi:
                 "expand": expand,
             },
             headers=headers,
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         paths_info = response.json()
@@ -3390,7 +3396,7 @@ class HfApi:
         commit_message = commit_message or f"Super-squash branch '{branch}' using huggingface_hub"
 
         # Super-squash
-        response = get_session().post(url=url, headers=headers, json={"message": commit_message})
+        response = get_session().post(url=url, headers=headers, json={"message": commit_message}, proxies=self.proxies)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -3509,7 +3515,7 @@ class HfApi:
 
         headers = self._build_hf_headers(token=token)
         while True:
-            r = get_session().post(path, headers=headers, json=json)
+            r = get_session().post(path, headers=headers, json=json, proxies=self.proxies)
             if r.status_code == 409 and "Cannot create repo: another conflicting operation is in progress" in r.text:
                 # Since https://github.com/huggingface/moon-landing/pull/7272 (private repo), it is not possible to
                 # concurrently create repos on the Hub for a same user. This is rarely an issue, except when running
@@ -3585,7 +3591,7 @@ class HfApi:
             json["type"] = repo_type
 
         headers = self._build_hf_headers(token=token)
-        r = get_session().delete(path, headers=headers, json=json)
+        r = get_session().delete(path, headers=headers, json=json, proxies=self.proxies)
         try:
             hf_raise_for_status(r)
         except RepositoryNotFoundError:
@@ -3643,6 +3649,7 @@ class HfApi:
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=self._build_hf_headers(token=token),
             json={"private": private},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return r.json()
@@ -3721,6 +3728,7 @@ class HfApi:
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
 
@@ -3779,7 +3787,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/repos/move"
         headers = self._build_hf_headers(token=token)
-        r = get_session().post(path, headers=headers, json=json)
+        r = get_session().post(path, headers=headers, json=json, proxies=self.proxies)
         try:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
@@ -4083,7 +4091,13 @@ class HfApi:
         params = {"create_pr": "1"} if create_pr else None
 
         try:
-            commit_resp = get_session().post(url=commit_url, headers=headers, data=data, params=params)
+            commit_resp = get_session().post(
+                url=commit_url,
+                headers=headers,
+                data=data,
+                params=params,
+                proxies=self.proxies,
+            )
             hf_raise_for_status(commit_resp, endpoint_name="commit")
         except RepositoryNotFoundError as e:
             e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
@@ -5592,7 +5606,7 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, proxies=self.proxies)
         hf_raise_for_status(response)
 
         # 2. Parse metadata size
@@ -5608,7 +5622,11 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+            response = get_session().get(
+                url,
+                headers={**_headers, "range": f"bytes=8-{metadata_size+7}"},
+                proxies=self.proxies,
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -5705,7 +5723,7 @@ class HfApi:
             payload["startingPoint"] = revision
 
         # Create branch
-        response = get_session().post(url=branch_url, headers=headers, json=payload)
+        response = get_session().post(url=branch_url, headers=headers, json=payload, proxies=self.proxies)
         try:
             hf_raise_for_status(response)
         except HfHubHTTPError as e:
@@ -5771,7 +5789,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         # Delete branch
-        response = get_session().delete(url=branch_url, headers=headers)
+        response = get_session().delete(url=branch_url, headers=headers, proxies=self.proxies)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -5894,7 +5912,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
 
         # Un-tag
-        response = get_session().delete(url=tag_url, headers=headers)
+        response = get_session().delete(url=tag_url, headers=headers, proxies=self.proxies)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -6016,7 +6034,7 @@ class HfApi:
 
         def _fetch_discussion_page(page_index: int):
             params["p"] = page_index
-            resp = get_session().get(path, headers=headers, params=params)
+            resp = get_session().get(path, headers=headers, params=params, proxies=self.proxies)
             hf_raise_for_status(resp)
             paginated_discussions = resp.json()
             total = paginated_discussions["count"]
@@ -6095,7 +6113,7 @@ class HfApi:
 
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/discussions/{discussion_num}"
         headers = self._build_hf_headers(token=token)
-        resp = get_session().get(path, params={"diff": "1"}, headers=headers)
+        resp = get_session().get(path, params={"diff": "1"}, headers=headers, proxies=self.proxies)
         hf_raise_for_status(resp)
 
         discussion_details = resp.json()
@@ -6204,6 +6222,7 @@ class HfApi:
                 "pullRequest": pull_request,
             },
             headers=headers,
+            proxies=self.proxies,
         )
         hf_raise_for_status(resp)
         num = resp.json()["num"]
@@ -6745,6 +6764,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
 
@@ -6770,6 +6790,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/secrets",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
 
@@ -6792,6 +6813,7 @@ class HfApi:
         r = get_session().get(
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return {k: SpaceVariable(k, v) for k, v in r.json().items()}
@@ -6833,6 +6855,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return {k: SpaceVariable(k, v) for k, v in r.json().items()}
@@ -6861,6 +6884,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/variables",
             headers=self._build_hf_headers(token=token),
             json={"key": key},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return {k: SpaceVariable(k, v) for k, v in r.json().items()}
@@ -6881,7 +6905,8 @@ class HfApi:
             [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
         """
         r = get_session().get(
-            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/runtime", headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -6935,6 +6960,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/hardware",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -6976,6 +7002,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/sleeptime",
             headers=self._build_hf_headers(token=token),
             json={"seconds": sleep_time},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         runtime = SpaceRuntime(r.json())
@@ -7024,7 +7051,8 @@ class HfApi:
                 a static Space, you can set it to private.
         """
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/spaces/{repo_id}/pause", headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -7070,7 +7098,10 @@ class HfApi:
         if factory_reboot:
             params["factory"] = "true"
         r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/restart", headers=self._build_hf_headers(token=token), params=params
+            f"{self.endpoint}/api/spaces/{repo_id}/restart",
+            headers=self._build_hf_headers(token=token),
+            params=params,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -7180,6 +7211,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{from_id}/duplicate",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
 
         try:
@@ -7228,6 +7260,7 @@ class HfApi:
             f"{self.endpoint}/api/spaces/{repo_id}/storage",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -7259,6 +7292,7 @@ class HfApi:
         r = get_session().delete(
             f"{self.endpoint}/api/spaces/{repo_id}/storage",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return SpaceRuntime(r.json())
@@ -7317,6 +7351,7 @@ class HfApi:
         response = get_session().get(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7486,6 +7521,7 @@ class HfApi:
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7533,6 +7569,7 @@ class HfApi:
         response = get_session().get(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7641,6 +7678,7 @@ class HfApi:
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7671,6 +7709,7 @@ class HfApi:
         response = get_session().delete(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7704,6 +7743,7 @@ class HfApi:
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/pause",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7743,6 +7783,7 @@ class HfApi:
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/resume",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         try:
             hf_raise_for_status(response)
@@ -7785,6 +7826,7 @@ class HfApi:
         response = get_session().post(
             f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/endpoint/{namespace}/{name}/scale-to-zero",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -7897,7 +7939,9 @@ class HfApi:
         ```
         """
         r = get_session().get(
-            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return Collection(**{**r.json(), "endpoint": self.endpoint})
@@ -7957,7 +8001,10 @@ class HfApi:
             payload["description"] = description
 
         r = get_session().post(
-            f"{self.endpoint}/api/collections", headers=self._build_hf_headers(token=token), json=payload
+            f"{self.endpoint}/api/collections",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+            proxies=self.proxies,
         )
         try:
             hf_raise_for_status(r)
@@ -8034,6 +8081,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             # Only send not-none values to the API
             json={key: value for key, value in payload.items() if value is not None},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
@@ -8068,7 +8116,9 @@ class HfApi:
         </Tip>
         """
         r = get_session().delete(
-            f"{self.endpoint}/api/collections/{collection_slug}", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/collections/{collection_slug}",
+            headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         try:
             hf_raise_for_status(r)
@@ -8150,6 +8200,7 @@ class HfApi:
             f"{self.endpoint}/api/collections/{collection_slug}/items",
             headers=self._build_hf_headers(token=token),
             json=payload,
+            proxies=self.proxies,
         )
         try:
             hf_raise_for_status(r)
@@ -8211,6 +8262,7 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
             # Only send not-none values to the API
             json={key: value for key, value in payload.items() if value is not None},
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
 
@@ -8256,6 +8308,7 @@ class HfApi:
         r = get_session().delete(
             f"{self.endpoint}/api/collections/{collection_slug}/items/{item_object_id}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         try:
             hf_raise_for_status(r)
@@ -8473,6 +8526,7 @@ class HfApi:
         response = get_session().get(
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         return [
@@ -8629,6 +8683,7 @@ class HfApi:
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json={"user": user, "status": status},
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -8679,6 +8734,7 @@ class HfApi:
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         return response.json()
@@ -8721,6 +8777,7 @@ class HfApi:
         response = get_session().get(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
@@ -8772,6 +8829,7 @@ class HfApi:
         response = get_session().get(
             f"{constants.ENDPOINT}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhooks_data = response.json()
@@ -8845,6 +8903,7 @@ class HfApi:
             f"{constants.ENDPOINT}/api/settings/webhooks",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
@@ -8923,6 +8982,7 @@ class HfApi:
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             json={"watched": watched_dicts, "url": url, "domains": domains, "secret": secret},
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
@@ -8974,6 +9034,7 @@ class HfApi:
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
@@ -9025,6 +9086,7 @@ class HfApi:
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
         webhook_data = response.json()["webhook"]
@@ -9066,6 +9128,7 @@ class HfApi:
         response = get_session().delete(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(response)
 
@@ -9226,6 +9289,7 @@ class HfApi:
             f"{self.endpoint}/api/validate-yaml",
             json={"content": content, "repoType": repo_type},
             headers=headers,
+            proxies=self.proxies,
         )
         # Handle warnings (example: empty metadata)
         response_content = response.json()
@@ -9262,7 +9326,9 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
+            f"{constants.ENDPOINT}/api/users/{username}/overview",
+            headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         return User(**r.json())
@@ -9392,6 +9458,7 @@ class HfApi:
             path,
             params=params,
             headers=self._build_hf_headers(token=token),
+            proxies=self.proxies,
         )
         hf_raise_for_status(r)
         for paper in r.json():
@@ -9413,7 +9480,7 @@ class HfApi:
                 HTTP 404 If the paper does not exist on the Hub.
         """
         path = f"{self.endpoint}/api/papers/{id}"
-        r = get_session().get(path)
+        r = get_session().get(path, proxies=self.proxies)
         hf_raise_for_status(r)
         return PaperInfo(**r.json())
 
@@ -9478,7 +9545,7 @@ class HfApi:
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/auth-check"
-        r = get_session().get(path, headers=headers)
+        r = get_session().get(path, headers=headers, proxies=self.proxies)
         hf_raise_for_status(r)
 
 
