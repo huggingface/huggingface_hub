@@ -37,6 +37,7 @@ def snapshot_download(
     ignore_patterns: Optional[Union[List[str], str]] = None,
     max_workers: int = 8,
     tqdm_class: Optional[Type[base_tqdm]] = None,
+    skip_outer_tqdm: Optional[bool] = False,
     inner_tqdm_class: Optional[Type[base_tqdm]] = None,
     headers: Optional[Dict[str, str]] = None,
     endpoint: Optional[str] = None,
@@ -295,14 +296,18 @@ def snapshot_download(
         for file in filtered_repo_files:
             _inner_hf_hub_download(file)
     else:
-        thread_map(
-            _inner_hf_hub_download,
-            filtered_repo_files,
-            desc=f"Fetching {len(filtered_repo_files)} files",
-            max_workers=max_workers,
-            # User can use its own tqdm class or the default one from `huggingface_hub.utils`
-            tqdm_class=tqdm_class or hf_tqdm,
-        )
+        if skip_outer_tqdm:
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                list(ex.map(_inner_hf_hub_download, filtered_repo_files))
+        else:
+            thread_map(
+                _inner_hf_hub_download,
+                filtered_repo_files,
+                desc=f"Fetching {len(filtered_repo_files)} files",
+                max_workers=max_workers,
+                # User can use its own tqdm class or the default one from `huggingface_hub.utils`
+                tqdm_class=tqdm_class or hf_tqdm,
+            )
 
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
