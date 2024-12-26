@@ -341,6 +341,7 @@ def fix_hf_endpoint_in_url(url: str, endpoint: Optional[str]) -> str:
     endpoint = endpoint or constants.ENDPOINT
     # check if a proxy has been set => if yes, update the returned URL to use the proxy
     if endpoint not in (None, constants._HF_DEFAULT_ENDPOINT, constants._HF_DEFAULT_STAGING_ENDPOINT):
+        endpoint.rstrip('/')
         url = url.replace(constants._HF_DEFAULT_ENDPOINT, endpoint)
         url = url.replace(constants._HF_DEFAULT_STAGING_ENDPOINT, endpoint)
     return url
