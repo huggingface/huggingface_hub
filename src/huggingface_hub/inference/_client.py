@@ -582,14 +582,14 @@ class InferenceClient:
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
             logit_bias (`List[float]`, *optional*):
-                UNUSED.
+                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
             logprobs (`bool`, *optional*):
                 Whether to return log probabilities of the output tokens or not. If true, returns the log
                 probabilities of each output token returned in the content of message.
             max_tokens (`int`, *optional*):
                 Maximum number of tokens allowed in the response. Defaults to 100.
             n (`int`, *optional*):
-                UNUSED.
+                UNUSED. Currently not implemented in text-generation-inference (TGI). Kept as a parameter for OpenAI compatibility.
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
