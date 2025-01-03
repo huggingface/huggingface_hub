@@ -603,6 +603,7 @@ def _fetch_files_to_copy(
     files_to_copy: Dict[Tuple[str, Optional[str]], Union["RepoFile", bytes]] = {}
     # Store (path, revision) -> oid mapping
     oid_info: Dict[Tuple[str, Optional[str]], Optional[str]] = {}
+    # 1. Fetch OIDs for destination paths in batches.
     dest_paths = [op.path_in_repo for op in copies]
     for offset in range(0, len(dest_paths), FETCH_LFS_BATCH_SIZE):
         dest_repo_files = hf_api.get_paths_info(
@@ -615,6 +616,7 @@ def _fetch_files_to_copy(
             if not isinstance(file, RepoFolder):
                 oid_info[(file.path, None)] = file.blob_id
 
+    # 2. Group by source revision and fetch source file info in batches.
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
         operations = list(operations)  # type: ignore
         src_paths = [op.src_path_in_repo for op in operations]
@@ -630,6 +632,7 @@ def _fetch_files_to_copy(
                 if isinstance(src_repo_file, RepoFolder):
                     raise NotImplementedError("Copying a folder is not implemented.")
                 oid_info[(src_repo_file.path, src_revision)] = src_repo_file.blob_id
+                # If it's an LFS file, store the RepoFile object. Otherwise, download raw bytes.
                 if src_repo_file.lfs:
                     files_to_copy[(src_repo_file.path, src_revision)] = src_repo_file
                 else:
@@ -644,6 +647,8 @@ def _fetch_files_to_copy(
                     response = get_session().get(url, headers=headers)
                     hf_raise_for_status(response)
                     files_to_copy[(src_repo_file.path, src_revision)] = response.content
+        # 3. Ensure all operations found a corresponding file in the Hub
+        #  and track src/dest OIDs for each operation.
         for operation in operations:
             if (operation.src_path_in_repo, src_revision) not in files_to_copy:
                 raise EntryNotFoundError(
