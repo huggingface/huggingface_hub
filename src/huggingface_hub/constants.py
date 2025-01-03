@@ -2,7 +2,7 @@ import os
 import re
 import typing
 from typing import Literal, Optional, Tuple
-form urllib.parse import urljoin
+from urllib.parse import urljoin
 
 # Possible values for env variables
 
