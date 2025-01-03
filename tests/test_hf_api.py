@@ -1114,6 +1114,37 @@ class CommitApiTest(HfApiCommonTest):
         assert logs.records[1].levelname == "WARNING"
 
     @use_tmp_repo()
+    def test_prevent_empty_commit_if_no_new_copy(self, repo_url: RepoUrl) -> None:
+        # Add 2 regular identical files and 2 LFS identical files
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"Regular file content", path_in_repo="file_copy.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs_copy.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="INFO") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="Empty commit",
+                operations=[
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
+                    CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
+                ],
+            )
+        assert logs.records[0].message == "Removing 2 file(s) from commit that have not changed."
+        assert logs.records[0].levelname == "INFO"
+
+        assert (
+            logs.records[1].message
+            == "No files have been modified since last commit. Skipping to prevent empty commit."
+        )
+        assert logs.records[1].levelname == "WARNING"
+
+    @use_tmp_repo()
     def test_empty_commit_on_pr(self, repo_url: RepoUrl) -> None:
         """
         Regression test for #2411. Revision was quoted twice, leading to a HTTP 404.
@@ -1192,12 +1223,85 @@ class CommitApiTest(HfApiCommonTest):
         assert paths_info["lfs3.bin"].title == "second commit"
 
     @use_tmp_repo()
+    def test_continue_commit_if_copy_is_identical(self, repo_url: RepoUrl) -> None:
+        self._api.create_commit(
+            repo_id=repo_url.repo_id,
+            commit_message="initial commit",
+            operations=[
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file_copy.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 1.0", path_in_repo="lfs_copy.bin"),
+                CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
+            ],
+        )
+        with self.assertLogs("huggingface_hub", level="DEBUG") as logs:
+            self._api.create_commit(
+                repo_id=repo_url.repo_id,
+                commit_message="second commit",
+                operations=[
+                    # Did not change => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
+                    # Change => will be kept
+                    CommitOperationCopy(src_path_in_repo="file2.txt", path_in_repo="file.txt"),
+                    # New file => will be kept
+                    CommitOperationCopy(src_path_in_repo="file2.txt", path_in_repo="file3.txt"),
+                    # Did not change => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
+                    # Change => will be kept
+                    CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs.bin"),
+                    # New file => will be kept
+                    CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs3.bin"),
+                ],
+            )
+        debug_logs = [log.message for log in logs.records if log.levelname == "DEBUG"]
+        info_logs = [log.message for log in logs.records if log.levelname == "INFO"]
+        warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
+
+        assert (
+            "Skipping copy for 'file.txt' -> 'file_copy.txt' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert (
+            "Skipping copy for 'lfs.bin' -> 'lfs_copy.bin' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
+        assert len(warning_logs) == 0  # no warnings since the commit is not empty
+
+        paths_info = {
+            item.path: item.last_commit
+            for item in self._api.get_paths_info(
+                repo_id=repo_url.repo_id,
+                paths=[
+                    "file.txt",
+                    "file_copy.txt",
+                    "file3.txt",
+                    "lfs.bin",
+                    "lfs_copy.bin",
+                    "lfs3.bin",
+                ],
+                expand=True,
+            )
+        }
+
+        # Check which files are in the last commit
+        assert paths_info["file.txt"].title == "second commit"
+        assert paths_info["file_copy.txt"].title == "initial commit"
+        assert paths_info["file3.txt"].title == "second commit"
+        assert paths_info["lfs.bin"].title == "second commit"
+        assert paths_info["lfs_copy.bin"].title == "initial commit"
+        assert paths_info["lfs3.bin"].title == "second commit"
+
+    @use_tmp_repo()
     def test_continue_commit_if_only_deletion(self, repo_url: RepoUrl) -> None:
         self._api.create_commit(
             repo_id=repo_url.repo_id,
             commit_message="initial commit",
             operations=[
                 CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file_copy.txt"),
                 CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
             ],
         )
@@ -1208,6 +1312,8 @@ class CommitApiTest(HfApiCommonTest):
                 operations=[
                     # Did not change => will be removed from commit
                     CommitOperationAdd(path_or_fileobj=b"content 1.0", path_in_repo="file.txt"),
+                    # identical to file.txt => will be removed from commit
+                    CommitOperationCopy(src_path_in_repo="file.txt", path_in_repo="file_copy.txt"),
                     # Delete operation => kept in any case
                     CommitOperationDelete(path_in_repo="file2.txt"),
                 ],
@@ -1217,7 +1323,11 @@ class CommitApiTest(HfApiCommonTest):
         warning_logs = [log.message for log in logs.records if log.levelname == "WARNING"]
 
         assert "Skipping upload for 'file.txt' as the file has not changed." in debug_logs
-        assert "Removing 1 file(s) from commit that have not changed." in info_logs
+        assert (
+            "Skipping copy for 'file.txt' -> 'file_copy.txt' as the content of the source file is the same as the destination file."
+            in debug_logs
+        )
+        assert "Removing 2 file(s) from commit that have not changed." in info_logs
         assert len(warning_logs) == 0  # no warnings since the commit is not empty
 
         remote_files = self._api.list_repo_files(repo_id=repo_url.repo_id)
