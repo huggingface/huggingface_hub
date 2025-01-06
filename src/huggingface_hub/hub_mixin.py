@@ -24,14 +24,6 @@ from .utils import (
 )
 
 
-# Type alias for dataclass instances
-class DataclassInstance(Protocol):
-    __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
-
-
-Dataclass = TypeVar("Dataclass", bound=DataclassInstance)
-DataclassType = Type[Dataclass]
-
 if is_torch_available():
     import torch  # type: ignore
 
@@ -42,6 +34,12 @@ if is_safetensors_available():
 
 
 logger = logging.get_logger(__name__)
+
+
+# Type alias for dataclass instances, copied from https://github.com/python/typeshed/blob/9f28171658b9ca6c32a7cb93fbb99fc92b17858b/stdlib/_typeshed/__init__.pyi#L349
+class DataclassInstance(Protocol):
+    __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
+
 
 # Generic variable that is either ModelHubMixin or a subclass thereof
 T = TypeVar("T", bound="ModelHubMixin")
@@ -180,7 +178,7 @@ class ModelHubMixin:
     ```
     """
 
-    _hub_mixin_config: Optional[Union[dict, DataclassType]] = None
+    _hub_mixin_config: Optional[Union[dict, DataclassInstance]] = None
     # ^ optional config attribute automatically set in `from_pretrained`
     _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
@@ -371,7 +369,7 @@ class ModelHubMixin:
         self,
         save_directory: Union[str, Path],
         *,
-        config: Optional[Union[dict, DataclassType]] = None,
+        config: Optional[Union[dict, DataclassInstance]] = None,
         repo_id: Optional[str] = None,
         push_to_hub: bool = False,
         model_card_kwargs: Optional[Dict[str, Any]] = None,
@@ -623,7 +621,7 @@ class ModelHubMixin:
         self,
         repo_id: str,
         *,
-        config: Optional[Union[dict, DataclassType]] = None,
+        config: Optional[Union[dict, DataclassInstance]] = None,
         commit_message: str = "Push model using huggingface_hub.",
         private: Optional[bool] = None,
         token: Optional[str] = None,
@@ -830,7 +828,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
         return model
 
 
-def _load_dataclass(datacls: DataclassType, data: dict) -> DataclassType:
+def _load_dataclass(datacls: Type[DataclassInstance], data: dict) -> DataclassInstance:
     """Load a dataclass instance from a dictionary.
 
     Fields not expected by the dataclass are ignored.
