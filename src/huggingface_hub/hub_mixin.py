@@ -3,7 +3,7 @@ import json
 import os
 from dataclasses import Field, asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Optional, Protocol, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Protocol, Tuple, Type, TypeVar, Union
 
 import packaging.version
 
@@ -24,12 +24,9 @@ from .utils import (
 )
 
 
-if TYPE_CHECKING:
-    from _typeshed import DataclassInstance  # type: ignore
-else:
-
-    class DataclassInstance(Protocol):  # type: ignore
-        __dataclass_fields__: ClassVar[Dict[str, Field]]
+# Type alias for dataclass instances
+class DataclassInstance(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
 
 Dataclass = TypeVar("Dataclass", bound=DataclassInstance)
