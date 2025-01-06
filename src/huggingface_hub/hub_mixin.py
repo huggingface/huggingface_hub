@@ -38,7 +38,7 @@ logger = logging.get_logger(__name__)
 
 # Type alias for dataclass instances, copied from https://github.com/python/typeshed/blob/9f28171658b9ca6c32a7cb93fbb99fc92b17858b/stdlib/_typeshed/__init__.pyi#L349
 class DataclassInstance(Protocol):
-    __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
+    __dataclass_fields__: ClassVar[Dict[str, Field]]
 
 
 # Generic variable that is either ModelHubMixin or a subclass thereof
