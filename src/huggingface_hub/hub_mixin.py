@@ -26,7 +26,7 @@ from .utils import (
 
 # Type alias for dataclass instances
 class DataclassInstance(Protocol):
-    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+    __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
 
 
 Dataclass = TypeVar("Dataclass", bound=DataclassInstance)
