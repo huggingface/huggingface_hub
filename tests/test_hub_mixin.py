@@ -4,7 +4,7 @@ import os
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
 
 import jedi
@@ -474,3 +474,24 @@ a.dum""".strip()
         source_lines = source.split("\n")
         completions = script.complete(len(source_lines), len(source_lines[-1]))
         assert any(completion.name == "dummy_example_for_test" for completion in completions)
+
+    def test_get_type_hints_works_as_expected(self):
+        """
+        Ensure that `typing.get_type_hints` works as expected when inheriting from `ModelHubMixin`.
+
+        See https://github.com/huggingface/huggingface_hub/issues/2727.
+        """
+
+        class ModelWithHints(ModelHubMixin):
+            def method_with_hints(self, x: int) -> str:
+                return str(x)
+
+        assert get_type_hints(ModelWithHints) != {}
+
+        # Test method type hints on class
+        hints = get_type_hints(ModelWithHints.method_with_hints)
+        assert hints == {"x": int, "return": str}
+
+        # Test method type hints on instance
+        model = ModelWithHints()
+        assert get_type_hints(model.method_with_hints) == {"x": int, "return": str}
