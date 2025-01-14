@@ -4019,6 +4019,14 @@ class HfApi:
             free_memory=False,  # do not remove `CommitOperationAdd.path_or_fileobj` on LFS files for "normal" users
         )
 
+        files_to_copy = _fetch_files_to_copy(
+            copies=copies,
+            repo_type=repo_type,
+            repo_id=repo_id,
+            headers=headers,
+            revision=unquoted_revision,
+            endpoint=self.endpoint,
+        )
         # Remove no-op operations (files that have not changed)
         operations_without_no_op = []
         for operation in operations:
@@ -4029,6 +4037,16 @@ class HfApi:
             ):
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
+                continue
+            if (
+                isinstance(operation, CommitOperationCopy)
+                and operation._dest_oid is not None
+                and operation._dest_oid == operation._src_oid
+            ):
+                # Source and destination files are identical - skip
+                logger.debug(
+                    f"Skipping copy for '{operation.src_path_in_repo}' -> '{operation.path_in_repo}' as the content of the source file is the same as the destination file."
+                )
                 continue
             operations_without_no_op.append(operation)
         if len(operations) != len(operations_without_no_op):
@@ -4058,14 +4076,6 @@ class HfApi:
                 oid=info.sha,  # type: ignore[arg-type]
             )
 
-        files_to_copy = _fetch_files_to_copy(
-            copies=copies,
-            repo_type=repo_type,
-            repo_id=repo_id,
-            headers=headers,
-            revision=unquoted_revision,
-            endpoint=self.endpoint,
-        )
         commit_payload = _prepare_commit_payload(
             operations=operations,
             files_to_copy=files_to_copy,
