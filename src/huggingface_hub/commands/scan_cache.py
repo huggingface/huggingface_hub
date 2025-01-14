@@ -67,7 +67,7 @@ class ScanCacheCommand(BaseHuggingfaceCLICommand):
         self._print_hf_cache_info_as_table(hf_cache_info)
 
         print(
-            f"\nDone in {round(t1-t0,1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
+            f"\nDone in {round(t1 - t0, 1)}s. Scanned {len(hf_cache_info.repos)} repo(s)"
             f" for a total of {ANSI.red(hf_cache_info.size_on_disk_str)}."
         )
         if len(hf_cache_info.warnings) > 0:
