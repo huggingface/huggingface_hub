@@ -649,7 +649,7 @@ def load_state_dict_from_file(
         from torch import load
     except ImportError as e:
         raise ImportError(
-            "Please install `torch` to load torch tensors. " "You can install it with `pip install torch`."
+            "Please install `torch` to load torch tensors. You can install it with `pip install torch`."
         ) from e
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}

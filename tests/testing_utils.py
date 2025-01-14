@@ -86,7 +86,7 @@ def parse_flag_from_env(key: str, default: bool = False) -> bool:
         return False
     else:
         # More values are supported, but let's keep the message simple.
-        raise ValueError(f"If set, '{key}' must be one of {YES+NO}. Got '{value}'.")
+        raise ValueError(f"If set, '{key}' must be one of {YES + NO}. Got '{value}'.")
 
 
 def parse_int_from_env(key, default=None):
@@ -396,9 +396,9 @@ def handle_injection_in_test(fn: Callable) -> Callable:
             if name == "self":
                 continue
             assert parameter.annotation is Mock
-            assert (
-                name in mocks
-            ), f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
+            assert name in mocks, (
+                f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
+            )
             new_kwargs[name] = mocks[name]
 
         # Run test only with a subset of mocks

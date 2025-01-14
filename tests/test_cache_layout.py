@@ -42,7 +42,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                     revision=revision,
                 )
 
-                expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+                expected_directory_name = f"models--{MODEL_IDENTIFIER.replace('/', '--')}"
                 expected_path = os.path.join(cache, expected_directory_name)
 
                 refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -87,7 +87,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
                     # The file does not exist, so we get an exception.
                     hf_hub_download(MODEL_IDENTIFIER, filename, cache_dir=cache, revision=revision)
 
-                expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+                expected_directory_name = f"models--{MODEL_IDENTIFIER.replace('/', '--')}"
                 expected_path = os.path.join(cache, expected_directory_name)
 
                 refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -151,7 +151,7 @@ class CacheFileLayoutHfHubDownload(unittest.TestCase):
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache)
             hf_hub_download(MODEL_IDENTIFIER, "file_0.txt", cache_dir=cache, revision="file-2")
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+            expected_directory_name = f"models--{MODEL_IDENTIFIER.replace('/', '--')}"
             expected_path = os.path.join(cache, expected_directory_name)
 
             refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -184,7 +184,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
         with SoftTemporaryDirectory() as cache:
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache)
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+            expected_directory_name = f"models--{MODEL_IDENTIFIER.replace('/', '--')}"
             expected_path = os.path.join(cache, expected_directory_name)
 
             refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -216,7 +216,7 @@ class CacheFileLayoutSnapshotDownload(unittest.TestCase):
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-3")
             snapshot_download(MODEL_IDENTIFIER, cache_dir=cache, revision="file-2")
 
-            expected_directory_name = f'models--{MODEL_IDENTIFIER.replace("/", "--")}'
+            expected_directory_name = f"models--{MODEL_IDENTIFIER.replace('/', '--')}"
             expected_path = os.path.join(cache, expected_directory_name)
 
             refs = os.listdir(os.path.join(expected_path, "refs"))
@@ -289,7 +289,7 @@ class ReferenceUpdates(unittest.TestCase):
             with SoftTemporaryDirectory() as cache:
                 hf_hub_download(repo_id, "file.txt", cache_dir=cache)
 
-                expected_directory_name = f'models--{repo_id.replace("/", "--")}'
+                expected_directory_name = f"models--{repo_id.replace('/', '--')}"
                 expected_path = os.path.join(cache, expected_directory_name)
 
                 refs = os.listdir(os.path.join(expected_path, "refs"))
