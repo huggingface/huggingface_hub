@@ -5435,8 +5435,6 @@ class HfApi:
         Args:
             repo_id (`str`):
                 A user or an organization name and a repo name separated by a `/`.
-            filename (`str`):
-                The name of the file in the repo.
             repo_type (`str`, *optional*):
                 Set to `"dataset"` or `"space"` if the file is in a dataset or space, `None` or `"model"` if in a
                 model. Default is `None`.
