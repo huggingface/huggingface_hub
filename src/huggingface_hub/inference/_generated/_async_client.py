@@ -24,10 +24,23 @@ import logging
 import re
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Literal, Optional, Set, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Type,
+    Union,
+    overload,
+)
 
 from requests.structures import CaseInsensitiveDict
 
+from huggingface_hub._webhooks_payload import BaseModel
 from huggingface_hub.constants import ALL_INFERENCE_API_FRAMEWORKS, INFERENCE_ENDPOINT, MAIN_INFERENCE_API_FRAMEWORKS
 from huggingface_hub.errors import InferenceTimeoutError
 from huggingface_hub.inference._common import (
@@ -582,7 +595,7 @@ class AsyncInferenceClient:
         max_tokens: Optional[int] = None,
         n: Optional[int] = None,
         presence_penalty: Optional[float] = None,
-        response_format: Optional[ChatCompletionInputGrammarType] = None,
+        response_format: Optional[Union[ChatCompletionInputGrammarType, Type[BaseModel]]] = None,
         seed: Optional[int] = None,
         stop: Optional[List[str]] = None,
         stream_options: Optional[ChatCompletionInputStreamOptions] = None,
@@ -629,8 +642,8 @@ class AsyncInferenceClient:
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
-            response_format ([`ChatCompletionInputGrammarType`], *optional*):
-                Grammar constraints. Can be either a JSONSchema or a regex.
+            response_format ([`ChatCompletionInputGrammarType`] or `pydantic.BaseModel` class, *optional*):
+                Grammar constraints. Can be either a JSONSchema, a regex or a Pydantic schema.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
             stop (Optional[`str`], *optional*):
@@ -864,7 +877,7 @@ class AsyncInferenceClient:
         )
         ```
 
-        Example using response_format:
+        Example using response_format (dict):
         ```py
         # Must be run in an async context
         >>> from huggingface_hub import AsyncInferenceClient
@@ -895,7 +908,45 @@ class AsyncInferenceClient:
         >>> response.choices[0].message.content
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
+
+        Example using response_format (pydantic):
+        ```py
+        # Must be run in an async context
+        >>> from huggingface_hub import AsyncInferenceClient
+        >>> from pydantic import BaseModel, conint
+        >>> client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [
+        ...     {
+        ...         "role": "user",
+        ...         "content": "I saw a puppy a cat and a raccoon during my bike ride in the park. What did I saw and when?",
+        ...     },
+        ... ]
+        >>> class ActivitySummary(BaseModel):
+        ...     location: str
+        ...     activity: str
+        ...     animals_seen: conint(ge=1, le=5)
+        ...     animals: list[str]
+        >>> response = await client.chat_completion(
+        ...     messages=messages,
+        ...     response_format=ActivitySummary,
+        ...     max_tokens=500,
+        )
+        >>> response.choices[0].message.parsed
+        ActivitySummary(location='park', activity='bike ride', animals_seen=3, animals=['puppy', 'cat', 'raccoon'])
+        ```
         """
+        if isinstance(response_format, type) and issubclass(response_format, BaseModel):
+            response_model = response_format
+            # pydantic v2 uses model_json_schema
+            response_format = ChatCompletionInputGrammarType(
+                type="json",
+                value=response_model.model_json_schema()
+                if hasattr(response_model, "model_json_schema")
+                else response_model.schema(),
+            )
+        else:
+            response_model = None
+
         model_url = self._resolve_chat_completion_url(model)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
@@ -931,7 +982,20 @@ class AsyncInferenceClient:
         if stream:
             return _async_stream_chat_completion_response(data)  # type: ignore[arg-type]
 
-        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+        chat_completion_output = ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+        if response_model:
+            for choice in chat_completion_output.choices:
+                if choice.message.content:
+                    try:
+                        # pydantic v2 uses model_validate_json
+                        choice.message.parsed = (
+                            response_model.model_validate_json(choice.message.content)
+                            if hasattr(response_model, "model_validate_json")
+                            else response_model.parse_raw(choice.message.content)
+                        )
+                    except ValueError:
+                        choice.message.refusal = f"Failed to generate the response as a {response_model.__name__}"
+        return chat_completion_output
 
     def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
