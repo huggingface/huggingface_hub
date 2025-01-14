@@ -492,7 +492,7 @@ class TestCorruptedCacheUtils(unittest.TestCase):
         self.assertEqual(
             str(report.warnings[0]),
             "Reference(s) refer to missing commit hashes: {'revision_hash_that_does_not_exist': {'not_main'}} "
-            + f"({self.repo_path }).",
+            + f"({self.repo_path}).",
         )
 
     @xfail_on_windows("Last modified/last accessed work a bit differently on Windows.")

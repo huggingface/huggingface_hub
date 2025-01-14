@@ -1581,8 +1581,7 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
         os.chmod(str(src), stat.S_IMODE(cache_dir_mode))
     except OSError as e:
         logger.warning(
-            f"Could not set the permissions on the file '{src}'. "
-            f"Error: {e}.\nContinuing without setting permissions."
+            f"Could not set the permissions on the file '{src}'. Error: {e}.\nContinuing without setting permissions."
         )
     finally:
         try:

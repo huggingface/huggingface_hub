@@ -406,7 +406,7 @@ def _upload_lfs_files(
         if batch_errors_chunk:
             message = "\n".join(
                 [
-                    f'Encountered error for file with OID {err.get("oid")}: `{err.get("error", {}).get("message")}'
+                    f"Encountered error for file with OID {err.get('oid')}: `{err.get('error', {}).get('message')}"
                     for err in batch_errors_chunk
                 ]
             )

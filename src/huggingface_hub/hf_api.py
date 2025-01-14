@@ -5622,7 +5622,7 @@ class HfApi:
         if metadata_size <= 100000:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size+7}"})
+            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
