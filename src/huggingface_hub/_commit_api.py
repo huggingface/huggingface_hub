@@ -614,7 +614,7 @@ def _fetch_files_to_copy(
         )
         for file in dest_repo_files:
             if not isinstance(file, RepoFolder):
-                oid_info[(file.path, None)] = file.blob_id
+                oid_info[(file.path, revision)] = file.blob_id
 
     # 2. Group by source revision and fetch source file info in batches.
     for src_revision, operations in groupby(copies, key=lambda op: op.src_revision):
@@ -656,7 +656,7 @@ def _fetch_files_to_copy(
                     f"{src_revision or revision}: file is missing on repo."
                 )
             operation._src_oid = oid_info.get((operation.src_path_in_repo, operation.src_revision))
-            operation._dest_oid = oid_info.get((operation.path_in_repo, None))
+            operation._dest_oid = oid_info.get((operation.path_in_repo, revision))
     return files_to_copy
 
 

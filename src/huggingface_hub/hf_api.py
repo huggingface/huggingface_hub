@@ -4035,7 +4035,6 @@ class HfApi:
             if (
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
-                and operation._src_oid is not None
                 and operation._dest_oid == operation._src_oid
             ):
                 # Source and destination files are identical - skip
