@@ -2257,6 +2257,8 @@ class HfApi:
         """
         Unlike a given repo on the Hub (e.g. remove from favorite list).
 
+        To prevent spam usage, it is not possible to `like` a repository from a script.
+
         See also [`list_liked_repos`].
 
         Args:
