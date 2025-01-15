@@ -2247,57 +2247,6 @@ class HfApi:
             yield SpaceInfo(**item)
 
     @validate_hf_hub_args
-    def like(
-        self,
-        repo_id: str,
-        *,
-        token: Union[bool, str, None] = None,
-        repo_type: Optional[str] = None,
-    ) -> None:
-        """
-        Like a given repo on the Hub (e.g. set as favorite).
-
-        See also [`unlike`] and [`list_liked_repos`].
-
-        Args:
-            repo_id (`str`):
-                The repository to like. Example: `"user/my-cool-model"`.
-
-            token (Union[bool, str, None], optional):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-            repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if liking a dataset or space, `None` or
-                `"model"` if liking a model. Default is `None`.
-
-        Raises:
-            [`~utils.RepositoryNotFoundError`]:
-                If repository is not found (error 404): wrong repo_id/repo_type, private
-                but not authenticated or repo does not exist.
-
-        Example:
-        ```python
-        >>> from huggingface_hub import like, list_liked_repos, unlike
-        >>> like("gpt2")
-        >>> "gpt2" in list_liked_repos().models
-        True
-        >>> unlike("gpt2")
-        >>> "gpt2" in list_liked_repos().models
-        False
-        ```
-        """
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL
-        response = get_session().post(
-            url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/like",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-
-    @validate_hf_hub_args
     def unlike(
         self,
         repo_id: str,
@@ -2308,7 +2257,9 @@ class HfApi:
         """
         Unlike a given repo on the Hub (e.g. remove from favorite list).
 
-        See also [`like`] and [`list_liked_repos`].
+        To prevent spam usage, it is not possible to `like` a repository from a script.
+
+        See also [`list_liked_repos`].
 
         Args:
             repo_id (`str`):
@@ -2331,9 +2282,8 @@ class HfApi:
 
         Example:
         ```python
-        >>> from huggingface_hub import like, list_liked_repos, unlike
-        >>> like("gpt2")
-        >>> "gpt2" in list_liked_repos().models
+        >>> from huggingface_hub import list_liked_repos, unlike
+        >>> "gpt2" in list_liked_repos().models # we assume you have already liked gpt2
         True
         >>> unlike("gpt2")
         >>> "gpt2" in list_liked_repos().models
@@ -2360,7 +2310,7 @@ class HfApi:
         This list is public so token is optional. If `user` is not passed, it defaults to
         the logged in user.
 
-        See also [`like`] and [`unlike`].
+        See also [`unlike`].
 
         Args:
             user (`str`, *optional*):
@@ -2434,7 +2384,7 @@ class HfApi:
         """
         List all users who liked a given repo on the hugging Face Hub.
 
-        See also [`like`] and [`list_liked_repos`].
+        See also [`list_liked_repos`].
 
         Args:
             repo_id (`str`):
@@ -9572,7 +9522,6 @@ run_as_future = api.run_as_future
 # Activity API
 list_liked_repos = api.list_liked_repos
 list_repo_likers = api.list_repo_likers
-like = api.like
 unlike = api.unlike
 
 # Community API

@@ -3053,72 +3053,9 @@ class ActivityApiTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.api = HfApi()  # no auth!
 
-    def test_like_and_unlike_repo(self) -> None:
-        # Create and like a private and a public repo
-        repo_id_private = self.api.create_repo(repo_name(), token=TOKEN, private=True).repo_id
-        self.api.like(repo_id_private, token=TOKEN)
-
-        repo_id_public = self.api.create_repo(repo_name(), token=TOKEN, private=False).repo_id
-        self.api.like(repo_id_public, token=TOKEN)
-
-        # Get likes as public and authenticated
-        likes = self.api.list_liked_repos(USER)
-        likes_with_auth = self.api.list_liked_repos(USER, token=TOKEN)
-
-        # Public repo is shown in liked repos
-        self.assertIn(repo_id_public, likes.models)
-        self.assertIn(repo_id_public, likes_with_auth.models)
-
-        # Private repo is NOT shown in liked repos, even when authenticated
-        # This is by design. See https://github.com/huggingface/moon-landing/pull/4879 (internal link)
-        self.assertNotIn(repo_id_private, likes.models)
-        self.assertNotIn(repo_id_private, likes_with_auth.models)
-
-        # Unlike repo and check not in liked list
-        self.api.unlike(repo_id_public, token=TOKEN)
-        self.api.unlike(repo_id_private, token=TOKEN)
-        likes_after_unlike = self.api.list_liked_repos(USER)
-        self.assertNotIn(repo_id_public, likes_after_unlike.models)  # Unliked
-
-        # Cleanup
-        self.api.delete_repo(repo_id_public, token=TOKEN)
-        self.api.delete_repo(repo_id_private, token=TOKEN)
-
-    def test_like_missing_repo(self) -> None:
-        with self.assertRaises(RepositoryNotFoundError):
-            self.api.like("missing_repo_id", token=TOKEN)
-
+    def test_unlike_missing_repo(self) -> None:
         with self.assertRaises(RepositoryNotFoundError):
             self.api.unlike("missing_repo_id", token=TOKEN)
-
-    def test_like_twice(self) -> None:
-        # Create and like repo
-        repo_id = self.api.create_repo(repo_name(), token=TOKEN, private=True).repo_id
-
-        # Can like twice
-        self.api.like(repo_id, token=TOKEN)
-        self.api.like(repo_id, token=TOKEN)
-
-        # Can unlike twice
-        self.api.unlike(repo_id, token=TOKEN)
-        self.api.unlike(repo_id, token=TOKEN)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
-
-    def test_list_liked_repos_no_auth(self) -> None:
-        # Create a repo + like
-        repo_id = self.api.create_repo(repo_name(), exist_ok=True, token=TOKEN).repo_id
-        self.api.like(repo_id, token=TOKEN)
-
-        # Fetch liked repos without auth
-        likes = self.api.list_liked_repos(USER, token=False)
-        self.assertEqual(likes.user, USER)
-        self.assertGreater(len(likes.models) + len(likes.datasets) + len(likes.spaces), 0)
-        self.assertIn(repo_id, likes.models)
-
-        # Cleanup
-        self.api.delete_repo(repo_id, token=TOKEN)
 
     def test_list_likes_repos_auth_and_implicit_user(self) -> None:
         # User is implicit
@@ -3364,9 +3301,12 @@ class TestCommitInBackground(HfApiCommonTest):
     @use_tmp_repo()
     def test_run_as_future(self, repo_url: RepoUrl) -> None:
         repo_id = repo_url.repo_id
-        self._api.run_as_future(self._api.like, repo_id)
+        # update repo visibility to private
+        self._api.run_as_future(self._api.update_repo_settings, repo_id=repo_id, private=True)
         future_1 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
-        self._api.run_as_future(self._api.unlike, repo_id)
+
+        # update repo visibility to public
+        self._api.run_as_future(self._api.update_repo_settings, repo_id=repo_id, private=False)
         future_2 = self._api.run_as_future(self._api.model_info, repo_id=repo_id)
 
         self.assertIsInstance(future_1, Future)
@@ -3381,8 +3321,8 @@ class TestCommitInBackground(HfApiCommonTest):
         assert future_2.done()
 
         # Like/unlike is correct
-        self.assertEqual(info_1.likes, 1)
-        self.assertEqual(info_2.likes, 0)
+        self.assertEqual(info_1.private, True)
+        self.assertEqual(info_2.private, False)
 
 
 class TestDownloadHfApiAlias(unittest.TestCase):
