@@ -55,7 +55,7 @@ def check_contrib_list(update: bool) -> NoReturn:
 
     # Check workflow is consistent with list
     workflow_content = WORKFLOW_PATH.read_text()
-    _substitute = "\n".join(f'{" "*10}"{lib}",' for lib in contrib_list)
+    _substitute = "\n".join(f'{" " * 10}"{lib}",' for lib in contrib_list)
     workflow_content_expected = WORKFLOW_REGEX.sub(rf"\g<before>{_substitute}\n\g<after>", workflow_content)
 
     #
