@@ -164,7 +164,7 @@ def split_state_dict_into_shards_factory(
     tensor_name_to_filename = {}
     filename_to_tensors = {}
     for idx, shard in enumerate(shard_list):
-        filename = filename_pattern.format(suffix=f"-{idx+1:05d}-of-{nb_shards:05d}")
+        filename = filename_pattern.format(suffix=f"-{idx + 1:05d}-of-{nb_shards:05d}")
         for key in shard:
             tensor_name_to_filename[key] = filename
         filename_to_tensors[filename] = list(shard.keys())
