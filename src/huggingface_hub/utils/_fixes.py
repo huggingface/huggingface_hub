@@ -103,7 +103,7 @@ def WeakFileLock(
     while True:
         elapsed_time = time.time() - start_time
         if timeout is not None and elapsed_time >= timeout:
-            raise Timeout(lock_file)
+            raise Timeout(str(lock_file))
 
         try:
             lock.acquire(timeout=min(log_interval, timeout - elapsed_time) if timeout else log_interval)

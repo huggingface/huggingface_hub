@@ -42,7 +42,7 @@ class TestWeakFileLock:
                 with pytest.raises(filelock.Timeout) as exc_info:
                     with WeakFileLock(lock_file, timeout=0.3):
                         pass
-                assert exc_info.value.lock_file == lock_file
+                assert exc_info.value.lock_file == str(lock_file)
 
         assert len(caplog.records) >= 3
         assert caplog.records[0].message.startswith(f"Still waiting to acquire lock on {lock_file}")
