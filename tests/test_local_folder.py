@@ -19,6 +19,7 @@ See `huggingface_hub/src/_local_folder.py` for the implementation.
 
 import logging
 import os
+import threading
 import time
 from pathlib import Path, WindowsPath
 
@@ -47,6 +48,18 @@ def test_creates_huggingface_dir_with_gitignore(tmp_path: Path):
     # Whole folder must be ignored
     assert (huggingface_dir / ".gitignore").exists()
     assert (huggingface_dir / ".gitignore").read_text() == "*"
+
+
+def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):
+    local_dir = tmp_path / "path" / "to" / "local"
+
+    threads = [threading.Thread(target=_huggingface_dir, args=(local_dir,)) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert (local_dir / ".cache" / "huggingface" / ".gitignore").exists()
+    assert not (local_dir / ".cache" / "huggingface" / ".gitignore.lock").exists()
 
 
 def test_local_download_paths(tmp_path: Path):
