@@ -396,9 +396,9 @@ def handle_injection_in_test(fn: Callable) -> Callable:
             if name == "self":
                 continue
             assert parameter.annotation is Mock
-            assert (
-                name in mocks
-            ), f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
+            assert name in mocks, (
+                f"Mock `{name}` not found for test `{fn.__name__}`. Available: {', '.join(sorted(mocks.keys()))}"
+            )
             new_kwargs[name] = mocks[name]
 
         # Run test only with a subset of mocks
