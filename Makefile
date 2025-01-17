@@ -10,6 +10,7 @@ quality:
 	python utils/check_inference_input_params.py
 	python utils/check_contrib_list.py
 	python utils/check_static_imports.py
+	python utils/check_all_variable.py
 	python utils/generate_async_inference_client.py
 
 	mypy src

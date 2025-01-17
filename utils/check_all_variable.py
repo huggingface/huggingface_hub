@@ -60,9 +60,9 @@ def check_static_all(update: bool) -> NoReturn:
     content = INIT_FILE_PATH.read_text()
     new_all = format_all_definition(_SUBMOD_ATTRS)
 
-    expected_items = {attr for attrs in _SUBMOD_ATTRS.values() for attr in attrs}
+    expected_items = sorted(attr for attrs in _SUBMOD_ATTRS.values() for attr in attrs)
 
-    current_items = set(parse_all_definition(content))
+    current_items = list(parse_all_definition(content))
 
     if current_items == expected_items:
         print("✅ All good! the __all__ variable is up to date")
