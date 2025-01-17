@@ -171,7 +171,7 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
 ASYNC_POST_CODE = """
         aiohttp = _import_aiohttp()
 
-        url = self._resolve_url(model, task)
+        url = self._resolve_url(model=model, task=task, provider_config=provider_config)
 
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")

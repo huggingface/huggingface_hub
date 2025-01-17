@@ -104,6 +104,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
+from huggingface_hub.inference._providers import BaseProvider, get_provider
 from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
 from huggingface_hub.utils._deprecation import _deprecate_arguments
 
@@ -123,7 +124,7 @@ class InferenceClient:
     Initialize a new Inference Client.
 
     [`InferenceClient`] aims to provide a unified experience to perform inference. The client can be used
-    seamlessly with either the (free) Inference API or self-hosted Inference Endpoints.
+    seamlessly with either the (free) Inference API, self-hosted Inference Endpoints, or third-party Inference Providers.
 
     Args:
         model (`str`, `optional`):
@@ -134,6 +135,9 @@ class InferenceClient:
             arguments are mutually exclusive. If using `base_url` for chat completion, the `/chat/completions` suffix
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
+        provider (`str`, *optional*):
+                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, or `"sambanova"`.
+                Defaults to Hugging Face Inference API.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -161,6 +165,7 @@ class InferenceClient:
         self,
         model: Optional[str] = None,
         *,
+        provider: Optional[str] = None,
         token: Union[str, bool, None] = None,
         timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
@@ -191,6 +196,10 @@ class InferenceClient:
         )
         if headers is not None:
             self.headers.update(headers)
+
+        # Configure provider
+        self.provider = provider
+
         self.cookies = cookies
         self.timeout = timeout
         self.proxies = proxies
@@ -209,6 +218,7 @@ class InferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
+        provider_config: Optional[BaseProvider] = None,
         stream: Literal[False] = ...,
     ) -> bytes: ...
 
@@ -220,6 +230,7 @@ class InferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
+        provider_config: Optional[BaseProvider] = None,
         stream: Literal[True] = ...,
     ) -> Iterable[bytes]: ...
 
@@ -231,6 +242,7 @@ class InferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
+        provider_config: Optional[BaseProvider] = None,
         stream: bool = False,
     ) -> Union[bytes, Iterable[bytes]]: ...
 
@@ -241,6 +253,7 @@ class InferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
+        provider_config: Optional[BaseProvider] = None,
         stream: bool = False,
     ) -> Union[bytes, Iterable[bytes]]:
         """
@@ -273,7 +286,7 @@ class InferenceClient:
             `HTTPError`:
                 If the request fails with an HTTP error status code other than HTTP 503.
         """
-        url = self._resolve_url(model, task)
+        url = self._resolve_url(model=model, task=task, provider_config=provider_config)
 
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
@@ -379,6 +392,19 @@ class InferenceClient:
         response = self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
+    def _configure_provider(self, provider_name: Optional[str] = None) -> Optional[BaseProvider]:
+        """
+        Get the provider and update headers if needed.
+        """
+        if provider_name is None or provider_name == "hf-inference":
+            return None  # fallback to default provider (HF Inference API)
+
+        provider = get_provider(provider_name)
+        # Update headers with provider-specific ones
+        kwargs = {"token": self.token}
+        self.headers = provider.set_custom_headers(self.headers, **kwargs)  # type: ignore
+        return provider
+
     def audio_to_audio(
         self,
         audio: ContentT,
@@ -464,6 +490,7 @@ class InferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
+        provider: Optional[str] = None,
         stream: Literal[False] = False,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -489,6 +516,7 @@ class InferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
+        provider: Optional[str] = None,
         stream: Literal[True] = True,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -514,6 +542,7 @@ class InferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
+        provider: Optional[str] = None,
         stream: bool = False,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -538,6 +567,7 @@ class InferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
+        provider: Optional[str] = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
         frequency_penalty: Optional[float] = None,
@@ -578,6 +608,9 @@ class InferenceClient:
                 See https://huggingface.co/tasks/text-generation for more details.
                 If `model` is a model ID, it is passed to the server as the `model` parameter. If you want to define a
                 custom URL while setting `model` in the request payload, you must set `base_url` when initializing [`InferenceClient`].
+            provider (`str`, *optional*):
+                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, or `"sambanova"`.
+                Defaults to Hugging Face Inference API.
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
@@ -854,16 +887,27 @@ class InferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
-        model_url = self._resolve_chat_completion_url(model)
+        # Resolve model ID with precedence: method argument > instance model > default
+        model_id = model or self.model or "tgi"
+
+        # Get provider config
+        provider = provider or self.provider
+        provider_config = self._configure_provider(provider)
+        # Map model ID if using a third-party provider
+        if provider_config is not None:
+            mapped_model = provider_config.MODEL_IDS_MAPPING.get(model_id)
+            if not mapped_model:
+                raise ValueError(f"Model '{model_id}' not supported by provider '{provider}'")
+            model_id = mapped_model
+        model_url = self._resolve_chat_completion_url(model_id, provider_config=provider_config)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
-        model_id = model or self.model or "tgi"
-        if model_id.startswith(("http://", "https://")):
-            model_id = "tgi"  # dummy value
+        # For URLs, use "tgi" as model name in payload
+        payload_model = "tgi" if model_id.startswith(("http://", "https://")) else model_id
 
         payload = dict(
-            model=model_id,
+            model=payload_model,
             messages=messages,
             frequency_penalty=frequency_penalty,
             logit_bias=logit_bias,
@@ -891,7 +935,11 @@ class InferenceClient:
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
 
-    def _resolve_chat_completion_url(self, model: Optional[str] = None) -> str:
+    def _resolve_chat_completion_url(
+        self,
+        model: Optional[str] = None,
+        provider_config: Optional[BaseProvider] = None,
+    ) -> str:
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
         # `self.base_url` and `self.model` takes precedence over 'model' argument only in `chat_completion`.
         model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
@@ -900,7 +948,12 @@ class InferenceClient:
         model_url = (
             model_id_or_url
             if model_id_or_url.startswith(("http://", "https://"))
-            else self._resolve_url(model_id_or_url, task="text-generation")
+            else self._resolve_url(
+                model_id_or_url,
+                task="text-generation",
+                provider_config=provider_config,
+                chat_completion=True,
+            )
         )
 
         # Strip trailing /
@@ -2355,6 +2408,7 @@ class InferenceClient:
         self,
         prompt: str,
         *,
+        provider: Optional[str] = None,
         negative_prompt: Optional[List[str]] = None,
         height: Optional[float] = None,
         width: Optional[float] = None,
@@ -2378,6 +2432,9 @@ class InferenceClient:
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
+            provider (`str`, *optional*):
+                Name of the provider to use for inference. Can be `"replicate"`, `"together"` or `"fal-ai"`.
+                Defaults to Hugging Face Inference API.
             negative_prompt (`List[str`, *optional*):
                 One or several prompt to guide what NOT to include in image generation.
             height (`float`, *optional*):
@@ -2426,20 +2483,33 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
-
-        parameters = {
-            "negative_prompt": negative_prompt,
-            "height": height,
-            "width": width,
-            "num_inference_steps": num_inference_steps,
-            "guidance_scale": guidance_scale,
-            "scheduler": scheduler,
-            "target_size": target_size,
-            "seed": seed,
-            **kwargs,
-        }
-        payload = _prepare_payload(prompt, parameters=parameters)
-        response = self.post(**payload, model=model, task="text-to-image")
+        model = model or self.model
+        provider = provider or self.provider
+        provider_config = self._configure_provider(provider)
+        if provider_config is not None:
+            mapped_model = provider_config.MODEL_IDS_MAPPING.get(model)  # type: ignore
+            if not mapped_model:
+                raise ValueError(f"Model '{model}' not supported by provider '{provider}'")
+            model = mapped_model
+            payload = provider_config.prepare_custom_payload(
+                prompt=prompt, model=model, task="text-to-image", **kwargs
+            )
+        else:
+            parameters = {
+                "negative_prompt": negative_prompt,
+                "height": height,
+                "width": width,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "scheduler": scheduler,
+                "target_size": target_size,
+                "seed": seed,
+                **kwargs,
+            }
+            payload = _prepare_payload(prompt, parameters=parameters)
+        response = self.post(**payload, model=model, task="text-to-image", provider_config=provider_config)
+        if provider_config is not None:
+            response = provider_config.get_response(response, task="text-to-image")
         return _bytes_to_image(response)
 
     def text_to_speech(
@@ -2966,7 +3036,13 @@ class InferenceClient:
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    def _resolve_url(self, model: Optional[str] = None, task: Optional[str] = None) -> str:
+    def _resolve_url(
+        self,
+        model: Optional[str] = None,
+        task: Optional[str] = None,
+        chat_completion: bool = False,
+        provider_config: Optional[BaseProvider] = None,
+    ) -> str:
         model = model or self.model or self.base_url
 
         # If model is already a URL, ignore `task` and return directly
@@ -2986,8 +3062,15 @@ class InferenceClient:
                 f" encouraged to explicitly set `model='{model}'` as the recommended"
                 " models list might get updated without prior notice."
             )
+        # Get provider instance
+        if provider_config:
+            return provider_config.build_url(
+                model=model,
+                task=task,
+                chat_completion=chat_completion,
+            )
 
-        # Compute InferenceAPI url
+        # Default to HF InferenceAPI url
         return (
             # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
             f"{INFERENCE_ENDPOINT}/pipeline/{task}/{model}"
