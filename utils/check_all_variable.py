@@ -39,7 +39,7 @@ def format_all_definition(submod_attrs: Dict[str, List[str]]) -> str:
     return "\n".join(lines)
 
 
-def parse_all_definition(content: str) -> set[str]:
+def parse_all_definition(content: str) -> List[str]:
     """
     Extract the current __all__ contents from file content.
 
@@ -49,10 +49,14 @@ def parse_all_definition(content: str) -> set[str]:
     """
     match = re.search(r"__all__\s*=\s*\[(.*?)\]", content, re.DOTALL)
     if not match:
-        return set()
+        return []
 
-    # Extract items, properly cleaning whitespace and quotes
-    return {line.strip().strip("\",'") for line in match.group(1).split("\n") if line.strip()}
+    # Extract items while preserving order, properly cleaning whitespace and quotes
+    return [
+        line.strip().strip("\",'")
+        for line in match.group(1).split("\n")
+        if line.strip() and not line.strip().startswith("#")
+    ]
 
 
 def check_static_all(update: bool) -> NoReturn:
