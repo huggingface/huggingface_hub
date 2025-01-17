@@ -90,7 +90,7 @@ from huggingface_hub.inference._generated.types import (
     ZeroShotClassificationOutputElement,
     ZeroShotImageClassificationOutputElement,
 )
-from huggingface_hub.inference._providers import BaseProvider, get_provider
+from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.utils import build_hf_headers
 from huggingface_hub.utils._deprecation import _deprecate_arguments
 
@@ -125,8 +125,8 @@ class AsyncInferenceClient:
             path will be appended to the base URL (see the [TGI Messages API](https://huggingface.co/docs/text-generation-inference/en/messages_api)
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, or `"sambanova"`.
-                Defaults to Hugging Face Inference API.
+                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
+                Defaults to `"hf-inference"` (Hugging Face Serverless Inference API).
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -190,6 +190,8 @@ class AsyncInferenceClient:
             self.headers.update(headers)
 
         # Configure provider
+        if provider is None:
+            provider = "hf-inference"
         self.provider = provider
 
         self.cookies = cookies
@@ -214,7 +216,6 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        provider_config: Optional[BaseProvider] = None,
         stream: Literal[False] = ...,
     ) -> bytes: ...
 
@@ -226,7 +227,6 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        provider_config: Optional[BaseProvider] = None,
         stream: Literal[True] = ...,
     ) -> AsyncIterable[bytes]: ...
 
@@ -238,7 +238,6 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        provider_config: Optional[BaseProvider] = None,
         stream: bool = False,
     ) -> Union[bytes, AsyncIterable[bytes]]: ...
 
@@ -249,7 +248,6 @@ class AsyncInferenceClient:
         data: Optional[ContentT] = None,
         model: Optional[str] = None,
         task: Optional[str] = None,
-        provider_config: Optional[BaseProvider] = None,
         stream: bool = False,
     ) -> Union[bytes, AsyncIterable[bytes]]:
         """
@@ -285,7 +283,11 @@ class AsyncInferenceClient:
 
         aiohttp = _import_aiohttp()
 
-        url = self._resolve_url(model=model, task=task, provider_config=provider_config)
+        if model is not None and (model.startswith("http://") or model.startswith("https://")):
+            url = model
+        else:
+            provider_helper = get_provider_helper(self.provider, task=task)
+            url = provider_helper.build_url(model=model)
 
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
@@ -426,19 +428,6 @@ class AsyncInferenceClient:
         response = await self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
-    def _configure_provider(self, provider_name: Optional[str] = None) -> Optional[BaseProvider]:
-        """
-        Get the provider and update headers if needed.
-        """
-        if provider_name is None or provider_name == "hf-inference":
-            return None  # fallback to default provider (HF Inference API)
-
-        provider = get_provider(provider_name)
-        # Update headers with provider-specific ones
-        kwargs = {"token": self.token}
-        self.headers = provider.set_custom_headers(self.headers, **kwargs)  # type: ignore
-        return provider
-
     async def audio_to_audio(
         self,
         audio: ContentT,
@@ -526,7 +515,6 @@ class AsyncInferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
-        provider: Optional[str] = None,
         stream: Literal[False] = False,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -552,7 +540,6 @@ class AsyncInferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
-        provider: Optional[str] = None,
         stream: Literal[True] = True,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -578,7 +565,6 @@ class AsyncInferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
-        provider: Optional[str] = None,
         stream: bool = False,
         frequency_penalty: Optional[float] = None,
         logit_bias: Optional[List[float]] = None,
@@ -603,7 +589,6 @@ class AsyncInferenceClient:
         messages: List[Dict],
         *,
         model: Optional[str] = None,
-        provider: Optional[str] = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
         frequency_penalty: Optional[float] = None,
@@ -644,9 +629,6 @@ class AsyncInferenceClient:
                 See https://huggingface.co/tasks/text-generation for more details.
                 If `model` is a model ID, it is passed to the server as the `model` parameter. If you want to define a
                 custom URL while setting `model` in the request payload, you must set `base_url` when initializing [`InferenceClient`].
-            provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, or `"sambanova"`.
-                Defaults to Hugging Face Inference API.
             frequency_penalty (`float`, *optional*):
                 Penalizes new tokens based on their existing frequency
                 in the text so far. Range: [-2.0, 2.0]. Defaults to 0.0.
@@ -931,86 +913,46 @@ class AsyncInferenceClient:
         """
         # Resolve model ID with precedence: method argument > instance model > default
         model_id = model or self.model or "tgi"
-
-        # Get provider config
-        provider = provider or self.provider
-        provider_config = self._configure_provider(provider)
-        # Map model ID if using a third-party provider
-        if provider_config is not None:
-            model_id = provider_config.map_model(
-                task="text-generation",
-                model=model_id,
-                chat_completion=True,
-            )
-        model_url = self._resolve_chat_completion_url(model_id, provider_config=provider_config)
+        # Get the provider helper
+        provider_helper = get_provider_helper(self.provider, task="conversational")
+        # ?: should we update the headers here?
+        self.headers = provider_helper.prepare_headers(headers=self.headers, **{"token": self.token})
+        # Get the mapped provider model ID
+        model_id = provider_helper.map_model(model=model_id)
+        # Build the URL for the provider
+        model_url = provider_helper.build_url(model=model_id)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
         # For URLs, use "tgi" as model name in payload
         payload_model = "tgi" if model_id.startswith(("http://", "https://")) else model_id
-
-        payload = dict(
-            model=payload_model,
-            messages=messages,
-            frequency_penalty=frequency_penalty,
-            logit_bias=logit_bias,
-            logprobs=logprobs,
-            max_tokens=max_tokens,
-            n=n,
-            presence_penalty=presence_penalty,
-            response_format=response_format,
-            seed=seed,
-            stop=stop,
-            temperature=temperature,
-            tool_choice=tool_choice,
-            tool_prompt=tool_prompt,
-            tools=tools,
-            top_logprobs=top_logprobs,
-            top_p=top_p,
-            stream=stream,
-            stream_options=stream_options,
-        )
-        payload = {key: value for key, value in payload.items() if value is not None}
+        parameters = {
+            "frequency_penalty": frequency_penalty,
+            "logit_bias": logit_bias,
+            "logprobs": logprobs,
+            "max_tokens": max_tokens,
+            "n": n,
+            "presence_penalty": presence_penalty,
+            "response_format": response_format,
+            "seed": seed,
+            "stop": stop,
+            "temperature": temperature,
+            "tool_choice": tool_choice,
+            "tool_prompt": tool_prompt,
+            "tools": tools,
+            "top_logprobs": top_logprobs,
+            "top_p": top_p,
+            "stream": stream,
+            "stream_options": stream_options,
+        }
+        # Prepare the payload
+        payload = provider_helper.prepare_payload(inputs=messages, parameters=parameters, model=payload_model)
         data = await self.post(model=model_url, json=payload, stream=stream)
 
         if stream:
             return _async_stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
-
-    def _resolve_chat_completion_url(
-        self,
-        model: Optional[str] = None,
-        provider_config: Optional[BaseProvider] = None,
-    ) -> str:
-        # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
-        # `self.base_url` and `self.model` takes precedence over 'model' argument only in `chat_completion`.
-        model_id_or_url = self.base_url or self.model or model or self.get_recommended_model("text-generation")
-
-        # Resolve URL if it's a model ID
-        model_url = (
-            model_id_or_url
-            if model_id_or_url.startswith(("http://", "https://"))
-            else self._resolve_url(
-                model_id_or_url,
-                task="text-generation",
-                provider_config=provider_config,
-                chat_completion=True,
-            )
-        )
-
-        # Strip trailing /
-        model_url = model_url.rstrip("/")
-
-        # Append /chat/completions if not already present
-        if model_url.endswith("/v1"):
-            model_url += "/chat/completions"
-
-        # Append /v1/chat/completions if not already present
-        if not model_url.endswith("/chat/completions"):
-            model_url += "/v1/chat/completions"
-
-        return model_url
 
     async def document_question_answering(
         self,
@@ -2473,7 +2415,6 @@ class AsyncInferenceClient:
         self,
         prompt: str,
         *,
-        provider: Optional[str] = None,
         negative_prompt: Optional[List[str]] = None,
         height: Optional[float] = None,
         width: Optional[float] = None,
@@ -2497,9 +2438,6 @@ class AsyncInferenceClient:
         Args:
             prompt (`str`):
                 The prompt to generate an image from.
-            provider (`str`, *optional*):
-                Name of the provider to use for inference. Can be `"replicate"`, `"together"` or `"fal-ai"`.
-                Defaults to Hugging Face Inference API.
             negative_prompt (`List[str`, *optional*):
                 One or several prompt to guide what NOT to include in image generation.
             height (`float`, *optional*):
@@ -2549,33 +2487,30 @@ class AsyncInferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
+        parameters = {
+            "negative_prompt": negative_prompt,
+            "height": height,
+            "width": width,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "scheduler": scheduler,
+            "target_size": target_size,
+            "seed": seed,
+            **kwargs,
+        }
+
         model = model or self.model
-        provider = provider or self.provider
-        provider_config = self._configure_provider(provider)
-        if provider_config is not None:
-            model = provider_config.map_model(
-                task="text-to-image",
-                model=model,
-            )
-            payload = provider_config.prepare_custom_payload(
-                prompt=prompt, model=model, task="text-to-image", **kwargs
-            )
-        else:
-            parameters = {
-                "negative_prompt": negative_prompt,
-                "height": height,
-                "width": width,
-                "num_inference_steps": num_inference_steps,
-                "guidance_scale": guidance_scale,
-                "scheduler": scheduler,
-                "target_size": target_size,
-                "seed": seed,
-                **kwargs,
-            }
-            payload = _prepare_payload(prompt, parameters=parameters)
-        response = await self.post(**payload, model=model, task="text-to-image", provider_config=provider_config)
-        if provider_config is not None:
-            response = provider_config.get_response(response, task="text-to-image")
+        provider_helper = get_provider_helper(self.provider, task="text-to-image")
+        self.headers = provider_helper.prepare_headers(headers=self.headers, **{"token": self.token})
+        model = provider_helper.map_model(model=model)
+        payload = provider_helper.prepare_payload(
+            prompt,
+            parameters=parameters,
+            model=model,
+        )
+
+        response = await self.post(**payload, model=model, task="text-to-image")
+        response = provider_helper.get_response(response)
         return _bytes_to_image(response)
 
     async def text_to_speech(
@@ -3109,6 +3044,30 @@ class AsyncInferenceClient:
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
+    @staticmethod
+    def get_recommended_model(task: str) -> str:
+        """
+        Get the model Hugging Face recommends for the input task.
+
+        Args:
+            task (`str`):
+                The Hugging Face task to get which model Hugging Face recommends.
+                All available tasks can be found [here](https://huggingface.co/tasks).
+
+        Returns:
+            `str`: Name of the model recommended for the input task.
+
+        Raises:
+            `ValueError`: If Hugging Face has no recommendation for the input task.
+        """
+        model = _fetch_recommended_models().get(task)
+        if model is None:
+            raise ValueError(
+                f"Task {task} has no recommended model. Please specify a model"
+                " explicitly. Visit https://huggingface.co/tasks for more info."
+            )
+        return model
+
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
         aiohttp = _import_aiohttp()
         client_headers = self.headers.copy()
@@ -3149,73 +3108,6 @@ class AsyncInferenceClient:
 
         session.close = close_session
         return session
-
-    def _resolve_url(
-        self,
-        model: Optional[str] = None,
-        task: Optional[str] = None,
-        chat_completion: bool = False,
-        provider_config: Optional[BaseProvider] = None,
-    ) -> str:
-        model = model or self.model or self.base_url
-
-        # If model is already a URL, ignore `task` and return directly
-        if model is not None and (model.startswith("http://") or model.startswith("https://")):
-            return model
-
-        # # If no model but task is set => fetch the recommended one for this task
-        if model is None:
-            if task is None:
-                raise ValueError(
-                    "You must specify at least a model (repo_id or URL) or a task, either when instantiating"
-                    " `InferenceClient` or when making a request."
-                )
-            model = self.get_recommended_model(task)
-            logger.info(
-                f"Using recommended model {model} for task {task}. Note that it is"
-                f" encouraged to explicitly set `model='{model}'` as the recommended"
-                " models list might get updated without prior notice."
-            )
-        # Get provider instance
-        if provider_config:
-            return provider_config.build_url(
-                model=model,
-                task=task,
-                chat_completion=chat_completion,
-            )
-
-        # Default to HF InferenceAPI url
-        return (
-            # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
-            f"{INFERENCE_ENDPOINT}/pipeline/{task}/{model}"
-            if task in ("feature-extraction", "sentence-similarity")
-            # Otherwise, we use the default endpoint
-            else f"{INFERENCE_ENDPOINT}/models/{model}"
-        )
-
-    @staticmethod
-    def get_recommended_model(task: str) -> str:
-        """
-        Get the model Hugging Face recommends for the input task.
-
-        Args:
-            task (`str`):
-                The Hugging Face task to get which model Hugging Face recommends.
-                All available tasks can be found [here](https://huggingface.co/tasks).
-
-        Returns:
-            `str`: Name of the model recommended for the input task.
-
-        Raises:
-            `ValueError`: If Hugging Face has no recommendation for the input task.
-        """
-        model = _fetch_recommended_models().get(task)
-        if model is None:
-            raise ValueError(
-                f"Task {task} has no recommended model. Please specify a model"
-                " explicitly. Visit https://huggingface.co/tasks for more info."
-            )
-        return model
 
     async def get_endpoint_info(self, *, model: Optional[str] = None) -> Dict[str, Any]:
         """

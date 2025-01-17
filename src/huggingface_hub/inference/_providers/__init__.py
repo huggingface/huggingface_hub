@@ -1,22 +1,67 @@
-from typing import Dict, Type
+from typing import Any, Dict, Optional, Protocol, Union
 
-from .base import BaseProvider
-from .fal_ai import FalAIProvider
-from .replicate import ReplicateProvider
-from .sambanova import SambanovaProvider
-from .together import TogetherProvider
+from .fal_ai import text_to_image as falai_text_to_image
+from .hf_inference import conversational as hf_inference_conversational
+from .hf_inference import text_to_image as hf_inference_text_to_image
+from .replicate import text_to_image as replicate_text_to_image
+from .sambanova import conversational as sambanova_conversational
+from .together import conversational as together_conversational
+from .together import text_generation as together_text_generation
+from .together import text_to_image as together_text_to_image
 
 
-PROVIDERS: Dict[str, Type[BaseProvider]] = {
-    "fal-ai": FalAIProvider,
-    "together": TogetherProvider,
-    "sambanova": SambanovaProvider,
-    "replicate": ReplicateProvider,
+class TaskProviderHelper(Protocol):
+    """Protocol defining the interface for task-specific provider helpers."""
+
+    def build_url(self, model: Optional[str] = None) -> str: ...
+    def map_model(self, model: Optional[str] = None) -> str: ...
+    def prepare_headers(self, headers: Dict, **kwargs) -> Dict: ...
+    def prepare_payload(
+        self, inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None
+    ) -> Dict[str, Any]: ...
+    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
+
+
+PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
+    "replicate": {
+        "text-to-image": replicate_text_to_image,
+    },
+    "fal-ai": {
+        "text-to-image": falai_text_to_image,  # TODO: add automatic-speech-recognition
+    },
+    "sambanova": {
+        "conversational": sambanova_conversational,
+    },
+    "together": {
+        "text-to-image": together_text_to_image,
+        "conversational": together_conversational,
+        "text-generation": together_text_generation,
+    },
+    "hf-inference": {  # TODO: add other tasks
+        "text-to-image": hf_inference_text_to_image,
+        "conversational": hf_inference_conversational,
+    },
 }
 
 
-def get_provider(name: str) -> BaseProvider:
-    """Get provider instance by name."""
-    if name not in PROVIDERS:
-        raise ValueError(f"provider: {name} not supported, available providers: {list(PROVIDERS.keys())}")
-    return PROVIDERS[name]()
+def get_provider_helper(provider: str, task: str) -> TaskProviderHelper:
+    """Get provider helper instance by name and task.
+
+    Args:
+        provider (str): Name of the provider
+        task (str): Name of the task
+
+    Returns:
+        TaskProviderHelper: Helper instance for the specified provider and task
+
+    Raises:
+        ValueError: If provider or task is not supported
+    """
+    if provider not in PROVIDERS:
+        raise ValueError(f"Provider '{provider}' not supported. Available providers: {list(PROVIDERS.keys())}")
+    if task not in PROVIDERS[provider]:
+        raise ValueError(
+            f"Task '{task}' not supported for provider '{provider}'. "
+            f"Available tasks: {list(PROVIDERS[provider].keys())}"
+        )
+    return PROVIDERS[provider][task]

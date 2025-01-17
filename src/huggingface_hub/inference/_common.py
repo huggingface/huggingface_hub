@@ -219,22 +219,10 @@ def _b64_encode(content: ContentT) -> str:
         return base64.b64encode(data_as_bytes).decode()
 
 
-def _b64_to_bytes(b64_string: str) -> bytes:
-    """Convert a base64 string to bytes.
-
-    Args:
-        b64_string (str): The base64 encoded string
-
-    Returns:
-        bytes: The decoded bytes
-    """
-    return base64.b64decode(b64_string)
-
-
 def _b64_to_image(encoded_image: str) -> "Image":
     """Parse a base64-encoded string into a PIL Image."""
     Image = _import_pil_image()
-    return Image.open(io.BytesIO(_b64_to_bytes(encoded_image)))
+    return Image.open(io.BytesIO(base64.b64decode(encoded_image)))
 
 
 def _bytes_to_list(content: bytes) -> List:
