@@ -10,13 +10,15 @@ from .base import BaseProvider
 @dataclass
 class FalAIProvider(BaseProvider):
     BASE_URL = "https://fal.run"
-    MODEL_IDS_MAPPING: Dict[str, str] = field(
+    MODEL_IDS_MAPPING: Dict[str, Dict[str, str]] = field(
         default_factory=lambda: {
-            # text-to-image
-            "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
-            "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
-            # automatic-speech-recognition
-            "openai/whisper-large-v3": "fal-ai/whisper",
+            "text-to-image": {
+                "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",
+                "black-forest-labs/FLUX.1-dev": "fal-ai/flux/dev",
+            },
+            "automatic-speech-recognition": {
+                "openai/whisper-large-v3": "fal-ai/whisper",
+            },
         }
     )
 

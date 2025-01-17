@@ -18,6 +18,25 @@ class BaseProvider:
         """Build the URL for the provider"""
         raise NotImplementedError
 
+    def map_model(
+        self,
+        task: Optional[str] = None,
+        model: Optional[str] = None,
+        chat_completion: bool = False,
+    ) -> str:
+        """Map the model to the provider model"""
+        task_type = "conversational" if task == "text-generation" and chat_completion else task
+
+        task_mapping = self.MODEL_IDS_MAPPING.get(task_type, {})
+        mapped_model = task_mapping.get(model)
+        if mapped_model is None:
+            available_models = ", ".join(task_mapping.keys()) or "No models available"
+            raise ValueError(
+                f"Model '{model}' not supported for task '{task_type}'. Available models: {available_models}"
+            )
+
+        return mapped_model
+
     def set_custom_headers(self, headers: Dict, **kwargs) -> Dict:
         """Set custom headers for the provider"""
         raise NotImplementedError
