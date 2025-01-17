@@ -10,7 +10,7 @@ from .base import BaseProvider
 @dataclass
 class FalAIProvider(BaseProvider):
     BASE_URL = "https://fal.run"
-    MODEL_IDS_MAPPING: Dict[str, Dict[str, str]] = field(
+    SUPPORTED_MODELS: Dict[str, Dict[str, str]] = field(
         default_factory=lambda: {
             "text-to-image": {
                 "black-forest-labs/FLUX.1-schnell": "fal-ai/flux/schnell",

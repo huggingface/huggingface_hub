@@ -7,7 +7,7 @@ from .base import BaseProvider
 @dataclass
 class SambanovaProvider(BaseProvider):
     BASE_URL = "https://api.sambanova.ai"
-    MODEL_IDS_MAPPING: Dict[str, str] = field(
+    SUPPORTED_MODELS: Dict[str, str] = field(
         default_factory=lambda: {
             "conversational": {
                 "Qwen/Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",

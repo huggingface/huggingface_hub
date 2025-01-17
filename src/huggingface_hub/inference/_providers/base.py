@@ -7,7 +7,7 @@ class BaseProvider:
     """Base class defining the interface for inference providers."""
 
     BASE_URL: str = field(init=False)
-    MODEL_IDS_MAPPING: Dict[str, str] = field(default_factory=dict, init=False)
+    SUPPORTED_MODELS: Dict[str, str] = field(default_factory=dict, init=False)
 
     def build_url(
         self,
@@ -27,7 +27,11 @@ class BaseProvider:
         """Map the model to the provider model"""
         task_type = "conversational" if task == "text-generation" and chat_completion else task
 
-        task_mapping = self.MODEL_IDS_MAPPING.get(task_type, {})
+        task_mapping = self.SUPPORTED_MODELS.get(task_type, {})
+        if task_mapping is None:
+            raise ValueError(
+                f"Task '{task_type}' not supported by provider, available tasks: {self.SUPPORTED_MODELS.keys()}"
+            )
         mapped_model = task_mapping.get(model)
         if mapped_model is None:
             available_models = ", ".join(task_mapping.keys()) or "No models available"

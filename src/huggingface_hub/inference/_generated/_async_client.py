@@ -937,10 +937,11 @@ class AsyncInferenceClient:
         provider_config = self._configure_provider(provider)
         # Map model ID if using a third-party provider
         if provider_config is not None:
-            mapped_model = provider_config.MODEL_IDS_MAPPING.get(model_id)
-            if not mapped_model:
-                raise ValueError(f"Model '{model_id}' not supported by provider '{provider}'")
-            model_id = mapped_model
+            model_id = provider_config.map_model(
+                task="text-generation",
+                model=model_id,
+                chat_completion=True,
+            )
         model_url = self._resolve_chat_completion_url(model_id, provider_config=provider_config)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
@@ -2552,10 +2553,10 @@ class AsyncInferenceClient:
         provider = provider or self.provider
         provider_config = self._configure_provider(provider)
         if provider_config is not None:
-            mapped_model = provider_config.MODEL_IDS_MAPPING.get(model)  # type: ignore
-            if not mapped_model:
-                raise ValueError(f"Model '{model}' not supported by provider '{provider}'")
-            model = mapped_model
+            model = provider_config.map_model(
+                task="text-to-image",
+                model=model,
+            )
             payload = provider_config.prepare_custom_payload(
                 prompt=prompt, model=model, task="text-to-image", **kwargs
             )

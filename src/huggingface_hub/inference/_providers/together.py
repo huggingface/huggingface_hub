@@ -10,7 +10,7 @@ from .base import BaseProvider
 @dataclass
 class TogetherProvider(BaseProvider):
     BASE_URL = "https://api.together.xyz"
-    MODEL_IDS_MAPPING: Dict[str, str] = field(
+    SUPPORTED_MODELS: Dict[str, str] = field(
         default_factory=lambda: {
             "text-to-image": {
                 "black-forest-labs/FLUX.1-Canny-dev": "black-forest-labs/FLUX.1-canny",

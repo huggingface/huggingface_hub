@@ -10,7 +10,7 @@ from .base import BaseProvider
 @dataclass
 class ReplicateProvider(BaseProvider):
     BASE_URL = "https://api.replicate.com"
-    MODEL_IDS_MAPPING: Dict[str, str] = field(
+    SUPPORTED_MODELS: Dict[str, str] = field(
         default_factory=lambda: {
             "text-to-image": {
                 "black-forest-labs/FLUX.1-schnell": "black-forest-labs/flux-schnell",
@@ -50,9 +50,9 @@ class ReplicateProvider(BaseProvider):
         """
         payload = {"json": {"input": {"prompt": prompt, **kwargs}}}
         if task == "text-to-image":
-            if "version" in kwargs:
-                payload["json"]["version"] = kwargs["version"]
-        # TODO: better handle when the provided task is not supported by the provider
+            if model and ":" in model:
+                version = model.split(":", 1)[1]
+                payload["json"]["version"] = version
         return payload
 
     def get_response(self, response: Union[bytes, Dict], task: Optional[str] = None) -> Any:
