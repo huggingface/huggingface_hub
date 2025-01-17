@@ -4150,9 +4150,9 @@ class AccessRequestAPITest(HfApiCommonTest):
             self._api.accept_access_request(self.repo_id, OTHER_USER)
 
         # Cannot reject to already rejected
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         with self.assertRaises(HTTPError):
-            self._api.reject_access_request(self.repo_id, OTHER_USER)
+            self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
 
         # Cannot cancel to already cancelled
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
