@@ -4124,7 +4124,7 @@ class AccessRequestAPITest(HfApiCommonTest):
         assert requests[0].username == OTHER_USER
 
         # Reject access
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         requests = self._api.list_pending_access_requests(self.repo_id)
         assert len(requests) == 0  # not pending anymore
         requests = self._api.list_rejected_access_requests(self.repo_id)

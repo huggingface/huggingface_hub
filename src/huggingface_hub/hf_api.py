@@ -8535,7 +8535,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def reject_access_request(
-        self, repo_id: str, user: str, *, repo_type: Optional[str] = None, token: Union[bool, str, None] = None
+        self,
+        repo_id: str,
+        user: str,
+        *,
+        repo_type: Optional[str] = None,
+        rejection_reason: Optional[str],
+        token: Union[bool, str, None] = None,
     ) -> None:
         """
         Reject an access request from a user for a given gated repo.
@@ -8554,6 +8560,8 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
+            rejection_reason (`str`, *optional*):
+                Optional rejection reason that will be sent to the user (max 200 characters).
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -8573,7 +8581,9 @@ class HfApi:
             [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError):
                 HTTP 404 if the user access request is already in the rejected list.
         """
-        self._handle_access_request(repo_id, user, "rejected", repo_type=repo_type, token=token)
+        self._handle_access_request(
+            repo_id, user, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
+        )
 
     @validate_hf_hub_args
     def _handle_access_request(
@@ -8582,6 +8592,7 @@ class HfApi:
         user: str,
         status: Literal["accepted", "rejected", "pending"],
         repo_type: Optional[str] = None,
+        rejection_reason: Optional[str] = None,
         token: Union[bool, str, None] = None,
     ) -> None:
         if repo_type not in constants.REPO_TYPES:
@@ -8589,10 +8600,17 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
+        payload = {"user": user, "status": status}
+
+        if rejection_reason is not None:
+            if status != "rejected":
+                raise ValueError("`rejection_reason` can only be passed when rejecting an access request.")
+            payload["rejectionReason"] = rejection_reason
+
         response = get_session().post(
             f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
-            json={"user": user, "status": status},
+            json=payload,
         )
         hf_raise_for_status(response)
 
