@@ -40,6 +40,7 @@ jobs:
       - run: .venv/bin/python utils/check_contrib_list.py
       - run: .venv/bin/python utils/check_inference_input_params.py
       - run: .venv/bin/python utils/check_static_imports.py
+      - run: .venv/bin/python utils/check_all_variable.py
       - run: .venv/bin/python utils/generate_async_inference_client.py
       - run: .venv/bin/python utils/generate_inference_types.py
       - run: .venv/bin/python utils/check_task_parameters.py
