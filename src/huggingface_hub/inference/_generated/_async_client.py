@@ -438,11 +438,7 @@ class AsyncInferenceClient:
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
         provider_helper = get_provider_helper(self.provider, task="audio-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(
-            audio,
-            parameters=parameters,
-            expect_binary=True,
-        )
+        payload = provider_helper.prepare_payload(audio, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
@@ -1051,7 +1047,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="document-question-answering")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
@@ -1119,7 +1115,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="feature-extraction")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
@@ -1172,7 +1168,7 @@ class AsyncInferenceClient:
         parameters = {"targets": targets, "top_k": top_k}
         provider_helper = get_provider_helper(self.provider, task="fill-mask")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
@@ -1218,7 +1214,7 @@ class AsyncInferenceClient:
         parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
         provider_helper = get_provider_helper(self.provider, task="image-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, expect_binary=True)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
@@ -1281,7 +1277,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="image-segmentation")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, expect_binary=True)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
@@ -1356,7 +1352,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="image-to-image")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, expect_binary=True)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
@@ -1534,7 +1530,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="object-detection")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, expect_binary=True)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
@@ -1613,7 +1609,7 @@ class AsyncInferenceClient:
         inputs: Dict[str, Any] = {"question": question, "context": context}
         provider_helper = get_provider_helper(self.provider, task="question-answering")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="question-answering")
         # Parse the response as a single `QuestionAnsweringOutputElement` when top_k is 1 or not provided, or a list of `QuestionAnsweringOutputElement` to ensure backward compatibility.
         output = QuestionAnsweringOutputElement.parse_obj(response)
@@ -1731,7 +1727,7 @@ class AsyncInferenceClient:
             }
         provider_helper = get_provider_helper(self.provider, task="summarization")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
         response = await self.post(**payload, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
@@ -1797,7 +1793,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="table-question-answering")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
         response = await self.post(
             **payload,
             model=model,
@@ -1950,7 +1946,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="text-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
         response = await self.post(
             **payload,
             model=model,
@@ -2547,11 +2543,7 @@ class AsyncInferenceClient:
 
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(
-            prompt,
-            parameters=parameters,
-            model=model,
-        )
+        payload = provider_helper.prepare_payload(prompt, parameters=parameters, model=model)
 
         response = await self.post(**payload, model=model, task="text-to-image")
         response = provider_helper.get_response(response)
@@ -3084,7 +3076,7 @@ class AsyncInferenceClient:
         }
         provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(image, parameters=parameters, model=model, expect_binary=True)
+        payload = provider_helper.prepare_payload(image, parameters=parameters, model=model)
         response = await self.post(
             **payload,
             model=model,

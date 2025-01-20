@@ -1,60 +1,60 @@
+# mypy: disable-error-code="dict-item"
 from typing import Any, Dict, Optional, Protocol, Union
 
-from . import fal_ai, hf_inference, replicate, sambanova, together
+from . import fal_ai, replicate, sambanova, together
+from .hf_inference import HFInferenceBinaryInputTask, HFInferenceConversational, HFInferenceTask
 
 
 class TaskProviderHelper(Protocol):
     """Protocol defining the interface for task-specific provider helpers."""
 
-    def build_url(model: Optional[str] = None) -> str: ...
-    def map_model(model: Optional[str] = None) -> str: ...
-    def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict: ...
-    def prepare_payload(
-        inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None, expect_binary: bool = False
-    ) -> Dict[str, Any]: ...
-    def get_response(response: Union[bytes, Dict]) -> Any: ...
+    def build_url(self, model: Optional[str] = None) -> str: ...
+    def map_model(self, model: Optional[str] = None) -> str: ...
+    def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict: ...
+    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: Optional[str]) -> Dict[str, Any]: ...
+    def get_response(self, response: Union[bytes, Dict]) -> Any: ...
 
 
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     "replicate": {
-        "text-to-image": replicate.text_to_image,  # type: ignore
+        "text-to-image": replicate.text_to_image,
     },
     "fal-ai": {
-        "text-to-image": fal_ai.text_to_image,  # type: ignore
+        "text-to-image": fal_ai.text_to_image,
         # TODO: add automatic-speech-recognition
     },
     "sambanova": {
-        "conversational": sambanova.conversational,  # type: ignore
+        "conversational": sambanova.conversational,
     },
     "together": {
-        "text-to-image": together.text_to_image,  # type: ignore
-        "conversational": together.conversational,  # type: ignore
-        "text-generation": together.text_generation,  # type: ignore
+        "text-to-image": together.text_to_image,
+        "conversational": together.conversational,
+        "text-generation": together.text_generation,
     },
     "hf-inference": {
-        "text-to-image": hf_inference.text_to_image,
-        "conversational": hf_inference.conversational,
-        "text-classification": hf_inference.text_classification,
-        "question-answering": hf_inference.question_answering,
-        "audio-classification": hf_inference.audio_classification,
-        "automatic-speech-recognition": hf_inference.automatic_speech_recognition,
-        "fill-mask": hf_inference.fill_mask,
-        "feature-extraction": hf_inference.feature_extraction,
-        "image-classification": hf_inference.image_classification,
-        "image-segmentation": hf_inference.image_segmentation,
-        "document-question-answering": hf_inference.document_question_answering,
-        "image-to-text": hf_inference.image_to_text,
-        "object-detection": hf_inference.object_detection,
-        "audio-to-audio": hf_inference.audio_to_audio,
-        "zero-shot-image-classification": hf_inference.zero_shot_image_classification,
-        "zero-shot-classification": hf_inference.zero_shot_classification,
-        "image-to-image": hf_inference.image_to_image,
-        "sentence-similarity": hf_inference.sentence_similarity,
-        "table-question-answering": hf_inference.table_question_answering,
-        "tabular-classification": hf_inference.tabular_classification,
-        "text-to-speech": hf_inference.text_to_speech,
-        "token-classification": hf_inference.token_classification,
-        "translation": hf_inference.translation,
+        "text-to-image": HFInferenceTask("text-to-image"),
+        "conversational": HFInferenceConversational(),
+        "text-classification": HFInferenceTask("text-classification"),
+        "question-answering": HFInferenceTask("question-answering"),
+        "audio-classification": HFInferenceBinaryInputTask("audio-classification"),
+        "automatic-speech-recognition": HFInferenceTask("automatic-speech-recognition"),
+        "fill-mask": HFInferenceTask("fill-mask"),
+        "feature-extraction": HFInferenceTask("feature-extraction"),
+        "image-classification": HFInferenceBinaryInputTask("image-classification"),
+        "image-segmentation": HFInferenceBinaryInputTask("image-segmentation"),
+        "document-question-answering": HFInferenceTask("document-question-answering"),
+        "image-to-text": HFInferenceTask("image-to-text"),
+        "object-detection": HFInferenceBinaryInputTask("object-detection"),
+        "audio-to-audio": HFInferenceTask("audio-to-audio"),
+        "zero-shot-image-classification": HFInferenceBinaryInputTask("zero-shot-image-classification"),
+        "zero-shot-classification": HFInferenceTask("zero-shot-classification"),
+        "image-to-image": HFInferenceBinaryInputTask("image-to-image"),
+        "sentence-similarity": HFInferenceTask("sentence-similarity"),
+        "table-question-answering": HFInferenceTask("table-question-answering"),
+        "tabular-classification": HFInferenceTask("tabular-classification"),
+        "text-to-speech": HFInferenceTask("text-to-speech"),
+        "token-classification": HFInferenceTask("token-classification"),
+        "translation": HFInferenceTask("translation"),
     },
 }
 
