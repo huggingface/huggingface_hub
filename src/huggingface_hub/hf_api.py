@@ -8561,7 +8561,7 @@ class HfApi:
                 The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
             rejection_reason (`str`, *optional*):
-                Optional rejection reason that will be sent to the user (max 200 characters).
+                Optional rejection reason that will be visible to the user (max 200 characters).
             token (Union[bool, str, None], optional):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
