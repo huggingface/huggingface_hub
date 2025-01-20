@@ -34,7 +34,13 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
-def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
+def prepare_payload(
+    inputs: Any,
+    parameters: Dict[str, Any],
+    model: Optional[str] = None,
+    *,
+    expect_binary: bool = False,
+) -> Dict[str, Any]:
     payload = {
         "messages": inputs,
         "model": model,

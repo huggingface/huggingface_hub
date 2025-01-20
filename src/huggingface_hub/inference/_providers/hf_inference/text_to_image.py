@@ -1,39 +1,30 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
-from ._common import get_recommended_model
-
-
-BASE_URL = "https://api-inference.huggingface.co"
+from ._common import BaseInferenceTask
 
 
-def build_url(model: Optional[str] = None) -> str:
-    if model is None:
-        model = get_recommended_model("text-to-image")
-    url = f"{BASE_URL}/models/{model}"
-    url = url.rstrip("/")
-    if url.endswith("/v1"):
-        url += "/chat/completions"
-    elif not url.endswith("/chat/completions"):
-        url += "/v1/chat/completions"
-    return url
+class TextToImage(BaseInferenceTask):
+    TASK_NAME = "text-to-image"
+
+    @classmethod
+    def prepare_payload(
+        cls,
+        inputs: Any,
+        parameters: Dict[str, Any],
+        model: Optional[str] = None,
+        *,
+        expect_binary: bool = False,
+    ) -> Dict[str, Any]:
+        payload = {
+            "model": model,
+            "messages": inputs,
+            **parameters,
+        }
+        return {key: value for key, value in payload.items() if value is not None}
 
 
-def map_model(model: str) -> str:
-    return model
-
-
-def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
-    return headers
-
-
-def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
-    json = {
-        "inputs": inputs,
-        "model": model,
-        **parameters,
-    }
-    return {"json": json}
-
-
-def get_response(response: Union[bytes, Dict]) -> Any:
-    return response
+build_url = TextToImage.build_url
+map_model = TextToImage.map_model
+prepare_headers = TextToImage.prepare_headers
+prepare_payload = TextToImage.prepare_payload
+get_response = TextToImage.get_response

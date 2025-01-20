@@ -31,12 +31,14 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
 
 
 def prepare_payload(
-    input: str,
+    inputs: Any,
     parameters: Dict[str, Any],
     model: Optional[str] = None,
+    *,
+    expect_binary: bool = False,
 ) -> Dict[str, Any]:
     parameters = {key: value for key, value in parameters.items() if value is not None}
-    payload = {"json": {"prompt": input, "model": model, "response_format": "base64", **parameters}}
+    payload = {"json": {"prompt": inputs, "model": model, "response_format": "base64", **parameters}}
     return payload
 
 
