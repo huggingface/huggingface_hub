@@ -30,15 +30,9 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
-def prepare_payload(
-    inputs: Any,
-    parameters: Dict[str, Any],
-    model: Optional[str] = None,
-    *,
-    expect_binary: bool = False,
-) -> Dict[str, Any]:
-    parameters = {k: v for k, v in parameters.items() if v is not None}
-    payload = {"json": {"input": {"prompt": inputs, **parameters}}}
+def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str]) -> Dict[str, Any]:
+    payload = {"json": {"input": {"prompt": inputs, **{k: v for k, v in parameters.items() if v is not None}}}}
+    model = parameters.get("model")
     if model is not None and ":" in model:
         version = model.split(":", 1)[1]
         payload["json"]["version"] = version  # type: ignore
