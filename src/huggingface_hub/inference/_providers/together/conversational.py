@@ -48,11 +48,12 @@ def map_model(model: str) -> str:
     return mapped_model
 
 
-def prepare_headers(headers: Dict, **kwargs) -> Dict:
+def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
 def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
+    parameters = {key: value for key, value in parameters.items() if value is not None}
     payload = {
         "messages": inputs,
         "model": model,

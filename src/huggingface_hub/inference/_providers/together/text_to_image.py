@@ -26,7 +26,7 @@ def map_model(model: str) -> str:
     return mapped_model
 
 
-def prepare_headers(headers: Dict, **kwargs) -> Dict:
+def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
@@ -35,6 +35,7 @@ def prepare_payload(
     parameters: Dict[str, Any],
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
+    parameters = {key: value for key, value in parameters.items() if value is not None}
     payload = {"json": {"prompt": input, "model": model, "response_format": "base64", **parameters}}
     return payload
 

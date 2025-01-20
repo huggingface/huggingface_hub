@@ -22,7 +22,7 @@ def map_model(model: str) -> str:
     return model
 
 
-def prepare_headers(headers: Dict, **kwargs) -> Dict:
+def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 

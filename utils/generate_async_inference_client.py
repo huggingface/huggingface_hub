@@ -171,17 +171,20 @@ def _rename_to_AsyncInferenceClient(code: str) -> str:
 ASYNC_POST_CODE = """
         aiohttp = _import_aiohttp()
 
-        if model is not None and (model.startswith("http://") or model.startswith("https://")):
-            url = model
-        else:
-            provider_helper = get_provider_helper(self.provider, task=task)
-            url = provider_helper.build_url(model=model)
-
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        # Set Accept header if relevant
         headers = dict()
+        if model is not None and (model.startswith("http://") or model.startswith("https://")):
+            url = model
+        else:
+            if task is None:
+                raise ValueError("`task` is required when passing a provider.")
+            provider_helper = get_provider_helper(self.provider, task=task)
+            url = provider_helper.build_url(model=model)
+            # Override headers with provider-specific headers
+            headers = provider_helper.prepare_headers(headers, token=self.token)  # type: ignore
+
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 

@@ -41,7 +41,6 @@ from huggingface_hub.inference._common import (
     _bytes_to_dict,
     _bytes_to_image,
     _bytes_to_list,
-    _fetch_recommended_models,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
     _open_as_binary,
@@ -126,7 +125,8 @@ class AsyncInferenceClient:
             documentation for details). When passing a URL as `model`, the client will not append any suffix path to it.
         provider (`str`, *optional*):
                 Name of the provider to use for inference. Can be `"replicate"`, `"together"`, `"fal-ai"`, `"sambanova"` or `"hf-inference"`.
-                Defaults to `"hf-inference"` (Hugging Face Serverless Inference API).
+                defaults to hf-inference (Hugging Face Serverless Inference API).
+                If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str` or `bool`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
             Pass `token=False` if you don't want to send your token to the server.
@@ -180,7 +180,17 @@ class AsyncInferenceClient:
                 " `api_key` is an alias for `token` to make the API compatible with OpenAI's client."
                 " It has the exact same behavior as `token`."
             )
-
+        if provider is not None:
+            if base_url is not None:
+                raise ValueError(
+                    "Cannot specify both `provider` and `base_url`. The `provider` argument is used to"
+                    " specify an inference provider, while `base_url` is for custom endpoints."
+                )
+            if model is not None and (model.startswith("http://") or model.startswith("https://")):
+                raise ValueError(
+                    "Cannot use a URL as `model` when `provider` is specified. The provider handles building"
+                    " the appropriate URL for the model. Either remove the `provider` argument or pass a model ID instead."
+                )
         self.model: Optional[str] = model
         self.token: Union[str, bool, None] = token if token is not None else api_key
         self.headers: CaseInsensitiveDict[str] = CaseInsensitiveDict(
@@ -265,9 +275,9 @@ class AsyncInferenceClient:
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. Will override the model defined at the instance level. Defaults to None.
             task (`str`, *optional*):
-                The task to perform on the inference. All available tasks can be found
-                [here](https://huggingface.co/tasks). Used only to default to a recommended model if `model` is not
-                provided. At least `model` or `task` must be provided. Defaults to None.
+                The task to perform on the inference. if you are passing a provider, `task` is required.
+                Verify which tasks are supported by the provider.For `hf-inference`, all available tasks
+                can be found [here](https://huggingface.co/tasks).
             stream (`bool`, *optional*):
                 Whether to iterate over streaming APIs.
 
@@ -283,17 +293,20 @@ class AsyncInferenceClient:
 
         aiohttp = _import_aiohttp()
 
-        if model is not None and (model.startswith("http://") or model.startswith("https://")):
-            url = model
-        else:
-            provider_helper = get_provider_helper(self.provider, task=task)
-            url = provider_helper.build_url(model=model)
-
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        # Set Accept header if relevant
         headers = dict()
+        if model is not None and (model.startswith("http://") or model.startswith("https://")):
+            url = model
+        else:
+            if task is None:
+                raise ValueError("`task` is required when passing a provider.")
+            provider_helper = get_provider_helper(self.provider, task=task)
+            url = provider_helper.build_url(model=model)
+            # Override headers with provider-specific headers
+            headers = provider_helper.prepare_headers(headers, token=self.token)  # type: ignore
+
         if task in TASKS_EXPECTING_IMAGES and "Accept" not in headers:
             headers["Accept"] = "image/png"
 
@@ -915,8 +928,6 @@ class AsyncInferenceClient:
         model_id = model or self.model or "tgi"
         # Get the provider helper
         provider_helper = get_provider_helper(self.provider, task="conversational")
-        # ?: should we update the headers here?
-        self.headers = provider_helper.prepare_headers(headers=self.headers, **{"token": self.token})
         # Get the mapped provider model ID
         model_id = provider_helper.map_model(model=model_id)
         # Build the URL for the provider
@@ -2499,10 +2510,8 @@ class AsyncInferenceClient:
             **kwargs,
         }
 
-        model = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-to-image")
-        self.headers = provider_helper.prepare_headers(headers=self.headers, **{"token": self.token})
-        model = provider_helper.map_model(model=model)
+        model = provider_helper.map_model(model=model or self.model)
         payload = provider_helper.prepare_payload(
             prompt,
             parameters=parameters,
@@ -3043,30 +3052,6 @@ class AsyncInferenceClient:
             task="zero-shot-image-classification",
         )
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
-
-    @staticmethod
-    def get_recommended_model(task: str) -> str:
-        """
-        Get the model Hugging Face recommends for the input task.
-
-        Args:
-            task (`str`):
-                The Hugging Face task to get which model Hugging Face recommends.
-                All available tasks can be found [here](https://huggingface.co/tasks).
-
-        Returns:
-            `str`: Name of the model recommended for the input task.
-
-        Raises:
-            `ValueError`: If Hugging Face has no recommendation for the input task.
-        """
-        model = _fetch_recommended_models().get(task)
-        if model is None:
-            raise ValueError(
-                f"Task {task} has no recommended model. Please specify a model"
-                " explicitly. Visit https://huggingface.co/tasks for more info."
-            )
-        return model
 
     def _get_client_session(self, headers: Optional[Dict] = None) -> "ClientSession":
         aiohttp = _import_aiohttp()

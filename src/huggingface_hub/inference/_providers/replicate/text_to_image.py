@@ -25,20 +25,17 @@ def map_model(model: str) -> str:
     return mapped_model
 
 
-def prepare_headers(headers: Dict, **kwargs) -> Dict:
+def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     headers["Prefer"] = "wait"
     return headers
 
 
 def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
     parameters = {k: v for k, v in parameters.items() if v is not None}
-    if len(parameters) > 0:
-        payload = {"json": {"input": {"prompt": inputs, **parameters}}}
-    else:
-        payload = {"json": {"input": {"prompt": inputs}}}
-    if ":" in model:
+    payload = {"json": {"input": {"prompt": inputs, **parameters}}}
+    if model is not None and ":" in model:
         version = model.split(":", 1)[1]
-        payload["json"]["version"] = version
+        payload["json"]["version"] = version  # type: ignore
     return payload
 
 

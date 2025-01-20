@@ -23,16 +23,16 @@ def map_model(model: str) -> str:
     return mapped_model
 
 
-def prepare_headers(headers: Dict, **kwargs) -> Dict:
-    headers["Authorization"] = f"Key {kwargs['token']}"
-    return headers
+def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
+    return {
+        **headers,
+        "Authorization": f"Key {token}",
+    }
 
 
 def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
     parameters = {k: v for k, v in parameters.items() if v is not None}
-    if len(parameters) > 0:
-        return {"json": {"prompt": inputs, **parameters}}
-    return {"json": {"prompt": inputs}}
+    return {"json": {"prompt": inputs, **parameters}}
 
 
 def get_response(response: Union[bytes, Dict]) -> Any:

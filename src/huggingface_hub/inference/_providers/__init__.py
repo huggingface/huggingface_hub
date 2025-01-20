@@ -15,7 +15,7 @@ class TaskProviderHelper(Protocol):
 
     def build_url(self, model: Optional[str] = None) -> str: ...
     def map_model(self, model: Optional[str] = None) -> str: ...
-    def prepare_headers(self, headers: Dict, **kwargs) -> Dict: ...
+    def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict: ...
     def prepare_payload(
         self, inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None
     ) -> Dict[str, Any]: ...
@@ -24,22 +24,23 @@ class TaskProviderHelper(Protocol):
 
 PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     "replicate": {
-        "text-to-image": replicate_text_to_image,
+        "text-to-image": replicate_text_to_image,  # type: ignore
     },
     "fal-ai": {
-        "text-to-image": falai_text_to_image,  # TODO: add automatic-speech-recognition
+        "text-to-image": falai_text_to_image,  # type: ignore
+        # TODO: add automatic-speech-recognition
     },
     "sambanova": {
-        "conversational": sambanova_conversational,
+        "conversational": sambanova_conversational,  # type: ignore
     },
     "together": {
-        "text-to-image": together_text_to_image,
-        "conversational": together_conversational,
-        "text-generation": together_text_generation,
+        "text-to-image": together_text_to_image,  # type: ignore
+        "conversational": together_conversational,  # type: ignore
+        "text-generation": together_text_generation,  # type: ignore
     },
     "hf-inference": {  # TODO: add other tasks
-        "text-to-image": hf_inference_text_to_image,
-        "conversational": hf_inference_conversational,
+        "text-to-image": hf_inference_text_to_image,  # type: ignore
+        "conversational": hf_inference_conversational,  # type: ignore
     },
 }
 

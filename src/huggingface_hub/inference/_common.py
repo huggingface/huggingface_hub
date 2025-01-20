@@ -49,11 +49,8 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..constants import ENDPOINT
 from ..utils import (
-    build_hf_headers,
     get_session,
-    hf_raise_for_status,
     is_aiohttp_available,
     is_numpy_available,
     is_pillow_available,
@@ -139,30 +136,6 @@ def _import_pil_image():
     from PIL import Image
 
     return Image
-
-
-## RECOMMENDED MODELS
-
-# Will be globally fetched only once (see '_fetch_recommended_models')
-_RECOMMENDED_MODELS: Optional[Dict[str, Optional[str]]] = None
-
-
-def _fetch_recommended_models() -> Dict[str, Optional[str]]:
-    global _RECOMMENDED_MODELS
-    if _RECOMMENDED_MODELS is None:
-        response = get_session().get(f"{ENDPOINT}/api/tasks", headers=build_hf_headers())
-        hf_raise_for_status(response)
-        _RECOMMENDED_MODELS = {
-            task: _first_or_none(details["widgetModels"]) for task, details in response.json().items()
-        }
-    return _RECOMMENDED_MODELS
-
-
-def _first_or_none(items: List[Any]) -> Optional[Any]:
-    try:
-        return items[0] or None
-    except IndexError:
-        return None
 
 
 ## ENCODING / DECODING UTILS
