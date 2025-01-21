@@ -1,2 +1,2 @@
 # ruff: noqa: F401
-from . import text_to_image
+from . import automatic_speech_recognition, text_to_image

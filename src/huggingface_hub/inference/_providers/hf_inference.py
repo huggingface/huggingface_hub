@@ -86,7 +86,7 @@ class HFInferenceTask:
     def prepare_headers(self, headers: Dict, *, token: Optional[str] = None) -> Dict:
         return headers
 
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: Optional[str]) -> Dict[str, Any]:
+    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(inputs, (bytes, Path)):
             raise ValueError(f"Unexpected binary inputs. Got {inputs}")  # type: ignore
 
@@ -102,7 +102,7 @@ class HFInferenceTask:
 
 
 class HFInferenceBinaryInputTask(HFInferenceTask):
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: Optional[str]) -> Dict[str, Any]:
+    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters = {k: v for k, v in parameters.items() if v is not None}
         has_parameters = len(parameters) > 0
 
@@ -129,6 +129,7 @@ class HFInferenceConversational(HFInferenceTask):
             model = get_recommended_model("text-generation")
         return f"{BASE_URL}/models/{model}/v1/chat/completions"
 
-    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any], model: Optional[str]) -> Dict[str, Any]:
+    def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters = {key: value for key, value in parameters.items() if value is not None}
+        model = parameters.get("model")
         return {"model": model, "messages": inputs, **parameters}

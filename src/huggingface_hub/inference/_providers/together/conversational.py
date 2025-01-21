@@ -52,14 +52,10 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
-def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
-    parameters = {key: value for key, value in parameters.items() if value is not None}
-    payload = {
-        "messages": inputs,
-        "model": model,
-        **parameters,
-    }
-    payload = {key: value for key, value in payload.items() if value is not None}
+def prepare_payload(inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    if "model" not in parameters:
+        raise ValueError("Model is required for Together conversational task")
+    payload = {"messages": inputs, **{k: v for k, v in parameters.items() if v is not None}}
     return payload
 
 

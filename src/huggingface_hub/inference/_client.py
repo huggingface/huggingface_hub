@@ -401,10 +401,15 @@ class InferenceClient:
         ]
         ```
         """
-        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
+
         provider_helper = get_provider_helper(self.provider, task="audio-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(audio, parameters=parameters, model=model)
+        parameters = {
+            "model": model,
+            "function_to_apply": function_to_apply,
+            "top_k": top_k,
+        }
+        payload = provider_helper.prepare_payload(audio, parameters=parameters)
         response = self.post(**payload, model=model, task="audio-classification")
         return AudioClassificationOutputElement.parse_obj_as_list(response)
 
@@ -458,6 +463,7 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -468,7 +474,8 @@ class InferenceClient:
             model (`str`, *optional*):
                 The model to use for ASR. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. If not provided, the default recommended model for ASR will be used.
-
+            parameters (Dict[str, Any], *optional*):
+                Additional parameters to pass to the model.
         Returns:
             [`AutomaticSpeechRecognitionOutput`]: An item containing the transcribed text and optionally the timestamp chunks.
 
@@ -486,7 +493,12 @@ class InferenceClient:
         "hello world"
         ```
         """
-        response = self.post(data=audio, model=model, task="automatic-speech-recognition")
+        provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
+        model = provider_helper.map_model(model=model or self.model)
+
+        parameters = parameters or {}
+        payload = provider_helper.prepare_payload(audio, parameters=parameters)
+        response = self.post(**payload, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     @overload
@@ -899,6 +911,7 @@ class InferenceClient:
         # For URLs, use "tgi" as model name in payload
         payload_model = "tgi" if model_id.startswith(("http://", "https://")) else model_id
         parameters = {
+            "model": payload_model,
             "frequency_penalty": frequency_penalty,
             "logit_bias": logit_bias,
             "logprobs": logprobs,
@@ -918,7 +931,7 @@ class InferenceClient:
             "stream_options": stream_options,
         }
         # Prepare the payload
-        payload = provider_helper.prepare_payload(inputs=messages, parameters=parameters, model=payload_model)
+        payload = provider_helper.prepare_payload(inputs=messages, parameters=parameters)
         data = self.post(model=model_url, json=payload, stream=stream)
 
         if stream:
@@ -992,7 +1005,10 @@ class InferenceClient:
         ```
         """
         inputs: Dict[str, Any] = {"question": question, "image": _b64_encode(image)}
+        provider_helper = get_provider_helper(self.provider, task="document-question-answering")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "doc_stride": doc_stride,
             "handle_impossible_answer": handle_impossible_answer,
             "lang": lang,
@@ -1002,9 +1018,7 @@ class InferenceClient:
             "top_k": top_k,
             "word_boxes": word_boxes,
         }
-        provider_helper = get_provider_helper(self.provider, task="document-question-answering")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
         response = self.post(**payload, model=model, task="document-question-answering")
         return DocumentQuestionAnsweringOutputElement.parse_obj_as_list(response)
 
@@ -1063,15 +1077,17 @@ class InferenceClient:
         [ 0.28552425, -0.928395  , -1.2077185 , ...,  0.76810825, -2.1069427 ,  0.6236161 ]], dtype=float32)
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="feature-extraction")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "normalize": normalize,
             "prompt_name": prompt_name,
             "truncate": truncate,
             "truncation_direction": truncation_direction,
         }
-        provider_helper = get_provider_helper(self.provider, task="feature-extraction")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
         response = self.post(**payload, model=model, task="feature-extraction")
         np = _import_numpy()
         return np.array(_bytes_to_dict(response), dtype="float32")
@@ -1120,10 +1136,15 @@ class InferenceClient:
         ]
         ```
         """
-        parameters = {"targets": targets, "top_k": top_k}
+
         provider_helper = get_provider_helper(self.provider, task="fill-mask")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
+        parameters = {
+            "model": model,
+            "targets": targets,
+            "top_k": top_k,
+        }
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
         response = self.post(**payload, model=model, task="fill-mask")
         return FillMaskOutputElement.parse_obj_as_list(response)
 
@@ -1165,10 +1186,15 @@ class InferenceClient:
         [ImageClassificationOutputElement(label='Blenheim spaniel', score=0.9779096841812134), ...]
         ```
         """
-        parameters = {"function_to_apply": function_to_apply, "top_k": top_k}
+
         provider_helper = get_provider_helper(self.provider, task="image-classification")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
+        parameters = {
+            "model": model,
+            "function_to_apply": function_to_apply,
+            "top_k": top_k,
+        }
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters)
         response = self.post(**payload, model=model, task="image-classification")
         return ImageClassificationOutputElement.parse_obj_as_list(response)
 
@@ -1222,15 +1248,17 @@ class InferenceClient:
         [ImageSegmentationOutputElement(score=0.989008, label='LABEL_184', mask=<PIL.PngImagePlugin.PngImageFile image mode=L size=400x300 at 0x7FDD2B129CC0>), ...]
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "mask_threshold": mask_threshold,
             "overlap_mask_area_threshold": overlap_mask_area_threshold,
             "subtask": subtask,
             "threshold": threshold,
         }
-        provider_helper = get_provider_helper(self.provider, task="image-segmentation")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters)
         response = self.post(**payload, model=model, task="image-segmentation")
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
@@ -1294,7 +1322,11 @@ class InferenceClient:
         >>> image.save("tiger.jpg")
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="image-to-image")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "target_size": target_size,
@@ -1302,9 +1334,7 @@ class InferenceClient:
             "guidance_scale": guidance_scale,
             **kwargs,
         }
-        provider_helper = get_provider_helper(self.provider, task="image-to-image")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters)
         response = self.post(**payload, model=model, task="image-to-image")
         return _bytes_to_image(response)
 
@@ -1469,12 +1499,14 @@ class InferenceClient:
         [ObjectDetectionOutputElement(score=0.9486683011054993, label='person', box=ObjectDetectionBoundingBox(xmin=59, ymin=39, xmax=420, ymax=510)), ...]
         ```
         """
-        parameters = {
-            "threshold": threshold,
-        }
+
         provider_helper = get_provider_helper(self.provider, task="object-detection")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters, model=model)
+        parameters = {
+            "model": model,
+            "threshold": threshold,
+        }
+        payload = provider_helper.prepare_payload(inputs=image, parameters=parameters)
         response = self.post(**payload, model=model, task="object-detection")
         return ObjectDetectionOutputElement.parse_obj_as_list(response)
 
@@ -1540,7 +1572,12 @@ class InferenceClient:
         QuestionAnsweringOutputElement(answer='Clara', end=16, score=0.9326565265655518, start=11)
         ```
         """
+
+        inputs: Dict[str, Any] = {"question": question, "context": context}
+        provider_helper = get_provider_helper(self.provider, task="question-answering")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "align_to_words": align_to_words,
             "doc_stride": doc_stride,
             "handle_impossible_answer": handle_impossible_answer,
@@ -1549,10 +1586,7 @@ class InferenceClient:
             "max_seq_len": max_seq_len,
             "top_k": top_k,
         }
-        inputs: Dict[str, Any] = {"question": question, "context": context}
-        provider_helper = get_provider_helper(self.provider, task="question-answering")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
         response = self.post(**payload, model=model, task="question-answering")
         # Parse the response as a single `QuestionAnsweringOutputElement` when top_k is 1 or not provided, or a list of `QuestionAnsweringOutputElement` to ensure backward compatibility.
         output = QuestionAnsweringOutputElement.parse_obj(response)
@@ -1668,7 +1702,8 @@ class InferenceClient:
             }
         provider_helper = get_provider_helper(self.provider, task="summarization")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
+        parameters = {"model": model, **parameters}
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
         response = self.post(**payload, model=model, task="summarization")
         return SummarizationOutput.parse_obj_as_list(response)[0]
 
@@ -1722,18 +1757,21 @@ class InferenceClient:
         TableQuestionAnsweringOutputElement(answer='36542', coordinates=[[0, 1]], cells=['36542'], aggregator='AVERAGE')
         ```
         """
-        parameters = {
-            "padding": padding,
-            "sequential": sequential,
-            "truncation": truncation,
-        }
+
         inputs = {
             "query": query,
             "table": table,
         }
         provider_helper = get_provider_helper(self.provider, task="table-question-answering")
         model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters, model=model)
+
+        parameters = {
+            "model": model,
+            "padding": padding,
+            "sequential": sequential,
+            "truncation": truncation,
+        }
+        payload = provider_helper.prepare_payload(inputs=inputs, parameters=parameters)
         response = self.post(
             **payload,
             model=model,
@@ -1877,13 +1915,15 @@ class InferenceClient:
         ]
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="text-classification")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "function_to_apply": function_to_apply,
             "top_k": top_k,
         }
-        provider_helper = get_provider_helper(self.provider, task="text-classification")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(inputs=text, parameters=parameters)
         response = self.post(
             **payload,
             model=model,
@@ -2464,7 +2504,11 @@ class InferenceClient:
         >>> image.save("better_astronaut.png")
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="text-to-image")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "negative_prompt": negative_prompt,
             "height": height,
             "width": width,
@@ -2475,10 +2519,7 @@ class InferenceClient:
             "seed": seed,
             **kwargs,
         }
-
-        provider_helper = get_provider_helper(self.provider, task="text-to-image")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(prompt, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(prompt, parameters=parameters)
 
         response = self.post(**payload, model=model, task="text-to-image")
         response = provider_helper.get_response(response)
@@ -2582,7 +2623,11 @@ class InferenceClient:
         >>> Path("hello_world.flac").write_bytes(audio)
         ```
         """
+
+        provider_helper = get_provider_helper(self.provider, task="text-to-speech")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "do_sample": do_sample,
             "early_stopping": early_stopping,
             "epsilon_cutoff": epsilon_cutoff,
@@ -2600,9 +2645,7 @@ class InferenceClient:
             "typical_p": typical_p,
             "use_cache": use_cache,
         }
-        provider_helper = get_provider_helper(self.provider, task="text-to-speech")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(text, parameters=parameters)
         response = self.post(**payload, model=model, task="text-to-speech")
         return response
 
@@ -2666,14 +2709,15 @@ class InferenceClient:
         ```
         """
 
+        provider_helper = get_provider_helper(self.provider, task="token-classification")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "aggregation_strategy": aggregation_strategy,
             "ignore_labels": ignore_labels,
             "stride": stride,
         }
-        provider_helper = get_provider_helper(self.provider, task="token-classification")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(text, parameters=parameters)
         response = self.post(**payload, model=model, task="token-classification")
         return TokenClassificationOutputElement.parse_obj_as_list(response)
 
@@ -2747,16 +2791,18 @@ class InferenceClient:
 
         if src_lang is None and tgt_lang is not None:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
+
+        provider_helper = get_provider_helper(self.provider, task="translation")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "src_lang": src_lang,
             "tgt_lang": tgt_lang,
             "clean_up_tokenization_spaces": clean_up_tokenization_spaces,
             "truncation": truncation,
             "generate_parameters": generate_parameters,
         }
-        provider_helper = get_provider_helper(self.provider, task="translation")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(text, parameters=parameters)
         response = self.post(**payload, model=model, task="translation")
         return TranslationOutput.parse_obj_as_list(response)[0]
 
@@ -2917,14 +2963,16 @@ class InferenceClient:
             candidate_labels = labels
         elif candidate_labels is None:
             raise ValueError("Must specify `candidate_labels`")
+
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "candidate_labels": candidate_labels,
             "multi_label": multi_label,
             "hypothesis_template": hypothesis_template,
         }
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(text, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(text, parameters=parameters)
         response = self.post(**payload, model=model, task="zero-shot-classification")
         output = _bytes_to_dict(response)
         return [
@@ -2998,13 +3046,15 @@ class InferenceClient:
         # Raise ValueError if input is less than 2 labels
         if len(candidate_labels) < 2:
             raise ValueError("You must specify at least 2 classes to compare.")
+
+        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification")
+        model = provider_helper.map_model(model=model or self.model)
         parameters = {
+            "model": model,
             "candidate_labels": candidate_labels,
             "hypothesis_template": hypothesis_template,
         }
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification")
-        model = provider_helper.map_model(model=model or self.model)
-        payload = provider_helper.prepare_payload(image, parameters=parameters, model=model)
+        payload = provider_helper.prepare_payload(image, parameters=parameters)
         response = self.post(
             **payload,
             model=model,

@@ -30,9 +30,16 @@ def prepare_headers(headers: Dict, *, token: Optional[str] = None) -> Dict:
     return headers
 
 
-def prepare_payload(inputs: Any, parameters: Dict[str, Any], model: Optional[str] = None) -> Dict[str, Any]:
-    parameters = {key: value for key, value in parameters.items() if value is not None}
-    payload = {"json": {"prompt": inputs, "model": model, "response_format": "base64", **parameters}}
+def prepare_payload(inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    if "model" not in parameters:
+        raise ValueError("Model is required for Together text-to-image task")
+    payload = {
+        "json": {
+            "prompt": inputs,
+            "response_format": "base64",
+            **{k: v for k, v in parameters.items() if v is not None},
+        }
+    }
     return payload
 
 
