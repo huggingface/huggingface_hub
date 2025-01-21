@@ -897,19 +897,26 @@ class InferenceClient:
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
         """
-        # Resolve model ID with precedence: method argument > instance model > default
-        model_id = model or self.model or "tgi"
+        # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
+        # `self.base_url` and `self.model` takes precedence over 'model' argument only in `chat_completion`.
+        model_id_or_url = self.base_url or self.model or model
+
         # Get the provider helper
         provider_helper = get_provider_helper(self.provider, task="conversational")
-        # Get the mapped provider model ID
-        model_id = provider_helper.map_model(model=model_id)
-        # Build the URL for the provider
-        model_url = provider_helper.build_url(model=model_id)
+
+        # If model_id_or_url is a URL, we need to build the URL for chat completion endpoint.
+        if model_id_or_url.startswith(("http://", "https://")):
+            model_url = self._build_chat_completion_url(model_id_or_url)
+        else:
+            # Get the mapped provider model ID
+            model_id = provider_helper.map_model(model=model_id_or_url)
+            # Build the URL for the provider
+            model_url = provider_helper.build_url(model=model_id)
 
         # `model` is sent in the payload. Not used by the server but can be useful for debugging/routing.
         # If it's a ID on the Hub => use it. Otherwise, we use a random string.
         # For URLs, use "tgi" as model name in payload
-        payload_model = "tgi" if model_id.startswith(("http://", "https://")) else model_id
+        payload_model = "tgi" if model_id_or_url.startswith(("http://", "https://")) else model_id
         parameters = {
             "model": payload_model,
             "frequency_penalty": frequency_penalty,
@@ -938,6 +945,21 @@ class InferenceClient:
             return _stream_chat_completion_response(data)  # type: ignore[arg-type]
 
         return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+
+    @staticmethod
+    def _build_chat_completion_url(model_url: str) -> str:
+        # Strip trailing /
+        model_url = model_url.rstrip("/")
+
+        # Append /chat/completions if not already present
+        if model_url.endswith("/v1"):
+            model_url += "/chat/completions"
+
+        # Append /v1/chat/completions if not already present
+        if not model_url.endswith("/chat/completions"):
+            model_url += "/v1/chat/completions"
+
+        return model_url
 
     def document_question_answering(
         self,

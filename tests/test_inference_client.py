@@ -187,7 +187,9 @@ class InferenceClientTest(unittest.TestCase):
 
 @pytest.mark.vcr
 @with_production_testing
-@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
+@patch(
+    "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR
+)
 class InferenceClientVCRTest(InferenceClientTest):
     """
     Test for the main tasks implemented in InferenceClient. Since Inference API can be flaky, we use VCR.py and
@@ -450,12 +452,16 @@ class InferenceClientVCRTest(InferenceClientTest):
         ]
 
     def test_get_recommended_model_has_recommendation(self) -> None:
-        assert self.client.get_recommended_model("feature-extraction") == "facebook/bart-base"
-        assert self.client.get_recommended_model("translation") == "t5-small"
+        from huggingface_hub.inference._providers.hf_inference import get_recommended_model
+
+        assert get_recommended_model("feature-extraction") == "facebook/bart-base"
+        assert get_recommended_model("translation") == "t5-small"
 
     def test_get_recommended_model_no_recommendation(self) -> None:
+        from huggingface_hub.inference._providers.hf_inference import get_recommended_model
+
         with pytest.raises(ValueError):
-            self.client.get_recommended_model("text-generation")
+            get_recommended_model("text-generation")
 
     def test_image_classification(self) -> None:
         output = self.client.image_classification(self.image_file)
@@ -713,7 +719,9 @@ class TestOpenAsBinary(InferenceClientTest):
             self.assertEqual(content, content_bytes)
 
 
-@patch("huggingface_hub.inference._client._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR)
+@patch(
+    "huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", lambda: _RECOMMENDED_MODELS_FOR_VCR
+)
 class TestResolveURL(InferenceClientTest):
     FAKE_ENDPOINT = "https://my-endpoint.hf.co"
 
@@ -1084,10 +1092,10 @@ LOCAL_TGI_URL = "http://0.0.0.0:8080"
     ],
 )
 def test_resolve_chat_completion_url(
-    client_model: Optional[str], client_base_url: Optional[str], model: Optional[str], expected_url: str
+    client_model: Optional[str], client_base_url: Optional[str], model: str, expected_url: str
 ):
     client = InferenceClient(model=client_model, base_url=client_base_url)
-    url = client._resolve_chat_completion_url(model)
+    url = client._build_chat_completion_url(model)
     assert url == expected_url
 
 

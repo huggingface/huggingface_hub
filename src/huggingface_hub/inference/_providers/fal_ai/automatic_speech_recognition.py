@@ -45,8 +45,12 @@ def prepare_payload(
         content_type = "audio/mpeg"
         audio_url = f"data:{content_type};base64,{audio_b64}"
 
-    parameters = {k: v for k, v in parameters.items() if v is not None}
-    return {"json": {"audio_url": audio_url, **parameters}}
+    return {
+        "json": {
+            "audio_url": audio_url,
+            **{k: v for k, v in parameters.items() if v is not None},
+        }
+    }
 
 
 def get_response(response: Union[bytes, Dict]) -> Any:

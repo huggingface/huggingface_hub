@@ -78,7 +78,13 @@ class HFInferenceTask:
     def build_url(self, model: Optional[str] = None) -> str:
         if model is None:
             model = get_recommended_model(self.task)
-        return f"{BASE_URL}/models/{model}"
+        return (
+            # Feature-extraction and sentence-similarity are the only cases where we handle models with several tasks.
+            f"{BASE_URL}/pipeline/{self.task}/{model}"
+            if self.task in ("feature-extraction", "sentence-similarity")
+            # Otherwise, we use the default endpoint
+            else f"{BASE_URL}/models/{model}"
+        )
 
     def map_model(self, model: str) -> str:
         return model
@@ -92,8 +98,8 @@ class HFInferenceTask:
 
         return {
             "json": {
-                inputs: inputs,
-                parameters: {k: v for k, v in parameters.items() if v is not None},
+                "inputs": inputs,
+                "parameters": {k: v for k, v in parameters.items() if v is not None},
             }
         }
 
