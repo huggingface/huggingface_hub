@@ -232,7 +232,7 @@ async def test_async_chat_completion_with_stream() -> None:
 @pytest.mark.asyncio
 @with_production_testing
 async def test_async_sentence_similarity() -> None:
-    async_client = AsyncInferenceClient()
+    async_client = AsyncInferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
     scores = await async_client.sentence_similarity(
         "Machine learning is so easy.",
         other_sentences=[
@@ -241,7 +241,7 @@ async def test_async_sentence_similarity() -> None:
             "I can't believe how much I struggled with this.",
         ],
     )
-    assert scores == [0.8412457704544067, 0.5477299690246582, 0.5041686296463013]
+    assert scores == [0.7785724997520447, 0.45876249670982362, 0.29062220454216003]
 
 
 def test_sync_vs_async_signatures() -> None:
