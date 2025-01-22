@@ -17,7 +17,7 @@ import os
 import string
 import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -201,7 +201,7 @@ API_KEY_ENV_VARIABLES = {
 }
 
 
-def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
+def list_clients(task: str) -> List[Union[InferenceClient, pytest.param]]:
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
         if task in tasks:
