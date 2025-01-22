@@ -110,6 +110,7 @@ class HFInferenceTask:
 class HFInferenceBinaryInputTask(HFInferenceTask):
     def prepare_payload(self, inputs: Any, parameters: Dict[str, Any]) -> Dict[str, Any]:
         parameters = {k: v for k, v in parameters.items() if v is not None}
+        _ = parameters.pop("model")  # model is not a valid parameter for hf-inference tasks
         has_parameters = len(parameters) > 0
 
         # Raise if not a binary object or a local path or a URL.

@@ -1,0 +1,50 @@
+interactions:
+- request:
+    body: '{"model": "microsoft/DialoGPT-small", "messages": [{"role": "system", "content":
+      "You are a helpful assistant."}, {"role": "user", "content": "What is deep learning?"}],
+      "max_tokens": 20, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '204'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 63bdefbc-ab2f-4db6-bc2b-31a34a32b60f
+    method: POST
+    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737553735,"model":"microsoft/DialoGPT-small","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning. Years and years of learns or old fall out of the sky. All that that
+        time"},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":13,"completion_tokens":20,"total_tokens":33}}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '399'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 14:11:17 GMT
+      access-control-allow-credentials:
+      - 'true'
+      vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '1.172018712'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - TPKAHfV8X8pScrvDU1EOD
+      x-sha:
+      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
+    status:
+      code: 200
+      message: OK
+version: 1

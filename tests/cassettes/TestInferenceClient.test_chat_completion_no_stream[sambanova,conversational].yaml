@@ -1,0 +1,154 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '188'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - b6d9f92d-7fc4-40ef-bae8-1f70c1d796aa
+    method: POST
+    uri: https://api.sambanova.ai/v1/chat/completions
+  response:
+    body:
+      string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
+        learning is a subset of machine learning that involves the use of artificial
+        neural networks with multiple layers to analyze and interpret data. These
+        neural networks are inspired by the structure and function of the human brain,
+        with each layer processing the input data in a hierarchical manner.\n\nThe
+        key characteristics of deep learning are:\n\n1. **Multiple layers**: Deep
+        learning models consist of multiple layers of interconnected nodes or \"neurons,\"
+        which process the input data in a hierarchical manner.\n2. **Non-linear transformations**:
+        Each layer applies a non-linear transformation to the input data, allowing
+        the model to learn complex relationships between the input features.\n3. **Large
+        amounts of data**: Deep learning models require large amounts of data to train,
+        as they need to learn the patterns and relationships in the data.\n4. **Computational
+        power**: Deep learning models require significant computational power to train,
+        as they involve complex matrix operations and optimization algorithms.\n\nDeep
+        learning has been successful in a wide range of applications, including:\n\n1.
+        **Computer vision**: Image recognition, object detection, segmentation, and
+        generation.\n2. **Natural language processing**: Text classification, sentiment
+        analysis, language translation, and text generation.\n3. **Speech recognition**:
+        Speech-to-text systems and voice assistants.\n4. **Robotics**: Control and
+        navigation of robots.\n5. **Healthcare**: Disease diagnosis, patient outcome
+        prediction, and personalized medicine.\n\nSome of the popular deep learning
+        techniques include:\n\n1. **Convolutional Neural Networks (CNNs)**: Used for
+        image and video analysis.\n2. **Recurrent Neural Networks (RNNs)**: Used for
+        sequential data, such as speech and text.\n3. **Long Short-Term Memory (LSTM)
+        networks**: A type of RNN that can learn long-term dependencies.\n4. **Generative
+        Adversarial Networks (GANs)**: Used for generating new data samples that resemble
+        existing data.\n\nOverall, deep learning has revolutionized the field of machine
+        learning and has enabled the development of sophisticated AI systems that
+        can learn and adapt to complex data.","role":"assistant"}}],"created":1737554814,"id":"fb17dd1d-ef65-4937-b107-35d1ea2a567c","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":1086.3478901207168,"completion_tokens_after_first_per_sec_first_ten":1137.1608285435418,"completion_tokens_per_sec":1022.3169517443753,"end_time":1737554814.4070306,"is_last_response":true,"prompt_tokens":46,"start_time":1737554814.006959,"time_to_first_token":0.024501323699951172,"total_latency":0.4000716209411621,"total_tokens":455,"total_tokens_per_sec":1137.2963644100018}}
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Headers:
+      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+      Access-Control-Allow-Methods:
+      - GET, PUT, POST, DELETE, PATCH, OPTIONS
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Max-Age:
+      - '1728000'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 14:06:54 GMT
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
+      "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '188'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - c630a06c-0d79-47fc-b7b6-6bd3eb2a4cdb
+    method: POST
+    uri: https://api.sambanova.ai/v1/chat/completions
+  response:
+    body:
+      string: '{"choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"Deep
+        learning is a subset of machine learning that involves the use of artificial
+        neural networks with multiple layers to analyze and interpret data. These
+        neural networks are inspired by the structure and function of the human brain,
+        with each layer processing the input data in a hierarchical manner.\n\nThe
+        key characteristics of deep learning are:\n\n1. **Multiple layers**: Deep
+        learning models consist of multiple layers of interconnected nodes or \"neurons,\"
+        which process the input data in a hierarchical manner.\n2. **Non-linear transformations**:
+        Each layer applies a non-linear transformation to the input data, allowing
+        the model to learn complex relationships between the input features.\n3. **Large
+        amounts of data**: Deep learning models require large amounts of data to train,
+        as they need to learn the patterns and relationships in the data.\n4. **Computational
+        power**: Deep learning models require significant computational power to train,
+        as they involve complex matrix operations and optimization algorithms.\n\nDeep
+        learning has been successful in a wide range of applications, including:\n\n1.
+        **Computer vision**: Image recognition, object detection, segmentation, and
+        generation.\n2. **Natural language processing**: Text classification, sentiment
+        analysis, language translation, and text generation.\n3. **Speech recognition**:
+        Speech-to-text systems and voice assistants.\n4. **Robotics**: Control and
+        navigation of robots.\n5. **Healthcare**: Disease diagnosis, patient outcome
+        prediction, and personalized medicine.\n\nSome of the popular deep learning
+        techniques include:\n\n1. **Convolutional Neural Networks (CNNs)**: Used for
+        image and video analysis.\n2. **Recurrent Neural Networks (RNNs)**: Used for
+        sequential data, such as speech and text.\n3. **Long Short-Term Memory (LSTM)
+        networks**: A type of RNN that can learn long-term dependencies.\n4. **Generative
+        Adversarial Networks (GANs)**: Used for generating new data samples that resemble
+        existing data.\n\nOverall, deep learning has revolutionized the field of machine
+        learning and has enabled the development of sophisticated AI systems that
+        can learn and adapt to complex data.","role":"assistant"}}],"created":1737555057,"id":"769ae38c-f60e-48a7-a7b2-d3638c5b1bb7","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion","system_fingerprint":"fastcoe","usage":{"completion_tokens":409,"completion_tokens_after_first_per_sec":1085.9218643114868,"completion_tokens_after_first_per_sec_first_ten":1136.1904890899486,"completion_tokens_per_sec":1022.892397372096,"end_time":1737555057.8555439,"is_last_response":true,"prompt_tokens":46,"start_time":1737555057.4556973,"time_to_first_token":0.02412891387939453,"total_latency":0.39984655380249023,"total_tokens":455,"total_tokens_per_sec":1137.936530083872}}
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Headers:
+      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+      Access-Control-Allow-Methods:
+      - GET, PUT, POST, DELETE, PATCH, OPTIONS
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Max-Age:
+      - '1728000'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 14:10:57 GMT
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -497,6 +497,7 @@ class InferenceClient:
         model = provider_helper.map_model(model=model or self.model)
 
         parameters = parameters or {}
+        parameters["model"] = model
         payload = provider_helper.prepare_payload(audio, parameters=parameters)
         response = self.post(**payload, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)

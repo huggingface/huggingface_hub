@@ -1,0 +1,68 @@
+interactions:
+- request:
+    body: '{"messages": [{"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is deep learning?"}], "model": "Meta-Llama-3.1-8B-Instruct",
+      "max_tokens": 20, "stream": true}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '205'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - e5c98af0-3583-4336-89b6-c019309b09f8
+    method: POST
+    uri: https://api.sambanova.ai/v1/chat/completions
+  response:
+    body:
+      string: 'data: {"choices":[{"delta":{"content":"","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1737555076,"id":"c6e406aa-6639-4c82-8136-c6a3ac016734","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"Deep learning is a subset of machine
+        learning that involves the use of artificial neural networks with multiple
+        ","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1737555076,"id":"c6e406aa-6639-4c82-8136-c6a3ac016734","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"layers to","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1737555076,"id":"c6e406aa-6639-4c82-8136-c6a3ac016734","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":"","role":"assistant"},"finish_reason":null,"index":0,"logprobs":null}],"created":1737555076,"id":"c6e406aa-6639-4c82-8136-c6a3ac016734","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: {"choices":[{"delta":{"content":""},"finish_reason":"length","index":0,"logprobs":null}],"created":1737555076,"id":"c6e406aa-6639-4c82-8136-c6a3ac016734","model":"Meta-Llama-3.1-8B-Instruct","object":"chat.completion.chunk","system_fingerprint":"fastcoe"}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Access-Control-Allow-Headers:
+      - DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization
+      Access-Control-Allow-Methods:
+      - GET, PUT, POST, DELETE, PATCH, OPTIONS
+      Access-Control-Allow-Origin:
+      - '*'
+      Access-Control-Max-Age:
+      - '1728000'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream; charset=utf-8
+      Date:
+      - Wed, 22 Jan 2025 14:11:16 GMT
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains
+      Transfer-Encoding:
+      - chunked
+    status:
+      code: 200
+      message: OK
+version: 1

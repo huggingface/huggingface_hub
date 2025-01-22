@@ -14,6 +14,7 @@
 import io
 import json
 import os
+import string
 import time
 from pathlib import Path
 from typing import Optional, Union
@@ -34,6 +35,7 @@ from huggingface_hub import (
     ImageClassificationOutputElement,
     ImageToTextOutput,
     InferenceClient,
+    ObjectDetectionBoundingBox,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
     SummarizationOutput,
@@ -78,8 +80,8 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "hf-inference": {
         "audio-classification": "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech",
         "audio-to-audio": "speechbrain/sepformer-wham",
-        "automatic-speech-recognition": "openai/whisper-small",
-        "conversational": "Qwen/Qwen2.5-3B-Instruct",
+        "automatic-speech-recognition": "jonatasgrosman/wav2vec2-large-xlsr-53-english",
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
         "document-question-answering": "naver-clova-ix/donut-base-finetuned-docvqa",
         "feature-extraction": "facebook/bart-base",
         "image-classification": "google/vit-base-patch16-224",
@@ -257,7 +259,7 @@ class TestInferenceClient(TestBase):
     @pytest.fixture(autouse=True)
     def mock_recommended_models(self, monkeypatch):
         def mock_fetch():
-            return _RECOMMENDED_MODELS_FOR_VCR
+            return _RECOMMENDED_MODELS_FOR_VCR["hf-inference"]
 
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
@@ -283,7 +285,9 @@ class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("automatic-speech-recognition"))
     def test_automatic_speech_recognition(self, client: InferenceClient):
         output = client.automatic_speech_recognition(self.audio_file)
-        assert output.text.strip() == "A man said to the universe, Sir, I exist."
+        # Remove punctuation from the output
+        normalized_output = output.text.translate(str.maketrans("", "", string.punctuation))
+        assert normalized_output.lower().strip() == "a man said to the universe sir i exist"
 
     @pytest.mark.parametrize("client", list_clients("conversational"))
     def test_chat_completion_no_stream(self, client: InferenceClient):
@@ -333,13 +337,13 @@ class TestInferenceClient(TestBase):
                     index=0,
                     message=ChatCompletionOutputMessage(
                         role="assistant",
-                        content="Web development, Written by a man called Gubba Shultz which grad student swears he is",
+                        content="Deep learning. Years and years of learns or old fall out of the sky. All that that time",
                         tool_calls=None,
                     ),
                     logprobs=None,
                 )
             ],
-            created=1737499835,
+            created=1737553735,
             id="",
             model="microsoft/DialoGPT-small",
             system_fingerprint="3.0.1-sha-bb9095a",
@@ -370,7 +374,6 @@ class TestInferenceClient(TestBase):
         tool_call = output.message.tool_calls[0]
         assert tool_call.type == "function"
         # Since tool_choice="auto", we can't know which tool will be called
-
         assert tool_call.function.name in ["get_n_day_weather_forecast", "get_current_weather"]
         args = tool_call.function.arguments
         if isinstance(args, str):
@@ -511,11 +514,11 @@ class TestInferenceClient(TestBase):
     def test_image_classification(self, client: InferenceClient):
         output = client.image_classification(self.image_file)
         assert output == [
-            ImageClassificationOutputElement(label="brassiere, bra, bandeau", score=0.1176738440990448),
-            ImageClassificationOutputElement(label="sombrero", score=0.0957278460264206),
-            ImageClassificationOutputElement(label="cowboy hat, ten-gallon hat", score=0.09000881016254425),
-            ImageClassificationOutputElement(label="bonnet, poke bonnet", score=0.06615243852138519),
-            ImageClassificationOutputElement(label="fur coat", score=0.06151164695620537),
+            ImageClassificationOutputElement(label="brassiere, bra, bandeau", score=0.11767438799142838),
+            ImageClassificationOutputElement(label="sombrero", score=0.09572819620370865),
+            ImageClassificationOutputElement(label="cowboy hat, ten-gallon hat", score=0.0900089293718338),
+            ImageClassificationOutputElement(label="bonnet, poke bonnet", score=0.06615174561738968),
+            ImageClassificationOutputElement(label="fur coat", score=0.061511047184467316),
         ]
 
     @pytest.mark.parametrize("client", list_clients("image-segmentation"))
@@ -546,8 +549,35 @@ class TestInferenceClient(TestBase):
         output = client.object_detection(self.image_file)
         assert output == [
             ObjectDetectionOutputElement(
-                box={"xmin": 59, "ymin": 39, "xmax": 420, "ymax": 510}, label="person", score=0.9486683011054993
-            )
+                box=ObjectDetectionBoundingBox(
+                    xmin=59,
+                    ymin=39,
+                    xmax=420,
+                    ymax=510,
+                ),
+                label="person",
+                score=0.9486680030822754,
+            ),
+            ObjectDetectionOutputElement(
+                box=ObjectDetectionBoundingBox(
+                    xmin=143,
+                    ymin=4,
+                    xmax=510,
+                    ymax=387,
+                ),
+                label="umbrella",
+                score=0.5733323693275452,
+            ),
+            ObjectDetectionOutputElement(
+                box=ObjectDetectionBoundingBox(
+                    xmin=60,
+                    ymin=162,
+                    xmax=413,
+                    ymax=510,
+                ),
+                label="person",
+                score=0.5082724094390869,
+            ),
         ]
 
     @pytest.mark.parametrize("client", list_clients("question-answering"))
@@ -565,25 +595,50 @@ class TestInferenceClient(TestBase):
                 "I can't believe how much I struggled with this.",
             ],
         )
-        assert scores == [0.7785726189613342, 0.45876261591911316, 0.2906220555305481]
+        assert scores == [0.7785724997520447, 0.4587624967098236, 0.29062220454216003]
 
     @pytest.mark.parametrize("client", list_clients("summarization"))
     def test_summarization(self, client: InferenceClient):
         summary = client.summarization(
-            "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest"
-            " structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side. During its"
-            " construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made"
-            " structure in the world, a title it held for 41 years until the Chrysler Building in New York City was"
-            " finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a"
-            " broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2"
-            " metres (17 ft). Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure"
-            " in France after the Millau Viaduct."
+            " Ravens Ravens reaction reaction reaction scarcity scarcity "
+            "scarcity escaped escaped escaped finish finish "
+            "finishminingmining reson reson reson anything anything "
+            "anythingFootnoteFootnoteFootnote Hood Hood Hood Joan Joan "
+            "Joan Hood Hood Dav Dav ancestral Hood Hood knees Hood "
+            "Hoodchychy Hood Hood mobile Hood Hood anything anything "
+            "conviction conviction conviction pursuits pursuits pursuits "
+            "Hood Hood pieces pieces whatsoever anything anything bought "
+            "bought bought whatsoever whatsoever "
+            "whatsoever960960960COLCOL whatsoever whatsoever departing "
+            "departing departing whatsoever whatsoever Talks whatsoever "
+            "whatsoever J J whatsoever whatsoever dates dates dates "
+            "Trudeau Trudeau Trudeau Direction Direction Direction "
+            "Dynamics Dynamics Dynamics pseudo pseudo "
+            "pseudocookiecookiecookiecontrolcontrolcontrol Syl Syl Syl "
+            "hijacked hijacked Silk Silk Silkawawawcontrolcontrolawaw "
+            "tort tort tort futures futures futurescontrolcontrol futures "
+            "futuresLynLynLyn Scots Scots"
         )
         assert summary == SummarizationOutput.parse_obj(
             {
-                "summary_text": "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. Its base is"
-                " square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel Tower"
-                " surpassed the Washington Monument to become the tallest man-made structure in the world.",
+                "summary_text": "JoeJoe reaction reaction reaction anything anything anything "
+                "275 275 275 anything anythingFootnote 275 "
+                "275FootnoteFootnoteFootnote dominance dominance dominance "
+                "commit commit commitzenszenszens anything anything Hood Hood "
+                "Hoodensions Hood Hood knees Hood "
+                "HoodmapsmapsFootnoteFootnotemapsmapsmaps anything anything "
+                "conviction conviction convictionFootnoteFootnote Hood "
+                "HoodFootnote HoodFootnoteFootnote grounded grounded grounded "
+                "cinem cinem cinem hijacked Lys Lys Lys cinem cinem Inside "
+                "Inside Inside Syl Promotion Promotion Promotion maj maj "
+                "Siberian Siberian Siberian accent accent accent plate "
+                "platecookiecookiecookie vary vary vary dictator vary "
+                "varyiatesiatesiatesawawawgowgowgow Gmail Gmail Federation "
+                "Federation Federation unsuccessfully unsuccessfully "
+                "unsuccessfully Kis Kis Kis Federation Federation bothered "
+                "bothered bothered blended bothered botheredigig Coming "
+                "Coming Comingcookiecookie Coming Coming805805805 Coming "
+                "Coming",
             }
         )
 
@@ -695,11 +750,11 @@ class TestInferenceClient(TestBase):
     def test_visual_question_answering(self, client: InferenceClient):
         output = client.visual_question_answering(image=self.image_file, question="Who's in the picture?")
         assert output == [
-            VisualQuestionAnsweringOutputElement(score=0.938694417476654, answer="woman"),
-            VisualQuestionAnsweringOutputElement(score=0.34311923384666443, answer="girl"),
-            VisualQuestionAnsweringOutputElement(score=0.08407798409461975, answer="lady"),
-            VisualQuestionAnsweringOutputElement(score=0.050751861184835434, answer="female"),
-            VisualQuestionAnsweringOutputElement(score=0.017770998179912567, answer="man"),
+            VisualQuestionAnsweringOutputElement(score=0.9386942982673645, answer="woman"),
+            VisualQuestionAnsweringOutputElement(score=0.3431190550327301, answer="girl"),
+            VisualQuestionAnsweringOutputElement(score=0.08407800644636154, answer="lady"),
+            VisualQuestionAnsweringOutputElement(score=0.05075192078948021, answer="female"),
+            VisualQuestionAnsweringOutputElement(score=0.017771074548363686, answer="man"),
         ]
 
     @pytest.mark.parametrize("client", list_clients("zero-shot-classification"))

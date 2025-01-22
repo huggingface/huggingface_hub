@@ -63,4 +63,5 @@ def vcr_config():
     return {
         "filter_headers": ["authorization", "user-agent", "cookie"],
         "ignore_localhost": True,
+        "path_transformer": lambda path: path + ".yaml",
     }
