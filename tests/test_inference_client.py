@@ -231,16 +231,19 @@ def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
 
 # Define fixtures for the files
 @pytest.fixture(scope="module")
+@with_production_testing
 def audio_file():
     return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
 
 
 @pytest.fixture(scope="module")
+@with_production_testing
 def image_file():
     return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
 
 
 @pytest.fixture(scope="module")
+@with_production_testing
 def document_file():
     return hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
 
