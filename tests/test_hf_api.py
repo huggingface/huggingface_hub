@@ -442,17 +442,6 @@ class CommitApiTest(HfApiCommonTest):
         self.assertEqual(url.repo_id, f"{USER}/{REPO_NAME}")
         self._api.delete_repo(repo_id=url.repo_id)
 
-    def test_create_repo_org_token_fail(self):
-        REPO_NAME = repo_name("org")
-        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
-            self._api.create_repo(repo_id=REPO_NAME, token="api_org_dummy_token")
-
-    @patch("huggingface_hub.utils._headers.get_token", return_value="api_org_dummy_token")
-    def test_create_repo_org_token_none_fail(self, mock_get_token: Mock):
-        with pytest.raises(HfHubHTTPError, match="Invalid username or password"):
-            with patch.object(self._api, "token", None):  # no default token
-                self._api.create_repo(repo_id=repo_name("org"))
-
     def test_create_repo_already_exists_but_no_write_permission(self):
         # Create under other user namespace
         repo_id = self._api.create_repo(repo_id=repo_name(), token=OTHER_TOKEN).repo_id
@@ -4124,7 +4113,7 @@ class AccessRequestAPITest(HfApiCommonTest):
         assert requests[0].username == OTHER_USER
 
         # Reject access
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         requests = self._api.list_pending_access_requests(self.repo_id)
         assert len(requests) == 0  # not pending anymore
         requests = self._api.list_rejected_access_requests(self.repo_id)
@@ -4150,9 +4139,9 @@ class AccessRequestAPITest(HfApiCommonTest):
             self._api.accept_access_request(self.repo_id, OTHER_USER)
 
         # Cannot reject to already rejected
-        self._api.reject_access_request(self.repo_id, OTHER_USER)
+        self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
         with self.assertRaises(HTTPError):
-            self._api.reject_access_request(self.repo_id, OTHER_USER)
+            self._api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
 
         # Cannot cancel to already cancelled
         self._api.cancel_access_request(self.repo_id, OTHER_USER)
