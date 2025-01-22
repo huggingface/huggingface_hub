@@ -199,9 +199,7 @@ class AsyncInferenceClient:
             self.headers.update(headers)
 
         # Configure provider
-        if provider is None:
-            provider = "hf-inference"
-        self.provider = provider
+        self.provider = provider if provider is not None else "hf-inference"
 
         self.cookies = cookies
         self.timeout = timeout
@@ -295,7 +293,7 @@ class AsyncInferenceClient:
         if data is not None and json is not None:
             warnings.warn("Ignoring `json` as `data` is passed as binary.")
 
-        headers = dict()
+        headers: Dict[str, Any] = dict()
         if model is not None and (model.startswith("http://") or model.startswith("https://")):
             url = model
         else:

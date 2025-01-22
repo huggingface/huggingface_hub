@@ -17,7 +17,7 @@ import os
 import string
 import time
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -200,7 +200,7 @@ API_KEY_ENV_VARIABLES = {
 }
 
 
-def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
+def list_clients(task: str) -> List[Union[InferenceClient, pytest.param]]:
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
         if task in tasks:
@@ -230,16 +230,19 @@ def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
 
 # Define fixtures for the files
 @pytest.fixture(scope="module")
+@with_production_testing
 def audio_file():
     return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
 
 
 @pytest.fixture(scope="module")
+@with_production_testing
 def image_file():
     return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
 
 
 @pytest.fixture(scope="module")
+@with_production_testing
 def document_file():
     return hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
 
