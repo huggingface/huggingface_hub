@@ -54,6 +54,7 @@ from huggingface_hub.inference._common import (
     _stream_chat_completion_response,
     _stream_text_generation_response,
 )
+from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.utils import build_hf_headers
 
 from .testing_utils import with_production_testing
@@ -101,6 +102,21 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
+}
+API_KEY_ENV_VARIABLES = {
+    "hf-inference": "HF_TOKEN",
+    "fal-ai": "FAL_AI_KEY",
+    "replicate": "REPLICATE_KEY",
+    "sambanova": "SAMBANOVA_API_KEY",
+    "together": "TOGETHER_API_KEY",
+}
+
+EXPECTED_URLS = {
+    "hf-inference": "https://api-inference.huggingface.co/models/username/repo_name",
+    "fal-ai": "https://fal.run/{model}",
+    "replicate": "https://api.replicate.com/v1/predictions",
+    "sambanova": "https://api.sambanova.ai/v1/models/username/repo_name/generate",
+    "together": "https://api.together.xyz/inference",
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
@@ -189,14 +205,6 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
         },
         "required": ["location", "activity", "animals_seen", "animals"],
     },
-}
-
-API_KEY_ENV_VARIABLES = {
-    "hf-inference": "HF_TOKEN",
-    "fal-ai": "FAL_AI_KEY",
-    "replicate": "REPLICATE_KEY",
-    "sambanova": "SAMBANOVA_API_KEY",
-    "together": "TOGETHER_API_KEY",
 }
 
 
@@ -839,48 +847,87 @@ class TestOpenAsBinary:
             assert content == content_bytes
 
 
-class TestResolveURL(TestBase):
-    FAKE_ENDPOINT = "https://my-endpoint.hf.co"
-
-    def test_model_as_url(self):
-        assert InferenceClient()._resolve_url(model=self.FAKE_ENDPOINT) == self.FAKE_ENDPOINT
-
-    def test_model_as_id_no_task(self):
-        assert (
-            InferenceClient()._resolve_url(model="username/repo_name")
-            == "https://api-inference.huggingface.co/models/username/repo_name"
-        )
-
-    def test_model_as_id_and_task_ignored(self):
-        assert (
-            InferenceClient()._resolve_url(model="username/repo_name", task="text-to-image")
-            == "https://api-inference.huggingface.co/models/username/repo_name"
-        )
-
-    def test_model_as_id_and_task_not_ignored(self):
-        # Special case for feature-extraction and sentence-similarity
-        assert (
-            InferenceClient()._resolve_url(model="username/repo_name", task="feature-extraction")
-            == "https://api-inference.huggingface.co/pipeline/feature-extraction/username/repo_name"
-        )
-
-    def test_method_level_has_priority(self) -> None:
-        # Priority to method-level
-        assert (
-            InferenceClient(model=self.FAKE_ENDPOINT + "_instance")._resolve_url(model=self.FAKE_ENDPOINT + "_method")
-            == self.FAKE_ENDPOINT + "_method"
-        )
-
-    def test_recommended_model_from_supported_task(self) -> None:
-        # Get recommended model
-        assert (
-            InferenceClient()._resolve_url(task="text-to-image")
-            == "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
-        )
-
-    def test_unsupported_task(self) -> None:
-        with pytest.raises(ValueError):
-            InferenceClient()._resolve_url(task="unknown-task")
+@pytest.mark.parametrize(
+    "provider,task,model,expected_url",
+    [
+        # HF Inference - standard endpoints
+        (
+            "hf-inference",
+            "text-classification",
+            "username/repo_name",
+            "https://api-inference.huggingface.co/models/username/repo_name",
+        ),
+        # HF Inference - pipeline endpoints
+        (
+            "hf-inference",
+            "feature-extraction",
+            "username/repo_name",
+            "https://api-inference.huggingface.co/pipeline/feature-extraction/username/repo_name",
+        ),
+        # HF Inference - chat endpoints
+        (
+            "hf-inference",
+            "conversational",
+            "username/repo_name",
+            "https://api-inference.huggingface.co/models/username/repo_name/v1/chat/completions",
+        ),
+        # Fal.ai endpoints
+        (
+            "fal-ai",
+            "text-to-image",
+            "username/repo_name",
+            "https://fal.run/username/repo_name",
+        ),
+        (
+            "fal-ai",
+            "automatic-speech-recognition",
+            "username/repo_name",
+            "https://fal.run/username/repo_name",
+        ),
+        # Replicate endpoints
+        (
+            "replicate",
+            "text-to-image",
+            "username/repo_name:1234",
+            "https://api.replicate.com/v1/predictions",
+        ),
+        (
+            "replicate",
+            "text-to-image",
+            "username/repo_name",
+            "https://api.replicate.com/v1/models/username/repo_name/predictions",
+        ),
+        # Together endpoints
+        (
+            "together",
+            "conversational",
+            "username/repo_name",
+            "https://api.together.xyz/v1/chat/completions",
+        ),
+        (
+            "together",
+            "text-generation",
+            "username/repo_name",
+            "https://api.together.xyz/v1/completions",
+        ),
+        (
+            "together",
+            "text-to-image",
+            "username/repo_name",
+            "https://api.together.xyz/v1/images/generations",
+        ),
+        # SambaNova endpoints
+        (
+            "sambanova",
+            "conversational",
+            "username/repo_name",
+            "https://api.sambanova.ai/v1/chat/completions",
+        ),
+    ],
+)
+def test_build_url_for_providers(provider: str, task: str, model: str, expected_url: str) -> None:
+    helper = get_provider_helper(provider, task)
+    assert helper.build_url(model) == expected_url
 
 
 class TestHeadersAndCookies(TestBase):
