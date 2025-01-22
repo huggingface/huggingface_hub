@@ -1,0 +1,106 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '120'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:13:48 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - KRjFauTpmChUo98bTfARA
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '120'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:14:28 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - AKTG8y
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":null}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '120'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:28:03 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - HfxGVOS_XlwHe2-L-0WnN
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+version: 1

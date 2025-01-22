@@ -1,0 +1,106 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737562613,"model":"microsoft/DialoGPT-small","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning isn''t even an algorithm though."},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":13,"completion_tokens":10,"total_tokens":23}}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '357'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:13:49 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.212022797'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - -6MaUCS02BEPtyuBe8jjp
+      x-sha:
+      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737562613,"model":"microsoft/DialoGPT-small","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning isn''t even an algorithm though."},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":13,"completion_tokens":10,"total_tokens":23}}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '357'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:14:29 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-time:
+      - '0.212022797'
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /v1/chat/completions
+      x-request-id:
+      - XWpYQ1
+      x-sha:
+      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/microsoft/DialoGPT-small/v1/chat/completions
+  response:
+    body:
+      string: '{"object":"chat.completion","id":"","created":1737562613,"model":"microsoft/DialoGPT-small","system_fingerprint":"3.0.1-sha-bb9095a","choices":[{"index":0,"message":{"role":"assistant","content":"Deep
+        learning isn''t even an algorithm though."},"logprobs":null,"finish_reason":"length"}],"usage":{"prompt_tokens":13,"completion_tokens":10,"total_tokens":23}}'
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '357'
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 22 Jan 2025 17:28:04 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-time:
+      - '0.212022797'
+      x-compute-type:
+      - cache
+      x-request-id:
+      - LX7IG0G26xiDDzSCn713p
+      x-sha:
+      - 49c537161a457d5256512f9d2d38a87d81ae0f0e
+    status:
+      code: 200
+      message: OK
+version: 1

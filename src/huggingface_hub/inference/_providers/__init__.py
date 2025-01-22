@@ -34,6 +34,7 @@ PROVIDERS: Dict[str, Dict[str, TaskProviderHelper]] = {
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
         "conversational": HFInferenceConversational(),
+        "text-generation": HFInferenceTask("text-generation"),
         "text-classification": HFInferenceTask("text-classification"),
         "question-answering": HFInferenceTask("question-answering"),
         "audio-classification": HFInferenceBinaryInputTask("audio-classification"),

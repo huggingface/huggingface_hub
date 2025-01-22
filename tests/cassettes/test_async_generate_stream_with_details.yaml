@@ -1,0 +1,106 @@
+interactions:
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '192'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:13:49 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - Erf-5jiaBUajfVgx_GCJ0
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '192'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:14:28 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      - origin, access-control-request-method, access-control-request-headers
+      x-compute-type:
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
+      x-request-id:
+      - cGliNh
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers: {}
+    method: POST
+    uri: https://api-inference.huggingface.co/models/openai-community/gpt2
+  response:
+    body:
+      string: 'data: {"index":1,"token":{"id":13,"text":".","logprob":-2.877385,"special":false},"generated_text":".","details":{"finish_reason":"length","generated_tokens":1,"seed":null,"input_length":1}}
+
+
+        '
+    headers:
+      Access-Control-Allow-Credentials:
+      - 'true'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '192'
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Wed, 22 Jan 2025 17:28:04 GMT
+      Vary:
+      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-type:
+      - cache
+      x-request-id:
+      - FRLeX73fQYE2O0pbfryZi
+      x-sha:
+      - 607a30d783dfa663caf39e06633721c8d4cfcd7e
+    status:
+      code: 200
+      message: OK
+version: 1

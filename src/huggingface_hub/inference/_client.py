@@ -461,7 +461,6 @@ class InferenceClient:
         audio: ContentT,
         *,
         model: Optional[str] = None,
-        parameters: Optional[Dict[str, Any]] = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -493,9 +492,8 @@ class InferenceClient:
         """
         provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition")
         model = provider_helper.map_model(model=model or self.model)
-
-        parameters = parameters or {}
-        parameters["model"] = model
+        # model will be removed from parameters (for all tasks) in a future PR
+        parameters = {"model": model}
         payload = provider_helper.prepare_payload(audio, parameters=parameters)
         response = self.post(**payload, model=model, task="automatic-speech-recognition")
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
