@@ -206,7 +206,11 @@ def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
             env_variable = API_KEY_ENV_VARIABLES[provider]
             api_key = os.getenv(env_variable)
             if api_key:
-                clients.append(InferenceClient(model=tasks[task], provider=provider, token=api_key))
+                clients.append(
+                    pytest.param(
+                        InferenceClient(model=tasks[task], provider=provider, token=api_key), id=f"{provider},{task}"
+                    )
+                )
             else:
                 clients.append(
                     pytest.param(
@@ -217,6 +221,7 @@ def list_clients(task: str) -> list[Union[InferenceClient, pytest.param]]:
                                 f"If you want to run this test, please set `{env_variable}` as an environment variable."
                             )
                         ),
+                        id=f"{provider},{task}",
                     ),
                 )
     return clients
