@@ -1,0 +1,74 @@
+interactions:
+- request:
+    body: '{"inputs": "I saw a puppy a cat and a raccoon during my bike ride in the
+      park", "parameters": {"do_sample": false, "grammar": {"type": "json", "value":
+      {"properties": {"location": {"type": "string"}, "activity": {"type": "string"},
+      "animals_seen": {"type": "integer", "minimum": 1, "maximum": 5}, "animals":
+      {"type": "array", "items": {"type": "string"}}}, "required": ["location", "activity",
+      "animals_seen", "animals"]}}, "max_new_tokens": 100, "repetition_penalty": 1.3,
+      "return_full_text": false, "stop": []}, "stream": false}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '530'
+      Content-Type:
+      - application/json
+      X-Amzn-Trace-Id:
+      - 2b4f4146-2bcb-4d92-9261-00bef0d1908f
+      user-agent:
+      - unknown/None; hf_hub/0.23.0.dev0; python/3.10.12; torch/2.2.1; tensorflow/2.15.0.post1;
+        fastcore/1.5.23
+    method: POST
+    uri: https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-orpo-141b-A35b-v0.1
+  response:
+    body:
+      string: '[{"generated_text":"{\n\n    \"activity\" :  \"biking\",\n     \"animals\":
+        [   ] ,\n      \"animals_seen\":3,\n       \"location\":\"park\"}"}]'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 19 Apr 2024 15:12:46 GMT
+      Transfer-Encoding:
+      - chunked
+      access-control-allow-credentials:
+      - 'true'
+      access-control-allow-origin:
+      - '*'
+      vary:
+      - origin, Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+      x-compute-characters:
+      - '65'
+      x-compute-time:
+      - '19.325953045'
+      x-compute-type:
+      - 8-nvidia-h100-80gb-hbm3
+      x-generated-tokens:
+      - '46'
+      x-inference-time:
+      - '19286'
+      x-prompt-tokens:
+      - '20'
+      x-queue-time:
+      - '4'
+      x-request-id:
+      - 7-SN-pShdAwPxAFjZkyIh
+      x-sha:
+      - a3be084543d278e61b64cd600f28157afc79ffd3
+      x-time-per-token:
+      - '419'
+      x-total-time:
+      - '19325'
+      x-validation-time:
+      - '34'
+    status:
+      code: 200
+      message: OK
+version: 1
