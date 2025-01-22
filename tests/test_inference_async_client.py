@@ -230,6 +230,7 @@ async def test_async_chat_completion_with_stream() -> None:
 
 @pytest.mark.vcr
 @pytest.mark.asyncio
+@with_production_testing
 async def test_async_sentence_similarity() -> None:
     async_client = AsyncInferenceClient()
     scores = await async_client.sentence_similarity(

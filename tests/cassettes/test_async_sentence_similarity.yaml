@@ -9,7 +9,7 @@ interactions:
       Connection:
       - keep-alive
       X-Amzn-Trace-Id:
-      - 179bc57e-bce0-44ec-b41b-92a63b8d25cc
+      - 10614869-c3d0-40a3-891f-12293f35a3c2
     method: GET
     uri: https://huggingface.co/api/tasks
   response:
@@ -718,7 +718,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 22 Jan 2025 18:31:26 GMT
+      - Wed, 22 Jan 2025 18:39:19 GMT
       ETag:
       - W/"1244d-rY02FKAQRZwcoD2xI/AqH93OPBg"
       Referrer-Policy:
@@ -726,9 +726,9 @@ interactions:
       Vary:
       - Origin
       Via:
-      - 1.1 5cb605e8100138acccc04f094724133e.cloudfront.net (CloudFront)
+      - 1.1 e47c282d2c53705a367f9e376a2eab28.cloudfront.net (CloudFront)
       X-Amz-Cf-Id:
-      - UAgGj2ElTg2Um_hwt-PG-C924Fe019JWEbpZ9rQr8ibXm7m5gWE54g==
+      - l8A0Y7AIiwLulHTYAXIufqH_MUcmmcHYLouRxs7WJfMPaoqi8VIgBw==
       X-Amz-Cf-Pop:
       - CDG52-P4
       X-Cache:
@@ -736,7 +736,7 @@ interactions:
       X-Powered-By:
       - huggingface-moon
       X-Request-Id:
-      - Root=1-6791397e-79d06343134d5328685e85f9;179bc57e-bce0-44ec-b41b-92a63b8d25cc
+      - Root=1-67913b57-404bf21b27af59107813ceb0;10614869-c3d0-40a3-891f-12293f35a3c2
       cross-origin-opener-policy:
       - same-origin
     status:
@@ -749,60 +749,31 @@ interactions:
     uri: https://api-inference.huggingface.co/pipeline/sentence-similarity/BAAI/bge-small-en-v1.5
   response:
     body:
-      string: '{"error":"Model BAAI/bge-small-en-v1.5 is currently loading","estimated_time":20.0}'
+      string: '[0.8412457704544067,0.5477299690246582,0.5041686296463013]'
     headers:
       Access-Control-Allow-Credentials:
       - 'true'
       Connection:
       - keep-alive
       Content-Length:
-      - '83'
+      - '58'
       Content-Type:
       - application/json
       Date:
-      - Wed, 22 Jan 2025 18:31:27 GMT
+      - Wed, 22 Jan 2025 18:39:19 GMT
       Vary:
       - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-request-id:
-      - 65RABPlNO-zdmj7EoiMGU
-    status:
-      code: 503
-      message: Service Unavailable
-- request:
-    body: null
-    headers:
-      X-wait-for-model:
-      - '1'
-    method: POST
-    uri: https://api-inference.huggingface.co/pipeline/sentence-similarity/BAAI/bge-small-en-v1.5
-  response:
-    body:
-      string: '[0.8412457704544067,0.5477299690246582,0.5041686296463013]'
-    headers:
-      Access-Control-Allow-Credentials:
-      - 'true'
-      Access-Control-Expose-Headers:
-      - x-compute-type, x-compute-time
-      Connection:
-      - keep-alive
-      Content-Type:
-      - application/json
-      Date:
-      - Wed, 22 Jan 2025 18:31:38 GMT
-      Server:
-      - uvicorn
-      Transfer-Encoding:
-      - chunked
-      Vary:
-      - Origin, Access-Control-Request-Method, Access-Control-Request-Headers
-      x-compute-characters:
-      - '153'
+      - origin, access-control-request-method, access-control-request-headers
       x-compute-time:
       - '0.043'
       x-compute-type:
-      - cpu
+      - cache
+      x-proxied-host:
+      - internal.api-inference.huggingface.co
+      x-proxied-path:
+      - /
       x-request-id:
-      - j9ApoPmx9EjZ85geIq90J
+      - pNJMPP
       x-sha:
       - 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
     status:
